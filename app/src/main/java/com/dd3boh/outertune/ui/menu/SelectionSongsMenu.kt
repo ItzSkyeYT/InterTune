@@ -10,6 +10,7 @@ import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
 import androidx.compose.material.icons.automirrored.rounded.PlaylistPlay
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Favorite
+import androidx.compose.material.icons.rounded.FileUpload
 import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.LibraryAdd
 import androidx.compose.material.icons.rounded.LibraryAddCheck
@@ -34,16 +35,19 @@ import androidx.media3.exoplayer.offline.Download
 import androidx.navigation.NavController
 import com.dd3boh.outertune.LocalDatabase
 import com.dd3boh.outertune.constants.PlayOrigin
+import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.LocalDownloadUtil
 import com.dd3boh.outertune.LocalPlayerConnection
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.extensions.toMediaItem
 import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.playback.DownloadUtil
+import com.dd3boh.outertune.playback.downloadManager.ExportItem
 import com.dd3boh.outertune.playback.queues.ListQueue
 import com.dd3boh.outertune.ui.dialog.AddToPlaylistDialog
 import com.dd3boh.outertune.ui.dialog.AddToQueueDialog
 import com.dd3boh.outertune.ui.dialog.DefaultDialog
+import com.dd3boh.outertune.ui.dialog.ExportSheet
 import com.dd3boh.outertune.utils.getDownloadState
 import java.time.LocalDateTime
 
@@ -58,6 +62,7 @@ fun SelectionMediaMetadataMenu(
     clearAction: () -> Unit,
     onRemoveFromHistory: (() -> Unit)? = null,
     onRemoveFromPlaylist: (() -> Unit)? = null,
+    onRemoveFromQueue: (() -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val database = LocalDatabase.current
@@ -88,6 +93,9 @@ fun SelectionMediaMetadataMenu(
     var showRemoveDownloadDialog by remember {
         mutableStateOf(false)
     }
+    var showExportSheet by remember {
+        mutableStateOf(false)
+    }
 
     LaunchedEffect(selection) {
         if (selection.isEmpty()) {
@@ -103,6 +111,7 @@ fun SelectionMediaMetadataMenu(
 
 
     GridMenu(
+        kind = MenuKind.SELECTION,
         contentPadding = PaddingValues(
             start = 8.dp,
             top = 8.dp,
@@ -253,6 +262,17 @@ fun SelectionMediaMetadataMenu(
             }
         )
 
+        // The songs on the phone, converted to a format of your choice in a folder of your choice
+        // (Unreleased.DOWNLOAD_FORMATS). The sheet names the ones that are not on the phone.
+        if (Unreleased.DOWNLOAD_FORMATS && !allLocal) {
+            GridMenuItem(
+                icon = Icons.Rounded.FileUpload,
+                title = R.string.export_to_folder
+            ) {
+                showExportSheet = true
+            }
+        }
+
         if (onRemoveFromHistory != null) {
             GridMenuItem(
                 icon = Icons.Rounded.Delete,
@@ -270,6 +290,18 @@ fun SelectionMediaMetadataMenu(
                 title = R.string.remove_from_playlist,
             ) {
                 onRemoveFromPlaylist()
+                onDismiss()
+                clearAction()
+            }
+        }
+
+        // The queue's own: last, so nothing anyone knows the place of moves.
+        if (onRemoveFromQueue != null) {
+            GridMenuItem(
+                icon = Icons.Rounded.PlaylistRemove,
+                title = R.string.remove_from_queue,
+            ) {
+                onRemoveFromQueue()
                 onDismiss()
                 clearAction()
             }
@@ -314,6 +346,17 @@ fun SelectionMediaMetadataMenu(
                 emptyList()
             },
             onDismiss = { showChoosePlaylistDialog = false }
+        )
+    }
+
+    if (showExportSheet) {
+        ExportSheet(
+            items = selection.map { ExportItem(it.id, it.title, it.isLocal) },
+            onDismiss = {
+                showExportSheet = false
+                onDismiss()
+                clearAction()
+            }
         )
     }
 

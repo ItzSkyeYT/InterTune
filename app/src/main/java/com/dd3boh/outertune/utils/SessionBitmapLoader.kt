@@ -62,7 +62,7 @@ class SessionBitmapLoader(
     }
 
     override fun decodeBitmap(data: ByteArray): ListenableFuture<Bitmap> =
-        scope.future { decodeSampled(data, artPx) ?: noCover(context, artPx) }
+        scope.future { decodeSampled(data, artPx)?.let { fitted(it, artPx) } ?: noCover(context, artPx) }
 
     private val density get() = context.resources.displayMetrics.density
 
@@ -81,13 +81,25 @@ class SessionBitmapLoader(
     private val covers by lazy {
         LastAsked<SessionCover, Bitmap>(
             scope,
-            find = ::cover,
+            find = { asked, meanwhile -> cover(asked) { meanwhile(fitted(it, artPx)) }?.let { fitted(it, artPx) } },
             instead = { noCover(context, artPx) },
             better = { cover -> sharper?.invoke(cover.stored, cover.sharp) },
             retryAfterMs = LARGE_COVER_RETRY_MS,
             retryDelaysMs = COVER_RETRY_DELAYS_MS,
+            share = ::forTheSystem,
         )
     }
+
+    /**
+     * What the system is given of the cover kept for the playing song: a copy of its own at each
+     * ask. The kept one used to go out itself, at every song change and every play and pause, and a
+     * phone whose system frees a cover once it has scaled it down (#108, an Android 15 build for an
+     * older phone) was then handed a freed cover, which closes the app. One found freed all the
+     * same is never handed out: the stand-in goes instead.
+     */
+    private fun forTheSystem(kept: Bitmap): Bitmap =
+        if (kept.isRecycled) noCover(context, artPx)
+        else kept.copy(kept.config ?: Bitmap.Config.ARGB_8888, false) ?: kept
 
     override fun loadBitmap(uri: Uri): ListenableFuture<Bitmap> =
         covers.ask(SessionCover(sessionArtwork(unmarkedCover(uri.toString()), artPx)))
@@ -304,6 +316,22 @@ internal fun sampleSize(width: Int, height: Int, px: Int): Int {
     while (px > 0 && min(width, height) / (n * 2) >= px) n *= 2
     return n
 }
+
+/**
+ * The size [width] by [height] is brought down to so that neither side is over [px], the most the
+ * system keeps of a cover (SESSION_ART_DP), or null when neither is over it already. Never larger: a
+ * small cover is not blown up. Done once when a cover is found, rather than by the system at every
+ * hand-out (#108).
+ */
+internal fun systemCoverSize(width: Int, height: Int, px: Int): Pair<Int, Int>? {
+    if (px <= 0 || width <= 0 || height <= 0 || (width <= px && height <= px)) return null
+    val scale = px.toFloat() / maxOf(width, height)
+    return (width * scale).roundToInt().coerceIn(1, px) to (height * scale).roundToInt().coerceIn(1, px)
+}
+
+/** [bitmap] no larger than the system keeps of a cover of [px] pixels. */
+private fun fitted(bitmap: Bitmap, px: Int): Bitmap =
+    systemCoverSize(bitmap.width, bitmap.height, px)?.let { (w, h) -> Bitmap.createScaledBitmap(bitmap, w, h, true) } ?: bitmap
 
 /** [data] decoded no larger than [px] needs, or null if it is no picture. */
 private fun decodeSampled(data: ByteArray, px: Int): Bitmap? = runCatching {

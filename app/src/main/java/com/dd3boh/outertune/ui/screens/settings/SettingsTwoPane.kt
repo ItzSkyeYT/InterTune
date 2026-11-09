@@ -6,6 +6,7 @@
 
 package com.dd3boh.outertune.ui.screens.settings
 
+import com.dd3boh.outertune.ui.dialog.togetherAvailable
 import com.dd3boh.outertune.ui.component.ScreenBackHandler
 import androidx.annotation.StringRes
 import androidx.compose.foundation.background
@@ -39,6 +40,7 @@ import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Backup
 import androidx.compose.material.icons.rounded.Battery5Bar
 import androidx.compose.material.icons.rounded.GraphicEq
+import androidx.compose.material.icons.rounded.Group
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Lyrics
 import androidx.compose.material.icons.rounded.Palette
@@ -108,6 +110,7 @@ internal data class SettingsCategory(val route: String, @StringRes val title: In
  */
 internal fun settingsGroups(
     engine: Boolean = Unreleased.ENGINE,
+    together: Boolean = togetherAvailable,
     battery: Boolean = Unreleased.BATTERY_MODES,
     widgets: Boolean = Unreleased.WIDGETS_PAGE,
 ): List<List<SettingsCategory>> = listOf(
@@ -122,6 +125,8 @@ internal fun settingsGroups(
         SettingsCategory("settings/player", R.string.player_and_audio, Icons.Rounded.PlayArrow),
         SettingsCategory("settings/recognition", R.string.recognise_settings, Icons.Rounded.GraphicEq),
         SettingsCategory("settings/library/lyrics", R.string.lyrics_settings_title, Icons.Rounded.Lyrics),
+        // Last of the group, so that no entry above it moves where rooms are offered.
+        SettingsCategory("settings/together", R.string.together_title, Icons.Rounded.Group).takeIf { together },
     ),
     listOfNotNull(
         SettingsCategory("settings/storage", R.string.grp_storage_and_downloads, Icons.Rounded.Storage),
@@ -324,6 +329,7 @@ fun SettingsTwoPane(
                                 Tour.ROUTE_LIBRARY -> Modifier.tourTarget(Tour.ROW_LIBRARY)
                                 Tour.ROUTE_BATTERY -> Modifier.tourTarget(Tour.ROW_BATTERY)
                                 Tour.ROUTE_BACKUP -> Modifier.tourTarget(Tour.ROW_BACKUP)
+                                Tour.ROUTE_STORAGE -> Modifier.tourTarget(Tour.ROW_STORAGE)
                                 Tour.ROUTE_ABOUT -> Modifier.tourTarget(Tour.ROW_ABOUT)
                                 else -> Modifier
                             },
@@ -429,6 +435,7 @@ private fun SettingsPane(route: String, navController: NavController, scrollBeha
         "settings/player" -> PlayerSettings(navController, scrollBehavior)
         "settings/recognition" -> RecognitionSettings(navController, scrollBehavior)
         "settings/library/lyrics" -> LyricsSettings(navController, scrollBehavior)
+        "settings/together" -> ListenTogetherSettings(navController, scrollBehavior)
         "settings/storage" -> StorageSettings(navController, scrollBehavior)
         Tour.ROUTE_BATTERY -> BatterySettings(navController, scrollBehavior)
         "settings/backup" -> BackupSettings(navController, scrollBehavior)

@@ -193,6 +193,10 @@ import com.dd3boh.outertune.playback.MusicService
 import com.dd3boh.outertune.playback.PlayerConnection
 import com.dd3boh.outertune.search.SystemSearch
 import com.dd3boh.outertune.utils.YouTubeLink
+import com.dd3boh.outertune.ui.dialog.TogetherInviteDialog
+import com.dd3boh.outertune.ui.dialog.TogetherProposalDialog
+import com.dd3boh.outertune.ui.dialog.togetherAvailable
+import com.dd3boh.outertune.together.RoomCode
 import com.dd3boh.outertune.utils.urlEncode
 import com.dd3boh.outertune.ui.component.LocalHiddenByPlayer
 import com.dd3boh.outertune.ui.component.LocalPlayerSheet
@@ -261,6 +265,8 @@ import com.dd3boh.outertune.utils.installSource
 import com.dd3boh.outertune.utils.NetworkConnectivityObserver
 import com.dd3boh.outertune.utils.LoudnessRepair
 import com.dd3boh.outertune.utils.Scrobbler
+import com.dd3boh.outertune.utils.SavedStateSize
+import com.dd3boh.outertune.ui.navigation.KeptHistory
 import com.dd3boh.outertune.utils.SyncUtils
 import com.dd3boh.outertune.utils.AutoBackup
 import com.dd3boh.outertune.utils.BackgroundCheckWorker
@@ -647,6 +653,14 @@ class MainActivity : ComponentActivity() {
         // scan ends with one) goes out now that it is in front. The class is asked, not the
         // injected instance, which would be built at every launch (DownloadServiceSends).
         if (DownloadUtil.resumeOwed) downloadUtil.resumeDownloadsOnStart()
+    }
+
+    // What Android keeps of the app when it is left: the navigation's history cut to its newest
+    // pages (#107, see KeptHistory), and in debug builds its size in the log when it is large.
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        KeptHistory.cut(outState)
+        if (BuildConfig.DEBUG) SavedStateSize.log(outState)
     }
 
     // The person has left: coming back is what a tap on Open Auto Blocker waits for.
@@ -1414,6 +1428,11 @@ class MainActivity : ComponentActivity() {
                             )
                         )
                     }
+                    // A listening room's invite, opened from a link: asked before joining.
+                    var togetherInvite by remember { mutableStateOf<RoomCode?>(null) }
+                    togetherInvite?.let { code -> TogetherInviteDialog(code, playerConnection, onDone = { togetherInvite = null }) }
+                    // A guest's song proposed to this phone as the room's leader: asked wherever the app is.
+                    TogetherProposalDialog(playerConnection)
                     LaunchedEffect(pendingLaunchLink, pendingLink.link, playerConnection, oobeStatus) {
                         val link = pendingLaunchLink ?: pendingLink.link ?: return@LaunchedEffect
                         // A live one, as for the widget's songs: see PlayerConnection.isAlive.
@@ -1426,7 +1445,10 @@ class MainActivity : ComponentActivity() {
                         // has no YouTube page: it opens here.
                         val libraryPlaylist = SystemSearch.playlistOf(link)
                         val searchWords = SystemSearch.searchOf(link)
-                        if (libraryPlaylist != null) {
+                        val invite = if (togetherAvailable && link.startsWith("intertune://together/", ignoreCase = true)) RoomCode.parse(link) else null
+                        if (invite != null) {
+                            togetherInvite = invite
+                        } else if (libraryPlaylist != null) {
                             navController.navigate("local_playlist/$libraryPlaylist")
                         } else if (SystemSearch.isHeard(link)) {
                             // Songs named once the phone was back online (RecogniseLaterWorker).

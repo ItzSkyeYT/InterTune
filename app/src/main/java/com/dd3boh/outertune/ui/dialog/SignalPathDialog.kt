@@ -45,15 +45,22 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
+import androidx.media3.common.Player
 import com.dd3boh.outertune.LocalPlayerConnection
 import com.dd3boh.outertune.R
+import com.dd3boh.outertune.cast.AirPlay
+import com.dd3boh.outertune.cast.CastDevice
+import com.dd3boh.outertune.cast.CastProtocol
+import com.dd3boh.outertune.cast.SentForm
 import com.dd3boh.outertune.constants.AudioNormalizationKey
 import com.dd3boh.outertune.constants.EqualizerEnabledKey
 import com.dd3boh.outertune.constants.SkipSilenceKey
 import com.dd3boh.outertune.constants.SpatialAudioKey
 import com.dd3boh.outertune.constants.SpatialAudioMode
 import com.dd3boh.outertune.db.entities.FormatEntity
+import com.dd3boh.outertune.playback.CastSession
 import com.dd3boh.outertune.utils.rememberPreference
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlin.math.abs
 import kotlin.math.log10
 
@@ -85,9 +92,21 @@ object SignalPath {
         val output: String?,
         val outputRateKhz: String?,
         val volumePercent: Int?,
+        /** The receiver while casting, which then is where it plays; null while the phone plays. */
+        val cast: Cast? = null,
     )
 
+    /**
+     * A receiver the music is cast to: its [name] and [kind] (AirPlay, Chromecast...), the rate of
+     * the raw audio it is sent ([rateKhz], null for the song as it is), whether the phone's sound
+     * reaches it ([shaped]: only raw audio, which the phone makes itself), and its own volume.
+     */
+    data class Cast(val name: String, val kind: String, val rateKhz: String?, val shaped: Boolean, val volumePercent: Int?)
+
     fun stages(i: Inputs): List<Stage> = buildList {
+        val cast = i.cast
+        // A receiver given the song as it is decodes it itself: nothing the phone does reaches it.
+        val untouchedThere = cast != null && !cast.shaped
         val source = if (i.local) R.string.signal_source_local else R.string.signal_source_stream
         add(
             when {
@@ -100,19 +119,25 @@ object SignalPath {
         add(
             when {
                 i.levellingDb == null -> Stage(Kind.UNTOUCHED, R.string.audio_normalization, R.string.signal_off)
+                untouchedThere -> Stage(Kind.UNTOUCHED, R.string.audio_normalization, R.string.signal_not_on_receiver)
                 abs(i.levellingDb) < 0.1f -> Stage(Kind.UNTOUCHED, R.string.audio_normalization, R.string.signal_not_needed)
                 else -> Stage(Kind.CHANGED, R.string.audio_normalization, R.string.signal_turned_down, listOf("%.1f".format(abs(i.levellingDb))))
             }
         )
         add(
-            if (i.equalizerOn) Stage(Kind.CHANGED, R.string.equalizer, R.string.signal_on)
-            else Stage(Kind.UNTOUCHED, R.string.equalizer, R.string.signal_off)
+            when {
+                !i.equalizerOn -> Stage(Kind.UNTOUCHED, R.string.equalizer, R.string.signal_off)
+                untouchedThere -> Stage(Kind.UNTOUCHED, R.string.equalizer, R.string.signal_not_on_receiver)
+                else -> Stage(Kind.CHANGED, R.string.equalizer, R.string.signal_on)
+            }
         )
         add(
-            when (i.spatial) {
-                SpatialAudioMode.OFF -> Stage(Kind.UNTOUCHED, R.string.spatial_audio, R.string.signal_off)
-                SpatialAudioMode.HEADPHONES -> Stage(Kind.CHANGED, R.string.spatial_audio, R.string.signal_headphones)
-                SpatialAudioMode.SURROUND -> Stage(Kind.CHANGED, R.string.spatial_audio, R.string.signal_surround)
+            when {
+                i.spatial == SpatialAudioMode.OFF -> Stage(Kind.UNTOUCHED, R.string.spatial_audio, R.string.signal_off)
+                // It is made for the phone's own outputs, headphones or its spatial audio.
+                cast != null -> Stage(Kind.UNTOUCHED, R.string.spatial_audio, R.string.signal_not_while_casting)
+                i.spatial == SpatialAudioMode.HEADPHONES -> Stage(Kind.CHANGED, R.string.spatial_audio, R.string.signal_headphones)
+                else -> Stage(Kind.CHANGED, R.string.spatial_audio, R.string.signal_surround)
             }
         )
         add(
@@ -122,7 +147,21 @@ object SignalPath {
                 Stage(Kind.CHANGED, R.string.signal_speed_pitch, R.string.signal_speed_value, listOf("%.2f".format(i.speed), "%.2f".format(i.pitch)))
             }
         )
-        if (i.skipSilence) add(Stage(Kind.CHANGED, R.string.skip_silence, R.string.signal_skipping))
+        if (i.skipSilence) {
+            add(
+                if (cast != null) Stage(Kind.UNTOUCHED, R.string.skip_silence, R.string.signal_not_while_casting)
+                else Stage(Kind.CHANGED, R.string.skip_silence, R.string.signal_skipping)
+            )
+        }
+        if (cast != null) {
+            add(
+                if (cast.rateKhz != null) Stage(Kind.WHERE, R.string.signal_plays_on, R.string.signal_receiver_rate, listOf(cast.name, cast.kind, cast.rateKhz))
+                else Stage(Kind.WHERE, R.string.signal_plays_on, R.string.signal_receiver, listOf(cast.name, cast.kind))
+            )
+            // The phone's own volume plays no part: the receiver's is the one heard.
+            if (cast.volumePercent != null) add(Stage(Kind.WHERE, R.string.cast_volume, R.string.signal_percent, listOf(cast.volumePercent)))
+            return@buildList
+        }
         if (i.output != null) {
             add(
                 if (i.outputRateKhz != null) Stage(Kind.WHERE, R.string.signal_plays_on, R.string.signal_output_rate, listOf(i.output, i.outputRateKhz))
@@ -130,6 +169,28 @@ object SignalPath {
             )
         }
         if (i.volumePercent != null) add(Stage(Kind.WHERE, R.string.signal_volume, R.string.signal_percent, listOf(i.volumePercent)))
+    }
+
+    /** What kind of receiver it is, by the name people know it under. */
+    fun kindOf(protocol: CastProtocol): String = when (protocol) {
+        CastProtocol.AIRPLAY -> "AirPlay"
+        CastProtocol.CHROMECAST -> "Chromecast"
+        CastProtocol.DLNA -> "DLNA"
+        CastProtocol.FCAST -> "FCast"
+    }
+
+    /** A rate in kHz as the sheet writes it: 48, or 44.1. */
+    fun khz(hz: Int): String = if (hz % 1000 == 0) "${hz / 1000}" else "%.1f".format(hz / 1000f)
+
+    /**
+     * The receiver line's facts, from what the cast said: [form] is how the song playing went, null
+     * until the first one has. An AirPlay speaker takes nothing but raw audio at 44.1 kHz; for any
+     * other receiver not yet sent a song, the song as it is is the likelier, and the safer to say.
+     */
+    fun castOf(device: CastDevice, form: SentForm?, volumePercent: Int?): Cast {
+        val raw = form?.raw ?: (device.protocol == CastProtocol.AIRPLAY)
+        val rate = form?.rate ?: if (raw && device.protocol == CastProtocol.AIRPLAY) AirPlay.RATE else null
+        return Cast(device.name, kindOf(device.protocol), rate?.takeIf { raw }?.let(::khz), raw, volumePercent)
     }
 
     /** "Opus", "AAC", "FLAC"... from what the format says of itself, or null. */
@@ -165,6 +226,18 @@ fun SignalPathDialog(currentFormat: FormatEntity?, local: Boolean, onDismiss: ()
     val (spatialName) = rememberPreference(SpatialAudioKey, SpatialAudioMode.OFF.name)
     val (skipSilence) = rememberPreference(SkipSilenceKey, false)
     val parameters = playerConnection.player.playbackParameters
+    // While casting, the receiver is where it plays, and how each song went to it says what of the
+    // phone's sound it hears.
+    val session = playerConnection.service.castSession
+    val castState by remember(session) { session?.state ?: MutableStateFlow<CastSession.State>(CastSession.State.Off) }.collectAsState()
+    val sentForm by remember(session) { session?.sentForm ?: MutableStateFlow<SentForm?>(null) }.collectAsState()
+    val castDevice = (castState as? CastSession.State.Casting)?.device
+    val cast = castDevice?.let { device ->
+        val player = playerConnection.player
+        val max = player.deviceInfo.maxVolume
+        val volume = if (player.isCommandAvailable(Player.COMMAND_GET_DEVICE_VOLUME) && max > 0) player.deviceVolume * 100 / max else null
+        SignalPath.castOf(device, sentForm, volume)
+    }
 
     val audio = remember { context.getSystemService(AudioManager::class.java) }
     val output = remember(audio) { audio?.let { playingOn(it) } }
@@ -184,12 +257,12 @@ fun SignalPathDialog(currentFormat: FormatEntity?, local: Boolean, onDismiss: ()
         pitch = parameters.pitch,
         skipSilence = skipSilence,
         output = outputName,
-        outputRateKhz = audio?.getProperty(AudioManager.PROPERTY_OUTPUT_SAMPLE_RATE)?.toIntOrNull()
-            ?.let { if (it % 1000 == 0) "${it / 1000}" else "%.1f".format(it / 1000f) },
+        outputRateKhz = audio?.getProperty(AudioManager.PROPERTY_OUTPUT_SAMPLE_RATE)?.toIntOrNull()?.let(SignalPath::khz),
         volumePercent = audio?.let {
             val max = it.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
             if (max > 0) it.getStreamVolume(AudioManager.STREAM_MUSIC) * 100 / max else null
         },
+        cast = cast,
     )
     val stages = SignalPath.stages(inputs)
 

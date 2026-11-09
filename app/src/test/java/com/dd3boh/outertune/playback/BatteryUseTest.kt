@@ -127,8 +127,8 @@ class BatteryUseTest {
             assertEquals(AudioQuality.LOW, BatteryUse.quality(chosen, metered = true, SAVER))
             assertEquals(chosen, BatteryUse.quality(chosen, metered = false, SAVER))
         }
-        // Auto already takes the smallest stream on mobile data, so only High and Highest change.
-        assertEquals(setOf(AudioQuality.HIGH, AudioQuality.MAX), AudioQuality.entries.filter { BatteryUse.lowersQuality(it, SAVER) }.toSet())
+        // Only Low already takes the smallest stream on mobile data: Auto takes the middle one (#88).
+        assertEquals(setOf(AudioQuality.AUTO, AudioQuality.HIGH, AudioQuality.MAX), AudioQuality.entries.filter { BatteryUse.lowersQuality(it, SAVER) }.toSet())
         assertTrue(AudioQuality.entries.none { BatteryUse.lowersQuality(it, FULL) || BatteryUse.lowersQuality(it, BALANCED) })
     }
 

@@ -8,6 +8,7 @@ package com.dd3boh.outertune.ui.screens.settings
 
 import com.dd3boh.outertune.ui.component.FloatingTopBar
 
+import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.windowInsetsPadding
@@ -36,6 +37,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.dd3boh.outertune.LocalPlayerAwareWindowInsets
 import com.dd3boh.outertune.R
+import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.db.entities.RecommendationExclusion
 import com.dd3boh.outertune.ui.component.ColumnWithContentPadding
 import com.dd3boh.outertune.ui.component.PreferenceEntry
@@ -48,7 +50,9 @@ import java.util.Date
 /**
  * Everything the recommendation rows have been told to leave out, each with why and until when.
  * Exclusions touch recommendation rows only: search, the library, playlists and radio are never
- * filtered, and banning a song covers its other versions.
+ * filtered, and banning a song covers its other versions. A song the listener chose not to play
+ * (DontPlay) is listed here too, with Lift, and one line under the promise says what it does
+ * beyond the rows while one is in force.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -61,18 +65,13 @@ fun ExclusionsSettings(
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val now = System.currentTimeMillis()
-    val active = exclusions.filter { it.expiresAt == null || it.expiresAt > now }
+    val active = exclusions.filter { exclusionInForce(it, now) }
     val expired = exclusions - active.toSet()
     val undoLabel = stringResource(R.string.undo)
     val liftedMessage = stringResource(R.string.exclusion_lifted)
 
     @Composable
-    fun reasonText(e: RecommendationExclusion): String = when (e.reason) {
-        ExclusionsViewModel.REASON_BAN -> stringResource(if (e.kind == ExclusionsViewModel.KIND_SONG) R.string.exclusion_reason_song_ban else R.string.exclusion_reason_artist_ban)
-        ExclusionsViewModel.REASON_SNOOZE -> stringResource(R.string.exclusion_reason_snooze)
-        ExclusionsViewModel.REASON_GONE -> stringResource(R.string.exclusion_reason_gone)
-        else -> stringResource(R.string.exclusion_reason_rest)
-    }
+    fun reasonText(e: RecommendationExclusion): String = stringResource(exclusionReason(e))
 
     @Composable
     fun row(e: RecommendationExclusion) {
@@ -102,6 +101,13 @@ fun ExclusionsSettings(
             style = MaterialTheme.typography.bodyMedium,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
         )
+        if (showsDontPlayNote(active)) {
+            Text(
+                text = stringResource(R.string.exclusions_dont_play_note),
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp)
+            )
+        }
         PreferenceGroupTitle(title = stringResource(R.string.exclusions_active_title))
         if (active.isEmpty()) {
             Text(
@@ -134,3 +140,24 @@ fun ExclusionsSettings(
         navController = navController,
     )
 }
+
+/** Whether [e] is in force at [now]: one with no end, Don't play this song among them, until lifted. */
+fun exclusionInForce(e: RecommendationExclusion, now: Long): Boolean = e.expiresAt == null || e.expiresAt > now
+
+/**
+ * The words for why [e] is there. Don't play this song is told as itself only in a build with it
+ * (Unreleased.ARTIST_BLOCK): without, a row of it from a restored backup keeps the song out of the
+ * recommendation rows alone, which is Not this song.
+ */
+@StringRes
+fun exclusionReason(e: RecommendationExclusion, dontPlayOn: Boolean = Unreleased.ARTIST_BLOCK): Int = when (e.reason) {
+    ExclusionsViewModel.REASON_BAN -> if (e.kind == ExclusionsViewModel.KIND_SONG) R.string.exclusion_reason_song_ban else R.string.exclusion_reason_artist_ban
+    ExclusionsViewModel.REASON_SNOOZE -> R.string.exclusion_reason_snooze
+    ExclusionsViewModel.REASON_GONE -> R.string.exclusion_reason_gone
+    ExclusionsViewModel.REASON_DONT_PLAY -> if (dontPlayOn) R.string.exclusion_reason_dont_play else R.string.exclusion_reason_song_ban
+    else -> R.string.exclusion_reason_rest
+}
+
+/** Whether the page says what Don't play this song does beyond the rows: with the feature, and one in force. */
+fun showsDontPlayNote(active: List<RecommendationExclusion>, dontPlayOn: Boolean = Unreleased.ARTIST_BLOCK): Boolean =
+    dontPlayOn && active.any { it.reason == ExclusionsViewModel.REASON_DONT_PLAY }

@@ -29,6 +29,7 @@ import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.automirrored.rounded.VolumeUp
 import androidx.compose.material.icons.rounded.AddCircleOutline
 import androidx.compose.material.icons.rounded.Equalizer
+import androidx.compose.material.icons.rounded.Group
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Route
 import androidx.compose.material.icons.rounded.LibraryAdd
@@ -91,6 +92,7 @@ import com.dd3boh.outertune.constants.MAX_PLAYER_VOLUME
 import com.dd3boh.outertune.constants.ShowLyricsKey
 import com.dd3boh.outertune.constants.SyncMode
 import com.dd3boh.outertune.constants.YtmSyncModeKey
+import com.dd3boh.outertune.models.DontPlay
 import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.models.withArtistIds
 import com.dd3boh.outertune.playback.queues.YouTubeQueue
@@ -102,6 +104,8 @@ import com.dd3boh.outertune.ui.dialog.AddToQueueDialog
 import com.dd3boh.outertune.ui.dialog.ArtistDialog
 import com.dd3boh.outertune.ui.dialog.DetailsDialog
 import com.dd3boh.outertune.ui.dialog.SignalPathDialog
+import com.dd3boh.outertune.ui.dialog.TogetherSheet
+import com.dd3boh.outertune.ui.dialog.togetherAvailable
 import com.dd3boh.outertune.utils.rememberEnumPreference
 import com.dd3boh.outertune.utils.rememberPreference
 import com.dd3boh.outertune.utils.syncCoroutine
@@ -174,6 +178,7 @@ fun PlayerMenu(
 
     val (sleepTimerEnabled, sleepTimerTimeLeft) = rememberSleepTimerState(playerConnection)
     val mixEntry = if (Unreleased.AUTOMIX_EDITOR) rememberMixMenuEntry(mediaMetadata.id) else null
+    val dontPlay = if (Unreleased.ARTIST_BLOCK) rememberDontPlay() else DontPlay.NONE
 
     var showSleepTimerDialog by remember {
         mutableStateOf(false)
@@ -197,6 +202,14 @@ fun PlayerMenu(
             local = mediaMetadata.isLocal,
             onDismiss = { showSignalPath = false },
         )
+    }
+
+    var showTogether by rememberSaveable {
+        mutableStateOf(false)
+    }
+
+    if (showTogether) {
+        TogetherSheet(onDismiss = { showTogether = false })
     }
 
     if (showDetailsDialog) {
@@ -239,6 +252,7 @@ fun PlayerMenu(
     }
 
     GridMenu(
+        kind = MenuKind.PLAYER,
         contentPadding = PaddingValues(
             start = 8.dp,
             top = 8.dp,
@@ -405,6 +419,24 @@ fun PlayerMenu(
             title = R.string.signal_path
         ) {
             showSignalPath = true
+        }
+        // Don't play this song, as in the song menus, where Block artist stands beside it: after
+        // every item that is always there, before the ones only some moments have (DontPlay). The
+        // song playing is passed over at once.
+        if (Unreleased.ARTIST_BLOCK) {
+            val held = dontPlay.has(mediaMetadata.id)
+            dontPlayMenuItem(held) {
+                toggleDontPlay(context, database, mediaMetadata, held)
+                onDismiss()
+            }
+        }
+        if (togetherAvailable) {
+            GridMenuItem(
+                icon = Icons.Rounded.Group,
+                title = R.string.together_title
+            ) {
+                showTogether = true
+            }
         }
         // Mix: the change from this song into the next, shaped by hand, only while a Mix queue
         // plays, so after every item that is always there. Just after a change it opens that one.

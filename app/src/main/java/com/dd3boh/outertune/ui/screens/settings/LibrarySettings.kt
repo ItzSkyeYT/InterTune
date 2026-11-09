@@ -45,6 +45,8 @@ import com.dd3boh.outertune.ui.screens.settings.fragments.QuickPicksSourceFrag
 import com.dd3boh.outertune.utils.rememberPreference
 import com.dd3boh.outertune.ui.screens.settings.fragments.ShareLinksFrag
 import com.dd3boh.outertune.constants.Unreleased
+import com.dd3boh.outertune.ui.screens.walkthrough.Tour
+import com.dd3boh.outertune.ui.screens.walkthrough.tourTarget
 
 /** The first few blocked artists' names, and how many more, or null when there are none. */
 internal fun blockedSummary(names: List<String>): String? = when {
@@ -98,7 +100,7 @@ fun LibrarySettings(
             if (Unreleased.ARTIST_BLOCK) {
                 val blocked = rememberArtistBlock().artists
                 PreferenceEntry(
-                    modifier = Modifier.settingRow(R.string.blocked_artists),
+                    modifier = Modifier.tourTarget(Tour.SETTING_BLOCKED_ARTISTS).settingRow(R.string.blocked_artists),
                     title = { Text(stringResource(R.string.blocked_artists)) },
                     description = blockedSummary(blocked.map { it.name }) ?: stringResource(R.string.blocked_artists_none),
                     icon = { Icon(BlockArtistIcon, null) },

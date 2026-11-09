@@ -50,6 +50,7 @@ import com.dd3boh.outertune.constants.ListThumbnailSize
 import com.dd3boh.outertune.constants.ThumbnailCornerRadius
 import com.dd3boh.outertune.db.entities.SongEntity
 import com.dd3boh.outertune.extensions.toMediaItem
+import com.dd3boh.outertune.models.DontPlay
 import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.models.toMediaMetadata
 import com.dd3boh.outertune.playback.queues.ListQueue
@@ -66,6 +67,9 @@ import com.dd3boh.outertune.utils.syncCoroutine
 import com.zionhuang.innertube.YouTube
 import com.zionhuang.innertube.models.SongItem
 import kotlinx.coroutines.launch
+import android.widget.Toast
+import androidx.compose.material.icons.rounded.Group
+import com.dd3boh.outertune.utils.Toaster
 
 @Composable
 fun YouTubeSongMenu(
@@ -83,6 +87,8 @@ fun YouTubeSongMenu(
     val playerConnection = LocalPlayerConnection.current ?: return
 
     val librarySong by remember(song.id) { database.song(song.id) }.collectAsState(initial = null)
+    val room by playerConnection.service.together.collectAsState()
+    val guestIn = room?.takeIf { it.following }
     val download by remember(song.id) { downloadUtil.getDownload(song.id) }.collectAsState(initial = null)
     val artists = remember {
         song.artists.mapNotNull {
@@ -103,6 +109,7 @@ fun YouTubeSongMenu(
     }
     var showBlockArtist by rememberSaveable { mutableStateOf(false) }
     val blockable = remember(song.id) { blockChoices(song.artists) }
+    val dontPlay = if (Unreleased.ARTIST_BLOCK) rememberDontPlay() else DontPlay.NONE
 
 
     ListItem(
@@ -155,6 +162,7 @@ fun YouTubeSongMenu(
     HorizontalDivider()
 
     GridMenu(
+        kind = MenuKind.SONG,
         contentPadding = PaddingValues(
             start = 8.dp,
             top = 8.dp,
@@ -249,9 +257,31 @@ fun YouTubeSongMenu(
             ActivityLog.note(context, database, song.id, SignalKind.SHARE)
             shareLink(ShareLinks.song(song.id, song.title, song.artists.map { it.name }, song.duration ?: 0, song.album != null), onDismiss)
         }
-        // Last, so that nothing anyone knows the place of moves.
+        // Beside Block artist, before it as the song comes before its artist, and after every item
+        // anyone knows the place of (DontPlay).
+        if (Unreleased.ARTIST_BLOCK) {
+            val held = dontPlay.has(song.id)
+            dontPlayMenuItem(held) {
+                toggleDontPlay(context, database, song.toMediaMetadata(), held)
+                onDismiss()
+            }
+        }
+        // Last of the items every song has, so that nothing anyone knows the place of moves.
         if (Unreleased.ARTIST_BLOCK && blockable.isNotEmpty()) {
             GridMenuItem(icon = BlockArtistIcon, title = R.string.menu_block_artist) { showBlockArtist = true }
+        }
+        // In a listening room as a guest: the host plays it next, for everyone, after Block artist so
+        // that it moves no item people know the place of. As in SongMenu: Quick picks and search
+        // results open this menu, not that one (the two-phone run of 17 Oct found it).
+        if (guestIn != null) {
+            GridMenuItem(
+                icon = Icons.Rounded.Group,
+                title = R.string.together_suggest
+            ) {
+                guestIn.suggest(song.toMediaMetadata())
+                Toaster.show(context, R.string.together_suggested, Toast.LENGTH_SHORT)
+                onDismiss()
+            }
         }
     }
 

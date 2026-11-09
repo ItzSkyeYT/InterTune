@@ -27,8 +27,8 @@ import kotlin.math.roundToInt
  * A link to a DLNA/UPnP media renderer: its description read once, then SOAP calls to its
  * AVTransport and RenderingControl, and polling to follow what it does.
  *
- * On connecting it asks ConnectionManager what the renderer plays, which is what decides Opus or
- * AAC for it (CastFormats), and reads its volume. A song goes as SetAVTransportURI with DIDL-Lite
+ * On connecting it asks ConnectionManager what the renderer plays, which is what decides Opus,
+ * AAC or raw audio for it (CastFormats), and reads its volume. A song goes as SetAVTransportURI with DIDL-Lite
  * metadata, then Play. A renderer that says its transport is locked, or that it cannot change
  * track from where it is, is stopped first and asked once more, which is what several TVs need
  * while something is playing.
@@ -146,7 +146,8 @@ class DlnaLink(
         }
         // In the renderer's own words for the type: some refuse a track whose type they did not list.
         val listed = (caps.formats as? FormatSupport.Listed)?.mimeTypes
-        val metadata = if (listed == null) Didl.track(item) else Didl.track(item, Didl.protocolInfo(CastFormats.spelling(listed, item.mimeType), item.length >= 0))
+        val type = if (listed == null) item.mimeType else CastFormats.spelling(listed, item.mimeType)
+        val metadata = Didl.track(item, Didl.protocolInfo(type, item.length >= 0, item.converted))
         val args = listOf("InstanceID" to "0", "CurrentURI" to item.url, "CurrentURIMetaData" to metadata)
         try {
             try {

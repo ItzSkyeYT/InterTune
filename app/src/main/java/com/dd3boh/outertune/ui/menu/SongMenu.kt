@@ -1,5 +1,6 @@
 package com.dd3boh.outertune.ui.menu
 
+import androidx.compose.material.icons.rounded.FileUpload
 import androidx.compose.material.icons.rounded.PersonOff
 import androidx.compose.material.icons.rounded.Snooze
 import androidx.compose.material.icons.rounded.Block
@@ -57,6 +58,8 @@ import com.dd3boh.outertune.constants.PlayOrigin
 import com.dd3boh.outertune.LocalDownloadUtil
 import com.dd3boh.outertune.LocalPlayerConnection
 import com.dd3boh.outertune.R
+import androidx.compose.material.icons.rounded.Group
+import android.widget.Toast
 import com.dd3boh.outertune.constants.ListThumbnailSize
 import com.dd3boh.outertune.constants.SyncMode
 import com.dd3boh.outertune.constants.ThumbnailCornerRadius
@@ -66,7 +69,10 @@ import com.dd3boh.outertune.db.entities.Playlist
 import com.dd3boh.outertune.db.entities.PlaylistSong
 import com.dd3boh.outertune.db.entities.Song
 import com.dd3boh.outertune.extensions.toMediaItem
+import com.dd3boh.outertune.models.DontPlay
 import com.dd3boh.outertune.models.toMediaMetadata
+import com.dd3boh.outertune.playback.downloadManager.ExportItem
+import com.dd3boh.outertune.playback.holdsWhole
 import com.dd3boh.outertune.playback.queues.ListQueue
 import com.dd3boh.outertune.playback.queues.YouTubeQueue
 import com.dd3boh.outertune.ui.component.button.IconButton
@@ -75,6 +81,7 @@ import com.dd3boh.outertune.ui.dialog.AddToPlaylistDialog
 import com.dd3boh.outertune.ui.dialog.AddToQueueDialog
 import com.dd3boh.outertune.ui.dialog.ArtistDialog
 import com.dd3boh.outertune.ui.dialog.DetailsDialog
+import com.dd3boh.outertune.ui.dialog.ExportSheet
 import com.dd3boh.outertune.ui.dialog.TextFieldDialog
 import com.dd3boh.outertune.utils.ShareLinks
 import com.dd3boh.outertune.utils.removeFromYouTubePlaylist
@@ -82,6 +89,7 @@ import com.dd3boh.outertune.utils.joinByBullet
 import com.dd3boh.outertune.utils.makeTimeString
 import com.dd3boh.outertune.utils.rememberEnumPreference
 import com.dd3boh.outertune.utils.syncCoroutine
+import com.dd3boh.outertune.utils.Toaster
 import com.zionhuang.innertube.YouTube
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -105,6 +113,9 @@ fun SongMenu(
     val downloadUtil = LocalDownloadUtil.current
     val clipboardManager = LocalClipboard.current
     val playerConnection = LocalPlayerConnection.current ?: return
+    // A listening room this phone is a guest in, for Play next in the room (TogetherSession.suggest).
+    val room by playerConnection.service.together.collectAsState()
+    val guestIn = room?.takeIf { it.following }
 
     val syncMode by rememberEnumPreference(key = YtmSyncModeKey, defaultValue = SyncMode.RW)
 
@@ -146,8 +157,14 @@ fun SongMenu(
     var showDetailsDialog by rememberSaveable {
         mutableStateOf(false)
     }
+    var showExportSheet by remember { mutableStateOf(false) }
+    // On the phone, so that an export has something to export: downloaded, or in the song cache whole (Unreleased.DOWNLOAD_FORMATS).
+    val onPhone = remember(song.id, download) {
+        downloadUtil.isDownloaded(song.id) || runCatching { playerConnection.service.playerCache.holdsWhole(song.id) }.getOrDefault(false)
+    }
     var showBlockArtist by rememberSaveable { mutableStateOf(false) }
     val blockable = remember(song.artists) { blockChoices(song.artists) }
+    val dontPlay = if (Unreleased.ARTIST_BLOCK) rememberDontPlay() else DontPlay.NONE
 
     ListItem(
         title = song.song.title,
@@ -188,6 +205,7 @@ fun SongMenu(
     HorizontalDivider()
 
     GridMenu(
+        kind = MenuKind.SONG,
         contentPadding = PaddingValues(
             start = 8.dp,
             top = 8.dp,
@@ -283,6 +301,14 @@ fun SongMenu(
                 onRemoveDownload = { downloadUtil.removeDownload(song.id) }
             )
 
+        if (Unreleased.DOWNLOAD_FORMATS && !song.song.isLocal && onPhone) {
+            GridMenuItem(
+                icon = Icons.Rounded.FileUpload,
+                title = R.string.export_to_folder
+            ) {
+                showExportSheet = true
+            }
+        }
 
         GridMenuItem(
             icon = R.drawable.artist,
@@ -351,9 +377,30 @@ fun SongMenu(
                 }
             }
         }
-        // Last, so that nothing anyone knows the place of moves.
+        // Beside Block artist, before it as the song comes before its artist, and after every item
+        // anyone knows the place of (DontPlay).
+        if (Unreleased.ARTIST_BLOCK) {
+            val held = dontPlay.has(song.id)
+            dontPlayMenuItem(held) {
+                toggleDontPlay(context, database, song.toMediaMetadata(), held)
+                onDismiss()
+            }
+        }
+        // Last of the items every song has, so that nothing anyone knows the place of moves.
         if (Unreleased.ARTIST_BLOCK && blockable.isNotEmpty()) {
             GridMenuItem(icon = BlockArtistIcon, title = R.string.menu_block_artist) { showBlockArtist = true }
+        }
+        // In a listening room as a guest: the host plays it next, for everyone. After everything else,
+        // Block artist included, so that it moves no item people know the place of.
+        if (Unreleased.LISTEN_TOGETHER && guestIn != null && !song.song.isLocal) {
+            GridMenuItem(
+                icon = Icons.Rounded.Group,
+                title = R.string.together_suggest
+            ) {
+                guestIn.suggest(song.toMediaMetadata())
+                Toaster.show(context, R.string.together_suggested, Toast.LENGTH_SHORT)
+                onDismiss()
+            }
         }
     }
 
@@ -426,6 +473,16 @@ fun SongMenu(
                 showBlockArtist = false
                 onDismiss()
             },
+        )
+    }
+
+    if (showExportSheet) {
+        ExportSheet(
+            items = listOf(ExportItem(song.id, song.song.title, song.song.isLocal)),
+            onDismiss = {
+                showExportSheet = false
+                onDismiss()
+            }
         )
     }
 

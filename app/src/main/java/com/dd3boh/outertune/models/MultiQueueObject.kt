@@ -314,6 +314,9 @@ data class MultiQueueObject(
      * [currentPlayIndex] is the player's currentMediaItemIndex. It is consulted only when the
      * playing song itself is removed.
      *
+     * When that song is the one removed, [lastSongPos] goes with it: the song that follows starts
+     * from its top.
+     *
      * Returns whether a song was removed. An index that names no song removes nothing. As with
      * every read of the position, a queuePos that is already out of range is repaired first
      * (validateQueuePos), which turns shuffle off.
@@ -345,6 +348,12 @@ data class MultiQueueObject(
             // The playing song itself was removed. After renumbering, the song that followed it
             // sits at index, which is where the player moves too. The clamp below covers removing
             // the last one.
+            //
+            // The resume point was the removed song's. A queue the player holds has it dropped by
+            // the player's own change of song (ResumePoint.afterTransition); a queue the player
+            // holds nothing of, the saved one before play after a restart, has no such change, and
+            // the next play would start the song that follows at the removed song's point.
+            lastSongPos = C.TIME_UNSET
             if (index < currentPlayIndex) {
                 // The player was already past it, out of step with the board.
                 newQueuePos--

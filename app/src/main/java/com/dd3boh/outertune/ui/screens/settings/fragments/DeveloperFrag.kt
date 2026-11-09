@@ -31,6 +31,7 @@ import androidx.compose.material.icons.rounded.Coronavirus
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.material.icons.rounded.History
+import androidx.compose.material.icons.rounded.HighQuality
 import androidx.compose.material.icons.rounded.Science
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.WarningAmber
@@ -179,7 +180,7 @@ fun ColumnScope.DeveloperFrag(navController: NavController) {
         PreferenceEntry(
             title = { Text("Important: About audio offload compatibility and issues") },
             onClick = {
-                uriHandler.openUri("https://github.com/ItzSkyeYT/InterTune/wiki/Audio-offload")
+                uriHandler.openUri(com.dd3boh.outertune.constants.WikiLinks.AUDIO_OFFLOAD)
             }
         )
 
@@ -187,6 +188,7 @@ fun ColumnScope.DeveloperFrag(navController: NavController) {
 
         if (BuildConfig.DEBUG) {
             HistoryAddressCheckRow()
+            PremiumCheckRow()
             // Faults made on purpose, to see the player keep the music going: see FaultInjection.
             // In memory only, so it is off again at the next start.
             var fault by remember { mutableStateOf(FaultInjection.mode) }
@@ -722,6 +724,40 @@ private fun HistoryAddressCheckRow() {
                     nowPlaying = playing != null,
                     historyPaused = historyPaused,
                     remoteHistoryPaused = remoteHistoryPaused,
+                ).joinToString("\n")
+                asking = false
+            }
+        },
+    )
+}
+
+/**
+ * "Check Premium formats": asks YouTube, as the account, for the song now playing (or a fixed one) and
+ * lists the audio streams it offers, Premium's 256 kbps ones named apart. See [PremiumCheck]. Debug
+ * builds only.
+ */
+@Composable
+private fun PremiumCheckRow() {
+    val playerConnection = LocalPlayerConnection.current
+    val coroutineScope = rememberCoroutineScope()
+    var asking by remember { mutableStateOf(false) }
+    var answered by remember { mutableStateOf<String?>(null) }
+
+    PreferenceEntry(
+        title = { Text(stringResource(R.string.premium_check)) },
+        description = when {
+            asking -> stringResource(R.string.history_address_check_asking)
+            else -> answered ?: stringResource(R.string.premium_check_description)
+        },
+        icon = { Icon(Icons.Rounded.HighQuality, null) },
+        isEnabled = !asking,
+        onClick = {
+            val playing = playerConnection?.mediaMetadata?.value?.takeIf { !it.isLocal }?.id
+            asking = true
+            coroutineScope.launch {
+                answered = com.dd3boh.outertune.playback.PremiumCheck.run(
+                    videoId = playing ?: com.dd3boh.outertune.playback.HistoryAddressCheck.FIXED_SONG,
+                    nowPlaying = playing != null,
                 ).joinToString("\n")
                 asking = false
             }

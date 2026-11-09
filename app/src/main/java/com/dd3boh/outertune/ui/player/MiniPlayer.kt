@@ -178,7 +178,9 @@ fun MiniPlayer(
             // consumed. Inert while nothing passed one; not inert once the glass lands above.
             modifier = Modifier.fillMaxSize(),
         ) {
-            val iconButtonColor = MaterialTheme.colorScheme.onSecondaryContainer
+            // The title's own colour: the buttons sit on the same panel and read as well as it does.
+            // onSecondaryContainer made them black on the black panel on a Pixel 11 Pro (#104).
+            val iconButtonColor = MaterialTheme.colorScheme.onSurface
             Box(
                 Modifier
                     .weight(1f)

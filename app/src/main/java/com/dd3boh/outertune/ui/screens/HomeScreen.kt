@@ -1,5 +1,6 @@
 package com.dd3boh.outertune.ui.screens
 
+import com.dd3boh.outertune.ui.component.button.IconButton
 import com.dd3boh.outertune.ui.component.ScreenBackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.horizontalScroll
@@ -67,8 +68,10 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.automirrored.rounded.TrendingUp
 import androidx.compose.material.icons.rounded.Casino
+import androidx.compose.material.icons.rounded.Group
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.SdCard
@@ -185,6 +188,8 @@ import com.dd3boh.outertune.ui.screens.walkthrough.WelcomeBanner
 import com.dd3boh.outertune.ui.screens.walkthrough.WelcomeCard
 import com.dd3boh.outertune.ui.screens.walkthrough.tourTarget
 import androidx.compose.foundation.lazy.itemsIndexed
+import com.dd3boh.outertune.ui.dialog.TogetherSheet
+import com.dd3boh.outertune.ui.dialog.togetherAvailable
 
 internal enum class QuickPicksLabelKind { NONE, TRY_BOTH, LIBRARY, YOUTUBE, LEAN }
 
@@ -237,6 +242,10 @@ fun HomeScreen(
     val density = LocalDensity.current
     val playerConnection = LocalPlayerConnection.current ?: return
     val haptic = LocalHapticFeedback.current
+    // Listen together from Home too, beside Account: the player's menu is two taps further and
+    // needs a song playing to be found (his word of 17 Oct 2026).
+    var showTogether by rememberSaveable { mutableStateOf(false) }
+    if (showTogether) TogetherSheet(onDismiss = { showTogether = false })
 
     val isPlaying by playerConnection.isPlaying.collectAsState()
     val mediaMetadata by playerConnection.mediaMetadata.collectAsState()
@@ -626,11 +635,11 @@ fun HomeScreen(
                         .fillMaxWidth()
                         .animateItem()
                 ) {
-                    // Upright each tile has a quarter of the row, its title under its icon. On
-                    // its side a quarter of the row is 200dp, and the row a quarter of the
-                    // height: there they are four pills at the start, title beside icon.
+                    // Upright each tile has an equal share of the row, its title under its icon.
+                    // On its side a share of the row is 200dp, and the row a quarter of the
+                    // height: there they are pills at the start, title beside icon.
                     val tile = if (tilesBeside) Modifier else Modifier.weight(1f)
-                    // One size for the four titles: the smallest that any of them needs.
+                    // One size for the titles: the smallest that any of them needs.
                     val titleSize = remember { SameTextSize() }
                     NavigationTile(
                         title = stringResource(R.string.history),
@@ -673,6 +682,17 @@ fun HomeScreen(
                         beside = tilesBeside,
                         titleSize = titleSize,
                     )
+
+                    if (togetherAvailable) {
+                        NavigationTile(
+                            title = stringResource(R.string.together_title),
+                            icon = Icons.Rounded.Group,
+                            onClick = { showTogether = true },
+                            modifier = tile,
+                            beside = tilesBeside,
+                            titleSize = titleSize,
+                        )
+                    }
                 }
             }
 
@@ -871,10 +891,35 @@ fun HomeScreen(
                                     items = ytPicks,
                                     key = { _, it -> it.id }
                                 ) { slot, song ->
+                                    // The song's menu, from a long press or the row's dots: YouTube's
+                                    // picks had no dots while the library's rows beside them did.
+                                    val openMenu = {
+                                        menuState.show {
+                                            YouTubeSongMenu(
+                                                song = song,
+                                                navController = navController,
+                                                onDismiss = menuState::dismiss,
+                                                onExclude = if (Unreleased.ENGINE) ({ kind, reason -> viewModel.excludeYt(song, kind, reason) }) else null
+                                            )
+                                        }
+                                    }
                                     YouTubeListItem(
                                         item = song,
                                         isActive = song.id == mediaMetadata?.id,
                                         isPlaying = isPlaying,
+                                        trailingContent = {
+                                            IconButton(
+                                                onClick = {
+                                                    openMenu()
+                                                    haptic.performHapticFeedback(HapticFeedbackType.ContextClick)
+                                                }
+                                            ) {
+                                                Icon(
+                                                    Icons.Rounded.MoreVert,
+                                                    contentDescription = stringResource(R.string.options)
+                                                )
+                                            }
+                                        },
                                         modifier = Modifier
                                             .width(horizontalLazyGridItemWidth)
                                             .combinedClickable(
@@ -895,14 +940,7 @@ fun HomeScreen(
                                                 },
                                                 onLongClick = {
                                                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                                    menuState.show {
-                                                        YouTubeSongMenu(
-                                                            song = song,
-                                                            navController = navController,
-                                                            onDismiss = menuState::dismiss,
-                                                            onExclude = if (Unreleased.ENGINE) ({ kind, reason -> viewModel.excludeYt(song, kind, reason) }) else null
-                                                        )
-                                                    }
+                                                    openMenu()
                                                 }
                                             )
                                     )

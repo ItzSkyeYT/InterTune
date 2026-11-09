@@ -234,6 +234,27 @@ class DlnaLinkTest {
     }
 
     @Test
+    fun `a renderer that takes only raw audio is told about it in its own words, as LPCM the phone made`() {
+        // A Zeppelin Wireless's kind of list (4 Nov 2026).
+        val renderer = FakeRenderer().apply {
+            sink = "http-get:*:audio/L16;rate=44100;channels=2:DLNA.ORG_PN=LPCM,http-get:*:audio/L8;rate=44100;channels=2:*"
+        }
+        val link = link(renderer)
+        runBlocking { link.connect() }
+        assertEquals(listOf(PcmOffer("audio/L16;rate=44100;channels=2", 44_100, 2, "LPCM")), (link.caps.formats as FormatSupport.Listed).pcm)
+        val pcm = song.copy(
+            url = "http://127.0.0.1:47800/c/tok/l16-44100-2/vid1.pcm",
+            mimeType = "audio/L16;rate=44100;channels=2",
+            length = 35_280_000,
+            converted = true,
+        )
+        runBlocking { link.load(pcm, 0, play = false) }
+        val metadata = renderer.calls("SetAVTransportURI").single().args["CurrentURIMetaData"]!!
+        assertTrue(metadata, metadata.contains("http-get:*:audio/L16;rate=44100;channels=2:DLNA.ORG_PN=LPCM;DLNA.ORG_OP=01;DLNA.ORG_CI=1;"))
+        assertTrue(metadata, metadata.contains("size=\"35280000\""))
+    }
+
+    @Test
     fun `a renderer that will not say what it plays is still connected, and sent songs as they are`() {
         val renderer = FakeRenderer().apply { protocolInfoBroken = true }
         val link = link(renderer, name = "Speaker")

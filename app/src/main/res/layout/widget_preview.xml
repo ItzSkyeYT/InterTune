@@ -5,8 +5,12 @@
   anybody's actual music. Drawn as Cover at four by two, the style a new widget starts in: the
   cover beside the song, the heart, previous, play and next under the song, on the deep colour a
   cover gives it (the approved mockup's plum and made-up cover, since no song is known here).
+  The icons are tinted with android:tint: the launcher inflates this without AppCompat, so
+  app:tint, which AppCompat's lint asks for, would do nothing here.
 -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    tools:ignore="UseAppTint"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@drawable/widget_preview_background"

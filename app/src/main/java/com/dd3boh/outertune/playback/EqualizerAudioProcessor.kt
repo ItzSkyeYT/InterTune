@@ -173,44 +173,82 @@ class EqualizerAudioProcessor : BaseAudioProcessor() {
          * Only a band too near the top of the range for this rate is left out.
          */
         fun filters(gainsDb: List<Float>, rate: Double): List<Biquad> =
-            BANDS.zip(gainsDb).filter { (hz, _) -> hz < rate * 0.45 }.map { (hz, db) -> peaking(hz, db.toDouble(), Q, rate) }
+            BANDS.zip(gainsDb).filter { (hz, _) -> inRange(hz, rate) }.map { (hz, db) -> peaking(hz, db.toDouble(), Q, rate) }
+
+        /** Whether a band at [hz] is kept at [rate]: one too near the top of the range is left out. */
+        fun inRange(hz: Double, rate: Double): Boolean = hz < rate * 0.45
 
         /** A peaking filter, as in Robert Bristow-Johnson's Audio EQ Cookbook. */
         fun peaking(hz: Double, gainDb: Double, q: Double, rate: Double): Biquad {
+            val c = DoubleArray(5)
+            peakingInto(c, 0, hz, gainDb, q, rate)
+            return Biquad(b0 = c[0], b1 = c[1], b2 = c[2], a1 = c[3], a2 = c[4])
+        }
+
+        /**
+         * [peaking]'s coefficients written into [out] from [at], in the order b0, b1, b2, a1, a2: the
+         * same arithmetic, for the cast's stage (CastSound), which may not allocate.
+         */
+        fun peakingInto(out: DoubleArray, at: Int, hz: Double, gainDb: Double, q: Double, rate: Double) {
             val a = 10.0.pow(gainDb / 40.0)
             val w0 = 2 * PI * hz / rate
             val alpha = sin(w0) / (2 * q)
             val cosW0 = cos(w0)
             val a0 = 1 + alpha / a
-            return Biquad(
-                b0 = (1 + alpha * a) / a0, b1 = (-2 * cosW0) / a0, b2 = (1 - alpha * a) / a0,
-                a1 = (-2 * cosW0) / a0, a2 = (1 - alpha / a) / a0,
-            )
+            out[at] = (1 + alpha * a) / a0
+            out[at + 1] = (-2 * cosW0) / a0
+            out[at + 2] = (1 - alpha * a) / a0
+            out[at + 3] = (-2 * cosW0) / a0
+            out[at + 4] = (1 - alpha / a) / a0
         }
 
         /** How loud a sine at [hz] comes out of [filters] in a row, in dB. */
         fun responseDb(filters: List<Biquad>, hz: Double, rate: Double): Double {
             val w = 2 * PI * hz / rate
             var total = 0.0
-            for (f in filters) {
-                // |b0 + b1 e^-jw + b2 e^-2jw| / |1 + a1 e^-jw + a2 e^-2jw|
-                val nr = f.b0 + f.b1 * cos(w) + f.b2 * cos(2 * w)
-                val ni = -(f.b1 * sin(w) + f.b2 * sin(2 * w))
-                val dr = 1 + f.a1 * cos(w) + f.a2 * cos(2 * w)
-                val di = -(f.a1 * sin(w) + f.a2 * sin(2 * w))
-                total += 20 * log10(sqrt(nr * nr + ni * ni) / sqrt(dr * dr + di * di))
+            for (f in filters) total += bandDb(f.b0, f.b1, f.b2, f.a1, f.a2, w)
+            return total
+        }
+
+        /** [responseDb] of the first [bands] filters in [coefficients], five to a band as [peakingInto] writes them. */
+        fun responseDb(coefficients: DoubleArray, bands: Int, hz: Double, rate: Double): Double {
+            val w = 2 * PI * hz / rate
+            var total = 0.0
+            for (band in 0 until bands) {
+                val k = band * 5
+                total += bandDb(coefficients[k], coefficients[k + 1], coefficients[k + 2], coefficients[k + 3], coefficients[k + 4], w)
             }
             return total
+        }
+
+        /** One filter's gain at [w] radians a sample, in dB. */
+        private fun bandDb(b0: Double, b1: Double, b2: Double, a1: Double, a2: Double, w: Double): Double {
+            // |b0 + b1 e^-jw + b2 e^-2jw| / |1 + a1 e^-jw + a2 e^-2jw|
+            val nr = b0 + b1 * cos(w) + b2 * cos(2 * w)
+            val ni = -(b1 * sin(w) + b2 * sin(2 * w))
+            val dr = 1 + a1 * cos(w) + a2 * cos(2 * w)
+            val di = -(a1 * sin(w) + a2 * sin(2 * w))
+            return 20 * log10(sqrt(nr * nr + ni * ni) / sqrt(dr * dr + di * di))
         }
 
         /** The curve's highest point between 20 Hz and 20 kHz, or nought when nothing is raised. */
         fun headroomDb(filters: List<Biquad>, rate: Double): Double {
             if (filters.isEmpty()) return 0.0
+            return highest(rate) { hz -> responseDb(filters, hz, rate) }
+        }
+
+        /** [headroomDb] of the first [bands] filters in [coefficients]. */
+        fun headroomDb(coefficients: DoubleArray, bands: Int, rate: Double): Double {
+            if (bands == 0) return 0.0
+            return highest(rate) { hz -> responseDb(coefficients, bands, hz, rate) }
+        }
+
+        private inline fun highest(rate: Double, responseAt: (Double) -> Double): Double {
             val top = minOf(20_000.0, rate * 0.49)
             var peak = 0.0
             var hz = 20.0
             while (hz <= top) {
-                peak = max(peak, responseDb(filters, hz, rate))
+                peak = max(peak, responseAt(hz))
                 hz *= 1.02
             }
             return peak

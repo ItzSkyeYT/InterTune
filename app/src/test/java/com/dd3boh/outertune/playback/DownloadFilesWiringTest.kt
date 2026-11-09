@@ -27,7 +27,7 @@ class DownloadFilesWiringTest {
     fun `with the flag, a download becomes a song file first and the stream only when it cannot be one`() {
         val migrate = util.substringAfter("suspend fun migrateDownloads(").substringBefore("fun cd()")
         val existing = migrate.indexOf("localMgr.getFilePathIfExists(s.key)")
-        val songFile = migrate.indexOf("?: (if (Unreleased.DOWNLOAD_FILES) saveSongFile(s.key) else null)")
+        val songFile = migrate.indexOf("?: (if (Unreleased.DOWNLOAD_FILES) saveSongFile(s.key, notice) { notice?.starting(index, title) } else null)")
         val stream = migrate.indexOf("localMgr.saveFile(s.key, stream, displayName)")
         assertTrue(existing in 0 until songFile)
         assertTrue(songFile < stream)
@@ -35,9 +35,9 @@ class DownloadFilesWiringTest {
 
     @Test
     fun `a song file is made from the cache's own files and the song's row`() {
-        val save = util.substringAfter("private suspend fun saveSongFile(id: String)").substringBefore("private fun songTags(")
+        val save = util.substringAfter("private suspend fun saveSongFile(id: String").substringBefore("private fun songTags(")
         assertTrue(save.contains("downloadCache.getCachedSpans(id)"))
-        assertTrue(save.contains("SongFiles.save(files, songTags(song))"))
+        assertTrue(save.contains("SongFiles.save(files, songTags(song), conversion)"))
         assertTrue("a failure falls back to the stream", save.contains(".getOrNull()"))
     }
 

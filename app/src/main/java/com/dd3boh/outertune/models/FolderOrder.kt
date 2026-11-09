@@ -7,92 +7,53 @@
 package com.dd3boh.outertune.models
 
 import com.dd3boh.outertune.constants.FolderSongSortType
-import com.dd3boh.outertune.db.LocalFolderDates
 import com.dd3boh.outertune.db.entities.Song
-import java.time.LocalDateTime
-import java.time.ZoneOffset
+import java.text.Normalizer
 
 /**
  * The order of the folders in the Folders tab, and of a whole folder's songs when it is played
  * from its menu, with no Android in it, so it is tested.
  *
- * Folders follow the sort picked for the songs where it means something for a folder: the date
- * sorts by the newest of that date among the songs under the folder, every other sort by the
- * folder's name. The arrow turns them round as it does the songs. They came in the order the
- * library handed their songs over in, which follows the songs' random ids, and only the top level
- * was ever sorted, by name and only with the arrow down (issue #39).
+ * Folders always go by name, A to Z or Z to A by an arrow of their own, whatever the songs are
+ * sorted by. They came in the order the library handed their songs over in, which follows the
+ * songs' random ids, and only the top level was ever sorted (issue #39). Then they followed the
+ * songs' sort and arrow, and an artist's albums sorted by track number with the arrow down went
+ * from Z; #39's reporter asked for them by name with their own arrow.
  */
 object FolderOrder {
 
-    /** Whether folders go by a date under [sortType], which [newestDates] gives them. */
-    fun byDate(sortType: FolderSongSortType): Boolean = when (sortType) {
-        FolderSongSortType.CREATE_DATE, FolderSongSortType.MODIFIED_DATE, FolderSongSortType.RELEASE_DATE -> true
-        FolderSongSortType.NAME, FolderSongSortType.ARTIST, FolderSongSortType.PLAY_COUNT, FolderSongSortType.TRACK_NUMBER -> false
-    }
+    /** A folder with its name made ready to compare (NaturalOrder.Key). */
+    private class Named(val folder: DirectoryTree, val name: NaturalOrder.Key)
 
-    /** By the name the list shows, numbers in it read as numbers, then by path. */
-    private val byName: Comparator<DirectoryTree> =
-        compareBy<DirectoryTree, String>(NaturalOrder) { shownName(it) }.thenBy { it.getFullPath() }
+    /** By the name the list shows, read as people read it (NaturalOrder), then by path. */
+    private val byName: Comparator<Named> =
+        Comparator<Named> { a, b -> NaturalOrder.compare(a.name, b.name) }.thenBy { it.folder.getFullPath() }
 
     /**
-     * [folders] in the order of [sortType]. [dates] holds each folder's date by its path, as
-     * [newestDates] makes them. A folder with no date goes first, as a song with none does, and
-     * last when turned round. Folders that come out equal go by name.
+     * [folders] by name, A to Z, or Z to A when [descending]. Each name is made ready once, not at
+     * every comparison: 2000 folders with accented names took about 18 ms on the main thread.
      */
-    fun sorted(
-        folders: List<DirectoryTree>,
-        sortType: FolderSongSortType,
-        descending: Boolean,
-        dates: Map<String, Long> = emptyMap(),
-    ): List<DirectoryTree> {
-        val key: Comparator<DirectoryTree> =
-            if (byDate(sortType)) compareBy { dates[it.getFullPath()] ?: -1L } else byName
-        return folders.sortedWith((if (descending) key.reversed() else key).then(byName))
-    }
+    fun sorted(folders: List<DirectoryTree>, descending: Boolean): List<DirectoryTree> =
+        folders.map { Named(it, NaturalOrder.Key(shownName(it))) }
+            .sortedWith(if (descending) byName.reversed() else byName)
+            .map { it.folder }
 
     /** The name a folder's row shows, as FolderScreen hands it to SongFolderItem. */
     fun shownName(folder: DirectoryTree): String =
         if (folder.files.isEmpty()) folder.getSquashedDir() else folder.currentDir
 
     /**
-     * Each folder's date under [sortType], by path: the newest of that date among the songs in the
-     * folder and in every folder under it. [rows] are LocalSql.LOCAL_FOLDER_DATES's, one for each
-     * folder that holds songs. A song with a release year and no full date counts from the 1st of
-     * January, as it does when songs are sorted.
-     */
-    fun newestDates(rows: List<LocalFolderDates>, sortType: FolderSongSortType): Map<String, Long> {
-        val newest = HashMap<String, Long>()
-        for (row in rows) {
-            val date = when (sortType) {
-                FolderSongSortType.CREATE_DATE -> row.added
-                FolderSongSortType.MODIFIED_DATE -> row.modified
-                FolderSongSortType.RELEASE_DATE -> row.released ?: row.year?.let(::yearStart)
-                else -> null
-            } ?: continue
-            var path = row.dir.trimEnd('/')
-            while (path.isNotEmpty()) {
-                newest.merge(path, date) { old, new -> maxOf(old, new) }
-                path = path.substringBeforeLast('/', "")
-            }
-        }
-        return newest
-    }
-
-    private fun yearStart(year: Int): Long? =
-        runCatching { LocalDateTime.of(year, 1, 1, 0, 0).toInstant(ZoneOffset.UTC).toEpochMilli() }.getOrNull()
-
-    /**
      * The songs of the folder at [root] and of every folder under it, in the order its screen
-     * shows them: the folder's own songs in the order of the sort, then each folder in it in the
-     * folder order, the same way down. Played from the folder's menu, they were queued in the
-     * order the library held them, whatever the sort (issue #39).
+     * shows them: the folder's own songs in the order of the songs' sort, then each folder in it by
+     * name with the folders' arrow, the same way down. Played from the folder's menu, they were
+     * queued in the order the library held them, whatever the sort (issue #39).
      */
     fun playOrder(
         root: String,
         songs: List<Song>,
         sortType: FolderSongSortType,
         descending: Boolean,
-        dates: Map<String, Long> = emptyMap(),
+        foldersDescending: Boolean,
     ): List<Song> {
         val top = root.trimEnd('/')
         val tree = DirectoryTree(top, CulmSongs(0))
@@ -103,7 +64,7 @@ object FolderOrder {
         val order = ArrayList<Song>(songs.size)
         fun walk(folder: DirectoryTree) {
             order += FolderSongOrder.sorted(folder.files, sortType, descending)
-            sorted(folder.subdirs, sortType, descending, dates).forEach(::walk)
+            sorted(folder.subdirs, foldersDescending).forEach(::walk)
         }
         walk(tree)
         return order
@@ -112,13 +73,58 @@ object FolderOrder {
 
 /**
  * Names compared as people read them: a run of digits as a number, so "CD 2" comes before
- * "CD 10", and letters without regard to case. Names that still tie are told apart by their plain
- * text, so the order is a total one.
+ * "CD 10", and letters without regard to case or to the accent on a Latin letter, so "Édith"
+ * comes among the E's and not after Z. Names that still tie are told apart by their plain text,
+ * so the order is a total one.
  */
 internal object NaturalOrder : Comparator<String> {
     private fun Char.isDigit09() = this in '0'..'9'
 
+    /**
+     * [name] with the accents on its Latin letters left out: its letters and their marks apart,
+     * a mark dropped when the letter it sits on is Latin, and the rest put back together. The
+     * Japanese voicing mark and the Cyrillic breve are marks too, but ガ is not カ and Й is not И:
+     * each is a letter of its own that comes after. Most names are plain ASCII and have none; a
+     * sort makes each name ready once (Key) rather than at every comparison.
+     */
+    private fun withoutAccents(name: String): String {
+        if (name.all { it < '\u0080' }) return name
+        val apart = Normalizer.normalize(name, Normalizer.Form.NFD)
+        val kept = StringBuilder(apart.length)
+        // A mark has no script of its own (INHERITED): it takes that of the letter before it.
+        var onLatin = false
+        var i = 0
+        while (i < apart.length) {
+            val c = apart.codePointAt(i)
+            i += Character.charCount(c)
+            val script = Character.UnicodeScript.of(c)
+            if (script != Character.UnicodeScript.INHERITED) {
+                onLatin = script == Character.UnicodeScript.LATIN
+            } else if (onLatin && c in 0x300..0x36F) {
+                continue
+            }
+            kept.appendCodePoint(c)
+        }
+        return Normalizer.normalize(kept, Normalizer.Form.NFC)
+    }
+
     override fun compare(a: String, b: String): Int {
+        val read = compareRead(withoutAccents(a), withoutAccents(b))
+        return if (read != 0) read else a.compareTo(b)
+    }
+
+    /** A name with its accents set aside once, for a sort that compares it many times. */
+    class Key(val name: String) {
+        internal val read: String = NaturalOrder.withoutAccents(name)
+    }
+
+    /** Two names made ready, in the order [compare] gives the names themselves. */
+    fun compare(a: Key, b: Key): Int {
+        val read = compareRead(a.read, b.read)
+        return if (read != 0) read else a.name.compareTo(b.name)
+    }
+
+    private fun compareRead(a: String, b: String): Int {
         var i = 0
         var j = 0
         while (i < a.length && j < b.length) {

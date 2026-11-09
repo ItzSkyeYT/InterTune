@@ -19,6 +19,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Downloading
 import androidx.compose.material.icons.rounded.FolderCopy
+import androidx.compose.material.icons.rounded.AudioFile
+import androidx.compose.material.icons.rounded.HighQuality
+import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.Sync
 import androidx.compose.material.icons.rounded.Wifi
 import androidx.compose.material3.Button
@@ -51,9 +54,15 @@ import com.dd3boh.outertune.LocalDownloadUtil
 import com.dd3boh.outertune.LocalPlayerConnection
 import com.dd3boh.outertune.playback.BatteryUse
 import com.dd3boh.outertune.R
+import com.dd3boh.outertune.constants.DownloadBitrate
+import com.dd3boh.outertune.constants.DownloadBitrateKey
 import com.dd3boh.outertune.constants.DownloadExtraPathKey
+import com.dd3boh.outertune.constants.DownloadFormat
+import com.dd3boh.outertune.constants.DownloadFormatKey
 import com.dd3boh.outertune.constants.DownloadPathKey
 import com.dd3boh.outertune.constants.DownloadOnWifiOnlyKey
+import com.dd3boh.outertune.constants.DownloadQuality
+import com.dd3boh.outertune.constants.DownloadQualityKey
 import com.dd3boh.outertune.constants.ScanPathsKey
 import com.dd3boh.outertune.constants.ThumbnailCornerRadius
 import com.dd3boh.outertune.extensions.tryOrNull
@@ -82,9 +91,11 @@ import com.dd3boh.outertune.constants.Unreleased
 import androidx.compose.material.icons.rounded.HeartBroken
 import com.dd3boh.outertune.constants.LikedAutodownloadMode
 import com.dd3boh.outertune.playback.DownloadUtil
+import com.dd3boh.outertune.playback.downloadManager.DownloadFormats
 import com.dd3boh.outertune.ui.component.EnumListPreference
 import com.dd3boh.outertune.utils.rememberEnumPreference
 import com.dd3boh.outertune.ui.screens.walkthrough.Tour
+import com.dd3boh.outertune.ui.screens.settings.MeaningLine
 import com.dd3boh.outertune.ui.screens.settings.settingRow
 import com.dd3boh.outertune.ui.screens.walkthrough.tourTarget
 
@@ -172,6 +183,30 @@ fun ColumnScope.DownloadsFrag() {
     )
     if (heldOn) SaverHoldsLabel()
 
+    // Downloads in their own quality (Unreleased.DOWNLOAD_QUALITY): Same as playback, or one of the
+    // Audio quality tiers (Highest, High, Low) under the words that row gives them. The download
+    // resolver reads it for each song it fetches, so a change is for the next one: no download is
+    // touched when it changes, and the ones already made stay as they are.
+    if (Unreleased.DOWNLOAD_QUALITY) {
+        val (downloadQuality, onDownloadQualityChange) = rememberEnumPreference(DownloadQualityKey, DownloadQuality.SAME)
+        EnumListPreference(
+            modifier = Modifier.settingRow(R.string.download_quality),
+            title = { Text(stringResource(R.string.download_quality)) },
+            icon = { Icon(Icons.Rounded.HighQuality, null) },
+            content = { MeaningLine(stringResource(R.string.download_quality_description)) },
+            selectedValue = downloadQuality,
+            onValueSelected = onDownloadQualityChange,
+            valueText = {
+                when (it) {
+                    DownloadQuality.SAME -> stringResource(R.string.download_quality_same)
+                    DownloadQuality.MAX -> stringResource(R.string.audio_quality_max)
+                    DownloadQuality.HIGH -> stringResource(R.string.audio_quality_high)
+                    DownloadQuality.LOW -> stringResource(R.string.audio_quality_low)
+                }
+            }
+        )
+    }
+
     EnumListPreference(
         modifier = Modifier.tourTarget(Tour.SETTING_LIKED_AUTODOWNLOAD).settingRow(R.string.like_autodownload),
         title = { Text(stringResource(R.string.like_autodownload)) },
@@ -201,7 +236,7 @@ fun ColumnScope.DownloadsFrag() {
         val (likedSync, onLikedSyncChange) = rememberPreference(LikedDownloadSyncKey, false)
         val on = likedAutodownload != LikedAutodownloadMode.OFF
         SwitchPreference(
-            modifier = Modifier.settingRow(R.string.liked_download_sync),
+            modifier = Modifier.tourTarget(Tour.SETTING_LIKED_SYNC).settingRow(R.string.liked_download_sync),
             title = { Text(stringResource(R.string.liked_download_sync)) },
             description = stringResource(R.string.liked_download_sync_description),
             icon = { Icon(Icons.Rounded.HeartBroken, null) },
@@ -272,6 +307,51 @@ fun ColumnScope.DownloadsFrag() {
             showDlPathDialog = true
         },
     )
+
+    // The file a song in the folder is saved as, under the folder (Unreleased.DOWNLOAD_FORMATS): Original, which
+    // is what the download is, or a conversion to MP3, M4A (AAC), FLAC or WAV done on the phone after the download.
+    // MP3 and M4A also have a Bitrate, whose Auto follows what each song was downloaded as. The download code reads
+    // both for the next song it saves: no file is touched when one changes. The names of the formats are not
+    // translated.
+    if (Unreleased.DOWNLOAD_FORMATS) {
+        val (fileFormat, onFileFormatChange) = rememberEnumPreference(DownloadFormatKey, DownloadFormat.ORIGINAL)
+        EnumListPreference(
+            modifier = Modifier.settingRow(R.string.download_format),
+            title = { Text(stringResource(R.string.download_format)) },
+            icon = { Icon(Icons.Rounded.AudioFile, null) },
+            content = { MeaningLine(stringResource(R.string.download_format_description)) },
+            selectedValue = fileFormat,
+            onValueSelected = onFileFormatChange,
+            valueText = {
+                when (it) {
+                    DownloadFormat.ORIGINAL -> stringResource(R.string.download_format_original)
+                    DownloadFormat.MP3 -> "MP3"
+                    DownloadFormat.M4A -> "M4A (AAC)"
+                    DownloadFormat.FLAC -> "FLAC"
+                    DownloadFormat.WAV -> "WAV"
+                }
+            }
+        )
+        if (DownloadFormats.bitrateRowShown(fileFormat)) {
+            val (bitrate, onBitrateChange) = rememberEnumPreference(DownloadBitrateKey, DownloadBitrate.AUTO)
+            EnumListPreference(
+                modifier = Modifier.settingRow(R.string.download_bitrate),
+                title = { Text(stringResource(R.string.download_bitrate)) },
+                icon = { Icon(Icons.Rounded.Speed, null) },
+                content = {
+                    MeaningLine(
+                        stringResource(R.string.download_bitrate_description) +
+                            if (fileFormat == DownloadFormat.M4A) " " + stringResource(R.string.download_bitrate_aac_kept) else ""
+                    )
+                },
+                selectedValue = bitrate,
+                onValueSelected = onBitrateChange,
+                valueText = { choice ->
+                    choice.kbps?.let { stringResource(R.string.download_bitrate_kbps, it) } ?: stringResource(R.string.download_bitrate_auto)
+                }
+            )
+        }
+    }
 
     Text(
         text = stringResource(R.string.dl_size_used_cache, formatFileSize(downloadCacheSize)),

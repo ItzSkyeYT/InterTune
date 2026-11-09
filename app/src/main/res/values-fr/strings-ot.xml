@@ -1613,6 +1613,8 @@
     <string name="stats_nothing_played">Rien n\'a été joué sur cette période.</string>
     <string name="sort_order_ascending">Ordre croissant</string>
     <string name="sort_order_descending">Ordre décroissant</string>
+    <string name="folder_order_a_to_z">Dossiers de A à Z</string>
+    <string name="folder_order_z_to_a">Dossiers de Z à A</string>
     <string name="home_play_at_random">Lancer quelque chose au hasard</string>
     <string name="view_as_list">Affiché en liste</string>
     <string name="view_as_grid">Affiché en grille</string>
@@ -1987,9 +1989,10 @@
     <string name="equalizer_headphones_no_curve">Ce modèle n\'a pas de courbe à dix bandes. Essayez une autre de ses mesures.</string>
     <string name="equalizer_headphones_none_found">Aucun modèle de ce nom.</string>
     <string name="support_title">Soutenir InterTune</string>
-    <string name="support_text">InterTune est gratuit et sans publicité. Pour faire un don, envoyez un message privé au développeur sur le serveur Discord d\'InterTune.</string>
+    <string name="support_text">InterTune est gratuit et sans publicité. Pour donner, passez par le Ko-fi d\'InterTune et dites dans votre message si vous voulez figurer ici. Pour la crypto, écrivez au développeur sur Discord.</string>
     <string name="support_thanks">Merci à ceux qui ont déjà donné :</string>
     <string name="support_discord">Ouvrir Discord</string>
+    <string name="support_kofi">Faire un don sur Ko-fi</string>
     <plurals name="list_queued_here">
         <item quantity="one">%1$d titre ajouté à la fin de cette file d\'attente</item>
         <item quantity="many">%1$d titres ajoutés à la fin de cette file d\'attente</item>
@@ -2121,6 +2124,9 @@
     <string name="auto_more_recent_line">Reprenez là où vous en étiez</string>
     <string name="auto_more_shuffle_library">Ma bibliothèque en aléatoire</string>
     <string name="auto_more_shuffle_line">Tout ce que vous avez gardé, mélangé</string>
+    <string name="auto_search_offline">Pas d\'internet sur le téléphone</string>
+    <string name="auto_search_no_answer">YouTube Music n\'a pas répondu</string>
+    <string name="auto_search_again">Touchez pour chercher à nouveau</string>
     <string name="auto_settings_sound">Son</string>
     <string name="auto_settings_playback">Lecture</string>
     <string name="auto_level_line">Un volume égal d\'un titre à l\'autre</string>
@@ -2151,6 +2157,10 @@
     <string name="signal_wired">Casque filaire</string>
     <string name="signal_other_output">Un autre appareil</string>
     <string name="signal_volume">Volume du téléphone</string>
+    <string name="signal_receiver">%1$s, %2$s</string>
+    <string name="signal_receiver_rate">%1$s, %2$s, %3$s kHz</string>
+    <string name="signal_not_on_receiver">Pas sur ce récepteur, qui reçoit le titre tel quel</string>
+    <string name="signal_not_while_casting">Pas pendant un cast</string>
     <string name="signal_percent">%1$d %%</string>
     <string name="signal_legend_untouched">Intact</string>
     <string name="signal_legend_changed">Modifié par un réglage que vous avez choisi</string>
@@ -2268,7 +2278,7 @@
     <string name="playlist_cover_photo">Une photo</string>
     <string name="playlist_cover_photo_note">Depuis votre téléphone</string>
     <string name="playlist_cover_songs">Un titre de cette playlist</string>
-    <!-- Bloquer l'artiste (ArtistBlock, Unreleased.ARTIST_BLOCK): held from translators in values until the words are agreed. -->
+    <!-- Bloquer l'artiste (ArtistBlock, Unreleased.ARTIST_BLOCK): open to translators in values, on for everyone from 0.13. -->
     <string name="menu_block_artist">Bloquer l\'artiste</string>
     <string name="block_artist_which">Bloquer quel artiste\u00A0?</string>
     <string name="block_artist_title">Bloquer %1$s\u00A0?</string>
@@ -2286,12 +2296,75 @@
     <string name="blocked_search_note">%1$s est bloqué, donc rien de cet artiste ne s\'affiche.</string>
     <string name="blocked_song_skipped">%1$s est bloqué, donc son titre a été passé.</string>
     <string name="blocked_songs_left">Il ne reste que des titres d\'artistes bloqués : la musique s\'arrête.</string>
+    <!-- Ne plus jouer ce titre (DontPlay, Unreleased.ARTIST_BLOCK): open to translators in values, on for everyone from 0.13. -->
+    <string name="menu_dont_play_song">Ne plus jouer ce titre</string>
+    <string name="menu_dont_play_lift">Réautoriser ce titre</string>
+    <string name="dont_play_done">Désormais, il n\'est joué que si vous le choisissez.</string>
+    <string name="dont_play_lifted">Il est de nouveau joué comme les autres titres.</string>
+    <string name="dont_play_skipped">Titre passé, à ne plus jouer : « %1$s »</string>
+    <string name="dont_play_songs_left">Il ne reste que des titres à ne plus jouer : la musique s\'arrête.</string>
+    <string name="exclusion_reason_dont_play">Ne plus jouer ce titre</string>
+    <string name="exclusions_dont_play_note">Ne plus jouer ce titre va plus loin : le titre reste hors des radios et de la lecture automatique, et n\'est joué que si vous le choisissez.</string>
     <string name="search_words_blocked_artists">bannir, masquer, ignorer, liste noire</string>
     <string name="crash_newer_title">InterTune %1$s est disponible</string>
     <string name="crash_newer_body">Cette version corrige peut-être déjà ce plantage. Mettez à jour d\'abord, puis signalez-le s\'il revient.</string>
     <string name="crash_newer_update">Mettre à jour</string>
     <string name="problem_report_share_file">Partager en fichier</string>
     <string name="dl_song_files_note">Chaque titre y est enregistré en Opus ou en M4A, avec son nom, son artiste et sa pochette, pour que d\'autres applis et les voitures puissent le lire.</string>
+    <string name="download_quality">Qualité des téléchargements</string>
+    <string name="download_quality_same">Comme la lecture</string>
+    <string name="download_quality_description">Une meilleure qualité prend plus de place. Les titres déjà téléchargés ne changent pas.</string>
+    <string name="download_format">Format des fichiers</string>
+    <string name="download_format_original">Original</string>
+    <string name="download_format_description">L\'original garde la meilleure qualité. Les autres formats sont convertis sur le téléphone après le téléchargement.</string>
+    <string name="download_bitrate">Débit</string>
+    <string name="download_bitrate_auto">Auto</string>
+    <string name="download_bitrate_kbps">%1$d kb/s</string>
+    <string name="download_bitrate_description">Auto suit ce que YouTube a envoyé pour chaque titre. Convertir n\'ajoute aucune qualité que YouTube n\'a pas envoyée.</string>
+    <string name="download_bitrate_aac_kept">Les titres que YouTube a envoyés en AAC restent tels quels.</string>
+    <string name="convert_notice_title">Conversion en %1$s</string>
+    <string name="convert_notice_text">%1$d sur %2$d</string>
+    <string name="convert_fallback_title">Certains titres n\'ont pas été convertis</string>
+    <plurals name="convert_fallback_text">
+        <item quantity="one">%1$d titre n\'a pas pu être converti et a été enregistré tel quel.</item>
+        <item quantity="many">%1$d titres n\'ont pas pu être convertis et ont été enregistrés tels quels.</item>
+        <item quantity="other">%1$d titres n\'ont pas pu être convertis et ont été enregistrés tels quels.</item>
+    </plurals>
+    <string name="search_words_download_format">mp3, flac, wav, aac, m4a, convertir, format, type de fichier</string>
+    <string name="export_to_folder">Exporter vers un dossier</string>
+    <string name="export_note">Seuls les titres présents sur le téléphone sont exportés.</string>
+    <string name="export_folder">Dossier</string>
+    <string name="export_folder_none">Choisir un dossier</string>
+    <string name="export_action">Exporter</string>
+    <string name="export_progress">Export de %1$d sur %2$d</string>
+    <string name="export_done_title">Export terminé</string>
+    <string name="export_stopped_title">Export arrêté</string>
+    <string name="export_names_more">%1$s et %2$d autres</string>
+    <plurals name="export_exported">
+        <item quantity="one">%1$d titre exporté</item>
+        <item quantity="many">%1$d titres exportés</item>
+        <item quantity="other">%1$d titres exportés</item>
+    </plurals>
+    <plurals name="export_skipped_not_downloaded">
+        <item quantity="one">%1$d ignoré : pas téléchargé</item>
+        <item quantity="many">%1$d ignorés : pas téléchargés</item>
+        <item quantity="other">%1$d ignorés : pas téléchargés</item>
+    </plurals>
+    <plurals name="export_skipped_there">
+        <item quantity="one">%1$d ignoré : déjà dans le dossier</item>
+        <item quantity="many">%1$d ignorés : déjà dans le dossier</item>
+        <item quantity="other">%1$d ignorés : déjà dans le dossier</item>
+    </plurals>
+    <plurals name="export_skipped_local">
+        <item quantity="one">%1$d ignoré : déjà un fichier du téléphone</item>
+        <item quantity="many">%1$d ignorés : déjà des fichiers du téléphone</item>
+        <item quantity="other">%1$d ignorés : déjà des fichiers du téléphone</item>
+    </plurals>
+    <plurals name="export_failed">
+        <item quantity="one">%1$d n\'a pas pu être converti</item>
+        <item quantity="many">%1$d n\'ont pas pu être convertis</item>
+        <item quantity="other">%1$d n\'ont pas pu être convertis</item>
+    </plurals>
     <string name="new_shelf_looks_title">L\'Étagère en trois looks</string>
     <string name="new_shelf_looks_body">Grande pochette, Bac à disques ou Vinyles, à choisir sous Look dans les réglages du widget.</string>
     <string name="new_lyrics_video_long_title">Des vidéos de paroles jusqu\'à dix minutes</string>
@@ -2325,6 +2398,29 @@
     <string name="widgets_all_options_full_cover">Taille du texte, ce qu\'il affiche</string>
     <string name="widgets_all_options_shelf">Arrière-plan, boutons, lignes</string>
     <string name="widgets_add_from_home">Cet écran d\'accueil n\'accepte pas les widgets des applications. Ajoutez-les depuis sa propre liste de widgets.</string>
+    <!-- Nouveautés de 0.13 (Walkthrough.kt, V0_13). -->
+    <string name="new_block_artist_title">Bloquer un artiste</string>
+    <string name="new_block_artist_body">Bloquer l\'artiste, dans le menu d\'un titre ou sur sa page, retire ses titres, ses albums et son visage d\'InterTune.</string>
+    <string name="new_block_artist_way">Les artistes que vous avez bloqués sont listés ici.</string>
+    <string name="new_block_artist_here">Tous ceux que vous avez bloqués, pour les débloquer ou bloquer un artiste par son nom.</string>
+    <string name="new_dont_play_title">Empêcher un titre de jouer</string>
+    <string name="new_dont_play_body">Ne plus jouer ce titre, dans le menu d\'un titre, le tient à l\'écart des radios et de la lecture automatique, ses autres mises en ligne comprises. Il joue toujours quand vous le choisissez.</string>
+    <string name="new_saved_twice_title">Retrouver les titres en double</string>
+    <string name="new_saved_twice_body">Quand vos Titres aimés, votre bibliothèque ou une playlist contiennent un titre plusieurs fois, un bouton rond avec un nombre s\'affiche à côté de Lecture et Lecture aléatoire. Touchez-le pour garder un exemplaire de chacun.</string>
+    <string name="new_liked_sync_title">Retirer un j’aime peut supprimer le téléchargement</string>
+    <string name="new_liked_sync_body">Si vos titres aimés se téléchargent tout seuls, retirer un j’aime peut maintenant supprimer son téléchargement. Ceux téléchargés à la main restent.</string>
+    <string name="new_liked_sync_way">Les téléchargements et la place qu\'ils prennent se règlent ici.</string>
+    <string name="new_liked_sync_here">Activé, retirer votre j’aime supprime le téléchargement fait pour ce titre. Cela marche quand les titres aimés se téléchargent tout seuls.</string>
+    <string name="new_album_goes_on_title">Les albums continuent après leur dernier titre</string>
+    <string name="new_album_goes_on_body">Avec Charger automatiquement plus de titres activé, un album qui se termine continue avec une radio de son dernier titre, comme sur YouTube Music.</string>
+    <string name="new_album_goes_on_way">La façon dont la file continue à sa fin se règle ici.</string>
+    <string name="new_album_goes_on_here">Activé, un album qui se termine continue avec une radio de son dernier titre.</string>
+    <string name="new_recognise_offline_title">La reconnaissance marche hors ligne</string>
+    <string name="new_recognise_offline_body">Sans connexion, Quel est ce titre\u00A0? garde ce qu\'il a entendu et nomme les titres une fois le téléphone de nouveau en ligne. Ils attendent dans Ce que vous avez entendu.</string>
+    <string name="new_animations_title">Couper les animations</string>
+    <string name="new_animations_body">Un bouton dans Apparence coupe les animations de l\'app\u00A0: les écrans changent d\'un coup et les fonds restent immobiles. Plus doux pour les anciens téléphones.</string>
+    <string name="new_animations_way">L\'apparence de l\'app et ses mouvements se règlent ici.</string>
+    <string name="new_animations_here">L\'option Supprimer les animations d\'Android les coupe aussi ici, et grise ce bouton.</string>
     <!-- Nouveautés de 0.12.8 (Walkthrough.kt, V0_12_8). -->
     <string name="new_report_send_title">Envoyer un rapport à InterTune</string>
     <string name="new_report_send_body">Signaler un problème peut maintenant envoyer le rapport à InterTune, sans compte GitHub. Ou le partager en fichier pour le poster sur Discord.</string>
@@ -2348,4 +2444,97 @@
     <string name="version_card_found" translatable="false">Trouvée le %1$s</string>
     <string name="version_card_number" translatable="false">N°</string>
     <string name="media_button_resuming" translatable="false">Reprise de votre file d\'attente</string>
+    <!-- Listen together (TogetherDialog), step 1, debug and Preview builds. -->
+    <string name="together_title">Écouter ensemble</string>
+    <string name="together_intro">Créez un salon et partagez son code, ou tapez celui du salon d\'un ami. Tout le monde entend ce que joue l\'hôte, chaque téléphone le jouant depuis YouTube.</string>
+    <string name="together_start">Créer un salon</string>
+    <string name="together_code">Code du salon</string>
+    <string name="together_join">Rejoindre</string>
+    <string name="together_copy">Copier</string>
+    <string name="together_waiting">En attente de l\'hôte</string>
+    <string name="together_following">Vous suivez l\'hôte</string>
+    <string name="together_in_step">Synchronisé, à %1$d ms</string>
+    <string name="together_catching_up">Rattrapage, à %1$d ms</string>
+    <string name="together_leave">Quitter</string>
+    <string name="together_join_title">Rejoindre ce salon d\'écoute ?</string>
+    <string name="together_share">Partager</string>
+    <string name="together_invite_text">Écoute avec moi sur InterTune : salon %1$s. Ouvre %2$s, ou tape le code dans Écouter ensemble, dans le menu du lecteur.</string>
+    <string name="together_own_way">Vous écoutez de votre côté</string>
+    <string name="together_catch_up">Rattraper</string>
+    <string name="together_suggest">Jouer ensuite dans le salon</string>
+    <string name="together_suggested">Envoyé à l\'hôte</string>
+    <string name="together_from_guest">%1$s propose %2$s : il passe ensuite</string>
+    <string name="together_last_suggestion">Dernier d\'un invité : %1$s</string>
+    <string name="together_live_hosting">Vous êtes l\'hôte</string>
+    <string name="together_live_guest">Vous avez rejoint un salon</string>
+    <string name="together_relays_of">Connecté à %1$d relais sur %2$d</string>
+    <string name="together_connecting">Connexion aux relais</string>
+    <string name="together_or_join">ou rejoignez-en un</string>
+    <string name="together_paste">Coller</string>
+    <string name="together_copied">Code copié</string>
+    <string name="together_playing">En lecture dans le salon</string>
+    <string name="together_people">Dans le salon</string>
+    <string name="together_you">Vous</string>
+    <string name="together_host">Hôte</string>
+    <string name="together_behind">En retard</string>
+    <string name="together_ahead">En avance</string>
+    <string name="together_nothing_playing">Rien en lecture pour l\'instant</string>
+    <string name="together_suggest_hint">Pour proposer un titre, appuyez longuement dessus et choisissez Jouer ensuite dans le salon.</string>
+    <string name="together_you_control">Vous avez la main</string>
+    <string name="together_has_control">%1$s a la main</string>
+    <string name="together_take_back">Reprendre la main</string>
+    <string name="together_give_control">Donner la main</string>
+    <string name="together_kick">Retirer du salon</string>
+    <string name="together_kicked">Vous avez été retiré du salon</string>
+    <string name="together_closed">Le salon a été fermé</string>
+    <string name="together_close_room">Fermer le salon</string>
+    <string name="together_paused_here">En pause ici. Appuyez sur lecture pour revenir où en est le salon.</string>
+    <string name="together_in_room">Dans un salon</string>
+    <string name="settings_together_description">Votre nom dans les salons, et à quel point les téléphones restent synchronisés</string>
+    <string name="together_settings_you">Vous</string>
+    <string name="together_settings_step">Rester synchronisé</string>
+    <string name="together_name_setting">Votre nom dans les salons</string>
+    <string name="together_tolerance">Écart toléré</string>
+    <string name="together_tolerance_value">%1$d ms</string>
+    <string name="together_tolerance_explain">Une fois synchronisés, les téléphones sont laissés tranquilles tant qu\'ils ne s\'écartent pas davantage. Plus bas les garde plus proches, plus haut corrige moins souvent.</string>
+    <string name="together_catch_up_speed">Vitesse de rattrapage</string>
+    <string name="together_catch_up_value">Jusqu\'à %1$d %% plus vite ou plus lentement</string>
+    <string name="together_catch_up_explain">De combien un téléphone accélère ou ralentit pour se resynchroniser. Plus haut va plus vite, mais s\'entend davantage.</string>
+    <string name="together_delay">Retard du son sur ce téléphone</string>
+    <string name="together_delay_value">%1$d ms</string>
+    <string name="together_delay_explain">Les casques et enceintes Bluetooth jouent en retard. Indiquez de combien, et ce téléphone compense dans les salons.</string>
+    <string name="together_qr">Code QR</string>
+    <string name="together_qr_title">Scannez pour rejoindre</string>
+    <string name="together_qr_hint">Pointez l\'appareil photo de l\'autre téléphone ici. Il ouvre le salon dans InterTune.</string>
+    <string name="together_close_room_title">Fermer le salon ?</string>
+    <string name="together_close_room_text">Tout le monde le quitte, et son code ne marche plus.</string>
+    <string name="together_scan">Scanner un code QR</string>
+    <string name="together_scan_hint">Pointez l\'appareil photo vers le code QR de l\'autre téléphone.</string>
+    <string name="together_scan_refused">Le scan a besoin de l\'appareil photo. Autorisez-le pour InterTune dans les réglages du téléphone, ou tapez le code.</string>
+    <string name="together_propose">Proposer à l\'hôte</string>
+    <string name="together_proposed">Proposé à l\'hôte</string>
+    <string name="together_proposal_title">%1$s propose un titre</string>
+    <string name="together_proposal_play">Le lancer</string>
+    <string name="together_proposal_later">Pas maintenant</string>
+    <plurals name="together_proposal_more">
+        <item quantity="one">Et %1$d autre après lui, de sa file d\'attente.</item>
+        <item quantity="many">Et %1$d autres après lui, de sa file d\'attente.</item>
+        <item quantity="other">Et %1$d autres après lui, de sa file d\'attente.</item>
+    </plurals>
+    <string name="together_removed">%1$s a été retiré. Le salon a un nouveau code.</string>
+    <string name="menu_hidden">Masquées</string>
+    <string name="menu_hidden_hint">Touchez une entrée pour la mettre ici, ou la remettre.</string>
+    <string name="menu_edit_done">Terminé</string>
+    <string name="menu_edit_hide">Masquer</string>
+    <string name="menu_edit_show">Afficher</string>
+    <string name="menu_edit_start">Modifier ce menu</string>
+    <string name="menu_choices_title">Menus à trois points</string>
+    <string name="menu_choices_description">Maintenez une entrée d\'un menu pour choisir ce qu\'il affiche.</string>
+    <string name="menu_choices_show_all">Tout afficher</string>
+    <string name="search_words_menus">menu, trois points, options, masquer, entrées</string>
+    <plurals name="menu_hidden_count">
+        <item quantity="one">%1$d masquée</item>
+        <item quantity="many">%1$d masquées</item>
+        <item quantity="other">%1$d masquées</item>
+    </plurals>
 </resources>

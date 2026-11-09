@@ -13,6 +13,13 @@ import com.dd3boh.outertune.constants.AudioQuality
 import com.dd3boh.outertune.constants.AudioQualityKey
 import com.dd3boh.outertune.constants.BatteryModeKey
 import com.dd3boh.outertune.constants.DownloadOnWifiOnlyKey
+import com.dd3boh.outertune.constants.DownloadBitrate
+import com.dd3boh.outertune.constants.DownloadBitrateKey
+import com.dd3boh.outertune.constants.DownloadFormat
+import com.dd3boh.outertune.constants.DownloadFormatKey
+import com.dd3boh.outertune.constants.DownloadQuality
+import com.dd3boh.outertune.constants.DownloadQualityKey
+import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.constants.DownloadPathKey
 import com.dd3boh.outertune.constants.EnableBetterLyricsKey
 import com.dd3boh.outertune.constants.EnableKugouKey
@@ -103,6 +110,15 @@ object ReportSettings {
         override fun changed(prefs: Preferences) = prefs[ProxyEnabledKey] == true
     }
 
+    /** Download quality (Unreleased.DOWNLOAD_QUALITY): same as playback, or the tier downloads are fetched at. */
+    private object DownloadQualitySpec : Spec("download quality") {
+        override val key: Preferences.Key<*> = DownloadQualityKey
+        override fun shown(prefs: Preferences) =
+            (prefs[DownloadQualityKey] ?: DownloadQuality.SAME.name).let { if (it == DownloadQuality.SAME.name) "same as playback" else it.lowercase() }
+
+        override fun changed(prefs: Preferences) = (prefs[DownloadQualityKey] ?: DownloadQuality.SAME.name) != DownloadQuality.SAME.name
+    }
+
     private val audioQuality = Choice(AudioQualityKey, "audio quality", AudioQuality.AUTO.name)
     private val normalisation = Flag(AudioNormalizationKey, "normalisation", true)
     private val skipSilence = Flag(SkipSilenceKey, "skip silence", false)
@@ -116,6 +132,10 @@ object ReportSettings {
     private val wifiOnly = Flag(DownloadOnWifiOnlyKey, "Wi-Fi only", false)
     private val likedDownload = Choice(LikedAutoDownloadKey, "download liked songs", LikedAutodownloadMode.OFF.name)
     private val downloadFolder = Custom(DownloadPathKey, "download folder", "custom")
+
+    /** File format and Bitrate (Unreleased.DOWNLOAD_FORMATS): what a song file is converted to, the first thing to know when one is the wrong size or will not play. */
+    private val fileFormat = Choice(DownloadFormatKey, "file format", DownloadFormat.ORIGINAL.name)
+    private val bitrate = Choice(DownloadBitrateKey, "bitrate", DownloadBitrate.AUTO.name)
 
     private val kuGou = Flag(EnableKugouKey, "KuGou", true)
     private val lrcLib = Flag(EnableLrcLibKey, "LrcLib", true)
@@ -135,7 +155,7 @@ object ReportSettings {
     /** Each area's settings, in the order they are shown. */
     private val AREAS: Map<Area, List<Spec>> = mapOf(
         Area.PLAYBACK to listOf(audioQuality, normalisation, skipSilence, offload, equalizer, spatial, fade, skipOnError, ProxySpec, battery),
-        Area.DOWNLOADS to listOf(audioQuality, wifiOnly, likedDownload, downloadFolder, ProxySpec, battery),
+        Area.DOWNLOADS to listOfNotNull(audioQuality, DownloadQualitySpec.takeIf { Unreleased.DOWNLOAD_QUALITY }, wifiOnly, likedDownload, downloadFolder, fileFormat.takeIf { Unreleased.DOWNLOAD_FORMATS }, bitrate.takeIf { Unreleased.DOWNLOAD_FORMATS }, ProxySpec, battery),
         Area.LYRICS to listOf(kuGou, lrcLib, betterLyrics, youTubeLyrics, youTubeCaptions, localFirst, trim, sourceOrder),
         Area.RECOGNITION to listOf(keepListening, pauseOnSpeaker, listenSeconds, autoAdd, keepAwake),
         Area.CASTING to listOf(audioQuality, ProxySpec, battery),

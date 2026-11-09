@@ -14,7 +14,8 @@ import androidx.room.PrimaryKey
 /**
  * Something the recommendation rows must not suggest: a song (and its other versions) or an
  * artist, banned, snoozed for a while, or rested automatically after a skip. Touches only the
- * recommendation rows, never search, library, playlists or radio.
+ * recommendation rows, never search, library, playlists or radio, but for a song the listener
+ * chose not to play, which radios and autoplay leave out too (DontPlay).
  */
 @Immutable
 @Entity(tableName = "recommendation_exclusion", indices = [Index(value = ["kind", "targetId"], unique = true)])
@@ -24,7 +25,10 @@ data class RecommendationExclusion(
     val kind: Int,
     val targetId: String,
     val label: String,
-    /** 1 ban, 2 snooze, 3 automatic rest, 4 gone from YouTube (GoneSongs). The strongest reason wins on conflict. */
+    /**
+     * 1 ban, 2 snooze, 3 automatic rest, 4 gone from YouTube (GoneSongs), 5 don't play (DontPlay).
+     * The strongest reason wins on conflict.
+     */
     val reason: Int,
     val createdAt: Long,
     /** Null: until removed. */

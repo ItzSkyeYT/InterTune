@@ -50,7 +50,8 @@ class BlockArtistPlacesTest {
     @Test
     fun `Block artist is the last item of both song menus, and Never this artist is still there`() {
         for (path in listOf("ui/menu/SongMenu.kt", "ui/menu/YouTubeSongMenu.kt")) {
-            val titles = items(grid(path))
+            // A listening room's guest also has Suggest, after it: only in a room, so Block artist keeps its place.
+            val titles = items(grid(path)).filter { it != "together_suggest" }
             assertEquals("$path: $titles", "menu_block_artist", titles.last())
             assertEquals(1, titles.count { it == "menu_block_artist" })
             assertTrue("$path lost Never this artist", "menu_never_artist" in titles)
@@ -79,7 +80,8 @@ class BlockArtistPlacesTest {
         val entry = SETTINGS_INDEX.single { it.title == R.string.blocked_artists }
         assertEquals("settings/library", entry.route)
         val library = File(sources, "ui/screens/settings/LibrarySettings.kt").readText()
-        assertTrue("Modifier.settingRow(R.string.blocked_artists)" in library)
+        // Found by the settings search; What is new marks the same row for its Show me (Tour.SETTING_BLOCKED_ARTISTS).
+        assertTrue(".settingRow(R.string.blocked_artists)" in library)
         assertTrue("settings/library/blocked_artists" in library)
         val nav = File(sources, "ui/navigation/AppNavGraph.kt").readText()
         assertTrue("screen(\"settings/library/blocked_artists\")" in nav)
@@ -127,10 +129,11 @@ class BlockArtistPlacesTest {
     }
 
     @Test
-    fun `its words are held from translators, have their French, and are short and plain`() {
+    fun `its words are open to translators, have their French, and are short and plain`() {
+        // Held until it shipped; on for everyone from 0.13 (his pick of 8 Nov 2026).
         val english = File("src/main/res/values/strings-ot.xml").readText()
         for (name in held) {
-            assertTrue("$name is not held from translators", "<string name=\"$name\" translatable=\"false\">" in english)
+            assertTrue("$name is still held from translators", "<string name=\"$name\">" in english)
             for (folder in listOf("values", "values-fr")) {
                 val words = text(folder, name)
                 assertTrue("$folder $name is missing", words != null)

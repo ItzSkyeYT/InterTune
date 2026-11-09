@@ -34,7 +34,8 @@ class YouTubeQueue(
         }
         endpoint = nextResult.endpoint
         continuation = nextResult.continuation
-        // The song it was started from stays even when it is one the switches hide: it was chosen.
+        // The song it was started from stays even when it is one the switches hide or one not to
+        // play (DontPlay): it was chosen. The others of either kind go.
         val first = nextResult.currentIndex ?: 0
         // And with the AI filter its artists stay for the rest of this queue (AiFilter.forQueue).
         nextResult.items.getOrNull(first)?.let { song -> AiFilter.startedFrom(song.artists.map { it.id }) }
@@ -81,7 +82,8 @@ class YouTubeQueue(
             endpoint = nextResult.endpoint
         }
         continuation = nextResult?.continuation
-        val kept = nextResult?.items?.let(ContentFilter.current::apply) ?: return emptyList()
+        // Every page after the first, the radio's top-up among them: nothing hidden, no song not to play.
+        val kept = nextResult?.items?.let(ContentFilter.current::queue) ?: return emptyList()
         val items = AiFilter.forQueuePages(playlistId).recommendations(kept)
         if (items.size < kept.size) Log.d(TAG, "AI filter: ${kept.size - items.size} of ${kept.size} songs left out of a next page")
         return items.map { it.toMediaMetadata() }

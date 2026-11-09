@@ -34,12 +34,14 @@ class ForkGuardTest {
             "utils/Donors.kt" to "if (!BuiltInKeys.official) return@withContext emptyList()",
             "ui/component/ProblemReportDialog.kt" to "if (BuiltInKeys.official) TextButton(",
             "ui/component/CrashReportDialog.kt" to "if (BuiltInKeys.official) TextButton(",
-            "ui/dialog/SupportDialog.kt" to "if (BuiltInKeys.official) TextButton(onClick = {",
             "utils/ReportRelay.kt" to "if (!BuiltInKeys.official) return@withContext Outcome.Failed(",
             "ui/menu/ShareLinkMenu.kt" to "if (Unreleased.SHARE_PAGE && BuiltInKeys.official) chosen else ShareLinkKind.YOUTUBE_MUSIC",
             "ui/screens/settings/fragments/PlayerFrag.kt" to "HEAD_TRACKING_ISSUE).takeIf { BuiltInKeys.official }",
         )
         for ((path, line) in guarded) assertTrue("$path is not guarded", read(path).contains(line))
+        // About > Support InterTune: InterTune's Ko-fi and server (8 Nov 2026), both inside one guard.
+        val support = read("ui/dialog/SupportDialog.kt").substringAfter("if (BuiltInKeys.official) {").substringBefore("if (donors.isNotEmpty())")
+        for (link in listOf("Links.KOFI", "Links.DISCORD")) assertTrue("$link is not inside the Support note's guard", link in support)
         val about = read("ui/screens/settings/AboutScreen.kt")
         val community = about.substringAfter("if (BuiltInKeys.official) {").substringBefore("help_contact_email_inquiries")
         for (link in listOf("Links.DISCUSSIONS", "Links.DISCORD", "Links.TRANSLATE")) {

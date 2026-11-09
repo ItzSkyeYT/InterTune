@@ -26,7 +26,7 @@ import java.io.File
  */
 class ReleasedFlagsTest {
 
-    /** On in every build, and so in a release. The second line went on for 0.11.5, the third on 14 Oct, the fourth for 0.12, the fifth for 0.12.1, the sixth for 0.12.5 (its last four picked on 26 Oct 2026). */
+    /** On in every build, and so in a release. The second line went on for 0.11.5, the third on 14 Oct, the fourth for 0.12, the fifth for 0.12.1, the sixth for 0.12.5 (its last four picked on 26 Oct 2026), the eighth for 0.13 (picked on 8 Nov 2026). */
     private val inEveryBuild = setOf(
         "ENGINE", "SHORT_SETUP", "LOGIN_RETURNS",
         "STAND_INS", "VISIONOS_IDENTITIES", "WEB_FALLBACK", "LANDSCAPE", "EXPLAIN_PICTURES", "LIBRARY_IMPORT",
@@ -35,6 +35,7 @@ class ReleasedFlagsTest {
         "PREVIOUS_LOGS",
         "SABR_RUNG", "SHARE_PAGE", "SABR_AHEAD", "PLAY_NEXT_STAYS", "SETTINGS_SEARCH", "BATTERY_MODES",
         "REPORT_RELAY", "REPORT_FILE",
+        "ARTIST_BLOCK", "SAVED_TWICE", "LIKED_SYNC", "ENDLESS_QUEUE", "RECOGNISE_OFFLINE", "ANIMATIONS_SWITCH",
     )
 
     private val sources = File("src/main/java/com/dd3boh/outertune")

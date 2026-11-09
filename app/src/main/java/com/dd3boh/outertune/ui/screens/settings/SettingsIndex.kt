@@ -19,6 +19,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.ENABLE_FFMETADATAEX
 import com.dd3boh.outertune.constants.Unreleased
+import com.dd3boh.outertune.ui.dialog.togetherAvailable
 import com.dd3boh.outertune.ui.screens.walkthrough.Tour
 import com.dd3boh.outertune.ui.screens.walkthrough.TourTargets
 import java.text.Normalizer
@@ -136,6 +137,7 @@ val SETTINGS_INDEX: List<SettingEntry> = listOf(
     SettingEntry(Tour.ROUTE_LOOK_AND_FEEL, R.string.default_open_tab, words = listOf(R.string.search_words_start_tab)),
     SettingEntry(Tour.ROUTE_LOOK_AND_FEEL, R.string.slim_navbar_title, R.string.slim_navbar_description),
     SettingEntry(Tour.ROUTE_LOOK_AND_FEEL, R.string.tablet_ui_title, R.string.tablet_ui_title_description, words = listOf(R.string.search_words_tablet)),
+    SettingEntry(Tour.ROUTE_LOOK_AND_FEEL, R.string.menu_choices_title, R.string.menu_choices_description, words = listOf(R.string.search_words_menus), there = Unreleased.MENU_CHOICES),
     SettingEntry(Tour.ROUTE_LOOK_AND_FEEL, R.string.swipe2Queue, R.string.swipe2Queue_description, words = listOf(R.string.search_words_gesture)),
     SettingEntry(Tour.ROUTE_LOOK_AND_FEEL, R.string.swipe_to_skip_title, R.string.swipe_to_skip_description, words = listOf(R.string.search_words_gesture)),
     SettingEntry(Tour.ROUTE_LOOK_AND_FEEL, R.string.swipe_to_dismiss_player, R.string.swipe_to_dismiss_player_description, words = listOf(R.string.search_words_gesture)),
@@ -211,12 +213,18 @@ val SETTINGS_INDEX: List<SettingEntry> = listOf(
     SettingEntry(Tour.ROUTE_LYRICS, R.string.lyrics_karaoke_title, R.string.lyrics_karaoke_description, fold = R.string.advanced),
     SettingEntry(Tour.ROUTE_LYRICS, R.string.lyrics_karaoke_hz_title, fold = R.string.advanced),
 
+    // Listen together, where rooms are offered
+    SettingEntry("settings/together", R.string.together_name_setting, there = togetherAvailable),
+
     // Storage and downloads
     SettingEntry(Tour.ROUTE_STORAGE, R.string.download_on_wifi_only_title, R.string.download_on_wifi_only_description, words = listOf(R.string.search_words_mobile_data)),
+    SettingEntry(Tour.ROUTE_STORAGE, R.string.download_quality, words = listOf(R.string.search_words_audio_quality), there = Unreleased.DOWNLOAD_QUALITY),
     SettingEntry(Tour.ROUTE_STORAGE, R.string.like_autodownload, words = listOf(R.string.search_words_offline)),
     SettingEntry(Tour.ROUTE_STORAGE, R.string.liked_autodownload_backfill_title, under = R.string.like_autodownload, words = listOf(R.string.search_words_offline)),
     SettingEntry(Tour.ROUTE_STORAGE, R.string.liked_download_sync, R.string.liked_download_sync_description, under = R.string.like_autodownload, there = Unreleased.LIKED_SYNC),
     SettingEntry(Tour.ROUTE_STORAGE, R.string.dl_main_path_title, words = listOf(R.string.search_words_download_folder)),
+    SettingEntry(Tour.ROUTE_STORAGE, R.string.download_format, words = listOf(R.string.search_words_download_format), there = Unreleased.DOWNLOAD_FORMATS),
+    SettingEntry(Tour.ROUTE_STORAGE, R.string.download_bitrate, under = R.string.download_format, words = listOf(R.string.search_words_audio_quality), there = Unreleased.DOWNLOAD_FORMATS),
     SettingEntry(Tour.ROUTE_STORAGE, R.string.clear_all_downloads),
     SettingEntry(Tour.ROUTE_STORAGE, R.string.dl_extra_path_title, R.string.dl_extra_path_description, fold = R.string.advanced),
     SettingEntry(Tour.ROUTE_STORAGE, R.string.dl_rescan_title, R.string.dl_rescan_description, fold = R.string.advanced),

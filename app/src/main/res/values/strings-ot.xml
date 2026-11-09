@@ -70,6 +70,10 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="auto_more_recent_line">Pick up where you left off</string>
     <string name="auto_more_shuffle_library">Shuffle my library</string>
     <string name="auto_more_shuffle_line">Everything you saved, mixed</string>
+    <!-- The last row of a search in the car when YouTube Music gave nothing back: why, then what a tap does (it searches again). -->
+    <string name="auto_search_offline">No internet on the phone</string>
+    <string name="auto_search_no_answer">YouTube Music did not answer</string>
+    <string name="auto_search_again">Tap to search again</string>
     <string name="auto_settings_sound">Sound</string>
     <string name="auto_settings_playback">Playback</string>
     <string name="auto_level_line">Even out the volume</string>
@@ -1984,9 +1988,13 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="history_address_check" translatable="false">Check the history address</string>
     <string name="history_address_check_description" translatable="false">Asks YouTube where a play of the song now playing would be reported, as your account and as a visitor, and shows what came back. Nothing is reported.</string>
     <string name="history_address_check_asking" translatable="false">Asking YouTube</string>
+    <string name="premium_check" translatable="false">Check Premium formats</string>
+    <string name="premium_check_description" translatable="false">Asks YouTube, as your account, which audio streams it offers for the song now playing. A Premium account may get 256 kbps.</string>
     <string name="stats_nothing_played">Nothing was played in this period.</string>
     <string name="sort_order_ascending">Ascending order</string>
     <string name="sort_order_descending">Descending order</string>
+    <string name="folder_order_a_to_z">Folders from A to Z</string>
+    <string name="folder_order_z_to_a">Folders from Z to A</string>
     <string name="home_play_at_random">Play something at random</string>
     <string name="view_as_list">Shown as a list</string>
     <string name="view_as_grid">Shown as a grid</string>
@@ -2177,9 +2185,10 @@ while also allowing users to translate our app as well. New, specific strings to
     </plurals>
     <string name="queue_from_search">“%1$s”</string>
     <string name="support_title">Support InterTune</string>
-    <string name="support_text">InterTune is free and has no ads. If you would like to donate, send the developer a direct message on the InterTune Discord server.</string>
+    <string name="support_text">InterTune is free and has no ads. To give something back, use InterTune\'s Ko-fi and say in your message if you want your name here. For crypto, message the developer on Discord.</string>
     <string name="support_thanks">Thanks to those who already gave:</string>
     <string name="support_discord">Open Discord</string>
+    <string name="support_kofi">Donate on Ko-fi</string>
     <plurals name="list_queued_here">
         <item quantity="one">%1$d song added to the end of this queue</item>
         <item quantity="other">%1$d songs added to the end of this queue</item>
@@ -2331,6 +2340,10 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="signal_wired">Wired headphones</string>
     <string name="signal_other_output">Another device</string>
     <string name="signal_volume">Phone volume</string>
+    <string name="signal_receiver">%1$s, %2$s</string>
+    <string name="signal_receiver_rate">%1$s, %2$s, %3$s kHz</string>
+    <string name="signal_not_on_receiver">Not on this receiver, which gets the song as it is</string>
+    <string name="signal_not_while_casting">Not while casting</string>
     <string name="signal_percent">%1$d%%</string>
     <string name="signal_legend_untouched">Untouched</string>
     <string name="signal_legend_changed">Changed by a setting you chose</string>
@@ -2343,65 +2356,65 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="player_pin_lyrics">Lyrics</string>
     <string name="player_pins_reset">Reset to default</string>
     <!-- Saved twice (issue #47, Unreleased.SAVED_TWICE): held back from translators until his yes on the words, their French beside them in values-fr. The place in each is the list the screen was opened from. -->
-    <string name="saved_twice" translatable="false">Saved twice</string>
+    <string name="saved_twice">Saved twice</string>
     <!-- For a screen reader: the round button beside Play and Shuffle, and the number on it. -->
-    <plurals name="saved_twice_button" translatable="false">
+    <plurals name="saved_twice_button">
         <item quantity="one">%1$d song saved twice</item>
         <item quantity="other">%1$d songs saved twice</item>
     </plurals>
-    <plurals name="saved_twice_intro_liked" translatable="false">
+    <plurals name="saved_twice_intro_liked">
         <item quantity="one">%1$d song is in Liked more than once. Pick the one to keep.</item>
         <item quantity="other">%1$d songs are in Liked more than once. Pick the one to keep.</item>
     </plurals>
-    <plurals name="saved_twice_intro_library" translatable="false">
+    <plurals name="saved_twice_intro_library">
         <item quantity="one">%1$d song is in your library more than once. Pick the one to keep.</item>
         <item quantity="other">%1$d songs are in your library more than once. Pick the one to keep.</item>
     </plurals>
     <!-- %2$s is the playlist's name. -->
-    <plurals name="saved_twice_intro_playlist" translatable="false">
+    <plurals name="saved_twice_intro_playlist">
         <item quantity="one">%1$d song is in %2$s more than once. Pick the one to keep.</item>
         <item quantity="other">%1$d songs are in %2$s more than once. Pick the one to keep.</item>
     </plurals>
     <!-- Under the copy that stays. -->
-    <string name="saved_twice_keep" translatable="false">Keep</string>
+    <string name="saved_twice_keep">Keep</string>
     <!-- Under each copy that goes. %1$s is the playlist's name. -->
-    <string name="saved_twice_out_liked" translatable="false">Take out of Liked</string>
-    <string name="saved_twice_out_library" translatable="false">Take out of your library</string>
-    <string name="saved_twice_out_playlist" translatable="false">Take out of %1$s</string>
+    <string name="saved_twice_out_liked">Take out of Liked</string>
+    <string name="saved_twice_out_library">Take out of your library</string>
+    <string name="saved_twice_out_playlist">Take out of %1$s</string>
     <!-- The button at the bottom. %2$s is the playlist's name. -->
-    <plurals name="saved_twice_take_liked" translatable="false">
+    <plurals name="saved_twice_take_liked">
         <item quantity="one">Take %1$d copy out of Liked</item>
         <item quantity="other">Take %1$d copies out of Liked</item>
     </plurals>
-    <plurals name="saved_twice_take_library" translatable="false">
+    <plurals name="saved_twice_take_library">
         <item quantity="one">Take %1$d copy out of your library</item>
         <item quantity="other">Take %1$d copies out of your library</item>
     </plurals>
-    <plurals name="saved_twice_take_playlist" translatable="false">
+    <plurals name="saved_twice_take_playlist">
         <item quantity="one">Take %1$d copy out of %2$s</item>
         <item quantity="other">Take %1$d copies out of %2$s</item>
     </plurals>
-    <string name="saved_twice_note" translatable="false">Nothing is deleted from your phone, and Undo brings them back.</string>
+    <string name="saved_twice_note">Nothing is deleted from your phone, and Undo brings them back.</string>
     <!-- Said once the button is tapped, with Undo beside it. %2$s is the playlist's name. -->
-    <plurals name="saved_twice_done_liked" translatable="false">
+    <plurals name="saved_twice_done_liked">
         <item quantity="one">%1$d copy taken out of Liked</item>
         <item quantity="other">%1$d copies taken out of Liked</item>
     </plurals>
-    <plurals name="saved_twice_done_library" translatable="false">
+    <plurals name="saved_twice_done_library">
         <item quantity="one">%1$d copy taken out of your library</item>
         <item quantity="other">%1$d copies taken out of your library</item>
     </plurals>
-    <plurals name="saved_twice_done_playlist" translatable="false">
+    <plurals name="saved_twice_done_playlist">
         <item quantity="one">%1$d copy taken out of %2$s</item>
         <item quantity="other">%1$d copies taken out of %2$s</item>
     </plurals>
     <!-- What a copy is, first on its line: "Song · Riot! · 3:31", "Music video · 3:42", a file on the phone. -->
-    <string name="saved_twice_song" translatable="false">Song</string>
-    <string name="saved_twice_music_video" translatable="false">Music video</string>
-    <string name="saved_twice_file" translatable="false">File</string>
+    <string name="saved_twice_song">Song</string>
+    <string name="saved_twice_music_video">Music video</string>
+    <string name="saved_twice_file">File</string>
     <!-- An album that is the song's single: "Houdini (single)". -->
-    <string name="saved_twice_single" translatable="false">%1$s (single)</string>
-    <string name="saved_twice_none" translatable="false">Nothing in here is saved twice.</string>
+    <string name="saved_twice_single">%1$s (single)</string>
+    <string name="saved_twice_none">Nothing in here is saved twice.</string>
     <!-- #68: where YouTube Music has no free plan (South Korea), on Home, above search results and on an album that did not load. -->
     <string name="region_note_title">YouTube Music in South Korea</string>
     <string name="region_note_body">YouTube Music has no free plan in South Korea, so YouTube shows songs, albums and mixes there only to Premium members. Songs in your playlists still play, and search still finds videos. A Premium account, or a VPN or proxy outside Korea, brings the rest back.</string>
@@ -2427,18 +2440,18 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="proxy_not_used_at_start" translatable="false">No proxy is in use: its address could not be read.</string>
     <string name="sync_progress_busy" translatable="false">A sync is already running. Its changes show up when it ends.</string>
     <!-- What's playing with no connection (issue #48, RecogniseLater, Unreleased.RECOGNISE_OFFLINE): a listen kept to be named once the phone is back online. Held back from translators until the words are agreed, the French beside them in values-fr. -->
-    <string name="recognise_later_kept" translatable="false">No connection. It kept what it heard and will name the song once you are back online.</string>
-    <string name="recognise_later_keeping" translatable="false">No connection. Keeping what it hears for later</string>
-    <string name="recognise_later_waiting" translatable="false">Waiting for a connection</string>
-    <string name="recognise_later_channel" translatable="false">Songs heard offline</string>
-    <plurals name="recognise_later_named" translatable="false">
+    <string name="recognise_later_kept">No connection. It kept what it heard and will name the song once you are back online.</string>
+    <string name="recognise_later_keeping">No connection. Keeping what it hears for later</string>
+    <string name="recognise_later_waiting">Waiting for a connection</string>
+    <string name="recognise_later_channel">Songs heard offline</string>
+    <plurals name="recognise_later_named">
         <item quantity="one">Found the song you heard offline</item>
         <item quantity="other">Found %1$d songs you heard offline</item>
     </plurals>
-    <string name="recognise_later_none" translatable="false">Nothing found for what you heard offline</string>
+    <string name="recognise_later_none">Nothing found for what you heard offline</string>
     <!-- Liked songs kept in sync with their downloads (issue #64, Unreleased.LIKED_SYNC): held from translators until he says. -->
-    <string name="liked_download_sync" translatable="false">Remove the download with the like</string>
-    <string name="liked_download_sync_description" translatable="false">Only songs this setting downloaded. A song you downloaded yourself stays.</string>
+    <string name="liked_download_sync">Remove the download with the like</string>
+    <string name="liked_download_sync_description">Only songs this setting downloaded. A song you downloaded yourself stays.</string>
     <!-- Playlist cover (PlaylistCovers, PlaylistCoverSheet, Unreleased.PLAYLIST_COVER): the choice in Edit playlist and in the sheet that opens from it and from the cover in a playlist's header. Held from translators until the words are agreed, their French beside them in values-fr. -->
     <string name="playlist_cover_change" translatable="false">Change cover</string>
     <string name="playlist_cover_title" translatable="false">Playlist cover</string>
@@ -2448,24 +2461,33 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="playlist_cover_photo" translatable="false">A photo</string>
     <string name="playlist_cover_photo_note" translatable="false">From your phone</string>
     <string name="playlist_cover_songs" translatable="false">A song from this playlist</string>
-    <!-- Block artist (ArtistBlock, Unreleased.ARTIST_BLOCK): the last item of the song menus, the first button of an artist page's pill, Settings > Library and content > Blocked artists, and the line a search for a blocked artist shows. Held from translators until the words are agreed, their French beside them in values-fr. %1$s is the artist's name. -->
-    <string name="menu_block_artist" translatable="false">Block artist</string>
-    <string name="block_artist_which" translatable="false">Block which artist?</string>
-    <string name="block_artist_title" translatable="false">Block %1$s?</string>
-    <string name="block_artist_body" translatable="false">Their songs, albums and face disappear from InterTune: search, Home, radios, your library and playlists. Their songs are skipped. Unblock any time in Settings &gt; Library and content &gt; Blocked artists.</string>
-    <string name="block_artist_confirm" translatable="false">Block</string>
-    <string name="unblock" translatable="false">Unblock</string>
-    <string name="blocked_artists" translatable="false">Blocked artists</string>
-    <string name="blocked_artists_none" translatable="false">None</string>
-    <string name="blocked_artists_intro" translatable="false">Blocked artists are gone from search, Home, radios, your library and playlists, and their songs are skipped.</string>
-    <string name="blocked_artists_add" translatable="false">Add an artist</string>
-    <string name="blocked_artists_not_found" translatable="false">No artist found.</string>
-    <string name="blocked_today" translatable="false">Blocked today</string>
-    <string name="blocked_on" translatable="false">Blocked %1$s</string>
-    <string name="unblocked" translatable="false">%1$s unblocked</string>
-    <string name="blocked_search_note" translatable="false">%1$s is blocked, so nothing of theirs shows.</string>
-    <string name="blocked_song_skipped" translatable="false">%1$s is blocked, so their song was skipped.</string>
-    <string name="blocked_songs_left" translatable="false">The songs left are all by blocked artists, so the music stopped.</string>
+    <!-- Block artist (ArtistBlock, Unreleased.ARTIST_BLOCK): the last item of the song menus, the first button of an artist page's pill, Settings > Library and content > Blocked artists, and the line a search for a blocked artist shows. Open to translators, as it is on for everyone from 0.13 (picked on 8 Nov 2026), their French beside them in values-fr. %1$s is the artist's name. -->
+    <string name="menu_block_artist">Block artist</string>
+    <string name="block_artist_which">Block which artist?</string>
+    <string name="block_artist_title">Block %1$s?</string>
+    <string name="block_artist_body">Their songs, albums and face disappear from InterTune: search, Home, radios, your library and playlists. Their songs are skipped. Unblock any time in Settings &gt; Library and content &gt; Blocked artists.</string>
+    <string name="block_artist_confirm">Block</string>
+    <string name="unblock">Unblock</string>
+    <string name="blocked_artists">Blocked artists</string>
+    <string name="blocked_artists_none">None</string>
+    <string name="blocked_artists_intro">Blocked artists are gone from search, Home, radios, your library and playlists, and their songs are skipped.</string>
+    <string name="blocked_artists_add">Add an artist</string>
+    <string name="blocked_artists_not_found">No artist found.</string>
+    <string name="blocked_today">Blocked today</string>
+    <string name="blocked_on">Blocked %1$s</string>
+    <string name="unblocked">%1$s unblocked</string>
+    <string name="blocked_search_note">%1$s is blocked, so nothing of theirs shows.</string>
+    <string name="blocked_song_skipped">%1$s is blocked, so their song was skipped.</string>
+    <string name="blocked_songs_left">The songs left are all by blocked artists, so the music stopped.</string>
+    <!-- Don't play this song (DontPlay, Unreleased.ARTIST_BLOCK), the song half of Block artist (#78): an item of the song menus beside Block artist and of the player's menu, its twin for a song set so, the lines said when it acts, and its reason and note in Settings > Recommendations > Exclusions. Open to translators, as it is on for everyone from 0.13 (picked on 8 Nov 2026), their French beside them in values-fr. %1$s is the song's title. -->
+    <string name="menu_dont_play_song">Don\'t play this song</string>
+    <string name="menu_dont_play_lift">Allow this song again</string>
+    <string name="dont_play_done">From now on it plays only when you pick it.</string>
+    <string name="dont_play_lifted">It plays like any other song again.</string>
+    <string name="dont_play_skipped">Skipped a song you chose not to play: “%1$s”</string>
+    <string name="dont_play_songs_left">The songs left are ones you chose not to play, so the music stopped.</string>
+    <string name="exclusion_reason_dont_play">Don\'t play this song</string>
+    <string name="exclusions_dont_play_note">Don\'t play this song goes further: the song stays out of radios and autoplay, and plays only when you pick it.</string>
     <!-- The settings search's words for Blocked artists: open to translators, as every search word is (SettingsSearchTest). -->
     <string name="search_words_blocked_artists">ban, hide, mute, blocklist</string>
     <!-- The crash page when the update check has already found a newer version (CrashReportDialog, the dead-ends audit 1.10): held from translators until his go. -->
@@ -2476,6 +2498,82 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="problem_report_share_file" translatable="false">Share as a file</string>
     <!-- Downloads saved as song files (SongFiles, Unreleased.DOWNLOAD_FILES), after the folder's warning: held from translators until his go. -->
     <string name="dl_song_files_note" translatable="false">Songs are saved as Opus or M4A files with their title, artist and cover, so other apps and cars can play them.</string>
+    <!-- Download quality (DownloadsFrag, Unreleased.DOWNLOAD_QUALITY): the row's title, the choice that follows Audio quality, and the line under the row. The other three choices are the Audio quality ones (audio_quality_max, _high, _low). Held from translators until the setting ships. -->
+    <string name="download_quality" translatable="false">Download quality</string>
+    <string name="download_quality_same" translatable="false">Same as playback</string>
+    <string name="download_quality_description" translatable="false">Better quality takes more space. Songs you already downloaded stay as they are.</string>
+    <!-- File format and Bitrate (DownloadsFrag, Unreleased.DOWNLOAD_FORMATS), under the download folder: the row titles, Original's name, Bitrate's choices and the notes under the rows. MP3, M4A (AAC), FLAC and WAV are named in the row itself. Held from translators until the setting ships. -->
+    <string name="download_format" translatable="false">File format</string>
+    <string name="download_format_original" translatable="false">Original</string>
+    <string name="download_format_description" translatable="false">Original keeps the best quality. Other formats are converted on the phone after the download.</string>
+    <string name="download_bitrate" translatable="false">Bitrate</string>
+    <string name="download_bitrate_auto" translatable="false">Auto</string>
+    <string name="download_bitrate_kbps" translatable="false">%1$d kbps</string>
+    <string name="download_bitrate_description" translatable="false">Auto fits each song to what YouTube sent. Converting cannot add quality YouTube did not send.</string>
+    <string name="download_bitrate_aac_kept" translatable="false">Songs YouTube sent as AAC are kept as they are.</string>
+    <!-- Converting songs (ConvertNotice, Unreleased.DOWNLOAD_FORMATS): the notice while it runs and the line that stays when some songs could not be converted. Held from translators until the setting ships. -->
+    <string name="convert_notice_title" translatable="false">Converting to %1$s</string>
+    <string name="convert_notice_text" translatable="false">%1$d of %2$d</string>
+    <string name="convert_fallback_title" translatable="false">Some songs were not converted</string>
+    <plurals name="convert_fallback_text" translatable="false">
+        <item quantity="one">%1$d song could not be converted and was saved as it came.</item>
+        <item quantity="other">%1$d songs could not be converted and were saved as they came.</item>
+    </plurals>
+    <!-- The settings search's words for File format: open to translators, as every search word is (SettingsSearchTest). -->
+    <string name="search_words_download_format">mp3, flac, wav, aac, m4a, convert, format, file type</string>
+    <!-- Export to folder (ExportSheet, Unreleased.DOWNLOAD_FORMATS): the menu entry, the sheet, the line it ends with and the songs it names. Held from translators until the setting ships. -->
+    <string name="export_to_folder" translatable="false">Export to folder</string>
+    <string name="export_note" translatable="false">Only songs that are on the phone are exported.</string>
+    <string name="export_folder" translatable="false">Folder</string>
+    <string name="export_folder_none" translatable="false">Choose a folder</string>
+    <string name="export_action" translatable="false">Export</string>
+    <string name="export_progress" translatable="false">Exporting %1$d of %2$d</string>
+    <string name="export_done_title" translatable="false">Export finished</string>
+    <string name="export_stopped_title" translatable="false">Export stopped</string>
+    <string name="export_names_more" translatable="false">%1$s and %2$d more</string>
+    <plurals name="export_exported" translatable="false">
+        <item quantity="one">%1$d song exported</item>
+        <item quantity="other">%1$d songs exported</item>
+    </plurals>
+    <plurals name="export_skipped_not_downloaded" translatable="false">
+        <item quantity="one">%1$d skipped: not downloaded</item>
+        <item quantity="other">%1$d skipped: not downloaded</item>
+    </plurals>
+    <plurals name="export_skipped_there" translatable="false">
+        <item quantity="one">%1$d skipped: already in the folder</item>
+        <item quantity="other">%1$d skipped: already in the folder</item>
+    </plurals>
+    <plurals name="export_skipped_local" translatable="false">
+        <item quantity="one">%1$d skipped: a file on the phone already</item>
+        <item quantity="other">%1$d skipped: files on the phone already</item>
+    </plurals>
+    <plurals name="export_failed" translatable="false">
+        <item quantity="one">%1$d could not be converted</item>
+        <item quantity="other">%1$d could not be converted</item>
+    </plurals>
+    <!-- What's new in 0.13 (Walkthrough.kt, V0_13): held from translators until the words are agreed. -->
+    <string name="new_block_artist_title" translatable="false">Block an artist</string>
+    <string name="new_block_artist_body" translatable="false">Block artist, in a song\'s menu or on their page, takes their songs, albums and picture out of InterTune.</string>
+    <string name="new_block_artist_way" translatable="false">The artists you blocked are listed in here.</string>
+    <string name="new_block_artist_here" translatable="false">Everyone you blocked, to unblock them or to block an artist by name.</string>
+    <string name="new_dont_play_title" translatable="false">Keep a song from playing</string>
+    <string name="new_dont_play_body" translatable="false">Don\'t play this song, in a song\'s menu, keeps it out of radios and autoplay, other uploads of it included. It still plays when you pick it yourself.</string>
+    <string name="new_saved_twice_title" translatable="false">Find songs saved twice</string>
+    <string name="new_saved_twice_body" translatable="false">When Liked songs, your library or a playlist holds a song more than once, a round button with a count shows beside Play and Shuffle. Tap it to keep one copy of each.</string>
+    <string name="new_liked_sync_title" translatable="false">Unliking can remove the download</string>
+    <string name="new_liked_sync_body" translatable="false">If your liked songs download themselves, unliking one can now remove its download. Songs you downloaded yourself stay.</string>
+    <string name="new_liked_sync_way" translatable="false">Downloads and the space they take are set in here.</string>
+    <string name="new_liked_sync_here" translatable="false">On, unliking a song removes the download made for it. It works while liked songs download themselves.</string>
+    <string name="new_album_goes_on_title" translatable="false">Albums go on after their last song</string>
+    <string name="new_album_goes_on_body" translatable="false">With Auto load more songs on, an album that ends carries on with a radio from its last song, as in YouTube Music.</string>
+    <string name="new_album_goes_on_way" translatable="false">How the queue goes on at its end is set in here.</string>
+    <string name="new_album_goes_on_here" translatable="false">On, an album that ends goes on with a radio from its last song.</string>
+    <string name="new_recognise_offline_title" translatable="false">Song recognition works offline</string>
+    <string name="new_recognise_offline_body" translatable="false">With no connection, What\'s playing? keeps what it heard and names the songs once the phone is back online. They wait in What you have heard.</string>
+    <string name="new_animations_title" translatable="false">Turn the animations off</string>
+    <string name="new_animations_body" translatable="false">A switch in Look and feel turns the app\'s animations off: screens change at once and backgrounds stand still. Easier on older phones.</string>
+    <string name="new_animations_way" translatable="false">How the app looks and moves is set in here.</string>
+    <string name="new_animations_here" translatable="false">Android\'s own Remove animations turns them off here too, and greys this switch out.</string>
     <!-- What's new in 0.12.8 (Walkthrough.kt, V0_12_8): held from translators until his go. -->
     <string name="new_report_send_title" translatable="false">Send a report to InterTune</string>
     <string name="new_report_send_body" translatable="false">Report a problem can now send the report to InterTune itself, no GitHub account needed. Or share it as a file to post on Discord.</string>
@@ -2506,10 +2604,10 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="backup_part_signins_warning" translatable="false">Anyone with this file could use these accounts.</string>
     <string name="backup_parts_confirm" translatable="false">Back up</string>
     <!-- The Animations switch, first row of Look and feel (Animations, his yes of 4 Nov 2026): held from translators until his go, their French beside them in values-fr. -->
-    <string name="animations_title" translatable="false">Animations</string>
-    <string name="animations_description" translatable="false">When off, screens change at once and backgrounds stand still. Easier on older phones.</string>
-    <string name="animations_held_note" translatable="false">Off while animations are off in Android\'s settings.</string>
-    <string name="living_blur_still_switch" translatable="false">Stands still while \"Animations\" is off, at the top of this page.</string>
+    <string name="animations_title">Animations</string>
+    <string name="animations_description">When off, screens change at once and backgrounds stand still. Easier on older phones.</string>
+    <string name="animations_held_note">Off while animations are off in Android\'s settings.</string>
+    <string name="living_blur_still_switch">Stands still while \"Animations\" is off, at the top of this page.</string>
     <!-- The settings search's words for Animations: open to translators, as every search word is (SettingsSearchTest). -->
     <string name="search_words_animations">motion, transitions, effects, slow phone, lag</string>
     <!-- Settings > Widgets (WidgetsSettings, Unreleased.WIDGETS_PAGE): its row in Settings, its parts, All options' lines for each style, Add, and the note where the home screen takes no widget from an app. Held from translators until his go, their French beside them in values-fr. widgets_cells is a widget's size in cells, figures and a sign: nothing to translate. -->
@@ -2546,4 +2644,96 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="version_card_number" translatable="false">No.</string>
     <!-- The notification a headset or widget press shows for the moment between the app starting and the song's own notification (MediaButtonStart, issue #98). Held for translators. -->
     <string name="media_button_resuming" translatable="false">Resuming your queue</string>
+    <!-- Listen together (TogetherDialog), step 1, debug and Preview builds. -->
+    <string name="together_title">Listen together</string>
+    <string name="together_intro">Start a room and share its code, or type the code of a friend\'s room. Everyone hears what the host plays, each phone playing it from YouTube.</string>
+    <string name="together_start">Start a room</string>
+    <string name="together_code">Room code</string>
+    <string name="together_join">Join</string>
+    <string name="together_copy">Copy</string>
+    <string name="together_waiting">Waiting for the host</string>
+    <string name="together_following">Following the host</string>
+    <string name="together_in_step">In step, %1$d ms apart</string>
+    <string name="together_catching_up">Catching up, %1$d ms apart</string>
+    <string name="together_leave">Leave</string>
+    <string name="together_join_title">Join this listening room?</string>
+    <string name="together_share">Share</string>
+    <string name="together_invite_text">Listen with me on InterTune: room %1$s. Open %2$s, or type the code under Listen together in the player\'s menu.</string>
+    <string name="together_own_way">Playing on your own</string>
+    <string name="together_catch_up">Catch up</string>
+    <string name="together_suggest">Play next in the room</string>
+    <string name="together_suggested">Sent to the host</string>
+    <string name="together_from_guest">%1$s suggested %2$s: it plays next</string>
+    <string name="together_last_suggestion">Last from a guest: %1$s</string>
+    <string name="together_live_hosting">You\'re hosting</string>
+    <string name="together_live_guest">You joined a room</string>
+    <string name="together_relays_of">Connected to %1$d of %2$d relays</string>
+    <string name="together_connecting">Connecting to the relays</string>
+    <string name="together_or_join">or join one</string>
+    <string name="together_paste">Paste</string>
+    <string name="together_copied">Code copied</string>
+    <string name="together_playing">Playing in the room</string>
+    <string name="together_people">In the room</string>
+    <string name="together_you">You</string>
+    <string name="together_host">Host</string>
+    <string name="together_behind">Behind</string>
+    <string name="together_ahead">Ahead</string>
+    <string name="together_nothing_playing">Nothing playing yet</string>
+    <string name="together_suggest_hint">To suggest a song, long-press it and choose Play next in the room.</string>
+    <string name="together_you_control">You have control</string>
+    <string name="together_has_control">%1$s has control</string>
+    <string name="together_take_back">Take back control</string>
+    <string name="together_give_control">Give control</string>
+    <string name="together_kick">Remove from the room</string>
+    <string name="together_kicked">You were removed from the room</string>
+    <string name="together_closed">The room was closed</string>
+    <string name="together_close_room">Close the room</string>
+    <string name="together_paused_here">Paused here. Press play to go back to where the room is.</string>
+    <string name="together_in_room">In a room</string>
+    <string name="settings_together_description">Your name in rooms, and how closely phones keep in step</string>
+    <string name="together_settings_you">You</string>
+    <string name="together_settings_step">Keeping in step</string>
+    <string name="together_name_setting">Your name in rooms</string>
+    <string name="together_tolerance">Allowed gap</string>
+    <string name="together_tolerance_value">%1$d ms</string>
+    <string name="together_tolerance_explain">Once in step, the phones are left alone until they drift further apart than this. Lower keeps them closer, higher corrects less often.</string>
+    <string name="together_catch_up_speed">Catch-up speed</string>
+    <string name="together_catch_up_value">Up to %1$d%% faster or slower</string>
+    <string name="together_catch_up_explain">How much a phone speeds up or slows down to get back in step. Higher is quicker, but easier to hear.</string>
+    <string name="together_delay">Sound delay on this phone</string>
+    <string name="together_delay_value">%1$d ms</string>
+    <string name="together_delay_explain">Bluetooth headphones and speakers play late. Set how late, and this phone makes up for it in rooms.</string>
+    <string name="together_qr">QR code</string>
+    <string name="together_qr_title">Scan to join</string>
+    <string name="together_qr_hint">Point the other phone\'s camera at this. It opens the room in InterTune.</string>
+    <string name="together_close_room_title">Close the room?</string>
+    <string name="together_close_room_text">Everyone in it leaves, and its code stops working.</string>
+    <string name="together_scan">Scan a QR code</string>
+    <string name="together_scan_hint">Point the camera at the QR code on the other phone.</string>
+    <string name="together_scan_refused">Scanning needs the camera. Allow it for InterTune in the phone\'s settings, or type the code.</string>
+    <string name="together_propose">Propose to the host</string>
+    <string name="together_proposed">Proposed to the host</string>
+    <string name="together_proposal_title">%1$s proposes a song</string>
+    <string name="together_proposal_play">Play it</string>
+    <string name="together_proposal_later">Not now</string>
+    <plurals name="together_proposal_more">
+        <item quantity="one">And %1$d more after it, from their queue.</item>
+        <item quantity="other">And %1$d more after it, from their queue.</item>
+    </plurals>
+    <string name="together_removed">%1$s was removed. The room has a new code.</string>
+    <!-- Choose what's in the three-dot menus (MENU_CHOICES): a menu being edited, and the line under a trimmed one. Held from translators. -->
+    <string name="menu_hidden" translatable="false">Hidden</string>
+    <string name="menu_hidden_hint" translatable="false">Tap an entry to move it here, or back.</string>
+    <string name="menu_edit_done" translatable="false">Done</string>
+    <string name="menu_edit_hide" translatable="false">Hide</string>
+    <string name="menu_edit_show" translatable="false">Show</string>
+    <string name="menu_edit_start" translatable="false">Edit this menu</string>
+    <string name="menu_choices_title" translatable="false">Three-dot menus</string>
+    <string name="menu_choices_description" translatable="false">Hold any entry of a menu to choose what the menu shows.</string>
+    <string name="menu_choices_show_all" translatable="false">Show all</string>
+    <string name="search_words_menus">menu, three dots, options, hide, entries</string>
+    <plurals name="menu_hidden_count" translatable="false">
+        <item quantity="one">%1$d hidden</item>
+        <item quantity="other">%1$d hidden</item>
+    </plurals>
 </resources>

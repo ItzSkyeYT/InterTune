@@ -267,6 +267,22 @@ val LyricLatinKey = booleanPreferencesKey("lyricLatin")
 val DownloadExtraPathKey = stringPreferencesKey("dlExtraPath") // previously "downloadExtraPath"
 val DownloadPathKey = stringPreferencesKey("dlPath") // previously "downloadPath"
 val DownloadOnWifiOnlyKey = booleanPreferencesKey("downloadOnWifiOnly")
+
+/**
+ * What downloads are fetched at, a DownloadQuality by name (Unreleased.DOWNLOAD_QUALITY). Never
+ * written but by its own row, and never written for anybody who has not picked one: absent, it
+ * reads as Same as playback, so nothing changes for anyone who never touches it.
+ */
+val DownloadQualityKey = stringPreferencesKey("downloadQuality")
+
+/**
+ * The file format of a download in the download folder, a DownloadFormat by name (Unreleased.DOWNLOAD_FORMATS),
+ * and the bitrate of an MP3 or an M4A, a DownloadBitrate by name. Written only by their own rows;
+ * absent they read as Original and Auto, so nothing changes for anyone who never touches them.
+ */
+val DownloadFormatKey = stringPreferencesKey("downloadFormat")
+val DownloadBitrateKey = stringPreferencesKey("downloadBitrate")
+
 val MaxImageCacheSizeKey = intPreferencesKey("maxImageCacheSize")
 
 /**
@@ -507,6 +523,8 @@ val MediaControlButtonsKey = stringPreferencesKey("mediaControlButtons")
 val SongSortTypeKey = stringPreferencesKey("songSortType")
 val SongSortDescendingKey = booleanPreferencesKey("songSortDescending")
 val FolderSortTypeKey = stringPreferencesKey("folderSortType")
+/** The Folders tab's own arrow for its folders, which always go by name: false is A to Z. The songs have theirs. */
+val FolderSortDescendingKey = booleanPreferencesKey("folderSortDescending")
 val FolderSongSortTypeKey = stringPreferencesKey("folderSongSortType")
 val FolderSongSortDescendingKey = booleanPreferencesKey("folderSongSortDescending")
 val PlaylistSongSortTypeKey = stringPreferencesKey("playlistSongSortType")
@@ -533,6 +551,20 @@ val LibraryFilterKey = stringPreferencesKey("libraryFilter")
 val LibraryViewTypeKey = stringPreferencesKey("libraryViewType")
 
 val PlaylistEditLockKey = booleanPreferencesKey("playlistEditLock")
+// Library > Playlists in Custom order: the playlists' ids in that order, one a line (PlaylistOrder),
+// and whether their order is locked against a stray drag, as a playlist's songs are.
+val PlaylistCustomOrderKey = stringPreferencesKey("playlistCustomOrder")
+val PlaylistsOrderLockKey = booleanPreferencesKey("playlistsOrderLock")
+// Library > Albums and Library > Artists in Custom order: whether their rows can be dragged, as the playlists'.
+val AlbumsOrderLockKey = booleanPreferencesKey("albumsOrderLock")
+val ArtistsOrderLockKey = booleanPreferencesKey("artistsOrderLock")
+// Custom order on the Library page and under Playlists, one order for both: every album, artist and
+// playlist by its key, one a line (LibraryOrder). Until something is dragged after an update it
+// starts from the playlists' order above; the lock above is the lock of both.
+val LibraryCustomOrderKey = stringPreferencesKey("libraryCustomOrder")
+// Entries taken out of the three-dot menus (MENU_CHOICES): "kind:name" pairs one a line, the name being the
+// entry's text resource's name (MenuChoices). Empty: every menu as it comes.
+val MenuHiddenEntriesKey = stringPreferencesKey("menuHiddenEntries")
 
 val SearchSourceKey = stringPreferencesKey("searchSource")
 
@@ -698,6 +730,21 @@ val RecogniseListenSecondsKey = intPreferencesKey("recogniseListenSeconds")
 
 /** Song on this phone's tile has said once why Android asks to record the screen (PhoneListenActivity). */
 val PhoneAudioExplainedKey = booleanPreferencesKey("phoneAudioExplained")
+
+/** Debug builds: the Nostr relays listening rooms use instead of the public ones, comma separated (TogetherSession). */
+val TogetherRelaysKey = stringPreferencesKey("togetherRelays")
+
+/** The name the others in a room see; empty or unset means the phone's own name. */
+val TogetherNameKey = stringPreferencesKey("togetherName")
+
+/** How far a follower may drift once in step before it corrects again, in ms (SyncLock). */
+val TogetherToleranceKey = intPreferencesKey("togetherToleranceMs")
+
+/** How much faster or slower a follower plays to catch up, in percent of the speed (SyncLock.maxNudge). */
+val TogetherCatchUpKey = intPreferencesKey("togetherCatchUpPercent")
+
+/** How late this phone's sound comes out (Bluetooth), in ms: the room's timing makes up for it. */
+val TogetherDelayKey = intPreferencesKey("togetherDelayMs")
 
 /** Add confident matches to the playlist without being asked. Continuous runs only. */
 val RecogniseAutoAddKey = booleanPreferencesKey("recogniseAutoAdd")

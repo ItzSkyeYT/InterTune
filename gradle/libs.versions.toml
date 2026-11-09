@@ -23,6 +23,12 @@ kyant-backdrop = { group = "io.github.kyant0", name = "backdrop", version.ref = 
 annotation = { module = "androidx.annotation:annotation", version.ref = "annotation" }
 error-prone-core = { module = "com.google.errorprone:error_prone_core", version = "2.42.0" }
 guava = { group = "com.google.guava", name = "guava", version = "33.5.0-android" }
+# A room's QR code (TogetherDialog, RoomScanDialog): ZXing draws and reads it, CameraX shows the camera. No Play services.
+zxing-core = { group = "com.google.zxing", name = "core", version = "3.5.3" }
+camerax-core = { group = "androidx.camera", name = "camera-core", version = "1.5.1" }
+camerax-camera2 = { group = "androidx.camera", name = "camera-camera2", version = "1.5.1" }
+camerax-lifecycle = { group = "androidx.camera", name = "camera-lifecycle", version = "1.5.1" }
+camerax-view = { group = "androidx.camera", name = "camera-view", version = "1.5.1" }
 coroutines-guava = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-guava", version = "1.10.2" }
 concurrent-futures = { group = "androidx.concurrent", name = "concurrent-futures-ktx", version = "1.3.0" }
 
@@ -88,6 +94,10 @@ ktor-client-encoding = { group = "io.ktor", name = "ktor-client-encoding", versi
 ktor-serialization-json = { group = "io.ktor", name = "ktor-serialization-kotlinx-json", version.ref = "ktor" }
 # The version ktor-serialization-json already brings, so the app keeps one copy of it.
 kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version = "1.9.0" }
+
+# MP3 files for Unreleased.DOWNLOAD_FORMATS: a Java port of the LAME encoder (LGPL 2.1 or later), as Android has no MP3 encoder.
+# Pure Java, no native code, no dependencies, from Maven Central. Only its de.sciss.jump3r.mp3 package is used.
+jump3r = { group = "de.sciss", name = "jump3r", version = "1.0.5" }
 
 # misc
 aboutlibraries-compose-m3 = { module = "com.mikepenz:aboutlibraries-compose-m3", version.ref = "aboutLibraries" }

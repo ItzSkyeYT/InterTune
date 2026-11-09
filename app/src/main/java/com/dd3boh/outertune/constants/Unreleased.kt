@@ -32,6 +32,13 @@ import com.dd3boh.outertune.BuildConfig
  */
 object Unreleased {
     /**
+     * Listening rooms (together/): a room that follows its host, through Nostr relays, step 1 of
+     * the three he said yes to for 0.13 (17 Oct 2026). Debug and Preview builds only, from the
+     * player's menu, while it is built.
+     */
+    val LISTEN_TOGETHER = BuildConfig.DEBUG
+
+    /**
      * The engine as a Quick picks source: Best recommendations, Try both, the context chips that
      * only appear above its row, and the settings that only steer it.
      *
@@ -600,6 +607,21 @@ object Unreleased {
     val OWN_CAST_RECEIVER = BuildConfig.DEBUG
 
     /**
+     * Casting to AirPlay speakers the classic way (AirPlay 1, RAOP), his ask of 5 Nov 2026 after a
+     * Zeppelin Wireless refused every DLNA form: the picker lists what answers `_raop._tcp` on the
+     * Wi-Fi (AirPlayDevices), and AirPlayLink plays there. Unlike DLNA and Chromecast, AirPlay is
+     * pushed: the phone decodes each song (the cast server's raw audio, so it needs [CAST_PCM]) and
+     * sends it in real time over RTP, two seconds ahead of the speaker, as uncompressed Apple
+     * Lossless or L16. Unencrypted only, the way most AirPlay 2 speakers still take it, with the
+     * auth-setup step for those that ask it; speakers that need a password or a pairing code are
+     * refused with the picker's words for a receiver it cannot cast to.
+     *
+     * Without it nothing looks for AirPlay speakers, and nothing else changes. No new texts. When
+     * it is agreed: set this to true and add its name to ReleasedFlagsTest.
+     */
+    val CAST_AIRPLAY = BuildConfig.DEBUG
+
+    /**
      * Songs put in with Play next stay next when a song is picked out of a list: they play right
      * after the picked song, in the order they stood, then the list (PlayNextWaiting), as Spotify's
      * "Next in queue" does. Asked for in issue #42 (23 Oct 2026). Without it a pick leaves them in
@@ -660,7 +682,7 @@ object Unreleased {
      * translators, their French beside them in values-fr. When it is agreed: set this to true and
      * make its texts translatable.
      */
-    val SAVED_TWICE = BuildConfig.DEBUG
+    val SAVED_TWICE = true
 
     /**
      * An album carries on after its last song when Auto load more songs is on, as YouTube Music
@@ -676,7 +698,7 @@ object Unreleased {
      * stops at its end, as before. When it is agreed: set this to true, or delete it with the one
      * check that reads it, in MusicService.onMediaItemTransition.
      */
-    val ENDLESS_QUEUE = BuildConfig.DEBUG
+    val ENDLESS_QUEUE = true
 
     /**
      * Report a problem and the crash page say more (ReportSettings, ReportTrail, ReportExtras): the settings
@@ -722,7 +744,7 @@ object Unreleased {
      * checks that read it, in RecognitionEngine.keepForLater, RecogniseLaterWorker and
      * RecognitionHistoryScreen.
      */
-    val RECOGNISE_OFFLINE = BuildConfig.DEBUG
+    val RECOGNISE_OFFLINE = true
 
     /**
      * Liked songs kept in sync with their downloads (issue #64, on the 0.13 roadmap): under "Liked
@@ -730,7 +752,7 @@ object Unreleased {
      * setting made for that song, and never one downloaded by hand (LikedDownloads). Its words are held
      * from translators until he says.
      */
-    val LIKED_SYNC = BuildConfig.DEBUG
+    val LIKED_SYNC = true
 
     /**
      * Change a playlist's cover (PlaylistCovers, PlaylistCoverSheet), asked for in #general on 31 Oct
@@ -762,12 +784,21 @@ object Unreleased {
      * name. A search for a blocked artist's name shows one quiet line and Unblock. "Never this
      * artist" stays as it was, for the recommendation rows only.
      *
+     * Its song half, Don't play this song (DontPlay, #78), stands beside Block artist in the song
+     * menus and after the player menu's items that are always there: radios and autoplay never
+     * bring the song nor another upload of it, the player passes over it where it comes to it by
+     * itself (DontPlaySkip), and it still plays when the listener picks it. Kept as a row of
+     * Exclusions of its own reason, where Lift takes it back, as does the same menu item; "Not this
+     * song" stays as it was, for the recommendation rows only.
+     *
      * Kept in one setting (BlockedArtistsKey), read only with this on, so a release that restores
-     * a backup from a debug build hides nothing. Its texts are held from translators, their
-     * French beside them in values-fr. Seen on an emulator only. Without it no menu or page has
-     * any of it. When it is agreed: set this to true, make its texts translatable.
+     * a backup from a debug build hides nothing. Its texts, Don't play this song's with them, are
+     * open to translators, their French beside them in values-fr. Seen on an emulator only.
+     * Without it no menu or page has any of it.
+     *
+     * On in every build from 0.13, Don't play this song with it, picked on 8 Nov 2026.
      */
-    val ARTIST_BLOCK = BuildConfig.DEBUG
+    val ARTIST_BLOCK = true
 
     /**
      * The Animations switch in Look and feel (Animations, ThemeFrag): off, screens and controls
@@ -778,7 +809,7 @@ object Unreleased {
      * translators, their French beside them in values-fr. When it is agreed: set this to true and
      * make its texts translatable.
      */
-    val ANIMATIONS_SWITCH = BuildConfig.DEBUG
+    val ANIMATIONS_SWITCH = true
 
     /**
      * Share as a file under a report's text, in Report a problem and the crash page (ReportFile,
@@ -842,6 +873,22 @@ object Unreleased {
     val POLL_FOLLOW_UPS = BuildConfig.DEBUG
 
     /**
+     * Casting to a DLNA speaker that takes only raw audio (Geogos's Zeppelin Wireless, 4 Nov 2026:
+     * "does not play audio/webm (it lists audio/l16, audio/l8)"): when the speaker takes neither
+     * the song as it is nor AAC, the phone decodes the song itself (MediaCodecPcmDecoder) and the
+     * cast server sends it as audio/L16, big-endian 16-bit at a rate the speaker lists, or as WAV
+     * to one that lists WAV and not L16 (CastFormats.choose, PcmFormats, PcmCastSong). Never L8.
+     * About 1.5 Mbit/s on the Wi-Fi, no loss beyond the decode the phone does anyway, and a
+     * windowed-sinc resampler only when the speaker lists no rate the song decodes at. His "we do
+     * that" of 4 Nov 2026, for 0.13.
+     *
+     * Without it such a speaker is refused every song with the message naming what it lists, as
+     * before. No new texts. When it is agreed: set this to true and add its name to
+     * ReleasedFlagsTest.
+     */
+    val CAST_PCM = BuildConfig.DEBUG
+
+    /**
      * A radio YouTube Music refuses still plays (his word of 4 Nov 2026, after Val's radio of one
      * song and his own try through Orbot: "we need to find a good method to let the users be able to
      * listen to music"). When YouTube Music's own answer is refused or holds nothing but the song,
@@ -884,4 +931,94 @@ object Unreleased {
      * queue's skip). To drop it instead: this flag and those reads, then AiFilter and its calls.
      */
     val AI_FILTER = BuildConfig.DEBUG
+
+    /**
+     * Playlists in an order of your own (a listener's ask, relayed 8 Nov 2026: to reorganise the
+     * playlists in the library exactly like songs in a playlist). Custom order in Library >
+     * Playlists' sort, then each playlist is dragged by its handle as a playlist's songs are, with
+     * the same lock. The order is one preference of ids (PlaylistOrder); playlists made or saved
+     * since come first, newest first. Add to playlist lists them in the same order. Its words are
+     * the playlist's own, already translated. Without the flag Custom order is not offered and a
+     * stored one reads as Date added. To ship: set this to true and add it to ReleasedFlagsTest.
+     */
+    val PLAYLIST_ORDER = BuildConfig.DEBUG
+
+    /**
+     * Downloads in their own quality (third in the 0.13 poll, "Downloads in their own quality"):
+     * Download quality under Settings > Storage and downloads, with Same as playback, Highest, High
+     * and Low (DownloadQuality). A download is fetched at the choice, or at Audio quality for Same as
+     * playback, which is what every download was fetched at before. Auto is not among the choices:
+     * it follows the connection, and a download may run on Wi-Fi hours after it was asked for.
+     *
+     * The download resolver (DownloadUtil, qualityForDownload) reads it once for each song and judges
+     * the song cache's copy by it, picks the stream by it and records the copy at it: a copy fetched
+     * below it is fetched again, one above it is taken as it is, since fetching to make a download
+     * worse would spend data and lose quality. Songs already downloaded are never fetched again.
+     *
+     * Without the flag the setting reads as Same as playback whatever is stored (a restored backup
+     * can bring it), and the row has no place in Settings or its search. Its three texts
+     * (download_quality*) are held from translators, their French beside them in values-fr. When it is
+     * agreed: set this to true, add its name to ReleasedFlagsTest, make its texts translatable, give
+     * Download quality a place in ReportSettings' downloads and an entry among what is new.
+     */
+    val DOWNLOAD_QUALITY = BuildConfig.DEBUG
+
+    /**
+     * Downloads in the file format of your choice, and Export to folder (9 Nov 2026, the MP3 that
+     * DOWNLOAD_FILES left out): File format under the download folder in Settings > Storage
+     * and downloads, with Original (the Opus or M4A YouTube sent, rewrapped and never encoded again, as
+     * DOWNLOAD_FILES makes them), MP3, M4A (AAC), FLAC and WAV (DownloadFormat), and, for MP3 and M4A
+     * only, a Bitrate row of Auto, 128, 192, 256 and 320 kbps (DownloadBitrate). Auto follows the
+     * stream the song was downloaded as (AudioBitrate.auto), since a file cannot be better than what
+     * YouTube sent, and a fixed rate above it is honoured with a plain note that it only makes the
+     * file bigger.
+     *
+     * The phone converts after the bytes have landed, in the download's own work (SongConverter, from
+     * DownloadUtil.saveSongFile): it decodes with MediaExtractor and MediaCodec (MediaCodecPcmDecoder,
+     * the cast server's decoder) and encodes with LAME's Java port jump3r (MP3), MediaCodec's AAC
+     * encoder (M4A), and writers of its own (FLAC, WAV). A song YouTube sent as AAC is never encoded to
+     * AAC again: its .m4a is Original's. The title, artists, album, year, track, cover and the song's
+     * link are written by the writers themselves, as DOWNLOAD_FILES does (ID3v2.3 in an MP3 and in a
+     * WAV, Vorbis comments and a picture block in a FLAC, iTunes atoms in an M4A), and read back from
+     * the file's first bytes (SongFileIds). Everything is written to a temporary file in the app's
+     * own work folder (files/convert, not the cache, which Android empties when storage runs low)
+     * first and put in the folder only when whole; a conversion that fails or is cancelled leaves
+     * nothing in the folder and the song is saved as Original instead, with the reason in the log.
+     * It builds on DOWNLOAD_FILES: nothing is converted without it.
+     *
+     * Export to folder, in the songs' selection menu and a song's own menu, converts songs that are
+     * downloaded or cached whole to a format and a folder picked in a sheet, and says how many were
+     * exported and why some were not; songs not on the phone are named, never fetched.
+     *
+     * Without the flag the setting reads as Original whatever is stored (a restored backup can bring
+     * it), the rows and the menu entry are not there, and the files are made as they were. Its texts
+     * (download_format*, download_bitrate*, export_*) are held from translators, their French beside
+     * them in values-fr. When it is agreed: set this to true, add its name to ReleasedFlagsTest, make
+     * its texts translatable.
+     */
+    val DOWNLOAD_FORMATS = BuildConfig.DEBUG
+
+    /**
+     * The adaptive queue reads a skip by what the skipped song is like (an idea of 9 Nov 2026). A song
+     * skipped early and not gone back to has its related list asked for when the phone has none (one radio
+     * page of it, online only, never while YouTube refuses us, once a song in a run and one every
+     * SKIP_PAGE_EVERY_MS at most), and the songs ahead that stand closer to it than to any song kept or
+     * liked in the run make way (SkipSimilar), where before every song on a stored list did and a song with
+     * no stored list changed nothing. A song like two of the run's skipped songs goes wherever it is in the
+     * tail. Without the flag the pass reads the stored list of the song just skipped, as before. To ship:
+     * set this to true and add it to ReleasedFlagsTest.
+     */
+    val ADAPTIVE_SIMILAR = BuildConfig.DEBUG
+
+    /**
+     * Choose what's in the three-dot menus (0.13 roadmap): hold any entry of a menu and the menu is
+     * edited the way Android's Quick Settings are, a minus on each entry, the hidden ones under Hidden
+     * with a plus, Done. Kept per kind of menu (MenuKind: a song's menus share one, the player's is
+     * its own) in MenuHiddenEntriesKey, by each entry's text resource name, so a version or a language
+     * changes nothing. A trimmed menu says under it how many it hides, with Edit. Its texts are held
+     * from translators (menu_hidden, menu_hidden_hint, menu_hidden_count, menu_edit_*), French beside
+     * them. Without the flag GridMenu draws every entry whatever is stored, and holding does nothing.
+     * To ship: set this to true and add it to ReleasedFlagsTest.
+     */
+    val MENU_CHOICES = BuildConfig.DEBUG
 }

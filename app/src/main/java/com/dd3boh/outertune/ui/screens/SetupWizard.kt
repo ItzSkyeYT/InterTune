@@ -1008,7 +1008,7 @@ fun SetupWizard(
                                         IconLabelButton(
                                             text = "Wiki",
                                             icon = Icons.Outlined.Info,
-                                            onClick = { uriHandler.openUri("https://github.com/ItzSkyeYT/InterTune/wiki") },
+                                            onClick = { uriHandler.openUri(com.dd3boh.outertune.constants.WikiLinks.HOME) },
                                             modifier = Modifier.padding(horizontal = 8.dp)
                                         )
                                     }

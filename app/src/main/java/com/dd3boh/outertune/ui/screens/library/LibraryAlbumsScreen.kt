@@ -19,6 +19,8 @@ import androidx.compose.material.icons.automirrored.rounded.List
 import androidx.compose.material.icons.rounded.Album
 import androidx.compose.material.icons.rounded.FilterAlt
 import androidx.compose.material.icons.rounded.GridView
+import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.LockOpen
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -30,6 +32,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -53,6 +56,12 @@ import com.dd3boh.outertune.constants.AlbumFilterKey
 import com.dd3boh.outertune.constants.AlbumSortDescendingKey
 import com.dd3boh.outertune.constants.AlbumSortType
 import com.dd3boh.outertune.constants.AlbumSortTypeKey
+import com.dd3boh.outertune.constants.AlbumsOrderLockKey
+import com.dd3boh.outertune.constants.Unreleased
+import com.dd3boh.outertune.db.entities.Album
+import sh.calvin.reorderable.ReorderableItem
+import sh.calvin.reorderable.rememberReorderableLazyGridState
+import sh.calvin.reorderable.rememberReorderableLazyListState
 import com.dd3boh.outertune.constants.AlbumViewTypeKey
 import com.dd3boh.outertune.constants.CONTENT_TYPE_ALBUM
 import com.dd3boh.outertune.constants.CONTENT_TYPE_HEADER
@@ -101,8 +110,15 @@ fun LibraryAlbumsScreen(
     val libraryViewType by rememberEnumPreference(LibraryViewTypeKey, LibraryViewType.GRID)
     val viewType = if (libraryFilterContent != null) libraryViewType else albumViewType
 
-    val (sortType, onSortTypeChange) = rememberEnumPreference(AlbumSortTypeKey, AlbumSortType.CREATE_DATE)
+    val (storedSortType, onSortTypeChange) = rememberEnumPreference(AlbumSortTypeKey, AlbumSortType.CREATE_DATE)
+    // A stored Custom order reads as Date added where it is not offered (Unreleased.PLAYLIST_ORDER).
+    val sortType = if (storedSortType == AlbumSortType.CUSTOM && !Unreleased.PLAYLIST_ORDER) AlbumSortType.CREATE_DATE else storedSortType
     val (sortDescending, onSortDescendingChange) = rememberPreference(AlbumSortDescendingKey, true)
+    // Custom order: the albums are dragged by their handles as the playlists are, with a lock of their
+    // own; only the liked ones, which the Library page shows in the same order, and one row to a line.
+    val customOrder = Unreleased.PLAYLIST_ORDER && sortType == AlbumSortType.CUSTOM
+    var orderLocked by rememberPreference(AlbumsOrderLockKey, defaultValue = false)
+    val canDrag = customOrder && !orderLocked && filter == AlbumFilter.LIKED
     val localLibEnable by rememberPreference(LocalLibraryEnableKey, defaultValue = true)
 
     val albums by viewModel.allAlbums.collectAsState()
@@ -112,12 +128,51 @@ fun LibraryAlbumsScreen(
     val lazyListState = rememberLazyListState()
     val lazyGridState = rememberLazyGridState()
 
+    // The albums as they are dragged, and the database's between drags, as the playlists.
+    val dragged = remember { mutableStateListOf<Album>() }
+    // The order just dropped, until the list read back from the preferences has it.
+    var droppedOrder by remember { mutableStateOf<List<String>?>(null) }
+    var wasDragging by remember { mutableStateOf(false) }
+    val moveRow: (Any?, Any?) -> Unit = { fromKey, toKey ->
+        // By key, not place: the headers sit above the rows.
+        val from = dragged.indexOfFirst { it.id == fromKey }
+        val to = dragged.indexOfFirst { it.id == toKey }
+        if (from >= 0 && to >= 0) dragged.add(to, dragged.removeAt(from))
+    }
+    val reorderableListState = rememberReorderableLazyListState(lazyListState) { from, to -> moveRow(from.key, to.key) }
+    val reorderableGridState = rememberReorderableLazyGridState(lazyGridState) { from, to -> moveRow(from.key, to.key) }
+    val dragging = reorderableListState.isAnyItemDragging || reorderableGridState.isAnyItemDragging
+    LaunchedEffect(albums, dragging) {
+        if (dragging) {
+            wasDragging = true
+            return@LaunchedEffect
+        }
+        val listed = albums ?: return@LaunchedEffect
+        val ids = listed.map { it.id }
+        if (wasDragging) {
+            wasDragging = false
+            val shown = dragged.map { it.id }
+            if (customOrder && shown != ids && shown.toSet() == ids.toSet()) {
+                droppedOrder = shown
+                viewModel.saveCustomOrder(shown)
+                return@LaunchedEffect
+            }
+        }
+        // The rows stay where they were dropped until the order kept comes back, not the old one.
+        val waiting = droppedOrder
+        if (waiting != null && ids != waiting && ids.toSet() == waiting.toSet()) return@LaunchedEffect
+        droppedOrder = null
+        dragged.clear()
+        dragged.addAll(listed)
+    }
+    val shownAlbums: List<Album>? = if (customOrder && dragged.isNotEmpty()) dragged else albums
+
     LaunchedEffect(Unit) { viewModel.syncAlbums() }
 
     // On a phone on its side the chips and the sort row share a line, a half each (Landscape.kt).
     val oneHeaderLine = LocalLandscape.current.active
     // The list view runs two rows abreast there, as Songs does.
-    val columns = rememberListColumns()
+    val columns = columnsWhileOrdering(rememberListColumns(), canDrag)
     val filterContent = @Composable {
         var showStoragePerm by remember {
             mutableStateOf(context.checkSelfPermission(MEDIA_PERMISSION_LEVEL) != PackageManager.PERMISSION_GRANTED)
@@ -172,28 +227,44 @@ fun LibraryAlbumsScreen(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.padding(horizontal = 16.dp)
         ) {
-            SortHeader(
-                sortType = sortType,
-                sortDescending = sortDescending,
-                onSortTypeChange = onSortTypeChange,
-                onSortDescendingChange = onSortDescendingChange,
-                sortTypeText = { sortType ->
-                    when (sortType) {
-                        AlbumSortType.CREATE_DATE -> R.string.sort_by_create_date
-                        AlbumSortType.NAME -> R.string.sort_by_name
-                        AlbumSortType.ARTIST -> R.string.sort_by_artist
-                        AlbumSortType.YEAR -> R.string.sort_by_year
-                        AlbumSortType.SONG_COUNT -> R.string.sort_by_song_count
-                        AlbumSortType.LENGTH -> R.string.sort_by_length
+            // The sort and, in Custom order, the lock right after it, as on the Playlists page.
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                SortHeader(
+                    sortType = sortType,
+                    sortDescending = sortDescending,
+                    onSortTypeChange = onSortTypeChange,
+                    onSortDescendingChange = onSortDescendingChange,
+                    sortTypeText = { sortType ->
+                        when (sortType) {
+                            AlbumSortType.CREATE_DATE -> R.string.sort_by_create_date
+                            AlbumSortType.NAME -> R.string.sort_by_name
+                            AlbumSortType.ARTIST -> R.string.sort_by_artist
+                            AlbumSortType.YEAR -> R.string.sort_by_year
+                            AlbumSortType.SONG_COUNT -> R.string.sort_by_song_count
+                            AlbumSortType.LENGTH -> R.string.sort_by_length
+                            AlbumSortType.CUSTOM -> R.string.sort_by_custom
+                        }
+                    },
+                    offered = { it != AlbumSortType.CUSTOM || Unreleased.PLAYLIST_ORDER },
+                )
+                // The page's own lock, beside the sort as the playlists' is: whether the rows can be dragged.
+                if (customOrder) {
+                    IconButton(
+                        onClick = { orderLocked = !orderLocked },
+                        modifier = Modifier.padding(horizontal = 6.dp)
+                    ) {
+                        Icon(
+                            imageVector = if (orderLocked) Icons.Rounded.Lock else Icons.Rounded.LockOpen,
+                            contentDescription = stringResource(if (orderLocked) R.string.playlist_order_locked else R.string.playlist_order_unlocked)
+                        )
                     }
-                },
-                modifier = Modifier.weight(1f)
-            )
+                }
+            }
 
             Row(
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                albums?.let { albums ->
+                shownAlbums?.let { albums ->
                     Text(
                         text = pluralStringResource(R.plurals.n_album, albums.size, albums.size),
                         style = MaterialTheme.typography.titleSmall,
@@ -271,7 +342,7 @@ fun LibraryAlbumsScreen(
                         headerContent()
                     }
 
-                    albums?.let { albums ->
+                    shownAlbums?.let { albums ->
                         if (albums.isEmpty()) {
                             item {
                                 EmptyPlaceholder(
@@ -287,14 +358,27 @@ fun LibraryAlbumsScreen(
                             key = { _, album -> album.id },
                             contentType = { _, _ -> CONTENT_TYPE_ALBUM }
                         ) { _, album ->
-                            LibraryAlbumListItem(
-                                navController = navController,
-                                menuState = menuState,
-                                album = album,
-                                isActive = album.id == mediaMetadata?.album?.id,
-                                isPlaying = isPlaying,
-                                modifier = Modifier.animateItem()
-                            )
+                            if (canDrag && columns == 1) {
+                                ReorderableItem(state = reorderableListState, key = album.id) {
+                                    LibraryAlbumListItem(
+                                        navController = navController,
+                                        menuState = menuState,
+                                        album = album,
+                                        isActive = album.id == mediaMetadata?.album?.id,
+                                        isPlaying = isPlaying,
+                                        dragHandle = Modifier.draggableHandle(),
+                                    )
+                                }
+                            } else {
+                                LibraryAlbumListItem(
+                                    navController = navController,
+                                    menuState = menuState,
+                                    album = album,
+                                    isActive = album.id == mediaMetadata?.album?.id,
+                                    isPlaying = isPlaying,
+                                    modifier = Modifier.animateItem()
+                                )
+                            }
                         }
                     }
 
@@ -331,7 +415,7 @@ fun LibraryAlbumsScreen(
                         headerContent()
                     }
 
-                    albums?.let { albums ->
+                    shownAlbums?.let { albums ->
                         if (albums.isEmpty()) {
                             item(span = { GridItemSpan(maxLineSpan) }) {
                                 EmptyPlaceholder(
@@ -346,15 +430,29 @@ fun LibraryAlbumsScreen(
                             key = { it.id },
                             contentType = { CONTENT_TYPE_ALBUM }
                         ) { album ->
-                            LibraryAlbumGridItem(
-                                navController = navController,
-                                menuState = menuState,
-                                coroutineScope = coroutineScope,
-                                album = album,
-                                isActive = album.id == mediaMetadata?.album?.id,
-                                isPlaying = isPlaying,
-                                modifier = Modifier.animateItem()
-                            )
+                            if (canDrag) {
+                                ReorderableItem(state = reorderableGridState, key = album.id) {
+                                    LibraryAlbumGridItem(
+                                        navController = navController,
+                                        menuState = menuState,
+                                        coroutineScope = coroutineScope,
+                                        album = album,
+                                        isActive = album.id == mediaMetadata?.album?.id,
+                                        isPlaying = isPlaying,
+                                        dragHandle = Modifier.draggableHandle(),
+                                    )
+                                }
+                            } else {
+                                LibraryAlbumGridItem(
+                                    navController = navController,
+                                    menuState = menuState,
+                                    coroutineScope = coroutineScope,
+                                    album = album,
+                                    isActive = album.id == mediaMetadata?.album?.id,
+                                    isPlaying = isPlaying,
+                                    modifier = Modifier.animateItem()
+                                )
+                            }
                         }
                     }
                 }

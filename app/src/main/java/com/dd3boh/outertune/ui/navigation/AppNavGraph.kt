@@ -80,6 +80,7 @@ import com.dd3boh.outertune.ui.screens.settings.LyricsSettings
 import com.dd3boh.outertune.ui.screens.settings.EqualizerSettings
 import com.dd3boh.outertune.ui.screens.settings.PlayerSettings
 import com.dd3boh.outertune.ui.screens.settings.PrivacySettings
+import com.dd3boh.outertune.ui.screens.settings.ListenTogetherSettings
 import com.dd3boh.outertune.ui.screens.settings.RecognitionSettings
 import com.dd3boh.outertune.ui.screens.settings.RecommendationsDataSettings
 import com.dd3boh.outertune.ui.screens.settings.RecommendationsDoingSettings
@@ -500,6 +501,9 @@ fun NavGraphBuilder.appDestinations(
         }
         screen("settings/privacy") {
             PrivacySettings(navController, scrollBehavior)
+        }
+        screen("settings/together") {
+            ListenTogetherSettings(navController, scrollBehavior)
         }
         screen("settings/recommendations") {
             RecommendationsSettings(navController, scrollBehavior)

@@ -11,8 +11,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.emptyFlow
 import java.io.IOException
 
-/** The kinds of receiver casting talks to, in the order they were built. */
-enum class CastProtocol { FCAST, DLNA, CHROMECAST }
+/** The kinds of receiver casting talks to, in the order they were built. AirPlay only with Unreleased.CAST_AIRPLAY. */
+enum class CastProtocol { FCAST, DLNA, CHROMECAST, AIRPLAY }
 
 /**
  * A receiver, found on the network or typed in by address.
@@ -37,7 +37,8 @@ data class CastDevice(
 /**
  * One song as a receiver is given it: where to fetch it (the cast server's url), what it is, and
  * what to show while it plays. [length] is in bytes and [durationMs] in milliseconds, each -1
- * when not known.
+ * when not known. [converted] is raw audio the phone decodes for a renderer that takes nothing
+ * else, which a DLNA renderer is told (DLNA.ORG_CI=1).
  */
 data class CastItem(
     val mediaId: String,
@@ -49,6 +50,7 @@ data class CastItem(
     val artist: String? = null,
     val album: String? = null,
     val artworkUrl: String? = null,
+    val converted: Boolean = false,
 )
 
 /**
@@ -174,12 +176,14 @@ data class ReceiverStatus(
 
 /**
  * What a receiver said it can do, once connected. [formats] decides which encoding a song is
- * sent in (CastFormats).
+ * sent in (CastFormats). [shapesSound]: the link puts the app's sound (PcmSound) on the raw audio
+ * itself as it sends it, so the server must send it the samples as they were decoded (AirPlay).
  */
 data class LinkCaps(
     val formats: FormatSupport = FormatSupport.Unknown,
     val canSetSpeed: Boolean = false,
     val hasVolume: Boolean = true,
+    val shapesSound: Boolean = false,
 )
 
 /**
