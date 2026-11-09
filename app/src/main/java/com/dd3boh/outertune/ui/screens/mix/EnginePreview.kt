@@ -215,13 +215,16 @@ class EnginePreview(
         val leadFrames = if (running) ((firstChunkMs * LEAD_SHARE + BUFFER_MS) * rate / 1000).toInt() else 0
         val from = (s.indexAt(if (running) position() else lastU) + leadFrames).coerceIn(0, frames - 1)
         var c = from / CHUNK
-        heard = PreviewHeard(next, pcm, frames, { i -> s.uAt(i) }, { u -> s.indexAt(u) }, progress)
+        val streamed = PreviewHeard(next, pcm, frames, { i -> s.uAt(i) }, { u -> s.indexAt(u) }, progress)
         var st: com.dd3boh.outertune.mix.engine.ChangeStream? = null
         var streamAt = -1
         var left = chunks
-        var first = true
+        var done = 0
         while (left > 0) {
-            if (released || wanted.get() !== next) return Streamed.SUPERSEDED
+            if (released) return Streamed.SUPERSEDED
+            // A newer edit takes over, but while playing only once this one has enough worked out
+            // to be heard on its own until the newer one is there: a drag is heard as it goes.
+            if (wanted.get() !== next && (done >= KEEP_CHUNKS || !running)) return Streamed.SUPERSEDED
             val want = progress.want
             if (want >= 0) {
                 progress.want = -1
@@ -231,18 +234,20 @@ class EnginePreview(
                 c = progress.nextUndone(c)
                 if (c < 0) break
             }
-            if (st == null || streamAt != c) st = s.from(c * CHUNK)
+            val now = (if (st == null || streamAt != c) s.from(c * CHUNK) else st).also { st = it }
             val n = min(CHUNK, frames - c * CHUNK)
-            st.next(pcm, c * CHUNK, n)
+            now.next(pcm, c * CHUNK, n)
             progress.markDone(c)
             streamAt = c + 1
             left--
-            if (first) {
-                first = false
-                val now = System.nanoTime()
-                firstChunkMs = (now - began) / 1e6
+            done++
+            if (done == 1) {
+                // Heard from here: the playhead takes it over on the bar it is at once that bar is there.
+                heard = streamed
+                val t = System.nanoTime()
+                firstChunkMs = (t - began) / 1e6
                 Log.i(LATENCY, "streamed its first %.0f ms from bar %.2f in %.0f ms with its plan, %.0f ms after the edit".format(
-                    n * 1000.0 / rate, s.uAt(c * CHUNK), (now - began) / 1e6, (now - next.askedNanos) / 1e6,
+                    n * 1000.0 / rate, s.uAt(c * CHUNK), (t - began) / 1e6, (t - next.askedNanos) / 1e6,
                 ))
             }
             c = if (c + 1 < chunks) c + 1 else 0
@@ -349,6 +354,9 @@ class EnginePreview(
 
         /** How far ahead of the bar heard a stream begins, in its first chunk's time. */
         const val LEAD_SHARE = 1.25
+
+        /** While playing, a stream gives way to a newer edit only with this many chunks done, about 0.6 s. */
+        const val KEEP_CHUNKS = 7
     }
 }
 
@@ -606,7 +614,7 @@ internal class PreviewPlayhead(private val rate: Int, private val channels: Int,
         if (needs && !h.readyAt(index, frames)) {
             h.want(index)
             val p = previous
-            val at = p?.indexAt(h.uAt(index))
+            val at = p?.let { it.indexAt(h.uAt(index)) }
             if (p != null && p !== h && at != null && p.readyAt(at, frames)) {
                 playingNow = p
                 index = at
@@ -654,7 +662,6 @@ internal class PreviewPlayhead(private val rate: Int, private val channels: Int,
         val toIndex = h.indexAt(h.setup.to)
         val u0 = if (side != null) clickU else h.uAt(index)
         mark(written, u0, step)
-        val frames = block.size / channels
         for (f in 0 until frames) {
             for (c in 0 until channels) {
                 val x = if (side != null) sound.clickSample(spec, side, clickU, c) else at(h, index, c)
