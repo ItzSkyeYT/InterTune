@@ -151,12 +151,14 @@ class CanvasZoomTest {
         assertEquals(close.pad + close.axis / 2, close.x(2.5), 0.01f)
     }
 
-    /** Nothing else moves: the overview left the canvas for the line under the length row, and the buttons take the row's free middle. */
+    /** Nothing else moves: the overview left the canvas for the line under the length row, its zoom buttons at its end. */
     @Test
     fun `the zoom's controls take no room from the page`() {
         val screen = File("src/main/java/com/dd3boh/outertune/ui/screens/mix/MixEditorScreen.kt").readText()
-        assertTrue("zoom(Modifier.weight(1f)" in screen)
+        assertTrue("NowLine(vm, editor, spec, words, phase, playing, { playU }, said, overview = overview, zoom = zoom)" in screen)
         assertTrue("if (text.isEmpty() && overview != null) Box(Modifier.matchParentSize())" in screen)
+        // The length row as it was.
+        assertTrue("BarRow(spec, words, lanesView, canvas.adjust, { lengthOpen = true }, { lanesView = it }, partsReady = vm.pair?.partsReady != false) { leaveAdjust(vm, canvas) }" in screen)
         val canvas = File("src/main/java/com/dd3boh/outertune/ui/screens/mix/MixCanvas.kt").readText()
         assertFalse("overview = if (zoom" in canvas)
     }

@@ -12,7 +12,9 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -158,18 +160,16 @@ fun CanvasOverview(
 }
 
 /**
- * The two zoom buttons, for one hand, as an audio editor's Zoom Out and Zoom In: each tap twice as
- * far or twice as close, about the playhead where it is in view and about the middle otherwise.
- * They keep to the room [BoxWithConstraints] gives them and are left out where there is none, so
- * nothing beside them moves.
+ * The two zoom buttons, for one hand, as an audio editor's Zoom Out and Zoom In at the end of its
+ * overview: each tap twice as far or twice as close, about the playhead where it is in view and
+ * about the middle otherwise.
  */
 @Composable
 fun ZoomButtons(editor: MixEditor, spec: TransitionSpec, state: CanvasState, playU: () -> Double, modifier: Modifier = Modifier) {
     val scope = rememberCoroutineScope()
     val glide = remember { arrayOfNulls<Job>(1) }
     val f = CanvasZoom.frame(editor, spec, state.start, state.span)
-    BoxWithConstraints(modifier, contentAlignment = Alignment.CenterEnd) {
-        if (maxWidth < 80.dp) return@BoxWithConstraints
+    Box(modifier, contentAlignment = Alignment.CenterEnd) {
         fun zoom(factor: Double) {
             glide[0]?.cancel()
             val from = CanvasZoom.frame(editor, spec, state.start, state.span)
@@ -185,11 +185,11 @@ fun ZoomButtons(editor: MixEditor, spec: TransitionSpec, state: CanvasState, pla
                 state.show(to)
             }
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = { zoom(1 / CanvasZoom.STEP) }, enabled = CanvasZoom.canZoomOut(f.shown, f.whole), modifier = Modifier.size(36.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(end = 6.dp)) {
+            IconButton(onClick = { zoom(1 / CanvasZoom.STEP) }, enabled = CanvasZoom.canZoomOut(f.shown, f.whole), modifier = Modifier.size(32.dp)) {
                 Icon(Icons.Rounded.ZoomOut, stringResource(R.string.mix_edit_zoom_out))
             }
-            IconButton(onClick = { zoom(CanvasZoom.STEP) }, enabled = CanvasZoom.canZoomIn(f.shown, f.minSpan, f.whole), modifier = Modifier.size(36.dp)) {
+            IconButton(onClick = { zoom(CanvasZoom.STEP) }, enabled = CanvasZoom.canZoomIn(f.shown, f.minSpan, f.whole), modifier = Modifier.size(32.dp)) {
                 Icon(Icons.Rounded.ZoomIn, stringResource(R.string.mix_edit_zoom_in))
             }
         }
