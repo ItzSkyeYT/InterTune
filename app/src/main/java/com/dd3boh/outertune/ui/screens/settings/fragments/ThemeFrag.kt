@@ -115,7 +115,7 @@ fun ColumnScope.ThemeAppFrag() {
     if (Unreleased.ANIMATIONS_SWITCH) {
         val heldOff = Animations.offInSystem
         SwitchPreference(
-            modifier = Modifier.settingRow(R.string.animations_title),
+            modifier = Modifier.tourTarget(Tour.SETTING_ANIMATIONS).settingRow(R.string.animations_title),
             title = { Text(stringResource(R.string.animations_title)) },
             description = stringResource(R.string.animations_description),
             icon = { Icon(Icons.Rounded.Animation, null) },

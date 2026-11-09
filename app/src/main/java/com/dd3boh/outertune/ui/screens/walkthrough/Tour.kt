@@ -203,12 +203,16 @@ object Tour {
     const val ROW_BATTERY = "settings_row_battery"
     const val ROW_BACKUP = "settings_row_backup"
     const val ROW_ABOUT = "settings_row_about"
+    const val ROW_STORAGE = "settings_row_storage"
     const val SETTING_IMPORT = "setting_import"
     const val SETTING_BUG_REPORT = "setting_bug_report"
     const val SETTING_PLAYER_BACKGROUND = "setting_player_background"
     const val SETTING_PLAYER_PINS = "setting_player_pins"
     const val SETTING_SHARE_LINKS = "setting_share_links"
     const val SETTING_SPATIAL_AUDIO = "setting_spatial_audio"
+    const val SETTING_BLOCKED_ARTISTS = "setting_blocked_artists"
+    const val SETTING_LIKED_SYNC = "setting_liked_sync"
+    const val SETTING_ANIMATIONS = "setting_animations"
 
     // The settings the closer look stops at (SETTINGS_CLOSER_LOOK), by the screen they are on.
     const val SETTING_LOGIN = "setting_login"

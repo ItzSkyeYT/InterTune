@@ -2347,6 +2347,29 @@
     <string name="widgets_all_options_full_cover">Taille du texte, ce qu\'il affiche</string>
     <string name="widgets_all_options_shelf">Arrière-plan, boutons, lignes</string>
     <string name="widgets_add_from_home">Cet écran d\'accueil n\'accepte pas les widgets des applications. Ajoutez-les depuis sa propre liste de widgets.</string>
+    <!-- Nouveautés de 0.13 (Walkthrough.kt, V0_13). -->
+    <string name="new_block_artist_title">Bloquer un artiste</string>
+    <string name="new_block_artist_body">Bloquer l\'artiste, dans le menu d\'un titre ou sur la page d\'un artiste, retire ses titres, ses albums et son visage d\'InterTune. Un de ses titres qui revient quand même est passé.</string>
+    <string name="new_block_artist_way">Les artistes que vous avez bloqués sont listés ici.</string>
+    <string name="new_block_artist_here">Tous ceux que vous avez bloqués, pour les débloquer ou bloquer un artiste par son nom.</string>
+    <string name="new_dont_play_title">Empêcher un titre de jouer</string>
+    <string name="new_dont_play_body">Ne plus jouer ce titre, dans le menu d\'un titre, le tient à l\'écart des radios et de la lecture automatique, ses autres mises en ligne comprises. Il joue toujours quand vous le choisissez.</string>
+    <string name="new_saved_twice_title">Retrouver les titres en double</string>
+    <string name="new_saved_twice_body">Quand vos Titres aimés, votre bibliothèque ou une playlist contiennent un titre plusieurs fois, un bouton rond avec un nombre s\'affiche à côté de Lecture et Lecture aléatoire. Touchez-le pour garder un exemplaire de chacun.</string>
+    <string name="new_liked_sync_title">Retirer un j’aime peut supprimer le téléchargement</string>
+    <string name="new_liked_sync_body">Si vos titres aimés se téléchargent tout seuls, un bouton supprime maintenant le téléchargement d\'un titre quand vous retirez votre j’aime. Les titres téléchargés par vous restent.</string>
+    <string name="new_liked_sync_way">Les téléchargements et la place qu\'ils prennent se règlent ici.</string>
+    <string name="new_liked_sync_here">Activé, retirer votre j’aime supprime le téléchargement fait pour ce titre. Cela marche quand les titres aimés se téléchargent tout seuls.</string>
+    <string name="new_album_goes_on_title">Les albums continuent après leur dernier titre</string>
+    <string name="new_album_goes_on_body">Avec Charger automatiquement plus de titres activé, un album qui se termine continue avec une radio de son dernier titre, comme sur YouTube Music.</string>
+    <string name="new_album_goes_on_way">La façon dont la file continue à sa fin se règle ici.</string>
+    <string name="new_album_goes_on_here">Activé, un album qui se termine continue avec une radio de son dernier titre.</string>
+    <string name="new_recognise_offline_title">La reconnaissance marche hors ligne</string>
+    <string name="new_recognise_offline_body">Sans connexion, Quel est ce titre\u00A0? garde ce qu\'il a entendu et nomme les titres une fois le téléphone de nouveau en ligne. Ils attendent dans Ce que vous avez entendu.</string>
+    <string name="new_animations_title">Couper les animations</string>
+    <string name="new_animations_body">Un bouton dans Apparence coupe les animations de l\'app\u00A0: les écrans changent d\'un coup et les fonds restent immobiles. Plus doux pour les anciens téléphones.</string>
+    <string name="new_animations_way">L\'apparence de l\'app et ses mouvements se règlent ici.</string>
+    <string name="new_animations_here">Désactivé, écrans et commandes changent d\'un coup et les fonds animés restent immobiles.</string>
     <!-- Nouveautés de 0.12.8 (Walkthrough.kt, V0_12_8). -->
     <string name="new_report_send_title">Envoyer un rapport à InterTune</string>
     <string name="new_report_send_body">Signaler un problème peut maintenant envoyer le rapport à InterTune, sans compte GitHub. Ou le partager en fichier pour le poster sur Discord.</string>

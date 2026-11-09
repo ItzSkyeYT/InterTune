@@ -2500,6 +2500,29 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="download_quality" translatable="false">Download quality</string>
     <string name="download_quality_same" translatable="false">Same as playback</string>
     <string name="download_quality_description" translatable="false">Better quality takes more space. Songs you already downloaded stay as they are.</string>
+    <!-- What's new in 0.13 (Walkthrough.kt, V0_13): held from translators until his go. -->
+    <string name="new_block_artist_title" translatable="false">Block an artist</string>
+    <string name="new_block_artist_body" translatable="false">Block artist, in a song\'s menu or on an artist\'s page, takes their songs, albums and picture out of InterTune. A song of theirs that still comes up is skipped.</string>
+    <string name="new_block_artist_way" translatable="false">The artists you blocked are listed in here.</string>
+    <string name="new_block_artist_here" translatable="false">Everyone you blocked, to unblock them or to block an artist by name.</string>
+    <string name="new_dont_play_title" translatable="false">Keep a song from playing</string>
+    <string name="new_dont_play_body" translatable="false">Don\'t play this song, in a song\'s menu, keeps it out of radios and autoplay, other uploads of it included. It still plays when you pick it yourself.</string>
+    <string name="new_saved_twice_title" translatable="false">Find songs saved twice</string>
+    <string name="new_saved_twice_body" translatable="false">When Liked songs, your library or a playlist holds a song more than once, a round button with a count shows beside Play and Shuffle. Tap it to keep one copy of each.</string>
+    <string name="new_liked_sync_title" translatable="false">Unliking can remove the download</string>
+    <string name="new_liked_sync_body" translatable="false">If your liked songs download themselves, a switch now removes a song\'s download when you unlike it. Songs you downloaded yourself stay.</string>
+    <string name="new_liked_sync_way" translatable="false">Downloads and the space they take are set in here.</string>
+    <string name="new_liked_sync_here" translatable="false">On, unliking a song removes the download made for it. It works while liked songs download themselves.</string>
+    <string name="new_album_goes_on_title" translatable="false">Albums go on after their last song</string>
+    <string name="new_album_goes_on_body" translatable="false">With Auto load more songs on, an album that ends carries on with a radio from its last song, as in YouTube Music.</string>
+    <string name="new_album_goes_on_way" translatable="false">How the queue goes on at its end is set in here.</string>
+    <string name="new_album_goes_on_here" translatable="false">On, an album that ends goes on with a radio from its last song.</string>
+    <string name="new_recognise_offline_title" translatable="false">Song recognition works offline</string>
+    <string name="new_recognise_offline_body" translatable="false">With no connection, What\'s playing? keeps what it heard and names the songs once the phone is back online. They wait in What you have heard.</string>
+    <string name="new_animations_title" translatable="false">Turn the animations off</string>
+    <string name="new_animations_body" translatable="false">A switch in Look and feel turns the app\'s animations off: screens change at once and backgrounds stand still. Easier on older phones.</string>
+    <string name="new_animations_way" translatable="false">How the app looks and moves is set in here.</string>
+    <string name="new_animations_here" translatable="false">Off, screens and controls change at once and moving backgrounds stand still.</string>
     <!-- What's new in 0.12.8 (Walkthrough.kt, V0_12_8): held from translators until his go. -->
     <string name="new_report_send_title" translatable="false">Send a report to InterTune</string>
     <string name="new_report_send_body" translatable="false">Report a problem can now send the report to InterTune itself, no GitHub account needed. Or share it as a file to post on Discord.</string>
