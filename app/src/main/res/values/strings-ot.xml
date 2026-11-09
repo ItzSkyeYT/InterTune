@@ -70,6 +70,10 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="auto_more_recent_line">Pick up where you left off</string>
     <string name="auto_more_shuffle_library">Shuffle my library</string>
     <string name="auto_more_shuffle_line">Everything you saved, mixed</string>
+    <!-- The last row of a search in the car when YouTube Music gave nothing back: why, then what a tap does (it searches again). -->
+    <string name="auto_search_offline">No internet on the phone</string>
+    <string name="auto_search_no_answer">YouTube Music did not answer</string>
+    <string name="auto_search_again">Tap to search again</string>
     <string name="auto_settings_sound">Sound</string>
     <string name="auto_settings_playback">Playback</string>
     <string name="auto_level_line">Even out the volume</string>
