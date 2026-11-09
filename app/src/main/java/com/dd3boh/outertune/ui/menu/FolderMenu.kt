@@ -137,6 +137,7 @@ fun FolderMenu(
 
     // options
     GridMenu(
+        kind = MenuKind.FOLDER,
         contentPadding = PaddingValues(
             start = 8.dp,
             top = 8.dp,

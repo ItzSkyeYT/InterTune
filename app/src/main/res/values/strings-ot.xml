@@ -2647,4 +2647,19 @@ while also allowing users to translate our app as well. New, specific strings to
         <item quantity="other">And %1$d more after it, from their queue.</item>
     </plurals>
     <string name="together_removed">%1$s was removed. The room has a new code.</string>
+    <!-- Choose what's in the three-dot menus (MENU_CHOICES): a menu being edited, and the line under a trimmed one. Held from translators. -->
+    <string name="menu_hidden" translatable="false">Hidden</string>
+    <string name="menu_hidden_hint" translatable="false">Tap an entry to move it here, or back.</string>
+    <string name="menu_edit_done" translatable="false">Done</string>
+    <string name="menu_edit_hide" translatable="false">Hide</string>
+    <string name="menu_edit_show" translatable="false">Show</string>
+    <string name="menu_edit_start" translatable="false">Edit this menu</string>
+    <string name="menu_choices_title" translatable="false">Three-dot menus</string>
+    <string name="menu_choices_description" translatable="false">Hold any entry of a menu to choose what the menu shows.</string>
+    <string name="menu_choices_show_all" translatable="false">Show all</string>
+    <string name="search_words_menus">menu, three dots, options, hide, entries</string>
+    <plurals name="menu_hidden_count" translatable="false">
+        <item quantity="one">%1$d hidden</item>
+        <item quantity="other">%1$d hidden</item>
+    </plurals>
 </resources>

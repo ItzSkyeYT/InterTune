@@ -161,6 +161,7 @@ fun YouTubePlaylistMenu(
     HorizontalDivider()
 
     GridMenu(
+        kind = MenuKind.PLAYLIST,
         contentPadding = PaddingValues(
             start = 8.dp,
             top = 8.dp,
