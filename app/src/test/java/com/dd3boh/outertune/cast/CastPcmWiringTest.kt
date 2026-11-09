@@ -58,8 +58,10 @@ class CastPcmWiringTest {
     fun `the server is given a decoder only with the flag`() {
         assertTrue("pcmDecoder = if (Unreleased.CAST_PCM) MediaCodecPcmDecoder() else null" in code("playback/MusicService.kt"))
         val constructed = sources.walkTopDown().filter { it.extension == "kt" && "MediaCodecPcmDecoder()" in code(it.relativeTo(sources).path) }
-            .map { it.relativeTo(sources).path }.toList()
-        assertEquals(listOf("playback/MusicService.kt"), constructed)
+            .map { it.relativeTo(sources).path }.sorted().toList()
+        // The other is the conversion of downloads and exports to another format (Unreleased.DOWNLOAD_FORMATS): the same decoder,
+        // asked for there by DownloadFormats.effective and never given to the cast server.
+        assertEquals(listOf("playback/DownloadUtil.kt", "playback/MusicService.kt"), constructed)
     }
 
     @Test

@@ -333,6 +333,7 @@ fun SettingsTwoPane(
                                 Tour.ROUTE_LIBRARY -> Modifier.tourTarget(Tour.ROW_LIBRARY)
                                 Tour.ROUTE_BATTERY -> Modifier.tourTarget(Tour.ROW_BATTERY)
                                 Tour.ROUTE_BACKUP -> Modifier.tourTarget(Tour.ROW_BACKUP)
+                                Tour.ROUTE_STORAGE -> Modifier.tourTarget(Tour.ROW_STORAGE)
                                 Tour.ROUTE_ABOUT -> Modifier.tourTarget(Tour.ROW_ABOUT)
                                 else -> Modifier
                             },

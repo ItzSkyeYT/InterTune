@@ -34,6 +34,8 @@ class WelcomeBackTest {
     private val v012 = 95           // the first build 0.12 can be
     private val v0121 = 96          // 0.12.1, fixes only: it took the number after 0.12's
     private val v0125 = 97          // the first build 0.12.5 can be
+    private val v0129 = 101         // 0.12.9, fixes only
+    private val v013 = 102          // the first build 0.13 can be
 
     private fun ids(things: List<NewThing>) = things.map { it.id }
 
@@ -90,7 +92,8 @@ class WelcomeBackTest {
     fun `song recognition wears the same sound bars wherever it is listed, and nothing else does`() {
         assertEquals(RECOGNITION_ICON, NEW_THINGS.single { it.id == "recognise" }.icon)
         assertEquals(RECOGNITION_ICON, NEW_THINGS.single { it.id == "recognition_tile" }.icon)
-        assertEquals(setOf("recognise", "recognition_tile"), NEW_THINGS.filter { it.icon == RECOGNITION_ICON }.map { it.id }.toSet())
+        assertEquals(RECOGNITION_ICON, NEW_THINGS.single { it.id == "recognise_offline" }.icon)
+        assertEquals(setOf("recognise", "recognition_tile", "recognise_offline"), NEW_THINGS.filter { it.icon == RECOGNITION_ICON }.map { it.id }.toSet())
         // The tile and the home screen button draw the same bars (Material's graphic_eq).
         val bars = "M7,18h2V6H7v12zM11,22h2V2h-2v20zM3,14h2v-4H3v4zM15,18h2V6h-2v12zM19,10v4h2v-4h-2z"
         for (drawable in listOf("ic_recognise", "ic_recognise_widget")) {
@@ -247,7 +250,7 @@ class WelcomeBackTest {
     @Test
     fun `a setting is reached the way somebody would go there, through the row it is under`() {
         val insideSettings = NEW_THINGS.filter { thing -> thing.stops.any { it.route != null } }
-        assertEquals(listOf("report_send", "backup_parts", "player_pins", "settings_search", "battery_use", "share_links", "radios", "living_blur", "sleep_schedule", "content_filters", "equalizer", "resume_bluetooth", "library_import", "explain_pictures", "problem_report", "spatial_audio"), ids(insideSettings))
+        assertEquals(listOf("block_artist", "liked_sync", "album_goes_on", "animations", "report_send", "backup_parts", "player_pins", "settings_search", "battery_use", "share_links", "radios", "living_blur", "sleep_schedule", "content_filters", "equalizer", "resume_bluetooth", "library_import", "explain_pictures", "problem_report", "spatial_audio"), ids(insideSettings))
         // What is on the list of settings itself is pointed at there, and there is nothing to go
         // into: the search over the list, and Battery use, a row of its own on it.
         val onTheList = listOf("settings_search", "battery_use")
@@ -431,6 +434,18 @@ class WelcomeBackTest {
         // Somebody who skips 0.12 is shown both, the newest first.
         assertEquals(listOf("0.12.5", "0.12"), newThingsFor(v0116, buildVersionCode = v0125).map { it.release }.distinct())
         assertEquals("0.12.5", releaseAt(v0125))
+    }
+
+    @Test
+    fun `0_13's things wait for 0_13, and somebody on 0_12_9 is shown them all`() {
+        // The 0.13 line is still built as 0.12.9: it must not claim them before its version commit.
+        assertTrue(newThingsFor(v0125, buildVersionCode = v0129).none { it.release == "0.13" })
+        val things = newThingsFor(v0129, buildVersionCode = v013)
+        assertEquals(listOf("block_artist", "dont_play", "saved_twice", "liked_sync", "album_goes_on", "recognise_offline", "animations"), ids(things))
+        assertEquals("0.13", releaseAt(v013))
+        // The card on Home counts the four that have somewhere to show; the three that live in
+        // menus and lists outside Settings are read on the page.
+        assertEquals(WelcomeCard(count = 4, since = "0.12.8"), welcomeCardFor(seenVersionCode = v0129, buildVersionCode = v013, enabled = true))
     }
 
     @Test

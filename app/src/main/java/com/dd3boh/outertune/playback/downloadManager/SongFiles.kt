@@ -6,6 +6,7 @@
 
 package com.dd3boh.outertune.playback.downloadManager
 
+import android.util.Log
 import androidx.annotation.OptIn
 import androidx.media3.common.C
 import androidx.media3.common.DataReader
@@ -30,6 +31,7 @@ import java.io.File
 import java.io.IOException
 import java.io.OutputStream
 import java.io.RandomAccessFile
+import java.util.concurrent.CancellationException
 import kotlin.math.roundToLong
 import kotlin.random.Random
 
@@ -40,15 +42,60 @@ import kotlin.random.Random
  * the player plays these streams with, once to learn what the stream is and check every packet,
  * before any file is made, and once more to write it. Anything else, or anything that fails,
  * returns null, and the caller saves the stream as it is, the way it always was.
+ *
+ * With a [Converter] (Unreleased.DOWNLOAD_FORMATS) the song may be made another format first: the
+ * conversion is whole in a temporary file before the folder is asked for a file, and if it fails or
+ * is stopped the song is saved as Original, the way it is without one, with the reason in the log.
  */
 @OptIn(UnstableApi::class)
 object SongFiles {
     private const val VENDOR = "InterTune"
+    private const val TAG = "SongFiles"
 
     /** A stream read through once: what it is, and what the second read has to match. */
     sealed class Stream(val extension: String) {
-        class Opus(val head: ByteArray, val packets: Int, val trim: Long) : Stream("opus")
-        class Aac(val track: M4aTrack) : Stream("m4a")
+        /** What the stream is, for the choice of what to make of it (DownloadFormats.plan). */
+        abstract val codec: SourceCodec
+
+        /** The container the cached bytes are in, as the decoder is told. */
+        abstract val mimeType: String
+
+        /** How long the stream is, in microseconds, from its packets. */
+        abstract val durationUs: Long
+
+        /** Its average rate in bits a second, from the bytes it was sent in and its length: what Auto's bitrate follows. Null when it has no length. */
+        abstract val bitsPerSecond: Long?
+
+        class Opus(val head: ByteArray, val packets: Int, val trim: Long, val payloadBytes: Long = 0, val samples: Long = 0) : Stream("opus") {
+            override val codec get() = SourceCodec.OPUS
+            override val mimeType get() = "audio/webm"
+            override val durationUs get() = samples * 1_000_000L / 48_000
+            override val bitsPerSecond get() = if (samples > 0) payloadBytes * 8L * 48_000L / samples else null
+        }
+
+        class Aac(val track: M4aTrack) : Stream("m4a") {
+            override val codec get() = SourceCodec.AAC
+            override val mimeType get() = "audio/mp4"
+            override val durationUs get() = track.totalDuration * 1_000_000L / track.timescale
+            override val bitsPerSecond get() = if (track.totalDuration > 0) track.totalBytes * 8L * track.timescale / track.totalDuration else null
+        }
+    }
+
+    /** What is made of a stream that is to be another format: see [save]. */
+    internal interface Converter {
+        /**
+         * The song made another format, a whole temporary file, or null to save it as Original.
+         * Throws when it fails or is stopped: the song is then saved as Original, or, for a stop,
+         * not at all.
+         */
+        fun convert(source: CachedBytes, stream: Stream, tags: SongTags): Converted?
+
+        /**
+         * The song could not be made another format, or the folder would not take the file that was
+         * made, and it is saved as Original or not at all: [e] says why. For the notice that tells
+         * the person, which a line in the log does not.
+         */
+        fun failed(e: Exception) {}
     }
 
     /**
@@ -56,10 +103,74 @@ object SongFiles {
      * into it, after reading it through once. Null when the stream is not one this can save, and
      * then [save] was never called.
      */
-    fun <T> save(files: List<File>, tags: SongTags, save: (name: String, write: (OutputStream) -> Unit) -> T?): T? {
+    fun <T> save(files: List<File>, tags: SongTags, save: (name: String, write: (OutputStream) -> Unit) -> T?): T? =
+        save(files, tags, convert = null, save = save)
+
+    /**
+     * [save] that may make the song another format first: see [saveStream].
+     */
+    internal fun <T> save(
+        files: List<File>,
+        tags: SongTags,
+        convert: Converter?,
+        fallBack: Boolean = true,
+        save: (name: String, write: (OutputStream) -> Unit) -> T?,
+    ): T? {
         val source = CachedBytes(files)
         val stream = probe(source) ?: return null
-        return save(SongFileNames.of(tags, stream.extension)) { out -> write(source, stream, tags, out) }
+        return saveStream(source, stream, tags, convert, fallBack, save) { out -> write(source, stream, tags, out) }
+    }
+
+    /**
+     * A stream already read ([probe]) saved through [save], as another format when [convert] makes
+     * it one, and as Original ([original] writes it) when it does not. The folder is asked for a
+     * file only once the conversion is whole in its temporary file, and the temporary file is gone
+     * when this returns, whatever happened.
+     *
+     * When the conversion fails, or the folder refuses the converted file, the song is saved as
+     * Original instead ([fallBack], what a download does) or not at all and null comes back (what an
+     * export does: a person who asked for an MP3 is not handed an .opus). A stop is thrown on: it is
+     * not a failure to be saved around.
+     */
+    internal fun <T> saveStream(
+        source: CachedBytes,
+        stream: Stream,
+        tags: SongTags,
+        convert: Converter?,
+        fallBack: Boolean,
+        save: (name: String, write: (OutputStream) -> Unit) -> T?,
+        original: (OutputStream) -> Unit,
+    ): T? {
+        if (convert != null) {
+            var failed = false
+            val converted = try {
+                convert.convert(source, stream, tags)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                failed = true
+                Log.w(TAG, "Could not convert the song, it is saved as ${stream.extension}: ${e.message}", e)
+                convert.failed(e)
+                null
+            }
+            if (converted != null) {
+                try {
+                    // Whole in the temporary file by now: the folder is only asked for a file to put it in.
+                    val saved = save(SongFileNames.of(tags, converted.extension)) { out -> converted.copyTo(out) }
+                    if (saved != null) return saved
+                    failed = true
+                    convert.failed(IOException("the folder gave no file for the converted song"))
+                } catch (e: Exception) {
+                    failed = true
+                    Log.w(TAG, "Could not put the converted song in the folder, it is saved as ${stream.extension}: ${e.message}", e)
+                    convert.failed(e)
+                } finally {
+                    converted.close()
+                }
+            }
+            if (failed && !fallBack) return null
+        }
+        return save(SongFileNames.of(tags, stream.extension), original)
     }
 
     /** What [source] holds, every packet read and checked, or null when it is not Opus or AAC. */
@@ -67,6 +178,8 @@ object SongFiles {
         var format: Format? = null
         var packets = 0
         var trimNs = 0L
+        var opusBytes = 0L
+        var opusSamples = 0L
         val sizes = Ints()
         val times = Longs()
         val read = runCatching {
@@ -75,7 +188,8 @@ object SongFiles {
                 when (f.sampleMimeType) {
                     MimeTypes.AUDIO_OPUS -> {
                         val packet = opusPacket(flags, data, offset, size)
-                        OpusPackets.samples(data, packet.first, packet.second)
+                        opusSamples += OpusPackets.samples(data, packet.first, packet.second)
+                        opusBytes += packet.second
                         trimNs = packet.third
                     }
                     MimeTypes.AUDIO_AAC -> {
@@ -92,7 +206,7 @@ object SongFiles {
         if (read.isFailure || f == null || packets == 0) return null
         return runCatching {
             when (f.sampleMimeType) {
-                MimeTypes.AUDIO_OPUS -> Stream.Opus(opusHead(f), packets, (trimNs * 48_000 / 1_000_000_000L).coerceAtLeast(0))
+                MimeTypes.AUDIO_OPUS -> Stream.Opus(opusHead(f), packets, (trimNs * 48_000 / 1_000_000_000L).coerceAtLeast(0), opusBytes, opusSamples)
                 MimeTypes.AUDIO_AAC -> Stream.Aac(aacTrack(f, sizes.toArray(), times.toArray()))
                 else -> null
             }

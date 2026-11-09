@@ -2596,6 +2596,78 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="download_quality" translatable="false">Download quality</string>
     <string name="download_quality_same" translatable="false">Same as playback</string>
     <string name="download_quality_description" translatable="false">Better quality takes more space. Songs you already downloaded stay as they are.</string>
+    <!-- File format and Bitrate (DownloadsFrag, Unreleased.DOWNLOAD_FORMATS), under the download folder: the row titles, Original's name, Bitrate's choices and the notes under the rows. MP3, M4A (AAC), FLAC and WAV are named in the row itself. Held from translators until the setting ships. -->
+    <string name="download_format" translatable="false">File format</string>
+    <string name="download_format_original" translatable="false">Original</string>
+    <string name="download_format_description" translatable="false">Original keeps the best quality. Other formats are converted on the phone after the download.</string>
+    <string name="download_bitrate" translatable="false">Bitrate</string>
+    <string name="download_bitrate_auto" translatable="false">Auto</string>
+    <string name="download_bitrate_kbps" translatable="false">%1$d kbps</string>
+    <string name="download_bitrate_description" translatable="false">Auto fits each song to what YouTube sent. Converting cannot add quality YouTube did not send.</string>
+    <string name="download_bitrate_aac_kept" translatable="false">Songs YouTube sent as AAC are kept as they are.</string>
+    <!-- Converting songs (ConvertNotice, Unreleased.DOWNLOAD_FORMATS): the notice while it runs and the line that stays when some songs could not be converted. Held from translators until the setting ships. -->
+    <string name="convert_notice_title" translatable="false">Converting to %1$s</string>
+    <string name="convert_notice_text" translatable="false">%1$d of %2$d</string>
+    <string name="convert_fallback_title" translatable="false">Some songs were not converted</string>
+    <plurals name="convert_fallback_text" translatable="false">
+        <item quantity="one">%1$d song could not be converted and was saved as it came.</item>
+        <item quantity="other">%1$d songs could not be converted and were saved as they came.</item>
+    </plurals>
+    <!-- The settings search's words for File format: open to translators, as every search word is (SettingsSearchTest). -->
+    <string name="search_words_download_format">mp3, flac, wav, aac, m4a, convert, format, file type</string>
+    <!-- Export to folder (ExportSheet, Unreleased.DOWNLOAD_FORMATS): the menu entry, the sheet, the line it ends with and the songs it names. Held from translators until the setting ships. -->
+    <string name="export_to_folder" translatable="false">Export to folder</string>
+    <string name="export_note" translatable="false">Only songs that are on the phone are exported.</string>
+    <string name="export_folder" translatable="false">Folder</string>
+    <string name="export_folder_none" translatable="false">Choose a folder</string>
+    <string name="export_action" translatable="false">Export</string>
+    <string name="export_progress" translatable="false">Exporting %1$d of %2$d</string>
+    <string name="export_done_title" translatable="false">Export finished</string>
+    <string name="export_stopped_title" translatable="false">Export stopped</string>
+    <string name="export_names_more" translatable="false">%1$s and %2$d more</string>
+    <plurals name="export_exported" translatable="false">
+        <item quantity="one">%1$d song exported</item>
+        <item quantity="other">%1$d songs exported</item>
+    </plurals>
+    <plurals name="export_skipped_not_downloaded" translatable="false">
+        <item quantity="one">%1$d skipped: not downloaded</item>
+        <item quantity="other">%1$d skipped: not downloaded</item>
+    </plurals>
+    <plurals name="export_skipped_there" translatable="false">
+        <item quantity="one">%1$d skipped: already in the folder</item>
+        <item quantity="other">%1$d skipped: already in the folder</item>
+    </plurals>
+    <plurals name="export_skipped_local" translatable="false">
+        <item quantity="one">%1$d skipped: a file on the phone already</item>
+        <item quantity="other">%1$d skipped: files on the phone already</item>
+    </plurals>
+    <plurals name="export_failed" translatable="false">
+        <item quantity="one">%1$d could not be converted</item>
+        <item quantity="other">%1$d could not be converted</item>
+    </plurals>
+    <!-- What's new in 0.13 (Walkthrough.kt, V0_13): held from translators until the words are agreed. -->
+    <string name="new_block_artist_title" translatable="false">Block an artist</string>
+    <string name="new_block_artist_body" translatable="false">Block artist, in a song\'s menu or on their page, takes their songs, albums and picture out of InterTune.</string>
+    <string name="new_block_artist_way" translatable="false">The artists you blocked are listed in here.</string>
+    <string name="new_block_artist_here" translatable="false">Everyone you blocked, to unblock them or to block an artist by name.</string>
+    <string name="new_dont_play_title" translatable="false">Keep a song from playing</string>
+    <string name="new_dont_play_body" translatable="false">Don\'t play this song, in a song\'s menu, keeps it out of radios and autoplay, other uploads of it included. It still plays when you pick it yourself.</string>
+    <string name="new_saved_twice_title" translatable="false">Find songs saved twice</string>
+    <string name="new_saved_twice_body" translatable="false">When Liked songs, your library or a playlist holds a song more than once, a round button with a count shows beside Play and Shuffle. Tap it to keep one copy of each.</string>
+    <string name="new_liked_sync_title" translatable="false">Unliking can remove the download</string>
+    <string name="new_liked_sync_body" translatable="false">If your liked songs download themselves, unliking one can now remove its download. Songs you downloaded yourself stay.</string>
+    <string name="new_liked_sync_way" translatable="false">Downloads and the space they take are set in here.</string>
+    <string name="new_liked_sync_here" translatable="false">On, unliking a song removes the download made for it. It works while liked songs download themselves.</string>
+    <string name="new_album_goes_on_title" translatable="false">Albums go on after their last song</string>
+    <string name="new_album_goes_on_body" translatable="false">With Auto load more songs on, an album that ends carries on with a radio from its last song, as in YouTube Music.</string>
+    <string name="new_album_goes_on_way" translatable="false">How the queue goes on at its end is set in here.</string>
+    <string name="new_album_goes_on_here" translatable="false">On, an album that ends goes on with a radio from its last song.</string>
+    <string name="new_recognise_offline_title" translatable="false">Song recognition works offline</string>
+    <string name="new_recognise_offline_body" translatable="false">With no connection, What\'s playing? keeps what it heard and names the songs once the phone is back online. They wait in What you have heard.</string>
+    <string name="new_animations_title" translatable="false">Turn the animations off</string>
+    <string name="new_animations_body" translatable="false">A switch in Look and feel turns the app\'s animations off: screens change at once and backgrounds stand still. Easier on older phones.</string>
+    <string name="new_animations_way" translatable="false">How the app looks and moves is set in here.</string>
+    <string name="new_animations_here" translatable="false">Android\'s own Remove animations turns them off here too, and greys this switch out.</string>
     <!-- What's new in 0.12.8 (Walkthrough.kt, V0_12_8): held from translators until his go. -->
     <string name="new_report_send_title" translatable="false">Send a report to InterTune</string>
     <string name="new_report_send_body" translatable="false">Report a problem can now send the report to InterTune itself, no GitHub account needed. Or share it as a file to post on Discord.</string>

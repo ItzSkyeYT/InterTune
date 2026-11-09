@@ -19,6 +19,11 @@ data class SongTags(
     val year: Int? = null,
     val track: Int? = null,
     val cover: Cover? = null,
+    /**
+     * False for an exported copy (Unreleased.DOWNLOAD_FORMATS, Export to folder): it carries no link,
+     * so that the app never takes it for the song's download when it is exported into a download folder.
+     */
+    val keepLink: Boolean = true,
 ) {
     /** The artists as the app shows them, joined with a comma, which its own scanner splits again. */
     val artist: String? get() = artists.map { it.trim() }.filter { it.isNotEmpty() }.joinToString(", ").ifEmpty { null }
@@ -26,19 +31,24 @@ data class SongTags(
     /** Where the song is on YouTube Music: kept in the file's comment, and the id the app reads back. */
     val link: String get() = "https://music.youtube.com/watch?v=$videoId"
 
+    /** The comment a file carries: the [link], or nothing for an exported copy ([keepLink]). */
+    val linkComment: String? get() = link.takeIf { keepLink }
+
     /**
      * The Vorbis comments of an Ogg Opus file, in this order: the link comes before the picture,
      * so reading the id back stops long before the picture's bytes. The year twice: DATE is the
      * Vorbis field players read, and Android's media store, which other apps ask, reads YEAR.
+     * [withPicture] false leaves the picture out, for a FLAC file, which holds it in a block of its
+     * own (FlacFileEncoder).
      */
-    fun vorbisComments(): List<String> = buildList {
+    fun vorbisComments(withPicture: Boolean = true): List<String> = buildList {
         add("TITLE=$title")
         artist?.let { add("ARTIST=$it") }
         album?.takeIf { it.isNotBlank() }?.let { add("ALBUM=$it") }
         year?.takeIf { it > 0 }?.let { add("DATE=$it"); add("YEAR=$it") }
         track?.takeIf { it > 0 }?.let { add("TRACKNUMBER=$it") }
-        add("COMMENT=$link")
-        cover?.let { add("METADATA_BLOCK_PICTURE=" + base64(it.flacPictureBlock())) }
+        linkComment?.let { add("COMMENT=$it") }
+        if (withPicture) cover?.let { add("METADATA_BLOCK_PICTURE=" + base64(it.flacPictureBlock())) }
     }
 }
 
@@ -127,8 +137,12 @@ class Cover(val bytes: ByteArray, val mimeType: String, val width: Int, val heig
 }
 
 object SongFileNames {
-    /** The extensions of the song files the app writes. A file with one of them names no id. */
-    val EXTENSIONS = setOf("opus", "m4a")
+    /**
+     * The extensions of the song files the app writes. A file with one of them names no id. The last
+     * three are the formats of Unreleased.DOWNLOAD_FORMATS: a file in one of them is known by its
+     * tags, as an .opus is.
+     */
+    val EXTENSIONS = setOf("opus", "m4a", "mp3", "flac", "wav")
 
     /** Kept short of the 255 bytes a name may have, with room for the " (1)" a second file gets. */
     private const val MAX_NAME_BYTES = 200

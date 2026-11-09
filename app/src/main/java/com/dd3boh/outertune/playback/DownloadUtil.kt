@@ -5,6 +5,8 @@ import com.dd3boh.outertune.utils.DownloadCovers
 import com.dd3boh.outertune.ui.utils.resize
 import android.content.Context
 import android.net.ConnectivityManager
+import android.net.Uri
+import androidx.documentfile.provider.DocumentFile
 import android.util.Log
 import android.widget.Toast
 import android.widget.Toast.LENGTH_SHORT
@@ -32,6 +34,10 @@ import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.AudioQuality
 import com.dd3boh.outertune.constants.AudioQualityKey
+import com.dd3boh.outertune.constants.DownloadBitrate
+import com.dd3boh.outertune.constants.DownloadBitrateKey
+import com.dd3boh.outertune.constants.DownloadFormat
+import com.dd3boh.outertune.constants.DownloadFormatKey
 import com.dd3boh.outertune.constants.DownloadQuality
 import com.dd3boh.outertune.constants.DownloadQualityKey
 import com.dd3boh.outertune.utils.ReportTrail
@@ -54,8 +60,25 @@ import com.dd3boh.outertune.di.DownloadCache
 import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.playback.DownloadUtil.Companion.STATE_DOWNLOADING
 import com.dd3boh.outertune.playback.DownloadUtil.Companion.STATE_INVALID
+import com.dd3boh.outertune.playback.downloadManager.ConvertNotice
+import com.dd3boh.outertune.playback.downloadManager.ConvertPlan
+import com.dd3boh.outertune.playback.downloadManager.DocumentCastSong
 import com.dd3boh.outertune.playback.downloadManager.DownloadDirectoryManagerOt
+import com.dd3boh.outertune.playback.downloadManager.DownloadFormats
+import com.dd3boh.outertune.playback.downloadManager.ExportItem
+import com.dd3boh.outertune.playback.downloadManager.ExportResult
+import com.dd3boh.outertune.playback.downloadManager.ExportSkip
+import com.dd3boh.outertune.playback.downloadManager.ExportSources
+import com.dd3boh.outertune.playback.downloadManager.SkipReason
+import com.dd3boh.outertune.playback.downloadManager.SourceCodec
+import com.dd3boh.outertune.playback.downloadManager.SourceProbe
+import com.dd3boh.outertune.playback.downloadManager.SongFileNames
+import com.dd3boh.outertune.playback.downloadManager.exportLine
+import com.dd3boh.outertune.playback.downloadManager.hasFile
+import com.dd3boh.outertune.playback.downloadManager.writeInto
 import com.dd3boh.outertune.playback.downloadManager.DownloadManagerOt
+import com.dd3boh.outertune.playback.downloadManager.SongConversion
+import com.dd3boh.outertune.playback.downloadManager.SongConverter
 import com.dd3boh.outertune.playback.downloadManager.SongFileCover
 import com.dd3boh.outertune.playback.downloadManager.SongFiles
 import com.dd3boh.outertune.playback.downloadManager.SongTags
@@ -73,6 +96,7 @@ import com.dd3boh.outertune.utils.reportException
 import com.dd3boh.outertune.utils.scanners.InvalidAudioFileException
 import com.dd3boh.outertune.utils.scanners.ScanMerge
 import com.dd3boh.outertune.utils.scanners.absoluteFilePathFromUri
+import com.dd3boh.outertune.utils.scanners.FolderNesting
 import com.dd3boh.outertune.utils.scanners.fileFromUri
 import com.dd3boh.outertune.utils.scanners.uriListFromString
 import com.dd3boh.outertune.utils.Throttle
@@ -111,7 +135,10 @@ import java.io.InputStream
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneOffset
+import java.util.concurrent.CancellationException
 import java.util.concurrent.Executor
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
 import javax.inject.Inject
 import javax.inject.Singleton
 import com.dd3boh.outertune.utils.Toaster
@@ -132,6 +159,17 @@ class DownloadUtil @Inject constructor(
     private fun metered(): Boolean = runCatching { connectivityManager.isActiveNetworkMetered }.getOrDefault(true)
     private val audioQuality by enumPreference(context, AudioQualityKey, AudioQuality.AUTO)
     private val downloadQuality by enumPreference(context, DownloadQualityKey, DownloadQuality.SAME)
+
+    // The file a download in the folder is saved as and the bitrate of an MP3 or an M4A (Unreleased.DOWNLOAD_FORMATS),
+    // read for each song as it is saved, so that a change is for the next one.
+    private val downloadFormat by enumPreference(context, DownloadFormatKey, DownloadFormat.ORIGINAL)
+    private val downloadBitrate by enumPreference(context, DownloadBitrateKey, DownloadBitrate.AUTO)
+
+    /**
+     * Converts downloads to the format chosen, in the app's own files until a file is whole (SongConverter): not in the
+     * cache, which Android empties when the phone is short of space, in the middle of a conversion if it comes to that.
+     */
+    private val converter by lazy { SongConverter(File(context.filesDir, "convert"), MediaCodecPcmDecoder()) { Log.i(TAG, it) } }
 
     /** The quality a download asks for now: the Download quality, or Audio quality for Same as playback (see [qualityForDownload]). */
     private fun qualityNow(): AudioQuality = qualityForDownload(downloadQuality, audioQuality)
@@ -1072,6 +1110,7 @@ class DownloadUtil @Inject constructor(
         isProcessingDownloads.value = true
 
         var runs = 0
+        var notice: ConvertNotice? = null
         try {
             // What media3 holds, read from its index. A second DownloadManager over it, as this
             // used to make for the same list, started a thread of its own that was never let go.
@@ -1083,6 +1122,13 @@ class DownloadUtil @Inject constructor(
 
             // copy all completed downloads
             val toMigrate = downloadedSongs.filter { it.value.state == Download.STATE_COMPLETED && (only == null || it.key in only) }
+            // Songs made another format (Unreleased.DOWNLOAD_FORMATS) take a while each: the phone says so.
+            val format = DownloadFormats.effective(downloadFormat, Unreleased.DOWNLOAD_FORMATS)
+            if (Unreleased.DOWNLOAD_FILES && format != DownloadFormat.ORIGINAL && toMigrate.isNotEmpty()) {
+                notice = ConvertNotice(context, format, toMigrate.size)
+                converter.sweep()
+            }
+            var position = 0
             toMigrate.forEach { s ->
                 if (runs++ % 10 == 0) {
                     Log.d(TAG, "Migrating download: $runs/${toMigrate.size}")
@@ -1095,6 +1141,9 @@ class DownloadUtil @Inject constructor(
                 // Copied from the cache's files as the new file is written: read whole into memory
                 // first, a long mix ran the app out of memory (#67).
                 val fromCache = openFromCache(downloadCache, s.key) ?: return@forEach
+                // The notice says Converting only for a song that is encoded, not for one saved as it came.
+                val index = position++
+                val title = if (notice != null) runCatching { database.song(s.key).first()?.title }.getOrNull() else null
                 // The file written and checked, the song's row pointing to it, and only then the
                 // copy in the app gone, one song at a time (moveIntoFolder). The cache used to be
                 // emptied first and a failed write swallowed, so a folder that refused the file cost
@@ -1107,7 +1156,7 @@ class DownloadUtil @Inject constructor(
                             localMgr.getFilePathIfExists(s.key)
                                 // A file other players open, with the song's tags and cover inside; the
                                 // stream as it is when the song cannot be one (saveSongFile).
-                                ?: (if (Unreleased.DOWNLOAD_FILES) saveSongFile(s.key) else null)
+                                ?: (if (Unreleased.DOWNLOAD_FILES) saveSongFile(s.key, notice) { notice?.starting(index, title) } else null)
                                 ?: runCatching {
                                     localMgr.saveFile(s.key, stream, displayName)
                                 }.onFailure { reportException(it) }.getOrNull()
@@ -1139,6 +1188,7 @@ class DownloadUtil @Inject constructor(
         } catch (e: Exception) {
             reportException(e)
         } finally {
+            notice?.finish()
             isProcessingDownloads.value = false
         }
     }
@@ -1149,14 +1199,189 @@ class DownloadUtil @Inject constructor(
      * open (Unreleased.DOWNLOAD_FILES, SongFiles): Opus as .opus, AAC as .m4a, the same packets, its
      * title, artists, album, year, track and cover inside, named "Artist - Title". Null when it
      * cannot be one, and then nothing was written.
+     *
+     * With a File format other than Original (Unreleased.DOWNLOAD_FORMATS) the song is converted
+     * first, off the main thread and below the music's priority, into a temporary file, and put in
+     * the folder only when whole; a conversion that fails is saved as Original, and [notice] counts
+     * it. A conversion that is stopped (the coroutine is cancelled) stops the move.
      */
-    private suspend fun saveSongFile(id: String): android.net.Uri? = withContext(Dispatchers.IO) {
+    private suspend fun saveSongFile(id: String, notice: ConvertNotice? = null, onEncode: () -> Unit = {}): android.net.Uri? = withContext(Dispatchers.IO) {
+        val job = currentCoroutineContext()[Job]
+        val format = DownloadFormats.effective(downloadFormat, Unreleased.DOWNLOAD_FORMATS)
+        // Below the music's priority while it encodes: SongConverter lowers its own thread.
+        val conversion = if (format == DownloadFormat.ORIGINAL) null else SongConversion(format, downloadBitrate, converter, { job?.isActive == false }, onEncode)
         runCatching {
             val files = downloadCache.getCachedSpans(id).mapNotNull { span: CacheSpan -> span.file }
             val song = database.song(id).first()
             if (files.isEmpty() || song == null) return@runCatching null
-            SongFiles.save(files, songTags(song)) { name, write -> localMgr.saveSongFile(id, name, write) }
-        }.onFailure { Log.w(TAG, "Could not save $id as a song file, it is saved as the stream", it) }.getOrNull()
+            SongFiles.save(files, songTags(song), conversion) { name, write -> localMgr.saveSongFile(id, name, write) }
+        }.onFailure {
+            if (it is CancellationException) throw it
+            Log.w(TAG, "Could not save $id as a song file, it is saved as the stream", it)
+        }.getOrNull().also { if (conversion?.failure != null) notice?.fellBack() }
+    }
+
+
+    // ---- Export to folder (Unreleased.DOWNLOAD_FORMATS)
+
+    /** How an export stands, for the sheet that started it. */
+    sealed interface ExportState {
+        data object Idle : ExportState
+        data class Running(val done: Int, val total: Int, val title: String?) : ExportState
+        data class Finished(val result: ExportResult) : ExportState
+    }
+
+    val exportState = MutableStateFlow<ExportState>(ExportState.Idle)
+
+    /** Stops the export between two songs, or two pieces of one: what it has done is kept, nothing half-written is. */
+    private val exportStop = AtomicBoolean(false)
+
+    /** How many sheets show the export now: a result nobody is looking at is told in a toast instead. */
+    val exportWatchers = AtomicInteger(0)
+
+    /**
+     * Exports [items] to the folder [target] (a tree the person picked, or the download folder) as
+     * [format], at [bitrate] for an MP3 or an M4A. Songs not on the phone are skipped and named,
+     * never fetched. Runs on its own thread whatever screen is up; the state tells how far it is.
+     */
+    fun startExport(items: List<ExportItem>, format: DownloadFormat, bitrate: DownloadBitrate, target: Uri) {
+        if (exportState.value is ExportState.Running || items.isEmpty()) return
+        exportStop.set(false)
+        exportState.value = ExportState.Running(0, items.size, null)
+        CoroutineScope(dlCoroutine).launch {
+            val result = runCatching { exportSongs(items, format, bitrate, target) }
+                .onFailure { Log.w(TAG, "The export failed", it) }
+                .getOrElse { ExportResult(0, items.map { ExportSkip(it, SkipReason.FAILED) }) }
+            exportState.value = ExportState.Finished(result)
+            if (exportWatchers.get() == 0) {
+                withContext(Dispatchers.Main) { Toaster.show(context, exportLine(context, result), Toast.LENGTH_LONG) }
+            }
+        }
+    }
+
+    fun cancelExport() = exportStop.set(true)
+
+    /** The result has been read: the sheet goes back to the choices for the next export. */
+    fun acknowledgeExport() {
+        if (exportState.value is ExportState.Finished) exportState.value = ExportState.Idle
+    }
+
+    private suspend fun exportSongs(items: List<ExportItem>, format: DownloadFormat, bitrate: DownloadBitrate, target: Uri): ExportResult =
+        withContext(Dispatchers.IO) {
+            val dir = runCatching { DocumentFile.fromTreeUri(context, target) }.getOrNull()
+            if (dir == null || !dir.isDirectory || !dir.canWrite()) {
+                Log.w(TAG, "Export: nothing can be written to $target")
+                return@withContext ExportResult(0, items.map { ExportSkip(it, SkipReason.FAILED) })
+            }
+            // Original into a download folder: the song's file is there already, and a copy would be a second one.
+            val inDownloads = localMgr.allDirs.any { FolderNesting.isSameOrInside(target.toString(), it.uri.toString()) }
+            val notice = if (format != DownloadFormat.ORIGINAL) ConvertNotice(context, format, items.size) else null
+            converter.sweep()
+            var exported = 0
+            val skipped = mutableListOf<ExportSkip>()
+            var stopped = false
+            try {
+                for ((index, item) in items.withIndex()) {
+                    if (exportStop.get()) { stopped = true; break }
+                    exportState.value = ExportState.Running(index, items.size, item.title)
+                    notice?.starting(index, item.title)
+                    val left = try {
+                        exportOne(item, format, bitrate, dir, inDownloads) { exportStop.get() }
+                    } catch (e: CancellationException) {
+                        stopped = true
+                        break
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Could not export ${item.id}", e)
+                        SkipReason.FAILED
+                    }
+                    if (left == null) exported++ else skipped += ExportSkip(item, left)
+                }
+            } finally {
+                notice?.finish()
+            }
+            ExportResult(exported, skipped, stopped)
+        }
+
+    /** One song exported: null when it was, or why it was left out. */
+    private suspend fun exportOne(
+        item: ExportItem,
+        format: DownloadFormat,
+        bitrate: DownloadBitrate,
+        dir: DocumentFile,
+        inDownloads: Boolean,
+        cancelled: () -> Boolean,
+    ): SkipReason? {
+        if (item.isLocal) return SkipReason.LOCAL
+        val folderFile = localMgr.isExists(item.id)?.takeIf { it.exists() }
+        val source = ExportSources.pick(
+            isLocal = false,
+            inFolder = folderFile != null,
+            inDownloadCache = runCatching { downloadCache.holdsWhole(item.id) }.getOrDefault(false),
+            inSongCache = runCatching { playerCache.holdsWhole(item.id) }.getOrDefault(false),
+        )
+        if (source == ExportSources.Source.NOWHERE) return SkipReason.NOT_ON_PHONE
+        val song = database.song(item.id).first() ?: return SkipReason.NOT_ON_PHONE
+        // An exported copy carries no link: if it is exported into a download folder, the app must not take it for the song's download.
+        val tags = songTags(song).copy(keepLink = false)
+        // A file of that name in the folder is this song from an export before, or a song named the same: it stays as it is,
+        // and nothing is converted for it (see hasFile).
+        if (format != DownloadFormat.ORIGINAL && hasFile(dir, SongFileNames.of(tags, format.extension ?: return SkipReason.FAILED))) return SkipReason.ALREADY_THERE
+        return when (source) {
+            ExportSources.Source.FOLDER_FILE -> exportFolderFile(item, folderFile!!, tags, format, bitrate, dir, inDownloads, cancelled)
+            ExportSources.Source.DOWNLOAD_CACHE, ExportSources.Source.SONG_CACHE -> {
+                val cache = if (source == ExportSources.Source.DOWNLOAD_CACHE) downloadCache else playerCache
+                val files = cache.getCachedSpans(item.id).mapNotNull { span: CacheSpan -> span.file }
+                if (files.isEmpty()) return SkipReason.NOT_ON_PHONE
+                val conversion = if (format == DownloadFormat.ORIGINAL) null else SongConversion(format, bitrate, converter, cancelled)
+                var there = false
+                val saved = SongFiles.save(files, tags, conversion, fallBack = false) { name, write ->
+                    if (hasFile(dir, name)) { there = true; null } else writeInto(context, dir, name, write)
+                }
+                if (saved != null) null else if (there) SkipReason.ALREADY_THERE else SkipReason.FAILED
+            }
+            else -> SkipReason.NOT_ON_PHONE
+        }
+    }
+
+    /** A song whose file is in a download folder: copied as it is when it is in the format asked for, else decoded and encoded. */
+    private suspend fun exportFolderFile(
+        item: ExportItem,
+        file: DocumentFile,
+        tags: SongTags,
+        format: DownloadFormat,
+        bitrate: DownloadBitrate,
+        dir: DocumentFile,
+        inDownloads: Boolean,
+        cancelled: () -> Boolean,
+    ): SkipReason? {
+        val name = file.name ?: return SkipReason.FAILED
+        val extension = name.substringAfterLast('.', "").lowercase()
+        val song = DocumentCastSong(context, file.uri, file.length(), file.type ?: "application/octet-stream")
+        val probe = runCatching { SourceProbe.of(song) }.getOrNull()
+        val codec = DownloadFormats.sourceOfExtension(extension) ?: probe?.codec ?: return SkipReason.FAILED
+        // Auto follows what YouTube sent: the file's own rate when the file is that stream, else the rate its format row recorded.
+        val measured = probe?.durationUs?.takeIf { it > 0 && (codec == SourceCodec.OPUS || codec == SourceCodec.AAC) }?.let { file.length() * 8_000_000L / it }
+        val bps = measured ?: runCatching { database.format(item.id).first()?.bitrate?.toLong() }.getOrNull()
+        return when (val plan = DownloadFormats.plan(format, bitrate, codec, bps)) {
+            ConvertPlan.AsIs -> {
+                if (inDownloads) return SkipReason.ALREADY_THERE
+                val target = SongFileNames.of(tags, extension.ifEmpty { "bin" })
+                if (hasFile(dir, target)) return SkipReason.ALREADY_THERE
+                val copy = writeInto(context, dir, target) { out ->
+                    (context.contentResolver.openInputStream(file.uri) ?: throw IOException("Could not read ${file.uri}")).use { it.copyTo(out, 64 * 1024) }
+                }
+                if (copy != null) null else SkipReason.FAILED
+            }
+            is ConvertPlan.Encode -> {
+                val converted = converter.convert(song, tags, plan, probe?.durationUs ?: 0L, cancelled)
+                try {
+                    val made = writeInto(context, dir, SongFileNames.of(tags, converted.extension)) { out -> converted.copyTo(out) }
+                    if (made != null) null else SkipReason.FAILED
+                } finally {
+                    converted.close()
+                }
+            }
+        }
     }
 
     /** What a song file says of [song]: see SongTags. The track number only from an album page seen. */
@@ -1394,6 +1619,10 @@ class DownloadUtil @Inject constructor(
 
     init {
         Log.i(TAG, "DownloadUtil init")
+        // A "Converting" notice an earlier run left up when Android ended the app: nothing converts at the start.
+        ConvertNotice.clearStale(context)
+        // ... and nor does a conversion's temporary file belong to anything: one left by an app that was ended mid-song goes.
+        CoroutineScope(Dispatchers.IO).launch { runCatching { converter.sweep(olderThanMs = 0) } }
         // TODO: make sure db is update when download is queued
         CoroutineScope(dlCoroutine).launch {
             try {

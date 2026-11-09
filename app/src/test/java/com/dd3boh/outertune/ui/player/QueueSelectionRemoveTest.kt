@@ -55,4 +55,17 @@ class QueueSelectionRemoveTest {
         val header = File("src/main/java/com/dd3boh/outertune/ui/component/SelectHeader.kt").readText()
         assertTrue("onRemoveFromQueue = onRemoveFromQueue," in header)
     }
+
+    @Test
+    fun `the selection bar has it as a button of its own, at its far end, where nothing moves for it`() {
+        // Asked for on 9 Nov 2026: "the remove from queue button needs to be easily accessible, not in a ... menu".
+        val header = File("src/main/java/com/dd3boh/outertune/ui/component/SelectHeader.kt").readText()
+        val button = header.indexOf("onClick = onRemoveFromQueue,")
+        assertTrue("a tap on the bar removes the songs picked", button > 0)
+        assertTrue("named for TalkBack", "contentDescription = stringResource(R.string.remove_from_queue)" in header.substring(button))
+        assertTrue("nothing to remove, nothing to tap", "enabled = selectedItems.isNotEmpty()," in header.substring(button))
+        // After close, the last of the row's buttons, so the count, the menu, select all and close stay put.
+        assertTrue(button > header.indexOf("contentDescription = stringResource(R.string.cancel_selection)"))
+        assertTrue("only where the queue gives it", "if (onRemoveFromQueue != null) {" in header.substring(0, button))
+    }
 }

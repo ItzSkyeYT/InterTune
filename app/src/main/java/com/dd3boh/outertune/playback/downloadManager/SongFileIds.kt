@@ -15,18 +15,25 @@ import java.io.InputStream
  * comment (SongTags.link), or the PURL a yt-dlp download keeps. A download saved as a song file is
  * named "Artist - Title.opus", so its name no longer says which song it is; the app reads it here
  * when it meets a file it does not know yet. Only the first bytes are read: the Ogg comment header
- * up to the link, which comes before the cover, and an .m4a's boxes down to its comment, the audio
- * skipped. No Android in here, so it is tested on the JVM.
+ * up to the link, which comes before the cover, an .m4a's boxes down to its comment, the audio
+ * skipped, an MP3's or a WAV's ID3v2 tag, and a FLAC's Vorbis comment block (Unreleased.DOWNLOAD_FORMATS).
+ * No Android in here, so it is tested on the JVM.
  */
 object SongFileIds {
     /** Past this, a comment header is not one of ours, and nothing in it is looked for. */
     private const val MAX_TAGS = 16 * 1024 * 1024
+
+    /** The most a frame or a chunk looked into may hold: a comment is a line; a picture is skipped, never read. */
+    private const val MAX_FRAME = 64L * 1024
 
     /** The id in the file called [name], whose bytes [input] gives from the start, or null. */
     fun read(name: String, input: InputStream): String? = try {
         when (name.substringAfterLast('.', "").lowercase()) {
             "opus" -> fromOgg(input)
             "m4a" -> fromM4a(input)
+            "mp3" -> fromId3(input)
+            "flac" -> fromFlac(input)
+            "wav" -> fromWav(input)
             else -> null
         }
     } catch (e: IOException) {
@@ -101,6 +108,159 @@ object SongFileIds {
         }
         return null
     }
+
+    /**
+     * From the ID3v2 tag at the start of [input] (an MP3, or the chunk of a WAV): the first comment
+     * (COMM) or user text (TXXX, WXXX) with a YouTube link in it, whatever else the tag holds
+     * skipped, the cover included.
+     */
+    fun fromId3(input: InputStream): String? {
+        val header = ByteArray(10)
+        if (!readFully(input, header)) return null
+        if (String(header, 0, 3, Charsets.ISO_8859_1) != "ID3") return null
+        val version = header[3].toInt()
+        if (version != 3 && version != 4) return null
+        val flags = header[5].toInt() and 0xFF
+        val size = synchsafe(header, 6)
+        if (size <= 0 || size > MAX_TAGS) return null
+        var left = size.toLong()
+        if (flags and 0x40 != 0) {
+            // An extended header: its size, then what it holds. Version 4 counts its own four bytes.
+            val extended = ByteArray(4)
+            if (!readFully(input, extended)) return null
+            val rest = (if (version == 4) synchsafe(extended, 0) - 4 else be32(extended, 0)).toLong()
+            if (rest < 0 || rest + 4 > left) return null
+            Boxes(input).skip(rest)
+            left -= 4 + rest
+        }
+        val skipper = Boxes(input)
+        val frame = ByteArray(10)
+        while (left >= 10) {
+            if (!readFully(input, frame)) return null
+            left -= 10
+            if (frame[0].toInt() == 0) return null // padding: no frame is left
+            val id = String(frame, 0, 4, Charsets.ISO_8859_1)
+            val length = (if (version == 4) synchsafe(frame, 4) else be32(frame, 4)).toLong()
+            if (length < 0 || length > left) return null
+            if ((id == "COMM" || id == "TXXX" || id == "WXXX") && length in 1..MAX_FRAME) {
+                val body = ByteArray(length.toInt())
+                if (!readFully(input, body)) return null
+                SongFileNames.videoIdIn(id3Text(body))?.let { return it }
+            } else {
+                skipper.skip(length)
+            }
+            left -= length
+        }
+        return null
+    }
+
+    /** What a text frame holds, whatever it says in front of the text: the encoding decides how the bytes read. */
+    private fun id3Text(body: ByteArray): String = when (body[0].toInt()) {
+        1 -> String(body, 1, body.size - 1, Charsets.UTF_16)
+        2 -> String(body, 1, body.size - 1, Charsets.UTF_16BE)
+        3 -> String(body, 1, body.size - 1, Charsets.UTF_8)
+        else -> String(body, 1, body.size - 1, Charsets.ISO_8859_1)
+    }
+
+    /** From a FLAC file's Vorbis comment block, which follows its stream info; the other blocks are skipped. */
+    fun fromFlac(input: InputStream): String? {
+        val marker = ByteArray(4)
+        if (!readFully(input, marker) || String(marker, Charsets.ISO_8859_1) != "fLaC") return null
+        val skipper = Boxes(input)
+        val header = ByteArray(4)
+        while (true) {
+            if (!readFully(input, header)) return null
+            val last = header[0].toInt() and 0x80 != 0
+            val type = header[0].toInt() and 0x7F
+            val length = ((header[1].toInt() and 0xFF) shl 16) or ((header[2].toInt() and 0xFF) shl 8) or (header[3].toInt() and 0xFF)
+            if (type == 4) {
+                if (length > MAX_TAGS) return null
+                val body = ByteArray(length)
+                if (!readFully(input, body)) return null
+                return vorbisLink(body)
+            }
+            skipper.skip(length.toLong())
+            if (last) return null
+        }
+    }
+
+    /** The first COMMENT or PURL of a Vorbis comment block (a FLAC's, which has no "OpusTags" in front) that holds a YouTube link. */
+    private fun vorbisLink(b: ByteArray): String? {
+        if (b.size < 8) return null
+        var at = 0
+        val vendor = le32(b, at).toLong() and 0xFFFFFFFFL
+        at += 4
+        if (at + vendor + 4 > b.size) return null
+        at += vendor.toInt()
+        val count = le32(b, at).toLong() and 0xFFFFFFFFL
+        at += 4
+        var seen = 0L
+        while (seen < count && at + 4 <= b.size) {
+            val length = le32(b, at).toLong() and 0xFFFFFFFFL
+            if (at + 4 + length > b.size) return null
+            val start = at + 4
+            val keyEnd = (start until start + length.toInt()).firstOrNull { b[it] == '='.code.toByte() }
+            if (keyEnd != null) {
+                val key = String(b, start, keyEnd - start, Charsets.US_ASCII).uppercase()
+                if (key == "COMMENT" || key == "PURL") {
+                    SongFileNames.videoIdIn(String(b, keyEnd + 1, start + length.toInt() - keyEnd - 1, Charsets.UTF_8))?.let { return it }
+                }
+            }
+            at = start + length.toInt()
+            seen++
+        }
+        return null
+    }
+
+    /**
+     * From a WAV's "id3 " chunk, or failing that its LIST INFO comment (ICMT). The chunks before the
+     * audio are walked; the audio is where it stops.
+     */
+    fun fromWav(input: InputStream): String? {
+        val riff = ByteArray(12)
+        if (!readFully(input, riff)) return null
+        if (String(riff, 0, 4, Charsets.ISO_8859_1) != "RIFF" || String(riff, 8, 4, Charsets.ISO_8859_1) != "WAVE") return null
+        val skipper = Boxes(input)
+        val header = ByteArray(8)
+        while (true) {
+            if (!readFully(input, header)) return null
+            val id = String(header, 0, 4, Charsets.ISO_8859_1)
+            val length = le32(header, 4).toLong() and 0xFFFFFFFFL
+            val padded = length + (length and 1)
+            when {
+                id == "data" -> return null
+                (id == "id3 " || id == "ID3 ") && length <= MAX_TAGS -> {
+                    val body = ByteArray(length.toInt())
+                    if (!readFully(input, body)) return null
+                    fromId3(body.inputStream())?.let { return it }
+                    skipper.skip(padded - length)
+                }
+                id == "LIST" && length in 4..MAX_FRAME -> {
+                    val body = ByteArray(length.toInt())
+                    if (!readFully(input, body)) return null
+                    if (String(body, 0, 4, Charsets.ISO_8859_1) == "INFO") infoComment(body)?.let { return it }
+                    skipper.skip(padded - length)
+                }
+                else -> skipper.skip(padded)
+            }
+        }
+    }
+
+    /** The ICMT of a LIST INFO chunk's body ("INFO" first), when it holds a YouTube link. */
+    private fun infoComment(body: ByteArray): String? {
+        var at = 4
+        while (at + 8 <= body.size) {
+            val id = String(body, at, 4, Charsets.ISO_8859_1)
+            val length = (le32(body, at + 4).toLong() and 0xFFFFFFFFL).toInt()
+            if (length < 0 || at + 8 + length > body.size) return null
+            if (id == "ICMT") SongFileNames.videoIdIn(String(body, at + 8, length, Charsets.UTF_8))?.let { return it }
+            at += 8 + length + (length and 1)
+        }
+        return null
+    }
+
+    private fun synchsafe(b: ByteArray, i: Int) =
+        ((b[i].toInt() and 0x7F) shl 21) or ((b[i + 1].toInt() and 0x7F) shl 14) or ((b[i + 2].toInt() and 0x7F) shl 7) or (b[i + 3].toInt() and 0x7F)
 
     /** From an .m4a's iTunes comment, moov > udta > meta > ilst > ©cmt > data. */
     fun fromM4a(input: InputStream): String? {

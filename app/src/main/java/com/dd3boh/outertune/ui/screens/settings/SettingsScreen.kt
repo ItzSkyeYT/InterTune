@@ -230,6 +230,7 @@ fun SettingsScreen(
             modifier = Modifier.fillMaxWidth().tourTarget(Tour.SETTINGS_KEPT)
         ) {
             PreferenceEntry(
+                modifier = Modifier.tourTarget(Tour.ROW_STORAGE),
                 title = { Text(stringResource(R.string.grp_storage_and_downloads)) },
                 description = stringResource(R.string.settings_storage_description),
                 icon = { Icon(Icons.Rounded.Storage, null) },
