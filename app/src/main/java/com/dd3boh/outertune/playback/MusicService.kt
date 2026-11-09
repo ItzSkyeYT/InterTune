@@ -3255,7 +3255,7 @@ class MusicService : MediaLibraryService(),
                         sampleRate = format.audioSampleRate,
                         contentLength = format.contentLengthOrZero(),
                         loudnessDb = playbackData.audioConfig?.effectiveLoudnessDb,
-                        qualityTier = audioQualityNow().name,
+                        qualityTier = cacheTier(audioQualityNow(), metered()),
                         playbackTrackingUrl = playbackData.playbackTracking?.videostatsPlaybackUrl?.baseUrl
                     )
                 )
@@ -3458,8 +3458,7 @@ class MusicService : MediaLibraryService(),
      */
     private fun audioQualityNow(): AudioQuality {
         val quality by enumPreference(this@MusicService, AudioQualityKey, AudioQuality.AUTO)
-        val metered = runCatching { connectivityManager.isActiveNetworkMetered }.getOrDefault(true)
-        return BatteryUse.quality(quality, metered, batteryMode)
+        return BatteryUse.quality(quality, metered(), batteryMode)
     }
 
     /**
@@ -3476,9 +3475,12 @@ class MusicService : MediaLibraryService(),
         // A database that does not answer is taken as a copy of unknown quality, so the copy plays
         // as it is. Given up: the better copy, until the song is next started with the database
         // answering.
-        val stored = runCatching { database.readOrNull { formatRow(mediaId) } }.getOrNull()?.qualityTier
-        return isStaleQualityTier(stored, audioQualityNow())
+        val stored = runCatching { database.readOrNull { formatRow(mediaId) } }.getOrNull()
+        return isStaleQualityTier(stored?.qualityTier, audioQualityNow(), metered = metered(), storedBitrate = stored?.bitrate)
     }
+
+    /** Whether the connection is metered now, as Auto's choice of stream reads it (AudioPick); metered when it cannot be told. */
+    private fun metered(): Boolean = runCatching { connectivityManager.isActiveNetworkMetered }.getOrDefault(true)
 
     private fun createRenderersFactory(gaplessOffloadAllowed: Boolean): DefaultRenderersFactory {
         if (ENABLE_FFMETADATAEX) {
