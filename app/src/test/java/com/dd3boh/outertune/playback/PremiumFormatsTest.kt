@@ -70,5 +70,16 @@ class PremiumFormatsTest {
         val signedOut = check.substringAfter("if (YouTube.cookie == null) {").substringBefore("}")
         assertTrue(signedOut, "return@withContext lines" in signedOut)
         assertTrue(check.indexOf("if (YouTube.cookie == null)") < check.indexOf("playerResponseAsAccount("))
+        assertTrue(check.indexOf("if (YouTube.cookie == null)") < check.indexOf("YouTube.player("))
+    }
+
+    @Test
+    fun `the check asks the phone app's and the TV's clients as the account too, and sums up across all`() {
+        // One page says the 256 kbps streams are kept for the phone and TV apps: a web "none" alone settles nothing.
+        assertEquals(listOf("ANDROID", "TVHTML5"), PremiumCheck.OTHER_CLIENTS.map { it.clientName })
+        assertTrue(PremiumCheck.OTHER_CLIENTS.all { it.loginSupported })
+        val check = File("src/main/java/com/dd3boh/outertune/playback/PremiumCheck.kt").readText()
+        assertTrue("say(PremiumFormats.offeredLine(offered))" in check)
+        assertTrue("offered += r.streamingData?.adaptiveFormats.orEmpty()" in check)
     }
 }
