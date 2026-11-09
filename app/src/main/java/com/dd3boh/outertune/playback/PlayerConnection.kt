@@ -161,6 +161,24 @@ class PlayerConnection(
         loadQueueIfEmpty()
     }
 
+    /**
+     * Songs were taken out of the saved queue before play, the player holding nothing yet (the
+     * queue sheet after a restart): the song on screen and where it starts are the queue's again.
+     * The song the queue was on may be one of those taken out, and the one that followed it is what
+     * plays now, from its top (MultiQueueObject.removeAtPlayIndex); a queue with nothing left shows
+     * no song. The sheet and the artwork strip read the queue board again too
+     * (MusicService.unloadedQueueChanged). Once the player holds the queue its own events say all
+     * this, and nothing is done.
+     */
+    fun storedQueueEdited() {
+        if (player.currentMediaItem != null) return
+        val queue = service.queueBoard.getCurrentQueue()
+        val song = queue?.takeIf { it.getSize() > 0 }?.getCurrentSong()
+        mediaMetadata.value = song
+        restoredPosition.value = queue?.lastSongPos?.takeIf { song != null && it > 0 }
+        service.unloadedQueueChanged.value += 1
+    }
+
     fun playQueue(
         queue: Queue,
         shouldResume: Boolean = false,

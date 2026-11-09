@@ -546,6 +546,13 @@ val PlaylistEditLockKey = booleanPreferencesKey("playlistEditLock")
 // and whether their order is locked against a stray drag, as a playlist's songs are.
 val PlaylistCustomOrderKey = stringPreferencesKey("playlistCustomOrder")
 val PlaylistsOrderLockKey = booleanPreferencesKey("playlistsOrderLock")
+// Library > Albums and Library > Artists in Custom order: whether their rows can be dragged, as the playlists'.
+val AlbumsOrderLockKey = booleanPreferencesKey("albumsOrderLock")
+val ArtistsOrderLockKey = booleanPreferencesKey("artistsOrderLock")
+// Custom order on the Library page and under Playlists, one order for both: every album, artist and
+// playlist by its key, one a line (LibraryOrder). Until something is dragged after an update it
+// starts from the playlists' order above; the lock above is the lock of both.
+val LibraryCustomOrderKey = stringPreferencesKey("libraryCustomOrder")
 
 val SearchSourceKey = stringPreferencesKey("searchSource")
 

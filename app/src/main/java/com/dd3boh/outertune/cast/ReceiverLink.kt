@@ -178,12 +178,14 @@ data class ReceiverStatus(
 
 /**
  * What a receiver said it can do, once connected. [formats] decides which encoding a song is
- * sent in (CastFormats).
+ * sent in (CastFormats). [shapesSound]: the link puts the app's sound (PcmSound) on the raw audio
+ * itself as it sends it, so the server must send it the samples as they were decoded (AirPlay).
  */
 data class LinkCaps(
     val formats: FormatSupport = FormatSupport.Unknown,
     val canSetSpeed: Boolean = false,
     val hasVolume: Boolean = true,
+    val shapesSound: Boolean = false,
 )
 
 /**

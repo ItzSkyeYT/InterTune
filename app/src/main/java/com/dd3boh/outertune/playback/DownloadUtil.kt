@@ -125,6 +125,9 @@ class DownloadUtil @Inject constructor(
     val TAG = DownloadUtil::class.simpleName.toString()
 
     private val connectivityManager = context.getSystemService<ConnectivityManager>()!!
+
+    /** Whether the connection is metered now, as Auto's choice of stream reads it (AudioPick); metered when it cannot be told. */
+    private fun metered(): Boolean = runCatching { connectivityManager.isActiveNetworkMetered }.getOrDefault(true)
     private val audioQuality by enumPreference(context, AudioQualityKey, AudioQuality.AUTO)
     // Concurrent, because media3 runs each download on its own thread and this is read and written
     // from all of them. An unsynchronised HashMap can corrupt its table under concurrent put.
@@ -183,8 +186,8 @@ class DownloadUtil @Inject constructor(
                 // A database that does not answer is taken as a copy of unknown quality, and the
                 // download takes it as it is. Given up: the better copy for this download, where
                 // the wait used to hold one of the three download threads for good.
-                val storedTier = runCatching { database.readOrNull { formatRow(mediaId) } }.getOrNull()?.qualityTier
-                if (!isStaleQualityTier(storedTier, audioQuality)) return@Factory dataSpec
+                val stored = runCatching { database.readOrNull { formatRow(mediaId) } }.getOrNull()
+                if (!isStaleQualityTier(stored?.qualityTier, audioQuality, metered = metered(), storedBitrate = stored?.bitrate)) return@Factory dataSpec
                 staleCopy = true
             }
             if (playerCache.holdsPartFromStart(mediaId)) {
@@ -284,7 +287,7 @@ class DownloadUtil @Inject constructor(
                     sampleRate = format.audioSampleRate,
                     contentLength = format.contentLengthOrZero(),
                     loudnessDb = playbackData.audioConfig?.effectiveLoudnessDb,
-                    qualityTier = audioQuality.name,
+                    qualityTier = cacheTier(audioQuality, metered()),
                     playbackTrackingUrl = playbackData.playbackTracking?.videostatsPlaybackUrl?.baseUrl
                 )
             )
@@ -1527,34 +1530,65 @@ fun stateToLocalDateTime(state: Int, updateTimeMs: Long): LocalDateTime {
     }
 }
 
+/** A copy fetched under Auto on metered data: Auto took a middle stream there (AudioPick). */
+const val AUTO_METERED = "AUTO_METERED"
+
+/** A copy fetched under Auto on a connection that is not metered: the best stream, as High takes. */
+const val AUTO_UNMETERED = "AUTO_UNMETERED"
+
 /**
- * Where a setting sits relative to the others, for deciding what counts as an upgrade. The one
- * rank table: the download resolver and MusicService.shouldUpgradeCached both go through it, via
- * isStaleQualityTier.
- *
- * Auto and High share a rank because on an unmetered connection they resolve to the same stream,
- * so treating a move between them as an upgrade would re-fetch for nothing.
+ * Below this a copy recorded as plain "AUTO", before the network was recorded too, is taken for one
+ * Auto fetched on mobile data: about 55 kbps (Opus 249, or AAC 139) in 0.12, about 75 (Opus 250)
+ * since #88, where the best streams are 128 kbps and up.
  */
-private fun AudioQuality.upgradeRank() = when (this) {
-    AudioQuality.LOW -> 0
-    AudioQuality.AUTO -> 1
-    AudioQuality.HIGH -> 1
-    AudioQuality.MAX -> 2
+const val OLD_AUTO_SMALL_BPS = 100_000
+
+/**
+ * The tier a copy is recorded at: the setting, and for Auto the kind of connection it was fetched
+ * on, since Auto takes a middle stream on metered data and the best one elsewhere (AudioPick).
+ * Plain "AUTO" was recorded either way until 9 Nov 2026, so a song first played on mobile data
+ * stayed small on Wi-Fi for as long as it was cached.
+ */
+fun cacheTier(quality: AudioQuality, metered: Boolean): String = when {
+    quality != AudioQuality.AUTO -> quality.name
+    metered -> AUTO_METERED
+    else -> AUTO_UNMETERED
 }
 
 /**
- * Whether a copy recorded at [storedTier] ranks below [current], the quality setting now in
- * force. A plain function of two values, with no cache or database in it, so the rank rule is
- * tested without either.
+ * Where a recorded tier sits, for deciding what counts as an upgrade: Low, then Auto on metered
+ * data, then Auto elsewhere and High (the same stream), then Highest. The one rank table: the
+ * download resolver and MusicService.shouldUpgradeCached both go through it, via isStaleQualityTier.
+ * Null for a tier that is not one of these.
  *
- * Null, or a tier the enum no longer has a case for, means the copy predates this field, or came
+ * A plain "AUTO" from before the network was recorded ranks as Auto on metered data when its
+ * stream was a small one ([storedBitrate] under [OLD_AUTO_SMALL_BPS]), and as Auto elsewhere
+ * otherwise or when its bitrate is not known. Fetched again, it is recorded with its network, so a
+ * song whose best stream is a small one is fetched again once, not at every play.
+ */
+private fun recordedRank(tier: String, storedBitrate: Int?): Int? = when (tier) {
+    AudioQuality.LOW.name -> 0
+    AUTO_METERED -> 1
+    AudioQuality.AUTO.name -> if (storedBitrate != null && storedBitrate in 1 until OLD_AUTO_SMALL_BPS) 1 else 2
+    AUTO_UNMETERED, AudioQuality.HIGH.name -> 2
+    AudioQuality.MAX.name -> 3
+    else -> null
+}
+
+/**
+ * Whether a copy recorded at [storedTier] (with its stream's [storedBitrate]) ranks below what
+ * [current], the quality setting now in force, takes on this connection ([metered]). A plain
+ * function of values, with no cache or database in it, so the rank rule is tested without either.
+ *
+ * Null, or a tier that is not one of the recorded ones, means the copy predates this field, or came
  * from before quality tiers were recorded at all; treated as no upgrade, for playback and
  * downloads alike, rather than re-fetching someone's whole cache the first time they open the app
  * after an update.
  */
-fun isStaleQualityTier(storedTier: String?, current: AudioQuality): Boolean {
-    val stored = storedTier?.let { runCatching { AudioQuality.valueOf(it) }.getOrNull() } ?: return false
-    return current.upgradeRank() > stored.upgradeRank()
+fun isStaleQualityTier(storedTier: String?, current: AudioQuality, metered: Boolean = false, storedBitrate: Int? = null): Boolean {
+    val stored = storedTier?.let { recordedRank(it, storedBitrate) } ?: return false
+    val now = recordedRank(cacheTier(current, metered), null) ?: return false
+    return now > stored
 }
 
 /**

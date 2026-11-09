@@ -31,6 +31,7 @@ import com.dd3boh.outertune.constants.ArtistSortDescendingKey
 import com.dd3boh.outertune.constants.ArtistSortType
 import com.dd3boh.outertune.constants.ArtistSortTypeKey
 import com.dd3boh.outertune.constants.LibrarySortDescendingKey
+import com.dd3boh.outertune.constants.LibraryCustomOrderKey
 import com.dd3boh.outertune.constants.LibrarySortType
 import com.dd3boh.outertune.constants.LibrarySortTypeKey
 import com.dd3boh.outertune.constants.PlaylistCustomOrderKey
@@ -52,6 +53,7 @@ import com.dd3boh.outertune.db.entities.Song
 import com.dd3boh.outertune.extensions.toEnum
 import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.models.ContentFilter
+import com.dd3boh.outertune.models.LibraryOrder
 import com.dd3boh.outertune.models.PlaylistOrder
 import com.dd3boh.outertune.models.DirectoryTree
 import com.dd3boh.outertune.models.withoutBlocked
@@ -205,26 +207,54 @@ class LibraryFoldersViewModel @Inject constructor(
 
 @HiltViewModel
 class LibraryArtistsViewModel @Inject constructor(
-    @ApplicationContext context: Context,
+    @ApplicationContext private val context: Context,
     database: MusicDatabase,
     private val syncUtils: SyncUtils,
 ) : ViewModel() {
     val isSyncingRemoteArtists = syncUtils.isSyncingRemoteArtists
 
+    private data class Listing(val filter: ArtistFilter, val sortType: ArtistSortType, val descending: Boolean, val order: List<String>)
+
     val allArtists = context.dataStore.data
         .map {
-            Triple(
+            Listing(
                 it[ArtistFilterKey].toEnum(ArtistFilter.LIKED),
-                it[ArtistSortTypeKey].toEnum(ArtistSortType.CREATE_DATE),
-                it[ArtistSortDescendingKey] ?: true
+                it[ArtistSortTypeKey].toEnum(ArtistSortType.CREATE_DATE).let { sort ->
+                    // A stored Custom order reads as Date added where it is not offered.
+                    if (sort == ArtistSortType.CUSTOM && !Unreleased.PLAYLIST_ORDER) ArtistSortType.CREATE_DATE else sort
+                },
+                it[ArtistSortDescendingKey] ?: true,
+                LibraryOrder.idsOf(LibraryOrder.saved(it[LibraryCustomOrderKey], it[PlaylistCustomOrderKey]), LibraryOrder.ARTIST),
             )
         }
         .distinctUntilChanged()
-        .flatMapLatest { (filter, sortType, descending) ->
-            database.artists(filter, sortType, descending)
+        .flatMapLatest { (filter, sortType, descending, order) ->
+            if (sortType == ArtistSortType.CUSTOM) {
+                // The library's one order, which the Library page shows whole; oldest first by when
+                // each came into the library before it, as there. No way round.
+                database.artists(filter, sortType, false).map { artists ->
+                    PlaylistOrder.apply(artists.sortedBy { it.artist.bookmarkedAt.toString() }, order) { it.id }
+                }
+            } else {
+                database.artists(filter, sortType, descending)
+            }
         }
         .withoutBlocked()
         .stateIn(viewModelScope, SharingStarted.Lazily, null)
+
+    /**
+     * The artists' order after a drag, every liked artist, as shown: they take the places the
+     * library's one order gives artists, and its albums and playlists stay put.
+     */
+    fun saveCustomOrder(ids: List<String>) {
+        viewModelScope.launch(Dispatchers.IO) {
+            context.dataStore.edit {
+                val saved = LibraryOrder.saved(it[LibraryCustomOrderKey], it[PlaylistCustomOrderKey])
+                val whole = LibraryOrder.refill(saved, ids.map { id -> LibraryOrder.ARTIST + id }) { key -> key.startsWith(LibraryOrder.ARTIST) }
+                it[LibraryCustomOrderKey] = PlaylistOrder.encode(whole)
+            }
+        }
+    }
 
     fun syncArtists(bypassCd: Boolean = false) {
         viewModelScope.launch(Dispatchers.IO) { syncUtils.syncRemoteArtists(bypassCd) }
@@ -273,26 +303,54 @@ class LibraryArtistsViewModel @Inject constructor(
 
 @HiltViewModel
 class LibraryAlbumsViewModel @Inject constructor(
-    @ApplicationContext context: Context,
+    @ApplicationContext private val context: Context,
     database: MusicDatabase,
     private val syncUtils: SyncUtils,
 ) : ViewModel() {
     val isSyncingRemoteAlbums = syncUtils.isSyncingRemoteAlbums
 
+    private data class Listing(val filter: AlbumFilter, val sortType: AlbumSortType, val descending: Boolean, val order: List<String>)
+
     val allAlbums = context.dataStore.data
         .map {
-            Triple(
+            Listing(
                 it[AlbumFilterKey].toEnum(AlbumFilter.LIKED),
-                it[AlbumSortTypeKey].toEnum(AlbumSortType.CREATE_DATE),
-                it[AlbumSortDescendingKey] ?: true
+                it[AlbumSortTypeKey].toEnum(AlbumSortType.CREATE_DATE).let { sort ->
+                    // A stored Custom order reads as Date added where it is not offered.
+                    if (sort == AlbumSortType.CUSTOM && !Unreleased.PLAYLIST_ORDER) AlbumSortType.CREATE_DATE else sort
+                },
+                it[AlbumSortDescendingKey] ?: true,
+                LibraryOrder.idsOf(LibraryOrder.saved(it[LibraryCustomOrderKey], it[PlaylistCustomOrderKey]), LibraryOrder.ALBUM),
             )
         }
         .distinctUntilChanged()
-        .flatMapLatest { (filter, sortType, descending) ->
-            database.albums(filter, sortType, descending)
+        .flatMapLatest { (filter, sortType, descending, order) ->
+            if (sortType == AlbumSortType.CUSTOM) {
+                // The library's one order, which the Library page shows whole; oldest first by when
+                // each came into the library before it, as there. No way round.
+                database.albums(filter, sortType, false).map { albums ->
+                    PlaylistOrder.apply(albums.sortedBy { it.album.bookmarkedAt.toString() }, order) { it.id }
+                }
+            } else {
+                database.albums(filter, sortType, descending)
+            }
         }
         .withoutBlocked()
         .stateIn(viewModelScope, SharingStarted.Lazily, null)
+
+    /**
+     * The albums' order after a drag, every liked album, as shown: they take the places the
+     * library's one order gives albums, and its artists and playlists stay put.
+     */
+    fun saveCustomOrder(ids: List<String>) {
+        viewModelScope.launch(Dispatchers.IO) {
+            context.dataStore.edit {
+                val saved = LibraryOrder.saved(it[LibraryCustomOrderKey], it[PlaylistCustomOrderKey])
+                val whole = LibraryOrder.refill(saved, ids.map { id -> LibraryOrder.ALBUM + id }) { key -> key.startsWith(LibraryOrder.ALBUM) }
+                it[LibraryCustomOrderKey] = PlaylistOrder.encode(whole)
+            }
+        }
+    }
 
     fun syncAlbums(bypassCd: Boolean = false) {
         viewModelScope.launch(Dispatchers.IO) { syncUtils.syncRemoteAlbums(bypassCd) }
@@ -334,7 +392,7 @@ class LibraryPlaylistsViewModel @Inject constructor(
 ) : ViewModel() {
     val isSyncingRemotePlaylists = syncUtils.isSyncingRemotePlaylists
 
-    private data class Listing(val filter: PlaylistFilter, val sortType: PlaylistSortType, val descending: Boolean, val order: String?)
+    private data class Listing(val filter: PlaylistFilter, val sortType: PlaylistSortType, val descending: Boolean, val order: List<String>)
 
     val allPlaylists = context.dataStore.data
         .map {
@@ -345,7 +403,7 @@ class LibraryPlaylistsViewModel @Inject constructor(
                     if (sort == PlaylistSortType.CUSTOM && !Unreleased.PLAYLIST_ORDER) PlaylistSortType.CREATE_DATE else sort
                 },
                 it[PlaylistSortDescendingKey] ?: true,
-                it[PlaylistCustomOrderKey],
+                LibraryOrder.playlistIds(LibraryOrder.saved(it[LibraryCustomOrderKey], it[PlaylistCustomOrderKey])),
             )
         }
         .distinctUntilChanged()
@@ -353,7 +411,7 @@ class LibraryPlaylistsViewModel @Inject constructor(
             if (sortType == PlaylistSortType.CUSTOM) {
                 // No way round in an order of your own: it is the one dragged.
                 database.playlists(filter, sortType, false).map { playlists ->
-                    PlaylistOrder.apply(playlists, PlaylistOrder.decode(order)) { it.id }
+                    PlaylistOrder.apply(playlists, order) { it.id }
                 }
             } else {
                 database.playlists(filter, sortType, descending)
@@ -361,10 +419,17 @@ class LibraryPlaylistsViewModel @Inject constructor(
         }
         .stateIn(viewModelScope, SharingStarted.Lazily, null)
 
-    /** The playlists' order after a drag, every playlist of the library, as shown. */
+    /**
+     * The playlists' order after a drag, every playlist of the library, as shown: they take the
+     * places the library's one order gives playlists, and its albums and artists stay put.
+     */
     fun saveCustomOrder(ids: List<String>) {
         viewModelScope.launch(Dispatchers.IO) {
-            context.dataStore.edit { it[PlaylistCustomOrderKey] = PlaylistOrder.encode(ids) }
+            context.dataStore.edit {
+                val saved = LibraryOrder.saved(it[LibraryCustomOrderKey], it[PlaylistCustomOrderKey])
+                val whole = LibraryOrder.refill(saved, ids.map { id -> LibraryOrder.PLAYLIST + id }) { key -> key.startsWith(LibraryOrder.PLAYLIST) }
+                it[LibraryCustomOrderKey] = PlaylistOrder.encode(whole)
+            }
         }
     }
 
@@ -376,7 +441,7 @@ class LibraryPlaylistsViewModel @Inject constructor(
 @HiltViewModel
 @OptIn(ExperimentalCoroutinesApi::class)
 class LibraryViewModel @Inject constructor(
-    @ApplicationContext context: Context,
+    @ApplicationContext private val context: Context,
     database: MusicDatabase,
     private val syncUtils: SyncUtils
 ) : ViewModel() {
@@ -391,37 +456,59 @@ class LibraryViewModel @Inject constructor(
     var albums = database.albumsLikedAsc().withoutBlocked().stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
     var playlists = database.playlistInLibraryAsc().stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
+    private data class Listing(val sortType: LibrarySortType, val descending: Boolean, val order: List<String>?)
+
     val allItems = context.dataStore.data
         .map {
-            it[LibrarySortTypeKey].toEnum(LibrarySortType.CREATE_DATE) to (it[LibrarySortDescendingKey] != false)
+            val sortType = it[LibrarySortTypeKey].toEnum(LibrarySortType.CREATE_DATE).let { sort ->
+                // A stored Custom order reads as Date added where it is not offered.
+                if (sort == LibrarySortType.CUSTOM && !Unreleased.PLAYLIST_ORDER) LibrarySortType.CREATE_DATE else sort
+            }
+            Listing(
+                sortType,
+                it[LibrarySortDescendingKey] != false,
+                if (sortType == LibrarySortType.CUSTOM) LibraryOrder.saved(it[LibraryCustomOrderKey], it[PlaylistCustomOrderKey]) else null,
+            )
         }
         .distinctUntilChanged()
-        .flatMapLatest { (sortType, descending) ->
+        .flatMapLatest { (sortType, descending, order) ->
             combine(artists, albums, playlists) { artists, albums, playlists ->
                 // Once each, by what it is: the screen used to take out repeats by their hash,
                 // which reads every field of every item on each pass, and would drop one of two
                 // different items that happened to hash alike.
                 val items = (artists + albums + playlists).distinctBy(::libraryKey)
+                // Custom order: oldest first, then in the order kept, with no way round.
+                if (order != null) return@combine PlaylistOrder.apply(items.sortedBy { addedAt(it) }, order) { libraryKey(it).toString() }
                 items.sortedBy { item ->
                     when (sortType) {
-                        LibrarySortType.CREATE_DATE -> when (item) {
-                            is Album -> item.album.bookmarkedAt
-                            is Artist -> item.artist.bookmarkedAt
-                            is Playlist -> item.playlist.bookmarkedAt
-                            else -> LocalDateTime.now()
-                        }
-
-                        else -> when (item) {
+                        LibrarySortType.NAME -> when (item) {
                             is Album -> item.album.title.lowercase()
                             is Artist -> item.artist.name.lowercase()
                             is Playlist -> item.playlist.name.lowercase()
                             else -> ""
                         }
-                    }.toString()
+
+                        else -> addedAt(item)
+                    }
                 }.let { if (descending) it.reversed() else it }
             }
         }
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+
+    /** When an item came into the library, as Date added sorts them. */
+    private fun addedAt(item: Any): String = when (item) {
+        is Album -> item.album.bookmarkedAt
+        is Artist -> item.artist.bookmarkedAt
+        is Playlist -> item.playlist.bookmarkedAt
+        else -> LocalDateTime.now()
+    }.toString()
+
+    /** The library's order after a drag on this page: every album, artist and playlist, as shown. */
+    fun saveCustomOrder(keys: List<String>) {
+        viewModelScope.launch(Dispatchers.IO) {
+            context.dataStore.edit { it[LibraryCustomOrderKey] = PlaylistOrder.encode(keys) }
+        }
+    }
 
     fun syncAll(bypassCd: Boolean = false) {
         viewModelScope.launch(Dispatchers.IO) { syncUtils.tryAutoSync(bypassCd) }

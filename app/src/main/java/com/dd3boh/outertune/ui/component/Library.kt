@@ -57,7 +57,9 @@ fun LibraryArtistListItem(
     menuState: MenuState,
     coroutineScope: CoroutineScope,
     artist: Artist,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    // In an order of your own, unlocked: the handle the row is dragged by.
+    dragHandle: Modifier? = null,
 ) = ArtistListItem(
     artist = artist,
     trailingContent = {
@@ -79,6 +81,7 @@ fun LibraryArtistListItem(
                 contentDescription = stringResource(R.string.options)
             )
         }
+        if (dragHandle != null) RowDragHandle(dragHandle)
     },
     modifier = modifier
         .fillMaxWidth()
@@ -94,27 +97,31 @@ fun LibraryArtistGridItem(
     menuState: MenuState,
     coroutineScope: CoroutineScope,
     artist: Artist,
-    modifier: Modifier = Modifier
-) = ArtistGridItem(
-    artist = artist,
-    fillMaxWidth = true,
-    modifier = modifier
-        .fillMaxWidth()
-        .combinedClickable(
-            onClick = {
-                navController.navigate("artist/${artist.id}")
-            },
-            onLongClick = {
-                menuState.show {
-                    ArtistMenu(
-                        originalArtist = artist,
-                        coroutineScope = coroutineScope,
-                        onDismiss = menuState::dismiss
-                    )
+    modifier: Modifier = Modifier,
+    // In an order of your own, unlocked: the handle the tile is dragged by, on its picture's corner.
+    dragHandle: Modifier? = null,
+) = TileWithDragHandle(modifier, dragHandle) { tile ->
+    ArtistGridItem(
+        artist = artist,
+        fillMaxWidth = true,
+        modifier = tile
+            .fillMaxWidth()
+            .combinedClickable(
+                onClick = {
+                    navController.navigate("artist/${artist.id}")
+                },
+                onLongClick = {
+                    menuState.show {
+                        ArtistMenu(
+                            originalArtist = artist,
+                            coroutineScope = coroutineScope,
+                            onDismiss = menuState::dismiss
+                        )
+                    }
                 }
-            }
-        )
-)
+            )
+    )
+}
 
 @Composable
 fun LibraryAlbumListItem(
@@ -123,7 +130,9 @@ fun LibraryAlbumListItem(
     menuState: MenuState,
     album: Album,
     isActive: Boolean = false,
-    isPlaying: Boolean = false
+    isPlaying: Boolean = false,
+    // In an order of your own, unlocked: the handle the row is dragged by.
+    dragHandle: Modifier? = null,
 ) = AlbumListItem(
     album = album,
     isActive = isActive,
@@ -147,6 +156,7 @@ fun LibraryAlbumListItem(
                 contentDescription = stringResource(R.string.options)
             )
         }
+        if (dragHandle != null) RowDragHandle(dragHandle)
     },
     modifier = modifier
         .fillMaxWidth()
@@ -164,30 +174,34 @@ fun LibraryAlbumGridItem(
     coroutineScope: CoroutineScope,
     album: Album,
     isActive: Boolean = false,
-    isPlaying: Boolean = false
-) = AlbumGridItem(
-    album = album,
-    isActive = isActive,
-    isPlaying = isPlaying,
-    coroutineScope = coroutineScope,
-    fillMaxWidth = true,
-    modifier = modifier
-        .fillMaxWidth()
-        .combinedClickable(
-            onClick = {
-                navController.navigate("album/${album.id}")
-            },
-            onLongClick = {
-                menuState.show {
-                    AlbumMenu(
-                        originalAlbum = album,
-                        navController = navController,
-                        onDismiss = menuState::dismiss
-                    )
+    isPlaying: Boolean = false,
+    // In an order of your own, unlocked: the handle the tile is dragged by, on its cover's corner.
+    dragHandle: Modifier? = null,
+) = TileWithDragHandle(modifier, dragHandle) { tile ->
+    AlbumGridItem(
+        album = album,
+        isActive = isActive,
+        isPlaying = isPlaying,
+        coroutineScope = coroutineScope,
+        fillMaxWidth = true,
+        modifier = tile
+            .fillMaxWidth()
+            .combinedClickable(
+                onClick = {
+                    navController.navigate("album/${album.id}")
+                },
+                onLongClick = {
+                    menuState.show {
+                        AlbumMenu(
+                            originalAlbum = album,
+                            navController = navController,
+                            onDismiss = menuState::dismiss
+                        )
+                    }
                 }
-            }
-        )
-)
+            )
+    )
+}
 
 @Composable
 fun LibraryPlaylistListItem(
@@ -250,17 +264,7 @@ fun LibraryPlaylistListItem(
                 contentDescription = stringResource(R.string.options)
             )
         }
-        if (dragHandle != null) {
-            IconButton(
-                onClick = { },
-                modifier = dragHandle
-            ) {
-                Icon(
-                    Icons.Rounded.DragHandle,
-                    contentDescription = null
-                )
-            }
-        }
+        if (dragHandle != null) RowDragHandle(dragHandle)
     },
     modifier = modifier
         .fillMaxWidth()
@@ -326,38 +330,57 @@ fun LibraryPlaylistGridItem(
                 }
             }
         )
-    if (dragHandle == null) {
+    TileWithDragHandle(modifier, dragHandle) { tile ->
         PlaylistGridItem(
             playlist = playlist,
             fillMaxWidth = true,
-            modifier = modifier
+            modifier = tile
                 .fillMaxWidth()
                 .then(clicks)
         )
-    } else {
-        Box(modifier.fillMaxWidth()) {
-            PlaylistGridItem(
-                playlist = playlist,
-                fillMaxWidth = true,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .then(clicks)
+    }
+}
+
+/** The handle a row is dragged by in an order of your own, after its menu button. */
+@Composable
+private fun RowDragHandle(dragHandle: Modifier) {
+    IconButton(
+        onClick = { },
+        modifier = dragHandle
+    ) {
+        Icon(
+            Icons.Rounded.DragHandle,
+            contentDescription = null
+        )
+    }
+}
+
+/**
+ * A tile of the grid, given the modifier it is laid out with; in an order of your own, unlocked,
+ * with the handle it is dragged by on its cover's corner.
+ */
+@Composable
+private fun TileWithDragHandle(modifier: Modifier, dragHandle: Modifier?, tile: @Composable (Modifier) -> Unit) {
+    if (dragHandle == null) {
+        tile(modifier)
+        return
+    }
+    Box(modifier.fillMaxWidth()) {
+        tile(Modifier)
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(14.dp)
+                .size(36.dp)
+                .background(MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.9f), CircleShape)
+                .then(dragHandle)
+        ) {
+            Icon(
+                Icons.Rounded.DragHandle,
+                contentDescription = null,
+                modifier = Modifier.size(20.dp)
             )
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(14.dp)
-                    .size(36.dp)
-                    .background(MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.9f), CircleShape)
-                    .then(dragHandle)
-            ) {
-                Icon(
-                    Icons.Rounded.DragHandle,
-                    contentDescription = null,
-                    modifier = Modifier.size(20.dp)
-                )
-            }
         }
     }
 }

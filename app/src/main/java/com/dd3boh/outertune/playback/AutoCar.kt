@@ -211,6 +211,7 @@ internal val DRAWINGS: Map<String, Int> = mapOf(
     "auto_home" to R.drawable.auto_home,
     "auto_library" to R.drawable.auto_library,
     "auto_recent" to R.drawable.auto_recent,
+    "auto_search" to R.drawable.auto_search,
     "download" to R.drawable.download,
     "favorite" to R.drawable.favorite,
     "music_note" to R.drawable.music_note,

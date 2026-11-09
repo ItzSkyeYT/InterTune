@@ -45,6 +45,7 @@ import com.dd3boh.outertune.cast.RemoteRepeat
 import com.dd3boh.outertune.cast.RemoteRequest
 import com.dd3boh.outertune.cast.RemoteSong
 import com.dd3boh.outertune.cast.ReportAction
+import com.dd3boh.outertune.cast.SentForm
 import com.dd3boh.outertune.cast.SentSong
 import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.extensions.metadata
@@ -58,6 +59,9 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.concurrent.ConcurrentHashMap
@@ -132,6 +136,11 @@ class RemotePlayer(
     /** The last song sent, and in what form; read by the status watcher on the main thread. */
     @Volatile
     private var sent: SentSong<MediaItem>? = null
+
+    private val _sentForm = MutableStateFlow<SentForm?>(null)
+
+    /** How the last song went to the receiver, for Signal path: as raw audio at a rate, or as it is. */
+    val sentForm: StateFlow<SentForm?> = _sentForm.asStateFlow()
 
     /**
      * Types this receiver failed and then played as AAC, which its later songs skip straight to
@@ -402,6 +411,7 @@ class RemotePlayer(
             // are sent one at a time, so this one is the next number on the link.
             attempt = SentSong(load, link.status.value.load + 1, asIs.mimeType, choice, local, retry = aac == true)
             sent = attempt
+            _sentForm.value = SentForm(mediaId, offer.mimeType, raw = choice is FormatChoice.Pcm, rate = offer.rate.takeIf { it > 0 })
             link.load(item, load.startMs, load.play)
         } catch (e: CancellationException) {
             throw e

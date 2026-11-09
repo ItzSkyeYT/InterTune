@@ -2073,9 +2073,10 @@
     <string name="equalizer_headphones_no_curve">Ce modèle n\'a pas de courbe à dix bandes. Essayez une autre de ses mesures.</string>
     <string name="equalizer_headphones_none_found">Aucun modèle de ce nom.</string>
     <string name="support_title">Soutenir InterTune</string>
-    <string name="support_text">InterTune est gratuit et sans publicité. Pour faire un don, envoyez un message privé au développeur sur le serveur Discord d\'InterTune.</string>
+    <string name="support_text">InterTune est gratuit et sans publicité. Pour donner, passez par le Ko-fi d\'InterTune et dites dans votre message si vous voulez figurer ici. Pour la crypto, écrivez au développeur sur Discord.</string>
     <string name="support_thanks">Merci à ceux qui ont déjà donné :</string>
     <string name="support_discord">Ouvrir Discord</string>
+    <string name="support_kofi">Faire un don sur Ko-fi</string>
     <plurals name="list_queued_here">
         <item quantity="one">%1$d titre ajouté à la fin de cette file d\'attente</item>
         <item quantity="many">%1$d titres ajoutés à la fin de cette file d\'attente</item>
@@ -2207,6 +2208,9 @@
     <string name="auto_more_recent_line">Reprenez là où vous en étiez</string>
     <string name="auto_more_shuffle_library">Ma bibliothèque en aléatoire</string>
     <string name="auto_more_shuffle_line">Tout ce que vous avez gardé, mélangé</string>
+    <string name="auto_search_offline">Pas d\'internet sur le téléphone</string>
+    <string name="auto_search_no_answer">YouTube Music n\'a pas répondu</string>
+    <string name="auto_search_again">Touchez pour chercher à nouveau</string>
     <string name="auto_settings_sound">Son</string>
     <string name="auto_settings_playback">Lecture</string>
     <string name="auto_level_line">Un volume égal d\'un titre à l\'autre</string>
@@ -2237,6 +2241,10 @@
     <string name="signal_wired">Casque filaire</string>
     <string name="signal_other_output">Un autre appareil</string>
     <string name="signal_volume">Volume du téléphone</string>
+    <string name="signal_receiver">%1$s, %2$s</string>
+    <string name="signal_receiver_rate">%1$s, %2$s, %3$s kHz</string>
+    <string name="signal_not_on_receiver">Pas sur ce récepteur, qui reçoit le titre tel quel</string>
+    <string name="signal_not_while_casting">Pas pendant un cast</string>
     <string name="signal_percent">%1$d %%</string>
     <string name="signal_legend_untouched">Intact</string>
     <string name="signal_legend_changed">Modifié par un réglage que vous avez choisi</string>

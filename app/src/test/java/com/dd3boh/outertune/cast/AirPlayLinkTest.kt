@@ -396,6 +396,34 @@ class AirPlayLinkTest {
     }
 
     @Test
+    fun `the app's sound goes on every packet once as it is sent, each song's own, afresh at each load`() = runBlocking {
+        val speaker = FakeSpeaker()
+        val songs = songServer()
+        val sound = MarkingSound()
+        val link = AirPlayLink(
+            speaker.device, scope,
+            latencyFrames = 4_410, leadNanos = 20_000_000, primeFrames = 1_000, pipeFrames = 44_100, covers = { null }, sound = sound,
+        ).also { link -> closing += AutoCloseable { link.close() } }
+        link.connect()
+        assertTrue("the server is to send it the samples as decoded", link.caps.shapesSound)
+        link.load(item(songs, "a", 22_050), 0, play = true)
+        assertEquals("looked up as it was loaded, before a packet of it went", listOf("a"), sound.prepared)
+        link.waitFor(ReceiverState.ENDED, load = 1)
+        link.load(item(songs, "b", 11_025), 0, play = true)
+        link.waitFor(ReceiverState.ENDED, load = 2)
+        Thread.sleep(300)
+        val heard = speaker.stretch(0).map { Received(it.seq, it.timestamp, it.marker, MarkingSound.undo(it.samples)) }
+        // Undone once, every frame is there in order: each went through the sound exactly once.
+        assertEquals((0L until 22_050L).toList() + (0L until 11_025L).toList(), songFrames(heard))
+        assertEquals(listOf("a", "b"), sound.prepared)
+        assertEquals(setOf("a", "b"), sound.shapedSongs)
+        assertEquals("one stream, one stage", 1, sound.stages.get())
+        assertEquals("its filters start afresh with each song", 2, sound.resets.get())
+        // A link with no sound tells the server to put it on.
+        assertEquals(false, link(FakeSpeaker()).also { it.connect() }.caps.shapesSound)
+    }
+
+    @Test
     fun `pause flushes the speaker and play goes on from the very frame it was heard at`() = runBlocking {
         val speaker = FakeSpeaker()
         val songs = songServer()

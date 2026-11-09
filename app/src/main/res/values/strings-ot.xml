@@ -70,6 +70,10 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="auto_more_recent_line">Pick up where you left off</string>
     <string name="auto_more_shuffle_library">Shuffle my library</string>
     <string name="auto_more_shuffle_line">Everything you saved, mixed</string>
+    <!-- The last row of a search in the car when YouTube Music gave nothing back: why, then what a tap does (it searches again). -->
+    <string name="auto_search_offline">No internet on the phone</string>
+    <string name="auto_search_no_answer">YouTube Music did not answer</string>
+    <string name="auto_search_again">Tap to search again</string>
     <string name="auto_settings_sound">Sound</string>
     <string name="auto_settings_playback">Playback</string>
     <string name="auto_level_line">Even out the volume</string>
@@ -2270,12 +2274,13 @@ while also allowing users to translate our app as well. New, specific strings to
     </plurals>
     <string name="together_removed">%1$s was removed. The room has a new code.</string>
     <string name="support_title">Support InterTune</string>
-    <string name="support_text">InterTune is free and has no ads. If you would like to donate, send the developer a direct message on the InterTune Discord server.</string>
+    <string name="support_text">InterTune is free and has no ads. To give something back, use InterTune\'s Ko-fi and say in your message if you want your name here. For crypto, message the developer on Discord.</string>
     <string name="support_thanks">Thanks to those who already gave:</string>
     <string name="support_discord">Open Discord</string>
     <!-- Pinned buttons on the player (0.13, issue #27): held from translators until he says yes to the words. -->
     <string name="player_pins_add" translatable="false">Add</string>
     <string name="player_pins_take_off" translatable="false">Take off %1$s</string>
+    <string name="support_kofi">Donate on Ko-fi</string>
     <plurals name="list_queued_here">
         <item quantity="one">%1$d song added to the end of this queue</item>
         <item quantity="other">%1$d songs added to the end of this queue</item>
@@ -2427,6 +2432,10 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="signal_wired">Wired headphones</string>
     <string name="signal_other_output">Another device</string>
     <string name="signal_volume">Phone volume</string>
+    <string name="signal_receiver">%1$s, %2$s</string>
+    <string name="signal_receiver_rate">%1$s, %2$s, %3$s kHz</string>
+    <string name="signal_not_on_receiver">Not on this receiver, which gets the song as it is</string>
+    <string name="signal_not_while_casting">Not while casting</string>
     <string name="signal_percent">%1$d%%</string>
     <string name="signal_legend_untouched">Untouched</string>
     <string name="signal_legend_changed">Changed by a setting you chose</string>
