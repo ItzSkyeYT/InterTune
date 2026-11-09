@@ -255,6 +255,7 @@ class PartsBatchService : Service() {
     }
 
     private fun channel() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         getSystemService(NotificationManager::class.java)
             .createNotificationChannel(NotificationChannel(CHANNEL, getString(R.string.mix_parts_channel), NotificationManager.IMPORTANCE_LOW))
     }

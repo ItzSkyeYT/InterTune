@@ -7,6 +7,7 @@
 package com.dd3boh.outertune.playback.parts
 
 import android.content.Context
+import android.os.Build
 import android.util.Log
 import com.dd3boh.outertune.parts.OrtSpecModel
 import com.dd3boh.outertune.parts.WindowSplitter
@@ -101,7 +102,8 @@ object PartsOnPhone {
                 OrtSpecModel.environment(), model.path,
                 // No arena and no planned buffers: 1.24 GB at the peak instead of 2.2 GB on the S25 Ultra, and faster (19 Oct).
                 OrtSpecModel.Options(threads = threads, lowMemory = true),
-                SharedBuffers.orHeap(),
+                // Shared memory where Android has it (8.1 and later), the Java heap before.
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) SharedBuffers() else OrtSpecModel.Buffers.Direct,
             )
             Log.i(TAG, String.format(Locale.ROOT, "Model %s (%d bytes) loaded in %.1f s, %d threads", model.path, model.length(), (System.nanoTime() - started) / 1e9, threads))
             return m
