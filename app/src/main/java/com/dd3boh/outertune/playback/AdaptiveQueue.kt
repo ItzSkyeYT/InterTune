@@ -508,6 +508,9 @@ object AdaptiveQueue {
                 dismissed = r.dismissed.toSet(), likePending = r.likePending,
                 lastSkipped = r.lastSkipped, playingId = r.recent.firstOrNull()?.song?.id,
                 played = r.played,
+                // Each song by its newest play: one gone back to has a newer entry, which forgave it.
+                skippedIds = r.recent.asSequence().distinctBy { it.song.id }
+                    .filter { it.skipped && !it.liked }.map { it.song.id }.take(SKIPPED_LISTS).toList(),
             )
         }
 
@@ -717,6 +720,11 @@ object AdaptiveQueue {
         val lastSkipped: String?,
         val playingId: String?,
         val played: Int,
+        /**
+         * The songs skipped in this run and not gone back to or liked since, newest first, [SKIPPED_LISTS]
+         * at most: whose related lists say what the listener turns from (SkipSimilar).
+         */
+        val skippedIds: List<String> = emptyList(),
     )
 
     /** One song as it was heard: what it was, by whom, and how long it is (-1 when not known). */
@@ -752,6 +760,9 @@ object AdaptiveQueue {
 
     /** Skips of one artist in a queue before their other songs go. One skip is a mood, two a pattern. */
     const val ARTIST_SKIPS = 2
+
+    /** The run's newest skipped songs whose related lists a pass reads (SkipSimilar). */
+    const val SKIPPED_LISTS = 3
 
     /** Songs in a row it takes to call a run plain. */
     const val PLAIN_RUN = 4

@@ -926,4 +926,16 @@ object Unreleased {
      * stored one reads as Date added. To ship: set this to true and add it to ReleasedFlagsTest.
      */
     val PLAYLIST_ORDER = BuildConfig.DEBUG
+
+    /**
+     * The adaptive queue reads a skip by what the skipped song is like (his idea of 9 Nov 2026). A song
+     * skipped early and not gone back to has its related list asked for when the phone has none (one radio
+     * page of it, online only, never while YouTube refuses us, once a song in a run and one every
+     * SKIP_PAGE_EVERY_MS at most), and the songs ahead that stand closer to it than to any song kept or
+     * liked in the run make way (SkipSimilar), where before every song on a stored list did and a song with
+     * no stored list changed nothing. A song like two of the run's skipped songs goes wherever it is in the
+     * tail. Without the flag the pass reads the stored list of the song just skipped, as before. To ship:
+     * set this to true and add it to ReleasedFlagsTest.
+     */
+    val ADAPTIVE_SIMILAR = BuildConfig.DEBUG
 }
