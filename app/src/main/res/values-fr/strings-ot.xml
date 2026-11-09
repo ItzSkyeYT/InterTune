@@ -2124,6 +2124,9 @@
     <string name="auto_more_recent_line">Reprenez là où vous en étiez</string>
     <string name="auto_more_shuffle_library">Ma bibliothèque en aléatoire</string>
     <string name="auto_more_shuffle_line">Tout ce que vous avez gardé, mélangé</string>
+    <string name="auto_search_offline">Pas d\'internet sur le téléphone</string>
+    <string name="auto_search_no_answer">YouTube Music n\'a pas répondu</string>
+    <string name="auto_search_again">Touchez pour chercher à nouveau</string>
     <string name="auto_settings_sound">Son</string>
     <string name="auto_settings_playback">Lecture</string>
     <string name="auto_level_line">Un volume égal d\'un titre à l\'autre</string>
