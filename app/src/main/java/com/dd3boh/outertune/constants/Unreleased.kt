@@ -926,4 +926,24 @@ object Unreleased {
      * stored one reads as Date added. To ship: set this to true and add it to ReleasedFlagsTest.
      */
     val PLAYLIST_ORDER = BuildConfig.DEBUG
+
+    /**
+     * Downloads in their own quality (third in the 0.13 poll, "Downloads in their own quality"):
+     * Download quality under Settings > Storage and downloads, with Same as playback, Highest, High
+     * and Low (DownloadQuality). A download is fetched at the choice, or at Audio quality for Same as
+     * playback, which is what every download was fetched at before. Auto is not among the choices:
+     * it follows the connection, and a download may run on Wi-Fi hours after it was asked for.
+     *
+     * The download resolver (DownloadUtil, qualityForDownload) reads it once for each song and judges
+     * the song cache's copy by it, picks the stream by it and records the copy at it: a copy fetched
+     * below it is fetched again, one above it is taken as it is, since fetching to make a download
+     * worse would spend data and lose quality. Songs already downloaded are never fetched again.
+     *
+     * Without the flag the setting reads as Same as playback whatever is stored (a restored backup
+     * can bring it), and the row has no place in Settings or its search. Its three texts
+     * (download_quality*) are held from translators, their French beside them in values-fr. When it is
+     * agreed: set this to true, add its name to ReleasedFlagsTest, make its texts translatable, give
+     * Download quality a place in ReportSettings' downloads and an entry among what is new.
+     */
+    val DOWNLOAD_QUALITY = BuildConfig.DEBUG
 }

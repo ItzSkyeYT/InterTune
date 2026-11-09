@@ -32,6 +32,8 @@ import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.AudioQuality
 import com.dd3boh.outertune.constants.AudioQualityKey
+import com.dd3boh.outertune.constants.DownloadQuality
+import com.dd3boh.outertune.constants.DownloadQualityKey
 import com.dd3boh.outertune.utils.ReportTrail
 import com.dd3boh.outertune.constants.DownloadExtraPathKey
 import kotlinx.coroutines.flow.drop
@@ -129,6 +131,11 @@ class DownloadUtil @Inject constructor(
     /** Whether the connection is metered now, as Auto's choice of stream reads it (AudioPick); metered when it cannot be told. */
     private fun metered(): Boolean = runCatching { connectivityManager.isActiveNetworkMetered }.getOrDefault(true)
     private val audioQuality by enumPreference(context, AudioQualityKey, AudioQuality.AUTO)
+    private val downloadQuality by enumPreference(context, DownloadQualityKey, DownloadQuality.SAME)
+
+    /** The quality a download asks for now: the Download quality, or Audio quality for Same as playback (see [qualityForDownload]). */
+    private fun qualityNow(): AudioQuality = qualityForDownload(downloadQuality, audioQuality)
+
     // Concurrent, because media3 runs each download on its own thread and this is read and written
     // from all of them. An unsynchronised HashMap can corrupt its table under concurrent put.
     private val songUrlCache = java.util.concurrent.ConcurrentHashMap<String, Pair<String, Long>>()
@@ -168,6 +175,10 @@ class DownloadUtil @Inject constructor(
     ) { dataSpec ->
         val mediaId = dataSpec.key ?: error("No media id")
         val length = if (dataSpec.length >= 0) dataSpec.length else 1
+        // What this download asks for (Unreleased.DOWNLOAD_QUALITY): the Download quality, or Audio
+        // quality for Same as playback. Read once, so that the cached copy is judged by it, the
+        // stream is picked by it and the copy is recorded at it, even if a setting changes meanwhile.
+        val quality = qualityNow()
         var staleCopy = false
         if (dataSpec.position == 0L) {
             // From the start, the player's copy is read through only when it holds the whole
@@ -177,17 +188,19 @@ class DownloadUtil @Inject constructor(
             // and the download takes the whole song from the new stream.
             if (playerCache.holdsWhole(mediaId)) {
                 // Checked before the shortcut takes it, or a download made after raising the
-                // audio quality would copy the old cached bytes straight in and stay at the old
-                // bitrate for good. A copy fetched at a lower setting is replaced, but only once
-                // the new stream is in hand, as MusicService does for playback: if the fetch fails
-                // or the stream is not checked, the download takes the old copy as before rather
-                // than losing the one copy that plays offline.
+                // audio quality, or asking for a higher Download quality than the copy was fetched
+                // at, would copy the old cached bytes straight in and stay at the old bitrate for
+                // good. A copy fetched at a lower setting is replaced, but only once the new stream
+                // is in hand, as MusicService does for playback: if the fetch fails or the stream is
+                // not checked, the download takes the old copy as before rather than losing the one
+                // copy that plays offline. A copy above what the download asks for is taken as it
+                // is: fetching to make it worse would spend data to lose quality.
                 //
                 // A database that does not answer is taken as a copy of unknown quality, and the
                 // download takes it as it is. Given up: the better copy for this download, where
                 // the wait used to hold one of the three download threads for good.
                 val stored = runCatching { database.readOrNull { formatRow(mediaId) } }.getOrNull()
-                if (!isStaleQualityTier(stored?.qualityTier, audioQuality, metered = metered(), storedBitrate = stored?.bitrate)) return@Factory dataSpec
+                if (!isStaleQualityTier(stored?.qualityTier, quality, metered = metered(), storedBitrate = stored?.bitrate)) return@Factory dataSpec
                 staleCopy = true
             }
             if (playerCache.holdsPartFromStart(mediaId)) {
@@ -234,7 +247,7 @@ class DownloadUtil @Inject constructor(
             StandIns(
                 resolve = { id ->
                     paced()
-                    YTPlayerUtils.playerResponseForPlayback(id, audioQuality = audioQuality, connectivityManager = connectivityManager, forDownload = true)
+                    YTPlayerUtils.playerResponseForPlayback(id, audioQuality = quality, connectivityManager = connectivityManager, forDownload = true)
                 },
                 wanted = { id ->
                     database.readOrNull { songRow(id) }?.let { row ->
@@ -287,7 +300,7 @@ class DownloadUtil @Inject constructor(
                     sampleRate = format.audioSampleRate,
                     contentLength = format.contentLengthOrZero(),
                     loudnessDb = playbackData.audioConfig?.effectiveLoudnessDb,
-                    qualityTier = cacheTier(audioQuality, metered()),
+                    qualityTier = cacheTier(quality, metered()),
                     playbackTrackingUrl = playbackData.playbackTracking?.videostatsPlaybackUrl?.baseUrl
                 )
             )
@@ -1590,6 +1603,21 @@ fun isStaleQualityTier(storedTier: String?, current: AudioQuality, metered: Bool
     val now = recordedRank(cacheTier(current, metered), null) ?: return false
     return now > stored
 }
+
+/**
+ * The quality a download asks for (Unreleased.DOWNLOAD_QUALITY): the one the Download quality
+ * [setting] names, or [playback], the Audio quality setting, for Same as playback, which is what
+ * every download asked for before the setting. Without the flag ([offered]) always [playback],
+ * whatever a restored backup has stored. A plain function of values, so it is tested without a
+ * download.
+ *
+ * The resolver reads it once for each song and judges the song cache's copy by it
+ * ([isStaleQualityTier]), picks the stream by it and records the copy at it ([cacheTier]). So a
+ * download at Highest does not take a copy cached at Low, and one at Low takes a better copy that
+ * is cached rather than fetch a worse one. Never Auto unless Same as playback is on Auto.
+ */
+fun qualityForDownload(setting: DownloadQuality, playback: AudioQuality, offered: Boolean = Unreleased.DOWNLOAD_QUALITY): AudioQuality =
+    if (offered) setting.tier ?: playback else playback
 
 /**
  * The ids, out of [idToLocalPath], whose recorded folder was not among the ones the last scan

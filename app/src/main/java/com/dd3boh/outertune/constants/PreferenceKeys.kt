@@ -267,6 +267,14 @@ val LyricLatinKey = booleanPreferencesKey("lyricLatin")
 val DownloadExtraPathKey = stringPreferencesKey("dlExtraPath") // previously "downloadExtraPath"
 val DownloadPathKey = stringPreferencesKey("dlPath") // previously "downloadPath"
 val DownloadOnWifiOnlyKey = booleanPreferencesKey("downloadOnWifiOnly")
+
+/**
+ * What downloads are fetched at, a DownloadQuality by name (Unreleased.DOWNLOAD_QUALITY). Never
+ * written but by its own row, and never written for anybody who has not picked one: absent, it
+ * reads as Same as playback, so nothing changes for anyone who never touches it.
+ */
+val DownloadQualityKey = stringPreferencesKey("downloadQuality")
+
 val MaxImageCacheSizeKey = intPreferencesKey("maxImageCacheSize")
 
 /**
