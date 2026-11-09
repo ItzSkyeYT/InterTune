@@ -12,6 +12,7 @@ import com.dd3boh.outertune.constants.AudioNormalizationKey
 import com.dd3boh.outertune.constants.AudioQualityKey
 import com.dd3boh.outertune.constants.BatteryModeKey
 import com.dd3boh.outertune.constants.DownloadOnWifiOnlyKey
+import com.dd3boh.outertune.constants.DownloadQualityKey
 import com.dd3boh.outertune.constants.DownloadPathKey
 import com.dd3boh.outertune.constants.InnerTubeCookieKey
 import com.dd3boh.outertune.constants.MaxSongCacheSizeKey
@@ -127,6 +128,14 @@ class ReportSettingsTest {
         assertTrue("* proxy on, socks" in on)
         assertFalse("203.0.113.7" in on.joinToString())
         assertTrue("proxy off" in ReportSettings.lines(Area.PLAYBACK, prefs(ProxyUrlKey to "203.0.113.7:1080")).joinToString("\n"))
+    }
+
+    @Test
+    fun `a download report says the download quality, same as playback until it is changed`() {
+        // Download quality is in debug and preview builds only (Unreleased.DOWNLOAD_QUALITY), as these tests run.
+        assertTrue("download quality same as playback" in ReportSettings.lines(Area.DOWNLOADS, prefs()).joinToString())
+        assertTrue("* download quality max" in ReportSettings.lines(Area.DOWNLOADS, prefs(DownloadQualityKey to "MAX")))
+        assertFalse("download quality" in ReportSettings.lines(Area.PLAYBACK, prefs(DownloadQualityKey to "MAX")).joinToString())
     }
 
     @Test

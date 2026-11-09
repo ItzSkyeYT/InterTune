@@ -76,14 +76,14 @@ class DownloadQualityWiringTest {
     }
 
     @Test
-    fun `without the flag the stored setting is not read, and only the download code, its row and the settings index read the flag`() {
+    fun `without the flag the stored setting is not read, and only the download code, its row, the settings index and the report read the flag`() {
         val readers = sources.walkTopDown()
             .filter { it.extension == "kt" && it.name != "Unreleased.kt" }
             .filter { Regex("""Unreleased\.DOWNLOAD_QUALITY\b""").containsMatchIn(code(it.readText())) }
             .map { it.relativeTo(sources).path }
             .toSet()
         assertEquals(
-            setOf("playback/DownloadUtil.kt", "ui/screens/settings/fragments/DownloadsFrag.kt", "ui/screens/settings/SettingsIndex.kt"),
+            setOf("playback/DownloadUtil.kt", "ui/screens/settings/fragments/DownloadsFrag.kt", "ui/screens/settings/SettingsIndex.kt", "utils/ReportSettings.kt"),
             readers,
         )
         val rule = util.substringAfter("fun qualityForDownload(").substringBefore("\n\n")
