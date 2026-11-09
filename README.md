@@ -168,7 +168,7 @@ Every change in detail, and why this fork exists: [docs/FEATURES.md](https://git
 What's being worked on, roughly in order. `[x]` is done, `[~]` is built and being tested, `[ ]` is still to do. Nothing here has a date, and plans can change. Ideas are welcome in #feature-requests on [Discord](https://discord.gg/68jmqhMjXk) or as a [GitHub issue](https://github.com/ItzSkyeYT/InterTune/issues/new/choose).
 
 <details>
-<summary><b>Next: 0.13</b> · 6 of 37 done, 22 to test</summary>
+<summary><b>Next: 0.13</b> · 6 of 37 done, 23 to test</summary>
 
 `[~]` Listen together: one person plays, friends follow the same song in real time\
 `[x]` AirPlay speakers in the cast list\
@@ -203,7 +203,7 @@ What's being worked on, roughly in order. `[x]` is done, `[~]` is built and bein
 `[ ]` Choose what's in the three-dot menus\
 `[ ]` Lyrics videos\
 `[ ]` Better word by word lyrics\
-`[ ]` Albums and artists in your own order too\
+`[~]` Albums and artists in your own order too\
 `[ ]` Tablets: settings in two panes, and the player as a side pane *(in progress)*\
 `[ ]` A look made for foldable and flip phones *(in progress)*\
 `[ ]` Match your library from another service by logging in to it
