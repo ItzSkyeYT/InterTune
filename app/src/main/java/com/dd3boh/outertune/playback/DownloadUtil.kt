@@ -245,7 +245,9 @@ class DownloadUtil @Inject constructor(
                 runCatching { playerCache.removeResource(mediaId) }
                     .onFailure { Log.w(TAG, "Could not drop the partial copy of $mediaId", it) }
             }
-        } else if (playerCache.isCached(mediaId, dataSpec.position, length)) {
+        } else if (playerCache.isCached(mediaId, dataSpec.position, length) && sameRecordedStream(recordedLength(playerCache, mediaId), recordedLength(downloadCache, mediaId))) {
+            // A later range read from the player's copy only when both copies are the same stream: the
+            // player's may be another quality than the part already downloaded, and the file would be both.
             return@Factory dataSpec
         }
 
@@ -307,12 +309,17 @@ class DownloadUtil @Inject constructor(
         // has died since and this stream is a stand-in's, or the other way round) cannot be
         // finished: the file would be the start of one and the rest of the other. What is there
         // goes and this try fails, so that the next one takes the song from its start.
+        // The same for a part of another quality: Auto takes one stream on Wi-Fi and another on mobile data,
+        // and Audio quality or Download quality may change between a start and its resume. Judged by the length
+        // the download's own cache recorded as it began; the format row is the player's as much as the download's.
         if (dataSpec.position > 0L) {
             val part = runCatching { database.readOrNull { formatRow(mediaId) } }.getOrNull()
-            if (anotherUpload(part?.itag, part?.contentLength, format.itag, format.contentLengthOrZero())) {
+            val another = partIsAnotherStream(recordedLength(downloadCache, mediaId), format.contentLengthOrZero())
+            if (another || anotherUpload(part?.itag, part?.contentLength, format.itag, format.contentLengthOrZero())) {
                 runCatching { downloadCache.removeResource(mediaId) }
-                    .onFailure { Log.w(TAG, "Could not drop the part of $mediaId that is another upload's", it) }
-                throw IOException("the part of this song already downloaded is another upload's")
+                    .onFailure { Log.w(TAG, "Could not drop the part of $mediaId that is another stream's", it) }
+                Log.i(TAG, "The part of $mediaId already downloaded is another stream's (${if (another) "its length" else "another upload"}): starting again")
+                throw IOException("the part of this song already downloaded is another stream's")
             }
         }
         // A whole copy of the song itself is not given up for a stand-in's stream.
@@ -1971,3 +1978,8 @@ internal fun stillUsable(address: String, expiresAtMs: Long, nowMs: Long = Syste
 internal fun downloadAddress(streamUrl: String, contentLength: Long?): String =
     if (streamUrl.startsWith(SabrStarts.SCHEME + "://")) streamUrl
     else "$streamUrl&range=0-${contentLength ?: 10000000}"
+
+/** The length [cache] recorded for [mediaId]'s stream, C.LENGTH_UNSET when it has none (media3's content metadata). */
+internal fun recordedLength(cache: androidx.media3.datasource.cache.Cache, mediaId: String): Long =
+    runCatching { androidx.media3.datasource.cache.ContentMetadata.getContentLength(cache.getContentMetadata(mediaId)) }
+        .getOrDefault(androidx.media3.common.C.LENGTH_UNSET.toLong())
