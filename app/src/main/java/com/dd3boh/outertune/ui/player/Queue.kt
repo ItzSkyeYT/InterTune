@@ -1258,9 +1258,11 @@ fun BoxScope.QueueContent(
                                     if (qb.removeCurrentQueueSong(swipedIndex)) {
                                         mutableSongs.getOrNull(swipedIndex)?.let { playerConnection.service.noteRemovedByHand(it) }
                                         mutableSongs.getOrNull(swipedIndex)?.id?.let { ActivityLog.note(context, database, it, SignalKind.REMOVED_FROM_QUEUE) }
-                                        playerConnection.player.removeMediaItem(swipedIndex)
+                                        val loaded = playerConnection.player.mediaItemCount > 0
+                                        if (loaded) playerConnection.player.removeMediaItem(swipedIndex)
                                         mutableSongs.removeAt(swipedIndex)
                                         dropIfEmptied()
+                                        if (!loaded) playerConnection.storedQueueEdited()
                                     }
                                     haptic.performHapticFeedback(HapticFeedbackType.Confirm)
                                     return@rememberSwipeToDismissBoxState true
@@ -1270,9 +1272,11 @@ fun BoxScope.QueueContent(
                                     if (qb.removeCurrentQueueSong(swipedIndex)) {
                                         mutableSongs.getOrNull(swipedIndex)?.let { playerConnection.service.noteRemovedByHand(it) }
                                         mutableSongs.getOrNull(swipedIndex)?.id?.let { ActivityLog.note(context, database, it, SignalKind.REMOVED_FROM_QUEUE) }
-                                        playerConnection.player.removeMediaItem(swipedIndex)
+                                        val loaded = playerConnection.player.mediaItemCount > 0
+                                        if (loaded) playerConnection.player.removeMediaItem(swipedIndex)
                                         mutableSongs.removeAt(swipedIndex)
                                         dropIfEmptied()
+                                        if (!loaded) playerConnection.storedQueueEdited()
                                     }
                                     haptic.performHapticFeedback(HapticFeedbackType.Confirm)
                                     return@rememberSwipeToDismissBoxState true
@@ -1372,7 +1376,9 @@ fun BoxScope.QueueContent(
                     // A column, as the item lays its content over itself: under the song playing
                     // in a Mix queue, the next change in a line that is not swiped with the row.
                     Column {
-                        if (!lockQueue && !inSelectMode && !detachedHead) {
+                        // Before play after a restart too (movesStoredQueue), as Remove from queue is: the songs
+                        // leave the saved queue alone, the player holding nothing yet.
+                        if (!lockQueue && !inSelectMode && (!detachedHead || movesStoredQueue)) {
                             SwipeToDismissBox(
                                 state = dismissState,
                                 backgroundContent = {},
