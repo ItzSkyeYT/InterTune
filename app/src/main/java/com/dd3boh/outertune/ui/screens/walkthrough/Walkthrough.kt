@@ -374,7 +374,7 @@ val RECOGNITION_ICON get() = Icons.Rounded.GraphicEq
 
 /** Newest first: what somebody sees at the top is what they have never seen before. */
 val NEW_THINGS = listOf(
-    // 0.13's own, the six things on for everyone from it (his pick of 8 Nov 2026), Don't play this
+    // 0.13's own, the six things on for everyone from it (picked on 8 Nov 2026), Don't play this
     // song with Block artist. A setting is shown where it is; what lives in menus and lists outside
     // Settings has a card that says where it is.
     NewThing(

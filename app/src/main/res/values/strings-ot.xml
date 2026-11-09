@@ -2502,7 +2502,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="download_quality" translatable="false">Download quality</string>
     <string name="download_quality_same" translatable="false">Same as playback</string>
     <string name="download_quality_description" translatable="false">Better quality takes more space. Songs you already downloaded stay as they are.</string>
-    <!-- What's new in 0.13 (Walkthrough.kt, V0_13): held from translators until his go. -->
+    <!-- What's new in 0.13 (Walkthrough.kt, V0_13): held from translators until the words are agreed. -->
     <string name="new_block_artist_title" translatable="false">Block an artist</string>
     <string name="new_block_artist_body" translatable="false">Block artist, in a song\'s menu or on an artist\'s page, takes their songs, albums and picture out of InterTune. A song of theirs that still comes up is skipped.</string>
     <string name="new_block_artist_way" translatable="false">The artists you blocked are listed in here.</string>

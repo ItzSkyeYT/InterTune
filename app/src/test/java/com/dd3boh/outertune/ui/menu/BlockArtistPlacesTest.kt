@@ -80,7 +80,8 @@ class BlockArtistPlacesTest {
         val entry = SETTINGS_INDEX.single { it.title == R.string.blocked_artists }
         assertEquals("settings/library", entry.route)
         val library = File(sources, "ui/screens/settings/LibrarySettings.kt").readText()
-        assertTrue("Modifier.settingRow(R.string.blocked_artists)" in library)
+        // Found by the settings search; What is new marks the same row for its Show me (Tour.SETTING_BLOCKED_ARTISTS).
+        assertTrue(".settingRow(R.string.blocked_artists)" in library)
         assertTrue("settings/library/blocked_artists" in library)
         val nav = File(sources, "ui/navigation/AppNavGraph.kt").readText()
         assertTrue("screen(\"settings/library/blocked_artists\")" in nav)
