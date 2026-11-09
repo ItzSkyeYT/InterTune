@@ -53,6 +53,7 @@ class WidgetDrawAheadTest {
     fun `pictures already drawn for these bitmaps are not drawn again, and the wait for them is bounded`() {
         val warm = store.substringAfter("private suspend fun warm(").substringBefore("suspend fun warmResized(")
         assertTrue("warmed.add(" in warm)
+        assertTrue("only a Shelf draws pictures worth the wait", "it.settings.style == WidgetStyle.SHELF" in warm)
         assertTrue("withTimeoutOrNull(WARM_LIMIT_MS)" in warm)
         assertTrue("a cut short drawing may be asked for again", "warmed.remove(" in warm)
     }

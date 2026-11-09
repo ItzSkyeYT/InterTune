@@ -374,7 +374,12 @@ object WidgetStore {
      */
     private suspend fun warm(context: Context, drawn: Drawn, placed: List<Placed>? = null) {
         if (!hasWidgets(context)) return
-        val wanted = (placed ?: placedSizes(context)).filter { warmed.add("${drawn.pictures}|${it.settings.hashCode()}|${it.w}x${it.h}") }
+        // Only a Shelf draws pictures worth drawing ahead (a crate, a row of records, the blurred cover,
+        // up to 600 000 pixels a size). Cover is covers as they are; Full cover's glass is a few thousand
+        // pixels, a few milliseconds: for those the wait would cost more than it saves.
+        val wanted = (placed ?: placedSizes(context)).filter {
+            it.settings.style == WidgetStyle.SHELF && warmed.add("${drawn.pictures}|${it.settings.hashCode()}|${it.w}x${it.h}")
+        }
         if (wanted.isEmpty()) return
         val started = SystemClock.elapsedRealtime()
         val finished = withTimeoutOrNull(WARM_LIMIT_MS) {
