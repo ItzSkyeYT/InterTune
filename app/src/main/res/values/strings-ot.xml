@@ -2496,6 +2496,10 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="problem_report_share_file" translatable="false">Share as a file</string>
     <!-- Downloads saved as song files (SongFiles, Unreleased.DOWNLOAD_FILES), after the folder's warning: held from translators until his go. -->
     <string name="dl_song_files_note" translatable="false">Songs are saved as Opus or M4A files with their title, artist and cover, so other apps and cars can play them.</string>
+    <!-- Download quality (DownloadsFrag, Unreleased.DOWNLOAD_QUALITY): the row's title, the choice that follows Audio quality, and the line under the row. The other three choices are the Audio quality ones (audio_quality_max, _high, _low). Held from translators until the setting ships. -->
+    <string name="download_quality" translatable="false">Download quality</string>
+    <string name="download_quality_same" translatable="false">Same as playback</string>
+    <string name="download_quality_description" translatable="false">Better quality takes more space. Songs you already downloaded stay as they are.</string>
     <!-- What's new in 0.12.8 (Walkthrough.kt, V0_12_8): held from translators until his go. -->
     <string name="new_report_send_title" translatable="false">Send a report to InterTune</string>
     <string name="new_report_send_body" translatable="false">Report a problem can now send the report to InterTune itself, no GitHub account needed. Or share it as a file to post on Discord.</string>

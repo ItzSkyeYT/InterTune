@@ -217,6 +217,7 @@ val SETTINGS_INDEX: List<SettingEntry> = listOf(
 
     // Storage and downloads
     SettingEntry(Tour.ROUTE_STORAGE, R.string.download_on_wifi_only_title, R.string.download_on_wifi_only_description, words = listOf(R.string.search_words_mobile_data)),
+    SettingEntry(Tour.ROUTE_STORAGE, R.string.download_quality, words = listOf(R.string.search_words_audio_quality), there = Unreleased.DOWNLOAD_QUALITY),
     SettingEntry(Tour.ROUTE_STORAGE, R.string.like_autodownload, words = listOf(R.string.search_words_offline)),
     SettingEntry(Tour.ROUTE_STORAGE, R.string.liked_autodownload_backfill_title, under = R.string.like_autodownload, words = listOf(R.string.search_words_offline)),
     SettingEntry(Tour.ROUTE_STORAGE, R.string.liked_download_sync, R.string.liked_download_sync_description, under = R.string.like_autodownload, there = Unreleased.LIKED_SYNC),
