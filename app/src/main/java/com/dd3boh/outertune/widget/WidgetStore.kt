@@ -495,13 +495,15 @@ object WidgetStore {
             coming = queued?.firstOrNull()
             val old = read(context)
             wantedArt = song?.id
+            // Up next is drawn only by a widget wide enough for it; a change of the queue alone redraws nothing else.
+            val upNextShown = widgets && wideWidgets(context)
             written = "${song?.id}, ${if (isPlaying) "playing" else "paused"}"
             if (song == null) {
                 val next = old.copy(
                     nowPlaying = null, isPlaying = false, isLiked = false, upNext = emptyList(),
                     isShuffled = shuffled ?: old.isShuffled,
                 )
-                changed = old.changesTo(next)
+                changed = old.changesTo(next, upNextShown)
                 if (changed.isNotEmpty()) write(context, next.copy(updatedAt = System.currentTimeMillis()))
             } else {
                 val same = old.nowPlaying?.id == song.id
@@ -552,7 +554,7 @@ object WidgetStore {
                     isShuffled = shuffled ?: old.isShuffled,
                     upNext = upNext,
                 )
-                changed = old.changesTo(next)
+                changed = old.changesTo(next, upNextShown)
                 if (changed.isNotEmpty()) write(context, next.copy(updatedAt = System.currentTimeMillis()))
                 // A missing picture is still fetched when nothing else changed.
                 if (widgets) {
