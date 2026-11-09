@@ -6,10 +6,6 @@
 
 package com.dd3boh.outertune.ui.player
 
-import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.lightColorScheme
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.lerp
 import androidx.graphics.shapes.Cubic
 import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.playback.automix.MixGains
@@ -227,17 +223,7 @@ class MixLookTest {
     }
 
     @Test
-    fun `the colours go from the outgoing cover's to the incoming one's in steps`() {
-        val from = lightColorScheme(primary = Color.Red, surface = Color.White)
-        val to = darkColorScheme(primary = Color.Blue, surface = Color.Black)
-        assertEquals(from.primary, MixLook.blend(from, to, 0f).primary)
-        assertEquals(to.primary, MixLook.blend(from, to, 1f).primary)
-        assertEquals(to.onTertiaryFixedVariant, MixLook.blend(from, to, 1f).onTertiaryFixedVariant)
-        // In between, each colour as Compose mixes two colours.
-        val half = MixLook.blend(from, to, 0.5f)
-        assertEquals(lerp(from.primary, to.primary, 0.5f), half.primary)
-        assertEquals(lerp(from.surface, to.surface, 0.5f), half.surface)
-        assertTrue(half.primary != from.primary && half.primary != to.primary)
+    fun `the backgrounds go from the outgoing cover's to the incoming one's in steps`() {
         assertEquals(0f, MixLook.stepped(0f), 0f)
         assertEquals(1f, MixLook.stepped(1f), 0f)
         assertEquals(16f / 32f, MixLook.stepped(0.505f), 0f)

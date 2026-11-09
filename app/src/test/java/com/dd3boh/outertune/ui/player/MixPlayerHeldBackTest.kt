@@ -45,9 +45,10 @@ class MixPlayerHeldBackTest {
     fun `the player gets its mix from that door alone, and with none draws what it drew`() {
         assertEquals(1, Regex("""rememberMixScreen\(""").findAll(player).count())
         assertTrue("val mix = rememberMixScreen(playerConnection, lyricsShown) { !state.isCollapsed && !state.isDismissed }" in player)
-        // The colours: the player's content as it is, with no theme of its own, without a mix.
-        val colours = mixPlayer.substringAfter("fun MixColours(").substringBefore("\n}\n")
-        assertTrue(colours, "if (mix == null) return content()" in colours)
+        // The colours: never a theme of the player's own, mix or none. A new set of colours makes the
+        // whole player again, and the 32 steps of a change were a frame of 50 to 150 ms each (9 Nov 2026).
+        assertFalse("MaterialTheme(" in mixPlayer)
+        assertFalse("MaterialTheme(colorScheme" in player)
         // The background drawn over the usual one only with a mix, and only while one is on screen.
         assertTrue("if (mix != null) MixBackdrop(" in player)
         val backdrop = mixPlayer.substringAfter("internal fun MixBackdrop(").substringBefore("\n}\n")

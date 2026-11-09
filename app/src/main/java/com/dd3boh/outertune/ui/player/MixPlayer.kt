@@ -14,8 +14,6 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.ColorScheme
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
@@ -47,18 +45,13 @@ import coil3.imageLoader
 import coil3.request.ImageRequest
 import coil3.request.allowHardware
 import coil3.toBitmap
-import com.dd3boh.outertune.constants.DynamicThemeKey
 import com.dd3boh.outertune.constants.PlayerBackgroundStyle
 import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.playback.PlayerConnection
 import com.dd3boh.outertune.playback.automix.MixOnScreen
-import com.dd3boh.outertune.ui.theme.DefaultThemeColor
-import com.dd3boh.outertune.ui.theme.LocalCoverColours
 import com.dd3boh.outertune.ui.theme.extractGradientColors
-import com.dd3boh.outertune.ui.theme.extractThemeSource
 import com.dd3boh.outertune.utils.coilCoroutine
-import com.dd3boh.outertune.utils.rememberPreference
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
@@ -140,9 +133,9 @@ class MixScreen internal constructor(
     }
 
     /**
-     * [heard] to the nearest of MixLook.COLOUR_STEPS: what the colours and the background follow. Held at 0
-     * while the covers turn in, the first MixLook.MORPH_MS of the change: a step of colours makes the whole
-     * player again, and one in the middle of the turn dropped frames there.
+     * [heard] to the nearest of MixLook.COLOUR_STEPS: what the Blur and Gradient backgrounds follow (MixBackdrop).
+     * Held at 0 while the covers turn in, the first MixLook.MORPH_MS of the change, so that nothing is composed
+     * again in the middle of the turn.
      */
     val stepped: Float by derivedStateOf {
         val t = target ?: return@derivedStateOf 0f
@@ -210,40 +203,26 @@ class MixScreen internal constructor(
         words.animateTo(1f, tween(MixLook.SWAP_MS - MixLook.SWAP_OUT_MS, easing = LinearOutSlowInEasing))
     }
 
-    // What each cover gives the player: the theme's colours (LocalCoverColours) and the gradient
-    // background's two colours, for the change announced, read before it comes on screen.
+    // What each cover gives the player's Gradient background: its two colours, for the change announced,
+    // read before it comes on screen. The player's own colours stay the app's through a change and turn
+    // with it once the covers are one again (MainActivity): a new set of colours makes the whole player
+    // again, and the 32 steps they once took across a change cost a frame of 50 to 150 ms each on the
+    // Pixel 5's debug app, about once a second (9 Nov 2026). The background still turns with the music.
     private var coloursOf by mutableLongStateOf(NONE)
-    private var outgoingColours by mutableStateOf<ColorScheme?>(null)
-    private var incomingColours by mutableStateOf<ColorScheme?>(null)
     internal var outgoingGradient by mutableStateOf<List<Color>?>(null)
         private set
     internal var incomingGradient by mutableStateOf<List<Color>?>(null)
         private set
 
-    /** Reads what each cover of [change] gives the player, as the app's theme and the gradient background read it. */
-    internal suspend fun readColours(context: Context, change: MixOnScreen?, schemeOf: ((Color) -> ColorScheme)?) {
+    /** Reads the gradient background's colours of each cover of [change], as the gradient background reads them. */
+    internal suspend fun readColours(context: Context, change: MixOnScreen?) {
         coloursOf = NONE
-        outgoingColours = null
-        incomingColours = null
         outgoingGradient = null
         incomingGradient = null
         if (change == null) return
-        val outgoing = coloursOfCover(context, change.outgoing)
-        val incoming = coloursOfCover(context, change.incoming)
-        outgoingColours = schemeOf?.invoke(outgoing.first)
-        incomingColours = schemeOf?.invoke(incoming.first)
-        outgoingGradient = outgoing.second
-        incomingGradient = incoming.second
+        outgoingGradient = gradientOfCover(context, change.outgoing)
+        incomingGradient = gradientOfCover(context, change.incoming)
         coloursOf = change.id
-    }
-
-    /** The player's colours [stepped] of the way from the outgoing cover's to the incoming one's, or null for the app's own. */
-    internal fun coloursNow(): Pair<ColorScheme, ColorScheme>? {
-        val t = target ?: return null
-        if (!active || coloursOf != t.id) return null
-        val from = outgoingColours ?: return null
-        val to = incomingColours ?: return null
-        return from to to
     }
 
     /** The gradient background's two pairs of colours for [target], once both are read. */
@@ -287,42 +266,24 @@ fun rememberMixScreen(playerConnection: PlayerConnection, lyrics: State<Boolean>
     // Read as the service announces the change, a moment before the player names the incoming
     // song, so that the colours are there as it starts.
     val context = LocalContext.current
-    val coverColours = LocalCoverColours.current
-    val followsCovers by rememberPreference(DynamicThemeKey, defaultValue = true)
     val next = announced.value
-    LaunchedEffect(screen, next?.id, coverColours, followsCovers) {
-        screen.readColours(context, next, coverColours?.takeIf { followsCovers })
+    LaunchedEffect(screen, next?.id) {
+        screen.readColours(context, next)
     }
     return screen
 }
 
 private val NOTHING_ANNOUNCED: StateFlow<MixOnScreen?> = MutableStateFlow(null)
 
-/** A cover's theme colour, as the app takes it (MainActivity: its 100 px thumbnail), and the gradient background's two colours. */
-private suspend fun coloursOfCover(context: Context, song: MediaMetadata): Pair<Color, List<Color>?> = withContext(coilCoroutine) {
-    val model = song.getThumbnailModel(100, 100) ?: return@withContext DefaultThemeColor to null
-    val bitmap = context.imageLoader.execute(
+/** The gradient background's colours of a cover, from its 100 px thumbnail as the app's theme takes it (MainActivity). */
+private suspend fun gradientOfCover(context: Context, song: MediaMetadata): List<Color>? = withContext(coilCoroutine) {
+    val model = song.getThumbnailModel(100, 100) ?: return@withContext null
+    context.imageLoader.execute(
         ImageRequest.Builder(context)
             .data(model)
             .allowHardware(false)
             .build()
-    ).image?.toBitmap() ?: return@withContext DefaultThemeColor to null
-    bitmap.extractThemeSource() to bitmap.extractGradientColors()
-}
-
-/**
- * The player in its colours: the app's, or while a change plays as a mix, the outgoing cover's
- * turning into the incoming one's with the music (SPEC.md 3). The same theme around the player
- * either way, so nothing in it is made again as a change comes and goes.
- */
-@Composable
-fun MixColours(mix: MixScreen?, content: @Composable () -> Unit) {
-    if (mix == null) return content()
-    val app = MaterialTheme.colorScheme
-    val pair = mix.coloursNow()
-    val step = mix.stepped
-    val colours = remember(app, pair, step) { pair?.let { (from, to) -> MixLook.blend(from, to, step) } ?: app }
-    MaterialTheme(colorScheme = colours, typography = MaterialTheme.typography, shapes = MaterialTheme.shapes, content = content)
+    ).image?.toBitmap()?.extractGradientColors()
 }
 
 /**

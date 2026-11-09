@@ -931,7 +931,7 @@ class MainActivity : ComponentActivity() {
                     // A change playing as a mix names the incoming song as its covers start to turn, and a new
                     // theme recolours the whole app at once, the screens under the player too: on the Pixel 5 that
                     // was one frame of 691 ms, right as the covers came in (9 Nov 2026). The theme waits until the
-                    // covers are one again; the player's own colours turn with the music meanwhile (MixColours).
+                    // covers are one again; the background turns with the music meanwhile (Living blur, MixBackdrop).
                     val mix = playerConnection.service.mixOnScreen?.value
                     if (Unreleased.AUTOMIX && mix != null && song != null && mix.incoming.id == song.id) {
                         val left = mix.entryMs + mix.lengthMs + MixLook.MORPH_MS - playerConnection.player.currentPosition

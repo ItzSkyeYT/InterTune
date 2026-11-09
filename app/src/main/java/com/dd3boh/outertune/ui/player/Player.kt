@@ -293,10 +293,8 @@ fun BottomSheetPlayer(
     // While the change is on the screen its covers move behind the glass at every frame, and each pane
     // was made again at each one: the glass is held still then (LocalGlassHeld), Living blur moves on.
     val glassHeld = remember(mix) { if (mix == null) NOT_HELD else { { mix.active } } }
-    MixColours(mix) {
-        CompositionLocalProvider(LocalGlassHeld provides glassHeld) {
-            PlayerSheet(state, navController, modifier, mix)
-        }
+    CompositionLocalProvider(LocalGlassHeld provides glassHeld) {
+        PlayerSheet(state, navController, modifier, mix)
     }
 }
 

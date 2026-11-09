@@ -7,12 +7,10 @@
 package com.dd3boh.outertune.ui.player
 
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.ColorScheme
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.Shape
-import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
@@ -198,7 +196,7 @@ object MixLook {
         return Bar(outAt, outLength, if (length > 0) share * length else 0f)
     }
 
-    /** How many steps the colours and the pictures behind the player take across a change: each one composes the player again. */
+    /** How many steps the Blur and Gradient backgrounds take across a change: each one composes the background again (MixBackdrop). */
     const val COLOUR_STEPS = 32
 
     /** [heard] to the nearest of [COLOUR_STEPS] steps. */
@@ -216,64 +214,6 @@ object MixLook {
         val outgoing = if (left <= 0f) 0f else (artwork * (1 - t) / left).coerceIn(0f, 1f)
         return outgoing to incoming
     }
-
-    /** The colours [t] of the way from [from] to [to]: at either end those very colours, so nothing shifts as the change comes and goes. */
-    fun blend(from: ColorScheme, to: ColorScheme, t: Float): ColorScheme = when {
-        t <= 0f -> from
-        t >= 1f -> to
-        else -> between(from, to, t)
-    }
-
-    private fun between(from: ColorScheme, to: ColorScheme, t: Float): ColorScheme = from.copy(
-        primary = lerp(from.primary, to.primary, t),
-        onPrimary = lerp(from.onPrimary, to.onPrimary, t),
-        primaryContainer = lerp(from.primaryContainer, to.primaryContainer, t),
-        onPrimaryContainer = lerp(from.onPrimaryContainer, to.onPrimaryContainer, t),
-        inversePrimary = lerp(from.inversePrimary, to.inversePrimary, t),
-        secondary = lerp(from.secondary, to.secondary, t),
-        onSecondary = lerp(from.onSecondary, to.onSecondary, t),
-        secondaryContainer = lerp(from.secondaryContainer, to.secondaryContainer, t),
-        onSecondaryContainer = lerp(from.onSecondaryContainer, to.onSecondaryContainer, t),
-        tertiary = lerp(from.tertiary, to.tertiary, t),
-        onTertiary = lerp(from.onTertiary, to.onTertiary, t),
-        tertiaryContainer = lerp(from.tertiaryContainer, to.tertiaryContainer, t),
-        onTertiaryContainer = lerp(from.onTertiaryContainer, to.onTertiaryContainer, t),
-        background = lerp(from.background, to.background, t),
-        onBackground = lerp(from.onBackground, to.onBackground, t),
-        surface = lerp(from.surface, to.surface, t),
-        onSurface = lerp(from.onSurface, to.onSurface, t),
-        surfaceVariant = lerp(from.surfaceVariant, to.surfaceVariant, t),
-        onSurfaceVariant = lerp(from.onSurfaceVariant, to.onSurfaceVariant, t),
-        surfaceTint = lerp(from.surfaceTint, to.surfaceTint, t),
-        inverseSurface = lerp(from.inverseSurface, to.inverseSurface, t),
-        inverseOnSurface = lerp(from.inverseOnSurface, to.inverseOnSurface, t),
-        error = lerp(from.error, to.error, t),
-        onError = lerp(from.onError, to.onError, t),
-        errorContainer = lerp(from.errorContainer, to.errorContainer, t),
-        onErrorContainer = lerp(from.onErrorContainer, to.onErrorContainer, t),
-        outline = lerp(from.outline, to.outline, t),
-        outlineVariant = lerp(from.outlineVariant, to.outlineVariant, t),
-        scrim = lerp(from.scrim, to.scrim, t),
-        surfaceBright = lerp(from.surfaceBright, to.surfaceBright, t),
-        surfaceDim = lerp(from.surfaceDim, to.surfaceDim, t),
-        surfaceContainer = lerp(from.surfaceContainer, to.surfaceContainer, t),
-        surfaceContainerHigh = lerp(from.surfaceContainerHigh, to.surfaceContainerHigh, t),
-        surfaceContainerHighest = lerp(from.surfaceContainerHighest, to.surfaceContainerHighest, t),
-        surfaceContainerLow = lerp(from.surfaceContainerLow, to.surfaceContainerLow, t),
-        surfaceContainerLowest = lerp(from.surfaceContainerLowest, to.surfaceContainerLowest, t),
-        primaryFixed = lerp(from.primaryFixed, to.primaryFixed, t),
-        primaryFixedDim = lerp(from.primaryFixedDim, to.primaryFixedDim, t),
-        onPrimaryFixed = lerp(from.onPrimaryFixed, to.onPrimaryFixed, t),
-        onPrimaryFixedVariant = lerp(from.onPrimaryFixedVariant, to.onPrimaryFixedVariant, t),
-        secondaryFixed = lerp(from.secondaryFixed, to.secondaryFixed, t),
-        secondaryFixedDim = lerp(from.secondaryFixedDim, to.secondaryFixedDim, t),
-        onSecondaryFixed = lerp(from.onSecondaryFixed, to.onSecondaryFixed, t),
-        onSecondaryFixedVariant = lerp(from.onSecondaryFixedVariant, to.onSecondaryFixedVariant, t),
-        tertiaryFixed = lerp(from.tertiaryFixed, to.tertiaryFixed, t),
-        tertiaryFixedDim = lerp(from.tertiaryFixedDim, to.tertiaryFixedDim, t),
-        onTertiaryFixed = lerp(from.onTertiaryFixed, to.onTertiaryFixed, t),
-        onTertiaryFixedVariant = lerp(from.onTertiaryFixedVariant, to.onTertiaryFixedVariant, t),
-    )
 
     /** Exactly [from] at 0 and exactly [to] at 1, so today's cover comes out as it is drawn today. */
     private fun lerp(from: Float, to: Float, t: Float) = from * (1 - t) + to * t
