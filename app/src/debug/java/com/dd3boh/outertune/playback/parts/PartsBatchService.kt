@@ -63,6 +63,10 @@ class PartsBatchService : Service() {
     private var wakeLock: PowerManager.WakeLock? = null
     @Volatile private var shown: Notification? = null
 
+    /** The player's way to the songs, once bound; and whether Android's time for the foreground ran out. */
+    @Volatile private var source: DataSource.Factory? = null
+    @Volatile private var timedOut = false
+
     /** From the debug hook, to time the batch: N splits at once in place of the phone's own count. */
     @Volatile private var askedJobs = 0
 
@@ -101,8 +105,8 @@ class PartsBatchService : Service() {
                     return
                 }
                 if (worker != null) return
-                val source = music.songSource()
-                worker = thread(name = "parts-batch") { work(source) }
+                val way = music.songSource().also { source = it }
+                worker = thread(name = "parts-batch") { work(way) }
             }
 
             override fun onServiceDisconnected(name: ComponentName?) = Unit
@@ -116,14 +120,16 @@ class PartsBatchService : Service() {
 
     private fun work(source: DataSource.Factory) {
         val started = System.nanoTime()
-        wakeLock = getSystemService(PowerManager::class.java)
+        if (wakeLock == null) wakeLock = getSystemService(PowerManager::class.java)
             .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "intertune:parts-batch")
             .apply { acquire(12 * 60 * 60 * 1000L) }
         var result: Result? = null
         try {
             result = runQueue(source)
         } catch (t: Throwable) {
+            // Not tried again by itself: the songs are let go, and Split parts asks again.
             Log.e(TAG, "The batch failed", t)
+            runCatching { PartsBatch.Queue.of(this).clear() }
         } finally {
             Log.i(TAG, String.format(Locale.ROOT, "Done in %.0f s: %s, the app's peak resident %d MB", (System.nanoTime() - started) / 1e9, result, peakResidentMb()))
             finish(result.takeUnless { cancelled.get() })
@@ -220,6 +226,13 @@ class PartsBatchService : Service() {
 
     private fun finish(result: Result?) {
         Handler(mainLooper).post {
+            // Songs asked for as it ended, or after a Cancel while it was stopping: a run of their own.
+            val way = source
+            if (way != null && !timedOut && PartsBatch.Queue.of(this).read().isNotEmpty()) {
+                cancelled.set(false)
+                worker = thread(name = "parts-batch") { work(way) }
+                return@post
+            }
             runCatching { ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE) }
             if (result != null && result.songs > 0) notify(DONE_NOTIFICATION, ended(result))
             stopSelf()
@@ -229,6 +242,7 @@ class PartsBatchService : Service() {
     override fun onTimeout(startId: Int, fgsType: Int) {
         // Android 15's six hours of data sync a day: the splits stop between segments, the songs left wait.
         Log.w(TAG, "Out of foreground time: stopping, the rest waits for the next start")
+        timedOut = true
         cancelled.set(true)
     }
 
