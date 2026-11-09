@@ -113,7 +113,9 @@ class WidgetDrawAheadTest {
     @Test
     fun `a cover another fetch made is told to the snapshot too`() {
         val pictures = store.substringAfter("private suspend fun picturesFor(").substringBefore("/**\n     * The covers of Up next's songs")
-        assertTrue("artOnPhone(context, song.id, ART_NOW_PX) == null" in pictures)
+        assertTrue("val have = artOnPhone(context, song.id, ART_NOW_PX)" in pictures)
+        // ... unless the snapshot points at it already, which would be a redraw of the same widget
+        assertTrue("have == null || have == read(context).nowPlaying?.takeIf { it.id == song.id }?.artPath" in pictures)
     }
 
     @Test

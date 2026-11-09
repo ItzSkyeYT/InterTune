@@ -697,8 +697,12 @@ object WidgetStore {
             artInSizes(context, song.id, sizes) { px -> artModel(song, px) }
         }
         // Made by this fetch, or by the next song's being got ready (see prepareNext) when this song was
-        // that one, which a quick skip makes of it: either way the snapshot is told where they are.
-        if (!made && artOnPhone(context, song.id, ART_NOW_PX) == null) return false
+        // that one, which a quick skip makes of it: either way the snapshot is told where they are. With
+        // nothing new on the phone, or the snapshot pointing at it already, there is nothing to tell.
+        if (!made) {
+            val have = artOnPhone(context, song.id, ART_NOW_PX)
+            if (have == null || have == read(context).nowPlaying?.takeIf { it.id == song.id }?.artPath) return false
+        }
         mutex.withLock {
             val snapshot = read(context)
             // The song may have changed since. Its row in Recently played is still its own.
