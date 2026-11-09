@@ -460,6 +460,7 @@ fun LyricsMenu(
     }
 
     GridMenu(
+        kind = MenuKind.LYRICS,
         contentPadding = PaddingValues(
             start = 8.dp,
             top = 8.dp,

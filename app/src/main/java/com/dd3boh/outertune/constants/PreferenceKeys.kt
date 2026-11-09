@@ -546,6 +546,9 @@ val ArtistsOrderLockKey = booleanPreferencesKey("artistsOrderLock")
 // playlist by its key, one a line (LibraryOrder). Until something is dragged after an update it
 // starts from the playlists' order above; the lock above is the lock of both.
 val LibraryCustomOrderKey = stringPreferencesKey("libraryCustomOrder")
+// Entries taken out of the three-dot menus (MENU_CHOICES): "kind:name" pairs one a line, the name being the
+// entry's text resource's name (MenuChoices). Empty: every menu as it comes.
+val MenuHiddenEntriesKey = stringPreferencesKey("menuHiddenEntries")
 
 val SearchSourceKey = stringPreferencesKey("searchSource")
 

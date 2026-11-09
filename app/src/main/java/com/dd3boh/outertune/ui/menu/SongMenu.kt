@@ -196,6 +196,7 @@ fun SongMenu(
     HorizontalDivider()
 
     GridMenu(
+        kind = MenuKind.SONG,
         contentPadding = PaddingValues(
             start = 8.dp,
             top = 8.dp,

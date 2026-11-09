@@ -926,4 +926,16 @@ object Unreleased {
      * stored one reads as Date added. To ship: set this to true and add it to ReleasedFlagsTest.
      */
     val PLAYLIST_ORDER = BuildConfig.DEBUG
+
+    /**
+     * Choose what's in the three-dot menus (0.13 roadmap): hold any entry of a menu and the menu is
+     * edited the way Android's Quick Settings are, a minus on each entry, the hidden ones under Hidden
+     * with a plus, Done. Kept per kind of menu (MenuKind: a song's menus share one, the player's is
+     * its own) in MenuHiddenEntriesKey, by each entry's text resource name, so a version or a language
+     * changes nothing. A trimmed menu says under it how many it hides, with Edit. Its texts are held
+     * from translators (menu_hidden, menu_hidden_hint, menu_hidden_count, menu_edit_*), French beside
+     * them. Without the flag GridMenu draws every entry whatever is stored, and holding does nothing.
+     * To ship: set this to true and add it to ReleasedFlagsTest.
+     */
+    val MENU_CHOICES = BuildConfig.DEBUG
 }
