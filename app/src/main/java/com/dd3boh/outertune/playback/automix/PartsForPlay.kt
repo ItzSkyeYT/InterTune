@@ -43,11 +43,13 @@ internal object PartsForPlay {
      * up with the music to the sample, or do not cover all of it.
      */
     fun lineUp(cacheDir: File, id: String, end: String, music: ShortArray, frames: Int, channels: Int, rate: Int, startMs: Double): List<ShortBuffer>? {
-        val (pcmFile, infoFile, _) = EditorCache(cacheDir).files(id, end)
+        val windowFiles = EditorCache(cacheDir).files(id, end)
+        val (pcmFile, infoFile, _) = windowFiles
         val info = infoFile.takeIf { it.isFile }?.let { WindowInfo.of(it.readText()) } ?: return null
         if (info.sampleRate != rate || info.channels != channels) return null
         if (pcmFile.length() != info.frames * info.channels * 2) return null
-        val parts = PartsStore(File(cacheDir, "mix")).map(id, end, info.frames * channels) ?: return null
+        val store = PartsStore(File(cacheDir, "mix"))
+        val parts = store.map(id, end, info.frames * channels) ?: return null
         val window = PcmWindow.map(pcmFile, info)
         val guess = ((startMs - info.startMs) * rate / 1000.0).roundToLong()
         val offset = find(window, music, frames, channels, guess, SEARCH_MS * rate / 1000) ?: run {
@@ -56,6 +58,11 @@ internal object PartsForPlay {
         }
         android.util.Log.i("AutoMix", "AutoMix: the parts of $end of $id line up, " + "%.0f ms from the clock".format(java.util.Locale.ROOT, (offset - guess) * 1000.0 / rate))
         if (offset < 0 || offset + frames > info.frames) return null
+        // Played on: the window and its parts are among the newest, as when the editor opens them
+        // (EditorCache.prune keeps the newest where room runs short).
+        val now = System.currentTimeMillis()
+        windowFiles.toList().forEach { it.setLastModified(now) }
+        store.touch(id, end, now)
         return parts.map { slice(it, offset, frames, channels) }
     }
 

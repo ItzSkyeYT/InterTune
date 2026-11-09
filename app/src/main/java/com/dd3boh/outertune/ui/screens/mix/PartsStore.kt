@@ -24,7 +24,8 @@ import kotlin.math.max
  * window. Made from the editor's own windows by SCNet Standard at overlap 1.33: on the PC
  * (experiments/features/automix/parts/tools/split_windows.py) and copied in, or in the debug app
  * on the phone as the editor opens ([PartsMaker]). Mapped from their files, off the app's heap: a
- * window's four parts weigh four windows. They go with their window ([EditorCache.prune]).
+ * window's four parts weigh four windows. They go with their window, which is kept as long as they
+ * are whole and there is room for them ([EditorCache.prune]).
  */
 internal class PartsStore(mixDir: File) {
     val dir = File(mixDir, "parts")
@@ -37,11 +38,28 @@ internal class PartsStore(mixDir: File) {
     /** Whether all four of [id]'s [end] window's parts are there, at [samples] samples each. */
     fun has(id: String, end: String, samples: Long): Boolean = files(id, end).all { it.isFile && it.length() == samples * 2 }
 
+    /** Whether all four parts of the window kept as `<stem>.pcm`, of [bytes], are there, each as long. */
+    fun whole(stem: String, bytes: Long): Boolean = bytes > 0 && filesOf(stem).all { it.isFile && it.length() == bytes }
+
+    /** What the parts of the window kept as `<stem>.pcm` weigh. */
+    fun bytesOf(stem: String): Long = filesOf(stem).sumOf { it.length() }
+
+    /**
+     * Marks [id]'s [end] window's parts as used at [now], with their window: the system clears a
+     * cache oldest first, and would otherwise take the parts, written once, before the window.
+     */
+    fun touch(id: String, end: String, now: Long) = files(id, end).forEach { if (it.isFile) it.setLastModified(now) }
+
     /** Drops [id]'s [end] window's parts, as its window is read again. */
     fun delete(id: String, end: String) = files(id, end).forEach { it.delete() }
 
     /** Drops the parts of the window kept as `<stem>.pcm`, as it leaves the editor's cache. */
     fun deleteOf(stem: String) = filesOf(stem).forEach { it.delete() }
+
+    /** Drops parts whose window is not among [stems] (the system cleared it): nothing can be lined up with them. */
+    fun deleteOrphans(stems: Set<String>) {
+        dir.listFiles()?.filter { f -> NAMES.any { f.name.endsWith(".$it.pcm") } && f.name.substringBefore('.') !in stems }?.forEach { it.delete() }
+    }
 
     /** Drops what a split cut short left behind (its process ended), untouched for [STALE_MS]. */
     fun deleteLeftovers(now: Long) {

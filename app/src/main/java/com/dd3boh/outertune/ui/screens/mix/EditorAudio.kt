@@ -156,16 +156,33 @@ class EditorCache(cacheDir: File, private val stamp: String = "", private val au
         }
     }
 
-    /** Keeps the newest windows, about four pairs' worth, with their analyses and parts, and the newest picks. */
-    fun prune() {
-        val sets = dir.listFiles()?.filter { it.name.endsWith(".pcm") }?.sortedByDescending { it.lastModified() } ?: return
+    /**
+     * Keeps the newest windows, about four pairs' worth, with their analyses, and the newest picks.
+     * A window split into parts stays with its parts apart from those: reading a window again takes
+     * a few seconds, splitting it again about a minute of the phone's work (52 s on the S25 Ultra),
+     * and a Mix playlist of more than four changes had its first windows split again every time it
+     * came round to them (his report of 9 Nov 2026). The newest [KEPT] of those always stay, older
+     * ones as long as all of them fit in [partsRoom] of [free], the space left where the cache is.
+     */
+    fun prune(free: Long? = null) {
+        val windows = dir.listFiles()?.filter { it.name.endsWith(".pcm") }?.sortedByDescending { it.lastModified() } ?: return
         val parts = PartsStore(dir.parentFile!!)
-        for (old in sets.drop(KEPT)) {
-            val stem = old.name.removeSuffix(".pcm")
+        fun stem(window: File) = window.name.removeSuffix(".pcm")
+        val (split, plain) = windows.partition { parts.whole(stem(it), it.length()) }
+        fun weight(window: File) = window.length() + parts.bytesOf(stem(window))
+        val room = partsRoom(free ?: dir.usableSpace, split.sumOf(::weight))
+        var held = 0L
+        val gone = plain.drop(KEPT) + split.filterIndexed { k, window ->
+            held += weight(window)
+            k >= KEPT && held > room
+        }
+        for (old in gone) {
+            val stem = stem(old)
             listOf(".pcm", ".info", ".bands", ".analysis").forEach { File(dir, stem + it).delete() }
             // Its parts, made from this window, are of no use without it: four windows' worth each.
             parts.deleteOf(stem)
         }
+        parts.deleteOrphans((windows - gone.toSet()).map(::stem).toSet())
         parts.deleteLeftovers(System.currentTimeMillis())
         autoDir.listFiles()?.sortedByDescending { it.lastModified() }?.drop(KEPT_PICKS)?.forEach { it.delete() }
     }
@@ -188,6 +205,13 @@ class EditorCache(cacheDir: File, private val stamp: String = "", private val au
         const val KEPT = 8
         const val KEPT_PICKS = 64
         const val BUFFER = 1 shl 16
+
+        /**
+         * The room for the windows split into parts, with their parts: a quarter of the space there
+         * would be without them, [free] being left and [held] theirs. A song's two windows and their
+         * parts weigh 127 MB at 48 kHz, so with 40 GB free there is room for about 80 songs.
+         */
+        fun partsRoom(free: Long, held: Long): Long = (free + held) / 4
 
         fun digest(text: String): String = MessageDigest.getInstance("SHA-1").digest(text.toByteArray()).joinToString("") { "%02x".format(it) }
 
@@ -466,6 +490,7 @@ class PairLoader(
             if (bands != null) {
                 val now = System.currentTimeMillis()
                 listOf(pcm, json, bandsFile).forEach { it.setLastModified(now) }
+                PartsStore(cache.dir.parentFile!!).touch(song.id, end, now)
                 return PcmWindow.map(pcm, known) to bands
             }
         }
