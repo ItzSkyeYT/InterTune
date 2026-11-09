@@ -495,8 +495,9 @@ object WidgetStore {
             coming = queued?.firstOrNull()
             val old = read(context)
             wantedArt = song?.id
-            // Up next is drawn only by a widget wide enough for it; a change of the queue alone redraws nothing else.
-            val upNextShown = widgets && wideWidgets(context)
+            // Up next is drawn only by a widget wide and tall enough for it (see drawsUpNext), at any of its
+            // sizes: a change of the queue alone redraws nothing else.
+            val upNextShown = widgets && placedSizes(context).any { drawsUpNext(it.settings, it.w, it.h) }
             written = "${song?.id}, ${if (isPlaying) "playing" else "paused"}"
             if (song == null) {
                 val next = old.copy(
@@ -1150,6 +1151,15 @@ object WidgetStore {
     private fun hash(id: String): String =
         MessageDigest.getInstance("SHA-1").digest(id.toByteArray()).joinToString("") { "%02x".format(it) }.take(16)
 }
+
+/**
+ * Whether a widget set as [settings] draws Up next at [w] by [h] dp: Cover and Full cover do, from a
+ * tablet's width and height up and when the queue has a song to show (WidgetLayout.plan's panes). A
+ * Shelf never does. This may say yes where the plan then draws something else, never no where it
+ * draws Up next: WidgetUpNextTest walks the sizes to prove it.
+ */
+internal fun drawsUpNext(settings: WidgetSettings, w: Int, h: Int): Boolean =
+    settings.style != WidgetStyle.SHELF && w >= WidgetLayout.PANES_WIDTH_DP && h >= WidgetLayout.PANES_HEIGHT_DP
 
 /** How long before the end of a song the widget's session is started, so it is running when the song changes. */
 internal const val WAKE_BEFORE_END_MS = 12_000L
