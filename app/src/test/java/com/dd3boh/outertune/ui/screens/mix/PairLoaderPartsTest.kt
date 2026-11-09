@@ -75,7 +75,7 @@ class PairLoaderPartsTest {
         bytes.asShortBuffer().put(samples)
         pcm.writeBytes(bytes.array())
         json.writeText(info.toText())
-        BandMeter(info.sampleRate, info.channels).apply { push(samples, samples.size / 2) }.result().write(bands)
+        BandMeter(info.sampleRate, info.channels).apply { push(samples, samples.size / info.channels) }.result().write(bands)
     }
 
     private val noRead = DataSource.Factory { error("the windows are in the cache; nothing is read") }
@@ -224,20 +224,92 @@ class PairLoaderPartsTest {
     }
 
     @Test
-    fun `parts go with their window when the cache lets it go, and a split cut short is cleared after an hour`() {
+    fun `a window split into parts stays with them when four newer pairs come, and a split cut short is cleared after an hour`() {
         val cache = cache()
         Stand().split(ShortBuffer.wrap(ShortArray(samples.toInt())), rate, 2, store.files("songA", "tail"), {}, { false })
-        val old = cache.files("songA", "tail").first
-        old.setLastModified(System.currentTimeMillis() - 10 * 60_000)
-        // Eight newer windows push it out.
-        for (k in 0 until EditorCache.KEPT) cache.files("song$k", "head").first.writeBytes(ByteArray(40))
-        val stale = File(store.dir, "x-head.vocals.pcm.part").apply { writeText("cut short"); setLastModified(System.currentTimeMillis() - PartsStore.STALE_MS - 60_000) }
+        val now = System.currentTimeMillis()
+        val split = cache.files("songA", "tail").first
+        (store.files("songA", "tail") + split).forEach { it.setLastModified(now - 60 * 60_000) }
+        // B's opening, never split, is the oldest window without parts; nine newer ones push it out,
+        // and the oldest of them, as before.
+        val plain = cache.files("songB", "head").first.apply { setLastModified(now - 30 * 60_000) }
+        val newer = (0..EditorCache.KEPT).map { k -> cache.files("song$k", "head").first.apply { writeBytes(ByteArray(40)); setLastModified(now - k * 1000L) } }
+        // Parts whose window the system cleared can never be lined up again.
+        val orphans = store.files("gone", "head").onEach { it.writeBytes(ByteArray(40)) }
+        val stale = File(store.dir, "x-head.vocals.pcm.part").apply { writeText("cut short"); setLastModified(now - PartsStore.STALE_MS - 60_000) }
         val fresh = File(store.dir, "y-head.vocals.pcm.part").apply { writeText("being written") }
-        cache.prune()
-        assertFalse(old.exists())
-        assertTrue(store.files("songA", "tail").none { it.exists() })
+        cache.prune(free = 1L shl 40)
+        assertTrue(split.exists())
+        assertTrue(store.has("songA", "tail", samples))
+        assertFalse(plain.exists())
+        assertEquals(List(EditorCache.KEPT) { true } + false, newer.map { it.exists() })
+        assertTrue(orphans.none { it.exists() })
         assertFalse(stale.exists())
         assertTrue(fresh.exists())
+    }
+
+    @Test
+    fun `windows split into parts go oldest first only past their room, and never below four pairs`() {
+        val cache = EditorCache(tmp.root, "s", "s")
+        cache.dir.mkdirs()
+        val now = System.currentTimeMillis()
+        // Ten windows of 100 bytes, each with its four parts: 500 bytes a window, the newest first.
+        val ids = (0 until 10).map { k ->
+            cache.files("song$k", "tail").first.apply { writeBytes(ByteArray(100)); setLastModified(now - k * 60_000L) }
+            store.files("song$k", "tail").forEach { it.parentFile!!.mkdirs(); it.writeBytes(ByteArray(100)) }
+            "song$k"
+        }
+        fun kept() = ids.filter { cache.files(it, "tail").first.exists() }
+        fun partsLeft() = ids.filter { id -> store.files(id, "tail").any { it.exists() } }
+        // A quarter of the space there would be without them: 13 000 bytes left and their 5 000.
+        assertEquals(4_500L, EditorCache.partsRoom(13_000, 5_000))
+        cache.prune(free = 13_000)
+        assertEquals(ids.take(9), kept())
+        assertEquals(ids.take(9), partsLeft())
+        // No room left at all: the newest four pairs' windows stay all the same, as before.
+        cache.prune(free = 0)
+        assertEquals(ids.take(EditorCache.KEPT), kept())
+        assertEquals(ids.take(EditorCache.KEPT), partsLeft())
+    }
+
+    @Test
+    fun `going round a Mix playlist of more than four changes splits each window once`() {
+        // His report of 9 Nov 2026, "IT KEEPS SPLITTING PARTS EVEN THOUGH IT ALREADY DIDDDDDD": the
+        // editor kept four pairs' windows and let each window's parts go with it, so a playlist of
+        // eight songs had its first changes split again every time round, a minute a window.
+        val songs = (0 until 7).map { "s$it" }
+        val cache = EditorCache(tmp.root, "s", "s")
+        val seconds = 12.0
+        val tail = WindowInfo(rate, 1, startMs = 188_000.0, frames = (seconds * rate).toLong(), durationMs = 200_000.0)
+        val head = WindowInfo(rate, 1, startMs = 0.0, frames = (seconds * rate).toLong(), durationMs = 200_000.0)
+        fun mono(bpm: Double) = beat(seconds, bpm).let { st -> ShortArray(st.size / 2) { st[2 * it] } }
+        val stand = Stand()
+        var reads = 0
+        for (round in 1..2) for ((a, b) in songs.zipWithNext()) {
+            // A window the cache let go is read again, as the editor reads it.
+            if (!cache.files(a, "tail").first.exists()) keep(cache, a, "tail", tail, mono(120.0)).also { reads++ }
+            if (!cache.files(b, "head").first.exists()) keep(cache, b, "head", head, mono(122.0)).also { reads++ }
+            val pair = PairLoader(noRead, cache, parts = { stand }).load(
+                PairLoader.SongInput(a, a, tail.durationMs, null, BeatFix.NONE),
+                PairLoader.SongInput(b, b, head.durationMs, null, BeatFix.NONE),
+                stage = {}, cancelled = { false },
+            )
+            assertTrue("$a to $b, round $round", pair.partsReady)
+        }
+        // Each window read and split once: the first song's end, the last one's opening, both of the others.
+        assertEquals(12, reads)
+        assertEquals(12, stand.splits.size)
+        assertEquals(stand.splits.distinct(), stand.splits)
+    }
+
+    @Test
+    fun `a window opened again is kept as fresh as its parts`() {
+        load({ Stand() })
+        val hourAgo = System.currentTimeMillis() - 60 * 60_000
+        val files = listOf("songA" to "tail", "songB" to "head").flatMap { (id, end) -> cache().files(id, end).toList() + store.files(id, end) }
+        files.forEach { it.setLastModified(hourAgo) }
+        assertTrue(load({ Stand() }).pair!!.partsReady)
+        assertTrue(files.all { it.lastModified() > hourAgo + 30 * 60_000 })
     }
 
     @Test

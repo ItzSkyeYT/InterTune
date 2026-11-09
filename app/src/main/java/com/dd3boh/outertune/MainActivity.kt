@@ -243,6 +243,7 @@ import com.dd3boh.outertune.ui.screens.Screens
 import com.dd3boh.outertune.ui.screens.search.SearchBarContainer
 import com.dd3boh.outertune.ui.theme.ColorSaver
 import com.dd3boh.outertune.ui.theme.DefaultThemeColor
+import com.dd3boh.outertune.ui.theme.PlayerTheme
 import com.dd3boh.outertune.ui.theme.OuterTuneTheme
 import com.dd3boh.outertune.ui.theme.extractThemeSource
 import com.dd3boh.outertune.ui.utils.appBarScrollBehavior
@@ -912,6 +913,13 @@ class MainActivity : ComponentActivity() {
             var themeColor by rememberSaveable(stateSaver = ColorSaver) {
                 mutableStateOf(DefaultThemeColor)
             }
+            // The pages' colours: the song's, held while the open player covers them. A new theme makes
+            // everything under it again, the pages under the player too: one frame of about 0.7 s on the
+            // Pixel 5's debug app at each song change. The player takes the song's colours at once
+            // (PlayerTheme), the pages once the player is down again.
+            var pagesThemeColor by rememberSaveable(stateSaver = ColorSaver) {
+                mutableStateOf(themeColor)
+            }
 
             // One observer for the activity, not one per recomposition of this scope. This scope
             // recomposes on every song change (it reads themeColor, and dynamic theme is on by
@@ -976,7 +984,7 @@ class MainActivity : ComponentActivity() {
                 darkTheme = useDarkTheme,
                 pureBlack = pureBlack,
                 highContrastCompat = highContrastCompat,
-                themeColor = themeColor
+                themeColor = pagesThemeColor
             ) {
                 Log.v(MAIN_TAG, "RC-2.1")
 
@@ -1258,6 +1266,13 @@ class MainActivity : ComponentActivity() {
                         collapsedBound = bottomInset + MiniPlayerHeight + getNavPadding(),
                         expandedBound = maxHeight,
                     )
+
+                    // The pages take the song's colours once the player is down (pagesThemeColor): at once
+                    // while it is, and after it settles when it was open, so nothing moves as they turn.
+                    LaunchedEffect(playerBottomSheetState) {
+                        snapshotFlow { themeColor to (playerBottomSheetState.isCollapsed || playerBottomSheetState.isDismissed) }
+                            .collect { (colour, down) -> if (down && pagesThemeColor != colour) pagesThemeColor = colour }
+                    }
 
                     // Keyed on the rail too: a turn no longer makes a new screen, so without it the
                     // pages kept the left edge they had upright and ran under the rail on their side.
@@ -2313,10 +2328,14 @@ class MainActivity : ComponentActivity() {
                             }
 
                             val bottomSheetMenu: @Composable() (() -> Unit) = @Composable {
-                                BottomSheetMenu(
-                                    state = LocalMenuState.current,
-                                    modifier = Modifier.align(Alignment.BottomCenter)
-                                )
+                                // In the song's colours, as the player is: a menu opened from the open player
+                                // after a song change matches it, while the pages wait (pagesThemeColor).
+                                PlayerTheme(useDarkTheme, pureBlack, highContrastCompat, { themeColor }) {
+                                    BottomSheetMenu(
+                                        state = LocalMenuState.current,
+                                        modifier = Modifier.align(Alignment.BottomCenter)
+                                    )
+                                }
                             }
 
                             // Over the page colour, like the app backdrop, so the blur has something between rows.
@@ -2398,10 +2417,13 @@ class MainActivity : ComponentActivity() {
                                 derivedStateOf { navBackStackEntry?.destination?.route == "setup_wizard" }
                             }
                             if (oobeStatus >= OOBE_VERSION && !onSetupWizard) {
-                                BottomSheetPlayer(
-                                    state = playerBottomSheetState,
-                                    navController = navController
-                                )
+                                // In the song's colours at once, while the pages wait (pagesThemeColor).
+                                PlayerTheme(useDarkTheme, pureBlack, highContrastCompat, { themeColor }) {
+                                    BottomSheetPlayer(
+                                        state = playerBottomSheetState,
+                                        navController = navController
+                                    )
+                                }
 
                                 if (!useNavRail) {
                                     navbar()

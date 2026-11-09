@@ -6,12 +6,20 @@
 
 package com.dd3boh.outertune.playback.automix
 
+import com.dd3boh.outertune.ui.screens.mix.EditorCache
+import com.dd3boh.outertune.ui.screens.mix.PartsStore
 import com.dd3boh.outertune.ui.screens.mix.PcmWindow
 import com.dd3boh.outertune.ui.screens.mix.WindowInfo
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Rule
 import org.junit.Test
+import org.junit.rules.TemporaryFolder
+import java.io.File
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 import java.nio.ShortBuffer
 import kotlin.random.Random
 
@@ -20,6 +28,8 @@ import kotlin.random.Random
  * to the sample, near where the player's clock puts it; anything else stays on bands.
  */
 class PartsForPlayTest {
+    @get:Rule
+    val tmp = TemporaryFolder()
 
     private val rate = 48_000
     private val channels = 2
@@ -77,5 +87,29 @@ class PartsForPlayTest {
         assertNull(PartsForPlay.find(window, other, frames, channels, 200_000, rate / 4))
         // Too far from the guess: not searched for.
         assertNull(PartsForPlay.find(window, musicFrom(200_000, frames), frames, channels, 200_000L + rate, rate / 4))
+    }
+
+    @Test
+    fun `parts a change plays on are kept as fresh as when the editor opens them`() {
+        // The editor's cache keeps the newest windows split into parts where room runs short
+        // (EditorCache.prune): a pair played often but not opened stays among them.
+        val cacheDir = tmp.root
+        val cache = EditorCache(cacheDir)
+        val (pcm, info, bands) = cache.files("song", "tail")
+        cache.dir.mkdirs()
+        val bytes = ByteBuffer.allocate(song.size * 2).order(ByteOrder.LITTLE_ENDIAN).also { it.asShortBuffer().put(song) }.array()
+        pcm.writeBytes(bytes)
+        info.writeText(window.info.toText())
+        bands.writeBytes(ByteArray(16))
+        val parts = PartsStore(File(cacheDir, "mix")).files("song", "tail").onEach { it.parentFile!!.mkdirs(); it.writeBytes(bytes) }
+        val files = listOf(pcm, info, bands) + parts
+        val hourAgo = System.currentTimeMillis() - 60 * 60_000
+        files.forEach { it.setLastModified(hourAgo) }
+        val frames = 6 * rate
+        val at = 300_000
+        val lined = PartsForPlay.lineUp(cacheDir, "song", "tail", musicFrom(at, frames), frames, channels, rate, window.info.startMs + at * 1000.0 / rate)
+        assertNotNull(lined)
+        assertEquals(4, lined!!.size)
+        assertTrue(files.all { it.lastModified() > hourAgo + 30 * 60_000 })
     }
 }
