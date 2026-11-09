@@ -168,14 +168,16 @@ Every change in detail, and why this fork exists: [docs/FEATURES.md](https://git
 What's being worked on, roughly in order. `[x]` is done, `[~]` is built and being tested, `[ ]` is still to do. Nothing here has a date, and plans can change. Ideas are welcome in #feature-requests on [Discord](https://discord.gg/68jmqhMjXk) or as a [GitHub issue](https://github.com/ItzSkyeYT/InterTune/issues/new/choose).
 
 <details>
-<summary><b>Next: 0.13</b> · 6 of 35 done, 20 to test</summary>
+<summary><b>Next: 0.13</b> · 6 of 37 done, 22 to test</summary>
 
 `[~]` Listen together: one person plays, friends follow the same song in real time\
 `[x]` AirPlay speakers in the cast list\
+`[~]` The equalizer and volume levelling on AirPlay speakers too, and Signal path shows the speaker you cast to\
 `[~]` Casting to speakers that only take uncompressed audio, like a Zeppelin Wireless\
 `[~]` InterTune's own screen on Chromecasts, with Google Home's Next button working\
 `[~]` Don't play this song: radios, autoplay and Shuffle never bring it back ([#78](https://github.com/ItzSkyeYT/InterTune/issues/78))\
 `[~]` Pick several songs in the queue and remove them at once\
+`[~]` Android Auto's search finds songs on YouTube Music, not only in your library ([#112](https://github.com/ItzSkyeYT/InterTune/issues/112))\
 `[~]` Block an artist\
 `[~]` Your playlists in your own order, dragged where you want them\
 `[~]` What's playing works offline and names the song once you're back online ([#48](https://github.com/ItzSkyeYT/InterTune/issues/48))\
