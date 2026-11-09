@@ -92,6 +92,8 @@ class AutomixHeldBackTest {
                 "playback/MusicService.kt",
                 // The player while a change plays as a mix (MixPlayerHeldBackTest).
                 "ui/player/MixPlayer.kt",
+                // The app's colours wait until the covers are one again after a mix's change.
+                "MainActivity.kt",
             ),
             readers,
         )
