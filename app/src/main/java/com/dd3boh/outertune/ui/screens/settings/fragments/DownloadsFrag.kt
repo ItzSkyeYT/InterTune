@@ -229,7 +229,7 @@ fun ColumnScope.DownloadsFrag() {
         val (likedSync, onLikedSyncChange) = rememberPreference(LikedDownloadSyncKey, false)
         val on = likedAutodownload != LikedAutodownloadMode.OFF
         SwitchPreference(
-            modifier = Modifier.settingRow(R.string.liked_download_sync),
+            modifier = Modifier.tourTarget(Tour.SETTING_LIKED_SYNC).settingRow(R.string.liked_download_sync),
             title = { Text(stringResource(R.string.liked_download_sync)) },
             description = stringResource(R.string.liked_download_sync_description),
             icon = { Icon(Icons.Rounded.HeartBroken, null) },
