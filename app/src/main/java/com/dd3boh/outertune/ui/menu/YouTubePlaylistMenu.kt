@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.CallSplit
 import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
 import androidx.compose.material.icons.automirrored.rounded.PlaylistPlay
 import androidx.compose.material.icons.automirrored.rounded.QueueMusic
@@ -53,6 +54,7 @@ import com.dd3boh.outertune.ui.component.items.YouTubeListItem
 import com.dd3boh.outertune.ui.dialog.AddToPlaylistDialog
 import com.dd3boh.outertune.ui.dialog.AddToQueueDialog
 import com.dd3boh.outertune.ui.dialog.DefaultDialog
+import com.dd3boh.outertune.ui.screens.mix.PartsBatch
 import com.dd3boh.outertune.utils.getDownloadState
 import com.dd3boh.outertune.utils.mayPushToYouTube
 import com.dd3boh.outertune.utils.shareSheet
@@ -289,6 +291,17 @@ fun YouTubePlaylistMenu(
                 title = R.string.delete
             ) {
                 showDeletePlaylistDialog = true
+            }
+        }
+
+        // Last, so no item people know moves: every song's parts made at once, for Mix (the debug app).
+        if (PartsBatch.offered && songs.isNotEmpty()) {
+            GridMenuItem(
+                icon = Icons.AutoMirrored.Rounded.CallSplit,
+                title = R.string.mix_parts_split_all,
+            ) {
+                PartsBatch.start(context, songs.map { PartsBatch.Song(it.id, it.title, (it.duration ?: -1) * 1000.0) })
+                onDismiss()
             }
         }
     }

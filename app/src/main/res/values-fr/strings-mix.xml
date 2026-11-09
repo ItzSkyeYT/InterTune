@@ -375,4 +375,13 @@
     <string name="mix_simple_vocals_over_line">%1$s continue de chanter sur le rythme de %2$s</string>
     <string name="mix_simple_beat_under_line">La batterie de %1$s porte le début de %2$s</string>
     <string name="mix_simple_drum_swap_line">Les batteries changent de place sur une mesure</string>
+
+    <!-- A playlist's parts made in one sitting (PartsBatch, the debug app): its menu entry and its notification -->
+    <string name="mix_parts_split_all">Séparer les pistes</string>
+    <string name="mix_parts_channel">Pistes</string>
+    <string name="mix_parts_batch_title">Séparation des pistes</string>
+    <string name="mix_parts_batch_progress">%1$d morceaux sur %2$d</string>
+    <string name="mix_parts_batch_done">Pistes prêtes</string>
+    <string name="mix_parts_batch_room">%1$d morceaux sur %2$d, plus de place pour les autres</string>
+    <string name="mix_parts_batch_no_model">Aucun modèle de pistes sur ce téléphone</string>
 </resources>

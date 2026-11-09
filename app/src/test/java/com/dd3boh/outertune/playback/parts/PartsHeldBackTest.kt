@@ -39,13 +39,22 @@ class PartsHeldBackTest {
     }
 
     @Test
-    fun `the flag is read by the debug hook and the editor's maker alone`() {
+    fun `the flag is read by the debug hook, the editor's maker and the playlist's batch alone`() {
         val readers = sources.walkTopDown()
             .filter { it.extension == "kt" && it.name != "Unreleased.kt" }
             .filter { Regex("""Unreleased\.AUTOMIX_PARTS\b""").containsMatchIn(code(it.readText())) }
             .map { it.relativeTo(sources).path }
             .toSet()
-        assertEquals(setOf("playback/MusicService.kt", "ui/screens/mix/PartsMaker.kt"), readers)
+        assertEquals(setOf("playback/MusicService.kt", "ui/screens/mix/PartsMaker.kt", "ui/screens/mix/PartsBatch.kt"), readers)
+        // The playlists' menus ask the batch, which reads it, before they offer it.
+        for (menu in listOf("ui/menu/PlaylistMenu.kt", "ui/menu/YouTubePlaylistMenu.kt")) {
+            val text = code(File(sources, menu).readText())
+            assertTrue(menu, "if (PartsBatch.offered && songs.isNotEmpty()) {" in text.lines().map { it.trim() })
+            assertTrue(menu, "PartsBatch.start(context, " in text)
+        }
+        val batch = code(File(sources, "ui/screens/mix/PartsBatch.kt").readText())
+        assertTrue("val offered: Boolean get() = Unreleased.AUTOMIX_PARTS" in batch)
+        assertTrue("if (!offered || songs.isEmpty()) return false" in batch)
         val service = code(File(sources, "playback/MusicService.kt").readText())
         assertTrue("\"parts\" -> if (Unreleased.AUTOMIX_PARTS) partsBench(words.drop(1))" in service.lines().map { it.trim() })
         // The hook itself answers in the debug build only.
@@ -69,6 +78,7 @@ class PartsHeldBackTest {
     fun `the bench and the runtime are in the debug source set alone`() {
         assertTrue(File("src/debug/java/com/dd3boh/outertune/playback/parts/PartsBench.kt").isFile)
         assertTrue(File("src/debug/java/com/dd3boh/outertune/playback/parts/PartsOnPhone.kt").isFile)
+        assertTrue(File("src/debug/java/com/dd3boh/outertune/playback/parts/PartsBatchService.kt").isFile)
         for (set in listOf("main", "preview", "release")) {
             val found = File("src/$set").walkTopDown()
                 .filter { it.extension == "kt" }
@@ -116,5 +126,23 @@ class PartsHeldBackTest {
         assertTrue("no removal of ONNX Runtime's TelemetryInitializer", provider != null)
         assertTrue(provider!!, "tools:node=\"remove\"" in provider)
         assertFalse(File("src/main/AndroidManifest.xml").readText().contains("onnxruntime"))
+    }
+
+    @Test
+    fun `the playlist's batch is a service of the debug app alone, found by its name`() {
+        val name = Regex("""const val SERVICE = "([^"]+)"""").find(code(File(sources, "ui/screens/mix/PartsBatch.kt").readText()))!!.groupValues[1]
+        val debug = code(File("src/debug/AndroidManifest.xml").readText())
+        val service = Regex("""<service\s[^>]*android:name="${Regex.escape(name)}"[^>]*/>""", RegexOption.DOT_MATCHES_ALL).find(debug)?.value
+        assertTrue("no $name in the debug manifest", service != null)
+        assertTrue(service!!, "android:exported=\"false\"" in service && "android:foregroundServiceType=\"dataSync\"" in service)
+        for (set in listOf("main", "preview", "release")) {
+            val manifest = File("src/$set/AndroidManifest.xml").takeIf { it.isFile }?.readText().orEmpty()
+            assertFalse("$set declares the batch", "PartsBatchService" in manifest)
+        }
+        assertTrue(File("src/debug/java/" + name.replace('.', '/') + ".kt").isFile)
+        // Only a debug build's tests have the debug source set; a release's skip this.
+        val found = runCatching { Class.forName(name) }.getOrNull()
+        assumeTrue("$name is not in this build", found != null)
+        assertTrue(android.app.Service::class.java.isAssignableFrom(found!!))
     }
 }
