@@ -2314,6 +2314,57 @@
     <string name="download_quality">Qualité des téléchargements</string>
     <string name="download_quality_same">Comme la lecture</string>
     <string name="download_quality_description">Une meilleure qualité prend plus de place. Les titres déjà téléchargés ne changent pas.</string>
+    <string name="download_format">Format des fichiers</string>
+    <string name="download_format_original">Original</string>
+    <string name="download_format_description">L\'original garde la meilleure qualité. Les autres formats sont convertis sur le téléphone après le téléchargement.</string>
+    <string name="download_bitrate">Débit</string>
+    <string name="download_bitrate_auto">Auto</string>
+    <string name="download_bitrate_kbps">%1$d kb/s</string>
+    <string name="download_bitrate_description">Auto suit ce que YouTube a envoyé pour chaque titre. Convertir n\'ajoute aucune qualité que YouTube n\'a pas envoyée.</string>
+    <string name="download_bitrate_aac_kept">Les titres que YouTube a envoyés en AAC restent tels quels.</string>
+    <string name="convert_notice_title">Conversion en %1$s</string>
+    <string name="convert_notice_text">%1$d sur %2$d</string>
+    <string name="convert_fallback_title">Certains titres n\'ont pas été convertis</string>
+    <plurals name="convert_fallback_text">
+        <item quantity="one">%1$d titre n\'a pas pu être converti et a été enregistré tel quel.</item>
+        <item quantity="many">%1$d titres n\'ont pas pu être convertis et ont été enregistrés tels quels.</item>
+        <item quantity="other">%1$d titres n\'ont pas pu être convertis et ont été enregistrés tels quels.</item>
+    </plurals>
+    <string name="search_words_download_format">mp3, flac, wav, aac, m4a, convertir, format, type de fichier</string>
+    <string name="export_to_folder">Exporter vers un dossier</string>
+    <string name="export_note">Seuls les titres présents sur le téléphone sont exportés.</string>
+    <string name="export_folder">Dossier</string>
+    <string name="export_folder_none">Choisir un dossier</string>
+    <string name="export_action">Exporter</string>
+    <string name="export_progress">Export de %1$d sur %2$d</string>
+    <string name="export_done_title">Export terminé</string>
+    <string name="export_stopped_title">Export arrêté</string>
+    <string name="export_names_more">%1$s et %2$d autres</string>
+    <plurals name="export_exported">
+        <item quantity="one">%1$d titre exporté</item>
+        <item quantity="many">%1$d titres exportés</item>
+        <item quantity="other">%1$d titres exportés</item>
+    </plurals>
+    <plurals name="export_skipped_not_downloaded">
+        <item quantity="one">%1$d ignoré : pas téléchargé</item>
+        <item quantity="many">%1$d ignorés : pas téléchargés</item>
+        <item quantity="other">%1$d ignorés : pas téléchargés</item>
+    </plurals>
+    <plurals name="export_skipped_there">
+        <item quantity="one">%1$d ignoré : déjà dans le dossier</item>
+        <item quantity="many">%1$d ignorés : déjà dans le dossier</item>
+        <item quantity="other">%1$d ignorés : déjà dans le dossier</item>
+    </plurals>
+    <plurals name="export_skipped_local">
+        <item quantity="one">%1$d ignoré : déjà un fichier du téléphone</item>
+        <item quantity="many">%1$d ignorés : déjà des fichiers du téléphone</item>
+        <item quantity="other">%1$d ignorés : déjà des fichiers du téléphone</item>
+    </plurals>
+    <plurals name="export_failed">
+        <item quantity="one">%1$d n\'a pas pu être converti</item>
+        <item quantity="many">%1$d n\'ont pas pu être convertis</item>
+        <item quantity="other">%1$d n\'ont pas pu être convertis</item>
+    </plurals>
     <string name="new_shelf_looks_title">L\'Étagère en trois looks</string>
     <string name="new_shelf_looks_body">Grande pochette, Bac à disques ou Vinyles, à choisir sous Look dans les réglages du widget.</string>
     <string name="new_lyrics_video_long_title">Des vidéos de paroles jusqu\'à dix minutes</string>

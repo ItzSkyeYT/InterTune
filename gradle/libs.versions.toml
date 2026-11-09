@@ -91,6 +91,10 @@ ktor-serialization-json = { group = "io.ktor", name = "ktor-serialization-kotlin
 # The version ktor-serialization-json already brings, so the app keeps one copy of it.
 kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version = "1.9.0" }
 
+# MP3 files for Unreleased.DOWNLOAD_FORMATS: a Java port of the LAME encoder (LGPL 2.1 or later), as Android has no MP3 encoder.
+# Pure Java, no native code, no dependencies, from Maven Central. Only its de.sciss.jump3r.mp3 package is used.
+jump3r = { group = "de.sciss", name = "jump3r", version = "1.0.5" }
+
 # misc
 aboutlibraries-compose-m3 = { module = "com.mikepenz:aboutlibraries-compose-m3", version.ref = "aboutLibraries" }
 brotli = { group = "org.brotli", name = "dec", version = "0.1.2" }

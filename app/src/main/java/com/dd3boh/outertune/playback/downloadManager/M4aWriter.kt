@@ -238,7 +238,7 @@ object M4aWriter {
                 tags.track?.takeIf { it in 1..0xFFFF }?.let { number ->
                     write(item("trkn", 0, bytes { writeShort(0); writeShort(number); writeShort(0); writeShort(0) }))
                 }
-                write(text("©cmt", tags.link))
+                tags.linkComment?.let { write(text("©cmt", it)) }
                 tags.cover?.let { write(item("covr", if (it.mimeType == "image/png") 14 else 13, it.bytes)) }
             })
         })

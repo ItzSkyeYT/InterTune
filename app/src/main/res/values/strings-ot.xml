@@ -2502,6 +2502,55 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="download_quality" translatable="false">Download quality</string>
     <string name="download_quality_same" translatable="false">Same as playback</string>
     <string name="download_quality_description" translatable="false">Better quality takes more space. Songs you already downloaded stay as they are.</string>
+    <!-- File format and Bitrate (DownloadsFrag, Unreleased.DOWNLOAD_FORMATS), under the download folder: the row titles, Original's name, Bitrate's choices and the notes under the rows. MP3, M4A (AAC), FLAC and WAV are named in the row itself. Held from translators until the setting ships. -->
+    <string name="download_format" translatable="false">File format</string>
+    <string name="download_format_original" translatable="false">Original</string>
+    <string name="download_format_description" translatable="false">Original keeps the best quality. Other formats are converted on the phone after the download.</string>
+    <string name="download_bitrate" translatable="false">Bitrate</string>
+    <string name="download_bitrate_auto" translatable="false">Auto</string>
+    <string name="download_bitrate_kbps" translatable="false">%1$d kbps</string>
+    <string name="download_bitrate_description" translatable="false">Auto fits each song to what YouTube sent. Converting cannot add quality YouTube did not send.</string>
+    <string name="download_bitrate_aac_kept" translatable="false">Songs YouTube sent as AAC are kept as they are.</string>
+    <!-- Converting songs (ConvertNotice, Unreleased.DOWNLOAD_FORMATS): the notice while it runs and the line that stays when some songs could not be converted. Held from translators until the setting ships. -->
+    <string name="convert_notice_title" translatable="false">Converting to %1$s</string>
+    <string name="convert_notice_text" translatable="false">%1$d of %2$d</string>
+    <string name="convert_fallback_title" translatable="false">Some songs were not converted</string>
+    <plurals name="convert_fallback_text" translatable="false">
+        <item quantity="one">%1$d song could not be converted and was saved as it came.</item>
+        <item quantity="other">%1$d songs could not be converted and were saved as they came.</item>
+    </plurals>
+    <!-- The settings search's words for File format: open to translators, as every search word is (SettingsSearchTest). -->
+    <string name="search_words_download_format">mp3, flac, wav, aac, m4a, convert, format, file type</string>
+    <!-- Export to folder (ExportSheet, Unreleased.DOWNLOAD_FORMATS): the menu entry, the sheet, the line it ends with and the songs it names. Held from translators until the setting ships. -->
+    <string name="export_to_folder" translatable="false">Export to folder</string>
+    <string name="export_note" translatable="false">Only songs that are on the phone are exported.</string>
+    <string name="export_folder" translatable="false">Folder</string>
+    <string name="export_folder_none" translatable="false">Choose a folder</string>
+    <string name="export_action" translatable="false">Export</string>
+    <string name="export_progress" translatable="false">Exporting %1$d of %2$d</string>
+    <string name="export_done_title" translatable="false">Export finished</string>
+    <string name="export_stopped_title" translatable="false">Export stopped</string>
+    <string name="export_names_more" translatable="false">%1$s and %2$d more</string>
+    <plurals name="export_exported" translatable="false">
+        <item quantity="one">%1$d song exported</item>
+        <item quantity="other">%1$d songs exported</item>
+    </plurals>
+    <plurals name="export_skipped_not_downloaded" translatable="false">
+        <item quantity="one">%1$d skipped: not downloaded</item>
+        <item quantity="other">%1$d skipped: not downloaded</item>
+    </plurals>
+    <plurals name="export_skipped_there" translatable="false">
+        <item quantity="one">%1$d skipped: already in the folder</item>
+        <item quantity="other">%1$d skipped: already in the folder</item>
+    </plurals>
+    <plurals name="export_skipped_local" translatable="false">
+        <item quantity="one">%1$d skipped: a file on the phone already</item>
+        <item quantity="other">%1$d skipped: files on the phone already</item>
+    </plurals>
+    <plurals name="export_failed" translatable="false">
+        <item quantity="one">%1$d could not be converted</item>
+        <item quantity="other">%1$d could not be converted</item>
+    </plurals>
     <!-- What's new in 0.13 (Walkthrough.kt, V0_13): held from translators until the words are agreed. -->
     <string name="new_block_artist_title" translatable="false">Block an artist</string>
     <string name="new_block_artist_body" translatable="false">Block artist, in a song\'s menu or on their page, takes their songs, albums and picture out of InterTune.</string>
