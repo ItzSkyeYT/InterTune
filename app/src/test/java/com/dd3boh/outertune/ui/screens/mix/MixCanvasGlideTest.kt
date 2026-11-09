@@ -33,7 +33,7 @@ class MixCanvasGlideTest {
         val e = MixEditor(facts, AutoSpec.fallback(facts), null)
         assertTrue(e.setMatchSide(Side.B))
         val s = e.spec
-        val layout = CanvasLayout(e, s, 720f, Density(2f), view = 0f, zoom = 1f, startWanted = Double.NaN, adjust = null, small = false)
+        val layout = CanvasLayout(e, s, 720f, Density(2f), view = 0f, viewStart = Double.NaN, viewSpan = Double.NaN, adjust = null, small = false)
         val heard = BHeard(s)
         var u = e.fitStart(s)
         while (u <= e.fitEnd(s)) {

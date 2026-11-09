@@ -62,10 +62,25 @@ sealed interface Selection {
 class CanvasState {
     /** 0 the Songs view, 1 the lanes (Bands or Parts), between while it folds. */
     var view by mutableFloatStateOf(0f)
-    var zoom by mutableFloatStateOf(1f)
 
-    /** The first bar shown when zoomed in. */
+    /**
+     * What the canvas shows once zoomed or scrolled: the first bar and how many bars across
+     * ([CanvasZoom]). NaN for the fit, the change and 2 bars or 4 s either side, which follows the
+     * change as its length changes.
+     */
     var start by mutableDoubleStateOf(Double.NaN)
+    var span by mutableDoubleStateOf(Double.NaN)
+
+    /** Back to the fit. */
+    fun fit() {
+        start = Double.NaN
+        span = Double.NaN
+    }
+
+    fun show(v: TimeView) {
+        start = v.start
+        span = v.span
+    }
     var adjust by mutableStateOf<Lane?>(null)
     var selection by mutableStateOf<Selection?>(null)
     var held by mutableStateOf<String?>(null)
@@ -123,8 +138,9 @@ class CanvasLayout(
     val width: Float,
     density: Density,
     val view: Float,
-    val zoom: Float,
-    startWanted: Double,
+    /** The view asked for ([CanvasState.start], [CanvasState.span]); NaN for the fit. */
+    viewStart: Double,
+    viewSpan: Double,
     val adjust: Lane?,
     val small: Boolean,
 ) {
@@ -148,7 +164,6 @@ class CanvasLayout(
     val bStrip: Band
     val b: Band
     val total: Float
-    val overview: Band?
 
     /** Each lane's band in the Songs view, in the lanes view, and now. */
     val laneSongs = HashMap<LaneId, Band>()
@@ -158,7 +173,6 @@ class CanvasLayout(
     init {
         if (adjust != null) {
             a = Band(0f, 120 * dp); aStrip = Band(120 * dp, 0f); ruler = Band(120 * dp, 28 * dp); bStrip = Band(148 * dp, 0f); b = Band(148 * dp, 120 * dp)
-            overview = null
             for (side in Side.entries) for (l in lanes) {
                 val band = if (side == Side.A) a else b
                 laneSongs[LaneId(side, l)] = band; laneLanes[LaneId(side, l)] = band; lane[LaneId(side, l)] = band
@@ -188,17 +202,28 @@ class CanvasLayout(
                 laneLanes[ia] = Band(i * (lh + gap), lh); laneLanes[ib] = Band(sh + 28 * dp + i * (lh + gap), lh)
                 lane[ia] = mix(laneSongs[ia]!!, laneLanes[ia]!!, view); lane[ib] = mix(laneSongs[ib]!!, laneLanes[ib]!!, view)
             }
-            var t = 236 * dp + (2 * sh + 28 * dp - 236 * dp) * view
-            overview = if (zoom > 1.001f) Band(t + 4 * dp, 16 * dp).also { t += 20 * dp } else null
-            total = t
+            // The overview, which once took 20 dp under the canvas while zoomed, is under the
+            // length row now (CanvasOverview): zooming never moves anything below the canvas.
+            total = 236 * dp + (2 * sh + 28 * dp - 236 * dp) * view
         }
     }
 
     val fitStart = editor.fitStart(spec)
     val fitEnd = editor.fitEnd(spec)
+    private val frame = CanvasZoom.frame(editor, spec, viewStart, viewSpan)
+
+    /** Everything at hand of the two songs, as far as the view may go out. */
+    val whole: TimeView = frame.whole
+    val minSpan: Double = frame.minSpan
+
+    /** Whether the view is the fit, which follows the change. */
+    val atFit: Boolean = frame.atFit
+
+    /** What is shown. */
+    val shown: TimeView = frame.shown
     val axis = width - 2 * pad
-    val ppb: Double = axis / (fitEnd - fitStart) * zoom
-    val start: Double = if (zoom <= 1.001f || startWanted.isNaN()) fitStart else startWanted.coerceIn(fitStart, max(fitStart, fitEnd - axis / ppb))
+    val ppb: Double = axis / shown.span
+    val start: Double = shown.start
     val length = spec.lengthBars
     val perA = editor.perA(spec)
 
@@ -327,14 +352,12 @@ class CanvasLayout(
         data class BracketHit(val bracket: Bracket) : Hit
         data class LaneHit(val side: Side) : Hit
         data object Ruler : Hit
-        data object Overview : Hit
         data class Point(val id: LaneId, val index: Int) : Hit
         data class CurveLine(val id: LaneId) : Hit
         data object Nothing : Hit
     }
 
     fun hit(p: Offset, tolerance: Float = 24 * dp): Hit {
-        overview?.let { if (p.y >= it.top - 2 * dp) return Hit.Overview }
         if (p.y >= ruler.top && p.y < ruler.bottom) return Hit.Ruler
         if (adjust != null) {
             for (side in Side.entries) {
@@ -439,16 +462,30 @@ fun DrawScope.drawMixCanvas(c: CanvasInputs) {
         drawRect(col.onSurface.copy(alpha = 0.04f), Offset(x0, 0f), Size(x1 - x0, laneBottom))
         drawRect(col.onSurface.copy(alpha = 0.2f), Offset(x0 - 0.5f, 0f), Size(1f, laneBottom))
         drawRect(col.onSurface.copy(alpha = 0.2f), Offset(x1 - 0.5f, 0f), Size(1f, laneBottom))
-        // Bar lines, stronger every 4 bars.
+        // Bar lines, stronger every 4 bars; zoomed out they thin to every 2, 4, 8... bars, and zoomed
+        // in the beats are drawn between them, as a DAW's grid follows its zoom.
         if (spec.bars > 0) {
             val end = g.u(size.width - g.pad)
-            var k = ceil(g.start).toInt()
+            if (g.ppb * spec.beat >= 24 * g.dp) {
+                val beats = spec.b.beatsPerBar
+                var q = ceil(g.start * beats - 1e-9).toInt()
+                while (q <= end * beats + 1e-9) {
+                    if (Math.floorMod(q, beats) != 0) {
+                        val x = g.x(q.toDouble() / beats)
+                        drawRect(col.onSurface.copy(alpha = 0.035f), Offset(x - 0.5f, g.a.top), Size(1f, g.a.height))
+                        drawRect(col.onSurface.copy(alpha = 0.035f), Offset(x - 0.5f, g.b.top), Size(1f, g.b.height))
+                    }
+                    q++
+                }
+            }
+            val step = CanvasZoom.barStep(g.ppb, 6.0 * g.dp)
+            var k = ceil(g.start / step - 1e-9).toInt() * step
             while (k <= end + 1e-9) {
-                val a = if (Math.floorMod(k, 4) == 0) 0.14f else 0.07f
+                val a = if (Math.floorMod(k, 4 * step) == 0) 0.14f else 0.07f
                 val x = g.x(k.toDouble())
                 drawRect(col.onSurface.copy(alpha = a), Offset(x - 0.5f, g.a.top), Size(1f, g.a.height))
                 drawRect(col.onSurface.copy(alpha = a), Offset(x - 0.5f, g.b.top), Size(1f, g.b.height))
-                k++
+                k += step
             }
         }
         if (c.loading) {
@@ -471,7 +508,6 @@ fun DrawScope.drawMixCanvas(c: CanvasInputs) {
         }
         drawRuler(c)
     }
-    g.overview?.let { drawOverview(c, it) }
 }
 
 private fun DrawScope.drawShimmer(c: CanvasInputs) {
@@ -515,7 +551,7 @@ private fun levels(c: CanvasInputs, side: Side): SideLevels {
             val u1 = u0 + du
             val ms0 = (if (side == Side.A) spec.aHeardMsAt(u0) else g.bMs(u0)) - origin
             val ms1 = (if (side == Side.A) spec.aHeardMsAt(u1) else g.bMs(u1)) - origin
-            var v = bands.peak(lane, ms0, ms1) / ref
+            var v = bands.drawn(lane, ms0, ms1) / ref
             // Walls fade over 12 dp; B is nothing before its first frame.
             val x = g.x(g.columnU(i))
             val wall = if (side == Side.A) ((x - g.x(wallU)) / (12 * g.dp) + 1).coerceIn(0f, 1f) else ((g.x(wallU) - x) / (12 * g.dp) + 1).coerceIn(0f, 1f)
@@ -862,59 +898,71 @@ private fun DrawScope.drawRuler(c: CanvasInputs) {
     val r = g.ruler
     val colour = c.colors.onSurfaceVariant
     val end = g.u(size.width - g.pad)
+    // Labels as far apart as the widest one in view needs, ticks at least 4 dp apart: zoomed out
+    // they thin to every 2, 4, 8... bars or 5, 10, 30... seconds.
+    val labelPx = rulerLabelPx(c) + 6 * g.dp
     if (spec.bars > 0) {
         val beats = spec.b.beatsPerBar
-        var q = ceil(g.start * beats - 1e-9).toInt()
-        while (q <= end * beats + 1e-9) {
-            val bar = Math.floorMod(q, beats) == 0
-            val x = g.x(q.toDouble() / beats)
-            drawRect(colour.copy(alpha = if (bar) 0.6f else 0.3f), Offset(x - 0.5f, r.bottom - (if (bar) 7 else 4) * g.dp), Size(1f, (if (bar) 7 else 4) * g.dp))
-            q++
+        if (g.ppb * spec.beat >= 4 * g.dp) {
+            var q = ceil(g.start * beats - 1e-9).toInt()
+            while (q <= end * beats + 1e-9) {
+                val bar = Math.floorMod(q, beats) == 0
+                val x = g.x(q.toDouble() / beats)
+                drawRect(colour.copy(alpha = if (bar) 0.6f else 0.3f), Offset(x - 0.5f, r.bottom - (if (bar) 7 else 4) * g.dp), Size(1f, (if (bar) 7 else 4) * g.dp))
+                q++
+            }
+        } else {
+            val tick = CanvasZoom.barStep(g.ppb, 4.0 * g.dp)
+            var k = ceil(g.start / tick - 1e-9).toInt() * tick
+            while (k <= end + 1e-9) {
+                val x = g.x(k.toDouble())
+                drawRect(colour.copy(alpha = 0.6f), Offset(x - 0.5f, r.bottom - 7 * g.dp), Size(1f, 7 * g.dp))
+                k += tick
+            }
         }
         val showBeats = g.ppb > 130 * g.dp
-        var k = ceil(g.start).toInt()
+        val step = CanvasZoom.barStep(g.ppb, labelPx.toDouble())
+        var k = ceil(g.start / step - 1e-9).toInt() * step
         while (k <= end + 1e-9) {
             val a = if (k < 0 || k >= g.length) 0.45f else 0.95f
             label(c.measurer, c.words.barName(k.toDouble(), g.length), g.x(k.toDouble()) + 3 * g.dp, r.centre - 2 * g.dp, colour, alpha = a)
             if (showBeats) for (b in 2..beats) label(c.measurer, b.toString(), g.x(k + (b - 1.0) / beats) + 2 * g.dp, r.centre - 2 * g.dp, colour, 10f, FontWeight.Normal, 0.4f)
-            k++
+            k += step
         }
     } else {
         val barS = spec.b.barMs / 1000
-        var q = ceil(g.start * barS * 2 - 1e-9).toInt()
+        val pxPerSecond = g.ppb / barS
+        val half = pxPerSecond / 2 >= 4 * g.dp
+        val tick = if (half) 1 else CanvasZoom.secondsStep(pxPerSecond, 4.0 * g.dp) * 2
+        var q = ceil(g.start * barS * 2 / tick - 1e-9).toInt() * tick
         while (q <= end * barS * 2 + 1e-9) {
-            val whole = Math.floorMod(q, 2) == 0
+            val whole = !half || Math.floorMod(q, 2) == 0
             val x = g.x(q / 2.0 / barS)
             drawRect(colour.copy(alpha = if (whole) 0.6f else 0.3f), Offset(x - 0.5f, r.bottom - (if (whole) 7 else 4) * g.dp), Size(1f, (if (whole) 7 else 4) * g.dp))
-            q++
+            q += tick
         }
-        var s = ceil(g.start * barS / 2).toInt() * 2
+        val step = CanvasZoom.secondsStep(pxPerSecond, labelPx.toDouble())
+        var s = ceil(g.start * barS / step - 1e-9).toInt() * step
         while (s <= end * barS + 1e-9) {
             val a = if (s < 0 || s > spec.seconds) 0.45f else 0.95f
             label(c.measurer, if (s == 0) c.words.seconds(0.0) else s.toString(), g.x(s / barS) + 3 * g.dp, r.centre - 2 * g.dp, colour, alpha = a)
-            s += 2
+            s += step
         }
     }
 }
 
-private fun DrawScope.drawOverview(c: CanvasInputs, r: CanvasLayout.Band) {
+/** How wide the widest bar or second label in view is drawn. */
+private fun rulerLabelPx(c: CanvasInputs): Float {
     val g = c.layout
     val spec = g.spec
-    drawRoundRect(c.colors.surfaceHigh, Offset(g.pad, r.top), Size(g.axis, r.height), CornerRadius(4 * g.dp))
-    val n = g.columns
-    val span = g.fitEnd - g.fitStart
-    for (i in 0 until n step 2) {
-        val u = g.fitStart + span * i / n
-        val a = c.aBands.peak(Lane.MIDS, spec.aMsAt(u) - c.aStartMs, spec.aMsAt(u + span / n) - c.aStartMs) / c.aBands.reference
-        val b = c.bBands.peak(Lane.MIDS, g.bMs(u) - c.bStartMs, g.bMs(u + span / n) - c.bStartMs) / c.bBands.reference
-        val x = g.pad + i * g.dp
-        drawRect(c.colors.onSurfaceVariant.copy(alpha = 0.45f), Offset(x, r.centre - min(7 * g.dp, a * 10 * g.dp)), Size(1.5f * g.dp, min(7 * g.dp, a * 10 * g.dp)))
-        drawRect(c.colors.onSurfaceVariant.copy(alpha = 0.45f), Offset(x, r.centre), Size(1.5f * g.dp, min(7 * g.dp, b * 10 * g.dp)))
+    val end = g.u(g.width - g.pad)
+    val texts = if (spec.bars > 0) {
+        listOf(floor(g.start), ceil(end), g.length - 1).map { c.words.barName(it, g.length) }
+    } else {
+        val barS = spec.b.barMs / 1000
+        listOf(floor(g.start * barS), ceil(end * barS)).map { it.toInt().toString() }
     }
-    val wx = (g.pad + (g.start - g.fitStart) / span * g.axis).toFloat()
-    val ww = g.axis / g.zoom
-    drawRect(c.colors.primary.copy(alpha = 0.16f), Offset(wx, r.top), Size(ww, r.height))
-    drawRect(c.colors.primary, Offset(wx + 0.5f, r.top + 0.5f), Size(ww - 1, r.height - 1), style = Stroke(1f))
+    return texts.maxOf { c.measurer.measure(it, TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Medium)).size.width.toFloat() }
 }
 
 private fun DrawScope.drawAdjust(c: CanvasInputs) {
@@ -935,7 +983,7 @@ private fun DrawScope.drawAdjust(c: CanvasInputs) {
                 val u = g.columnU(i)
                 val ms0 = (if (side == Side.A) spec.aMsAt(u - du / 2) else g.bMs(u - du / 2)) - origin
                 val ms1 = (if (side == Side.A) spec.aMsAt(u + du / 2) else g.bMs(u + du / 2)) - origin
-                val full = bands.peak(lane, ms0, ms1) / bands.reference
+                val full = bands.drawn(lane, ms0, ms1) / bands.reference
                 if (pass == 0) full else spec.laneAt(id, u).let { (full * it.gain * passed(lane, it)).toFloat() }
             }
             val path = Path()
@@ -960,8 +1008,9 @@ private fun DrawScope.drawAdjust(c: CanvasInputs) {
     }
 }
 
-/** The bar a ruler tap plays from: the bar, or the beat when zoomed in. */
+/** The bar a ruler tap plays from: the bar, or the beat once zoomed in so a beat is a finger wide. */
 fun rulerTapU(layout: CanvasLayout, x: Float): Double {
     val u = layout.u(x)
-    return if (layout.zoom >= 3f) floor(u * 4) / 4 else floor(u)
+    val beat = layout.spec.beat
+    return if (!layout.atFit && layout.ppb * beat >= 12 * layout.dp) floor(u / beat) * beat else floor(u)
 }

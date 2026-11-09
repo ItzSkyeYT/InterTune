@@ -41,7 +41,7 @@ class MixCanvasLabelTest {
         // A 360 dp phone; 11 sp at twice the size is about 10.5 dp a letter.
         val width = 360 * dp
         val measure = { text: String -> text.length * 10.5f * dp }
-        val layout = CanvasLayout(editor, editor.spec, width, density, view = 0f, zoom = 1f, startWanted = Double.NaN, adjust = null, small = false)
+        val layout = CanvasLayout(editor, editor.spec, width, density, view = 0f, viewStart = Double.NaN, viewSpan = Double.NaN, adjust = null, small = false)
         layout.placeTargets(EditorWords(LongWords(), "Wake Me Up", "After Hours"), measure)
         assertTrue(layout.brackets.isNotEmpty())
         for (br in layout.brackets) {

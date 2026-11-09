@@ -38,6 +38,9 @@
     <string name="mix_edit_view_songs">Morceaux</string>
     <string name="mix_edit_view_bands">Bandes</string>
     <string name="mix_edit_view_parts">Pistes</string>
+    <!-- the canvas's zoom buttons (said by TalkBack; the buttons show the magnifier) -->
+    <string name="mix_edit_zoom_in">Zoom avant</string>
+    <string name="mix_edit_zoom_out">Zoom arrière</string>
 
     <string name="mix_edit_now_bar">Mesure %1$d sur %2$d</string>
     <string name="mix_edit_now_second">Seconde %1$d sur %2$d</string>

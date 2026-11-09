@@ -385,8 +385,18 @@ fun MixEditorScreen(navController: NavController) {
             }
             SongRow(songB, bTitle, spec?.let { words.clock(it.b.atMs) }, spec?.let { vm.editor?.shownBpm(Side.B, it) }, spec?.b?.fix?.isNone == false, words, landscape, spec?.let { vm.editor?.beatNote(Side.B, it) }) { fixOpen = Side.B }
             // Songs and Bands only for a pair loaded without parts: never while it loads, when it is not known yet.
-            BarRow(spec, words, lanesView, canvas.adjust, { lengthOpen = true }, { lanesView = it }, partsReady = vm.pair?.partsReady != false) { leaveAdjust(vm, canvas) }
-            NowLine(vm, editor, spec, words, phase, playing, { playU }, said)
+            val ready = phase is MixEditorViewModel.Phase.Ready
+            BarRow(
+                spec, words, lanesView, canvas.adjust, { lengthOpen = true }, { lanesView = it }, partsReady = vm.pair?.partsReady != false,
+                zoom = { m ->
+                    val e = editor
+                    if (ready && e != null && spec != null) ZoomButtons(e, spec, canvas, { playU }, m) else Spacer(m)
+                },
+            ) { leaveAdjust(vm, canvas) }
+            val overview: (@Composable () -> Unit)? = if (ready && editor != null && spec != null) {
+                { CanvasOverview(editor, spec, vm.pair, canvas, colors, { playU }, Modifier.fillMaxSize()) }
+            } else null
+            NowLine(vm, editor, spec, words, phase, playing, { playU }, said, overview = overview)
         }
 
         @Composable
@@ -645,6 +655,8 @@ private fun BarRow(
     onView: (Boolean) -> Unit,
     /** Both songs' parts are at hand: the page shows them, and there is no other view to switch to. */
     partsReady: Boolean = false,
+    /** The zoom buttons, in the room left between the two ends: weighted, so neither end moves for them. */
+    zoom: @Composable (Modifier) -> Unit = { Spacer(it) },
     onDone: () -> Unit,
 ) {
     Row(
@@ -654,6 +666,7 @@ private fun BarRow(
     ) {
         if (adjust != null) {
             Text(stringResource(R.string.mix_adjust_title, words.laneName(adjust)), style = MaterialTheme.typography.titleSmall)
+            zoom(Modifier.weight(1f).padding(horizontal = 8.dp))
             FilledTonalButton(onClick = onDone, modifier = Modifier.height(32.dp)) { Text(stringResource(R.string.mix_adjust_done)) }
             return@Row
         }
@@ -671,6 +684,7 @@ private fun BarRow(
             Text(spec?.let(words::length) ?: "", style = MaterialTheme.typography.labelLarge, maxLines = 1)
             Icon(Icons.Rounded.KeyboardArrowDown, null, Modifier.size(18.dp))
         }
+        zoom(Modifier.weight(1f).padding(horizontal = 8.dp))
         val second = if (spec?.lanes == LaneSet.PARTS) R.string.mix_edit_view_parts else R.string.mix_edit_view_bands
         // With the parts at hand the page is the four parts, his choice of 7 Nov 2026: Songs and
         // Bands stay only for a pair whose parts are not made yet.
@@ -685,7 +699,11 @@ private fun BarRow(
     }
 }
 
-/** The line under the bars: a refusal, or the loading stage. No narration of the change (his rule: no comments in the mixer). */
+/**
+ * The line under the bars: a refusal, or the loading stage. No narration of the change (his rule: no
+ * comments in the mixer). With nothing to say, the [overview] of the canvas in its place, at the
+ * same height, so nothing moves when a refusal comes and goes.
+ */
 @Composable
 private fun NowLine(
     vm: MixEditorViewModel,
@@ -696,6 +714,7 @@ private fun NowLine(
     playing: Boolean,
     playU: () -> Double,
     said: String?,
+    overview: (@Composable () -> Unit)? = null,
 ) {
     val text by remember(editor, spec, words, phase, playing, said) {
         derivedStateOf {
@@ -711,18 +730,21 @@ private fun NowLine(
             }
         }
     }
-    Text(
-        text,
-        style = MaterialTheme.typography.bodyMedium,
-        color = if (said != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
-        maxLines = 1,
-        overflow = TextOverflow.Ellipsis,
-        modifier = Modifier
-            .fillMaxWidth()
-            .heightIn(min = 32.dp)
-            .semantics { liveRegion = LiveRegionMode.Polite }
-            .padding(horizontal = 12.dp, vertical = 6.dp),
-    )
+    Box(Modifier.fillMaxWidth()) {
+        Text(
+            text,
+            style = MaterialTheme.typography.bodyMedium,
+            color = if (said != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 32.dp)
+                .semantics { liveRegion = LiveRegionMode.Polite }
+                .padding(horizontal = 12.dp, vertical = 6.dp),
+        )
+        if (text.isEmpty() && overview != null) Box(Modifier.matchParentSize()) { overview() }
+    }
 }
 
 /** Everything under the fixed part: presets, Beat matching, Intro twice, the two ways back. */

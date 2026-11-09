@@ -106,7 +106,7 @@ fun MixCanvasView(
     val scope = rememberCoroutineScope()
     BoxWithConstraints(modifier.fillMaxWidth()) {
         val width = constraints.maxWidth.toFloat()
-        val layout = CanvasLayout(editor, spec, width, density, state.view, state.zoom, state.start, state.adjust, small)
+        val layout = CanvasLayout(editor, spec, width, density, state.view, state.start, state.span, state.adjust, small)
         layout.placeTargets(words) { text -> measurer.measure(text, androidx.compose.ui.text.TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Medium)).size.width.toFloat() }
         val current = rememberUpdatedState(layout)
         val loading = pair == null
@@ -152,7 +152,6 @@ fun MixCanvasView(
                         var limit: Limit? = null
                         var lastSnap: Double? = null
                         var grab = 0.0
-                        val startView = state.start.takeIf { !it.isNaN() } ?: g.start
                         when (val h = hit) {
                             is CanvasLayout.Hit.GripHit -> { state.held = h.grip.id.key; grab = g.u(down.position.x) - h.grip.ux }
                             is CanvasLayout.Hit.Point -> state.held = "${h.id.key}:${h.index}"
@@ -184,7 +183,7 @@ fun MixCanvasView(
                                 continue
                             }
                             if (event.changes.count { it.pressed } >= 2) {
-                                // Two fingers: zoom from 1x to 8x about their middle.
+                                // Two fingers: zoom about their middle, from all that is at hand to a few beats, and scroll as they move.
                                 state.held = null
                                 state.float = null
                                 if (moved) { editor.live(before); vm.publish() }
@@ -260,10 +259,6 @@ fun MixCanvasView(
                                     val u = editor.snap(g.u(change.position.x)).coerceIn(g.fitStart, g.fitEnd)
                                     actions.scrub(u)
                                     state.float = words.position(u, spec) to Offset(g.x(u), g.ruler.top)
-                                }
-                                is CanvasLayout.Hit.Overview -> {
-                                    val span = g.fitEnd - g.fitStart
-                                    state.start = (startView + d.x / g.axis * span).coerceIn(g.fitStart, g.fitEnd - g.axis / g.ppb)
                                 }
                                 is CanvasLayout.Hit.Point -> {
                                     val keys = editor.spec.curves[h.id]?.gain ?: continue
@@ -392,23 +387,23 @@ private fun moveAnchor(vm: MixEditorViewModel, editor: MixEditor, actions: Canva
     limit?.let(actions::say)
 }
 
-/** Two fingers on the canvas: the zoom follows them about the bar between them. */
+/**
+ * Two fingers on the canvas, as on any map or timeline: the view closes in or opens out as they
+ * spread or pinch, the bar that was between them staying between them, so moving both scrolls.
+ */
 private suspend fun androidx.compose.ui.input.pointer.AwaitPointerEventScope.pinch(start: List<Offset>, g: CanvasLayout, state: CanvasState) {
     if (start.size < 2) return
     val d0 = maxOf(20f, (start[0] - start[1]).getDistance())
-    val z0 = state.zoom
-    val midX = (start[0].x + start[1].x) / 2
-    val u = g.u(midX)
+    val span0 = g.shown.span
+    val u0 = g.u((start[0].x + start[1].x) / 2)
     while (true) {
         val event = awaitPointerEvent()
         val pressed = event.changes.filter { it.pressed }
         if (pressed.size < 2) return
         event.changes.forEach { it.consume() }
-        val d = (pressed[0].position - pressed[1].position).getDistance()
-        val zoom = (z0 * d / d0).coerceIn(1f, 8f)
-        state.zoom = zoom
-        val ppb = g.axis / (g.fitEnd - g.fitStart) * zoom
-        state.start = u - (midX - g.pad) / ppb
+        val d = maxOf(1f, (pressed[0].position - pressed[1].position).getDistance())
+        val mid = (pressed[0].position.x + pressed[1].position.x) / 2
+        state.show(CanvasZoom.pinch(span0, u0, ((mid - g.pad) / g.axis).toDouble(), (d / d0).toDouble(), g.whole, g.minSpan))
     }
 }
 
@@ -447,13 +442,17 @@ private fun finish(
             is CanvasLayout.Hit.Ruler -> {
                 val now = System.currentTimeMillis()
                 if (now - lastTap.first < DOUBLE_TAP_MS && abs(at.x - lastTap.second) < 24 * g.dp) {
-                    // A double tap zooms to 3x on that bar, and back.
+                    // A double tap zooms 3x closer than the fit on that bar, and back to the fit.
                     tapped(0L to 0f)
-                    val u = kotlin.math.floor(g.u(at.x)) + 0.5
-                    val zoom = if (state.zoom > 1.001f) 1f else 3f
-                    val ppb = g.axis / (g.fitEnd - g.fitStart) * zoom
-                    state.zoom = zoom
-                    state.start = u - (at.x - g.pad) / ppb
+                    if (g.atFit) {
+                        val u = kotlin.math.floor(g.u(at.x)) + 0.5
+                        state.show(CanvasZoom.zoom(g.shown, CanvasZoom.DOUBLE_TAP, u, g.whole, g.minSpan).let { v ->
+                            // The bar tapped stays under the finger.
+                            CanvasZoom.clamp(TimeView(u - (at.x - g.pad) / g.axis * v.span, v.span), g.whole, g.minSpan)
+                        })
+                    } else {
+                        state.fit()
+                    }
                 } else {
                     tapped(now to at.x)
                     actions.playFrom(rulerTapU(g, at.x).coerceIn(g.fitStart, g.fitEnd))
