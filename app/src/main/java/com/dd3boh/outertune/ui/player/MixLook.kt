@@ -30,6 +30,7 @@ import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.sin
+import kotlin.math.roundToInt
 
 /**
  * The player while a change plays as a mix (experiments/features/mix-player/SPEC.md), as plain
@@ -142,6 +143,27 @@ object MixLook {
      * late finds them apart, and a pause holds them where they are.
      */
     fun coming(sinceStartMs: Long): Float = (sinceStartMs.toFloat() / MORPH_MS).coerceIn(0f, 1f)
+
+    /**
+     * Where the incoming song is for this frame, in ms: [was] moved on by the frame's [frameNanos] while it plays,
+     * and drawn a little toward the player's [position] at each frame, so the covers move at every frame even when
+     * the player tells its position in steps (over Bluetooth, and as one song is handed to the next). A gap of more
+     * than [PACE_SNAP_MS] is taken at once (a jump, a pause); with no frame time (the screen not drawn), the
+     * position as it is.
+     */
+    fun paced(was: Long, position: Long, frameNanos: Long, playing: Boolean): Long {
+        if (frameNanos <= 0L || !playing) return position
+        val predicted = was + frameNanos / 1_000_000.0
+        val drift = position - predicted
+        if (abs(drift) > PACE_SNAP_MS) return position
+        return Math.round(predicted + drift / PACE_EASE)
+    }
+
+    /** A gap between the paced clock and the player's position past which the position is taken as it is. */
+    const val PACE_SNAP_MS = 250.0
+
+    /** The share of the gap made up at each frame: an eighth, about 70 ms to close most of it at 120 Hz. */
+    const val PACE_EASE = 8.0
 
     /** How far they have come together [sinceEndMs] after the outgoing song was gone, the same way. */
     fun going(sinceEndMs: Long): Float = (sinceEndMs.toFloat() / MORPH_MS).coerceIn(0f, 1f)
@@ -310,13 +332,45 @@ internal class CoverMorphs(private val corner: Dp) {
         }
     }
 
-    /** The shape of a cover [cookie] of the way from the rounded square to the cookie: today's own shape at 0. */
-    fun shape(cookie: Float): Shape = if (cookie <= 0f) RoundedCornerShape(corner) else CoverShape(this, cookie)
+    private val rounded = RoundedCornerShape(corner)
+    private val turns = HashMap<Int, CoverShape>()
+
+    /**
+     * The shape of a cover [cookie] of the way from the rounded square to the cookie: today's own shape at 0.
+     * In [TURNS] steps, each made once and kept with its outline: the turn lasts about a second, and a new path
+     * built and clipped to at every frame of it made the covers come in slow and choppy on a 120 Hz phone
+     * (9 Nov 2026). The same step is the same shape, so a layer is given a new outline only when the
+     * step changes.
+     */
+    fun shape(cookie: Float): Shape {
+        val step = (cookie.coerceIn(0f, 1f) * TURNS).roundToInt()
+        if (step <= 0) return rounded
+        return turns.getOrPut(step) { CoverShape(this, step.toFloat() / TURNS) }
+    }
+
+    companion object {
+        /** How many shapes the turn between the rounded square and the cookie is made of: one every frame or two at 120 Hz. */
+        const val TURNS = 64
+    }
 }
 
 /** A cover's outline [cookie] of the way into the cookie (see [CoverMorphs]). */
 private class CoverShape(private val morphs: CoverMorphs, private val cookie: Float) : Shape {
+    /** The outline made last, for the size it was made for: the same step at the same size is not built again. */
+    private var made: Outline? = null
+    private var madeFor: Size? = null
+    private var madeAt = 0f
+
     override fun createOutline(size: Size, layoutDirection: LayoutDirection, density: Density): Outline {
+        made?.let { if (madeFor == size && madeAt == density.density) return it }
+        return build(size, density).also {
+            made = it
+            madeFor = size
+            madeAt = density.density
+        }
+    }
+
+    private fun build(size: Size, density: Density): Outline {
         val path = Path()
         var first = true
         morphs.at(size, density).forEachCubic(cookie) { c ->

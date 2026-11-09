@@ -332,4 +332,45 @@ class MixLookTest {
         assertEquals(0f, c * 1f - s * 0f, 1e-6f)
         assertEquals(-1f, s * 1f + c * 0f, 1e-6f)
     }
+
+    // ---- smooth covers (9 Nov 2026: the covers came in slow and choppy on a 120 Hz phone)
+
+    @Test
+    fun `the covers' clock moves on with each frame and keeps to the player`() {
+        val frame = 8_333_333L                     // 120 Hz
+        // Steady: the player says what the frame says.
+        assertEquals(1008L, MixLook.paced(1000L, 1008L, frame, playing = true))
+        // The player's position in steps: the clock moves on regardless, and closes the gap little by little.
+        val stuck = MixLook.paced(1000L, 1000L, frame, playing = true)
+        assertTrue("moves on while the player's position stands still: $stuck", stuck in 1001L..1008L)
+        // A jump or a pause is taken at once.
+        assertEquals(30_000L, MixLook.paced(1000L, 30_000L, frame, playing = true))
+        assertEquals(1500L, MixLook.paced(1000L, 1500L, frame, playing = false))
+        // No frame time (the screen not drawn): the position as it is.
+        assertEquals(1234L, MixLook.paced(1000L, 1234L, 0L, playing = true))
+        // Over a second of frames with the position told only four times a second, the clock never goes back
+        // and never runs far from it.
+        var at = 0L
+        var told = 0L
+        var t = 0L
+        repeat(120) {
+            t += frame
+            if (t / 250_000_000L != (t - frame) / 250_000_000L) told = t / 1_000_000L
+            val next = MixLook.paced(at, told, frame, playing = true)
+            assertTrue("back from $at to $next", next >= at || told < at - MixLook.PACE_SNAP_MS)
+            at = next
+        }
+        assertTrue("$at against ${t / 1_000_000L}", kotlin.math.abs(at - t / 1_000_000L) < MixLook.PACE_SNAP_MS)
+    }
+
+    @Test
+    fun `a cover's turn is made of kept shapes, so a frame of the same step builds nothing`() {
+        val morphs = CoverMorphs(androidx.compose.ui.unit.Dp(24f))
+        val a = morphs.shape(0.5f)
+        assertTrue("the same step, the very same shape", a === morphs.shape(0.5f + 0.1f / CoverMorphs.TURNS))
+        assertFalse("the next step, another", a === morphs.shape(0.5f + 1.5f / CoverMorphs.TURNS))
+        assertTrue("the rounded square at 0", morphs.shape(0f) === morphs.shape(0.2f / CoverMorphs.TURNS))
+        val steps = (0..1000).map { morphs.shape(it / 1000f) }.toSet()
+        assertTrue("${steps.size} shapes for a whole turn", steps.size <= CoverMorphs.TURNS + 1)
+    }
 }

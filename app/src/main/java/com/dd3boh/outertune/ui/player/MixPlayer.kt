@@ -139,8 +139,18 @@ class MixScreen internal constructor(
         MixLook.shows(t, at(t))
     }
 
-    /** [heard] to the nearest of MixLook.COLOUR_STEPS: what the colours and the background follow. */
-    val stepped: Float by derivedStateOf { MixLook.stepped(heard) }
+    /**
+     * [heard] to the nearest of MixLook.COLOUR_STEPS: what the colours and the background follow. Held at 0
+     * while the covers turn in, the first MixLook.MORPH_MS of the change: a step of colours makes the whole
+     * player again, and one in the middle of the turn dropped frames there.
+     */
+    val stepped: Float by derivedStateOf {
+        val t = target ?: return@derivedStateOf 0f
+        if (MixLook.coming(at(t) - t.entryMs) < 1f) 0f else MixLook.stepped(heard)
+    }
+
+    /** The song the change announced brings in, before the player names it: its covers are fetched then (Thumbnail). */
+    val upcoming: MediaMetadata? get() = announced.value?.incoming
 
     /** The share heard last, kept after the change leaves the screen. */
     private var lastHeard = 0f
@@ -182,9 +192,11 @@ class MixScreen internal constructor(
         words.snapTo(1f)
         coroutineScope {
             var swap: Job? = null
+            var lastFrame = 0L
             while (MixLook.shows(next, atNow)) {
-                if (frames()) withFrameNanos { } else delay(LOOK_MS)
-                atNow = player.currentPosition
+                val frame = if (frames()) withFrameNanos { it } else { delay(LOOK_MS); 0L }
+                atNow = MixLook.paced(atNow, player.currentPosition, if (lastFrame != 0L && frame != 0L) frame - lastFrame else 0L, player.isPlaying)
+                lastFrame = frame
                 val outgoing = MixLook.showsOutgoing(next.heard(atNow), next.handover)
                 if (outgoing != followedOutgoing && swap?.isActive != true) swap = launch { swapTo(outgoing) }
             }

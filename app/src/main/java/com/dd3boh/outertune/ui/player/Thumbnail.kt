@@ -58,6 +58,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalView
 import coil3.compose.AsyncImage
 import coil3.compose.AsyncImagePainter
+import coil3.request.ImageRequest
+import coil3.imageLoader
 import androidx.compose.runtime.mutableFloatStateOf
 import com.dd3boh.outertune.LocalPlayerConnection
 import com.dd3boh.outertune.constants.PlayerHorizontalPadding
@@ -191,6 +193,17 @@ fun Thumbnail(
                     }
                     DisposableEffect(Unit) {
                         onDispose { if (showsWhatPlays) PlayerCoverPlace.bounds = null }
+                    }
+                    // The covers of the song a change brings in, fetched as the change is announced, a moment before
+                    // the player names it, at the two sizes drawn below: it used to start fetching them as the covers
+                    // came in, and the turn waited on it (9 Nov 2026).
+                    val upcoming = mix?.upcoming
+                    LaunchedEffect(upcoming?.id, artPx) {
+                        val song = upcoming ?: return@LaunchedEffect
+                        for (px in listOf(ART_PREVIEW_PX, artPx)) {
+                            val model = song.getThumbnailModel(px, px) ?: continue
+                            context.imageLoader.enqueue(ImageRequest.Builder(context).data(model).build())
+                        }
                     }
                     // While a change plays as a mix, this box holds both covers, on the cover of
                     // the song it brings in: the one going out under this one, each in its own
