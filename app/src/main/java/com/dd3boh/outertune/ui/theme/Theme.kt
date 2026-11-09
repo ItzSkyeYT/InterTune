@@ -72,6 +72,15 @@ fun OuterTuneTheme(
     }
 }
 
+/**
+ * The player's own theme, for [themeColor] read here: when the song changes with the player open, only
+ * the player is made again for its colours, while the pages under it keep theirs until it is down
+ * (MainActivity's pagesThemeColor).
+ */
+@Composable
+fun PlayerTheme(darkTheme: Boolean, pureBlack: Boolean, highContrastCompat: Boolean, themeColor: () -> Color, content: @Composable () -> Unit) =
+    OuterTuneTheme(LocalContext.current, darkTheme, pureBlack, highContrastCompat, themeColor(), content)
+
 /** The theme's colours for [themeColor], the colour taken from the cover playing, or the default one. */
 private fun themeColours(context: Context, darkTheme: Boolean, pureBlack: Boolean, highContrastCompat: Boolean, themeColor: Color): ColorScheme =
     if (themeColor == DefaultThemeColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
