@@ -1,5 +1,6 @@
 package com.dd3boh.outertune.ui.menu
 
+import androidx.compose.material.icons.rounded.FileUpload
 import androidx.compose.material.icons.rounded.PersonOff
 import androidx.compose.material.icons.rounded.Snooze
 import androidx.compose.material.icons.rounded.Block
@@ -70,6 +71,8 @@ import com.dd3boh.outertune.db.entities.Song
 import com.dd3boh.outertune.extensions.toMediaItem
 import com.dd3boh.outertune.models.DontPlay
 import com.dd3boh.outertune.models.toMediaMetadata
+import com.dd3boh.outertune.playback.downloadManager.ExportItem
+import com.dd3boh.outertune.playback.holdsWhole
 import com.dd3boh.outertune.playback.queues.ListQueue
 import com.dd3boh.outertune.playback.queues.YouTubeQueue
 import com.dd3boh.outertune.ui.component.button.IconButton
@@ -78,6 +81,7 @@ import com.dd3boh.outertune.ui.dialog.AddToPlaylistDialog
 import com.dd3boh.outertune.ui.dialog.AddToQueueDialog
 import com.dd3boh.outertune.ui.dialog.ArtistDialog
 import com.dd3boh.outertune.ui.dialog.DetailsDialog
+import com.dd3boh.outertune.ui.dialog.ExportSheet
 import com.dd3boh.outertune.ui.dialog.TextFieldDialog
 import com.dd3boh.outertune.utils.ShareLinks
 import com.dd3boh.outertune.utils.removeFromYouTubePlaylist
@@ -152,6 +156,11 @@ fun SongMenu(
     }
     var showDetailsDialog by rememberSaveable {
         mutableStateOf(false)
+    }
+    var showExportSheet by remember { mutableStateOf(false) }
+    // On the phone, so that an export has something to export: downloaded, or in the song cache whole (Unreleased.DOWNLOAD_FORMATS).
+    val onPhone = remember(song.id, download) {
+        downloadUtil.isDownloaded(song.id) || runCatching { playerConnection.service.playerCache.holdsWhole(song.id) }.getOrDefault(false)
     }
     var showBlockArtist by rememberSaveable { mutableStateOf(false) }
     val blockable = remember(song.artists) { blockChoices(song.artists) }
@@ -292,6 +301,14 @@ fun SongMenu(
                 onRemoveDownload = { downloadUtil.removeDownload(song.id) }
             )
 
+        if (Unreleased.DOWNLOAD_FORMATS && !song.song.isLocal && onPhone) {
+            GridMenuItem(
+                icon = Icons.Rounded.FileUpload,
+                title = R.string.export_to_folder
+            ) {
+                showExportSheet = true
+            }
+        }
 
         GridMenuItem(
             icon = R.drawable.artist,
@@ -456,6 +473,16 @@ fun SongMenu(
                 showBlockArtist = false
                 onDismiss()
             },
+        )
+    }
+
+    if (showExportSheet) {
+        ExportSheet(
+            items = listOf(ExportItem(song.id, song.song.title, song.song.isLocal)),
+            onDismiss = {
+                showExportSheet = false
+                onDismiss()
+            }
         )
     }
 

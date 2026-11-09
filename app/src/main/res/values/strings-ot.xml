@@ -2521,6 +2521,36 @@ while also allowing users to translate our app as well. New, specific strings to
     </plurals>
     <!-- The settings search's words for File format: open to translators, as every search word is (SettingsSearchTest). -->
     <string name="search_words_download_format">mp3, flac, wav, aac, m4a, convert, format, file type</string>
+    <!-- Export to folder (ExportSheet, Unreleased.DOWNLOAD_FORMATS): the menu entry, the sheet, the line it ends with and the songs it names. Held from translators until the setting ships. -->
+    <string name="export_to_folder" translatable="false">Export to folder</string>
+    <string name="export_note" translatable="false">Only songs that are on the phone are exported.</string>
+    <string name="export_folder" translatable="false">Folder</string>
+    <string name="export_folder_none" translatable="false">Choose a folder</string>
+    <string name="export_action" translatable="false">Export</string>
+    <string name="export_progress" translatable="false">Exporting %1$d of %2$d</string>
+    <string name="export_done_title" translatable="false">Export finished</string>
+    <string name="export_stopped_title" translatable="false">Export stopped</string>
+    <string name="export_names_more" translatable="false">%1$s and %2$d more</string>
+    <plurals name="export_exported" translatable="false">
+        <item quantity="one">%1$d song exported</item>
+        <item quantity="other">%1$d songs exported</item>
+    </plurals>
+    <plurals name="export_skipped_not_downloaded" translatable="false">
+        <item quantity="one">%1$d skipped: not downloaded</item>
+        <item quantity="other">%1$d skipped: not downloaded</item>
+    </plurals>
+    <plurals name="export_skipped_there" translatable="false">
+        <item quantity="one">%1$d skipped: already in the folder</item>
+        <item quantity="other">%1$d skipped: already in the folder</item>
+    </plurals>
+    <plurals name="export_skipped_local" translatable="false">
+        <item quantity="one">%1$d skipped: a file on the phone already</item>
+        <item quantity="other">%1$d skipped: files on the phone already</item>
+    </plurals>
+    <plurals name="export_failed" translatable="false">
+        <item quantity="one">%1$d could not be converted</item>
+        <item quantity="other">%1$d could not be converted</item>
+    </plurals>
     <!-- What's new in 0.12.8 (Walkthrough.kt, V0_12_8): held from translators until his go. -->
     <string name="new_report_send_title" translatable="false">Send a report to InterTune</string>
     <string name="new_report_send_body" translatable="false">Report a problem can now send the report to InterTune itself, no GitHub account needed. Or share it as a file to post on Discord.</string>

@@ -2331,6 +2331,40 @@
         <item quantity="other">%1$d titres n\'ont pas pu être convertis et ont été enregistrés tels quels.</item>
     </plurals>
     <string name="search_words_download_format">mp3, flac, wav, aac, m4a, convertir, format, type de fichier</string>
+    <string name="export_to_folder">Exporter vers un dossier</string>
+    <string name="export_note">Seuls les titres présents sur le téléphone sont exportés.</string>
+    <string name="export_folder">Dossier</string>
+    <string name="export_folder_none">Choisir un dossier</string>
+    <string name="export_action">Exporter</string>
+    <string name="export_progress">Export de %1$d sur %2$d</string>
+    <string name="export_done_title">Export terminé</string>
+    <string name="export_stopped_title">Export arrêté</string>
+    <string name="export_names_more">%1$s et %2$d autres</string>
+    <plurals name="export_exported">
+        <item quantity="one">%1$d titre exporté</item>
+        <item quantity="many">%1$d titres exportés</item>
+        <item quantity="other">%1$d titres exportés</item>
+    </plurals>
+    <plurals name="export_skipped_not_downloaded">
+        <item quantity="one">%1$d ignoré : pas téléchargé</item>
+        <item quantity="many">%1$d ignorés : pas téléchargés</item>
+        <item quantity="other">%1$d ignorés : pas téléchargés</item>
+    </plurals>
+    <plurals name="export_skipped_there">
+        <item quantity="one">%1$d ignoré : déjà dans le dossier</item>
+        <item quantity="many">%1$d ignorés : déjà dans le dossier</item>
+        <item quantity="other">%1$d ignorés : déjà dans le dossier</item>
+    </plurals>
+    <plurals name="export_skipped_local">
+        <item quantity="one">%1$d ignoré : déjà un fichier du téléphone</item>
+        <item quantity="many">%1$d ignorés : déjà des fichiers du téléphone</item>
+        <item quantity="other">%1$d ignorés : déjà des fichiers du téléphone</item>
+    </plurals>
+    <plurals name="export_failed">
+        <item quantity="one">%1$d n\'a pas pu être converti</item>
+        <item quantity="many">%1$d n\'ont pas pu être convertis</item>
+        <item quantity="other">%1$d n\'ont pas pu être convertis</item>
+    </plurals>
     <string name="new_shelf_looks_title">L\'Étagère en trois looks</string>
     <string name="new_shelf_looks_body">Grande pochette, Bac à disques ou Vinyles, à choisir sous Look dans les réglages du widget.</string>
     <string name="new_lyrics_video_long_title">Des vidéos de paroles jusqu\'à dix minutes</string>

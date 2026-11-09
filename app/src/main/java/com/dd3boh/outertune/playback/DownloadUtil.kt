@@ -5,6 +5,8 @@ import com.dd3boh.outertune.utils.DownloadCovers
 import com.dd3boh.outertune.ui.utils.resize
 import android.content.Context
 import android.net.ConnectivityManager
+import android.net.Uri
+import androidx.documentfile.provider.DocumentFile
 import android.util.Log
 import android.widget.Toast
 import android.widget.Toast.LENGTH_SHORT
@@ -59,8 +61,21 @@ import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.playback.DownloadUtil.Companion.STATE_DOWNLOADING
 import com.dd3boh.outertune.playback.DownloadUtil.Companion.STATE_INVALID
 import com.dd3boh.outertune.playback.downloadManager.ConvertNotice
+import com.dd3boh.outertune.playback.downloadManager.ConvertPlan
+import com.dd3boh.outertune.playback.downloadManager.DocumentCastSong
 import com.dd3boh.outertune.playback.downloadManager.DownloadDirectoryManagerOt
 import com.dd3boh.outertune.playback.downloadManager.DownloadFormats
+import com.dd3boh.outertune.playback.downloadManager.ExportItem
+import com.dd3boh.outertune.playback.downloadManager.ExportResult
+import com.dd3boh.outertune.playback.downloadManager.ExportSkip
+import com.dd3boh.outertune.playback.downloadManager.ExportSources
+import com.dd3boh.outertune.playback.downloadManager.SkipReason
+import com.dd3boh.outertune.playback.downloadManager.SourceCodec
+import com.dd3boh.outertune.playback.downloadManager.SourceProbe
+import com.dd3boh.outertune.playback.downloadManager.SongFileNames
+import com.dd3boh.outertune.playback.downloadManager.exportLine
+import com.dd3boh.outertune.playback.downloadManager.hasFile
+import com.dd3boh.outertune.playback.downloadManager.writeInto
 import com.dd3boh.outertune.playback.downloadManager.DownloadManagerOt
 import com.dd3boh.outertune.playback.downloadManager.SongConversion
 import com.dd3boh.outertune.playback.downloadManager.SongConverter
@@ -81,6 +96,7 @@ import com.dd3boh.outertune.utils.reportException
 import com.dd3boh.outertune.utils.scanners.InvalidAudioFileException
 import com.dd3boh.outertune.utils.scanners.ScanMerge
 import com.dd3boh.outertune.utils.scanners.absoluteFilePathFromUri
+import com.dd3boh.outertune.utils.scanners.FolderNesting
 import com.dd3boh.outertune.utils.scanners.fileFromUri
 import com.dd3boh.outertune.utils.scanners.uriListFromString
 import com.dd3boh.outertune.utils.Throttle
@@ -121,6 +137,8 @@ import java.time.LocalDateTime
 import java.time.ZoneOffset
 import java.util.concurrent.CancellationException
 import java.util.concurrent.Executor
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
 import javax.inject.Inject
 import javax.inject.Singleton
 import com.dd3boh.outertune.utils.Toaster
@@ -1209,6 +1227,171 @@ class DownloadUtil @Inject constructor(
         }
     }
 
+
+    // ---- Export to folder (Unreleased.DOWNLOAD_FORMATS)
+
+    /** How an export stands, for the sheet that started it. */
+    sealed interface ExportState {
+        data object Idle : ExportState
+        data class Running(val done: Int, val total: Int, val title: String?) : ExportState
+        data class Finished(val result: ExportResult) : ExportState
+    }
+
+    val exportState = MutableStateFlow<ExportState>(ExportState.Idle)
+
+    /** Stops the export between two songs, or two pieces of one: what it has done is kept, nothing half-written is. */
+    private val exportStop = AtomicBoolean(false)
+
+    /** How many sheets show the export now: a result nobody is looking at is told in a toast instead. */
+    val exportWatchers = AtomicInteger(0)
+
+    /**
+     * Exports [items] to the folder [target] (a tree the person picked, or the download folder) as
+     * [format], at [bitrate] for an MP3 or an M4A. Songs not on the phone are skipped and named,
+     * never fetched. Runs on its own thread whatever screen is up; the state tells how far it is.
+     */
+    fun startExport(items: List<ExportItem>, format: DownloadFormat, bitrate: DownloadBitrate, target: Uri) {
+        if (exportState.value is ExportState.Running || items.isEmpty()) return
+        exportStop.set(false)
+        exportState.value = ExportState.Running(0, items.size, null)
+        CoroutineScope(dlCoroutine).launch {
+            val result = runCatching { exportSongs(items, format, bitrate, target) }
+                .onFailure { Log.w(TAG, "The export failed", it) }
+                .getOrElse { ExportResult(0, items.map { ExportSkip(it, SkipReason.FAILED) }) }
+            exportState.value = ExportState.Finished(result)
+            if (exportWatchers.get() == 0) {
+                withContext(Dispatchers.Main) { Toaster.show(context, exportLine(context, result), Toast.LENGTH_LONG) }
+            }
+        }
+    }
+
+    fun cancelExport() = exportStop.set(true)
+
+    /** The result has been read: the sheet goes back to the choices for the next export. */
+    fun acknowledgeExport() {
+        if (exportState.value is ExportState.Finished) exportState.value = ExportState.Idle
+    }
+
+    private suspend fun exportSongs(items: List<ExportItem>, format: DownloadFormat, bitrate: DownloadBitrate, target: Uri): ExportResult =
+        withContext(Dispatchers.IO) {
+            val dir = runCatching { DocumentFile.fromTreeUri(context, target) }.getOrNull()
+            if (dir == null || !dir.isDirectory || !dir.canWrite()) {
+                Log.w(TAG, "Export: nothing can be written to $target")
+                return@withContext ExportResult(0, items.map { ExportSkip(it, SkipReason.FAILED) })
+            }
+            // Original into a download folder: the song's file is there already, and a copy would be a second one.
+            val inDownloads = localMgr.allDirs.any { FolderNesting.isSameOrInside(target.toString(), it.uri.toString()) }
+            val notice = if (format != DownloadFormat.ORIGINAL) ConvertNotice(context, format, items.size) else null
+            converter.sweep()
+            val priority = android.os.Process.getThreadPriority(android.os.Process.myTid())
+            android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_BACKGROUND)
+            var exported = 0
+            val skipped = mutableListOf<ExportSkip>()
+            var stopped = false
+            try {
+                for ((index, item) in items.withIndex()) {
+                    if (exportStop.get()) { stopped = true; break }
+                    exportState.value = ExportState.Running(index, items.size, item.title)
+                    notice?.starting(index, item.title)
+                    val left = try {
+                        exportOne(item, format, bitrate, dir, inDownloads) { exportStop.get() }
+                    } catch (e: CancellationException) {
+                        stopped = true
+                        break
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Could not export ${item.id}", e)
+                        SkipReason.FAILED
+                    }
+                    if (left == null) exported++ else skipped += ExportSkip(item, left)
+                }
+            } finally {
+                notice?.finish()
+                android.os.Process.setThreadPriority(priority)
+            }
+            ExportResult(exported, skipped, stopped)
+        }
+
+    /** One song exported: null when it was, or why it was left out. */
+    private suspend fun exportOne(
+        item: ExportItem,
+        format: DownloadFormat,
+        bitrate: DownloadBitrate,
+        dir: DocumentFile,
+        inDownloads: Boolean,
+        cancelled: () -> Boolean,
+    ): SkipReason? {
+        if (item.isLocal) return SkipReason.LOCAL
+        val folderFile = localMgr.isExists(item.id)?.takeIf { it.exists() }
+        val source = ExportSources.pick(
+            isLocal = false,
+            inFolder = folderFile != null,
+            inDownloadCache = runCatching { downloadCache.holdsWhole(item.id) }.getOrDefault(false),
+            inSongCache = runCatching { playerCache.holdsWhole(item.id) }.getOrDefault(false),
+        )
+        if (source == ExportSources.Source.NOWHERE) return SkipReason.NOT_ON_PHONE
+        val song = database.song(item.id).first() ?: return SkipReason.NOT_ON_PHONE
+        // An exported copy carries no link: if it is exported into a download folder, the app must not take it for the song's download.
+        val tags = songTags(song).copy(keepLink = false)
+        // A file of that name in the folder is this song from an export before, or a song named the same: it stays as it is,
+        // and nothing is converted for it (see hasFile).
+        if (format != DownloadFormat.ORIGINAL && hasFile(dir, SongFileNames.of(tags, format.extension ?: return SkipReason.FAILED))) return SkipReason.ALREADY_THERE
+        return when (source) {
+            ExportSources.Source.FOLDER_FILE -> exportFolderFile(item, folderFile!!, tags, format, bitrate, dir, inDownloads, cancelled)
+            ExportSources.Source.DOWNLOAD_CACHE, ExportSources.Source.SONG_CACHE -> {
+                val cache = if (source == ExportSources.Source.DOWNLOAD_CACHE) downloadCache else playerCache
+                val files = cache.getCachedSpans(item.id).mapNotNull { span: CacheSpan -> span.file }
+                if (files.isEmpty()) return SkipReason.NOT_ON_PHONE
+                val conversion = if (format == DownloadFormat.ORIGINAL) null else SongConversion(format, bitrate, converter, cancelled)
+                var there = false
+                val saved = SongFiles.save(files, tags, conversion, fallBack = false) { name, write ->
+                    if (hasFile(dir, name)) { there = true; null } else writeInto(context, dir, name, write)
+                }
+                if (saved != null) null else if (there) SkipReason.ALREADY_THERE else SkipReason.FAILED
+            }
+            else -> SkipReason.NOT_ON_PHONE
+        }
+    }
+
+    /** A song whose file is in a download folder: copied as it is when it is in the format asked for, else decoded and encoded. */
+    private suspend fun exportFolderFile(
+        item: ExportItem,
+        file: DocumentFile,
+        tags: SongTags,
+        format: DownloadFormat,
+        bitrate: DownloadBitrate,
+        dir: DocumentFile,
+        inDownloads: Boolean,
+        cancelled: () -> Boolean,
+    ): SkipReason? {
+        val name = file.name ?: return SkipReason.FAILED
+        val extension = name.substringAfterLast('.', "").lowercase()
+        val song = DocumentCastSong(context, file.uri, file.length(), file.type ?: "application/octet-stream")
+        val probe = runCatching { SourceProbe.of(song) }.getOrNull()
+        val codec = DownloadFormats.sourceOfExtension(extension) ?: probe?.codec ?: return SkipReason.FAILED
+        // Auto follows what YouTube sent: the file's own rate when the file is that stream, else the rate its format row recorded.
+        val measured = probe?.durationUs?.takeIf { it > 0 && (codec == SourceCodec.OPUS || codec == SourceCodec.AAC) }?.let { file.length() * 8_000_000L / it }
+        val bps = measured ?: runCatching { database.format(item.id).first()?.bitrate?.toLong() }.getOrNull()
+        return when (val plan = DownloadFormats.plan(format, bitrate, codec, bps)) {
+            ConvertPlan.AsIs -> {
+                if (inDownloads) return SkipReason.ALREADY_THERE
+                val target = SongFileNames.of(tags, extension.ifEmpty { "bin" })
+                if (hasFile(dir, target)) return SkipReason.ALREADY_THERE
+                val copy = writeInto(context, dir, target) { out ->
+                    (context.contentResolver.openInputStream(file.uri) ?: throw IOException("Could not read ${file.uri}")).use { it.copyTo(out, 64 * 1024) }
+                }
+                if (copy != null) null else SkipReason.FAILED
+            }
+            is ConvertPlan.Encode -> {
+                val converted = converter.convert(song, tags, plan, probe?.durationUs ?: 0L, cancelled)
+                try {
+                    val made = writeInto(context, dir, SongFileNames.of(tags, converted.extension)) { out -> converted.copyTo(out) }
+                    if (made != null) null else SkipReason.FAILED
+                } finally {
+                    converted.close()
+                }
+            }
+        }
+    }
 
     /** What a song file says of [song]: see SongTags. The track number only from an album page seen. */
     private fun songTags(song: Song): SongTags {

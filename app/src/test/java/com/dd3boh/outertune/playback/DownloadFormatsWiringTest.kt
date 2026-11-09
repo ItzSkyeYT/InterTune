@@ -14,7 +14,7 @@ import org.junit.Test
 import java.io.File
 
 /**
- * File format and Bitrate (Unreleased.DOWNLOAD_FORMATS), read from the source as
+ * File format, Bitrate and Export to folder (Unreleased.DOWNLOAD_FORMATS), read from the source as
  * the other wiring tests are, since a flag is a constant of the build and MediaCodec cannot run
  * here: where the format is read, that a song is converted into a temporary file and put in the
  * folder only when whole (and saved as Original when the conversion fails), that the rows are
@@ -44,7 +44,7 @@ class DownloadFormatsWiringTest {
     }
 
     @Test
-    fun `without the flag the stored setting is not read, and only the download code, the rows, the index and the report read the flag`() {
+    fun `without the flag the stored setting is not read, and only the download code, the menus, the rows, the index and the report read the flag`() {
         val readers = sources.walkTopDown()
             .filter { it.extension == "kt" && it.name != "Unreleased.kt" }
             .filter { Regex("""Unreleased\.DOWNLOAD_FORMATS\b""").containsMatchIn(code(it.readText())) }
@@ -53,6 +53,8 @@ class DownloadFormatsWiringTest {
         assertEquals(
             setOf(
                 "playback/DownloadUtil.kt",
+                "ui/menu/SelectionSongsMenu.kt",
+                "ui/menu/SongMenu.kt",
                 "ui/screens/settings/fragments/DownloadsFrag.kt",
                 "ui/screens/settings/SettingsIndex.kt",
                 "utils/ReportSettings.kt",
@@ -222,6 +224,101 @@ class DownloadFormatsWiringTest {
     }
 
 
+    // ---- Export to folder
+
+    /** The export's part of DownloadUtil: from its state to the song file's tags, which are code, since the comments are gone. */
+    private val export = util.substringAfter("sealed interface ExportState {").substringBefore("private fun songTags(song: Song)")
+
+    @Test
+    fun `the entry is in the songs' selection menu and a song's own menu, behind the flag`() {
+        val selection = fileCode("ui/menu/SelectionSongsMenu.kt")
+        assertTrue("if (Unreleased.DOWNLOAD_FORMATS && !allLocal) {" in selection)
+        assertTrue("title = R.string.export_to_folder" in selection)
+        assertTrue("ExportItem(it.id, it.title, it.isLocal)" in selection)
+        assertTrue("the entry comes after Download", selection.indexOf("DownloadGridMenu(") < selection.indexOf("R.string.export_to_folder"))
+        val song = fileCode("ui/menu/SongMenu.kt")
+        assertTrue("if (Unreleased.DOWNLOAD_FORMATS && !song.song.isLocal && onPhone) {" in song)
+        assertTrue("a song that is on the phone: downloaded or whole in the song cache", "downloadUtil.isDownloaded(song.id) || runCatching { playerConnection.service.playerCache.holdsWhole(song.id) }" in song)
+        assertTrue("title = R.string.export_to_folder" in song)
+    }
+
+    @Test
+    fun `the sheet starts from the setting's choices, writes none of them, and keeps working when it is left`() {
+        val sheet = fileCode("ui/dialog/ExportSheet.kt")
+        assertTrue("var format by remember { mutableStateOf(savedFormat) }" in sheet)
+        assertTrue("var bitrate by remember { mutableStateOf(savedBitrate) }" in sheet)
+        // The setting's own folder first, or one picked through the system.
+        assertTrue("remember { uriListFromString(context.dataStore.get(DownloadPathKey, \"\")).firstOrNull() }" in sheet)
+        assertTrue("ActivityResultContracts.OpenDocumentTree()" in sheet)
+        // The row for the bitrate under the same rule as Settings.
+        assertTrue("if (DownloadFormats.bitrateRowShown(format)) {" in sheet)
+        assertTrue("downloadUtil.startExport(items, format, bitrate, it)" in sheet)
+        assertTrue("onValueSelected = { format = it }" in sheet && "onValueSelected = { bitrate = it }" in sheet)
+        assertFalse("the setting is not written from the sheet", "onFileFormatChange" in sheet || "DownloadFormatKey, " in sheet.replace("rememberEnumPreference(DownloadFormatKey, DownloadFormat.ORIGINAL)", ""))
+        assertTrue("a result nobody is looking at is told in a toast", "downloadUtil.exportWatchers.incrementAndGet()" in sheet && "exportWatchers.decrementAndGet()" in sheet)
+        assertTrue("a result of an earlier export is not shown", "downloadUtil.acknowledgeExport()" in sheet)
+        assertTrue("the line and the names", "exportLine(context, result)" in sheet && "ExportSummary.named(result, reason)" in sheet)
+        assertTrue("a stop is offered", "downloadUtil.cancelExport()" in sheet)
+    }
+
+    @Test
+    fun `an export reads what is on the phone and fetches no song`() {
+        assertTrue(export.isNotBlank())
+        for (network in listOf("YTPlayerUtils", "DownloadRequest", "DownloadService", "enqueue", "resolver", "dataSourceFactory", "download(")) {
+            assertFalse("the export touches $network", network in export)
+        }
+        // The places it looks, in the order ExportSources says.
+        assertTrue("localMgr.isExists(item.id)" in export)
+        assertTrue("downloadCache.holdsWhole(item.id)" in export && "playerCache.holdsWhole(item.id)" in export)
+        assertTrue("if (source == ExportSources.Source.NOWHERE) return SkipReason.NOT_ON_PHONE" in export)
+        assertTrue("if (item.isLocal) return SkipReason.LOCAL" in export)
+    }
+
+    @Test
+    fun `an exported copy carries no link, is never saved as another format than asked, and is not a second copy in the download folder`() {
+        assertTrue("songTags(song).copy(keepLink = false)" in export)
+        assertTrue("SongFiles.save(files, tags, conversion, fallBack = false)" in export)
+        assertTrue("if (inDownloads) return SkipReason.ALREADY_THERE" in export)
+        assertTrue("localMgr.allDirs.any { FolderNesting.isSameOrInside(target.toString(), it.uri.toString()) }" in export)
+        // Every file made in the chosen folder is made whole or not at all (writeInto deletes what it began).
+        assertEquals(3, Regex("""\bwriteInto\(""").findAll(export).count())
+        assertTrue("fun writeInto(" in fileCode("playback/downloadManager/ExportFiles.kt"))
+        assertTrue("file.delete()" in fileCode("playback/downloadManager/ExportFiles.kt").substringAfter("fun writeInto("))
+    }
+
+    @Test
+    fun `a file of the same name already in the folder is left alone and named in the result, before anything is converted or copied`() {
+        val files = fileCode("playback/downloadManager/ExportFiles.kt")
+        assertTrue("internal fun hasFile(dir: DocumentFile, name: String): Boolean" in files)
+        assertTrue("it is looked up by name in the folder, and a folder that cannot say is no folder with the file in it", "runCatching { dir.findFile(name) }.getOrNull() != null" in files)
+        // The formats by their extension, a copy by its name, the cache's by the name the save gives it.
+        assertTrue("if (format != DownloadFormat.ORIGINAL && hasFile(dir, SongFileNames.of(tags, format.extension ?: return SkipReason.FAILED))) return SkipReason.ALREADY_THERE" in export)
+        assertTrue("val target = SongFileNames.of(tags, extension.ifEmpty { \"bin\" })" in export)
+        assertTrue("if (hasFile(dir, target)) return SkipReason.ALREADY_THERE" in export)
+        assertTrue("if (hasFile(dir, name)) { there = true; null } else writeInto(context, dir, name, write)" in export)
+        assertTrue("if (saved != null) null else if (there) SkipReason.ALREADY_THERE else SkipReason.FAILED" in export)
+        // Before the work: no song is converted for a file that is there.
+        assertTrue(export.indexOf("hasFile(dir, SongFileNames.of(tags, format.extension") < export.indexOf("is ConvertPlan.Encode"))
+        assertTrue(export.indexOf("if (hasFile(dir, target))") < export.indexOf("val copy = writeInto("))
+        // The name asked for is the name a converted file is given.
+        assertTrue("Converted(target, plan.format.extension!!," in converter)
+        // And it is said as the reason the folder's own file is: "skipped: already in the folder".
+        assertFalse("no second reason, so no second text", "NAME_TAKEN" in fileCode("playback/downloadManager/ExportPlan.kt"))
+    }
+
+    @Test
+    fun `an export is stopped by a flag between two songs and two pieces, and keeps what it has done`() {
+        assertTrue("private val exportStop = AtomicBoolean(false)" in export)
+        assertTrue("fun cancelExport() = exportStop.set(true)" in export)
+        assertTrue("if (exportStop.get()) { stopped = true; break }" in export)
+        assertTrue("exportOne(item, format, bitrate, dir, inDownloads) { exportStop.get() }" in export)
+        assertTrue("catch (e: CancellationException) {" in export)
+        assertTrue("ExportResult(exported, skipped, stopped)" in export)
+        assertTrue("a folder nothing can be written to leaves every song out, and writes nothing", "if (dir == null || !dir.isDirectory || !dir.canWrite())" in export)
+        assertTrue("the conversion runs below the music's priority and gives it back", "THREAD_PRIORITY_BACKGROUND" in export && "android.os.Process.setThreadPriority(priority)" in export)
+        assertTrue("the notice goes when it is over", "notice?.finish()" in export)
+    }
+
     // ---- the texts
 
     private val english = File("src/main/res/values/strings-ot.xml").readText()
@@ -229,6 +326,12 @@ class DownloadFormatsWiringTest {
 
     private fun tag(xml: String, name: String) = Regex("""<string name="$name"[^>]*>""").find(xml)?.value
     private fun text(xml: String, name: String) = Regex("""<string name="$name"[^>]*>(.*?)</string>""").find(xml)?.groupValues?.get(1)
+
+    private val exportTexts = listOf(
+        "export_to_folder", "export_note", "export_folder", "export_folder_none", "export_action",
+        "export_progress", "export_done_title", "export_stopped_title", "export_names_more",
+    )
+    private val exportPlurals = listOf("export_exported", "export_skipped_not_downloaded", "export_skipped_there", "export_skipped_local", "export_failed")
 
     private val held = listOf(
         "download_format", "download_format_original", "download_format_description", "download_bitrate", "download_bitrate_auto",
@@ -248,6 +351,52 @@ class DownloadFormatsWiringTest {
         // The search words are open to translators, as every search word is.
         assertFalse("translatable=\"false\"" in tag(english, "search_words_download_format")!!)
         assertNotNull(text(french, "search_words_download_format"))
+    }
+
+    @Test
+    fun `the export texts are held from translators, with their French beside them`() {
+        for (name in exportTexts) {
+            assertNotNull("$name is not in the English file", tag(english, name))
+            assertTrue("$name is not held", "translatable=\"false\"" in tag(english, name)!!)
+            assertNotNull("$name has no French", text(french, name))
+        }
+        for (name in exportPlurals) {
+            assertTrue("$name is not held", Regex("""<plurals name="$name" translatable="false">""").containsMatchIn(english))
+            assertTrue("$name has no French", french.contains("""<plurals name="$name">"""))
+        }
+        assertEquals("Export to folder", text(english, "export_to_folder"))
+        assertEquals("Exporter vers un dossier", text(french, "export_to_folder"))
+    }
+
+    @Test
+    fun `the line an export ends with is made of plurals that say what the maintainer asked for`() {
+        fun plural(xml: String, name: String, quantity: String) =
+            Regex("""<plurals name="$name"[^>]*>(.*?)</plurals>""", RegexOption.DOT_MATCHES_ALL).find(xml)!!.groupValues[1]
+                .let { Regex("""<item quantity="$quantity">(.*?)</item>""").find(it)?.groupValues?.get(1) }
+        assertEquals("%1\$d song exported", plural(english, "export_exported", "one"))
+        assertEquals("%1\$d songs exported", plural(english, "export_exported", "other"))
+        assertEquals("%1\$d skipped: not downloaded", plural(english, "export_skipped_not_downloaded", "one"))
+        // French has its three forms, which the language needs.
+        for (name in exportPlurals) for (quantity in listOf("one", "many", "other")) assertNotNull("$name $quantity", plural(french, name, quantity))
+    }
+
+    @Test
+    fun `the export texts are short and plain, in both languages`() {
+        for ((language, xml) in listOf("English" to english, "French" to french)) {
+            for (name in exportTexts) {
+                val text = text(xml, name)!!
+                assertFalse("$language $name has a long dash", '—' in text || '–' in text)
+                assertFalse("$language $name has an exclamation mark", '!' in text)
+                assertTrue("$language $name runs to ${text.length} characters", text.length <= 80)
+            }
+            for (name in exportPlurals) {
+                val items = Regex("""<plurals name="$name"[^>]*>(.*?)</plurals>""", RegexOption.DOT_MATCHES_ALL).find(xml)!!.groupValues[1]
+                for (item in Regex("""<item[^>]*>(.*?)</item>""").findAll(items).map { it.groupValues[1] }) {
+                    assertFalse("$language $name has a long dash", '—' in item || '–' in item)
+                    assertTrue("$language $name runs to ${item.length} characters", item.length <= 80)
+                }
+            }
+        }
     }
 
     @Test
