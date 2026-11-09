@@ -1208,23 +1208,17 @@ class DownloadUtil @Inject constructor(
     private suspend fun saveSongFile(id: String, notice: ConvertNotice? = null, onEncode: () -> Unit = {}): android.net.Uri? = withContext(Dispatchers.IO) {
         val job = currentCoroutineContext()[Job]
         val format = DownloadFormats.effective(downloadFormat, Unreleased.DOWNLOAD_FORMATS)
+        // Below the music's priority while it encodes: SongConverter lowers its own thread.
         val conversion = if (format == DownloadFormat.ORIGINAL) null else SongConversion(format, downloadBitrate, converter, { job?.isActive == false }, onEncode)
-        // A conversion takes a core for as long as the song lasts: never at the expense of what plays.
-        val priority = conversion?.let { android.os.Process.getThreadPriority(android.os.Process.myTid()) }
-        if (conversion != null) android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_BACKGROUND)
-        try {
-            runCatching {
-                val files = downloadCache.getCachedSpans(id).mapNotNull { span: CacheSpan -> span.file }
-                val song = database.song(id).first()
-                if (files.isEmpty() || song == null) return@runCatching null
-                SongFiles.save(files, songTags(song), conversion) { name, write -> localMgr.saveSongFile(id, name, write) }
-            }.onFailure {
-                if (it is CancellationException) throw it
-                Log.w(TAG, "Could not save $id as a song file, it is saved as the stream", it)
-            }.getOrNull().also { if (conversion?.failure != null) notice?.fellBack() }
-        } finally {
-            if (priority != null) android.os.Process.setThreadPriority(priority)
-        }
+        runCatching {
+            val files = downloadCache.getCachedSpans(id).mapNotNull { span: CacheSpan -> span.file }
+            val song = database.song(id).first()
+            if (files.isEmpty() || song == null) return@runCatching null
+            SongFiles.save(files, songTags(song), conversion) { name, write -> localMgr.saveSongFile(id, name, write) }
+        }.onFailure {
+            if (it is CancellationException) throw it
+            Log.w(TAG, "Could not save $id as a song file, it is saved as the stream", it)
+        }.getOrNull().also { if (conversion?.failure != null) notice?.fellBack() }
     }
 
 
@@ -1283,8 +1277,6 @@ class DownloadUtil @Inject constructor(
             val inDownloads = localMgr.allDirs.any { FolderNesting.isSameOrInside(target.toString(), it.uri.toString()) }
             val notice = if (format != DownloadFormat.ORIGINAL) ConvertNotice(context, format, items.size) else null
             converter.sweep()
-            val priority = android.os.Process.getThreadPriority(android.os.Process.myTid())
-            android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_BACKGROUND)
             var exported = 0
             val skipped = mutableListOf<ExportSkip>()
             var stopped = false
@@ -1306,7 +1298,6 @@ class DownloadUtil @Inject constructor(
                 }
             } finally {
                 notice?.finish()
-                android.os.Process.setThreadPriority(priority)
             }
             ExportResult(exported, skipped, stopped)
         }

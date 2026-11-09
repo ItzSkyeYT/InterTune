@@ -83,8 +83,13 @@ class DownloadFormatsWiringTest {
         val save = util.substringAfter("private suspend fun saveSongFile(id: String").substringBefore("private fun songTags(")
         assertTrue("withContext(Dispatchers.IO)" in save)
         assertTrue("if (format == DownloadFormat.ORIGINAL) null else SongConversion(format, downloadBitrate, converter, { job?.isActive == false }, onEncode)" in save)
-        assertTrue("android.os.Process.THREAD_PRIORITY_BACKGROUND" in save)
-        assertTrue("the priority is given back", "android.os.Process.setThreadPriority(priority)" in save)
+        // Below the music, lowered by the converter on the thread that encodes: set here, before a suspension,
+        // the encoding could go on on another thread at full priority and leave this one lowered in the pool.
+        assertFalse("not around code that suspends", "setThreadPriority" in save)
+        val encode = File("src/main/java/com/dd3boh/outertune/playback/downloadManager/SongConverter.kt").readText()
+            .substringAfter("fun convert(").substringBefore("private fun encoderFor(")
+        assertTrue(encode.indexOf("setThreadPriority(android.os.Process.THREAD_PRIORITY_BACKGROUND)") in 0 until encode.indexOf("decoder.open("))
+        assertTrue("the priority is given back", "android.os.Process.setThreadPriority(priority)" in encode.substringAfterLast("} finally {"))
         assertTrue("a cancelled coroutine stops the conversion between two pieces", "{ job?.isActive == false }" in save)
         assertTrue("a cancellation is not taken for a failure to save", "if (it is CancellationException) throw it" in save)
         assertTrue("a song that fell back is counted for the notice", "conversion?.failure != null) notice?.fellBack()" in save)
@@ -315,7 +320,7 @@ class DownloadFormatsWiringTest {
         assertTrue("catch (e: CancellationException) {" in export)
         assertTrue("ExportResult(exported, skipped, stopped)" in export)
         assertTrue("a folder nothing can be written to leaves every song out, and writes nothing", "if (dir == null || !dir.isDirectory || !dir.canWrite())" in export)
-        assertTrue("the conversion runs below the music's priority and gives it back", "THREAD_PRIORITY_BACKGROUND" in export && "android.os.Process.setThreadPriority(priority)" in export)
+        assertFalse("the converter lowers its own thread, not the export around its suspensions", "setThreadPriority" in export)
         assertTrue("the notice goes when it is over", "notice?.finish()" in export)
     }
 

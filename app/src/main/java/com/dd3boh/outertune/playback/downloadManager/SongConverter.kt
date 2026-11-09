@@ -72,6 +72,10 @@ internal class SongConverter(
         val target = File.createTempFile("convert-", PART, workDir)
         val began = System.nanoTime()
         var encoder: FileEncoder? = null
+        // A conversion takes a core for as long as the song lasts: never at the expense of what plays. Lowered
+        // here, where nothing suspends, so the thread that encodes is the one lowered and the one put back.
+        val priority = android.os.Process.getThreadPriority(android.os.Process.myTid())
+        android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_BACKGROUND)
         try {
             var frames = 0L
             var rate = 0
@@ -113,6 +117,7 @@ internal class SongConverter(
             throw e
         } finally {
             runCatching { encoder?.close() }
+            android.os.Process.setThreadPriority(priority)
         }
     }
 
