@@ -66,6 +66,8 @@ import com.dd3boh.outertune.utils.ErrorText
 import com.dd3boh.outertune.utils.rememberEnumPreference
 import com.dd3boh.outertune.utils.Throttle
 import com.dd3boh.outertune.utils.YTPlayerUtils
+import com.dd3boh.outertune.playback.StreamAnswer
+import com.dd3boh.outertune.LocalPlayerConnection
 import com.dd3boh.outertune.utils.installedFrom
 import android.widget.Toast
 import androidx.compose.ui.platform.LocalContext
@@ -87,6 +89,8 @@ fun ThumbnailPlaybackError(
 ) {
     val clipboardManager = LocalClipboard.current
     val context = LocalContext.current
+    // The song the error is about, for what its stream's server sent at its start (StreamAnswer).
+    val song = LocalPlayerConnection.current?.player?.currentMediaItem?.mediaId
 
     val playerBackground by rememberEnumPreference(
         key = PlayerBackgroundStyleKey,
@@ -242,7 +246,7 @@ fun ThumbnailPlaybackError(
                 )
             }
         }
-        if (reporting) ProblemReportDialog(onDismiss = { reporting = false }, playerError = playerErrorReport(error))
+        if (reporting) ProblemReportDialog(onDismiss = { reporting = false }, playerError = playerErrorReport(error, song))
         // Copying used to be a hidden tap on the stack trace itself, which meant nobody found it
         // and bug reports arrived as photographs of a screen. It is a button now, and it says when
         // it has worked.
@@ -253,7 +257,7 @@ fun ThumbnailPlaybackError(
                 appendLine("${Build.BRAND} ${Build.DEVICE} (${Build.MODEL})")
                 appendLine("Installed from: ${context.installedFrom()}")
                 appendLine("Android ${Build.VERSION.RELEASE}, API ${Build.VERSION.SDK_INT} (${Build.ID})")
-                streamLines().forEach { appendLine(it) }
+                streamLines(song).forEach { appendLine(it) }
             }
             // The lines about the app and the phone go in as they are. Only the error's own words
             // are given to ErrorText, which would take a version for an address.
@@ -308,14 +312,16 @@ fun ThumbnailPlaybackError(
  * the chain is rarely the cause (issue #17 reported IOS's 403, and VISIONOS had refused first). For a
  * song looked for under another id, every walk of that lookup: see StandIns.
  */
-internal fun streamLines(): List<String> = listOf(
+internal fun streamLines(mediaId: String? = null): List<String> = listOfNotNull(
     "stream client: ${YTPlayerUtils.lastStreamClient ?: "unknown"}",
     "stream chain: ${YTPlayerUtils.lastStreamTrail ?: "unknown"}",
+    // What the server sent at the song's start: see StreamAnswer.
+    StreamAnswer.of(mediaId)?.let { "stream answer: $it" },
 )
 
 /** The player's [error] for Report a problem: its line and the stream's, the error in full, and the issue's name. */
-internal fun playerErrorReport(error: PlaybackException) = PlayerErrorReport(
-    lines = listOf("Player error: ${ErrorText.playerLine(error)}") + streamLines(),
+internal fun playerErrorReport(error: PlaybackException, mediaId: String? = null) = PlayerErrorReport(
+    lines = listOf("Player error: ${ErrorText.playerLine(error)}") + streamLines(mediaId),
     full = ErrorText.of(error),
     title = "Player error: ${error.errorCodeName}",
 )
