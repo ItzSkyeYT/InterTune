@@ -517,7 +517,13 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="scanner_rejected_dir">Invalid selection. A scan folder cannot be a subdirectory of the download folder, or the download folder itself</string>
     <string name="scanner_holds_download_dir">This folder holds your download folder (%s), so it cannot be a scan folder</string>
     <string name="scanner_overlap_kept">Overlaps your download folder; kept as is because it was already saved</string>
+    <string name="scanner_holds_import_dir">This folder holds one of your extra import folders (%s), so it cannot be a scan folder</string>
+    <string name="scanner_inside_import_dir">This folder is inside one of your extra import folders (%s), so it cannot be a scan folder</string>
+    <string name="scanner_overlap_import_kept">Overlaps one of your extra import folders; kept as is because it was already saved</string>
+    <string name="scanner_rule">A scan folder cannot hold, or sit inside, a download folder or an extra import folder</string>
     <string name="dl_extra_path_overlap_kept">Overlaps a scan folder; kept as is because it was already saved</string>
+    <string name="dl_extra_path_overlaps_scan">This folder overlaps a scan folder, so it cannot be an extra import location</string>
+    <string name="dl_main_path_part_of_scan">This folder is part of a scan folder, so it cannot be the download folder</string>
     <string name="scanner_warning">By default, the scanner will NOT reload any metadata of existing songs unless you specify otherwise above. Depending on the size of your library, it may take a while.</string>
 
 <!-- Scanner progress strings-->
@@ -603,6 +609,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="liked_autodownload_nothing_to_do">Your liked songs are already downloaded.</string>
     <string name="liked_autodownload_blocked">Paused. YouTube has temporarily stopped serving music to this connection, so downloads are waiting rather than failing. They carry on by themselves.</string>
     <string name="dl_extra_path_title">Configure extra import locations…</string>
+    <string name="dl_extra_path_dialog_title">Extra import locations</string>
     <string name="dl_extra_path_description">Songs from these folders will only appear in the app if you\'ve played them before or added them to a playlist. The folders are only read, never changed.</string>
     <string name="dl_migrate_title">Migrate downloads to external storage…</string>
     <string name="dl_migrate_description">Move downloads from the app\'s internal storage to the device\'s external storage</string>

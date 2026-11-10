@@ -588,7 +588,7 @@ fun ColumnScope.DownloadsFrag() {
 
                 if (!valid) {
                     InfoLabel(
-                        text = stringResource(R.string.scanner_rejected_dir),
+                        text = stringResource(R.string.dl_main_path_part_of_scan),
                         isError = true,
                         modifier = Modifier.padding(top = 8.dp)
                     )
@@ -648,12 +648,15 @@ fun ColumnScope.DownloadsFrag() {
         }
 
         ActionPromptDialog(
+            // This was titled "Scan paths", a copy of the scan folders' dialog's title. Music/Artistes
+            // added here looked like a scan folder, and the scan folders' dialog then refused Music
+            // as holding "your download folder" (issue 122).
             titleBar = {
                 Row(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = stringResource(R.string.scan_paths_incl),
+                        text = stringResource(R.string.dl_extra_path_dialog_title),
                         style = MaterialTheme.typography.titleLarge,
                     )
                 }
@@ -699,6 +702,13 @@ fun ColumnScope.DownloadsFrag() {
                 sessionAddedPaths.add(uri)
             }
 
+            Text(
+                text = stringResource(R.string.dl_extra_path_description),
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.padding(horizontal = 4.dp)
+            )
+            Spacer(Modifier.padding(vertical = 8.dp))
+
             // folders list
             Column(
                 modifier = Modifier
@@ -738,7 +748,7 @@ fun ColumnScope.DownloadsFrag() {
                             if (overlaps) {
                                 Text(
                                     text = stringResource(
-                                        if (blocking) R.string.scanner_rejected_dir else R.string.dl_extra_path_overlap_kept
+                                        if (blocking) R.string.dl_extra_path_overlaps_scan else R.string.dl_extra_path_overlap_kept
                                     ),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = textColor,
@@ -777,7 +787,7 @@ fun ColumnScope.DownloadsFrag() {
                         tempScanPaths.toList().any { it in sessionAddedPaths && foldersOverlap(it, scanPath) }
                     }) {
                     InfoLabel(
-                        text = stringResource(R.string.scanner_rejected_dir),
+                        text = stringResource(R.string.dl_extra_path_overlaps_scan),
                         isError = true,
                         modifier = Modifier.padding(top = 8.dp)
                     )
