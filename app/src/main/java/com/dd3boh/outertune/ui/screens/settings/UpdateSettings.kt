@@ -207,7 +207,10 @@ fun UpdateSettings(
                 onClick = {
                     coroutineScope.launch {
                         checking = true
-                        val result = updateChecker.check(force = true)
+                        // Asked for by hand, so a version skipped earlier is offered again here,
+                        // with its install button. The checks that run by themselves still pass
+                        // over it, and the skip stays until a later version comes.
+                        val result = updateChecker.check(force = true, manual = true)
                         checking = false
                         if (result == null) {
                             // A null result means nothing new only when the check got an answer.
