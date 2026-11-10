@@ -123,14 +123,26 @@ class BatteryUseTest {
     }
 
     @Test
-    fun `Saver streams at Low on mobile data and as chosen on Wi-Fi`() {
-        for (chosen in AudioQuality.entries) {
-            assertEquals(AudioQuality.LOW, BatteryUse.quality(chosen, metered = true, SAVER))
-            assertEquals(chosen, BatteryUse.quality(chosen, metered = false, SAVER))
-        }
-        // Only Low already takes the smallest stream on mobile data: Auto takes the middle one (#88).
-        assertEquals(setOf(AudioQuality.AUTO, AudioQuality.HIGH, AudioQuality.MAX), AudioQuality.entries.filter { BatteryUse.lowersQuality(it, SAVER) }.toSet())
+    fun `Saver takes Low on mobile data where Audio quality is Auto, and everything is as chosen on Wi-Fi`() {
+        assertEquals(AudioQuality.LOW, BatteryUse.quality(AudioQuality.AUTO, metered = true, SAVER))
+        for (chosen in AudioQuality.entries) assertEquals(chosen, BatteryUse.quality(chosen, metered = false, SAVER))
+        // Low is Low already. Only Auto is lowered: it is the app's own pick, which Saver says how little to spend on.
+        assertEquals(setOf(AudioQuality.AUTO), AudioQuality.entries.filter { BatteryUse.lowersQuality(it, SAVER) }.toSet())
         assertTrue(AudioQuality.entries.none { BatteryUse.lowersQuality(it, FULL) || BatteryUse.lowersQuality(it, BALANCED) })
+    }
+
+    @Test
+    fun `High and Highest are never lowered, in any mode on any network (#88, sometimes it gets so bad)`() {
+        // The phone's battery saver turns Saver on by itself, and used to take High down to the smallest stream
+        // (about 50 kbps) on mobile data without a word, while no other app did.
+        for (chosen in listOf(AudioQuality.HIGH, AudioQuality.MAX)) {
+            for (mode in modes) for (metered in listOf(true, false)) {
+                assertEquals("$chosen in $mode, metered $metered", chosen, BatteryUse.quality(chosen, metered, mode))
+            }
+            assertFalse("$chosen: no line under Audio quality says it is lowered", BatteryUse.lowersQuality(chosen, SAVER))
+        }
+        // and Low stays Low
+        for (mode in modes) for (metered in listOf(true, false)) assertEquals(AudioQuality.LOW, BatteryUse.quality(AudioQuality.LOW, metered, mode))
     }
 
     @Test
