@@ -256,14 +256,13 @@ class EditorWords(private val res: Resources, val aTitle: String, val bTitle: St
     fun laneOf(lane: Lane, side: com.dd3boh.outertune.mix.edit.Side) =
         "${laneName(lane)}, ${if (side == com.dd3boh.outertune.mix.edit.Side.A) aTitle else bTitle}"
 
-    /** What TalkBack hears for the whole canvas. */
-    fun summary(e: MixEditor): String {
-        val s = e.spec
-        val lit = e.lit()
+    /** What TalkBack hears for the whole canvas: the change [s], the one drawn (the editor's own where none is given). */
+    fun summary(e: MixEditor, s: TransitionSpec = e.spec): String {
+        val lit = e.lit(s)
         val what = lit?.let(::presetName) ?: res.getString(R.string.mix_edit_now_plain)
         val head = res.getString(R.string.mix_canvas_summary, aTitle, bTitle, length(s), what)
         if (s.plain) return head
-        return head + " " + e.moments().joinToString(". ") { "${position(it.at, s)}: ${moment(it)}" } + "."
+        return head + " " + e.moments(s).joinToString(". ") { "${position(it.at, s)}: ${moment(it)}" } + "."
     }
 
     fun beatMatchLine(e: MixEditor): String {

@@ -1033,7 +1033,7 @@ private fun Waves(
     val kept = remember(editor) { ViewKept() }
     val earlier = stringResource(R.string.mix_a11y_bar_earlier)
     val later = stringResource(R.string.mix_a11y_bar_later)
-    val described = stringResource(R.string.mix_simple_window, words.clock(spec.a.atMs), words.aTitle) + " " + words.summary(editor)
+    val described = stringResource(R.string.mix_simple_window, words.clock(spec.a.atMs), words.aTitle) + " " + words.summary(editor, spec)
     BoxWithConstraints(
         Modifier
             .padding(horizontal = 16.dp)

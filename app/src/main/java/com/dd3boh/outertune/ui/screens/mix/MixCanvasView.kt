@@ -118,7 +118,9 @@ fun MixCanvasView(
             Modifier
                 .fillMaxWidth()
                 .height(heightDp)
-                .semantics { contentDescription = words.summary(editor) }
+                // Read from the spec drawn: a lambda that held only the editor (which is the same object after
+                // every edit) was kept as it was, and the description went on listing the moves a preset had replaced.
+                .semantics { contentDescription = words.summary(editor, spec) }
                 // The system's back gesture takes the screen's edges; on the canvas a drag from
                 // the edge moves a song or a handle instead (Android keeps 200 dp of it per edge).
                 .systemGestureExclusion()
