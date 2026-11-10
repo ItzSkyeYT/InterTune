@@ -103,6 +103,12 @@ fun Thumbnail(
     lyricsBottomPadding: Dp = 0.dp,
     /** A change playing as a mix: the cover of the song it brings in holds both covers while it plays (MixScreen). */
     mix: MixScreen? = null,
+    /**
+     * Where the player's error screen leads when YouTube wants a sign-in: the login page and the
+     * proxy setting. The player takes its sheet down on the way (BottomSheetPlayer).
+     */
+    onSignIn: () -> Unit = {},
+    onProxy: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val database = LocalDatabase.current
@@ -319,7 +325,9 @@ fun Thumbnail(
                     error = error,
                     // Prepared and played: a stop on an error leaves the player paused, so prepare
                     // alone would have loaded the song again and stayed silent.
-                    retry = playerConnection.player::playSafe
+                    retry = playerConnection.player::playSafe,
+                    onSignIn = onSignIn,
+                    onProxy = onProxy,
                 )
             }
         }

@@ -5217,11 +5217,17 @@ class MusicService : MediaLibraryService(),
         // raw "Unexpected SongUnavailable" at every tap (21 Oct 2026: thirteen taps on one song).
         val gone = !gaveUp && !turnedAway && YTPlayerUtils.isUnavailableSong(error)
         if (gone && failedId != null && !goneSongs.tellOnce(failedId)) return
+        // YouTube wanting a sign-in to play from this network, which a VPN or a shared connection is
+        // given (issue #124, where it read "Unknown error"). The screen has the way out; the toast
+        // says what is the matter. Signed in, a sign-in is not what is asked, and the words of a
+        // connection turned away are the ones that fit.
+        val signInWanted = !gaveUp && !turnedAway && !gone && YTPlayerUtils.isSignInWanted(error)
         Toaster.show(
             this@MusicService,
             if (gaveUp) getString(R.string.error_youtube_not_answering)
             else if (turnedAway) getString(R.string.error_connection_turned_away)
             else if (gone) getString(R.string.err_song_unavailable)
+            else if (signInWanted) getString(if (WhyStopped.signedIn(YouTube.cookie)) R.string.error_connection_turned_away else R.string.error_sign_in_wanted)
             else ErrorText.withoutAddresses("plr: ${error.message} (${error.errorCode}): ${error.cause?.message ?: ""} "),
             Toast.LENGTH_LONG
         )
