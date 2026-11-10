@@ -18,6 +18,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Downloading
+import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.FolderCopy
 import androidx.compose.material.icons.rounded.AudioFile
 import androidx.compose.material.icons.rounded.HighQuality
@@ -301,6 +302,8 @@ fun ColumnScope.DownloadsFrag() {
     PreferenceEntry(
         modifier = Modifier.tourTarget(Tour.SETTING_DOWNLOAD_FOLDER).settingRow(R.string.dl_main_path_title),
         title = { Text(stringResource(R.string.dl_main_path_title)) },
+        // An icon like the rows around it: without one the row sat flush left, out of line with them.
+        icon = { Icon(Icons.Rounded.Folder, null) },
         description = if (downloadPath != "") uriListFromString(downloadPath).firstOrNull()
             ?.let { absoluteFilePathFromUri(context, it) } ?: downloadPath else null,
         onClick = {
@@ -705,7 +708,8 @@ fun ColumnScope.DownloadsFrag() {
             Text(
                 text = stringResource(R.string.dl_extra_path_description),
                 style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier.padding(horizontal = 4.dp)
+                // A gap under the title: it sat against a title of three lines in French at large text.
+                modifier = Modifier.padding(start = 4.dp, top = 8.dp, end = 4.dp)
             )
             Spacer(Modifier.padding(vertical = 8.dp))
 
