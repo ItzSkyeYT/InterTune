@@ -165,6 +165,7 @@ import com.dd3boh.outertune.constants.SleepScheduleStartKey
 import com.dd3boh.outertune.constants.SleepTimerDefaults
 import com.dd3boh.outertune.constants.SleepTimerFadeDurationKey
 import com.dd3boh.outertune.constants.SleepTimerFadeKey
+import com.dd3boh.outertune.constants.SleepTimerSongFinishKey
 import com.dd3boh.outertune.constants.ShareAudioFocusKey
 import com.dd3boh.outertune.constants.SkipSilenceKey
 import com.dd3boh.outertune.constants.StopMusicOnTaskClearKey
@@ -1993,17 +1994,23 @@ class MusicService : MediaLibraryService(),
                 }
             }
 
+            // The fade and Let the song finish are the sleep timer sheet's switches as well as
+            // Player and audio's: one stored setting each, and a running timer takes a change at once.
             combine(
                 dataStore.data
                     .map { it[SleepTimerFadeKey] ?: SleepTimerDefaults.FADE_ENABLED }
                     .distinctUntilChanged(),
                 dataStore.data
                     .map { it[SleepTimerFadeDurationKey] ?: SleepTimerDefaults.FADE_DURATION_SECONDS }
-                    .distinctUntilChanged()
-            ) { fade, seconds -> fade to seconds }
-                .collectLatest(scope) { (fade, seconds) ->
+                    .distinctUntilChanged(),
+                dataStore.data
+                    .map { it[SleepTimerSongFinishKey] ?: SleepTimerDefaults.LET_SONG_FINISH }
+                    .distinctUntilChanged(),
+            ) { fade, seconds, letFinish -> Triple(fade, seconds, letFinish) }
+                .collectLatest(scope) { (fade, seconds, letFinish) ->
                     sleepTimer.fadeEnabled = fade
                     sleepTimer.fadeDurationMs = seconds * 1000L
+                    sleepTimer.letSongFinish = letFinish
                 }
 
             // The sleep timer on a schedule (ScheduledSleep). It looks only while music plays: as
@@ -5650,7 +5657,10 @@ class MusicService : MediaLibraryService(),
         // no songs left, so every swipe during a radio asked for another page.
         // Nor in a listening room that follows someone: its queue is the leader's, and a page of
         // its own made it longer than the leader's and different (his find of 17 Oct 2026).
+        // Not while a sleep timer is set to the end of the queue: it waits for the queue to run
+        // out, so nothing tops it up, and the end it stops at is the end of the songs queued.
         if (autoLoadMore &&
+            sleepTimer.endOf != SleepEnd.QUEUE &&
             together.value?.following != true &&
             q != null &&
             mediaItem != null &&
