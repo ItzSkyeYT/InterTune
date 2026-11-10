@@ -143,4 +143,32 @@ class StreamCipherTest {
         assertTrue(made.all { Regex("""[A-Za-z0-9_-]{16}""").matches(it) })
         assertTrue("made anew for every play", made.distinct().size > 40)
     }
+
+    @Test
+    fun `what kept an address from being solved is said in words and never in values`() {
+        val withN = StreamCipher.read("$host?itag=251&n=AbC_dEf", null)!!
+        assertEquals("no answer for n", StreamCipher.whyNotSolved(withN, null, null))
+        assertEquals("n came back as it was asked", StreamCipher.whyNotSolved(withN, null, "AbC_dEf"))
+        assertEquals("an answer for n that cannot be one", StreamCipher.whyNotSolved(withN, null, "two words"))
+        assertNull(StreamCipher.whyNotSolved(withN, null, "zYx987"))
+
+        val ciphered = StreamCipher.read(null, cipher("s" to "SCRAMBLED", "sp" to "sig", "url" to "$host?itag=251"))!!
+        assertEquals("no answer for the signature", StreamCipher.whyNotSolved(ciphered, null, null))
+        assertEquals("an answer for the signature that cannot be one", StreamCipher.whyNotSolved(ciphered, "SCRAMBLED", null))
+        assertNull(StreamCipher.whyNotSolved(ciphered, "UNSCRAMBLED", null))
+
+        val elsewhere = StreamCipher.read("https://example.com/videoplayback?itag=251", null)!!
+        assertEquals("the address is not on a stream host", StreamCipher.whyNotSolved(elsewhere, null, null))
+    }
+
+    @Test
+    fun `a reason is given exactly when there is no address`() {
+        val both = StreamCipher.read(null, cipher("s" to "SCRAMBLED", "sp" to "sig", "url" to "$host?itag=251&n=AbC_dEf"))!!
+        val answers = listOf(null, "SCRAMBLED", "AbC_dEf", "", "two words", "zYx987")
+        for (signature in answers) for (n in answers) {
+            val address = StreamCipher.solved(both, signature, n)
+            val why = StreamCipher.whyNotSolved(both, signature, n)
+            assertEquals("signature $signature, n $n", address == null, why != null)
+        }
+    }
 }
