@@ -645,6 +645,11 @@ object WidgetStore {
             preparingJob?.cancel()
             preparingJob = prepareScope.launch {
                 try {
+                    // After this song's own draw, not beside it: started at the change, fetching and
+                    // decoding the next song's covers held the phone while the new song was drawn, and a
+                    // skip reached a Full cover widget later than before (Pixel 5). A song ending by itself
+                    // was prepared for long before, so the wait costs it nothing.
+                    delay(PREPARE_AFTER_MS)
                     getReady(app, next)
                 } catch (e: CancellationException) {
                     throw e
@@ -654,6 +659,9 @@ object WidgetStore {
             }
         }
     }
+
+    /** How long after a song change the next song is got ready for the widget: after the change has been drawn. */
+    internal const val PREPARE_AFTER_MS = 5_000L
 
     private suspend fun getReady(context: Context, next: MediaMetadata) {
         val started = SystemClock.elapsedRealtime()
