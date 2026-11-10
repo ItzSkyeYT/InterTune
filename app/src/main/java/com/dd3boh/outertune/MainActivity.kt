@@ -88,6 +88,7 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
 import com.dd3boh.outertune.constants.PlayOrigin
+import com.dd3boh.outertune.models.DontPlay
 import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.models.toMediaMetadata
 import com.dd3boh.outertune.playback.queues.YouTubeQueue
@@ -205,6 +206,7 @@ import com.dd3boh.outertune.ui.component.rememberBottomSheetState
 import com.dd3boh.outertune.ui.component.shimmer.ShimmerTheme
 import com.dd3boh.outertune.ui.menu.BottomSheetMenu
 import com.dd3boh.outertune.ui.menu.MenuState
+import com.dd3boh.outertune.ui.menu.rememberDontPlay
 import com.dd3boh.outertune.ui.player.BottomSheetPlayer
 import com.dd3boh.outertune.ui.screens.settings.SettingJumpHost
 import com.dd3boh.outertune.ui.screens.settings.SettingsFollowTheTurn
@@ -803,6 +805,9 @@ class MainActivity : ComponentActivity() {
             // Saver holds the window to a slower frame rate (ScreenRate), undone at once when the mode changes.
             val lowFrameRate = BatteryUse.lowFrameRate(batteryMode)
             LaunchedEffect(lowFrameRate) { ScreenRate.apply(this@MainActivity, lowFrameRate) }
+            // The songs the listener chose not to play, followed once here for every row that lists a
+            // song (LocalDontPlay): each asks a set already in hand, no query per row.
+            val dontPlay = rememberDontPlay()
 
             val windowSizeClass = currentWindowAdaptiveInfo().windowSizeClass
             // The window, measured once for everything that is laid out differently when a phone
@@ -1525,6 +1530,7 @@ class MainActivity : ComponentActivity() {
                         LocalGlassIntensity provides glassIntensity,
                         LocalBatteryMode provides batteryMode,
                         LocalGlassStill provides glassStill,
+                        LocalDontPlay provides dontPlay,
                         dpadBringIntoView(),
                     ) {
                         /**
@@ -2707,6 +2713,13 @@ val LocalPollChecker = staticCompositionLocalOf<PollChecker> { error("No PollChe
 val LocalActiveCount = staticCompositionLocalOf<ActiveCount> { error("No ActiveCount provided") }
 val LocalNetworkConnected = staticCompositionLocalOf<Boolean> { error("No Network Status provided") }
 val LocalSnackbarHostState = staticCompositionLocalOf<SnackbarHostState> { error("No SnackbarHostState provided") }
+
+/**
+ * The songs the listener chose not to play (DontPlay, Unreleased.ARTIST_BLOCK), for the rows of
+ * every list: a song so set is shown switched off wherever it is listed (DontPlayAlpha), and none
+ * outside the activity's content, or in a build without the feature.
+ */
+val LocalDontPlay = compositionLocalOf { DontPlay.NONE }
 
 /**
  * Battery use in force (BatteryUse), for what is drawn: the playing bars, the player's background
