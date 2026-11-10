@@ -35,10 +35,4 @@ internal class SharedBuffers : OrtSpecModel.Buffers {
         SharedMemory.unmap(buffer)
         memory.close()
     }
-
-    companion object {
-        /** Shared memory where Android has it (8.1 and later), the Java heap before. */
-        fun orHeap(): OrtSpecModel.Buffers =
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) SharedBuffers() else OrtSpecModel.Buffers.Direct
-    }
 }

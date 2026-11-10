@@ -6630,7 +6630,9 @@ class MusicService : MediaLibraryService(),
      * rendered too (KeptChanges), as the editor does on opening the pair. `queue` plays them as the same playlist's queue
      * without touching its Mix switch, which `mix on` and `mix off` set; `crossfade on` and
      * `crossfade off` set Crossfade. `parts`, then `key=value` words, times the parts model on this
-     * phone (Unreleased.AUTOMIX_PARTS, PartsBench). Several commands are separated by `;`.
+     * phone (Unreleased.AUTOMIX_PARTS, PartsBench). `batch <id> <id>...` splits those songs' parts
+     * as a playlist's Split parts does (PartsBatch), `jobs=N` among the words for N splits at once
+     * in place of the phone's own count. Several commands are separated by `;`.
      */
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (BuildConfig.BUILD_TYPE == "debug" && Unreleased.AUTOMIX_EDITOR) intent?.getStringExtra("mixtrial")?.let { mixTrial(it) }
@@ -6704,6 +6706,14 @@ class MusicService : MediaLibraryService(),
                     scope.launch { dataStore.edit { it[CrossfadeKey] = on } }
                 }
                 "parts" -> if (Unreleased.AUTOMIX_PARTS) partsBench(words.drop(1))
+                "batch" -> {
+                    val jobs = words.firstOrNull { it.startsWith("jobs=") }?.substringAfter('=')?.toIntOrNull() ?: 0
+                    val ids = words.drop(1).filterNot { it.startsWith("jobs=") }
+                    val started = com.dd3boh.outertune.ui.screens.mix.PartsBatch.start(
+                        this, ids.map { com.dd3boh.outertune.ui.screens.mix.PartsBatch.Song(it, it, -1.0) }, jobs,
+                    )
+                    Log.i(TAG, "AutoMix trial: parts of ${ids.size} songs ${if (started) "started" else "not started"}")
+                }
             }
         }
     }

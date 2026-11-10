@@ -15,5 +15,13 @@
             android:name="ai.onnxruntime.TelemetryInitializer"
             android:authorities="${applicationId}.onnxruntime_telemetry_initializer"
             tools:node="remove" />
+
+        <!-- A playlist's parts made in one sitting (PartsBatch, Unreleased.AUTOMIX_PARTS): the
+             debug app's alone, as the model's runtime is. In the foreground while it splits, with
+             its notification to follow and stop it. -->
+        <service
+            android:name="com.dd3boh.outertune.playback.parts.PartsBatchService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
     </application>
 </manifest>

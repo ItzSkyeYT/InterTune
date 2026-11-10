@@ -93,7 +93,7 @@ class KeptAuto(val spec: TransitionSpec, val why: String, val aEnd: SongEnd, val
  * (MixCode.ANALYSIS, the analysis code alone), Auto's pick under [autoStamp] (MixCode.AUTO, that
  * and Auto's rules). A build that changes how changes are rendered keeps both (8 Nov 2026).
  */
-class EditorCache(cacheDir: File, private val stamp: String = "", private val autoStamp: String = stamp) {
+class EditorCache(private val cacheDir: File, private val stamp: String = "", private val autoStamp: String = stamp) {
     val dir = File(cacheDir, "mix/editor")
     private val autoDir = File(dir, "auto")
 
@@ -185,6 +185,19 @@ class EditorCache(cacheDir: File, private val stamp: String = "", private val au
         parts.deleteOrphans((windows - gone.toSet()).map(::stem).toSet())
         parts.deleteLeftovers(System.currentTimeMillis())
         autoDir.listFiles()?.sortedByDescending { it.lastModified() }?.drop(KEPT_PICKS)?.forEach { it.delete() }
+    }
+
+    /**
+     * What more windows split into parts may take before [prune] lets the oldest of them go, with
+     * [free] left where the cache is: what a playlist's batch may split (PartsBatch.fitting).
+     */
+    fun partsRoomLeft(free: Long? = null): Long {
+        val parts = PartsStore(dir.parentFile!!)
+        val held = dir.listFiles()?.filter { it.name.endsWith(".pcm") }?.sumOf { window ->
+            val stem = window.name.removeSuffix(".pcm")
+            if (parts.whole(stem, window.length())) window.length() + parts.bytesOf(stem) else 0L
+        } ?: 0L
+        return partsRoom(free ?: cacheDir.usableSpace, held) - held
     }
 
     /** Written whole beside the file, then put in its place, so a file is never read half written. */
@@ -435,11 +448,15 @@ class PairLoader(
                 val (id, end, window) = w
                 if (cancelled()) throw CancellationException("the editor was closed")
                 val started = System.nanoTime()
+                val samples = window.frames.toLong() * window.info.channels
                 val made = try {
-                    maker.split(
-                        window.samples(), window.info.sampleRate, window.info.channels, store.files(id, end),
-                        { f -> splitting((k + f.coerceIn(0.0, 1.0)) / missing.size) }, cancelled,
-                    )
+                    WindowLocks.hold(id, end, cancelled) {
+                        // Split meanwhile by a playlist's batch (PartsBatch), or another opening.
+                        store.has(id, end, samples) || maker.split(
+                            window.samples(), window.info.sampleRate, window.info.channels, store.files(id, end),
+                            { f -> splitting((k + f.coerceIn(0.0, 1.0)) / missing.size) }, cancelled,
+                        )
+                    }
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Throwable) {
@@ -482,7 +499,15 @@ class PairLoader(
         return written.takeIf { it.isValid && (it.plain || AutoSpec.fits(it, facts)) } ?: AutoSpec.fallback(facts)
     }
 
-    private fun window(song: SongInput, end: String, cancelled: () -> Boolean): Pair<PcmWindow, BandEnvelopes> {
+    /**
+     * [song]'s [end] window from the cache, or read and kept there, as the editor reads it: a
+     * playlist's batch (PartsBatch) reads it here too, under the window's lock, so the two never
+     * write the same files at once.
+     */
+    internal fun window(song: SongInput, end: String, cancelled: () -> Boolean): Pair<PcmWindow, BandEnvelopes> =
+        WindowLocks.hold(song.id, end, cancelled) { readWindow(song, end, cancelled) }
+
+    private fun readWindow(song: SongInput, end: String, cancelled: () -> Boolean): Pair<PcmWindow, BandEnvelopes> {
         val (pcm, json, bandsFile) = cache.files(song.id, end)
         val known = json.takeIf { it.exists() }?.let { WindowInfo.of(it.readText()) }
         if (known != null && pcm.length() == known.frames * known.channels * 2) {
@@ -531,8 +556,8 @@ class PairLoader(
 
     companion object {
         private const val TAG = "MixEditor"
-        private const val HEAD = "head"
-        private const val TAIL = "tail"
+        internal const val HEAD = "head"
+        internal const val TAIL = "tail"
         private const val BLOCK_FRAMES = 8192
 
         /** The editor's own analysis of a window, for the anchors it writes. */

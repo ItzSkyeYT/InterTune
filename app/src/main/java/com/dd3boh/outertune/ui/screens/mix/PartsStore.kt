@@ -14,8 +14,35 @@ import java.io.RandomAccessFile
 import java.nio.ByteOrder
 import java.nio.ShortBuffer
 import java.nio.channels.FileChannel
+import java.util.concurrent.CancellationException
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.locks.ReentrantLock
 import kotlin.math.abs
 import kotlin.math.max
+
+/**
+ * One reader or splitter at a time for each window: an opening of the editor and a playlist's
+ * batch (PartsBatch) may come to the same song's end at once, and would write the same files.
+ */
+internal object WindowLocks {
+    private val locks = ConcurrentHashMap<String, ReentrantLock>()
+
+    /** [block], holding [id]'s [end] window; waits while [cancelled] says no, and throws CancellationException once it says yes. */
+    fun <T> hold(id: String, end: String, cancelled: () -> Boolean, block: () -> T): T {
+        val lock = locks.computeIfAbsent("$end $id") { ReentrantLock() }
+        while (!lock.tryLock(WAIT_MS, TimeUnit.MILLISECONDS)) {
+            if (cancelled()) throw CancellationException("stopped while the $end window of $id was being read or split")
+        }
+        try {
+            return block()
+        } finally {
+            lock.unlock()
+        }
+    }
+
+    private const val WAIT_MS = 250L
+}
 
 /**
  * An editor window's parts, where they have been made: vocals, drums, bass and melody (in

@@ -315,7 +315,7 @@ class PairLoaderPartsTest {
     @Test
     fun `a window read again drops the parts made from the one before, and the editor asks for its maker`() {
         val audio = File("src/main/java/com/dd3boh/outertune/ui/screens/mix/EditorAudio.kt").readText()
-        val read = audio.substring(audio.indexOf("private fun window(song: SongInput"))
+        val read = audio.substring(audio.indexOf("private fun readWindow(song: SongInput"))
         val decode = read.indexOf("WindowDecoder(source).decode(")
         assertTrue(read.indexOf("PartsStore(cache.dir.parentFile!!).delete(song.id, end)") in 0 until decode)
         val model = File("src/main/java/com/dd3boh/outertune/ui/screens/mix/MixEditorViewModel.kt").readText()

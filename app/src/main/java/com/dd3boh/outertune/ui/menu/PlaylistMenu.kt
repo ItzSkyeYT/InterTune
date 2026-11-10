@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.CallSplit
 import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
 import androidx.compose.material.icons.automirrored.rounded.PlaylistPlay
 import androidx.compose.material.icons.automirrored.rounded.QueueMusic
@@ -52,6 +53,7 @@ import com.dd3boh.outertune.LocalNetworkConnected
 import com.dd3boh.outertune.LocalPlayerConnection
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.Unreleased
+import com.dd3boh.outertune.ui.screens.mix.PartsBatch
 import com.dd3boh.outertune.ui.screens.mix.rememberMixMenuSwitch
 import com.dd3boh.outertune.db.entities.Playlist
 import com.dd3boh.outertune.db.entities.PlaylistSong
@@ -337,6 +339,17 @@ fun PlaylistMenu(
                 title = if (on) R.string.mix_menu_on else R.string.mix_menu_off,
             ) {
                 flip()
+                onDismiss()
+            }
+        }
+        // Then every song's parts made at once, for Mix (the debug app).
+        if (PartsBatch.offered && songs.isNotEmpty()) {
+            GridMenuItem(
+                icon = Icons.AutoMirrored.Rounded.CallSplit,
+                title = R.string.mix_parts_split_all,
+            ) {
+                // Shown once the songs are read: the menu's own list is whole here.
+                PartsBatch.start(context, songs.map { PartsBatch.Song(it.id, it.song.title, it.song.duration * 1000.0) })
                 onDismiss()
             }
         }
