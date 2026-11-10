@@ -18,6 +18,7 @@ import android.media.MediaExtractor
 import android.media.MediaFormat
 import android.media.MediaMuxer
 import android.net.Uri
+import android.os.Build
 import android.os.Debug
 import android.os.Handler
 import android.os.Looper
@@ -44,6 +45,8 @@ import androidx.media3.transformer.DefaultEncoderFactory
 import androidx.media3.transformer.EditedMediaItem
 import androidx.media3.transformer.EditedMediaItemSequence
 import androidx.media3.transformer.Effects
+import androidx.media3.transformer.EncoderSelector
+import androidx.media3.transformer.EncoderUtil
 import androidx.media3.transformer.ExportException
 import androidx.media3.transformer.ExportResult
 import androidx.media3.transformer.ProgressHolder
@@ -54,12 +57,14 @@ import com.dd3boh.outertune.playback.MusicLevels
 import com.dd3boh.outertune.ui.component.LyricsVideoFrames
 import com.dd3boh.outertune.utils.SharedFileProvider
 import com.dd3boh.outertune.utils.shareSheet
+import com.google.common.collect.ImmutableList
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.nio.ByteBuffer
 import kotlin.coroutines.resume
+import kotlin.coroutines.cancellation.CancellationException
 import kotlin.coroutines.resumeWithException
 import kotlin.math.max
 import kotlin.math.min
@@ -110,6 +115,68 @@ object LyricsVideo {
         }
     }
 
+    /** The three steps of making a video, in order, for saying which one a failure stopped in. */
+    enum class Step { SOUND, PICTURE, JOIN }
+
+    /**
+     * A video that could not be made: the [step] it stopped in and what that step [said], in words
+     * a log and a report can carry (see [said]). The step's own exception is the cause.
+     */
+    class Failed(val step: Step, val said: String, cause: Throwable) : Exception("The ${step.name.lowercase()} step failed: $said", cause)
+
+    /**
+     * What a step's failure says: Transformer's error code and the codec it named (its name tells
+     * a phone's hardware encoder from the software one), or the exception's own class and message.
+     * Past reports of this video failing said nothing at all (a warning under tags the report left
+     * out, 10 Nov 2026), so the one line that says it all is written at the error level.
+     */
+    internal fun said(failure: Throwable): String = when (failure) {
+        is ExportException -> buildString {
+            append(failure.errorCodeName)
+            failure.codecInfo?.let { append(", ").append(if (it.isVideo) "video " else "audio ").append(if (it.isDecoder) "decoder " else "encoder ").append(it.name ?: "unnamed") }
+        }
+        else -> failure.javaClass.simpleName + (failure.message?.let { ": $it" } ?: "")
+    }
+
+    /** Runs a step, and names it if it fails. A cancelled step is not a failure. */
+    private inline fun <T> inStep(step: Step, run: () -> T): T = try {
+        run()
+    } catch (cancelled: CancellationException) {
+        throw cancelled
+    } catch (named: Failed) {
+        throw named
+    } catch (failure: Throwable) {
+        throw Failed(step, said(failure), failure)
+    }
+
+    /**
+     * How the picture is encoded, in the order tried: as the phone offers it (its hardware encoder
+     * where it has one) and, should that have stopped in the encoder or in what it handed over,
+     * once more with Android's own software encoder. The hardware encoder is the one part of the
+     * video that differs from phone to phone, so it is where a video failing for every song on one
+     * phone would be (#general, 10 Nov 2026: a Xiaomi on Android 15, where the emulator's is fine).
+     */
+    internal enum class Encoding { HARDWARE, SOFTWARE }
+
+    /** Whether a picture that failed is worth another try in software: not when the trouble is a file that could not be read or written. */
+    internal fun another(failure: Throwable): Boolean =
+        failure is ExportException && failure.errorCode !in ExportException.ERROR_CODE_IO_UNSPECIFIED..ExportException.ERROR_CODE_IO_READ_POSITION_OUT_OF_RANGE
+
+    /** Whether a codec is Android's own, in software, and not the phone maker's. */
+    internal fun softwareCodec(name: String) = name.startsWith("c2.android.") || name.startsWith("OMX.google.")
+
+    private fun MediaCodecInfo.inSoftware() = softwareCodec(name) || (Build.VERSION.SDK_INT >= 29 && isSoftwareOnly)
+
+    /** Only the phone's software encoders: what the second try of the picture is held to. */
+    private val SOFTWARE_ENCODERS = EncoderSelector { mime -> ImmutableList.copyOf(EncoderUtil.getSupportedEncoders(mime).filter { it.inSoftware() }) }
+
+    /** What the deepest cause of a failure says, for the line that names the failure: ": CodecException: Error 0xfffffc0e". */
+    private fun root(failure: Throwable): String {
+        var cause = failure
+        for (depth in 0 until 10) cause = cause.cause ?: break
+        return if (cause === failure) "" else ": ${said(cause)}"
+    }
+
     /**
      * The video of [clip] from the song [mediaId], read through [source], with frames from
      * [frames] once the sound is measured. Saved in the cache, named after [title]. [progress] is
@@ -136,13 +203,14 @@ object LyricsVideo {
         val forward = { at: Float -> if (at > shown) { shown = at; progress(at) } }
         try {
             val sound = File(folder, "sound.m4a")
-            val heard = cutSound(app, source, mediaId, clip, sound) { forward(it * SOUND_SHARE) }
+            Log.i(TAG, "Making a %.1f s video of $mediaId: H.264 encoders ${encoders()}".format(clip.durationMs / 1000f))
+            val heard = inStep(Step.SOUND) { cutSound(app, source, mediaId, clip, sound) { forward(it * SOUND_SHARE) } }
             val picture = File(folder, "picture.mp4")
             val painter = withContext(Dispatchers.Default) { frames(heard) }
-            drawPicture(app, painter, clip, folder, picture) { forward(SOUND_SHARE + it * (1f - SOUND_SHARE - JOIN_SHARE)) }
+            inStep(Step.PICTURE) { pictureOf(app, painter, clip, folder, picture) { forward(SOUND_SHARE + it * (1f - SOUND_SHARE - JOIN_SHARE)) } }
             val video = File(folder, LyricsShare.fileName(title, "mp4"))
             withContext(Dispatchers.IO) {
-                join(picture, sound, video)
+                inStep(Step.JOIN) { join(picture, sound, video) }
                 sound.delete()
                 picture.delete()
                 File(folder, BLACK).delete()
@@ -159,6 +227,8 @@ object LyricsVideo {
             return video
         } catch (failure: Throwable) {
             withContext(Dispatchers.IO + kotlinx.coroutines.NonCancellable) { folder.deleteRecursively() }
+            // Once, here, with the whole trace and its causes: what Report a problem shows of it.
+            if (failure !is CancellationException) Log.e(TAG, "The lyrics video could not be made: ${(failure as? Failed)?.let { "${it.step.name.lowercase()}, ${it.said}" } ?: said(failure)}", failure)
             throw failure
         }
     }
@@ -173,7 +243,7 @@ object LyricsVideo {
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
         context.startActivity(context.shareSheet(send))
-    }.onFailure { Log.w(TAG, "Could not share the lyrics video", it) }.isSuccess
+    }.onFailure { Log.e(TAG, "Could not share the lyrics video", it) }.isSuccess
 
     // 1. The sound
 
@@ -208,7 +278,7 @@ object LyricsVideo {
             setAssetLoaderFactory(
                 DefaultAssetLoaderFactory(
                     context,
-                    DefaultDecoderFactory.Builder(context).build(),
+                    DefaultDecoderFactory.Builder(context).setEnableDecoderFallback(true).build(),
                     Clock.DEFAULT,
                     DefaultMediaSourceFactory(source),
                     DataSourceBitmapLoader(context),
@@ -313,12 +383,42 @@ object LyricsVideo {
 
     // 2. The picture
 
+    /**
+     * The picture, as the phone offers to make it and, if the encoder or what it handed over was
+     * what failed ([another]), once more with its software encoder. A failure of both says both.
+     */
+    private suspend fun pictureOf(
+        context: Context,
+        painter: LyricsVideoFrames,
+        clip: LyricsVideoPlan.Clip,
+        folder: File,
+        into: File,
+        progress: (Float) -> Unit,
+    ) {
+        try {
+            drawPicture(context, painter, clip, folder, into, Encoding.HARDWARE, progress)
+        } catch (first: Throwable) {
+            if (first is CancellationException || !another(first)) throw first
+            Log.w(TAG, "The picture's first try failed (${said(first)}${root(first)}): once more with the software encoder")
+            withContext(Dispatchers.IO) { into.delete() }
+            try {
+                drawPicture(context, painter, clip, folder, into, Encoding.SOFTWARE, progress)
+                Log.i(TAG, "The picture was made by the software encoder, after the first try failed")
+            } catch (second: Throwable) {
+                if (second is CancellationException) throw second
+                second.addSuppressed(first)
+                throw Failed(Step.PICTURE, "${said(first)}; second try, in software: ${said(second)}", second)
+            }
+        }
+    }
+
     private suspend fun drawPicture(
         context: Context,
         painter: LyricsVideoFrames,
         clip: LyricsVideoPlan.Clip,
         folder: File,
         into: File,
+        encoding: Encoding,
         progress: (Float) -> Unit,
     ) {
         // What the frames are drawn over, which they cover: a black picture as long as the video.
@@ -361,9 +461,10 @@ object LyricsVideo {
                             // emulator's encoder took 2 Mbit/s for 1.2 asked. Only where an encoder
                             // can hold a rate: asked of a phone with none, Transformer found no
                             // encoder at all and no video was made (the Android 7 emulator, 2 Nov 2026).
-                            .apply { if (constantRate) setBitrateMode(MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_CBR) }
+                            .apply { if (holdsConstantRate(encoding)) setBitrateMode(MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_CBR) }
                             .build()
                     )
+                    .apply { if (encoding == Encoding.SOFTWARE) setVideoEncoderSelector(SOFTWARE_ENCODERS) }
                     .build()
             )
         }
@@ -496,7 +597,7 @@ object LyricsVideo {
 
                 override fun onError(composition: Composition, exportResult: ExportResult, exportException: ExportException) {
                     main.removeCallbacks(poll)
-                    Log.w(TAG, "Export to ${into.name} failed: ${exportException.errorCodeName}", exportException)
+                    Log.w(TAG, "Export to ${into.name} failed: ${said(exportException)}")
                     if (done.isActive) done.resumeWithException(exportException)
                 }
             })
@@ -511,16 +612,24 @@ object LyricsVideo {
         }
     }
 
+    private fun h264Encoders(): List<MediaCodecInfo> = MediaCodecList(MediaCodecList.REGULAR_CODECS).codecInfos
+        .filter { info -> info.isEncoder && info.supportedTypes.any { it.equals(MimeTypes.VIDEO_H264, ignoreCase = true) } }
+
+    private fun MediaCodecInfo.holdsConstantRate() =
+        getCapabilitiesForType(MimeTypes.VIDEO_H264).encoderCapabilities?.isBitrateModeSupported(MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_CBR) == true
+
+    /** The phone's H.264 encoders as a line for the log: each with whether it is hardware, so a failure can be placed. */
+    private fun encoders(): String = runCatching {
+        h264Encoders().joinToString { it.name + if (it.inSoftware()) " (software)" else " (hardware)" } +
+            ", constant rate " + (if (constantRate) "held" else "not held")
+    }.getOrElse { "not listed" }
+
     /** Whether one of the phone's H.264 encoders can hold a constant rate. */
-    private val constantRate: Boolean by lazy {
-        runCatching {
-            MediaCodecList(MediaCodecList.REGULAR_CODECS).codecInfos.any { info ->
-                info.isEncoder && info.supportedTypes.any { it.equals(MimeTypes.VIDEO_H264, ignoreCase = true) } &&
-                    info.getCapabilitiesForType(MimeTypes.VIDEO_H264).encoderCapabilities
-                        ?.isBitrateModeSupported(MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_CBR) == true
-            }
-        }.getOrDefault(false)
-    }
+    private val constantRate: Boolean by lazy { runCatching { h264Encoders().any { it.holdsConstantRate() } }.getOrDefault(false) }
+
+    /** The same for the encoders [encoding] is held to: a second try in software has only the software ones. */
+    private fun holdsConstantRate(encoding: Encoding): Boolean =
+        if (encoding == Encoding.HARDWARE) constantRate else runCatching { h264Encoders().filter { it.inSoftware() }.any { it.holdsConstantRate() } }.getOrDefault(false)
 
     private const val FOLDER = "lyrics-videos"
     private const val BLACK = "black.png"

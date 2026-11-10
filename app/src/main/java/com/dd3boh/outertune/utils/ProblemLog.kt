@@ -59,6 +59,10 @@ object ProblemLog {
     val TELLING = setOf(
         "MusicService", "YTPlayerUtils", "QueueBoard", "StandIns", "Throttle", "DownloadUtil",
         "PlayerConnection", "MediaLibrarySessionCallback", "App", "MainActivity", "LibraryImport",
+        // Sharing lyrics as a picture or a video, and saving them: each said why it failed as a warning
+        // under these three, which no report held. "The video could not be made" (#general, 10 Nov
+        // 2026) came with a log that showed nothing.
+        "LyricsVideo", "LyricsCard", "LyricsSave",
     )
 
     /**
