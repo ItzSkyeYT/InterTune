@@ -27,6 +27,7 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -39,6 +40,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.windowInsetsBottomHeight
 import androidx.compose.foundation.layout.windowInsetsTopHeight
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.rememberScrollState
@@ -77,6 +79,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableDoubleStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -88,8 +91,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -442,25 +447,33 @@ fun MixEditorScreen(navController: NavController) {
             }
         } else {
             val page = rememberScrollState()
+            // The lower part keeps a scroll of its own under the canvas only where it has room above the Play pill,
+            // which floats over it above the player and the bars (lowerPinned). Where it has not (a phone: the
+            // pill covered the presets row, and no scroll could take a row out from under it), the page scrolls
+            // as one, and the pill, which does not move, floats over it as over any list.
+            var upperPx by remember { mutableIntStateOf(0) }
+            val bars = insets.asPaddingValues().calculateBottomPadding()
+            val upper = with(LocalDensity.current) { upperPx.toDp() }
+            val pinned = tall && upperPx > 0 && lowerPinned(roomDp = (maxHeight - upper).value, barsDp = bars.value)
             Column(
                 Modifier
                     .fillMaxSize()
                     .windowInsetsPadding(insets.only(WindowInsetsSides.Horizontal))
-                    .then(if (!tall) Modifier.verticalScroll(page) else Modifier),
+                    .then(if (!pinned) Modifier.verticalScroll(page) else Modifier),
             ) {
-                Spacer(Modifier.windowInsetsTopHeight(insets))
-                Upper(small = !tall)
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.7f))
-                if (tall) {
+                Column(Modifier.onSizeChanged { upperPx = it.height }) {
+                    Spacer(Modifier.windowInsetsTopHeight(insets))
+                    Upper(small = !tall)
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.7f))
+                }
+                if (pinned) {
                     Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
                         Lower()
-                        Spacer(Modifier.windowInsetsTopHeight(insets.only(WindowInsetsSides.Bottom)))
-                        Spacer(Modifier.height(104.dp))
+                        PillRoom(insets)
                     }
                 } else {
                     Lower()
-                    Spacer(Modifier.height(104.dp))
-                    Spacer(Modifier.windowInsetsTopHeight(insets.only(WindowInsetsSides.Bottom)))
+                    PillRoom(insets)
                 }
             }
         }
@@ -556,6 +569,31 @@ fun MixEditorScreen(navController: NavController) {
             if (on) play(e.fitStart())
         }) { fixOpen = null; if (clicking) stop() }
     }
+}
+
+/** The Play pill's height and the 16 dp under it: what it takes of the room above the player and the bars. */
+internal const val PILL_ZONE_DP = 80f
+
+/** What a row needs above the pill to be tapped: the presets' title and their chips, and a little more. */
+internal const val MIN_ABOVE_PILL_DP = 140f
+
+/**
+ * Whether the page's lower part (presets, Beat matching, loops) scrolls on its own under the canvas.
+ * [roomDp] is the height left under the canvas, [barsDp] what the player and the navigation bar take
+ * at the bottom, over the page; the Play pill floats above them. On a Pixel 5 that left 10 dp above
+ * the pill (258 - 168 - 80): the pill sat over the presets row, which had nowhere to go.
+ */
+internal fun lowerPinned(roomDp: Float, barsDp: Float): Boolean = roomDp - barsDp - PILL_ZONE_DP >= MIN_ABOVE_PILL_DP
+
+/**
+ * Room at the end of the page for the pill and the bars under it, as a list leaves room under a
+ * floating bar: the last row scrolls up clear of both. The bars' part was a spacer of the *top*
+ * inset's height, which is none: the last rows stopped under the player.
+ */
+@Composable
+private fun PillRoom(insets: androidx.compose.foundation.layout.WindowInsets) {
+    Spacer(Modifier.windowInsetsBottomHeight(insets))
+    Spacer(Modifier.height(104.dp))
 }
 
 private fun leaveAdjust(vm: MixEditorViewModel, canvas: CanvasState) {
