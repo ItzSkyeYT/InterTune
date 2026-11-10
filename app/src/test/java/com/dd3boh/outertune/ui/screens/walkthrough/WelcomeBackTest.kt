@@ -441,10 +441,10 @@ class WelcomeBackTest {
         // The 0.13 line is still built as 0.12.9: it must not claim them before its version commit.
         assertTrue(newThingsFor(v0125, buildVersionCode = v0129).none { it.release == "0.13" })
         val things = newThingsFor(v0129, buildVersionCode = v013)
-        assertEquals(listOf("block_artist", "dont_play", "saved_twice", "liked_sync", "album_goes_on", "recognise_offline", "animations"), ids(things))
+        assertEquals(listOf("block_artist", "dont_play", "saved_twice", "sleep_timer_more", "liked_sync", "album_goes_on", "recognise_offline", "animations"), ids(things))
         assertEquals("0.13", releaseAt(v013))
-        // The card on Home counts the four that have somewhere to show; the three that live in
-        // menus and lists outside Settings are read on the page.
+        // The card on Home counts the four that have somewhere to show; the four that live in the
+        // player, menus and lists outside Settings are read on the page.
         assertEquals(WelcomeCard(count = 4, since = "0.12.8"), welcomeCardFor(seenVersionCode = v0129, buildVersionCode = v013, enabled = true))
     }
 

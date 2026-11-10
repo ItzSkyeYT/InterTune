@@ -2571,6 +2571,8 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="new_dont_play_body" translatable="false">Don\'t play this song, in a song\'s menu, keeps it out of radios and autoplay, other uploads of it included. It still plays when you pick it yourself.</string>
     <string name="new_saved_twice_title" translatable="false">Find songs saved twice</string>
     <string name="new_saved_twice_body" translatable="false">When Liked songs, your library or a playlist holds a song more than once, a round button with a count shows beside Play and Shuffle. Tap it to keep one copy of each.</string>
+    <string name="new_sleep_timer_title" translatable="false">A sleep timer with more ways to stop</string>
+    <string name="new_sleep_timer_body" translatable="false">Stop at a clock time, or at the end of the song, the album or the queue. Open it with the timer in the player; its notification counts down and adds time.</string>
     <string name="new_liked_sync_title" translatable="false">Unliking can remove the download</string>
     <string name="new_liked_sync_body" translatable="false">If your liked songs download themselves, unliking one can now remove its download. Songs you downloaded yourself stay.</string>
     <string name="new_liked_sync_way" translatable="false">Downloads and the space they take are set in here.</string>
