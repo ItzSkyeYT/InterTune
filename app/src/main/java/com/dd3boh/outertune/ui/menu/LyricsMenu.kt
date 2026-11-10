@@ -82,6 +82,7 @@ import com.dd3boh.outertune.ui.dialog.TextFieldDialog
 import com.dd3boh.outertune.ui.screens.settings.fragments.LyricFormatFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.LyricParserFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.LyricSourceFrag
+import com.dd3boh.outertune.utils.FailureLog
 import com.dd3boh.outertune.utils.rememberPreference
 import com.dd3boh.outertune.utils.shareSheet
 import com.dd3boh.outertune.viewmodels.LyricsMenuViewModel
@@ -499,7 +500,10 @@ fun LyricsMenu(
                         if (before != null && before != uninitializedLyric) R.string.lyrics_refetch_none else R.string.lyrics_not_found,
                         Toast.LENGTH_SHORT,
                     )
-                    LyricsHelper.Refetched.Failed -> Toaster.show(context, R.string.lyrics_refetch_failed, Toast.LENGTH_LONG)
+                    LyricsHelper.Refetched.Failed -> {
+                        FailureLog.record("Fetching the lyrics again", why = "no lyrics provider answered")
+                        Toaster.show(context, R.string.lyrics_refetch_failed, Toast.LENGTH_LONG)
+                    }
                 }
             }
         }
