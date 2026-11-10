@@ -32,6 +32,10 @@ class WidgetSizesTest {
     @Test
     fun `a launcher that has said nothing yet gives no size to draw for`() {
         assertEquals(emptyList<Pair<Int, Int>>(), sizesFrom(null, 0, 0, 0, 0))
-        assertEquals(emptyList<Pair<Int, Int>>(), sizesFrom(null, 0, 117, 530, 0))
+    }
+
+    @Test
+    fun `a launcher that gave one whole size draws for that one alone`() {
+        assertEquals(listOf(530 to 117), sizesFrom(null, 0, 117, 530, 0))
     }
 }
