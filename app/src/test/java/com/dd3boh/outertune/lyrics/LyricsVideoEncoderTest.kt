@@ -20,7 +20,7 @@ class LyricsVideoEncoderTest {
     @Test
     fun `a constant rate is asked for only where an encoder can hold it`() {
         val video = File("src/main/java/com/dd3boh/outertune/lyrics/LyricsVideo.kt").readText()
-        assertTrue(video.contains(".apply { if (constantRate) setBitrateMode(MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_CBR) }"))
+        assertTrue(video.contains(".apply { if (holdsConstantRate(encoding)) setBitrateMode(MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_CBR) }"))
         assertFalse("never asked for whatever the phone can do", video.contains("\n                            .setBitrateMode(MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_CBR)"))
         assertTrue(video.contains("isBitrateModeSupported(MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_CBR)"))
     }
