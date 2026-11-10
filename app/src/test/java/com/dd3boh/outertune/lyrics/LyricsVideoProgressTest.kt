@@ -33,9 +33,13 @@ class LyricsVideoProgressTest {
     @Test
     fun `the bar only goes forward`() {
         assertTrue(Regex("""if \(at > shown\)""").containsMatchIn(source))
+        // Both tries of the picture hand on the same progress, so a second try starting again at
+        // nought is held back by the wrapper instead of pulling the bar backwards.
+        assertTrue(Regex("""drawPicture\([^)]*Encoding\.HARDWARE, progress\)""").containsMatchIn(source))
+        assertTrue(Regex("""drawPicture\([^)]*Encoding\.SOFTWARE, progress\)""").containsMatchIn(source))
         assertTrue(
-            "every step reports through the forward-only wrapper",
-            Regex("""cutSound\([^)]*\) \{ forward\(""").containsMatchIn(source) && Regex("""drawPicture\([^)]*\) \{ forward\(""").containsMatchIn(source)
+            "every step reports through the forward-only wrapper (the picture's second try, in software, too)",
+            Regex("""cutSound\([^)]*\) \{ forward\(""").containsMatchIn(source) && Regex("""pictureOf\([^)]*\) \{ forward\(""").containsMatchIn(source)
         )
     }
 }
