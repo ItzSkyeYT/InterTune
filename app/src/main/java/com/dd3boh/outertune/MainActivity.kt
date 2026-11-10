@@ -16,6 +16,7 @@ import android.annotation.SuppressLint
 import android.app.NotificationManager
 import android.app.StatusBarManager
 import android.app.SearchManager
+import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.os.Build
 import android.appwidget.AppWidgetManager
@@ -691,6 +692,22 @@ class MainActivity : ComponentActivity() {
         playerConnection = null
 
         super.onDestroy()
+    }
+
+    /**
+     * Every picker the app opens goes through here: a file, a folder, a picture. Some devices have
+     * no app to pick with (a projector, a stripped-down Android 10), and asking for one crashed the
+     * app (#120, #121). It now says so, and the screen that asked takes it as cancelled.
+     */
+    @Suppress("OVERRIDE_DEPRECATION", "DEPRECATION")
+    override fun startActivityForResult(intent: Intent, requestCode: Int, options: Bundle?) {
+        try {
+            super.startActivityForResult(intent, requestCode, options)
+        } catch (e: ActivityNotFoundException) {
+            Log.w(MAIN_TAG, "Nothing on this device answers ${intent.action}", e)
+            Toaster.show(this, R.string.no_app_to_pick, Toast.LENGTH_LONG)
+            activityResultRegistry.dispatchResult(requestCode, RESULT_CANCELED, null)
+        }
     }
 
     @SuppressLint("UnusedBoxWithConstraintsScope")
