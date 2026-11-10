@@ -50,6 +50,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
@@ -265,7 +266,7 @@ object LyricsCard {
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
         context.startActivity(context.shareSheet(send))
-    }.onFailure { Log.w(TAG, "Could not share the lyrics card", it) }.isSuccess
+    }.onFailure { Log.e(TAG, "Could not share the lyrics card", it) }.isSuccess
 
     /** The two colours the player's gradient takes from the cover, darkened until white words read on them. */
     internal fun colours(cover: Bitmap?): Pair<Int, Int> {
@@ -341,6 +342,11 @@ fun LyricsCardDialog(lines: List<String>, song: MediaMetadata, video: LyricsVide
     var still by remember(video, song.id) { mutableStateOf<Bitmap?>(null) }
     var making by remember { mutableStateOf<Job?>(null) }
     var made by remember { mutableFloatStateOf(0f) }
+    // The video could not be made: said under the picture until the next try, with Report a problem
+    // beside it, since the reason is in the log and was never anywhere a report could reach (10 Nov 2026).
+    var failed by remember { mutableStateOf<String?>(null) }
+    var reporting by remember { mutableStateOf(false) }
+    if (reporting) ProblemReportDialog(onDismiss = { reporting = false })
 
     // A video can take minutes to make, about as long as it lasts on a slower phone: the screen
     // stays on until it is made, so the phone does not go to sleep in the middle of it. Through the
@@ -461,6 +467,7 @@ fun LyricsCardDialog(lines: List<String>, song: MediaMetadata, video: LyricsVide
     fun makeVideo(clip: LyricsVideoPlan.Clip, keep: Boolean = false) {
         val service = playerConnection?.service ?: return
         made = 0f
+        failed = null
         // A turn of the phone makes the screen anew, and the video in the making went with the old
         // one: the screen stays the way it is turned until the video is made.
         val activity = context.activity()
@@ -504,8 +511,10 @@ fun LyricsCardDialog(lines: List<String>, song: MediaMetadata, video: LyricsVide
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (failure: Throwable) {
-                Log.w("LyricsCard", "The lyrics video could not be made", failure)
-                Toaster.show(context, R.string.lyrics_video_failed, Toast.LENGTH_LONG)
+                // LyricsVideo has written its own failures, trace and all, at the error level; any other
+                // failure of this flow (the colours, the save, the sheet) is written here.
+                if (failure !is LyricsVideo.Failed) Log.e("LyricsCard", "The lyrics video could not be made", failure)
+                failed = (failure as? LyricsVideo.Failed)?.let { "${it.step.name.lowercase()}: ${it.said}" } ?: LyricsVideo.said(failure)
             } finally {
                 making = null
                 if (activity != null && turned != null) activity.requestedOrientation = turned
@@ -585,12 +594,29 @@ fun LyricsCardDialog(lines: List<String>, song: MediaMetadata, video: LyricsVide
             )
         }
         if (asVideo && video != null) {
+            val said = failed?.takeIf { making == null }
             Text(
-                text = if (making != null) stringResource(R.string.lyrics_video_making)
-                else stringResource(R.string.lyrics_video_length, makeTimeString(video.durationMs)),
+                text = when {
+                    making != null -> stringResource(R.string.lyrics_video_making)
+                    said != null -> stringResource(R.string.lyrics_video_failed)
+                    else -> stringResource(R.string.lyrics_video_length, makeTimeString(video.durationMs))
+                },
                 style = MaterialTheme.typography.bodyMedium,
+                color = if (said != null) MaterialTheme.colorScheme.error else LocalContentColor.current,
                 modifier = Modifier.padding(top = 12.dp),
             )
+            if (said != null) {
+                // which step stopped and what the phone's codec said, as it is: a screenshot of this is a report
+                Text(
+                    text = said,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 2.dp),
+                )
+                TextButton(onClick = { reporting = true }) {
+                    Text(stringResource(R.string.help_bug_report_action))
+                }
+            }
             if (making != null) {
                 // as wide as the words over it, about: the dialog keeps its width when it comes
                 LinearProgressIndicator(
