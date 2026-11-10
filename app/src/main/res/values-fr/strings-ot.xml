@@ -2537,4 +2537,6 @@
         <item quantity="many">%1$d masquées</item>
         <item quantity="other">%1$d masquées</item>
     </plurals>
+    <!-- A picker asked for on a device with none (#120, #121). -->
+    <string name="no_app_to_pick">Pas de sélecteur de fichiers. Installez un gestionnaire de fichiers.</string>
 </resources>
