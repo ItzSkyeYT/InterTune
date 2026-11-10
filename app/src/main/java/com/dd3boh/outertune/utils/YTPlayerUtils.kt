@@ -912,6 +912,34 @@ object YTPlayerUtils {
     }
 
     /**
+     * The walk found no stream because YouTube turned it away for a sign-in: the routes that
+     * answered all said so (see [StreamCheck.signInWanted]), which is the usual lot of a VPN or a
+     * shared connection. Thrown where the walk would end in "Missing stream expire time" or
+     * another bare Exception, which the listener can only read as an unknown error (issue #124).
+     * A PlaybackException with the code this failure always had, carrying YouTube's own words, so
+     * that nothing that maps a failure changes: the throttle and the error screen read the bot
+     * check in them. Its type is for the words that are not the bot check's.
+     */
+    class SignInWanted(youtubeSaid: String?) :
+        PlaybackException(youtubeSaid?.takeIf { it.isNotBlank() } ?: StreamCheck.SIGN_IN_WORDS, null, PlaybackException.ERROR_CODE_REMOTE_ERROR)
+
+    /**
+     * Whether [error] is YouTube turning the request down for a sign-in: a [SignInWanted], or the
+     * bot check's words, anywhere among its causes. It reaches the player inside a loader's
+     * "unexpected" exception inside ExoPlayer's source error, so the causes are looked down, a few
+     * deep and no further.
+     */
+    fun isSignInWanted(error: Throwable?): Boolean {
+        var t = error
+        var depth = 0
+        while (t != null && depth++ < 8) {
+            if (t is SignInWanted) return true
+            t = t.cause
+        }
+        return Throttle.isBlock(error)
+    }
+
+    /**
      * Whether [error] is a [SongUnavailable], or was caused by one. It reaches the player inside
      * a loader's "unexpected" exception inside ExoPlayer's source error, so the type is looked
      * for down the causes, a few deep and no further.
@@ -2160,6 +2188,12 @@ object YTPlayerUtils {
                 null,
                 PlaybackException.ERROR_CODE_REMOTE_ERROR
             )
+        }
+        // The last client answered OK and gave nothing to fetch (an address that could not be
+        // deciphered, none at all), after the others had turned the request down for a sign-in:
+        // that is the story, and the bare errors below are not. Issue #124.
+        if (streamExpiresInSeconds == null || format == null || streamUrl == null) {
+            StreamCheck.signInWanted(fallbackSaid)?.let { throw SignInWanted(it) }
         }
         if (streamExpiresInSeconds == null) {
             throw Exception("Missing stream expire time")
