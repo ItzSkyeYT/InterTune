@@ -14,6 +14,7 @@ import android.Manifest
 import android.util.Log
 import dagger.hilt.android.qualifiers.ApplicationContext
 import com.dd3boh.outertune.utils.ErrorText
+import com.dd3boh.outertune.utils.FailureLog
 import com.dd3boh.outertune.utils.dataStore
 import com.dd3boh.outertune.constants.RecogniseListenSecondsKey
 import com.dd3boh.outertune.constants.RecogniseAutoAddKey
@@ -606,6 +607,7 @@ class RecognitionEngine @Inject constructor(
                 _state.update { if (it is State.Listening || it is State.Confirming) State.Idle else it }
             } catch (t: Throwable) {
                 Log.w(TAG, "Listening failed", ErrorText.forLog(t))
+                FailureLog.record("Listening for a song", t)
                 _state.value = State.Failed(ErrorText.withoutAddresses(t.message ?: "microphone"), heardNothing = false)
             } finally {
                 if (job === coroutineContext[Job]) running.value = false
@@ -871,6 +873,8 @@ class RecognitionEngine @Inject constructor(
                 // Nothing to say in continuous mode. A quiet stretch or one refused request is not
                 // a reason to stop listening or to ask somebody to press try again.
                 if (!keepGoing) {
+                    // Silence is a quiet room, and a window kept for later is not shown as a failure.
+                    if (!kept && outcome.reason != "silence") FailureLog.record("Recognising a song", why = outcome.reason)
                     _state.value =
                         if (kept) State.Kept
                         else State.Failed(outcome.reason, outcome.reason == "silence", fromPhone = listenedToPhone)

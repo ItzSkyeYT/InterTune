@@ -33,6 +33,7 @@ object NotSaved {
     /** Says that a write failed, and why when it can tell. From any thread. */
     fun say(context: Context, e: Throwable) {
         Log.w(TAG, "A write was refused", e)
+        FailureLog.record("Saving a change", e)
         val app = context.applicationContext ?: context
         val full = isStorageFull(e)
         Handler(Looper.getMainLooper()).post {

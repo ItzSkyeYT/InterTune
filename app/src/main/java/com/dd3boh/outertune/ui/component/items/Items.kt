@@ -59,6 +59,7 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
@@ -84,6 +85,7 @@ import coil3.compose.AsyncImage
 import coil3.imageLoader
 import com.dd3boh.outertune.constants.PlayOrigin
 import com.dd3boh.outertune.LocalDatabase
+import com.dd3boh.outertune.LocalDontPlay
 import com.dd3boh.outertune.LocalDownloadUtil
 import com.dd3boh.outertune.LocalPlayerConnection
 import com.dd3boh.outertune.R
@@ -120,6 +122,29 @@ import kotlinx.coroutines.flow.flowOf
 
 const val ActiveBoxAlpha = 0.6f
 
+/**
+ * How strong a song the listener chose not to play (DontPlay) shows in a list: half, as a row of
+ * Settings that is off does (Preference), so it reads as a song that is switched off. It is still
+ * listed, still tappable, and still played when picked.
+ */
+const val DontPlayAlpha = 0.5f
+
+/**
+ * [on] for a song not to play: its picture, title and line at [DontPlayAlpha]. A layer only, so
+ * nothing in the row moves or changes size, and the buttons at the end of the row stay as they are.
+ */
+fun Modifier.dontPlayDim(on: Boolean): Modifier = if (on) alpha(DontPlayAlpha) else this
+
+/**
+ * Whether the listener chose not to play this song, this upload or another of it (DontPlay),
+ * asked of the set the whole app follows once (LocalDontPlay).
+ */
+@Composable
+fun rememberIsDontPlay(id: String, title: String, artist: String?): Boolean {
+    val dontPlay = LocalDontPlay.current
+    return remember(dontPlay, id, title, artist) { dontPlay.covers(id, title, artist) }
+}
+
 // Basic list item
 @Composable
 inline fun ListItem(
@@ -131,7 +156,11 @@ inline fun ListItem(
     isSelected: Boolean? = false,
     isActive: Boolean = false,
     isAvailable: Boolean = true,
+    /** A song the listener chose not to play (DontPlay): shown switched off, unless it is the one playing. */
+    isDontPlay: Boolean = false,
 ) {
+    // Picked by hand and playing, it is on: only a song waiting in the list is shown off.
+    val switchedOff = isDontPlay && !isActive
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = if (isActive) {
@@ -157,7 +186,7 @@ inline fun ListItem(
         }
     ) {
         Box(
-            modifier = Modifier.padding(6.dp),
+            modifier = Modifier.padding(6.dp).dontPlayDim(switchedOff),
             contentAlignment = Alignment.Center
         ) {
             thumbnailContent()
@@ -187,6 +216,7 @@ inline fun ListItem(
             modifier = Modifier
                 .weight(1f)
                 .padding(horizontal = 6.dp)
+                .dontPlayDim(switchedOff)
         ) {
             Text(
                 text = title,
@@ -218,6 +248,7 @@ fun ListItem(
     trailingContent: @Composable RowScope.() -> Unit = {},
     isSelected: Boolean? = false,
     isActive: Boolean = false,
+    isDontPlay: Boolean = false,
 ) = ListItem(
     title = title,
     subtitle = {
@@ -237,7 +268,8 @@ fun ListItem(
     trailingContent = trailingContent,
     modifier = modifier,
     isSelected = isSelected,
-    isActive = isActive
+    isActive = isActive,
+    isDontPlay = isDontPlay
 )
 
 @Composable
@@ -249,6 +281,8 @@ fun GridItem(
     thumbnailContent: @Composable BoxWithConstraintsScope.() -> Unit,
     thumbnailRatio: Float = 1f,
     fillMaxWidth: Boolean = false,
+    /** A song the listener chose not to play (DontPlay): the whole tile shown switched off. */
+    isDontPlay: Boolean = false,
 ) {
     Column(
         modifier = if (fillMaxWidth) {
@@ -259,7 +293,7 @@ fun GridItem(
             modifier
                 .padding(12.dp)
                 .width(GridThumbnailHeight * thumbnailRatio)
-        }
+        }.dontPlayDim(isDontPlay)
     ) {
         BoxWithConstraints(
             modifier = if (fillMaxWidth) {
@@ -306,6 +340,7 @@ fun GridItem(
     fillMaxWidth: Boolean = false,
     shrinks: Boolean = false,
     titleSize: SameTextSize? = null,
+    isDontPlay: Boolean = false,
 ) = GridItem(
     modifier = modifier,
     title = {
@@ -348,7 +383,8 @@ fun GridItem(
     },
     thumbnailContent = thumbnailContent,
     thumbnailRatio = thumbnailRatio,
-    fillMaxWidth = fillMaxWidth
+    fillMaxWidth = fillMaxWidth,
+    isDontPlay = isDontPlay
 )
 
 @Composable
@@ -407,6 +443,7 @@ fun MediaMetadataListItem(
     modifier = modifier,
     isSelected = isSelected,
     isActive = isActive,
+    isDontPlay = rememberIsDontPlay(mediaMetadata.id, mediaMetadata.title, mediaMetadata.artists.firstOrNull()?.name),
 )
 
 @Composable
@@ -468,6 +505,7 @@ fun YouTubeListItem(
     isPlaying: Boolean = false,
     trailingContent: @Composable RowScope.() -> Unit = {},
 ) {
+    val dontPlay = item is SongItem && rememberIsDontPlay(item.id, item.title, item.artists.firstOrNull()?.name)
     ListItem(
         title = item.title,
         subtitle = when (item) {
@@ -501,6 +539,7 @@ fun YouTubeListItem(
         modifier = modifier,
         isSelected = isSelected,
         isActive = isActive,
+        isDontPlay = dontPlay,
     )
 }
 
@@ -603,6 +642,7 @@ fun YouTubeGridItem(
     },
     thumbnailRatio = thumbnailRatio,
     fillMaxWidth = fillMaxWidth,
+    isDontPlay = item is SongItem && !isActive && rememberIsDontPlay(item.id, item.title, item.artists.firstOrNull()?.name),
     modifier = modifier
 )
 

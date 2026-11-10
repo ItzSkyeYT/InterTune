@@ -2497,7 +2497,7 @@
     <string name="new_block_artist_way">Les artistes que vous avez bloqués sont listés ici.</string>
     <string name="new_block_artist_here">Tous ceux que vous avez bloqués, pour les débloquer ou bloquer un artiste par son nom.</string>
     <string name="new_dont_play_title">Empêcher un titre de jouer</string>
-    <string name="new_dont_play_body">Ne plus jouer ce titre, dans le menu d\'un titre, le tient à l\'écart des radios et de la lecture automatique, ses autres mises en ligne comprises. Il joue toujours quand vous le choisissez.</string>
+    <string name="new_dont_play_body">Ne plus jouer ce titre, dans le menu d\'un titre, le tient à l\'écart des radios et de la lecture automatique, ses autres mises en ligne comprises. Dans une playlist ou la file d\'attente, il reste affiché, grisé, et il est passé. Il joue toujours quand vous le choisissez.</string>
     <string name="new_saved_twice_title">Retrouver les titres en double</string>
     <string name="new_saved_twice_body">Quand vos Titres aimés, votre bibliothèque ou une playlist contiennent un titre plusieurs fois, un bouton rond avec un nombre s\'affiche à côté de Lecture et Lecture aléatoire. Touchez-le pour garder un exemplaire de chacun.</string>
     <string name="new_sleep_timer_title">Une minuterie de sommeil avec plus de choix</string>

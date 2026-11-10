@@ -113,6 +113,7 @@ fun SongListItem(
     val menuState = LocalMenuState.current
     val haptic = LocalHapticFeedback.current
     val playerConnection = LocalPlayerConnection.current ?: return
+    val dontPlay = rememberIsDontPlay(song.id, song.song.title, song.artists.firstOrNull()?.name)
 
     val listItem: @Composable () -> Unit = {
         ListItem(
@@ -204,6 +205,7 @@ fun SongListItem(
             },
             isSelected = inSelectMode == true && isSelected,
             isActive = isActive,
+            isDontPlay = dontPlay,
             modifier = modifier.combinedClickable(
                 onClick = {
                     if (inSelectMode == true) {
@@ -403,5 +405,6 @@ fun SongGridItem(
         }
     },
     fillMaxWidth = fillMaxWidth,
+    isDontPlay = !isActive && rememberIsDontPlay(song.id, song.song.title, song.artists.firstOrNull()?.name),
     modifier = modifier
 )

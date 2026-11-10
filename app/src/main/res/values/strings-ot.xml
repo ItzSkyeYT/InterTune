@@ -2671,7 +2671,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="new_block_artist_way" translatable="false">The artists you blocked are listed in here.</string>
     <string name="new_block_artist_here" translatable="false">Everyone you blocked, to unblock them or to block an artist by name.</string>
     <string name="new_dont_play_title" translatable="false">Keep a song from playing</string>
-    <string name="new_dont_play_body" translatable="false">Don\'t play this song, in a song\'s menu, keeps it out of radios and autoplay, other uploads of it included. It still plays when you pick it yourself.</string>
+    <string name="new_dont_play_body" translatable="false">Don\'t play this song, in a song\'s menu, keeps it out of radios and autoplay, other uploads of it included. In a playlist or the queue it stays listed, greyed out, and is skipped. It still plays when you pick it yourself.</string>
     <string name="new_saved_twice_title" translatable="false">Find songs saved twice</string>
     <string name="new_saved_twice_body" translatable="false">When Liked songs, your library or a playlist holds a song more than once, a round button with a count shows beside Play and Shuffle. Tap it to keep one copy of each.</string>
     <string name="new_sleep_timer_title" translatable="false">A sleep timer with more ways to stop</string>

@@ -111,16 +111,25 @@ object BatteryUse {
 
     // What is streamed.
 
-    /** The quality to stream at: Saver takes Low on a metered network, whatever is chosen. */
+    /**
+     * The quality to stream at: Saver takes Low on a metered network where Audio quality is Auto,
+     * the app's own pick, which Saver says how little to spend on. High and Highest are the
+     * listener's word and stay as chosen in every mode and on every network, as AudioPick has it:
+     * they never drop on mobile data. Saver used to take them down to the smallest stream (about
+     * 50 kbps, rough on good earphones) too, and it comes on by itself with the phone's battery
+     * saver, so a listener who had picked High heard the music turn bad now and then with no word
+     * of why, and no other app doing it ("Sometimes it gets so bad, but only sometimes", #88).
+     */
     fun quality(chosen: AudioQuality, metered: Boolean, mode: BatteryMode): AudioQuality =
-        if (mode == BatteryMode.SAVER && metered) AudioQuality.LOW else chosen
+        if (mode == BatteryMode.SAVER && metered && chosen == AudioQuality.AUTO) AudioQuality.LOW else chosen
 
     /**
      * Whether Saver streams something else than [chosen] would on mobile data, for the line under
-     * Audio quality. Only Low already takes the smallest stream there: Auto takes the middle one (#88).
+     * Audio quality: only Auto. Low already takes the smallest stream there, and High and Highest
+     * are not lowered ([quality]).
      */
     fun lowersQuality(chosen: AudioQuality, mode: BatteryMode): Boolean =
-        mode == BatteryMode.SAVER && chosen != AudioQuality.LOW
+        mode == BatteryMode.SAVER && chosen == AudioQuality.AUTO
 
     // The sound effects, which Saver turns off (his answer of 24 Oct 2026). With none of them on,
     // the song can go to the phone's low-power audio path. Not the equalizer, which stays as set
