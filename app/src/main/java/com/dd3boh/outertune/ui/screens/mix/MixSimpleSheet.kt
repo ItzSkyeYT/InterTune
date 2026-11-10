@@ -403,11 +403,11 @@ fun MixSimpleSheet(
                 if (landscape) {
                     // On its side: two upright widths, the songs on the left, the choices on the right.
                     Row(Modifier.weight(1f)) {
-                        Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) { SongsPart(132.dp) }
-                        Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) { ChoicesPart() }
+                        Column(Modifier.weight(1f).scrollsBeforeSheet().verticalScroll(rememberScrollState())) { SongsPart(132.dp) }
+                        Column(Modifier.weight(1f).scrollsBeforeSheet().verticalScroll(rememberScrollState())) { ChoicesPart() }
                     }
                 } else {
-                    Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
+                    Column(Modifier.weight(1f).scrollsBeforeSheet().verticalScroll(rememberScrollState())) {
                         LevelSwitch(simple = true, onSimple = {}, onAdvanced = ::toAdvanced, modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp))
                         SongsPart(176.dp)
                         ChoicesPart()
