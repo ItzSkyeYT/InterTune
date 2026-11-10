@@ -96,6 +96,23 @@ class MixUserPresetsTest {
     }
 
     @Test
+    fun `for TalkBack a preset's chip is one node with its name, its state and a double tap that lays it on`() {
+        // The layer over the chip took the touches and a long press, and was the node a double tap
+        // reached: it had no name, and the chip under it, which had one, did nothing (10 Nov 2026).
+        val chips = File("src/main/java/com/dd3boh/outertune/ui/screens/mix/MixUserPresets.kt").readText()
+        val body = chips.substringAfter("for ((index, p) in presets.withIndex()) {").substringBefore("DropdownMenu(expanded = menu")
+        // The chip carries the tap, and its options as an action (a long press has no touch for TalkBack).
+        assertTrue(body, "onClick = lay," in body.substringBefore("Over the chip"))
+        assertTrue(body, "customActions = listOf(CustomAccessibilityAction(options) { menu = true; true })" in body)
+        // Its name and whether it is lit are the chip's own: its label and `selected`.
+        assertTrue(body, "label = { Text(p.name," in body)
+        assertTrue(body, "selected = selected," in body)
+        // The layer is out of the tree before its click is added, and no longer names the click for the chip.
+        assertTrue(body, ".clearAndSetSemantics { }\n                    .combinedClickable(" in body)
+        assertTrue(body, "onClickLabel" !in body)
+    }
+
+    @Test
     fun `both levels offer the presets, kept beside the saved changes`() {
         val dir = File("src/main/java/com/dd3boh/outertune")
         assertTrue("UserPresetChips(" in File(dir, "ui/screens/mix/MixEditorScreen.kt").readText())

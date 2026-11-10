@@ -33,7 +33,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.dd3boh.outertune.R
@@ -53,6 +57,10 @@ private sealed interface Naming {
  * [onApplied] is told after a preset is laid on, [onLimit] where it cannot fit these two songs,
  * [onDeleted] after a delete, with the preset and where it was, for an Undo. Each chip reports its
  * place to [row], which keeps the one lit in view.
+ *
+ * For TalkBack a chip is one node, the chip's own: its name, whether it is lit, a double tap that
+ * lays it on and its options as an action. The layer over it that takes a long press is out of the
+ * tree: it was the node that answered a double tap, and it had no name (10 Nov 2026).
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -73,32 +81,36 @@ internal fun UserPresetChips(
         var menu by remember(p.id) { mutableStateOf(false) }
         val source = remember(p.id) { MutableInteractionSource() }
         val selected = lit?.id == p.id
-        val applyLabel = p.name
+        val options = stringResource(R.string.mix_preset_options)
+        val lay = {
+            val limit = vm.edit { applyPreset(p) }
+            if (limit != null) onLimit(limit) else onApplied()
+        }
         Box(if (row != null) row.chip(p.id) else Modifier) {
             FilterChip(
                 selected = selected,
                 enabled = enabled,
-                onClick = {},
+                onClick = lay,
                 interactionSource = source,
                 label = { Text(p.name, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = 160.dp)) },
                 leadingIcon = if (selected) { { Icon(Icons.Rounded.Check, null, Modifier.size(FilterChipDefaults.IconSize)) } } else null,
+                // Its name and whether it is lit are the chip's own; a long press has no touch of its own for TalkBack, so an action.
+                modifier = Modifier.semantics { customActions = listOf(CustomAccessibilityAction(options) { menu = true; true }) },
             )
             // Over the chip, so a long press can open its menu: the chip draws the press it is shown.
+            // Out of the accessibility tree: the chip above is the node there.
             Box(
                 Modifier
                     .matchParentSize()
+                    .clearAndSetSemantics { }
                     .combinedClickable(
                         interactionSource = source,
                         indication = null,
                         enabled = enabled,
                         role = Role.Button,
-                        onClickLabel = applyLabel,
-                        onLongClickLabel = stringResource(R.string.mix_preset_options),
+                        onLongClickLabel = options,
                         onLongClick = { menu = true },
-                        onClick = {
-                            val limit = vm.edit { applyPreset(p) }
-                            if (limit != null) onLimit(limit) else onApplied()
-                        },
+                        onClick = lay,
                     ),
             )
             DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
