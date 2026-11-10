@@ -1210,6 +1210,14 @@ class MusicService : MediaLibraryService(),
                 androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED,
             )
         }.onFailure { Log.w(TAG, "Could not listen for the screen going off", it) }.isSuccess
+        // The sleep timer notification's buttons (+5 min, +15 min, Stop). Registered for as long
+        // as the service lives, which is as long as a timer does.
+        sleepTimerActionRegistered = runCatching {
+            androidx.core.content.ContextCompat.registerReceiver(
+                this, sleepTimerAction, android.content.IntentFilter(SleepTimerNotification.broadcastAction(this)),
+                androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED,
+            )
+        }.onFailure { Log.w(TAG, "Could not listen for the sleep timer's buttons", it) }.isSuccess
 
         // The repair scan must never rewrite the loudness of the song that is playing, because
         // after the unknown-loudness fallback an unrepaired track sits at heavy attenuation and
@@ -1962,35 +1970,26 @@ class MusicService : MediaLibraryService(),
             // Live Update: the media notification draws a custom view, which the platform refuses
             // to promote.
             //
-            // A countdown has to be redrawn as it counts, so the armed case is a timer and always
-            // was. What was wrong is the other case. This polled every five seconds while the
-            // timer was idle and every thirty while it was running, which is backwards twice over:
-            // the frequent poll was the one doing nothing, and idle is where this lives almost all
-            // of the time. On the service scope, for the whole life of the service, that is 720
-            // wakeups an hour to read a boolean and go back to sleep.
-            //
-            // isActive is derived from triggerTime and pauseWhenSongEnd, both Compose state, so it
-            // can simply be watched. Idle now costs nothing at all and the countdown still ticks at
-            // the resolution its text shows.
+            // It is posted when something it says changes, and not as the time passes: a timer
+            // with a time carries its end time and the system counts down to it by itself
+            // (SleepTimerNotification), so there is no tick here at all. What changes it is the
+            // timer started, moved or stopped, a setting of it, and the song, the pause or the
+            // seek that decide which song it names (SleepTimer.changes). Idle costs nothing: the
+            // flow wakes only when one of those is written.
             scope.launch {
                 var shown = false
-                snapshotFlow { sleepTimer.isActive }.collectLatest { armed ->
-                    if (!armed) {
+                snapshotFlow { Triple(sleepTimer.triggerTime, sleepTimer.endOf, sleepTimer.changes) }.collectLatest {
+                    if (!sleepTimer.isActive) {
                         if (shown) {
                             sleepTimerNotification.hide()
                             shown = false
                         }
                         return@collectLatest
                     }
-                    while (isActive) {
-                        val trigger = sleepTimer.triggerTime
-                        sleepTimerNotification.show(
-                            if (trigger == -1L) null
-                            else (trigger - System.currentTimeMillis()).coerceAtLeast(0L)
-                        )
-                        shown = true
-                        delay(SLEEP_TIMER_NOTIF_TICK_MS)
-                    }
+                    // A song change reports through several callbacks: one post for the lot.
+                    delay(SLEEP_TIMER_NOTIF_SETTLE_MS)
+                    sleepTimerNotification.show(sleepTimerContent())
+                    shown = true
                 }
             }
 
@@ -6740,6 +6739,7 @@ class MusicService : MediaLibraryService(),
         castProbe = null
         stopCastServer()
         if (screenOffRegistered) runCatching { unregisterReceiver(screenOff) }
+        if (sleepTimerActionRegistered) runCatching { unregisterReceiver(sleepTimerAction) }
         // Ending while the music plays is Android stopping the service, not the person: say so, and
         // keep it where Report a problem finds it after the process is gone too.
         if (activePlayer.isPlaying) {
@@ -6784,6 +6784,38 @@ class MusicService : MediaLibraryService(),
         }
     }
     private var screenOffRegistered = false
+
+    /**
+     * The buttons of the sleep timer's notification: +5 min and +15 min move the stop later, Stop
+     * ends the timer. The notification follows by itself, as it does for the sheet's own buttons.
+     */
+    private val sleepTimerAction = object : android.content.BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            if (!::sleepTimer.isInitialized) return
+            val minutes = intent.getIntExtra(SleepTimerNotification.EXTRA_MINUTES, -1)
+            when {
+                minutes == SleepTimerNotification.STOP -> sleepTimer.clear()
+                minutes > 0 -> sleepTimer.extend(minutes)
+            }
+        }
+    }
+    private var sleepTimerActionRegistered = false
+
+    /**
+     * What the sleep timer's notification says now. With Let the song finish, the song is named
+     * only when it is the one playing when the time comes: a later one is not known by its name.
+     */
+    private fun sleepTimerContent(): SleepTimerNotification.Content {
+        val timed = sleepTimer.triggerTime != -1L
+        val afterSong = timed && sleepTimer.letSongFinish
+        return SleepTimerNotification.Content(
+            end = sleepTimer.endOf,
+            stopAtMs = sleepTimer.triggerTime.takeIf { it != -1L },
+            fadeSeconds = if (sleepTimer.fadeEnabled) (sleepTimer.fadeDurationMs / 1000L).toInt() else null,
+            afterSong = afterSong,
+            songTitle = if (afterSong && sleepTimer.songOutlastsTime()) activePlayer.currentMediaItem?.mediaMetadata?.title?.toString() else null,
+        )
+    }
 
     /** Whether the screen is on, for the lines that say why the music stopped. */
     private fun screenOn(): Boolean? = getSystemService<PowerManager>()?.isInteractive
@@ -6925,10 +6957,8 @@ class MusicService : MediaLibraryService(),
         const val PLAYLIST = "playlist"
         const val SEARCH = "search"
 
-        /** How often the sleep timer countdown is redrawn while a timer is running. */
-        private const val SLEEP_TIMER_NOTIF_TICK_MS = 30_000L
-
-        /** How often to look for a newly armed timer. Cheap: it is one boolean read. */
+        /** How long the sleep timer's notification waits for a burst of changes to end before it is posted. */
+        private const val SLEEP_TIMER_NOTIF_SETTLE_MS = 250L
 
         const val CHANNEL_ID = "music_channel_01"
         const val CHANNEL_NAME = "fgs_workaround"
