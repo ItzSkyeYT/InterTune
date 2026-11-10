@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.FlowRowScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -27,6 +28,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -99,6 +101,9 @@ import java.util.Locale
 import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
+
+/** About the width of a space in the sheet's body text. */
+private val SPACE_WIDTH = 4.dp
 
 /**
  * What the sleep timer says about itself, once a second while it runs, or null while none does.
@@ -356,7 +361,7 @@ private fun SetTimer(value: Float, onValueChange: (Float) -> Unit, onEnd: (Sleep
         )
 
         // In: how long from now. The lengths the leading players offer, and 90.
-        ChipRow(stringResource(R.string.sleep_row_in)) {
+        ChipRow(stringResource(R.string.sleep_row_in), perRow = 3) {
             for (length in SleepTimerDefaults.IN_MINUTES) {
                 SleepChip(
                     text = stringResource(R.string.sleep_minutes_short, length),
@@ -465,7 +470,9 @@ private fun SleepSwitches(letFinishApplies: Boolean) {
         }
         SwitchRow(checked = night, onChange = onNight) {
             Text(stringResource(R.string.sleep_every_night), style = MaterialTheme.typography.bodyLarge)
-            Text(" · ", style = MaterialTheme.typography.bodyLarge)
+            // The gaps either side of the dot are the width of a space, as in "Fade out · 30 s" above.
+            Spacer(Modifier.width(SPACE_WIDTH))
+            Text("·", style = MaterialTheme.typography.bodyLarge)
             // The time is its own button: the same picker as in Player and audio, and the same stored time.
             Box(
                 contentAlignment = Alignment.Center,
@@ -473,7 +480,7 @@ private fun SleepSwitches(letFinishApplies: Boolean) {
                     .clip(RoundedCornerShape(8.dp))
                     .clickable(onClickLabel = stringResource(R.string.sleep_schedule_start)) { showStart = true }
                     .heightIn(min = 40.dp)
-                    .padding(horizontal = 6.dp),
+                    .padding(horizontal = SPACE_WIDTH),
             ) {
                 Text(
                     text = formatTimeOfDay(LocalContext.current, start),
@@ -510,17 +517,24 @@ private fun SwitchRow(
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = 48.dp)
-            .alpha(if (enabled) 1f else 0.5f)
             .toggleable(value = checked, enabled = enabled, role = Role.Switch, onValueChange = onChange)
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f), content = label)
+        // Only the words dim where the switch does not apply: the switch has its own look for that,
+        // and dimmed twice it was a dark dot on the sheet.
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .weight(1f)
+                .alpha(if (enabled) 1f else 0.5f),
+            content = label,
+        )
         Switch(checked = checked, onCheckedChange = null, enabled = enabled)
     }
 }
 
-/** A labelled row of chips, centred, that wraps where it must. */
+/** A labelled row of chips, centred, that wraps where it must, and at [perRow] at the most. */
 @Composable
-private fun ChipRow(label: String, chips: @Composable FlowRowScope.() -> Unit) {
+private fun ChipRow(label: String, perRow: Int = Int.MAX_VALUE, chips: @Composable FlowRowScope.() -> Unit) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
@@ -536,6 +550,7 @@ private fun ChipRow(label: String, chips: @Composable FlowRowScope.() -> Unit) {
         FlowRow(
             horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
             verticalArrangement = Arrangement.spacedBy(8.dp),
+            maxItemsInEachRow = perRow,
             content = chips,
         )
     }

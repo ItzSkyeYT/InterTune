@@ -75,6 +75,22 @@ class SleepTimerSheetTest {
     }
 
     @Test
+    fun `the lengths sit three to a row, and a switch that does not apply dims its words and not its switch`() {
+        assertTrue("ChipRow(stringResource(R.string.sleep_row_in), perRow = 3)" in sheet)
+        assertTrue("maxItemsInEachRow = perRow" in sheet)
+        val row = sheet.substringAfter("private fun SwitchRow(").substringBefore("/** A labelled row of chips")
+        // The words carry the alpha, once; the row and the switch do not, which left the switch invisible.
+        assertEquals(1, Regex("""\.alpha\(""").findAll(row).count())
+        assertTrue(".alpha(if (enabled) 1f else 0.5f)," in row.substringAfter("modifier = Modifier\n                .weight(1f)"))
+    }
+
+    @Test
+    fun `the menu entry names the time left only where it can be told`() {
+        val grid = fileCode("ui/menu/GridMenu.kt")
+        assertTrue("if (enabled && sleepTimerTimeLeft > 0) makeTimeString(sleepTimerTimeLeft)" in grid)
+    }
+
+    @Test
     fun `the schedule's lengths are the ones they were, whatever the sheet offers`() {
         assertEquals(listOf(15, 30, 45, 60, 75, 90), com.dd3boh.outertune.constants.SleepTimerDefaults.PRESET_MINUTES)
     }
