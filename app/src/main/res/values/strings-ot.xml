@@ -2749,4 +2749,31 @@ while also allowing users to translate our app as well. New, specific strings to
     </plurals>
     <!-- A picker asked for on a device with none (#120, #121). -->
     <string name="no_app_to_pick">No file picker here. Install a file manager app.</string>
+    <!-- The sleep timer's sheet and its notification (SleepTimerDialog, SleepTimerNotification). Held from translators. -->
+    <string name="sleep_row_in" translatable="false">In</string>
+    <string name="sleep_row_at" translatable="false">At</string>
+    <string name="sleep_row_end_of" translatable="false">End of</string>
+    <string name="sleep_minutes_short" translatable="false">%1$d min</string>
+    <string name="sleep_end_song" translatable="false">Song</string>
+    <string name="sleep_end_album" translatable="false">Album</string>
+    <string name="sleep_end_of_album" translatable="false">End of album</string>
+    <string name="sleep_end_of_queue" translatable="false">End of queue</string>
+    <string name="sleep_let_finish" translatable="false">Let the song finish</string>
+    <string name="sleep_fade_row" translatable="false">Fade out · %1$d&#160;s</string>
+    <string name="sleep_every_night" translatable="false">Every night</string>
+    <string name="sleep_start" translatable="false">Start</string>
+    <string name="sleep_stop" translatable="false">Stop timer</string>
+    <string name="sleep_close" translatable="false">Close</string>
+    <string name="sleep_plus_minutes" translatable="false">+%1$d min</string>
+    <string name="sleep_stops_at" translatable="false">Stops at %1$s</string>
+    <string name="sleep_stops_at_after_song" translatable="false">Stops at %1$s, after the song</string>
+    <string name="sleep_the_song" translatable="false">the song</string>
+    <string name="sleep_notif_title_at" translatable="false">Music stops at %1$s</string>
+    <string name="sleep_notif_title_song" translatable="false">Music stops after this song</string>
+    <string name="sleep_notif_title_album" translatable="false">Music stops after this album</string>
+    <string name="sleep_notif_title_queue" translatable="false">Music stops at the end of the queue</string>
+    <string name="sleep_notif_line_fade" translatable="false">Fades out %1$d&#160;s</string>
+    <string name="sleep_notif_line_fade_after" translatable="false">Fades out %1$d&#160;s, after %2$s</string>
+    <string name="sleep_notif_line_after" translatable="false">After %1$s</string>
+    <string name="sleep_notif_stop" translatable="false">Stop</string>
 </resources>

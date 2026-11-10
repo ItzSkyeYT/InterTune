@@ -456,7 +456,8 @@ fun LazyGridScope.SleepTimerGridMenu(
         mark = mark,
     ) {
         Text(
-            text = if (enabled) makeTimeString(sleepTimerTimeLeft) else stringResource(
+            // The time left where it can be told: the end of a song whose length is not known has none.
+            text = if (enabled && sleepTimerTimeLeft > 0) makeTimeString(sleepTimerTimeLeft) else stringResource(
                 id = R.string.sleep_timer
             ),
             style = MaterialTheme.typography.labelLarge,
