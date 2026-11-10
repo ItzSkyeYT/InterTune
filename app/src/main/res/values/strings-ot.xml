@@ -2738,4 +2738,6 @@ while also allowing users to translate our app as well. New, specific strings to
         <item quantity="one">%1$d hidden</item>
         <item quantity="other">%1$d hidden</item>
     </plurals>
+    <!-- A picker asked for on a device with none (#120, #121). -->
+    <string name="no_app_to_pick">No file picker here. Install a file manager app.</string>
 </resources>
