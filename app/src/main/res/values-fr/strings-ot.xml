@@ -2576,4 +2576,12 @@
     <string name="sleep_notif_line_fade_after">Fondu de %1$d&#160;s, après %2$s</string>
     <string name="sleep_notif_line_after">Après %1$s</string>
     <string name="sleep_notif_stop">Arrêter</string>
+    <string-array name="file_size_units">
+        <item>o</item>
+        <item>Ko</item>
+        <item>Mo</item>
+        <item>Go</item>
+        <item>To</item>
+        <item>Po</item>
+    </string-array>
 </resources>

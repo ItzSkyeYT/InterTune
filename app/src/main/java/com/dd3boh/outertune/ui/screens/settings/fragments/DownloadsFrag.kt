@@ -357,7 +357,7 @@ fun ColumnScope.DownloadsFrag() {
     }
 
     Text(
-        text = stringResource(R.string.dl_size_used_cache, formatFileSize(downloadCacheSize)),
+        text = stringResource(R.string.dl_size_used_cache, formatFileSize(context, downloadCacheSize)),
         style = MaterialTheme.typography.bodyMedium,
         modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
     )
@@ -381,7 +381,7 @@ fun ColumnScope.DownloadsFrag() {
             Text(
                 text = stringResource(
                     R.string.dl_size_used_main,
-                    formatFileSize(downloadMainPathSize.coerceIn(0, Long.MAX_VALUE))
+                    formatFileSize(context, downloadMainPathSize.coerceIn(0, Long.MAX_VALUE))
                 ),
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
@@ -400,7 +400,7 @@ fun ColumnScope.DownloadsFrag() {
             Text(
                 text = stringResource(
                     R.string.dl_size_used_extra,
-                    formatFileSize(downloadExtraPathSize.coerceIn(0, Long.MAX_VALUE))
+                    formatFileSize(context, downloadExtraPathSize.coerceIn(0, Long.MAX_VALUE))
                 ),
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
