@@ -1940,6 +1940,8 @@ object YTPlayerUtils {
                         preferredMime,
                         wish?.sameStream,
                     ) ?: continue
+                // What kept a web client's address from being deciphered, for the log: see StreamCipher.whyNotSolved.
+                var notDeciphered: String? = null
                 val address =
                     if (isWeb) {
                         // A web client's address is read here and solved by the solver, in what
@@ -1953,12 +1955,19 @@ object YTPlayerUtils {
                                     .getOrNull()
                             }
                         }
-                        asIssued?.let { issued ->
-                            StreamCipher.solved(
-                                issued,
-                                signature = issued.signature?.let { answers?.signatures?.get(it) },
-                                n = issued.n?.let { answers?.ns?.get(it) },
-                            )
+                        if (asIssued == null) {
+                            notDeciphered = "the cipher could not be read"
+                            null
+                        } else {
+                            val signature = asIssued.signature?.let { answers?.signatures?.get(it) }
+                            val n = asIssued.n?.let { answers?.ns?.get(it) }
+                            StreamCipher.solved(asIssued, signature = signature, n = n).also { solvedAddress ->
+                                if (solvedAddress == null) {
+                                    notDeciphered =
+                                        if (asIssued.needsSolving && answers == null) "the solver gave no answer"
+                                        else StreamCipher.whyNotSolved(asIssued, signature, n)
+                                }
+                            }
                         }
                     } else {
                         val decipheredAt = System.nanoTime()
@@ -1989,7 +1998,7 @@ object YTPlayerUtils {
                     trail[trail.lastIndex] = StreamCheck.trailStep(clientLabel, "OK", null, checked = false, lacking = lacking)
                     // An n step that did not answer is the connection's, not the client's: no strike.
                     if (decipherUnanswered && asked.lastOrNull()?.client == clientLabel) asked.removeAt(asked.lastIndex)
-                    Log.w(TAG, "[$videoId] [${client.clientName}] answered OK, $lacking")
+                    Log.w(TAG, "[$videoId] [${client.clientName}] answered OK, $lacking${notDeciphered?.let { " ($it)" }.orEmpty()}")
                     continue
                 }
                 streamExpiresInSeconds =
