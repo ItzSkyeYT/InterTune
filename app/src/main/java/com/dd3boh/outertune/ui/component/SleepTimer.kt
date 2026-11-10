@@ -191,45 +191,53 @@ fun SleepTimerDialog(playerConnection: PlayerConnection, onDismiss: () -> Unit) 
         },
     ) {
         Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier
                 .fillMaxWidth()
-                .verticalScroll(rememberScrollState())
                 .padding(horizontal = 24.dp)
                 .padding(bottom = 8.dp)
         ) {
-            // The icon where there is height to spare. On its side the window has room for the rest and little more.
-            if (!landscape.active) {
-                Icon(
-                    imageVector = Icons.Rounded.Timer,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.secondary,
-                    modifier = Modifier.padding(bottom = 12.dp)
+            // What does not fit scrolls, and the buttons stay where they are: on its side the sheet is
+            // short, and the way to Start or to Stop timer was at the end of a scroll.
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f, fill = false)
+                    .verticalScroll(rememberScrollState())
+            ) {
+                // The icon where there is height to spare. On its side the window has room for the rest and little more.
+                if (!landscape.active) {
+                    Icon(
+                        imageVector = Icons.Rounded.Timer,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.secondary,
+                        modifier = Modifier.padding(bottom = 12.dp)
+                    )
+                }
+                Text(
+                    text = stringResource(R.string.sleep_timer),
+                    style = MaterialTheme.typography.headlineSmall,
+                    modifier = Modifier.padding(bottom = 4.dp)
                 )
-            }
-            Text(
-                text = stringResource(R.string.sleep_timer),
-                style = MaterialTheme.typography.headlineSmall,
-                modifier = Modifier.padding(bottom = 4.dp)
-            )
 
-            if (status == null) {
-                SetTimer(
-                    value = sleepTimerValue,
-                    onValueChange = { sleepTimerValue = it },
-                    onEnd = { end ->
+                if (status == null) {
+                    SetTimer(
+                        value = sleepTimerValue,
+                        onValueChange = { sleepTimerValue = it },
+                        onEnd = { end ->
+                            onDismiss()
+                            timer.start(end)
+                        },
+                    )
+                } else {
+                    RunningTimer(status = status, timer = timer, onEndOfSong = {
                         onDismiss()
-                        timer.start(end)
-                    },
-                )
-            } else {
-                RunningTimer(status = status, timer = timer, onEndOfSong = {
-                    onDismiss()
-                    timer.start(SleepEnd.SONG)
-                })
-            }
+                        timer.start(SleepEnd.SONG)
+                    })
+                }
 
-            SleepSwitches(letFinishApplies = status?.end == null)
+                SleepSwitches(letFinishApplies = status?.end == null)
+            }
 
             Row(
                 horizontalArrangement = Arrangement.End,

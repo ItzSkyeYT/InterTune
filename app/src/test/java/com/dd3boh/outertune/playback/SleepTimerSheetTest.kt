@@ -85,6 +85,19 @@ class SleepTimerSheetTest {
     }
 
     @Test
+    fun `what does not fit scrolls above the buttons, which stay where they are`() {
+        val body = sheet.substringAfter("fun SleepTimerDialog(")
+        val scroll = body.indexOf(".weight(1f, fill = false)")
+        val scrolling = body.indexOf(".verticalScroll(rememberScrollState())")
+        val buttons = body.indexOf("R.string.sleep_start")
+        assertTrue(scroll in 0 until scrolling)
+        // The words, the rows and the switches are inside the scroll, and Start after it.
+        assertTrue(body.indexOf("SleepSwitches(letFinishApplies") in scrolling until buttons)
+        // Not the whole sheet: a scroll round the buttons put Start at the end of one on a phone's side.
+        assertEquals(1, Regex("""\.verticalScroll\(""").findAll(body.substringBefore("private fun SetTimer(")).count())
+    }
+
+    @Test
     fun `the menu entry names the time left only where it can be told`() {
         val grid = fileCode("ui/menu/GridMenu.kt")
         assertTrue("if (enabled && sleepTimerTimeLeft > 0) makeTimeString(sleepTimerTimeLeft)" in grid)
