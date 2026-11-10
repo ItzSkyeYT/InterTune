@@ -313,6 +313,9 @@ class ChangeRender(
     }
 }
 
+/** A render stopped on request ([LaneMixer.render]'s `cancelled`): nothing is wrong, nobody waits for it any more. */
+class RenderCancelled : java.util.concurrent.CancellationException("the render was cancelled")
+
 /**
  * Renders a [LanePlan]: each song cut into its bands, each lane shaped, A stretched to B's beat
  * where the plan says, and both under one headroom worked out from what they really add up to.
@@ -326,7 +329,10 @@ class LaneMixer(private val plan: LanePlan) {
     /**
      * Renders the change from A's music [a] (the held end or the editor's copy of it) and B's copy
      * [b]. Each song is kept at its own [attenuationA] and [attenuationB], its loudness
-     * normalisation as it plays.
+     * normalisation as it plays. [cancelled] is asked every [CANCEL_FRAMES] frames of both passes;
+     * once it says yes the render stops with [RenderCancelled], so a render nobody waits for any
+     * more (the editor's, with a newer edit asked for) gives the processor back within a few
+     * milliseconds instead of at its end.
      */
     @JvmOverloads
     fun render(
@@ -338,6 +344,7 @@ class LaneMixer(private val plan: LanePlan) {
         aParts: List<java.nio.ShortBuffer>? = null,
         /** B's, frame for frame with [b]. */
         bParts: List<java.nio.ShortBuffer>? = null,
+        cancelled: () -> Boolean = { false },
     ): ChangeRender {
         val started = System.nanoTime()
         val channels = plan.channels
@@ -373,6 +380,7 @@ class LaneMixer(private val plan: LanePlan) {
                 knotPeak = 0.0
             }
             for (o in from until to) {
+                if (o % CANCEL_FRAMES == 0L && cancelled()) throw RenderCancelled()
                 val k = ((o - from) / step).toInt()
                 if (k != knot) {
                     close()
@@ -409,6 +417,7 @@ class LaneMixer(private val plan: LanePlan) {
             val fa = DoubleArray(channels)
             val fb = DoubleArray(channels)
             for (o in from until to) {
+                if (o % CANCEL_FRAMES == 0L && cancelled()) throw RenderCancelled()
                 val h = headroom.at(o)
                 if (o < aTo) sideA.next(o, fa) else fa.fill(0.0)
                 if (o >= bFrom) sideB.next(o, fb) else fb.fill(0.0)
@@ -512,6 +521,9 @@ class LaneMixer(private val plan: LanePlan) {
     companion object {
         /** How long B takes to start when it comes in after its first frame: no click, nothing heard as a fade. */
         const val ENTRY_FADE_MS = 5
+
+        /** How many output frames a render works between two looks at its [render]'s `cancelled`: about 45 ms of music, a few ms of work. */
+        const val CANCEL_FRAMES = 2048L
     }
 
     /** B at A's tempo along its map, laid on its own beats, back to its own samples where it is back at its own speed. */

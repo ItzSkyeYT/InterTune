@@ -39,7 +39,7 @@ class EnginePreviewTest {
         val model = File(dir, "MixEditorViewModel.kt").readText()
         val audio = File(dir, "EditorAudio.kt").readText()
         val screen = File(dir, "MixEditorScreen.kt").readText()
-        assertTrue("the preview renders both songs at full", "Preview.render(alone, a, b, aAnalysis, levelA, levelB)" in preview)
+        assertTrue("the preview renders both songs at full", "Preview.render(alone, a, b, aAnalysis, levelA, levelB, cancelled)" in preview)
         assertTrue("the preview is made without the songs' levels", "EnginePreview(loaded.aCopy, loaded.bCopy, loaded.a.analysis, levelA, levelB, volume)" in model)
         assertTrue("Auto's proofs hear both songs at full", "AutoOnBands.choose(aSong, bSong, attenuationA = levelA, attenuationB = levelB)" in audio)
         assertTrue("the levels are not the ones the service plays at", "mixLevelOf(" in screen)

@@ -64,14 +64,16 @@ object Preview {
      * the parts where both copies have them and the plan reads them as they are; on bands
      * otherwise, as it would play. [aAnalysis], an analysis of A's copy, gives the stretch A's own
      * beats to land, where it was made already. Fails with why when the copies cannot hold the
-     * change, or are not in one format.
+     * change, or are not in one format. [cancelled] stops it, with [RenderCancelled] thrown,
+     * soon after it says yes ([LaneMixer.render]).
      */
     fun render(
         spec: TransitionSpec, a: Copy, b: Copy, aAnalysis: RegionAnalysis? = null,
         attenuationA: Double = 1.0, attenuationB: Double = 1.0,
+        cancelled: () -> Boolean = { false },
     ): Result<PreviewWindow> {
         val p = planned(spec, a, b, aAnalysis).getOrElse { return Result.failure(it) }
-        val render = LaneMixer(p.plan).render(a.pcm, b.pcm, attenuationA, attenuationB, p.aParts, p.bParts)
+        val render = LaneMixer(p.plan).render(a.pcm, b.pcm, attenuationA, attenuationB, p.aParts, p.bParts, cancelled)
         return Result.success(PreviewWindow(render, render.mix(a.pcm, b.pcm, p.from, p.to), p.from, p.to))
     }
 

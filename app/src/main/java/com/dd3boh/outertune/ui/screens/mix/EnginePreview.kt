@@ -21,6 +21,7 @@ import com.dd3boh.outertune.mix.engine.Copy
 import com.dd3boh.outertune.mix.engine.Preview
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import java.util.concurrent.CancellationException
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.math.PI
 import kotlin.math.floor
@@ -40,7 +41,9 @@ import kotlin.math.sin
  * playhead stays where it was. The rest of the window follows, then the stretch before that bar.
  * Where an echo rings, a whole render takes over once it is ready, since a stream begun inside the
  * change hears an echo's earliest repeats short. A whole render took seconds before anything new
- * was heard.
+ * was heard, and one that follows a stream (12.5 s on a Pixel 5) held up the edit made while it ran
+ * by what was left of it (2.9 to 11 s, seen 10 Nov 2026): it gives way to a newer edit within a few
+ * ms, so every edit is heard in about the time the rest are.
  *
  * It plays on its own AudioTrack with about 40 ms of buffer, on its own thread at audio priority,
  * looping over the canvas with a short fade at the seam. A plain change is heard as it plays: A to
@@ -71,6 +74,9 @@ class EnginePreview(
     /** The newest spec asked for, and the one rendered from it, which the audio thread plays. */
     private val wanted = AtomicReference<PreviewSetup?>(null)
     @Volatile private var heard: PreviewHeard? = null
+
+    /** What the audio thread would play now, for a test. */
+    internal val heardSetup: PreviewSetup? get() = heard?.setup
     private val renderLock = Object()
     @Volatile private var released = false
     private val renderer = Thread({ renderLoop() }, "MixPreviewRender").apply {
@@ -172,15 +178,29 @@ class EnginePreview(
             }
             if (wanted.get() !== next || released) continue
             val began = System.nanoTime()
-            runCatching { sound.heardOf(next) }
+            // Worked on only for as long as it is the edit wanted: a newer one stops it within a few ms
+            // (LaneMixer.CANCEL_FRAMES), and is streamed at once, not after what is left of this.
+            val cancelled = { wanted.get() !== next || released }
+            runCatching { sound.heardOf(next, cancelled) }
                 .onSuccess {
-                    heard = it
                     val now = System.nanoTime()
+                    // One that finished as a newer edit came is not what is meant any more: its stream is on its way.
+                    if (wanted.get() !== next || released) {
+                        Log.i(LATENCY, "rendered the change whole in %.0f ms, but a newer edit had come: not heard".format((now - began) / 1e6))
+                        return@onSuccess
+                    }
+                    heard = it
                     Log.i(LATENCY, "rendered %.1f s of the change whole in %.0f ms, began %.0f ms after the edit".format(
                         it.frames.toDouble() / rate, (now - began) / 1e6, (began - next.askedNanos) / 1e6,
                     ))
                 }
-                .onFailure { Log.w(TAG, "The preview could not render this change", it) }
+                .onFailure {
+                    if (it is CancellationException) {
+                        Log.i(LATENCY, "the whole render gave way to a newer edit after %.0f ms".format((System.nanoTime() - began) / 1e6))
+                    } else {
+                        Log.w(TAG, "The preview could not render this change", it)
+                    }
+                }
         }
     }
 
@@ -440,15 +460,18 @@ internal class PreviewSound(
     val rate = a.sampleRate
     val channels = a.channels
 
-    /** What [s] sounds like over its canvas, from the engine's render, or as a plain change. */
-    fun heardOf(s: PreviewSetup): PreviewHeard {
+    /**
+     * What [s] sounds like over its canvas, from the engine's render, or as a plain change. The
+     * render stops, with a CancellationException, soon after [cancelled] says yes.
+     */
+    fun heardOf(s: PreviewSetup, cancelled: () -> Boolean = { false }): PreviewHeard {
         val spec = s.spec
         if (spec.plain) return plainOf(s)
         // Played as the engine plays it, loops in front of B and the intro twice included: a change
         // that asks for what it does not play yet (a later start) is heard without it.
         val playable = spec.copy(bStartMs = 0.0)
         val alone = s.solo?.let { solo(playable, it, s.from, s.to) } ?: playable
-        val window = Preview.render(alone, a, b, aAnalysis, levelA, levelB).getOrThrow()
+        val window = Preview.render(alone, a, b, aAnalysis, levelA, levelB, cancelled).getOrThrow()
         return PreviewHeard(s, window.pcm, window.frames, { i -> window.uAt(i) }, { u -> window.indexAt(u) })
     }
 
