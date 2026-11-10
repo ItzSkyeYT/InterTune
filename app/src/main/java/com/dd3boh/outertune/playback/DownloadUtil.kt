@@ -40,6 +40,7 @@ import com.dd3boh.outertune.constants.DownloadFormat
 import com.dd3boh.outertune.constants.DownloadFormatKey
 import com.dd3boh.outertune.constants.DownloadQuality
 import com.dd3boh.outertune.constants.DownloadQualityKey
+import com.dd3boh.outertune.utils.FailureLog
 import com.dd3boh.outertune.utils.ReportTrail
 import com.dd3boh.outertune.constants.DownloadExtraPathKey
 import kotlinx.coroutines.flow.drop
@@ -1257,7 +1258,10 @@ class DownloadUtil @Inject constructor(
         exportState.value = ExportState.Running(0, items.size, null)
         CoroutineScope(dlCoroutine).launch {
             val result = runCatching { exportSongs(items, format, bitrate, target) }
-                .onFailure { Log.w(TAG, "The export failed", it) }
+                .onFailure {
+                    Log.w(TAG, "The export failed", it)
+                    FailureLog.record("Exporting the songs to a folder", it)
+                }
                 .getOrElse { ExportResult(0, items.map { ExportSkip(it, SkipReason.FAILED) }) }
             exportState.value = ExportState.Finished(result)
             if (exportWatchers.get() == 0) {

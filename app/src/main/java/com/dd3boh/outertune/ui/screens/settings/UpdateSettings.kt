@@ -54,6 +54,7 @@ import com.dd3boh.outertune.ui.component.ListPreference
 import com.dd3boh.outertune.utils.BackgroundCheckWorker
 import com.dd3boh.outertune.ui.component.PreferenceGroupTitle
 import com.dd3boh.outertune.ui.component.SwitchPreference
+import com.dd3boh.outertune.utils.FailureLog
 import com.dd3boh.outertune.utils.UpdateChecker
 import com.dd3boh.outertune.utils.rememberPreference
 import kotlinx.coroutines.launch
@@ -214,6 +215,7 @@ fun UpdateSettings(
                         checking = false
                         if (result == null) {
                             // A null result means nothing new only when the check got an answer.
+                            if (updateChecker.lastCheckFailed.value) FailureLog.record("Checking for updates", why = "the update check got no answer")
                             Toaster.show(
                                 context,
                                 context.getString(
