@@ -115,6 +115,7 @@ import com.dd3boh.outertune.ui.player.LivingField
 import com.dd3boh.outertune.ui.player.KeepScreenOnController
 import com.dd3boh.outertune.ui.player.KeepScreenOnReason
 import com.dd3boh.outertune.ui.theme.extractGradientColors
+import com.dd3boh.outertune.utils.FailureLog
 import com.dd3boh.outertune.utils.coilCoroutine
 import com.dd3boh.outertune.utils.makeTimeString
 import com.dd3boh.outertune.utils.rememberEnumPreference
@@ -413,7 +414,11 @@ fun LyricsCardDialog(lines: List<String>, song: MediaMetadata, video: LyricsVide
     /** Says whether it was saved, and where: [place] on Android 10 and up, the file's name where the save screen asked. */
     fun saidSaved(saved: Boolean, place: String) {
         if (saved) Toaster.show(context, context.getString(R.string.lyrics_saved, place), Toast.LENGTH_LONG)
-        else Toaster.show(context, R.string.error_unknown, Toast.LENGTH_SHORT)
+        else {
+            // After LyricsSave's own line about why: the report's fault is this, and the reason is above it.
+            FailureLog.record("Saving the lyrics picture", why = "it could not be written")
+            Toaster.show(context, R.string.error_unknown, Toast.LENGTH_SHORT)
+        }
     }
 
     // Older Android asks where it goes, on the system's own save screen: one for each kind of file.

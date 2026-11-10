@@ -80,6 +80,7 @@ import androidx.datastore.preferences.core.edit
 import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.constants.UpdateCheckEnabledKey
 import com.dd3boh.outertune.constants.UsageCountEnabledKey
+import com.dd3boh.outertune.utils.FailureLog
 import com.dd3boh.outertune.utils.dataStore
 import androidx.compose.material3.Text
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
@@ -587,6 +588,7 @@ class MainActivity : ComponentActivity() {
                         throw e
                     } catch (e: Exception) {
                         Log.w(MAIN_TAG, "Could not search for a play from search", e)
+                        FailureLog.record("Playing from a search", e)
                         null
                     }
                     when (playSearchOutcome(found)) {

@@ -18,6 +18,7 @@ import com.dd3boh.outertune.extensions.zipInputStream
 import com.dd3boh.outertune.playback.MusicService
 import com.dd3boh.outertune.utils.BackupParts
 import com.dd3boh.outertune.utils.BackupWriter
+import com.dd3boh.outertune.utils.FailureLog
 import com.dd3boh.outertune.utils.PlaylistCovers
 import com.dd3boh.outertune.utils.SettingsFile
 import com.dd3boh.outertune.utils.SignIns
@@ -93,6 +94,7 @@ class BackupRestoreViewModel @Inject constructor(
                     Toaster.show(context, R.string.backup_create_success, Toast.LENGTH_SHORT)
                 }.onFailure {
                     reportException(it)
+                    FailureLog.record("Creating a backup", it)
                     Toaster.show(context, R.string.backup_create_failed, Toast.LENGTH_SHORT)
                 }
             }
@@ -130,6 +132,7 @@ class BackupRestoreViewModel @Inject constructor(
                         )
                         exitProcess(0)
                     } else {
+                        FailureLog.record("Restoring a backup", why = "its database is not one this version can open")
                         Toaster.show(
                             context,
                             context.getString(R.string.err_restore_incompatible_database),
@@ -138,6 +141,7 @@ class BackupRestoreViewModel @Inject constructor(
                     }
                 }.onFailure {
                     reportException(it)
+                    FailureLog.record("Restoring a backup", it)
                     Toaster.show(context, it.message, Toast.LENGTH_SHORT)
                 }
             }
