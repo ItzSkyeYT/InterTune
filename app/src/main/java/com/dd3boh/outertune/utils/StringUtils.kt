@@ -1,5 +1,7 @@
 package com.dd3boh.outertune.utils
 
+import android.content.Context
+import com.dd3boh.outertune.R
 import android.net.Uri
 import com.dd3boh.outertune.db.entities.AlbumEntity
 import com.dd3boh.outertune.db.entities.ArtistEntity
@@ -53,31 +55,28 @@ fun String.urlEncode(): String = Uri.encode(this)
 
 fun fixFilePath(path: String) = "/" + path.split('/').filterNot { it.isEmpty() }.joinToString("/") + "/"
 
-fun formatFileSize(sizeBytes: Long): String {
+/** The units [formatFileSize] writes, smallest first, where no language gives its own. */
+val FILE_SIZE_UNITS = listOf("B", "KB", "MB", "GB", "TB", "PB")
+
+/** A size in bytes as the settings show it: 1024 to a step, the unit from [units]. */
+fun formatFileSize(sizeBytes: Long, units: List<String> = FILE_SIZE_UNITS): String {
     val prefix = if (sizeBytes < 0) "-" else ""
     var result: Long = sizeBytes.absoluteValue
-    var suffix = "B"
-    if (result > 900) {
-        suffix = "KB"
+    var unit = 0
+    while (result > 900 && unit < units.lastIndex) {
         result /= 1024
+        unit++
     }
-    if (result > 900) {
-        suffix = "MB"
-        result /= 1024
-    }
-    if (result > 900) {
-        suffix = "GB"
-        result /= 1024
-    }
-    if (result > 900) {
-        suffix = "TB"
-        result /= 1024
-    }
-    if (result > 900) {
-        suffix = "PB"
-        result /= 1024
-    }
-    return "$prefix$result $suffix"
+    return "$prefix$result ${units[unit]}"
+}
+
+/**
+ * [formatFileSize] in the app's language: French writes o, Ko, Mo and Go (R.array.file_size_units),
+ * and a French screen said MB (seen in the look of 0.13's screens, 10 Nov 2026).
+ */
+fun formatFileSize(context: Context, sizeBytes: Long): String {
+    val units = runCatching { context.resources.getStringArray(R.array.file_size_units).toList() }.getOrNull()
+    return formatFileSize(sizeBytes, units?.takeIf { it.size == FILE_SIZE_UNITS.size } ?: FILE_SIZE_UNITS)
 }
 
 /*
