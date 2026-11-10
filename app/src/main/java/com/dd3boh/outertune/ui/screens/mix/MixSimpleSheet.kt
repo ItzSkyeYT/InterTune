@@ -89,6 +89,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -183,18 +184,61 @@ internal fun chipScrollTarget(left: Int, right: Int, scroll: Int, viewport: Int,
 /**
  * A presets row that keeps its lit chip in view, on either level of the editor: a row's choice that
  * matches a preset further along the row (Overlap with Bass swap is Fade) lit it out of sight, its
- * line under a row of unlit chips. [scroll] goes to the row's horizontalScroll, [chip] on each chip;
- * [pad] is the row's own padding at its start, inside the scroll.
+ * line under a row of unlit chips. [scroll] goes to the row's horizontalScroll, [chip] on each chip
+ * (an app preset by its [Preset], one of the listener's own by its id); [pad] is the row's own
+ * padding at its start, inside the scroll.
  */
 @Stable
 internal class PresetRow(val scroll: ScrollState, private val padPx: Int) {
-    val edges = mutableStateMapOf<Preset, IntRange>()
+    val edges = mutableStateMapOf<Any, IntRange>()
 
-    fun chip(p: Preset): Modifier = Modifier.onPlaced { c ->
+    /** The chip that was lit when the row last looked, for [goesTo]. */
+    internal var lastShown: Any? = null
+
+    fun chip(key: Any): Modifier = Modifier.onPlaced { c ->
         val left = padPx + c.positionInParent().x.toInt()
         val placed = left..(left + c.size.width)
-        if (edges[p] != placed) edges[p] = placed
+        if (edges[key] != placed) edges[key] = placed
     }
+}
+
+/**
+ * Whether the row goes to the chip now lit, [shown]: where one is (a plain change lights none), and
+ * not where the chip lit before, [was], was one of the listener's own that is gone from [users]. A
+ * delete lights Custom, at the row's start, and the row has to stay where the finger just was; a
+ * save or a preset laid on lights the listener's chip at its end, which comes into view.
+ */
+internal fun goesTo(was: Any?, shown: Any?, users: List<String>): Boolean =
+    shown != null && !(was is String && was !in users)
+
+/**
+ * The row's scroll for a lit chip. [shown] is the chip drawn lit: the listener's own preset by its
+ * id when one is (Custom is then drawn unlit), else the app's [Preset] the change matches. A row
+ * of presets scrolled to Custom after every save, preset laid on or delete, at the start of the
+ * row and out of sight of the chip that had just been made or tapped (10 Nov 2026): it went to
+ * Custom, which the page kept calling lit under a chip of the listener's.
+ */
+@Composable
+internal fun rememberPresetRow(shown: Any?, users: List<String>, pad: Dp): PresetRow {
+    val padPx = with(LocalDensity.current) { pad.roundToPx() }
+    val scroll = rememberScrollState()
+    val row = remember(scroll, padPx) { PresetRow(scroll, padPx) }
+    val usersNow by rememberUpdatedState(users)
+    LaunchedEffect(shown) {
+        val was = row.lastShown
+        row.lastShown = shown
+        if (!goesTo(was, shown, usersNow)) return@LaunchedEffect
+        // The chips take their places in the frame that lit this one, and move again as a chip gains
+        // or loses its check: asked where it is a frame or two on, and again till it shows whole.
+        repeat(3) {
+            withFrameNanos { }
+            withFrameNanos { }
+            val edges = row.edges[shown!!] ?: return@repeat
+            val target = chipScrollTarget(edges.first, edges.last, scroll.value, scroll.viewportSize, padPx) ?: return@LaunchedEffect
+            scroll.animateScrollTo(target)
+        }
+    }
+    return row
 }
 
 /**
@@ -211,19 +255,6 @@ internal fun DefaultChip(lit: Boolean, enabled: Boolean, onClick: () -> Unit) {
         label = { Text(stringResource(R.string.mix_preset_default), maxLines = 1) },
         leadingIcon = if (lit) { { Icon(Icons.Rounded.Check, null, Modifier.size(FilterChipDefaults.IconSize)) } } else null,
     )
-}
-
-@Composable
-internal fun rememberPresetRow(lit: Preset?, pad: Dp): PresetRow {
-    val padPx = with(LocalDensity.current) { pad.roundToPx() }
-    val scroll = rememberScrollState()
-    val row = remember(scroll, padPx) { PresetRow(scroll, padPx) }
-    val litEdges = lit?.let { row.edges[it] }
-    LaunchedEffect(lit, litEdges) {
-        val edges = litEdges ?: return@LaunchedEffect
-        chipScrollTarget(edges.first, edges.last, scroll.value, scroll.viewportSize, padPx)?.let { scroll.animateScrollTo(it) }
-    }
-    return row
 }
 
 /**
@@ -696,11 +727,11 @@ private fun ColumnScope.Choices(
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 8.dp),
     )
-    // The lit chip is kept in view (PresetRow).
-    val presetRow = rememberPresetRow(ui.lit, 16.dp)
     // The listener's own presets after the app's (MixUserPresets).
     val userPresets by vm.presets.collectAsState()
     val userLit = remember(spec, userPresets) { editor.litPreset(userPresets, spec) }
+    // The lit chip is kept in view (PresetRow): the listener's own when one is lit, else the app's.
+    val presetRow = rememberPresetRow(userLit?.id ?: ui.lit, remember(userPresets) { userPresets.map { it.id } }, 16.dp)
     val chips: @Composable () -> Unit = {
         DefaultChip(lit = spec.plain, enabled = true) { vm.edit { plainChange() } }
         for (p in EditorPresets.ORDER) {
@@ -719,7 +750,7 @@ private fun ColumnScope.Choices(
                 modifier = presetRow.chip(p),
             )
         }
-        UserPresetChips(vm, editor, userPresets, userLit, canSave = !spec.plain, enabled = true, onApplied = {}, onLimit = onLimit, onDeleted = onPresetDeleted)
+        UserPresetChips(vm, editor, userPresets, userLit, canSave = !spec.plain, enabled = true, onApplied = {}, onLimit = onLimit, onDeleted = onPresetDeleted, row = presetRow)
     }
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.horizontalScroll(presetRow.scroll).padding(horizontal = 16.dp)) { chips() }
     // Auto names what it picked when that is a preset, as the mock has it.

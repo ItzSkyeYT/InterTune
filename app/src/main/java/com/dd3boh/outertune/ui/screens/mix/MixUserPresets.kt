@@ -51,7 +51,8 @@ private sealed interface Naming {
  * tap lays one on the change, heard at once; a long press offers Rename and Delete, as a right
  * click does in Ableton's browser; New preset keeps the change as it is under a name.
  * [onApplied] is told after a preset is laid on, [onLimit] where it cannot fit these two songs,
- * [onDeleted] after a delete, with the preset and where it was, for an Undo.
+ * [onDeleted] after a delete, with the preset and where it was, for an Undo. Each chip reports its
+ * place to [row], which keeps the one lit in view.
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -65,6 +66,7 @@ internal fun UserPresetChips(
     onApplied: () -> Unit,
     onLimit: (Limit) -> Unit,
     onDeleted: (MixPreset, Int) -> Unit,
+    row: PresetRow? = null,
 ) {
     var naming by remember { mutableStateOf<Naming?>(null) }
     for ((index, p) in presets.withIndex()) {
@@ -72,7 +74,7 @@ internal fun UserPresetChips(
         val source = remember(p.id) { MutableInteractionSource() }
         val selected = lit?.id == p.id
         val applyLabel = p.name
-        Box {
+        Box(if (row != null) row.chip(p.id) else Modifier) {
             FilterChip(
                 selected = selected,
                 enabled = enabled,

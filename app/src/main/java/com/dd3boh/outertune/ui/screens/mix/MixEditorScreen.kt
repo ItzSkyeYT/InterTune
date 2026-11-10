@@ -814,11 +814,11 @@ private fun Lowers(
     onPresetDeleted: (com.dd3boh.outertune.mix.edit.MixPreset, Int) -> Unit = { _, _ -> },
 ) {
     Text(stringResource(R.string.mix_edit_presets), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 6.dp))
-    // The lit chip is kept in view, as on Simple (PresetRow).
-    val presetRow = rememberPresetRow(ui.lit, 12.dp)
     // The listener's own presets after the app's; one of them lit, Custom is not.
     val userPresets by vm.presets.collectAsState()
     val userLit = remember(spec, userPresets) { editor.litPreset(userPresets, spec) }
+    // The lit chip is kept in view, as on Simple (PresetRow): the listener's own when one is lit, else the app's.
+    val presetRow = rememberPresetRow(userLit?.id ?: ui.lit, remember(userPresets) { userPresets.map { it.id } }, 12.dp)
     val chips: @Composable () -> Unit = {
         DefaultChip(lit = spec.plain, enabled = ready) { vm.edit { plainChange() } }
         for (p in EditorPresets.ORDER) {
@@ -834,7 +834,7 @@ private fun Lowers(
                 modifier = presetRow.chip(p),
             )
         }
-        UserPresetChips(vm, editor, userPresets, userLit, canSave = !spec.plain, enabled = ready, onApplied = onUserPreset, onLimit = onLimit, onDeleted = onPresetDeleted)
+        UserPresetChips(vm, editor, userPresets, userLit, canSave = !spec.plain, enabled = ready, onApplied = onUserPreset, onLimit = onLimit, onDeleted = onPresetDeleted, row = presetRow)
     }
     if (wrap) {
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(horizontal = 12.dp)) { chips() }
