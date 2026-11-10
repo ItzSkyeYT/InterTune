@@ -78,6 +78,19 @@ object MixStores {
     }
 
     @Volatile
+    private var presets: com.dd3boh.outertune.mix.edit.MixPresetStore? = null
+
+    /**
+     * The listener's own presets for the editor (his ask of 9 Nov 2026), in the app's files beside
+     * the saved changes, so an update keeps them. One for the process; read it off the main thread.
+     */
+    fun presets(context: Context): com.dd3boh.outertune.mix.edit.MixPresetStore = presets ?: synchronized(this) {
+        presets ?: com.dd3boh.outertune.mix.edit.JsonFileMixPresetStore.at(context.applicationContext.filesDir) { message, cause ->
+            Log.w(TAG, "presets: $message", cause)
+        }.also { presets = it }
+    }
+
+    @Volatile
     private var fixes: BeatFixStore? = null
 
     /**

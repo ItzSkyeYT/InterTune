@@ -74,6 +74,23 @@ class BandEnvelopes(
         return p
     }
 
+    /**
+     * What the canvas draws for [lane] over [fromMs] to [toMs]: its [peak] there, or, zoomed in so
+     * close that the stretch lies inside one hop, the level drawn straight between the hops either
+     * side, so a close view is a line and not steps.
+     */
+    fun drawn(lane: Lane, fromMs: Double, toMs: Double): Float {
+        if (toMs - fromMs >= hopMs) return peak(lane, fromMs, toMs)
+        val v = band(lane)
+        if (v.isEmpty()) return 0f
+        val pos = (fromMs + toMs) / 2 / hopMs - 0.5
+        val i = kotlin.math.floor(pos).toInt()
+        if (i + 1 < 0 || i >= v.size) return 0f
+        val a = if (i in v.indices) v[i] else 0f
+        val b = if (i + 1 in v.indices) v[i + 1] else 0f
+        return a + (b - a) * (pos - i).toFloat()
+    }
+
     /** Whether [lane] has music at [ms]: within 12 dB of how it usually plays. */
     fun active(lane: Lane, ms: Double): Boolean {
         val level = peak(lane, ms - hopMs, ms + hopMs)

@@ -440,6 +440,29 @@ class MixEditor(
         return false
     }
 
+    // ---- the listener's own presets ----
+
+    /**
+     * The change on the page shaped as [p] (his ask of 9 Nov 2026), one undo step: the preset's
+     * length, the change keeping its end in A as the length sheet does, then its moves, curves,
+     * mutes, beat matching and loops, on the page's lanes. The limit that keeps it from fitting
+     * these two songs instead, where one does, and nothing changed.
+     */
+    fun applyPreset(p: com.dd3boh.outertune.mix.edit.MixPreset): Limit? {
+        val sized = withLength(spec, p.shape.bars, p.shape.seconds)
+        val next = p.laidOn(sized, spec.lanes)
+        reachOf(next)?.let { return it }
+        apply(next)
+        return null
+    }
+
+    /** The first of [presets] the change on the page is shaped as: its chip is lit. */
+    fun litPreset(presets: List<com.dd3boh.outertune.mix.edit.MixPreset>, s: TransitionSpec = spec): com.dd3boh.outertune.mix.edit.MixPreset? =
+        if (s.plain) null else presets.firstOrNull { it.shapes(s) }
+
+    /** The change on the page as a preset keeps it, its songs left out; null for a plain change, which is the Default chip. */
+    fun presetShape(): TransitionSpec? = if (spec.plain) null else com.dd3boh.outertune.mix.edit.MixPreset.shapeOf(normalised(spec))
+
     /** Sets the length; the change keeps its end in A, and a preset is written again at the new length. */
     fun setLength(bars: Int, seconds: Double = 0.0): Boolean {
         val next = withLength(spec, bars, seconds)

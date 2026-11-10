@@ -43,6 +43,9 @@
     <string name="mix_edit_view_songs">Songs</string>
     <string name="mix_edit_view_bands">Bands</string>
     <string name="mix_edit_view_parts">Parts</string>
+    <!-- the canvas's zoom buttons (said by TalkBack; the buttons show the magnifier) -->
+    <string name="mix_edit_zoom_in">Zoom in</string>
+    <string name="mix_edit_zoom_out">Zoom out</string>
 
     <!-- the now line -->
     <string name="mix_edit_now_bar">Bar %1$d of %2$d</string>
@@ -110,6 +113,14 @@
     <string name="mix_preset_echo_out">Echo out</string>
     <string name="mix_preset_cut">Cut</string>
     <string name="mix_preset_default">Default</string>
+    <!-- the listener's own presets, after the app's in the row of presets -->
+    <string name="mix_preset_new">New preset</string>
+    <string name="mix_preset_name">Name</string>
+    <string name="mix_preset_rename">Rename</string>
+    <string name="mix_preset_delete">Delete</string>
+    <string name="mix_preset_options">Preset options</string>
+    <string name="mix_preset_default_name">Preset %1$d</string>
+    <string name="mix_preset_deleted">Preset deleted</string>
     <string name="mix_line_custom">Your own moves for these two songs.</string>
     <string name="mix_line_auto">The app\'s pick for these two songs.</string>
     <string name="mix_line_auto_plain">Auto plays these two as a plain change.</string>

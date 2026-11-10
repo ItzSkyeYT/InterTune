@@ -386,7 +386,16 @@ fun MixEditorScreen(navController: NavController) {
             SongRow(songB, bTitle, spec?.let { words.clock(it.b.atMs) }, spec?.let { vm.editor?.shownBpm(Side.B, it) }, spec?.b?.fix?.isNone == false, words, landscape, spec?.let { vm.editor?.beatNote(Side.B, it) }) { fixOpen = Side.B }
             // Songs and Bands only for a pair loaded without parts: never while it loads, when it is not known yet.
             BarRow(spec, words, lanesView, canvas.adjust, { lengthOpen = true }, { lanesView = it }, partsReady = vm.pair?.partsReady != false) { leaveAdjust(vm, canvas) }
-            NowLine(vm, editor, spec, words, phase, playing, { playU }, said)
+            // Under the length row, the canvas's overview and its zoom buttons at its end, as an
+            // editor keeps them at the end of its overview (REAPER, Vegas, Audition).
+            val ready = phase is MixEditorViewModel.Phase.Ready
+            val overview: (@Composable () -> Unit)? = if (ready && editor != null && spec != null) {
+                { CanvasOverview(editor, spec, vm.pair, canvas, colors, { playU }, Modifier.fillMaxSize()) }
+            } else null
+            val zoom: (@Composable () -> Unit)? = if (ready && editor != null && spec != null) {
+                { ZoomButtons(editor, spec, canvas, { playU }) }
+            } else null
+            NowLine(vm, editor, spec, words, phase, playing, { playU }, said, overview = overview, zoom = zoom)
         }
 
         @Composable
@@ -398,7 +407,20 @@ fun MixEditorScreen(navController: NavController) {
                 return
             }
             // Adjust holds its own undo step until Done: everything below waits for it.
-            Lowers(vm, e, s, ui!!, words, phase is MixEditorViewModel.Phase.Ready && canvas.adjust == null, landscape, onPreset = { p -> presetTapped(p, snackbar) })
+            Lowers(
+                vm, e, s, ui!!, words, phase is MixEditorViewModel.Phase.Ready && canvas.adjust == null, landscape, onPreset = { p -> presetTapped(p, snackbar) },
+                onUserPreset = {
+                    canvas.flash = 1f
+                    scope.launch { Animatable(1f).animateTo(0f, tween(200)) { canvas.flash = value } }
+                },
+                onLimit = { actions.say(it) },
+                onPresetDeleted = { p, i ->
+                    scope.launch {
+                        val r = snackbar.showSnackbar(resources.getString(R.string.mix_preset_deleted), resources.getString(R.string.mix_edit_undo), duration = SnackbarDuration.Short)
+                        if (r == SnackbarResult.ActionPerformed) vm.restorePreset(p, i)
+                    }
+                },
+            )
         }
 
         if (landscape) {
@@ -685,7 +707,11 @@ private fun BarRow(
     }
 }
 
-/** The line under the bars: a refusal, or the loading stage. No narration of the change (his rule: no comments in the mixer). */
+/**
+ * The line under the bars: a refusal, or the loading stage. No narration of the change (his rule: no
+ * comments in the mixer). With nothing to say, the [overview] of the canvas in its place, at the
+ * same height, so nothing moves when a refusal comes and goes; the [zoom] buttons at its end.
+ */
 @Composable
 private fun NowLine(
     vm: MixEditorViewModel,
@@ -696,6 +722,8 @@ private fun NowLine(
     playing: Boolean,
     playU: () -> Double,
     said: String?,
+    overview: (@Composable () -> Unit)? = null,
+    zoom: (@Composable () -> Unit)? = null,
 ) {
     val text by remember(editor, spec, words, phase, playing, said) {
         derivedStateOf {
@@ -711,18 +739,24 @@ private fun NowLine(
             }
         }
     }
-    Text(
-        text,
-        style = MaterialTheme.typography.bodyMedium,
-        color = if (said != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
-        maxLines = 1,
-        overflow = TextOverflow.Ellipsis,
-        modifier = Modifier
-            .fillMaxWidth()
-            .heightIn(min = 32.dp)
-            .semantics { liveRegion = LiveRegionMode.Polite }
-            .padding(horizontal = 12.dp, vertical = 6.dp),
-    )
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.weight(1f)) {
+            Text(
+                text,
+                style = MaterialTheme.typography.bodyMedium,
+                color = if (said != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 32.dp)
+                    .semantics { liveRegion = LiveRegionMode.Polite }
+                    .padding(horizontal = 12.dp, vertical = 6.dp),
+            )
+            if (text.isEmpty() && overview != null) Box(Modifier.matchParentSize()) { overview() }
+        }
+        zoom?.invoke()
+    }
 }
 
 /** Everything under the fixed part: presets, Beat matching, Intro twice, the two ways back. */
@@ -737,14 +771,20 @@ private fun Lowers(
     ready: Boolean,
     wrap: Boolean,
     onPreset: (Preset) -> Unit,
+    onUserPreset: () -> Unit = {},
+    onLimit: (Limit) -> Unit = {},
+    onPresetDeleted: (com.dd3boh.outertune.mix.edit.MixPreset, Int) -> Unit = { _, _ -> },
 ) {
     Text(stringResource(R.string.mix_edit_presets), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 6.dp))
     // The lit chip is kept in view, as on Simple (PresetRow).
     val presetRow = rememberPresetRow(ui.lit, 12.dp)
+    // The listener's own presets after the app's; one of them lit, Custom is not.
+    val userPresets by vm.presets.collectAsState()
+    val userLit = remember(spec, userPresets) { editor.litPreset(userPresets, spec) }
     val chips: @Composable () -> Unit = {
         DefaultChip(lit = spec.plain, enabled = ready) { vm.edit { plainChange() } }
         for (p in EditorPresets.ORDER) {
-            val lit = ui.lit == p
+            val lit = ui.lit == p && !(p == Preset.CUSTOM && userLit != null)
             val allowed = !p.needsParts || spec.lanes == LaneSet.PARTS
             val enabled = ready && allowed && !(p == Preset.CUSTOM && !lit && editor.lastCustom == null)
             FilterChip(
@@ -756,6 +796,7 @@ private fun Lowers(
                 modifier = presetRow.chip(p),
             )
         }
+        UserPresetChips(vm, editor, userPresets, userLit, canSave = !spec.plain, enabled = ready, onApplied = onUserPreset, onLimit = onLimit, onDeleted = onPresetDeleted)
     }
     if (wrap) {
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(horizontal = 12.dp)) { chips() }
