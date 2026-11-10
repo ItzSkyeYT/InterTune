@@ -69,13 +69,15 @@ class WidgetSameWriteTest {
         val set = store.substringAfter("suspend fun setNowPlaying(").substringBefore("\n    }\n")
         val skippedWrite = Regex("""if \(changed\.isNotEmpty\(\)\) write\(context, next\.copy\(updatedAt = System\.currentTimeMillis\(\)\)\)""")
         assertEquals("both ways (a song, and nothing playing) write only a change", 2, skippedWrite.findAll(set).count())
-        assertEquals(2, Regex("""changed = old\.changesTo\(next, upNextShown\)""").findAll(set).count())
+        assertEquals(2, Regex("""changed = old\.changesShownTo\(next, upNextShown\)""").findAll(set).count())
         val draw = set.substringAfter("if (widgets) {\n            if (changed.isEmpty()) {")
         assertTrue("not drawn again" in draw.substringBefore("} else {"))
         assertFalse("updateAll(context)" in draw.substringBefore("} else {"))
         assertTrue("MusicWidget().updateAll(context)" in draw.substringAfter("} else {").substringBefore("\n        }\n"))
         // The artwork owed to a song does not wait for a change.
-        assertTrue(set.indexOf("owed = song to sizes") > set.lastIndexOf("changed = old.changesTo(next)"))
+        assertTrue(set.indexOf("owed = song to sizes") > set.lastIndexOf("changed = old.changesShownTo(next"))
+        // The old covers are cleared once the widgets have been told, never on the way to telling them.
+        assertTrue(set.indexOf("prune(context, read(context))") > set.indexOf("Widgets told about"))
         assertFalse(Regex("""if \(changed\.isNotEmpty\(\)\) \{[^}]*owed""").containsMatchIn(set))
     }
 }

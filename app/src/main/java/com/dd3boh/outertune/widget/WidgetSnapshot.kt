@@ -89,6 +89,16 @@ data class WidgetSnapshot(
         if (recent != next.recent) add("recent")
         if (picks != next.picks || forgotten != next.forgotten || keepListening != next.keepListening) add("lists")
     }
+
+    /**
+     * [changesTo], with whether a widget shows Up next asked only when the answer decides anything: a
+     * change of the queue's next songs alone. Any other change is drawn anyway, so a song change never
+     * waits for every widget's sizes to be read.
+     */
+    suspend fun changesShownTo(next: WidgetSnapshot, upNextShown: suspend () -> Boolean): List<String> {
+        val all = changesTo(next)
+        return if (all == listOf("up next") && !upNextShown()) emptyList() else all
+    }
 }
 
 /**

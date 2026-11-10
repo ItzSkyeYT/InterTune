@@ -9,6 +9,7 @@ package com.dd3boh.outertune.widget
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import kotlinx.coroutines.runBlocking
 import org.junit.Test
 
 /**
@@ -48,5 +49,22 @@ class WidgetUpNextTest {
         assertTrue(drawsUpNext(WidgetSettings(style = WidgetStyle.COVER), 700, 300))
         assertFalse("a Shelf has no panes", drawsUpNext(WidgetSettings(style = WidgetStyle.SHELF), 700, 300))
         assertEquals(500, WidgetLayout.PANES_WIDTH_DP)
+    }
+
+    @Test
+    fun `a song change never waits for the widgets' sizes, and a change of Up next alone asks for them once`() = runBlocking {
+        val a = WidgetSong(id = "a", title = "A", artist = "x")
+        val b = WidgetSong(id = "b", title = "B", artist = "y")
+        val c = WidgetSong(id = "c", title = "C", artist = "z")
+        val old = WidgetSnapshot(nowPlaying = a, isPlaying = true, upNext = listOf(b))
+        var asked = 0
+        val phone: suspend () -> Boolean = { asked++; false }
+        assertEquals(listOf("song", "up next"), old.changesShownTo(old.copy(nowPlaying = b, upNext = listOf(c)), phone))
+        assertEquals("a song change does not read the sizes", 0, asked)
+        assertEquals(emptyList<String>(), old.changesShownTo(old.copy(upNext = listOf(c)), phone))
+        assertEquals("Up next alone reads them, once", 1, asked)
+        assertEquals("a tablet draws it", listOf("up next"), old.changesShownTo(old.copy(upNext = listOf(c))) { true })
+        assertEquals(emptyList<String>(), old.changesShownTo(old.copy(), phone))
+        assertEquals("nothing new reads nothing", 1, asked)
     }
 }

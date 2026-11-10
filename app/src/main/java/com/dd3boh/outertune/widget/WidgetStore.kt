@@ -15,6 +15,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.SystemClock
 import android.util.Log
+import android.util.LruCache
 import android.util.SizeF
 import androidx.compose.ui.graphics.toArgb
 import androidx.core.graphics.scale
@@ -496,15 +497,16 @@ object WidgetStore {
             val old = read(context)
             wantedArt = song?.id
             // Up next is drawn only by a widget wide and tall enough for it (see drawsUpNext), at any of its
-            // sizes: a change of the queue alone redraws nothing else.
-            val upNextShown = widgets && placedSizes(context).any { drawsUpNext(it.settings, it.w, it.h) }
+            // sizes: a change of the queue alone redraws nothing else. The sizes are read only when they
+            // decide something, a change of Up next alone; read first, they held up every song change.
+            val upNextShown: suspend () -> Boolean = { widgets && placedSizes(context).any { drawsUpNext(it.settings, it.w, it.h) } }
             written = "${song?.id}, ${if (isPlaying) "playing" else "paused"}"
             if (song == null) {
                 val next = old.copy(
                     nowPlaying = null, isPlaying = false, isLiked = false, upNext = emptyList(),
                     isShuffled = shuffled ?: old.isShuffled,
                 )
-                changed = old.changesTo(next, upNextShown)
+                changed = old.changesShownTo(next, upNextShown)
                 if (changed.isNotEmpty()) write(context, next.copy(updatedAt = System.currentTimeMillis()))
             } else {
                 val same = old.nowPlaying?.id == song.id
@@ -555,7 +557,7 @@ object WidgetStore {
                     isShuffled = shuffled ?: old.isShuffled,
                     upNext = upNext,
                 )
-                changed = old.changesTo(next, upNextShown)
+                changed = old.changesShownTo(next, upNextShown)
                 if (changed.isNotEmpty()) write(context, next.copy(updatedAt = System.currentTimeMillis()))
                 // A missing picture is still fetched when nothing else changed.
                 if (widgets) {
@@ -572,7 +574,6 @@ object WidgetStore {
                     if (bare.isNotEmpty() && wideWidgets(context)) owedNext = queued.orEmpty().filter { it.id in bare }
                 }
             }
-            if (changed.isNotEmpty()) prune(context, read(context))
         }
         if (widgets) {
             if (changed.isEmpty()) {
@@ -584,6 +585,9 @@ object WidgetStore {
                 Log.d(DRAW_TAG, "Widgets told about $written")
             }
         }
+        // The old covers are cleared once the widgets have been told, not before: it read every file in
+        // the folder and every song of the snapshot while the new song waited to be drawn.
+        if (changed.isNotEmpty()) mutex.withLock { prune(context, read(context)) }
         owed?.let { (song, sizes) ->
             if (picturesFor(context, song, sizes)) MusicWidget().updateAll(context)
         }
@@ -1028,9 +1032,19 @@ object WidgetStore {
         }
     }.onFailure { Log.w(TAG, "Could not read $which for the widget", it) }.getOrDefault(emptyList())
 
+    /**
+     * Colours worked out, by cover file as it is on the phone. The next song's is worked out while this
+     * one plays (getReady), and its change finds it here: reading the cover's pixels again was the
+     * biggest part of the time between a song change and the widget hearing of it (Pixel 5 trace).
+     */
+    private val colours = LruCache<String, Int>(24)
+
     /** The colour of a cover: the one the player would take, or what a cover of greys has most of. */
     private fun artColour(path: String?): Int? = runCatching {
-        decode(path)?.extractCoverColor()?.toArgb()
+        if (path == null) return@runCatching null
+        val file = File(path)
+        val key = "$path:${file.lastModified()}:${file.length()}"
+        colours.get(key) ?: decode(path)?.extractCoverColor()?.toArgb()?.also { colours.put(key, it) }
     }.getOrNull()
 
     /**
@@ -1156,8 +1170,12 @@ object WidgetStore {
             .forEach { it.delete() }
     }.getOrDefault(Unit)
 
-    private fun hash(id: String): String =
-        MessageDigest.getInstance("SHA-1").digest(id.toByteArray()).joinToString("") { "%02x".format(it) }.take(16)
+    /** Songs' file names, kept: every cover looked up works one out, several times a song change. */
+    private val hashes = LruCache<String, String>(128)
+
+    private fun hash(id: String): String = hashes.get(id)
+        ?: MessageDigest.getInstance("SHA-1").digest(id.toByteArray()).joinToString("") { "%02x".format(it) }.take(16)
+            .also { hashes.put(id, it) }
 }
 
 /**
