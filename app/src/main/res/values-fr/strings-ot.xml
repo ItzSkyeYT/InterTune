@@ -554,6 +554,7 @@
     <string name="err_age_restricted">YouTube ne lira pas ce titre sans un compte ayant l\'âge requis. Les autres titres ne sont pas concernés.</string>
     <string name="err_song_unavailable">YouTube n\'a plus ce titre, ou pas là où vous êtes.</string>
     <string name="err_not_audio">Ce qui est arrivé pour ce titre n\'est pas de l\'audio. Quelque chose sur cette connexion répond peut-être à la place de YouTube, comme un VPN ou un bloqueur de pubs.</string>
+    <string name="err_sign_in_wanted">YouTube demande de se connecter pour lire depuis ce réseau. Les VPN et les connexions partagées sont souvent refusés.</string>
     <string name="gone_song_skipped">Titre passé, indisponible sur YouTube : « %1$s »</string>
     <!-- Dialog -->
     <string name="create_sync_playlist_failed">Playlist non créée sur YouTube Music. Réessayez une fois en ligne.</string>
@@ -1001,6 +1002,7 @@
     <string name="error_youtube_not_answering">YouTube ne répond pas. Le titre a été essayé de plusieurs façons.</string>
     <string name="error_cached_part_stale">La partie enregistrée de ce titre ne correspond plus à ce que YouTube fournit. Appuyez sur lecture pour le charger à nouveau.</string>
     <string name="error_connection_turned_away">YouTube refuse cette connexion. Essayez sans VPN ou un autre Wi-Fi.</string>
+    <string name="error_sign_in_wanted">YouTube demande de se connecter sur ce réseau. Essayez sans VPN.</string>
     <string name="menu_not_this_song">Pas ce titre</string>
     <string name="menu_less_of_artist">Moins de cet artiste</string>
     <string name="menu_never_artist">Jamais cet artiste (recommandations)</string>
@@ -2537,4 +2539,6 @@
         <item quantity="many">%1$d masquées</item>
         <item quantity="other">%1$d masquées</item>
     </plurals>
+    <!-- A picker asked for on a device with none (#120, #121). -->
+    <string name="no_app_to_pick">Pas de sélecteur de fichiers. Installez un gestionnaire de fichiers.</string>
 </resources>
