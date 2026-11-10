@@ -467,6 +467,13 @@ fun BoxScope.QueueContent(
      * queue to preview". Only the first is safe to clear automatically.
      */
     val fallbackSeed = remember { fallBackQueue }
+    // The queue the player will play, shown before play after a restart: the player holds nothing
+    // yet. A queue picked from the list to look at is not this one.
+    val movesStoredQueue = detachedHead && detachedQueue != null && detachedQueue === fallbackSeed && queueWindows.isEmpty()
+    // The bar's controls work for the player's queue and for that stored queue before play: the first
+    // tap loads it, as the mini player's play does (#127: after a restart they were all greyed out and
+    // did nothing). Only a queue picked from the list to look at leaves them off.
+    val barWorks = !detachedHead || movesStoredQueue
     val mutableQueues = remember { mutableStateListOf<MultiQueueObject>() }
     var playingQueue by remember { mutableIntStateOf(-1) }
 
@@ -1564,8 +1571,9 @@ fun BoxScope.QueueContent(
                                     .align(Alignment.Center)
                                     .named(shuffleName(shuffleModeEnabled)),
                                 color = iconButtonColor,
-                                enabled = !detachedHead,
+                                enabled = barWorks,
                                 onClick = {
+                                    playerConnection.loadQueueIfEmpty()
                                     playerConnection.triggerShuffle()
                                     haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
                                 }
@@ -1580,7 +1588,7 @@ fun BoxScope.QueueContent(
                                     .align(Alignment.Center)
                                     .named(stringResource(R.string.widget_previous)),
                                 color = iconButtonColor,
-                                enabled = !detachedHead && canSkipPrevious,
+                                enabled = barWorks && (canSkipPrevious || movesStoredQueue),
                                 onClick = {
                                     // Cold start: the saved queue is not in the player yet, and a
                                     // skip in an empty player goes nowhere. As the full player does.
@@ -1598,9 +1606,9 @@ fun BoxScope.QueueContent(
                                         .size(32.dp)
                                         .align(Alignment.Center)
                                         .named(seekBackName()),
-                                    enabled = !detachedHead,
+                                    enabled = barWorks,
                                     onClick = {
-                                        playerConnection.player.seekTo(playerConnection.player.currentPosition - seekIncrement.millisec)
+                                        playerConnection.loadQueueIfEmpty().let { it.seekTo(it.currentPosition - seekIncrement.millisec) }
                                     }
                                 )
                             }
@@ -1616,7 +1624,7 @@ fun BoxScope.QueueContent(
                                     .align(Alignment.Center)
                                     .named(playPauseName(isPlaying && playbackState != STATE_ENDED)),
                                 color = iconButtonColor,
-                                enabled = !detachedHead,
+                                enabled = barWorks,
                                 onClick = {
                                     if (playbackState == STATE_ENDED) {
                                         playerConnection.player.seekTo(0, 0)
@@ -1640,9 +1648,9 @@ fun BoxScope.QueueContent(
                                         .size(32.dp)
                                         .align(Alignment.Center)
                                         .named(seekForwardName()),
-                                    enabled = !detachedHead,
+                                    enabled = barWorks,
                                     onClick = {
-                                        playerConnection.player.seekTo(playerConnection.player.currentPosition + seekIncrement.millisec)
+                                        playerConnection.loadQueueIfEmpty().let { it.seekTo(it.currentPosition + seekIncrement.millisec) }
                                     }
                                 )
                             }
@@ -1656,7 +1664,7 @@ fun BoxScope.QueueContent(
                                     .align(Alignment.Center)
                                     .named(stringResource(R.string.widget_next)),
                                 color = iconButtonColor,
-                                enabled = !detachedHead && canSkipNext,
+                                enabled = barWorks && (canSkipNext || movesStoredQueue),
                                 onClick = {
                                     playerConnection.loadQueueIfEmpty().seekToNext()
                                     haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
@@ -1678,7 +1686,7 @@ fun BoxScope.QueueContent(
                                     .align(Alignment.Center)
                                     .named(repeatName(repeatMode)),
                                 color = iconButtonColor,
-                                enabled = !detachedHead,
+                                enabled = barWorks,
                                 onClick = {
                                     playerConnection.player.toggleRepeatMode()
                                     haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
