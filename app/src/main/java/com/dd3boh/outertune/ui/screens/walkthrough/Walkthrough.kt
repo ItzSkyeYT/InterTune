@@ -12,6 +12,7 @@ import androidx.compose.material.icons.rounded.Animation
 import androidx.compose.material.icons.rounded.Autorenew
 import androidx.compose.material.icons.rounded.Backup
 import androidx.compose.material.icons.rounded.ContentCopy
+import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material.icons.rounded.HeartBroken
 import androidx.compose.material.icons.rounded.BluetoothAudio
 import androidx.compose.material.icons.rounded.BlurOn
@@ -409,6 +410,17 @@ val NEW_THINGS = listOf(
         icon = Icons.Rounded.ContentCopy,
         action = NewThingAction.NONE,
         there = { Unreleased.SAVED_TWICE },
+    ),
+    // The sleep timer with more ways to stop and a notification that counts down (his todo of
+    // 9 Nov 2026), for everyone. It lives in the player, outside Settings: the card says where.
+    NewThing(
+        id = "sleep_timer_more",
+        release = "0.13",
+        sinceVersionCode = V0_13,
+        title = R.string.new_sleep_timer_title,
+        body = R.string.new_sleep_timer_body,
+        icon = Icons.Rounded.Timer,
+        action = NewThingAction.NONE,
     ),
     NewThing(
         id = "liked_sync",

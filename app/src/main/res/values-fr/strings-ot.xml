@@ -2416,6 +2416,8 @@
     <string name="new_dont_play_body">Ne plus jouer ce titre, dans le menu d\'un titre, le tient à l\'écart des radios et de la lecture automatique, ses autres mises en ligne comprises. Il joue toujours quand vous le choisissez.</string>
     <string name="new_saved_twice_title">Retrouver les titres en double</string>
     <string name="new_saved_twice_body">Quand vos Titres aimés, votre bibliothèque ou une playlist contiennent un titre plusieurs fois, un bouton rond avec un nombre s\'affiche à côté de Lecture et Lecture aléatoire. Touchez-le pour garder un exemplaire de chacun.</string>
+    <string name="new_sleep_timer_title">Une minuterie de sommeil avec plus de choix</string>
+    <string name="new_sleep_timer_body">Arrêtez à une heure précise, ou à la fin du titre, de l\'album ou de la file d\'attente. Ouvrez-la avec le minuteur du lecteur ; sa notification fait le décompte et ajoute du temps.</string>
     <string name="new_liked_sync_title">Retirer un j’aime peut supprimer le téléchargement</string>
     <string name="new_liked_sync_body">Si vos titres aimés se téléchargent tout seuls, retirer un j’aime peut maintenant supprimer son téléchargement. Ceux téléchargés à la main restent.</string>
     <string name="new_liked_sync_way">Les téléchargements et la place qu\'ils prennent se règlent ici.</string>
