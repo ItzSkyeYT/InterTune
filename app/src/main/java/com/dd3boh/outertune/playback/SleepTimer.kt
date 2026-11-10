@@ -378,7 +378,8 @@ class SleepTimer(
     }
 
     override fun onPositionDiscontinuity(oldPosition: Player.PositionInfo, newPosition: Player.PositionInfo, reason: Int) {
-        if (isActive) changes++
+        // A jump somebody made. Skipped silence and the like come by the minute and change no word of it.
+        if (isActive && reason == Player.DISCONTINUITY_REASON_SEEK) changes++
     }
 
     /** Ends an armed end-of timer, restoring the volume so the next play is not silent. */

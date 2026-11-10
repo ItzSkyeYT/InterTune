@@ -526,4 +526,16 @@ class SleepTimerEndsTest {
         timer.letSongFinish = true
         assertTrue(timer.changes > after)
     }
+
+    @Test
+    fun `a seek tells the notification, a skipped silence does not`() {
+        val timer = timer().apply { start(30) }
+        val here = Player.PositionInfo(null, 0, null, null, 0, 0L, 0L, -1, -1)
+        val before = timer.changes
+        timer.onPositionDiscontinuity(here, here, Player.DISCONTINUITY_REASON_SILENCE_SKIP)
+        timer.onPositionDiscontinuity(here, here, Player.DISCONTINUITY_REASON_INTERNAL)
+        assertEquals(before, timer.changes)
+        timer.onPositionDiscontinuity(here, here, Player.DISCONTINUITY_REASON_SEEK)
+        assertTrue(timer.changes > before)
+    }
 }
