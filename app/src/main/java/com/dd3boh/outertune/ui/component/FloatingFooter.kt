@@ -22,21 +22,30 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.dd3boh.outertune.LocalPlayerAwareWindowInsets
 import com.dd3boh.outertune.constants.MenuCornerRadius
 
+/**
+ * The pill that floats over the foot of a list while songs are picked: the pages' selection bar.
+ * The queue sheet uses it too, over the bar at its own foot, so a selection looks the same in every
+ * list. [insets] is the room kept clear at the edges, the pages' own (under the mini player and the
+ * dock) unless the queue gives its own; [lift] is more room under the pill, for a bar it floats over.
+ */
 @Composable
 fun FloatingFooter(
     visible: Boolean,
     modifier: Modifier = Modifier,
+    insets: WindowInsets = LocalPlayerAwareWindowInsets.current,
+    lift: Dp = 0.dp,
     content: @Composable RowScope.() -> Unit
 ) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .windowInsetsPadding(LocalPlayerAwareWindowInsets.current.union(WindowInsets.ime))
-            .padding(bottom = 16.dp)
+            .windowInsetsPadding(insets.union(WindowInsets.ime))
+            .padding(bottom = 16.dp + lift)
     ) {
         AnimatedVisibility(
             visible = visible,

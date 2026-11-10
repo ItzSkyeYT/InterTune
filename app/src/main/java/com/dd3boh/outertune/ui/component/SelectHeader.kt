@@ -47,74 +47,70 @@ fun RowScope.SelectHeader(
     onRemoveFromQueue: (() -> Unit)? = null,
 ) {
     val context = LocalContext.current
-    // The queue's Remove from queue is a button of the bar itself, not only an item of its menu (asked for on
-    // 9 Nov 2026: "not in a ... menu"). It stands at the row's far end, where nothing was: the count, the
-    // menu, select all and close keep the places people know them at.
-    val removeHere = onRemoveFromQueue != null
 
+    // As wide as its content: the pill the lists float over their foot, the queue's too. The queue's
+    // Remove from queue is a button of the pill itself, not only an item of its menu (asked for on
+    // 9 Nov 2026: "not in a ... menu"). It stands at the end of the row, after close, so the count, the
+    // menu, select all and close keep the places people know them at.
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        modifier = (if (removeHere) Modifier.weight(1f) else Modifier).padding(top = 2.dp, bottom = 3.dp)
+        modifier = Modifier.padding(top = 2.dp, bottom = 3.dp)
     ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = if (removeHere) Modifier.weight(1f) else Modifier,
-        ) {
-            Text(
-                text = "${selectedItems.size}/${context.resources.getQuantityString(R.plurals.n_selected, totalItemCount, totalItemCount)}",
-                modifier = Modifier
-                    .padding(start = 8.dp)
-                    .weight(1f, false)
-            )
+        Text(
+            text = "${selectedItems.size}/${context.resources.getQuantityString(R.plurals.n_selected, totalItemCount, totalItemCount)}",
+            modifier = Modifier
+                .padding(start = 8.dp)
+                .weight(1f, false)
+        )
 
-            // option menu
-            IconButton(
-                onClick = {
-                    menuState.show {
-                        SelectionMediaMetadataMenu(
-                            navController = navController,
-                            selection = selectedItems,
-                            onDismiss = menuState::dismiss,
-                            clearAction = onDeselectAll,
-                            onRemoveFromHistory = onRemoveFromHistory,
-                            onRemoveFromPlaylist = onRemoveFromPlaylist,
-                            onRemoveFromQueue = onRemoveFromQueue,
-                        )
-                    }
+        // option menu
+        IconButton(
+            onClick = {
+                menuState.show {
+                    SelectionMediaMetadataMenu(
+                        navController = navController,
+                        selection = selectedItems,
+                        onDismiss = menuState::dismiss,
+                        clearAction = onDeselectAll,
+                        onRemoveFromHistory = onRemoveFromHistory,
+                        onRemoveFromPlaylist = onRemoveFromPlaylist,
+                        onRemoveFromQueue = onRemoveFromQueue,
+                    )
                 }
-            ) {
-                Icon(
-                    Icons.Rounded.MoreVert,
-                    contentDescription = stringResource(R.string.options),
-                    tint = LocalContentColor.current
-                )
             }
-
-            // select/deselect all
-            val allSelected = selectedItems.size < totalItemCount
-
-            IconButton(
-                onClick = if (allSelected) onSelectAll else onDeselectAll
-            ) {
-                Icon(
-                    imageVector = if (allSelected) Icons.Rounded.SelectAll else Icons.Rounded.Deselect,
-                    // What a tap does: allSelected is true while some are still left out.
-                    contentDescription = stringResource(if (allSelected) R.string.select_all else R.string.deselect_all),
-                    tint = LocalContentColor.current
-                )
-            }
-
-            // close selection mode
-            IconButton(
-                onClick = onDismiss,
-            ) {
-                Icon(
-                    Icons.Rounded.Close,
-                    contentDescription = stringResource(R.string.cancel_selection)
-                )
-            }
+        ) {
+            Icon(
+                Icons.Rounded.MoreVert,
+                contentDescription = stringResource(R.string.options),
+                tint = LocalContentColor.current
+            )
         }
 
+        // select/deselect all
+        val allSelected = selectedItems.size < totalItemCount
+
+        IconButton(
+            onClick = if (allSelected) onSelectAll else onDeselectAll
+        ) {
+            Icon(
+                imageVector = if (allSelected) Icons.Rounded.SelectAll else Icons.Rounded.Deselect,
+                // What a tap does: allSelected is true while some are still left out.
+                contentDescription = stringResource(if (allSelected) R.string.select_all else R.string.deselect_all),
+                tint = LocalContentColor.current
+            )
+        }
+
+        // close selection mode
+        IconButton(
+            onClick = onDismiss,
+        ) {
+            Icon(
+                Icons.Rounded.Close,
+                contentDescription = stringResource(R.string.cancel_selection)
+            )
+        }
+
+        // The pill's trailing action, only where a list gives one: the queue's.
         if (onRemoveFromQueue != null) {
             IconButton(
                 onClick = onRemoveFromQueue,
