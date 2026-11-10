@@ -6617,6 +6617,8 @@ class MusicService : MediaLibraryService(),
                         now(!activePlayer.shouldShowPlayButton()).copy(
                             shuffled = activePlayer.shuffleModeEnabled,
                             upNext = activePlayer.upNext(WidgetLayout.MAX_UP_NEXT),
+                            // For the widget's session to be started shortly before the song ends (WidgetStore.wakeBeforeChange).
+                            remainingMs = activePlayer.duration.takeIf { it > 0 }?.let { it - activePlayer.currentPosition },
                         )
                     }
                 }

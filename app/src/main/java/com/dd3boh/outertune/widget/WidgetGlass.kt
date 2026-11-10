@@ -130,8 +130,11 @@ object WidgetGlass {
         return (w * k).toInt().coerceAtLeast(1) to (h * k).toInt().coerceAtLeast(1)
     }
 
-    /** A few panes: the two sizes a launcher asks for, for this song and the last. */
-    private val cache = LruCache<String, Bitmap>(6)
+    /** A few panes: the sizes of each widget on the home screen, for this song, the next and the last. */
+    private val cache = LruCache<String, Bitmap>(16)
+
+    /** A pane is drawn once, by whoever asks first (see [SingleFlight]): the composition, or a worker drawing it ahead of that. */
+    private val flight = SingleFlight<String, Bitmap>()
 
     /**
      * The pane [glass] of a Full cover widget [w] by [h] dp whose cover is [cover] under [scrim], or
@@ -140,7 +143,7 @@ object WidgetGlass {
     fun pane(cover: Bitmap, w: Int, h: Int, glass: GlassPane, scrim: WidgetScrim, density: Float, rtl: Boolean): Bitmap? =
         runCatching {
             val key = "${System.identityHashCode(cover)}:${cover.generationId}:$w:$h:$glass:$scrim:$density:$rtl"
-            cache.get(key) ?: draw(cover, w, h, glass, scrim, density, rtl).also { cache.put(key, it) }
+            flight.get(key, lookup = { cache.get(it) }, store = { k, v -> cache.put(k, v) }) { draw(cover, w, h, glass, scrim, density, rtl) }
         }.onFailure { Log.w(TAG, "Could not draw the glass", it) }.getOrNull()
 
     private fun draw(cover: Bitmap, w: Int, h: Int, glass: GlassPane, scrim: WidgetScrim, density: Float, rtl: Boolean): Bitmap {

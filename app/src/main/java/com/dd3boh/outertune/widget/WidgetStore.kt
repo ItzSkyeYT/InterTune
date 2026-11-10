@@ -11,7 +11,12 @@ import android.content.ComponentName
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.os.Build
+import android.os.Bundle
+import android.os.SystemClock
 import android.util.Log
+import android.util.LruCache
+import android.util.SizeF
 import androidx.compose.ui.graphics.toArgb
 import androidx.core.graphics.scale
 import androidx.glance.appwidget.GlanceAppWidgetManager
@@ -39,11 +44,18 @@ import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
 import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.components.SingletonComponent
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.emptyFlow
@@ -60,6 +72,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.security.MessageDigest
+import java.util.Collections
 
 /**
  * The one file the widget reads and the app writes, and the artwork beside it.
@@ -141,7 +154,26 @@ object WidgetStore {
         val big: Bitmap? = null,
         val nowCover: Bitmap? = null,
         val firsts: Map<String, Bitmap> = emptyMap(),
-    )
+    ) {
+        /**
+         * Which bitmaps the widget's pictures are drawn from, by identity: the now playing covers, and
+         * each list's covers in the order the widget shows them. Two of these with the same text draw
+         * the same pictures, which is what [warm] asks before it draws them ahead (a picture is kept
+         * by the very bitmaps it is drawn from). Up next's covers are shown as they are, not drawn into
+         * anything, so they are left out.
+         */
+        val pictures: String by lazy {
+            fun id(b: Bitmap?) = if (b == null) "-" else "${System.identityHashCode(b)}.${b.generationId}"
+            buildString {
+                append(id(nowCover)).append('/').append(id(big))
+                for (list in listOf(snapshot.picks, snapshot.forgotten, snapshot.keepListening, snapshot.recent)) {
+                    append('|')
+                    for (song in list) append(song.id).append('=').append(id(art[song.id])).append(',')
+                }
+                for ((song, b) in firsts.toSortedMap()) append(';').append(song).append('*').append(id(b))
+            }
+        }
+    }
 
     private fun dir(context: Context) = File(context.filesDir, "widget").apply { mkdirs() }
     private fun file(context: Context) = File(dir(context), "snapshot.tsv")
@@ -204,6 +236,8 @@ object WidgetStore {
             runCatching {
                 val glanceId = GlanceAppWidgetManager(context).getGlanceIdBy(appWidgetId)
                 updateAppWidgetState(context, glanceId) { prefs -> WidgetKeys.write(prefs, settings) }
+                // What the new settings draw (another look, another list) is drawn on workers first.
+                warmFor(context, settings, AppWidgetManager.getInstance(context).getAppWidgetOptions(appWidgetId))
                 MusicWidget().update(context, glanceId)
             }.onFailure { Log.w(TAG, "Could not save widget $appWidgetId's settings", it) }
         }
@@ -235,7 +269,9 @@ object WidgetStore {
 
     /** The artwork the snapshot names, as bitmaps. Small, few, and only re-read when they change. */
     private fun decoded(context: Context, snapshot: WidgetSnapshot): Drawn {
-        val (art, nowCover) = coversFor(snapshot, _drawn.value?.art.orEmpty(), ::decode, ::decodeCover)
+        // Every cover through the kept bitmaps: the pictures drawn ahead are kept by those very bitmaps,
+        // so a cover decoded again for each write would never find them (see warm and prefetchNext).
+        val (art, nowCover) = coversFor(snapshot, _drawn.value?.art.orEmpty(), ::decodeCover, ::decodeCover)
         val firsts = WidgetList.entries.mapNotNull { snapshot.list(it).firstOrNull() }.distinctBy { it.id }
             .mapNotNull { first -> decodeCover(bigArtPath(context, first.id))?.let { first.id to it } }.toMap()
         return Drawn(
@@ -258,7 +294,7 @@ object WidgetStore {
      * once per song too (see WidgetGlass).
      */
     private val decodedCovers = object : LinkedHashMap<String, Bitmap>(8, 0.75f, true) {
-        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Bitmap>?): Boolean = size > 8
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Bitmap>?): Boolean = size > 32
     }
 
     private fun decodeCover(path: String?): Bitmap? {
@@ -296,8 +332,109 @@ object WidgetStore {
             tmp.renameTo(file(context))
         }.onFailure { Log.w(TAG, "Could not write the widget snapshot", it) }
         // The flow is what a widget already on screen is watching; the file is for the next time
-        // the process starts from nothing.
-        _drawn.value = decoded(context, snapshot)
+        // the process starts from nothing. The pictures of what is about to be drawn are drawn first,
+        // on workers (see warm): Glance composes on the main thread, where drawing a crate or a row of
+        // records for a new cover took the better part of a second.
+        val drawn = decoded(context, snapshot)
+        warm(context, drawn)
+        _drawn.value = drawn
+    }
+
+    /** One widget's settings at one of the sizes the launcher gave it. */
+    private data class Placed(val settings: WidgetSettings, val w: Int, val h: Int)
+
+    /** What [warm] has drawn ahead already, so a write that changes nothing in the pictures draws nothing: newest last. */
+    private val warmed: MutableSet<String> = Collections.synchronizedSet(Collections.newSetFromMap(
+        object : LinkedHashMap<String, Boolean>(64, 0.75f, false) {
+            override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Boolean>?): Boolean = size > 96
+        },
+    ))
+
+    /**
+     * How long the widget waits for its pictures to be drawn ahead. Past it the widget is drawn anyway,
+     * and the composition takes a picture still being drawn from the worker drawing it (SingleFlight).
+     */
+    private const val WARM_LIMIT_MS = 1_500L
+
+    /** Every size of every widget on a home screen, with that widget's settings. */
+    private suspend fun placedSizes(context: Context): List<Placed> = runCatching {
+        val manager = AppWidgetManager.getInstance(context)
+        val glance = GlanceAppWidgetManager(context)
+        glance.getGlanceIds(MusicWidget::class.java).flatMap { glanceId ->
+            val settings = WidgetKeys.read(getAppWidgetState(context, PreferencesGlanceStateDefinition, glanceId))
+            sizesOf(manager.getAppWidgetOptions(glance.getAppWidgetId(glanceId))).map { (w, h) -> Placed(settings, w, h) }
+        }.distinct()
+    }.onFailure { Log.w(TAG, "Could not read the sizes of the widgets", it) }.getOrDefault(emptyList())
+
+    /**
+     * The widget composed once, off the main thread, for each size of each widget on the home screen,
+     * with [drawn] and the result thrown away. The point is what it leaves behind: every picture the
+     * composition draws (a crate, a row of records, the blurred cover, the glass) is kept for these
+     * very bitmaps, so the composition the launcher's session makes next, which Glance runs on the
+     * main thread, finds them all done. The classes and code it runs are warm by then too.
+     */
+    private suspend fun warm(context: Context, drawn: Drawn, placed: List<Placed>? = null) {
+        if (!hasWidgets(context)) return
+        // Only a Shelf draws pictures worth drawing ahead (a crate, a row of records, the blurred cover,
+        // up to 600 000 pixels a size). Cover is covers as they are; Full cover's glass is a few thousand
+        // pixels, a few milliseconds: for those the wait would cost more than it saves.
+        val wanted = (placed ?: placedSizes(context)).filter {
+            it.settings.style == WidgetStyle.SHELF && warmed.add("${drawn.pictures}|${it.settings.hashCode()}|${it.w}x${it.h}")
+        }
+        if (wanted.isEmpty()) return
+        val started = SystemClock.elapsedRealtime()
+        val finished = withTimeoutOrNull(WARM_LIMIT_MS) {
+            coroutineScope {
+                wanted.map { w ->
+                    async {
+                        try {
+                            composeAhead(context, w.settings, w.w, w.h, drawn)
+                        } catch (e: CancellationException) {
+                            throw e
+                        } catch (e: Throwable) {
+                            Log.w(TAG, "Could not draw the widget ahead at ${w.w}x${w.h}", e)
+                        }
+                    }
+                }.awaitAll()
+            }
+        }
+        if (finished == null) wanted.forEach { warmed.remove("${drawn.pictures}|${it.settings.hashCode()}|${it.w}x${it.h}") }
+        Log.d(DRAW_TAG, "Pictures drawn ahead for ${wanted.size} sizes in ${SystemClock.elapsedRealtime() - started} ms${if (finished == null) " (cut short)" else ""}")
+    }
+
+    /**
+     * The sizes of widget [appWidgetId] as the launcher has just given them, drawn ahead for what is
+     * on the widget now: asked for by the receiver the moment the launcher says a widget has a new
+     * size, while Glance is still starting the session that will compose it, so the new layout's
+     * pictures are done when the composition asks for them.
+     */
+    suspend fun warmResized(context: Context, appWidgetId: Int, options: Bundle) {
+        if (!hasWidgets(context)) return
+        warmFor(context, settingsOf(context, appWidgetId), options)
+    }
+
+    /** [warm] for a widget with [settings] at the sizes in [options], with what is drawn now. */
+    private suspend fun warmFor(context: Context, settings: WidgetSettings, options: Bundle) {
+        if (!hasWidgets(context)) return
+        warm(context, load(context), sizesOf(options).map { (w, h) -> Placed(settings, w, h) })
+    }
+
+    /** The widgets being resized, by id: a resize that goes on only wants the size it has come to. */
+    private val resizing = java.util.concurrent.ConcurrentHashMap<Int, Job>()
+
+    /** [warmResized] on a worker, in place of the one before it for the same widget that is still at it. */
+    fun warmResizedSoon(context: Context, appWidgetId: Int, options: Bundle) {
+        val app = context.applicationContext
+        resizing.remove(appWidgetId)?.cancel()
+        resizing[appWidgetId] = prepareScope.launch {
+            try {
+                warmResized(app, appWidgetId, options)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Throwable) {
+                Log.w(TAG, "Could not draw the resized widget ahead", e)
+            }
+        }
     }
 
     /**
@@ -305,6 +442,7 @@ object WidgetStore {
      * not playing before (see likedFor): it is the first guess at its heart (see [likeGuess]), and
      * [followLikes] puts the stored like there once it is read. [shuffled] and [upNext] are the
      * queue's, or null when they cannot be read (the service going away): the last ones then stay.
+     * [remainingMs] is what the song has left, for the wake (see [wakeBeforeChange]).
      */
     data class NowState(
         val song: MediaMetadata?,
@@ -312,6 +450,8 @@ object WidgetStore {
         val liked: Boolean = false,
         val shuffled: Boolean? = null,
         val upNext: List<MediaMetadata>? = null,
+        /** How long the song has left at the moment of the call, or null when the player cannot say: see [wakeDelayMs]. */
+        val remainingMs: Long? = null,
     )
 
     /**
@@ -334,6 +474,9 @@ object WidgetStore {
         val widgets = hasWidgets(context)
         var owed: Pair<MediaMetadata, List<Int>>? = null
         var owedNext = emptyList<MediaMetadata>()
+        var coming: MediaMetadata? = null
+        var remaining: Long? = null
+        var playingNow = false
         var written = ""
         // What this write changes on the widget. A song change calls this 4 to 10 times within two
         // seconds (the player's timeline and position events, its play state), mostly with nothing
@@ -342,16 +485,28 @@ object WidgetStore {
         // changes nothing the widget shows is now skipped, and so is its redraw.
         var changed = emptyList<String>()
         mutex.withLock {
-            val (song, isPlaying, liked, shuffled, queued) = state()
+            val (song, isPlaying, liked, shuffled, queued, left) = state()
+            remaining = left
+            playingNow = isPlaying
+            // The first call for a song is the moment the player changed: the time to the launcher starts here.
+            if (widgets && song?.id != lastAsked) {
+                lastAsked = song?.id
+                Log.d(DRAW_TAG, "Song changed to ${song?.id}")
+            }
+            coming = queued?.firstOrNull()
             val old = read(context)
             wantedArt = song?.id
+            // Up next is drawn only by a widget wide and tall enough for it (see drawsUpNext), at any of its
+            // sizes: a change of the queue alone redraws nothing else. The sizes are read only when they
+            // decide something, a change of Up next alone; read first, they held up every song change.
+            val upNextShown: suspend () -> Boolean = { widgets && placedSizes(context).any { drawsUpNext(it.settings, it.w, it.h) } }
             written = "${song?.id}, ${if (isPlaying) "playing" else "paused"}"
             if (song == null) {
                 val next = old.copy(
                     nowPlaying = null, isPlaying = false, isLiked = false, upNext = emptyList(),
                     isShuffled = shuffled ?: old.isShuffled,
                 )
-                changed = old.changesTo(next)
+                changed = old.changesShownTo(next, upNextShown)
                 if (changed.isNotEmpty()) write(context, next.copy(updatedAt = System.currentTimeMillis()))
             } else {
                 val same = old.nowPlaying?.id == song.id
@@ -402,7 +557,7 @@ object WidgetStore {
                     isShuffled = shuffled ?: old.isShuffled,
                     upNext = upNext,
                 )
-                changed = old.changesTo(next)
+                changed = old.changesShownTo(next, upNextShown)
                 if (changed.isNotEmpty()) write(context, next.copy(updatedAt = System.currentTimeMillis()))
                 // A missing picture is still fetched when nothing else changed.
                 if (widgets) {
@@ -419,7 +574,6 @@ object WidgetStore {
                     if (bare.isNotEmpty() && wideWidgets(context)) owedNext = queued.orEmpty().filter { it.id in bare }
                 }
             }
-            if (changed.isNotEmpty()) prune(context, read(context))
         }
         if (widgets) {
             if (changed.isEmpty()) {
@@ -427,12 +581,121 @@ object WidgetStore {
             } else {
                 Log.d(DRAW_TAG, "Written $written (${changed.joinToString()})")
                 MusicWidget().updateAll(context)
+                // How long the launcher's session took to be asked for: the next line is its own, "Drawing".
+                Log.d(DRAW_TAG, "Widgets told about $written")
             }
         }
+        // The old covers are cleared once the widgets have been told, not before: it read every file in
+        // the folder and every song of the snapshot while the new song waited to be drawn.
+        if (changed.isNotEmpty()) mutex.withLock { prune(context, read(context)) }
         owed?.let { (song, sizes) ->
             if (picturesFor(context, song, sizes)) MusicWidget().updateAll(context)
         }
         if (owedNext.isNotEmpty() && nextPicturesFor(context, owedNext)) MusicWidget().updateAll(context)
+        // And the next song's, while this one plays: its covers and its pictures for the widget.
+        if (widgets) coming?.let { prepareNext(context, it) }
+        if (widgets) wakeBeforeChange(context, remaining, playingNow)
+    }
+
+    /** The wake that is waiting for the end of the song, one at a time: the latest call to [setNowPlaying] has the time left. */
+    private var waking: Job? = null
+
+    /**
+     * Glance ends a widget's session 45 seconds after it began, and the draw after that starts a new
+     * one through WorkManager before anything is composed: on the Pixel 5 a new song's title was
+     * asked for 0.33 s after it was written and first composed 0.2 s after that, a half second of
+     * starting over at the very moment the song changes, which is nearly always after the last draw
+     * by minutes. So the session is started a little before the song ends, by a draw that changes
+     * nothing, and the change itself finds it running (see [wakeDelayMs]).
+     */
+    private fun wakeBeforeChange(context: Context, remainingMs: Long?, playing: Boolean) {
+        val app = context.applicationContext
+        val wait = wakeDelayMs(remainingMs, playing)
+        synchronized(this) {
+            waking?.cancel()
+            waking = if (wait == null) null else prepareScope.launch {
+                delay(wait)
+                if (hasWidgets(app)) {
+                    Log.d(DRAW_TAG, "Waking the widgets for the change of song")
+                    MusicWidget().updateAll(app)
+                }
+            }
+        }
+    }
+
+    /** The song the last call to [setNowPlaying] was about, for the one line a song change writes. */
+    @Volatile
+    private var lastAsked: String? = null
+
+    private val prepareScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
+    /** The song being got ready, and its job: one song at a time, the latest asked for. */
+    private var preparing: String? = null
+    private var preparingJob: Job? = null
+
+    /**
+     * The next song of the queue made ready while this one plays, in the background and behind
+     * everything the song that plays is owed. When it starts the widget has to show its title, its
+     * cover and everything drawn from its cover, and each of those used to be fetched or drawn after
+     * the change: the title came first and the cover a moment later, in a second redraw, and the
+     * drawing took the main thread's turn. Now its covers are on the phone before it starts, and the
+     * widget has been composed once as it will be, so the pictures are kept (see [warm]).
+     */
+    private fun prepareNext(context: Context, next: MediaMetadata) {
+        val app = context.applicationContext
+        synchronized(this) {
+            if (preparing == next.id) return
+            preparing = next.id
+            preparingJob?.cancel()
+            preparingJob = prepareScope.launch {
+                try {
+                    // After this song's own draw, not beside it: started at the change, fetching and
+                    // decoding the next song's covers held the phone while the new song was drawn, and a
+                    // skip reached a Full cover widget later than before (Pixel 5). A song ending by itself
+                    // was prepared for long before, so the wait costs it nothing.
+                    delay(PREPARE_AFTER_MS)
+                    getReady(app, next)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Throwable) {
+                    Log.w(TAG, "Could not get the widget ready for the next song", e)
+                }
+            }
+        }
+    }
+
+    /** How long after a song change the next song is got ready for the widget: after the change has been drawn. */
+    internal const val PREPARE_AFTER_MS = 5_000L
+
+    private suspend fun getReady(context: Context, next: MediaMetadata) {
+        val started = SystemClock.elapsedRealtime()
+        val paused = context.dataStore.get(PauseListenHistoryKey, false)
+        val sizes = listOfNotNull(ART_BIG_PX, ART_NOW_PX, ART_PICK_PX.takeIf { !paused })
+        artMutex.withLock { artInSizes(context, next.id, sizes) { px -> artModel(next, px) } }
+        val held = drawn.value?.snapshot ?: return
+        // It has started already: the write for it is the real one.
+        if (held.nowPlaying?.id == next.id) return
+        val art = artOnPhone(context, next.id, ART_NOW_PX) ?: return
+        val now = WidgetSong(
+            id = next.id,
+            title = next.title,
+            artist = next.artists.joinToString(", ") { it.name },
+            artPath = art,
+            thumbnailUrl = next.thumbnailUrl,
+            durationSec = next.duration,
+            isLocal = next.isLocal,
+            colour = artColour(art),
+        )
+        val row = (if (paused) null else artOnPhone(context, next.id, ART_PICK_PX)) ?: art
+        // As setNowPlaying will write it when the song starts, up to the queue after it.
+        val ahead = held.copy(
+            nowPlaying = now,
+            isPlaying = true,
+            recent = nextRecent(held.recent, now.copy(artPath = row), paused = paused, maxPicks = WidgetLayout.MAX_PICKS),
+            upNext = held.upNext.filter { it.id != next.id },
+        )
+        warm(context, decoded(context, ahead))
+        Log.d(DRAW_TAG, "Next song ${next.id} made ready in ${SystemClock.elapsedRealtime() - started} ms")
     }
 
     /**
@@ -446,7 +709,13 @@ object WidgetStore {
             if (wantedArt != song.id) return false
             artInSizes(context, song.id, sizes) { px -> artModel(song, px) }
         }
-        if (!made) return false
+        // Made by this fetch, or by the next song's being got ready (see prepareNext) when this song was
+        // that one, which a quick skip makes of it: either way the snapshot is told where they are. With
+        // nothing new on the phone, or the snapshot pointing at it already, there is nothing to tell.
+        if (!made) {
+            val have = artOnPhone(context, song.id, ART_NOW_PX)
+            if (have == null || have == read(context).nowPlaying?.takeIf { it.id == song.id }?.artPath) return false
+        }
         mutex.withLock {
             val snapshot = read(context)
             // The song may have changed since. Its row in Recently played is still its own.
@@ -763,9 +1032,19 @@ object WidgetStore {
         }
     }.onFailure { Log.w(TAG, "Could not read $which for the widget", it) }.getOrDefault(emptyList())
 
+    /**
+     * Colours worked out, by cover file as it is on the phone. The next song's is worked out while this
+     * one plays (getReady), and its change finds it here: reading the cover's pixels again was the
+     * biggest part of the time between a song change and the widget hearing of it (Pixel 5 trace).
+     */
+    private val colours = LruCache<String, Int>(24)
+
     /** The colour of a cover: the one the player would take, or what a cover of greys has most of. */
     private fun artColour(path: String?): Int? = runCatching {
-        decode(path)?.extractCoverColor()?.toArgb()
+        if (path == null) return@runCatching null
+        val file = File(path)
+        val key = "$path:${file.lastModified()}:${file.length()}"
+        colours.get(key) ?: decode(path)?.extractCoverColor()?.toArgb()?.also { colours.put(key, it) }
     }.getOrNull()
 
     /**
@@ -891,9 +1170,59 @@ object WidgetStore {
             .forEach { it.delete() }
     }.getOrDefault(Unit)
 
-    private fun hash(id: String): String =
-        MessageDigest.getInstance("SHA-1").digest(id.toByteArray()).joinToString("") { "%02x".format(it) }.take(16)
+    /** Songs' file names, kept: every cover looked up works one out, several times a song change. */
+    private val hashes = LruCache<String, String>(128)
+
+    private fun hash(id: String): String = hashes.get(id)
+        ?: MessageDigest.getInstance("SHA-1").digest(id.toByteArray()).joinToString("") { "%02x".format(it) }.take(16)
+            .also { hashes.put(id, it) }
 }
+
+/**
+ * Whether a widget set as [settings] draws Up next at [w] by [h] dp: Cover and Full cover do, from a
+ * tablet's width and height up and when the queue has a song to show (WidgetLayout.plan's panes). A
+ * Shelf never does. This may say yes where the plan then draws something else, never no where it
+ * draws Up next: WidgetUpNextTest walks the sizes to prove it.
+ */
+internal fun drawsUpNext(settings: WidgetSettings, w: Int, h: Int): Boolean =
+    settings.style != WidgetStyle.SHELF && w >= WidgetLayout.PANES_WIDTH_DP && h >= WidgetLayout.PANES_HEIGHT_DP
+
+/** How long before the end of a song the widget's session is started, so it is running when the song changes. */
+internal const val WAKE_BEFORE_END_MS = 12_000L
+
+/** A song with less left than this changes before a wake could be of use: the change starts its own session. */
+internal const val WAKE_TOO_LATE_MS = 2_000L
+
+/**
+ * How long to wait before waking the widget's session for the song's change, or null for no wake: a
+ * song that is not playing does not end, one that cannot say how long it has left has no time to wake
+ * for, and one that ends within [WAKE_TOO_LATE_MS] ends before a wake could do anything. With less left
+ * than [WAKE_BEFORE_END_MS] the wake is at once.
+ */
+internal fun wakeDelayMs(remainingMs: Long?, playing: Boolean): Long? =
+    if (!playing || remainingMs == null || remainingMs < WAKE_TOO_LATE_MS) null
+    else (remainingMs - WAKE_BEFORE_END_MS).coerceAtLeast(0L)
+
+/**
+ * The sizes in dp a launcher gave a widget, as Glance reads them for a widget of exact sizes: the
+ * list of sizes on Android 12 and up, and otherwise the two it estimates, the narrowest and tallest
+ * (upright) and the widest and shortest (on its side). Whole dp, as the composition reads them.
+ */
+internal fun sizesFrom(listed: List<Pair<Float, Float>>?, minWidth: Int, minHeight: Int, maxWidth: Int, maxHeight: Int): List<Pair<Int, Int>> {
+    if (!listed.isNullOrEmpty()) return listed.map { (w, h) -> w.toInt() to h.toInt() }.distinct()
+    return listOf(minWidth to maxHeight, maxWidth to minHeight).filter { (w, h) -> w > 0 && h > 0 }.distinct()
+}
+
+@Suppress("DEPRECATION")
+internal fun sizesOf(options: Bundle): List<Pair<Int, Int>> = sizesFrom(
+    listed = if (Build.VERSION.SDK_INT >= 31) {
+        options.getParcelableArrayList<SizeF>(AppWidgetManager.OPTION_APPWIDGET_SIZES)?.map { it.width to it.height }
+    } else null,
+    minWidth = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 0),
+    minHeight = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 0),
+    maxWidth = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_WIDTH, 0),
+    maxHeight = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT, 0),
+)
 
 /** How a broadcast receiver, which Hilt does not inject into here, reaches the one database. */
 @EntryPoint

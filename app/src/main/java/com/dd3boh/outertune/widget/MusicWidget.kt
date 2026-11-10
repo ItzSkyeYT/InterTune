@@ -20,8 +20,10 @@ import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.DpSize
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.emptyPreferences
+import androidx.datastore.preferences.core.mutablePreferencesOf
 import androidx.glance.ColorFilter
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
@@ -33,7 +35,9 @@ import androidx.glance.LocalSize
 import androidx.glance.action.Action
 import androidx.glance.action.actionParametersOf
 import androidx.glance.action.clickable
+import androidx.glance.appwidget.ExperimentalGlanceRemoteViewsApi
 import androidx.glance.appwidget.GlanceAppWidget
+import androidx.glance.appwidget.GlanceRemoteViews
 import androidx.glance.appwidget.SizeMode
 import androidx.glance.appwidget.action.actionRunCallback
 import androidx.glance.appwidget.action.actionStartActivity
@@ -70,6 +74,8 @@ import com.dd3boh.outertune.widget.WidgetLayout.PANE_GAP_DP
 import com.dd3boh.outertune.widget.WidgetLayout.SIDE_GAP_DP
 import com.dd3boh.outertune.widget.WidgetLayout.SMALL_GAP_DP
 import com.dd3boh.outertune.widget.WidgetLayout.UP_NEXT_COVER_DP
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlin.math.roundToInt
 
 /**
@@ -95,8 +101,10 @@ class MusicWidget(
     override val sizeMode = SizeMode.Exact
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
-        // provideContent never returns, so a preview stops here.
-        if (fixed != null) provideContent { GlanceTheme { Body(fixed) } }
+        // provideContent never returns, so a preview stops here. A preview, and the dry run
+        // WidgetStore.warm makes of the widget off the main thread, are not the widget on the home
+        // screen: they leave no "Composed" line for the timings in logcat.
+        if (fixed != null) provideContent { GlanceTheme { Body(fixed, quiet = true) } }
         // When a widget on a home screen is first drawn, or drawn again after its session ended:
         // how long a new widget waited for this is the time to its first picture.
         Log.i(WidgetStore.DRAW_TAG, "Drawing $id")
@@ -109,6 +117,22 @@ class MusicWidget(
             GlanceTheme {
                 Body(drawn ?: initial)
             }
+        }
+    }
+}
+
+/**
+ * The widget composed once on a worker, in memory, for [WidgetStore.warm]: no widget, no session and
+ * nothing written (a preview made through [renderWidget] saves a layout file for the widget id it
+ * makes up, which is fine for a settings screen and not for every song change). What it leaves
+ * behind is what it drew: the pictures [WidgetPictures] and [WidgetGlass] keep for these bitmaps.
+ */
+@OptIn(ExperimentalGlanceRemoteViewsApi::class)
+internal suspend fun composeAhead(context: Context, settings: WidgetSettings, widthDp: Int, heightDp: Int, drawn: WidgetStore.Drawn) {
+    val state = mutablePreferencesOf().also { WidgetKeys.write(it, settings) }
+    withContext(Dispatchers.Default) {
+        GlanceRemoteViews().compose(context, DpSize(widthDp.dp, heightDp.dp), state) {
+            GlanceTheme { Body(drawn, quiet = true) }
         }
     }
 }
@@ -233,7 +257,7 @@ private class Look(
 }
 
 @Composable
-private fun Body(drawn: WidgetStore.Drawn) {
+private fun Body(drawn: WidgetStore.Drawn, quiet: Boolean = false) {
     val context = LocalContext.current
     val settings = WidgetKeys.read(currentState<Preferences>() ?: emptyPreferences())
     val snapshot = drawn.snapshot
@@ -243,7 +267,7 @@ private fun Body(drawn: WidgetStore.Drawn) {
     val list = snapshot.list(settings.list)
     val plan = WidgetLayout.plan(w, h, settings, list.size, context.resources.configuration.fontScale, snapshot.upNext.size)
     // Each drawing at each size, so the time from a tap or a song change to the widget is in logcat.
-    Log.d(WidgetStore.DRAW_TAG, "Composed ${w}x$h ${plan.shape}, ${if (snapshot.isPlaying) "playing" else "paused"} ${snapshot.nowPlaying?.id}, ${list.size} in ${settings.list}")
+    if (!quiet) Log.d(WidgetStore.DRAW_TAG, "Composed ${w}x$h ${plan.shape}, ${if (snapshot.isPlaying) "playing" else "paused"} ${snapshot.nowPlaying?.id}, ${list.size} in ${settings.list}")
     val paint = paintOf(settings, snapshot)
     // The now playing song's own file, not the list entry the id-keyed art map would otherwise
     // resolve to whenever this same song sits at the head of Recently played; the big one only where
@@ -475,20 +499,23 @@ private const val PICTURE_PLACEHOLDER = 0x1FFFFFFF
 
 /**
  * [content] at [spot] of a box [w] by [h] dp, from its top start: a look puts each thing where its
- * plan says. The box is the whole of its parent, padded on all four sides down to the spot, and
- * right to left the spot is mirrored here: where a thing lands depends on no gravity and on no
+ * plan says. The box is the whole of its parent, padded on the left and the top down to the spot,
+ * and right to left the spot is mirrored here: where a thing lands depends on no gravity and on no
  * reading of start and end, which a widget's views and Glance's padding were seen to take apart.
+ *
+ * The thing is its spot's size and no more. It used to fill what was left of the parent after the
+ * padding on all four sides, which is the spot only while the widget is exactly the size it was
+ * planned for: while the launcher had the widget at a new size and the app had not drawn it yet
+ * (a resize on a Samsung's home screen), every picture was stretched to the new room, records into
+ * ellipses. Now it stays as it was drawn, and the new layout replaces it when it is there.
  */
 @Composable
 private fun At(w: Int, h: Int, rtl: Boolean, spot: Spot, modifier: GlanceModifier = GlanceModifier, content: @Composable () -> Unit) {
     val x = if (rtl) w - spot.x - spot.w else spot.x
     Box(
-        modifier = GlanceModifier.fillMaxSize().absolutePadding(
-            left = x.coerceAtLeast(0).dp, top = spot.y.coerceAtLeast(0).dp,
-            right = (w - x - spot.w).coerceAtLeast(0).dp, bottom = (h - spot.y - spot.h).coerceAtLeast(0).dp,
-        ),
+        modifier = GlanceModifier.fillMaxSize().absolutePadding(left = x.coerceAtLeast(0).dp, top = spot.y.coerceAtLeast(0).dp),
     ) {
-        Box(modifier = modifier.fillMaxSize()) { content() }
+        Box(modifier = modifier.size(spot.w.dp, spot.h.dp)) { content() }
     }
 }
 
