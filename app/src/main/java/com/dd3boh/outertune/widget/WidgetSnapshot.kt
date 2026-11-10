@@ -75,16 +75,29 @@ data class WidgetSnapshot(
     /**
      * What [next] would show differently from this snapshot, by part, for the store's log; empty when
      * the widget would look the same. [updatedAt] is left out: every write changes it and the widget
-     * never shows it.
+     * never shows it. Nor does a phone's widget show Up next, which is drawn only beside what is
+     * playing at a tablet's width: with [upNextShown] false a change of the queue's next songs alone
+     * is a change of nothing, and not a redraw of every widget (it came a second or two after each
+     * song change, long after the song's own, and drew the very same widget).
      */
-    fun changesTo(next: WidgetSnapshot): List<String> = buildList {
+    fun changesTo(next: WidgetSnapshot, upNextShown: Boolean = true): List<String> = buildList {
         if (nowPlaying?.id != next.nowPlaying?.id) add("song") else if (nowPlaying != next.nowPlaying) add("song's details")
         if (isPlaying != next.isPlaying) add("play")
         if (isLiked != next.isLiked) add("like")
         if (isShuffled != next.isShuffled) add("shuffle")
-        if (upNext != next.upNext) add("up next")
+        if (upNextShown && upNext != next.upNext) add("up next")
         if (recent != next.recent) add("recent")
         if (picks != next.picks || forgotten != next.forgotten || keepListening != next.keepListening) add("lists")
+    }
+
+    /**
+     * [changesTo], with whether a widget shows Up next asked only when the answer decides anything: a
+     * change of the queue's next songs alone. Any other change is drawn anyway, so a song change never
+     * waits for every widget's sizes to be read.
+     */
+    suspend fun changesShownTo(next: WidgetSnapshot, upNextShown: suspend () -> Boolean): List<String> {
+        val all = changesTo(next)
+        return if (all == listOf("up next") && !upNextShown()) emptyList() else all
     }
 }
 

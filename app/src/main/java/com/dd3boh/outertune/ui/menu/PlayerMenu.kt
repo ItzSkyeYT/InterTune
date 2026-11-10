@@ -382,8 +382,8 @@ fun PlayerMenu(
             sleepTimerTimeLeft = sleepTimerTimeLeft,
             enabled = sleepTimerEnabled
         ) {
-            if (sleepTimerEnabled) playerConnection.service.sleepTimer.clear()
-            else showSleepTimerDialog = true
+            // The sheet either way: while a timer runs it shows the timer, with Stop timer in it.
+            showSleepTimerDialog = true
         }
         GridMenuItem(
             icon = Icons.Rounded.Equalizer,

@@ -8,6 +8,7 @@ package com.dd3boh.outertune.widget
 
 import android.appwidget.AppWidgetManager
 import android.content.Context
+import android.os.Bundle
 import android.util.Log
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.GlanceAppWidgetReceiver
@@ -30,6 +31,18 @@ class MusicWidgetReceiver : GlanceAppWidgetReceiver() {
     override val glanceAppWidget: GlanceAppWidget = MusicWidget()
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    /**
+     * The launcher has given a widget a new size (its owner let go of a resize, or the phone turned).
+     * Glance then composes the widget for it on the main thread; the pictures that need drawing for the
+     * new size (a crate, a row of records, the blurred cover) are drawn here at once on workers, while
+     * Glance is still starting its session, so the composition finds them done.
+     */
+    override fun onAppWidgetOptionsChanged(context: Context, appWidgetManager: AppWidgetManager, appWidgetId: Int, newOptions: Bundle) {
+        Log.i(WidgetStore.DRAW_TAG, "Widget $appWidgetId has a new size: ${sizesOf(newOptions).joinToString { "${it.first}x${it.second}" }}")
+        WidgetStore.warmResizedSoon(context, appWidgetId, newOptions)
+        super.onAppWidgetOptionsChanged(context, appWidgetManager, appWidgetId, newOptions)
+    }
 
     override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
         Log.i(WidgetStore.DRAW_TAG, "Asked to draw widgets ${appWidgetIds.joinToString()}")

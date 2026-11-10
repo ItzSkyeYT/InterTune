@@ -53,18 +53,31 @@ class WidgetSameWriteTest {
     }
 
     @Test
+    fun `a change of the queue's next songs alone is a change of nothing where no widget shows them`() {
+        val s = snapshot()
+        val queued = s.copy(upNext = listOf(song("q")))
+        assertEquals("a tablet's widget shows them", listOf("up next"), s.changesTo(queued))
+        assertEquals("a phone's does not", emptyList<String>(), s.changesTo(queued, upNextShown = false))
+        // everything else is still a change, shown or not
+        assertEquals(listOf("song"), s.changesTo(s.copy(nowPlaying = song("q"), upNext = listOf(song("q"))), upNextShown = false))
+        assertEquals(listOf("play"), s.changesTo(queued.copy(isPlaying = false), upNextShown = false))
+    }
+
+    @Test
     fun `the store skips the write and the redraw when nothing changed, and still fetches a missing picture`() {
         val store = File("src/main/java/com/dd3boh/outertune/widget/WidgetStore.kt").readText()
         val set = store.substringAfter("suspend fun setNowPlaying(").substringBefore("\n    }\n")
         val skippedWrite = Regex("""if \(changed\.isNotEmpty\(\)\) write\(context, next\.copy\(updatedAt = System\.currentTimeMillis\(\)\)\)""")
         assertEquals("both ways (a song, and nothing playing) write only a change", 2, skippedWrite.findAll(set).count())
-        assertEquals(2, Regex("""changed = old\.changesTo\(next\)""").findAll(set).count())
+        assertEquals(2, Regex("""changed = old\.changesShownTo\(next, upNextShown\)""").findAll(set).count())
         val draw = set.substringAfter("if (widgets) {\n            if (changed.isEmpty()) {")
         assertTrue("not drawn again" in draw.substringBefore("} else {"))
         assertFalse("updateAll(context)" in draw.substringBefore("} else {"))
         assertTrue("MusicWidget().updateAll(context)" in draw.substringAfter("} else {").substringBefore("\n        }\n"))
         // The artwork owed to a song does not wait for a change.
-        assertTrue(set.indexOf("owed = song to sizes") > set.lastIndexOf("changed = old.changesTo(next)"))
+        assertTrue(set.indexOf("owed = song to sizes") > set.lastIndexOf("changed = old.changesShownTo(next"))
+        // The old covers are cleared once the widgets have been told, never on the way to telling them.
+        assertTrue(set.indexOf("prune(context, read(context))") > set.indexOf("Widgets told about"))
         assertFalse(Regex("""if \(changed\.isNotEmpty\(\)\) \{[^}]*owed""").containsMatchIn(set))
     }
 }

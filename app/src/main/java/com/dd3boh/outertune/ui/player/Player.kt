@@ -1062,7 +1062,7 @@ private fun PlayerSheet(
             }
 
             // Classic: circles beside the title. Tertiary on the timer while it runs, and a
-            // tap then cancels it, as the menu's entry does. With the queue on a button it comes
+            // tap then opens its sheet, as the menu's entry does. With the queue on a button it comes
             // first, so like and the menu stay where they always were at the end of the row.
             val queueCircle: @Composable () -> Unit = {
                 PlayerCircleButton(
@@ -1079,10 +1079,7 @@ private fun PlayerSheet(
                     contentDescription = stringResource(R.string.sleep_timer),
                     container = if (sleepTimerOn) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.primary,
                     content = if (sleepTimerOn) MaterialTheme.colorScheme.onTertiary else MaterialTheme.colorScheme.onPrimary,
-                    onClick = {
-                        if (sleepTimerOn) playerConnection.service.sleepTimer.clear()
-                        else showSleepTimerDialog = true
-                    }
+                    onClick = { showSleepTimerDialog = true }
                 )
             }
             val likeCircle: @Composable () -> Unit = {
@@ -1237,10 +1234,7 @@ private fun PlayerSheet(
                         shape = shape,
                         container = if (sleepTimerOn) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.secondaryContainer,
                         content = if (sleepTimerOn) MaterialTheme.colorScheme.onTertiary else MaterialTheme.colorScheme.onSecondaryContainer,
-                        onClick = {
-                            if (sleepTimerOn) playerConnection.service.sleepTimer.clear()
-                            else showSleepTimerDialog = true
-                        },
+                        onClick = { showSleepTimerDialog = true },
                         backdrop = buttonBackdrop,
                         glassIntensity = glassIntensity,
                     )
@@ -1369,10 +1363,7 @@ private fun PlayerSheet(
                                 label = if (sleepTimerOn && sleepTimerLeft > 0) makeTimeString(sleepTimerLeft) else null,
                                 backdrop = buttonBackdrop,
                                 glassIntensity = glassIntensity,
-                                onClick = {
-                                    if (sleepTimerOn) playerConnection.service.sleepTimer.clear()
-                                    else showSleepTimerDialog = true
-                                },
+                                onClick = { showSleepTimerDialog = true },
                             )
                             PlayerPin.SHARE -> PlayerActionSegment(
                                 painter = rememberVectorPainter(Icons.Rounded.Share),

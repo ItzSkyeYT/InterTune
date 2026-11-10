@@ -188,6 +188,7 @@
     <string name="clear_image_cache_confirm">Voulez-vous vraiment vider le cache des images ? Toutes les vignettes d\'albums existantes seront supprimées.</string>
     <string name="clear_song_cache_confirm">Êtes-vous sûr de vouloir vider le cache des chansons ?</string>
     <string name="dl_extra_path_title">Configurer des emplacements d’importation supplémentaires…</string>
+    <string name="dl_extra_path_dialog_title">Emplacements d\'importation supplémentaires</string>
     <string name="dl_main_path_description">Choisissez un dossier vide : InterTune peut y modifier ou supprimer des fichiers.</string>
     <string name="dl_rescan_confirm">Souhaitez-vous réanalyser tous les dossiers de téléchargement maintenant ? Cela peut prendre quelques minutes selon la taille de votre bibliothèque.</string>
     <string name="oobe_ytm_integration">Intégration de YouTube Music</string>
@@ -208,7 +209,13 @@
     <string name="scanner_rejected_dir">Sélection non valide. Un dossier d\'analyse ne peut pas être un sous-dossier du dossier de téléchargement, ni le dossier de téléchargement lui-même.</string>
     <string name="scanner_holds_download_dir">Ce dossier contient votre dossier de téléchargement (%s), il ne peut donc pas être un dossier d\'analyse</string>
     <string name="scanner_overlap_kept">Chevauche votre dossier de téléchargement ; conservé tel quel car il était déjà enregistré</string>
+    <string name="scanner_holds_import_dir">Ce dossier contient l\'un de vos dossiers d\'importation supplémentaires (%s), il ne peut donc pas être un dossier d\'analyse</string>
+    <string name="scanner_inside_import_dir">Ce dossier se trouve dans l\'un de vos dossiers d\'importation supplémentaires (%s), il ne peut donc pas être un dossier d\'analyse</string>
+    <string name="scanner_overlap_import_kept">Chevauche l\'un de vos dossiers d\'importation supplémentaires ; conservé tel quel car il était déjà enregistré</string>
+    <string name="scanner_rule">Un dossier d\'analyse ne peut ni contenir ni se trouver dans un dossier de téléchargement ou un dossier d\'importation supplémentaire</string>
     <string name="dl_extra_path_overlap_kept">Chevauche un dossier d\'analyse ; conservé tel quel car il était déjà enregistré</string>
+    <string name="dl_extra_path_overlaps_scan">Ce dossier chevauche un dossier d\'analyse, il ne peut donc pas être un emplacement d\'importation supplémentaire</string>
+    <string name="dl_main_path_part_of_scan">Ce dossier fait partie d\'un dossier d\'analyse, il ne peut donc pas être le dossier de téléchargement</string>
     <string name="oobe_ad_free_exp_description">Profitez d\'une lecture de musique ininterrompue</string>
     <string name="dl_oobe_tooltip">Les titres sont téléchargés dans le stockage privé de l\'application. Pour télécharger dans un dossier accessible, choisissez-en un ici ; vous pourrez le changer plus tard dans les Paramètres.</string>
     <string name="oobe_ytm_logon_subtitle">Connectez-vous à votre compte YouTube Music pour synchroniser et accéder à votre contenu privé. Cette option est facultative.</string>
@@ -2541,4 +2548,30 @@
     </plurals>
     <!-- A picker asked for on a device with none (#120, #121). -->
     <string name="no_app_to_pick">Pas de sélecteur de fichiers. Installez un gestionnaire de fichiers.</string>
+    <string name="sleep_row_in">Dans</string>
+    <string name="sleep_row_at">À</string>
+    <string name="sleep_row_end_of">Fin de</string>
+    <string name="sleep_minutes_short">%1$d min</string>
+    <string name="sleep_end_song">Titre</string>
+    <string name="sleep_end_album">Album</string>
+    <string name="sleep_end_of_album">Fin de l\'album</string>
+    <string name="sleep_end_of_queue">Fin de la file d\'attente</string>
+    <string name="sleep_let_finish">Laisser finir le titre</string>
+    <string name="sleep_fade_row">Fondu · %1$d&#160;s</string>
+    <string name="sleep_every_night">Chaque nuit</string>
+    <string name="sleep_start">Démarrer</string>
+    <string name="sleep_stop">Arrêter la minuterie</string>
+    <string name="sleep_close">Fermer</string>
+    <string name="sleep_plus_minutes">+%1$d min</string>
+    <string name="sleep_stops_at">S\'arrête à %1$s</string>
+    <string name="sleep_stops_at_after_song">S\'arrête à %1$s, après le titre</string>
+    <string name="sleep_the_song">le titre</string>
+    <string name="sleep_notif_title_at">La musique s\'arrête à %1$s</string>
+    <string name="sleep_notif_title_song">La musique s\'arrête après ce titre</string>
+    <string name="sleep_notif_title_album">La musique s\'arrête après cet album</string>
+    <string name="sleep_notif_title_queue">La musique s\'arrête à la fin de la file d\'attente</string>
+    <string name="sleep_notif_line_fade">Fondu de %1$d&#160;s</string>
+    <string name="sleep_notif_line_fade_after">Fondu de %1$d&#160;s, après %2$s</string>
+    <string name="sleep_notif_line_after">Après %1$s</string>
+    <string name="sleep_notif_stop">Arrêter</string>
 </resources>
