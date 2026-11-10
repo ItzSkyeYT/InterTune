@@ -43,6 +43,7 @@ import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.lyrics.LyricsForCast
 import com.dd3boh.outertune.lyrics.LyricsLookup
 import com.dd3boh.outertune.lyrics.LyricsTiming
+import com.dd3boh.outertune.utils.FailureLog
 import com.dd3boh.outertune.utils.dataStore
 import com.dd3boh.outertune.utils.get
 import kotlinx.coroutines.CancellationException
@@ -384,6 +385,7 @@ class CastSession(
     private fun lost(status: ReceiverStatus) {
         val remote = remote ?: return
         Log.i(TAG, "Lost the receiver: ${status.error}")
+        FailureLog.record("Casting", why = "lost the receiver: ${status.problem ?: status.error ?: "no reason given"}")
         val reason = say(status.problem ?: LinkProblem.LOST, remote.device.name)
         end(playHere = false)
         _problem.value = reason

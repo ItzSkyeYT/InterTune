@@ -75,6 +75,8 @@ object ProblemLog {
     private val FAULTS_OF = TELLING + setOf(
         "ExoPlayerImplInternal", "MediaCodecAudioRenderer", "MediaCodecRenderer", "LoadTask", "DefaultAudioSink",
         "SimpleCache", "CacheDataSink", "AndroidRuntime",
+        // A failure the person was told about: see FailureLog.
+        FailureLog.TAG,
     )
 
     /** Warnings every phone writes for every song, whatever happens next. */

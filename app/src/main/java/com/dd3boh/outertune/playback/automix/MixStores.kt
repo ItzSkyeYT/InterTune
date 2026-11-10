@@ -19,6 +19,7 @@ import com.dd3boh.outertune.mix.edit.TransitionSpec
 import com.dd3boh.outertune.mix.edit.TransitionStore
 import com.dd3boh.outertune.mix.pill.AutoChoice
 import com.dd3boh.outertune.mix.pill.HeardChanges
+import com.dd3boh.outertune.utils.FailureLog
 import com.dd3boh.outertune.utils.dataStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -74,6 +75,7 @@ object MixStores {
         true
     } catch (e: Exception) {
         Log.w(TAG, "the saved transitions could not be written", e)
+        FailureLog.record("Saving the transitions", e)
         false
     }
 
