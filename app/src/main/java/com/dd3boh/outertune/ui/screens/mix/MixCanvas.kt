@@ -442,6 +442,21 @@ private fun DrawScope.label(m: TextMeasurer, text: String, x: Float, y: Float, c
     drawText(r, topLeft = Offset(x, y - r.size.height / 2f), alpha = alpha)
 }
 
+/**
+ * Whether a label that starts at [x] and is [width] wide lies whole between [left] and [right], the
+ * edges the canvas draws within. A number cut by the edge reads as another one ("+13" showed as
+ * "+1" at the widest zoom, 10 Nov 2026), so a ruler label that does not fit is not drawn: its tick
+ * stays, as the ruler's labels thin out wherever they would not fit side by side.
+ */
+internal fun labelFits(x: Float, width: Float, left: Float, right: Float): Boolean = x >= left - 0.5f && x + width <= right + 0.5f
+
+/** A ruler label, drawn only where it lies whole within the canvas ([labelFits]). */
+private fun DrawScope.rulerLabel(c: CanvasInputs, text: String, x: Float, y: Float, color: Color, fontSize: Float = 11f, weight: FontWeight = FontWeight.Medium, alpha: Float = 1f) {
+    val r = c.measurer.measure(text, TextStyle(fontSize = fontSize.sp, fontWeight = weight, color = color))
+    if (!labelFits(x, r.size.width.toFloat(), c.layout.pad, size.width - c.layout.pad)) return
+    drawText(r, topLeft = Offset(x, y - r.size.height / 2f), alpha = alpha)
+}
+
 private fun DrawScope.scrimLabel(c: CanvasInputs, text: String, right: Float, y: Float, alpha: Float = 0.9f) {
     val r = c.measurer.measure(text, TextStyle(fontSize = 10.sp, fontWeight = FontWeight.Medium, color = c.colors.onSurfaceVariant))
     val w = r.size.width + 10 * c.layout.dp
@@ -925,8 +940,8 @@ private fun DrawScope.drawRuler(c: CanvasInputs) {
         var k = ceil(g.start / step - 1e-9).toInt() * step
         while (k <= end + 1e-9) {
             val a = if (k < 0 || k >= g.length) 0.45f else 0.95f
-            label(c.measurer, c.words.barName(k.toDouble(), g.length), g.x(k.toDouble()) + 3 * g.dp, r.centre - 2 * g.dp, colour, alpha = a)
-            if (showBeats) for (b in 2..beats) label(c.measurer, b.toString(), g.x(k + (b - 1.0) / beats) + 2 * g.dp, r.centre - 2 * g.dp, colour, 10f, FontWeight.Normal, 0.4f)
+            rulerLabel(c, c.words.barName(k.toDouble(), g.length), g.x(k.toDouble()) + 3 * g.dp, r.centre - 2 * g.dp, colour, alpha = a)
+            if (showBeats) for (b in 2..beats) rulerLabel(c, b.toString(), g.x(k + (b - 1.0) / beats) + 2 * g.dp, r.centre - 2 * g.dp, colour, 10f, FontWeight.Normal, 0.4f)
             k += step
         }
     } else {
@@ -945,7 +960,7 @@ private fun DrawScope.drawRuler(c: CanvasInputs) {
         var s = ceil(g.start * barS / step - 1e-9).toInt() * step
         while (s <= end * barS + 1e-9) {
             val a = if (s < 0 || s > spec.seconds) 0.45f else 0.95f
-            label(c.measurer, if (s == 0) c.words.seconds(0.0) else s.toString(), g.x(s / barS) + 3 * g.dp, r.centre - 2 * g.dp, colour, alpha = a)
+            rulerLabel(c, if (s == 0) c.words.seconds(0.0) else s.toString(), g.x(s / barS) + 3 * g.dp, r.centre - 2 * g.dp, colour, alpha = a)
             s += step
         }
     }
