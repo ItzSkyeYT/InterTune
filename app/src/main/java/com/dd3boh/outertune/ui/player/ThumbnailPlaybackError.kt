@@ -27,7 +27,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.AccountCircle
 import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.Public
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -55,6 +57,7 @@ import com.dd3boh.outertune.LocalBatteryMode
 import com.dd3boh.outertune.playback.BatteryUse
 import com.dd3boh.outertune.constants.PlayerBackgroundStyle
 import com.dd3boh.outertune.constants.PlayerBackgroundStyleKey
+import com.dd3boh.outertune.ui.component.rememberSignedIn
 import com.dd3boh.outertune.ui.utils.fadingEdge
 import com.dd3boh.outertune.utils.ErrorText
 import com.dd3boh.outertune.utils.rememberEnumPreference
@@ -71,6 +74,13 @@ fun ThumbnailPlaybackError(
     error: PlaybackException,
     retry: () -> Unit,
     modifier: Modifier = Modifier,
+    /**
+     * Where the way out of YouTube wanting a sign-in leads, both away from the player: the login
+     * page and the proxy setting. The caller takes the sheet down on the way (BottomSheetPlayer),
+     * or the page opens under it unseen.
+     */
+    onSignIn: () -> Unit = {},
+    onProxy: () -> Unit = {},
 ) {
     val clipboardManager = LocalClipboard.current
     val context = LocalContext.current
@@ -101,7 +111,13 @@ fun ThumbnailPlaybackError(
     // ERROR_CODE_IO_UNSPECIFIED, "Unexpected P" is a minified class name, and only the tail carries
     // any information. Branching on errorCode would never fire, because the code set when the
     // response is rejected does not survive the re-wrap. Walk the cause chain instead.
-    val isYouTubeBusy = remember(error) { Throttle.isBlock(error) }
+    //
+    // And YouTube asking for a sign-in, which is what the bot check and a LOGIN_REQUIRED from every
+    // route come to: it used to end as "Unknown error" when the walk's last answer was an OK with
+    // no address (issue #124). Signed out the way out is to sign in, and signed in the account
+    // was asked already, so what is left is the network.
+    val isYouTubeBusy = remember(error) { YTPlayerUtils.isSignInWanted(error) }
+    val signedIn = rememberSignedIn()
     // The other thing that arrives wearing the same unreadable wrapper, and the far more common
     // one: a single song YouTube age gates. Nothing is wrong with the app, the network or the
     // account, and the raw text says none of that.
@@ -133,7 +149,7 @@ fun ThumbnailPlaybackError(
             )
             Text(
                 text = if (isYouTubeBusy) {
-                    stringResource(R.string.err_youtube_busy)
+                    if (signedIn) stringResource(R.string.err_youtube_busy) else stringResource(R.string.err_sign_in_wanted)
                 } else if (isAgeGated) {
                     stringResource(R.string.err_age_restricted)
                 } else if (isGone) {
@@ -147,6 +163,42 @@ fun ThumbnailPlaybackError(
                 color = textColor,
                 style = MaterialTheme.typography.bodyMedium
             )
+        }
+        // The way out of it: Log in for who is signed out, and the proxy setting, where a network
+        // YouTube turns away can be left behind. Before Retry, which tries the same thing again.
+        if (isYouTubeBusy) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (!signedIn) {
+                    TextButton(onClick = onSignIn) {
+                        Icon(
+                            imageVector = Icons.Rounded.AccountCircle,
+                            contentDescription = null,
+                            tint = textColor,
+                            modifier = Modifier.size(18.dp),
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            text = stringResource(R.string.action_login),
+                            color = textColor,
+                            style = MaterialTheme.typography.labelLarge,
+                        )
+                    }
+                }
+                TextButton(onClick = onProxy) {
+                    Icon(
+                        imageVector = Icons.Rounded.Public,
+                        contentDescription = null,
+                        tint = textColor,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        text = stringResource(R.string.region_note_proxy),
+                        color = textColor,
+                        style = MaterialTheme.typography.labelLarge,
+                    )
+                }
+            }
         }
         // The retry this screen is handed was never drawn: the play button was the only way to try
         // again, and nothing said so.

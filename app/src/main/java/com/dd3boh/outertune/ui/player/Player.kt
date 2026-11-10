@@ -44,6 +44,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import com.dd3boh.outertune.ui.component.rememberSleepTimerState
+import com.dd3boh.outertune.ui.component.openProxySetting
 import androidx.compose.material3.Icon
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -279,6 +280,21 @@ fun BottomSheetPlayer(
     val menuState = LocalMenuState.current
     val context = LocalContext.current
     val database = LocalDatabase.current
+
+    // The error screen's ways out of YouTube wanting a sign-in lead away from the player: the sheet
+    // goes down on the way, or the page opens under it unseen (as the queue's notes do).
+    val leaveForSignIn = remember(navController, state) {
+        {
+            navController.navigate("login")
+            state.collapseSoft()
+        }
+    }
+    val leaveForProxy = remember(state) {
+        {
+            openProxySetting()
+            state.collapseSoft()
+        }
+    }
 
     // Focus follows the sheet for the keys: opened from the mini player, it lands on play and
     // pause; closed again, it goes back to the mini player's title. Left alone it vanished with
@@ -1705,7 +1721,9 @@ fun BottomSheetPlayer(
                                     .animateContentSize(),
                                 showLyricsOnClick = true,
                                 customMediaMetadata = mediaMetadata,
-                                lyricsBottomPadding = queueClearance
+                                lyricsBottomPadding = queueClearance,
+                                onSignIn = leaveForSignIn,
+                                onProxy = leaveForProxy,
                             )
                         } else {
                             SwipeableArtwork(
@@ -1723,7 +1741,9 @@ fun BottomSheetPlayer(
                                         .animateContentSize(),
                                     showLyricsOnClick = true,
                                     customMediaMetadata = it,
-                                    lyricsBottomPadding = queueClearance
+                                    lyricsBottomPadding = queueClearance,
+                                    onSignIn = leaveForSignIn,
+                                    onProxy = leaveForProxy,
                                 )
                             }
                         }
@@ -1825,7 +1845,9 @@ fun BottomSheetPlayer(
                                     .animateContentSize(),
                                 sliderPositionProvider = { sliderPosition },
                                 showLyricsOnClick = true,
-                                customMediaMetadata = mediaMetadata
+                                customMediaMetadata = mediaMetadata,
+                                onSignIn = leaveForSignIn,
+                                onProxy = leaveForProxy,
                             )
                         } else {
                             SwipeableArtwork(
@@ -1843,7 +1865,9 @@ fun BottomSheetPlayer(
                                         .animateContentSize(),
                                     sliderPositionProvider = { sliderPosition },
                                     showLyricsOnClick = true,
-                                    customMediaMetadata = it
+                                    customMediaMetadata = it,
+                                    onSignIn = leaveForSignIn,
+                                    onProxy = leaveForProxy,
                                 )
                             }
                         }
