@@ -104,7 +104,7 @@ import com.dd3boh.outertune.utils.scanners.LocalMediaScanner.Companion.scannerRe
 import com.dd3boh.outertune.utils.scanners.LocalMediaScanner.Companion.scannerState
 import com.dd3boh.outertune.utils.scanners.ScannerAbortException
 import com.dd3boh.outertune.utils.scanners.absoluteFilePathFromUri
-import com.dd3boh.outertune.utils.scanners.FolderNesting
+import com.dd3boh.outertune.utils.scanners.ScanFolderRules
 import com.dd3boh.outertune.utils.scanners.stringFromUriList
 import com.dd3boh.outertune.utils.scanners.uriListFromString
 import kotlinx.coroutines.CancellationException
@@ -536,25 +536,19 @@ fun ColumnScope.LocalScannerFrag() {
             )
         }
 
-        // Whether [candidate] itself sits at or inside the download folder or an extra download
-        // folder: scanning it in would import the download folder's own files as local songs too.
-        // Excluding such a folder is harmless, so this is only checked for folders to scan.
-        // FolderNesting, not string .contains(), which took a folder like MusicVideos for one
-        // inside Music.
-        fun sitsInsideADownloadDir(candidate: Uri): Boolean {
-            if (showAddFolderDialog != true) return false
-            return (uriListFromString(downloadPath) + uriListFromString(dlPathExtra)).any { dl ->
-                FolderNesting.isSameOrInside(candidate.toString(), dl.toString())
-            }
-        }
-
-        // The download folder or extra download folder [candidate] itself holds, if any. Named,
-        // not just a flag, so the row can say which one.
-        fun holdingADownloadDir(candidate: Uri): Uri? {
+        // Why [candidate] cannot be a scan folder, if it cannot: it is, holds or sits inside the
+        // download folder or an extra import folder, and scanning it in would import their songs
+        // as local songs too. Which folder, which setting and which way round is kept, because a
+        // refusal that only said "your download folder" gave no way to tell an extra import
+        // folder from it (issue 122). Excluding such a folder is harmless, so this is only
+        // checked for folders to scan.
+        fun conflictOf(candidate: Uri): ScanFolderRules.Conflict? {
             if (showAddFolderDialog != true) return null
-            return (uriListFromString(downloadPath) + uriListFromString(dlPathExtra)).firstOrNull { dl ->
-                FolderNesting.isSameOrInside(dl.toString(), candidate.toString())
-            }
+            return ScanFolderRules.conflictOf(
+                candidate.toString(),
+                uriListFromString(downloadPath).map { it.toString() },
+                uriListFromString(dlPathExtra).map { it.toString() },
+            )
         }
 
         ActionPromptDialog(
@@ -616,7 +610,7 @@ fun ColumnScope.LocalScannerFrag() {
                 // narrower rule could never be got past again, on a screen with nothing on it
                 // saying why. A saved row that does overlap is still shown below, in a neutral
                 // tone rather than as a blocking error.
-                it !in sessionAddedPaths || (!sitsInsideADownloadDir(it) && holdingADownloadDir(it) == null)
+                it !in sessionAddedPaths || conflictOf(it) == null
             } || tempScanPaths.isEmpty()
         ) {
             val dirPickerLauncher = rememberLauncherForActivityResult(
@@ -650,15 +644,13 @@ fun ColumnScope.LocalScannerFrag() {
                     )
             ) {
                 tempScanPaths.forEach {
-                    val holdsDownloadDir = holdingADownloadDir(it)
-                    val insideDownloadDir = sitsInsideADownloadDir(it)
-                    val overlapsDownloadDir = holdsDownloadDir != null || insideDownloadDir
+                    val conflict = conflictOf(it)
                     // Only a row picked in this run of the dialog can block OK; a saved row that
                     // overlaps is shown, not enforced.
-                    val blocking = overlapsDownloadDir && it in sessionAddedPaths
+                    val blocking = conflict != null && it in sessionAddedPaths
                     val rowColor = when {
                         blocking -> MaterialTheme.colorScheme.errorContainer
-                        overlapsDownloadDir -> MaterialTheme.colorScheme.surfaceVariant
+                        conflict != null -> MaterialTheme.colorScheme.surfaceVariant
                         else -> Color.Transparent
                     }
                     val textColor =
@@ -677,20 +669,9 @@ fun ColumnScope.LocalScannerFrag() {
                                 text = absoluteFilePathFromUri(context, it) ?: it.toString(),
                                 style = MaterialTheme.typography.bodySmall,
                             )
-                            if (holdsDownloadDir != null) {
+                            if (conflict != null) {
                                 Text(
-                                    text = if (blocking) stringResource(
-                                        R.string.scanner_holds_download_dir,
-                                        absoluteFilePathFromUri(context, holdsDownloadDir) ?: holdsDownloadDir.toString()
-                                    ) else stringResource(R.string.scanner_overlap_kept),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = textColor,
-                                )
-                            } else if (insideDownloadDir) {
-                                Text(
-                                    text = stringResource(
-                                        if (blocking) R.string.scanner_rejected_dir else R.string.scanner_overlap_kept
-                                    ),
+                                    text = scanConflictText(context, conflict, blocking),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = textColor,
                                 )
@@ -722,11 +703,12 @@ fun ColumnScope.LocalScannerFrag() {
                     modifier = Modifier.padding(top = 8.dp)
                 )
 
-                if (tempScanPaths.toList().any {
-                        it in sessionAddedPaths && (sitsInsideADownloadDir(it) || holdingADownloadDir(it) != null)
-                    }) {
+                // The rule, said so that it holds both ways round: it used to say a scan folder
+                // "cannot be a subdirectory of the download folder" under a row saying the
+                // folder holds it. The row has the folder in the way.
+                if (tempScanPaths.toList().any { it in sessionAddedPaths && conflictOf(it) != null }) {
                     InfoLabel(
-                        text = stringResource(R.string.scanner_rejected_dir),
+                        text = stringResource(R.string.scanner_rule),
                         isError = true,
                         modifier = Modifier.padding(top = 8.dp)
                     )
@@ -805,6 +787,28 @@ fun ColumnScope.LocalScannerExtraFrag() {
         values = ScannerImpl.entries,
     )
     InfoLabel(stringResource(R.string.scanner_type_tooltip))
+}
+
+/**
+ * What a scan folder in the way is told: which folder, as the person's own setting calls it, and
+ * which way round. A folder that was already saved only gets a line saying it overlaps and stays.
+ */
+@Composable
+private fun scanConflictText(
+    context: android.content.Context,
+    conflict: ScanFolderRules.Conflict,
+    blocking: Boolean,
+): String {
+    val isImport = conflict.role == ScanFolderRules.Role.IMPORT
+    // read only for the lines that name the folder: it asks the folder's provider
+    fun path() = absoluteFilePathFromUri(context, Uri.parse(conflict.folder)) ?: conflict.folder
+    return when {
+        !blocking -> stringResource(if (isImport) R.string.scanner_overlap_import_kept else R.string.scanner_overlap_kept)
+        isImport && conflict.way == ScanFolderRules.Way.HOLDS -> stringResource(R.string.scanner_holds_import_dir, path())
+        isImport -> stringResource(R.string.scanner_inside_import_dir, path())
+        conflict.way == ScanFolderRules.Way.HOLDS -> stringResource(R.string.scanner_holds_download_dir, path())
+        else -> stringResource(R.string.scanner_rejected_dir)
+    }
 }
 
 /** A scan folder by its own name, "Music" for /storage/emulated/0/Music, for the line under the row. */

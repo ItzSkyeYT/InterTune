@@ -331,7 +331,7 @@ class ProblemLogTest {
     @Test
     fun `the player's error screen opens Report a problem with the error`() {
         val screen = java.io.File("src/main/java/com/dd3boh/outertune/ui/player/ThumbnailPlaybackError.kt").readText()
-        assertTrue("ProblemReportDialog(onDismiss = { reporting = false }, playerError = playerErrorReport(error))" in screen)
+        assertTrue("ProblemReportDialog(onDismiss = { reporting = false }, playerError = playerErrorReport(error, song))" in screen)
         assertTrue("R.string.player_error_report" in screen)
         val dialog = java.io.File("src/main/java/com/dd3boh/outertune/ui/component/ProblemReportDialog.kt").readText()
         assertTrue("ProblemLog.withPlayerError(it, playerError!!.lines, playerError.full)" in dialog)

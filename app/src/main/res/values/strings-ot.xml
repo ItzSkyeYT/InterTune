@@ -197,6 +197,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="err_age_restricted">YouTube will not play this one without an account old enough to see it. Other songs are unaffected.</string>
     <string name="err_song_unavailable">YouTube no longer has this song, or not where you are.</string>
     <string name="err_not_audio">What came back for this song is not audio. Something on this connection may be answering in YouTube\'s place, like a VPN or an ad blocker.</string>
+    <string name="err_sign_in_wanted">YouTube wants a sign-in to play from this network. VPNs and shared connections are often refused.</string>
     <string name="gone_song_skipped">Skipped a song not available on YouTube: “%1$s”</string>
     <string name="err_copy_details">Copy error details</string>
     <string name="player_error_report">Report</string>
@@ -516,7 +517,14 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="scanner_rejected_dir">Invalid selection. A scan folder cannot be a subdirectory of the download folder, or the download folder itself</string>
     <string name="scanner_holds_download_dir">This folder holds your download folder (%s), so it cannot be a scan folder</string>
     <string name="scanner_overlap_kept">Overlaps your download folder; kept as is because it was already saved</string>
+    <!-- Issue 122 (scan folders beside extra import folders): held from translators until the next push of texts, the French beside them in values-fr. -->
+    <string name="scanner_holds_import_dir" translatable="false">This folder holds one of your extra import folders (%s), so it cannot be a scan folder</string>
+    <string name="scanner_inside_import_dir" translatable="false">This folder is inside one of your extra import folders (%s), so it cannot be a scan folder</string>
+    <string name="scanner_overlap_import_kept" translatable="false">Overlaps one of your extra import folders; kept as is because it was already saved</string>
+    <string name="scanner_rule" translatable="false">A scan folder cannot hold, or sit inside, a download folder or an extra import folder</string>
     <string name="dl_extra_path_overlap_kept">Overlaps a scan folder; kept as is because it was already saved</string>
+    <string name="dl_extra_path_overlaps_scan" translatable="false">This folder overlaps a scan folder, so it cannot be an extra import location</string>
+    <string name="dl_main_path_part_of_scan" translatable="false">This folder is part of a scan folder, so it cannot be the download folder</string>
     <string name="scanner_warning">By default, the scanner will NOT reload any metadata of existing songs unless you specify otherwise above. Depending on the size of your library, it may take a while.</string>
 
 <!-- Scanner progress strings-->
@@ -602,6 +610,8 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="liked_autodownload_nothing_to_do">Your liked songs are already downloaded.</string>
     <string name="liked_autodownload_blocked">Paused. YouTube has temporarily stopped serving music to this connection, so downloads are waiting rather than failing. They carry on by themselves.</string>
     <string name="dl_extra_path_title">Configure extra import locations…</string>
+    <!-- Issue 122: held from translators until the next push of texts. -->
+    <string name="dl_extra_path_dialog_title" translatable="false">Extra import locations</string>
     <string name="dl_extra_path_description">Songs from these folders will only appear in the app if you\'ve played them before or added them to a playlist. The folders are only read, never changed.</string>
     <string name="dl_migrate_title">Migrate downloads to external storage…</string>
     <string name="dl_migrate_description">Move downloads from the app\'s internal storage to the device\'s external storage</string>
@@ -612,6 +622,15 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="dl_rescan_title">Rescan download folders…</string>
     <string name="dl_rescan_description">Update the database and refresh the download registry if any files or folders have changed</string>
 	<string name="dl_rescan_confirm">Rescan all download folders now? This can take a few minutes depending on the size of your library.</string>
+    <!-- File sizes as the settings write them (utils formatFileSize), smallest first: held from translators until the next push of texts, the French beside them in values-fr. -->
+    <string-array name="file_size_units" translatable="false">
+        <item>B</item>
+        <item>KB</item>
+        <item>MB</item>
+        <item>GB</item>
+        <item>TB</item>
+        <item>PB</item>
+    </string-array>
     <string name="dl_size_used_cache">Internal: %s used</string>
     <string name="dl_size_used_main">External: %s used</string>
     <string name="dl_size_used_extra">Extra imports: %s used</string>
@@ -1349,6 +1368,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="error_youtube_not_answering">YouTube is not answering right now. The song was tried several ways.</string>
     <string name="error_cached_part_stale">The saved part of this song no longer matches what YouTube serves. Press play to load it again.</string>
     <string name="error_connection_turned_away">YouTube refuses this connection. Try without a VPN or on other Wi-Fi.</string>
+    <string name="error_sign_in_wanted">YouTube wants a sign-in on this network. Try without a VPN.</string>
     <string name="menu_not_this_song">Not this song</string>
     <string name="menu_less_of_artist">Less of this artist</string>
     <string name="menu_never_artist">Never this artist (recommendations)</string>
@@ -2654,6 +2674,8 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="new_dont_play_body" translatable="false">Don\'t play this song, in a song\'s menu, keeps it out of radios and autoplay, other uploads of it included. It still plays when you pick it yourself.</string>
     <string name="new_saved_twice_title" translatable="false">Find songs saved twice</string>
     <string name="new_saved_twice_body" translatable="false">When Liked songs, your library or a playlist holds a song more than once, a round button with a count shows beside Play and Shuffle. Tap it to keep one copy of each.</string>
+    <string name="new_sleep_timer_title" translatable="false">A sleep timer with more ways to stop</string>
+    <string name="new_sleep_timer_body" translatable="false">Stop at a clock time, or at the end of the song, the album or the queue. Open it with the timer in the player; its notification counts down and adds time.</string>
     <string name="new_liked_sync_title" translatable="false">Unliking can remove the download</string>
     <string name="new_liked_sync_body" translatable="false">If your liked songs download themselves, unliking one can now remove its download. Songs you downloaded yourself stay.</string>
     <string name="new_liked_sync_way" translatable="false">Downloads and the space they take are set in here.</string>
@@ -2753,4 +2775,33 @@ while also allowing users to translate our app as well. New, specific strings to
         <item quantity="one">%1$d hidden</item>
         <item quantity="other">%1$d hidden</item>
     </plurals>
+    <!-- A picker asked for on a device with none (#120, #121). -->
+    <string name="no_app_to_pick">No file picker here. Install a file manager app.</string>
+    <!-- The sleep timer's sheet and its notification (SleepTimerDialog, SleepTimerNotification). Held from translators. -->
+    <string name="sleep_row_in" translatable="false">In</string>
+    <string name="sleep_row_at" translatable="false">At</string>
+    <string name="sleep_row_end_of" translatable="false">End of</string>
+    <string name="sleep_minutes_short" translatable="false">%1$d min</string>
+    <string name="sleep_end_song" translatable="false">Song</string>
+    <string name="sleep_end_album" translatable="false">Album</string>
+    <string name="sleep_end_of_album" translatable="false">End of album</string>
+    <string name="sleep_end_of_queue" translatable="false">End of queue</string>
+    <string name="sleep_let_finish" translatable="false">Let the song finish</string>
+    <string name="sleep_fade_row" translatable="false">Fade out · %1$d&#160;s</string>
+    <string name="sleep_every_night" translatable="false">Every night</string>
+    <string name="sleep_start" translatable="false">Start</string>
+    <string name="sleep_stop" translatable="false">Stop timer</string>
+    <string name="sleep_close" translatable="false">Close</string>
+    <string name="sleep_plus_minutes" translatable="false">+%1$d min</string>
+    <string name="sleep_stops_at" translatable="false">Stops at %1$s</string>
+    <string name="sleep_stops_at_after_song" translatable="false">Stops at %1$s, after the song</string>
+    <string name="sleep_the_song" translatable="false">the song</string>
+    <string name="sleep_notif_title_at" translatable="false">Music stops at %1$s</string>
+    <string name="sleep_notif_title_song" translatable="false">Music stops after this song</string>
+    <string name="sleep_notif_title_album" translatable="false">Music stops after this album</string>
+    <string name="sleep_notif_title_queue" translatable="false">Music stops at the end of the queue</string>
+    <string name="sleep_notif_line_fade" translatable="false">Fades out %1$d&#160;s</string>
+    <string name="sleep_notif_line_fade_after" translatable="false">Fades out %1$d&#160;s, after %2$s</string>
+    <string name="sleep_notif_line_after" translatable="false">After %1$s</string>
+    <string name="sleep_notif_stop" translatable="false">Stop</string>
 </resources>

@@ -170,6 +170,13 @@ val SleepTimerFadeKey = booleanPreferencesKey("sleepTimerFade")
 val SleepTimerFadeDurationKey = intPreferencesKey("sleepTimerFadeDuration")
 
 /**
+ * Let the song finish: when a sleep timer's time is up, the music plays on to the end of the song
+ * it is in, and stops there. Off by default, so a timer stops at the time it says. Set from the
+ * sleep timer's own sheet, and read by the service as it is set, running timer included.
+ */
+val SleepTimerSongFinishKey = booleanPreferencesKey("sleepTimerSongFinish")
+
+/**
  * The sleep timer on a schedule (ScheduledSleep): off by default, from 23:00, for 30 minutes. The
  * start is in minutes after midnight and the length in minutes.
  */

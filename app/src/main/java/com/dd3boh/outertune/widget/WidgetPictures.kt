@@ -29,9 +29,12 @@ import kotlin.math.sqrt
  * label, a shadow, the cover blurred behind it all. Each is drawn here into one bitmap at the size
  * the plan gave it and shown as one picture, with the places to tap laid over it by MusicWidget.
  *
- * Drawn where the widget is composed, which is never the main thread (Glance's own worker, and the
- * settings screen's preview off it too), from the bitmaps WidgetStore already has, and kept: a play
- * or a pause draws nothing again, and only a new song or a new list does.
+ * Drawn from the bitmaps WidgetStore already has, and kept: a play or a pause draws nothing again,
+ * and only a new song or a new list does. They are drawn ahead of the composition, off the main
+ * thread (WidgetStore.warm composes the widget once on a worker before the launcher's session
+ * does), because Glance composes a home screen widget on the main thread and a crate or a row of
+ * records drawn there took the better part of a second on a new song. Whoever asks for a picture
+ * first draws it and the others wait for that drawing ([SingleFlight]).
  *
  * Every picture is drawn at the size it is shown and never larger, at the screen's density up to
  * [MAX_DENSITY], and all of one widget's pictures together are kept under [MAX_PX] pixels at each
@@ -102,9 +105,13 @@ object WidgetPictures {
         }
     }
 
+    /** A picture is drawn once, by whoever asks first: the composition on the main thread, or a worker drawing it ahead of that (see [SingleFlight]). */
+    private val flight = SingleFlight<String, Bitmap>()
+
     private fun cached(key: String, draw: () -> Bitmap): Bitmap? =
-        cache.get(key) ?: runCatching(draw).onFailure { Log.w(TAG, "Could not draw a picture of the widget", it) }
-            .getOrNull()?.also { cache.put(key, it) }
+        flight.get(key, lookup = { cache.get(it) }, store = { k, v -> cache.put(k, v) }) {
+            runCatching(draw).onFailure { Log.w(TAG, "Could not draw a picture of the widget", it) }.getOrNull()
+        }
 
     /**
      * The cover behind a look, blurred and darkened as all three were drawn: centred and cut to the

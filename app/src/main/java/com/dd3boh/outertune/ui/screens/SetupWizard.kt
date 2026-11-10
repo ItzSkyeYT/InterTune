@@ -828,7 +828,7 @@ fun SetupWizard(
                                             when (it) {
                                                 0 -> stringResource(androidx.compose.ui.R.string.state_off)
                                                 -1 -> stringResource(R.string.unlimited)
-                                                else -> formatFileSize(it * 1024 * 1024L)
+                                                else -> formatFileSize(context, it * 1024 * 1024L)
                                             }
                                         },
                                         onValueSelected = onMaxSongCacheSizeChange

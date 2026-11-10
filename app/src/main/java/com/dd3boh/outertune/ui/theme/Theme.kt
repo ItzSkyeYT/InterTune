@@ -89,6 +89,15 @@ fun OuterTuneTheme(
     }
 }
 
+/**
+ * The player's own theme, for [themeColor] read here: when the song changes with the player open, only
+ * the player is made again for its colours, while the pages under it keep theirs until it is down
+ * (MainActivity's pagesThemeColor).
+ */
+@Composable
+fun PlayerTheme(darkTheme: Boolean, pureBlack: Boolean, highContrastCompat: Boolean, themeColor: () -> Color, content: @Composable () -> Unit) =
+    OuterTuneTheme(LocalContext.current, darkTheme, pureBlack, highContrastCompat, themeColor(), content)
+
 /** Material's own ripple alphas, with the focused state raised from 0.1 to stand out under a D-pad. */
 private val KeyFocusRippleAlpha = RippleAlpha(
     draggedAlpha = 0.16f,

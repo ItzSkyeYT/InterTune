@@ -188,6 +188,7 @@
     <string name="clear_image_cache_confirm">Voulez-vous vraiment vider le cache des images ? Toutes les vignettes d\'albums existantes seront supprimées.</string>
     <string name="clear_song_cache_confirm">Êtes-vous sûr de vouloir vider le cache des chansons ?</string>
     <string name="dl_extra_path_title">Configurer des emplacements d’importation supplémentaires…</string>
+    <string name="dl_extra_path_dialog_title">Emplacements d\'importation supplémentaires</string>
     <string name="dl_main_path_description">Choisissez un dossier vide : InterTune peut y modifier ou supprimer des fichiers.</string>
     <string name="dl_rescan_confirm">Souhaitez-vous réanalyser tous les dossiers de téléchargement maintenant ? Cela peut prendre quelques minutes selon la taille de votre bibliothèque.</string>
     <string name="oobe_ytm_integration">Intégration de YouTube Music</string>
@@ -208,7 +209,13 @@
     <string name="scanner_rejected_dir">Sélection non valide. Un dossier d\'analyse ne peut pas être un sous-dossier du dossier de téléchargement, ni le dossier de téléchargement lui-même.</string>
     <string name="scanner_holds_download_dir">Ce dossier contient votre dossier de téléchargement (%s), il ne peut donc pas être un dossier d\'analyse</string>
     <string name="scanner_overlap_kept">Chevauche votre dossier de téléchargement ; conservé tel quel car il était déjà enregistré</string>
+    <string name="scanner_holds_import_dir">Ce dossier contient l\'un de vos dossiers d\'importation supplémentaires (%s), il ne peut donc pas être un dossier d\'analyse</string>
+    <string name="scanner_inside_import_dir">Ce dossier se trouve dans l\'un de vos dossiers d\'importation supplémentaires (%s), il ne peut donc pas être un dossier d\'analyse</string>
+    <string name="scanner_overlap_import_kept">Chevauche l\'un de vos dossiers d\'importation supplémentaires ; conservé tel quel car il était déjà enregistré</string>
+    <string name="scanner_rule">Un dossier d\'analyse ne peut ni contenir ni se trouver dans un dossier de téléchargement ou un dossier d\'importation supplémentaire</string>
     <string name="dl_extra_path_overlap_kept">Chevauche un dossier d\'analyse ; conservé tel quel car il était déjà enregistré</string>
+    <string name="dl_extra_path_overlaps_scan">Ce dossier chevauche un dossier d\'analyse, il ne peut donc pas être un emplacement d\'importation supplémentaire</string>
+    <string name="dl_main_path_part_of_scan">Ce dossier fait partie d\'un dossier d\'analyse, il ne peut donc pas être le dossier de téléchargement</string>
     <string name="oobe_ad_free_exp_description">Profitez d\'une lecture de musique ininterrompue</string>
     <string name="dl_oobe_tooltip">Les titres sont téléchargés dans le stockage privé de l\'application. Pour télécharger dans un dossier accessible, choisissez-en un ici ; vous pourrez le changer plus tard dans les Paramètres.</string>
     <string name="oobe_ytm_logon_subtitle">Connectez-vous à votre compte YouTube Music pour synchroniser et accéder à votre contenu privé. Cette option est facultative.</string>
@@ -554,6 +561,7 @@
     <string name="err_age_restricted">YouTube ne lira pas ce titre sans un compte ayant l\'âge requis. Les autres titres ne sont pas concernés.</string>
     <string name="err_song_unavailable">YouTube n\'a plus ce titre, ou pas là où vous êtes.</string>
     <string name="err_not_audio">Ce qui est arrivé pour ce titre n\'est pas de l\'audio. Quelque chose sur cette connexion répond peut-être à la place de YouTube, comme un VPN ou un bloqueur de pubs.</string>
+    <string name="err_sign_in_wanted">YouTube demande de se connecter pour lire depuis ce réseau. Les VPN et les connexions partagées sont souvent refusés.</string>
     <string name="gone_song_skipped">Titre passé, indisponible sur YouTube : « %1$s »</string>
     <!-- Dialog -->
     <string name="create_sync_playlist_failed">Playlist non créée sur YouTube Music. Réessayez une fois en ligne.</string>
@@ -1001,6 +1009,7 @@
     <string name="error_youtube_not_answering">YouTube ne répond pas. Le titre a été essayé de plusieurs façons.</string>
     <string name="error_cached_part_stale">La partie enregistrée de ce titre ne correspond plus à ce que YouTube fournit. Appuyez sur lecture pour le charger à nouveau.</string>
     <string name="error_connection_turned_away">YouTube refuse cette connexion. Essayez sans VPN ou un autre Wi-Fi.</string>
+    <string name="error_sign_in_wanted">YouTube demande de se connecter sur ce réseau. Essayez sans VPN.</string>
     <string name="menu_not_this_song">Pas ce titre</string>
     <string name="menu_less_of_artist">Moins de cet artiste</string>
     <string name="menu_never_artist">Jamais cet artiste (recommandations)</string>
@@ -2491,6 +2500,8 @@
     <string name="new_dont_play_body">Ne plus jouer ce titre, dans le menu d\'un titre, le tient à l\'écart des radios et de la lecture automatique, ses autres mises en ligne comprises. Il joue toujours quand vous le choisissez.</string>
     <string name="new_saved_twice_title">Retrouver les titres en double</string>
     <string name="new_saved_twice_body">Quand vos Titres aimés, votre bibliothèque ou une playlist contiennent un titre plusieurs fois, un bouton rond avec un nombre s\'affiche à côté de Lecture et Lecture aléatoire. Touchez-le pour garder un exemplaire de chacun.</string>
+    <string name="new_sleep_timer_title">Une minuterie de sommeil avec plus de choix</string>
+    <string name="new_sleep_timer_body">Arrêtez à une heure précise, ou à la fin du titre, de l\'album ou de la file d\'attente. Ouvrez-la avec le minuteur du lecteur ; sa notification fait le décompte et ajoute du temps.</string>
     <string name="new_liked_sync_title">Retirer un j’aime peut supprimer le téléchargement</string>
     <string name="new_liked_sync_body">Si vos titres aimés se téléchargent tout seuls, retirer un j’aime peut maintenant supprimer son téléchargement. Ceux téléchargés à la main restent.</string>
     <string name="new_liked_sync_way">Les téléchargements et la place qu\'ils prennent se règlent ici.</string>
@@ -2543,4 +2554,40 @@
         <item quantity="many">%1$d masquées</item>
         <item quantity="other">%1$d masquées</item>
     </plurals>
+    <!-- A picker asked for on a device with none (#120, #121). -->
+    <string name="no_app_to_pick">Pas de sélecteur de fichiers. Installez un gestionnaire de fichiers.</string>
+    <string name="sleep_row_in">Dans</string>
+    <string name="sleep_row_at">À</string>
+    <string name="sleep_row_end_of">Fin de</string>
+    <string name="sleep_minutes_short">%1$d min</string>
+    <string name="sleep_end_song">Titre</string>
+    <string name="sleep_end_album">Album</string>
+    <string name="sleep_end_of_album">Fin de l\'album</string>
+    <string name="sleep_end_of_queue">Fin de la file d\'attente</string>
+    <string name="sleep_let_finish">Laisser finir le titre</string>
+    <string name="sleep_fade_row">Fondu · %1$d&#160;s</string>
+    <string name="sleep_every_night">Chaque nuit</string>
+    <string name="sleep_start">Démarrer</string>
+    <string name="sleep_stop">Arrêter la minuterie</string>
+    <string name="sleep_close">Fermer</string>
+    <string name="sleep_plus_minutes">+%1$d min</string>
+    <string name="sleep_stops_at">S\'arrête à %1$s</string>
+    <string name="sleep_stops_at_after_song">S\'arrête à %1$s, après le titre</string>
+    <string name="sleep_the_song">le titre</string>
+    <string name="sleep_notif_title_at">La musique s\'arrête à %1$s</string>
+    <string name="sleep_notif_title_song">La musique s\'arrête après ce titre</string>
+    <string name="sleep_notif_title_album">La musique s\'arrête après cet album</string>
+    <string name="sleep_notif_title_queue">La musique s\'arrête à la fin de la file d\'attente</string>
+    <string name="sleep_notif_line_fade">Fondu de %1$d&#160;s</string>
+    <string name="sleep_notif_line_fade_after">Fondu de %1$d&#160;s, après %2$s</string>
+    <string name="sleep_notif_line_after">Après %1$s</string>
+    <string name="sleep_notif_stop">Arrêter</string>
+    <string-array name="file_size_units">
+        <item>o</item>
+        <item>Ko</item>
+        <item>Mo</item>
+        <item>Go</item>
+        <item>To</item>
+        <item>Po</item>
+    </string-array>
 </resources>

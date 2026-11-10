@@ -47,6 +47,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import com.dd3boh.outertune.ui.component.rememberSleepTimerState
+import com.dd3boh.outertune.ui.component.openProxySetting
 import androidx.compose.material3.Icon
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -287,6 +288,21 @@ fun BottomSheetPlayer(
     val menuState = LocalMenuState.current
     val context = LocalContext.current
     val database = LocalDatabase.current
+
+    // The error screen's ways out of YouTube wanting a sign-in lead away from the player: the sheet
+    // goes down on the way, or the page opens under it unseen (as the queue's notes do).
+    val leaveForSignIn = remember(navController, state) {
+        {
+            navController.navigate("login")
+            state.collapseSoft()
+        }
+    }
+    val leaveForProxy = remember(state) {
+        {
+            openProxySetting()
+            state.collapseSoft()
+        }
+    }
 
     // Focus follows the sheet for the keys: opened from the mini player, it lands on play and
     // pause; closed again, it goes back to the mini player's title. Left alone it vanished with
@@ -1003,7 +1019,7 @@ fun BottomSheetPlayer(
             }
 
             // Classic: circles beside the title. Tertiary on the timer while it runs, and a
-            // tap then cancels it, as the menu's entry does. With the queue on a button it comes
+            // tap then opens its sheet, as the menu's entry does. With the queue on a button it comes
             // first, so like and the menu stay where they always were at the end of the row.
             val queueCircle: @Composable () -> Unit = {
                 PlayerCircleButton(
@@ -1020,10 +1036,7 @@ fun BottomSheetPlayer(
                     contentDescription = stringResource(R.string.sleep_timer),
                     container = if (sleepTimerOn) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.primary,
                     content = if (sleepTimerOn) MaterialTheme.colorScheme.onTertiary else MaterialTheme.colorScheme.onPrimary,
-                    onClick = {
-                        if (sleepTimerOn) playerConnection.service.sleepTimer.clear()
-                        else showSleepTimerDialog = true
-                    }
+                    onClick = { showSleepTimerDialog = true }
                 )
             }
             val likeCircle: @Composable () -> Unit = {
@@ -1186,10 +1199,7 @@ fun BottomSheetPlayer(
                         shape = shape,
                         container = if (sleepTimerOn) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.secondaryContainer,
                         content = if (sleepTimerOn) MaterialTheme.colorScheme.onTertiary else MaterialTheme.colorScheme.onSecondaryContainer,
-                        onClick = {
-                            if (sleepTimerOn) playerConnection.service.sleepTimer.clear()
-                            else showSleepTimerDialog = true
-                        },
+                        onClick = { showSleepTimerDialog = true },
                         backdrop = buttonBackdrop,
                         glassIntensity = glassIntensity,
                     )
@@ -1331,10 +1341,7 @@ fun BottomSheetPlayer(
                                 label = if (sleepTimerOn && sleepTimerLeft > 0) makeTimeString(sleepTimerLeft) else null,
                                 backdrop = buttonBackdrop,
                                 glassIntensity = glassIntensity,
-                                onClick = {
-                                    if (sleepTimerOn) playerConnection.service.sleepTimer.clear()
-                                    else showSleepTimerDialog = true
-                                },
+                                onClick = { showSleepTimerDialog = true },
                             )
                             PlayerPin.SHARE -> PlayerActionSegment(
                                 painter = rememberVectorPainter(Icons.Rounded.Share),
@@ -1794,7 +1801,9 @@ fun BottomSheetPlayer(
                                     .animateContentSize(),
                                 showLyricsOnClick = true,
                                 customMediaMetadata = mediaMetadata,
-                                lyricsBottomPadding = queueClearance
+                                lyricsBottomPadding = queueClearance,
+                                onSignIn = leaveForSignIn,
+                                onProxy = leaveForProxy,
                             )
                         } else {
                             SwipeableArtwork(
@@ -1812,7 +1821,9 @@ fun BottomSheetPlayer(
                                         .animateContentSize(),
                                     showLyricsOnClick = true,
                                     customMediaMetadata = it,
-                                    lyricsBottomPadding = queueClearance
+                                    lyricsBottomPadding = queueClearance,
+                                    onSignIn = leaveForSignIn,
+                                    onProxy = leaveForProxy,
                                 )
                             }
                         }
@@ -1914,7 +1925,9 @@ fun BottomSheetPlayer(
                                     .animateContentSize(),
                                 sliderPositionProvider = { sliderPosition },
                                 showLyricsOnClick = true,
-                                customMediaMetadata = mediaMetadata
+                                customMediaMetadata = mediaMetadata,
+                                onSignIn = leaveForSignIn,
+                                onProxy = leaveForProxy,
                             )
                         } else {
                             SwipeableArtwork(
@@ -1932,7 +1945,9 @@ fun BottomSheetPlayer(
                                         .animateContentSize(),
                                     sliderPositionProvider = { sliderPosition },
                                     showLyricsOnClick = true,
-                                    customMediaMetadata = it
+                                    customMediaMetadata = it,
+                                    onSignIn = leaveForSignIn,
+                                    onProxy = leaveForProxy,
                                 )
                             }
                         }
