@@ -273,6 +273,7 @@ import com.dd3boh.outertune.utils.LoudnessRepair
 import com.dd3boh.outertune.utils.Scrobbler
 import com.dd3boh.outertune.utils.SavedStateSize
 import com.dd3boh.outertune.ui.navigation.KeptHistory
+import com.dd3boh.outertune.ui.navigation.LocalBackAnimations
 import com.dd3boh.outertune.utils.SyncUtils
 import com.dd3boh.outertune.utils.AutoBackup
 import com.dd3boh.outertune.utils.BackgroundCheckWorker
@@ -2403,10 +2404,14 @@ class MainActivity : ComponentActivity() {
                                         .fillMaxSize()
                                         .then(if (navGlass && !glassStill) Modifier.layerBackdrop(navHostBackdrop).graphicsLayer() else Modifier)
                                 ) {
-                                    // Under the open player the pages cannot be seen, and what
-                                    // only moves for the eye holds still (PlayingIndicator).
-                                    CompositionLocalProvider(LocalHiddenByPlayer provides pagesHiddenByPlayer) {
-                                        navHost()
+                                    // The screens going away carry the page colour with them, with Back
+                                    // animations on (AppNavGraph, GitHub #134).
+                                    CompositionLocalProvider(LocalBackAnimations provides backAnimations) {
+                                        // Under the open player the pages cannot be seen, and what
+                                        // only moves for the eye holds still (PlayingIndicator).
+                                        CompositionLocalProvider(LocalHiddenByPlayer provides pagesHiddenByPlayer) {
+                                            navHost()
+                                        }
                                     }
                                 }
 
