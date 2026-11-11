@@ -827,7 +827,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="audio_normalization_description">Even out the volume between songs, so one is not suddenly much louder than the last.</string>
     <string name="skip_silence_description">Skip silent gaps at the start and end of a track.</string>
     <string name="stop_music_on_task_clear_description">Stop the music when you swipe the app away from your recent apps.</string>
-    <string name="enable_dynamic_theme_description">Take the app\'s colours from your wallpaper.</string>
+    <string name="enable_dynamic_theme_description">Take the app\'s colours from the cover of the song that is playing. Off, or with nothing playing, it uses your phone\'s own colours (Android 12 and newer).</string>
     <string name="pure_black_description">Use true black instead of dark grey. On an OLED screen this also saves a little battery.</string>
     <string name="min_playback_duration_short">How much of a song has to play to count as a play. History shows every song heard for 2 seconds or more, counted or not.</string>
     <string name="throttle_banner_title">YouTube has paused this connection</string>

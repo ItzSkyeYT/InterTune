@@ -442,7 +442,7 @@
     <string name="audio_normalization_description">Égalise le volume entre les morceaux, pour qu\'aucun ne soit soudain bien plus fort que le précédent.</string>
     <string name="skip_silence_description">Passer les blancs au début et à la fin d\'un morceau.</string>
     <string name="stop_music_on_task_clear_description">Arrêter la musique quand vous balayez l\'application hors des applications récentes.</string>
-    <string name="enable_dynamic_theme_description">Reprendre les couleurs de l\'application depuis votre fond d\'écran.</string>
+    <string name="enable_dynamic_theme_description">Reprendre les couleurs de l\'application depuis la pochette du titre en cours de lecture. Désactivé, ou sans lecture, elle utilise les couleurs de votre téléphone (Android 12 ou plus récent).</string>
     <string name="pure_black_description">Utiliser du vrai noir au lieu du gris foncé. Sur un écran OLED, cela économise aussi un peu de batterie.</string>
     <string name="min_playback_duration_short">La part d\'un titre qui doit être lue pour compter comme une lecture. La page Historique affiche chaque titre écouté au moins 2 secondes, que la lecture compte ou non.</string>
     <string name="throttle_banner_title">YouTube a suspendu cette connexion</string>
