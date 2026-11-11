@@ -1005,4 +1005,19 @@ object Unreleased {
      * To ship: set this to true and add it to ReleasedFlagsTest.
      */
     val MENU_CHOICES = BuildConfig.DEBUG
+
+    /**
+     * Progressive blur on the lyrics (his wish of 11 Nov 2026, seen in another player, as Apple
+     * Music has it): the line being sung is sharp and each line further from it is a little more
+     * out of focus, dimmed as before; scrolled by hand every line is sharp, and the blur comes back
+     * when the view follows the song again (LyricsBlur). Never for lyrics with no times, nor with
+     * "Follow the song" off.
+     *
+     * A trial to look at, in pictures first: off until it is chosen in the developer options
+     * ("DEBUG: Lyrics blur": Soft, Medium or Strong), and it has no text of its own. Without the
+     * flag the choice is never read and the lines are drawn as they were.
+     *
+     * Debug builds only, kept out of the previews that testers get.
+     */
+    val LYRICS_BLUR = BuildConfig.DEBUG && BuildConfig.BUILD_TYPE == "debug"
 }

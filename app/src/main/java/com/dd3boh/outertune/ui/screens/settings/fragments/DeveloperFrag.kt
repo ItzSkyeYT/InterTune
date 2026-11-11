@@ -65,6 +65,7 @@ import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.AudioGaplessOffloadKey
 import com.dd3boh.outertune.constants.AudioOffloadKey
 import com.dd3boh.outertune.constants.AutomixStyleKey
+import com.dd3boh.outertune.constants.LyricsBlurKey
 import com.dd3boh.outertune.constants.OobeStatusKey
 import com.dd3boh.outertune.constants.PauseListenHistoryKey
 import com.dd3boh.outertune.constants.PauseRemoteListenHistoryKey
@@ -80,6 +81,7 @@ import com.dd3boh.outertune.constants.EveryDirectRefusedKey
 import com.dd3boh.outertune.playback.HistoryAddressCheck
 import com.dd3boh.outertune.playback.RadioAnswers
 import com.dd3boh.outertune.ui.component.ListPreference
+import com.dd3boh.outertune.ui.component.LyricsBlur
 import com.dd3boh.outertune.ui.component.PreferenceEntry
 import com.dd3boh.outertune.ui.component.SwitchPreference
 import com.dd3boh.outertune.ui.screens.OptInCatchUp
@@ -270,6 +272,9 @@ fun ColumnScope.DeveloperFrag(navController: NavController) {
         }
         if (BuildConfig.DEBUG && Unreleased.AUTOMIX) {
             AutomixStyleRow()
+        }
+        if (BuildConfig.DEBUG && Unreleased.LYRICS_BLUR) {
+            LyricsBlurRow()
         }
 
         PreferenceEntry(
@@ -851,3 +856,20 @@ private fun AutomixStyleRow() {
 
 /** The planner's own choice, then each style by its name in com.dd3boh.outertune.mix.Style. */
 private val AUTOMIX_STYLES = listOf("", "GAPLESS", "BLEND", "SMOOTH", "BEAT", "CUT")
+
+/**
+ * Debug builds only: progressive blur on the lyrics and how strong it is (LyricsBlur), off until
+ * one is chosen. A trial to look at, not a setting, so its words are not translated.
+ */
+@Composable
+private fun LyricsBlurRow() {
+    val (strength, onStrengthChange) = rememberPreference(key = LyricsBlurKey, defaultValue = "")
+    ListPreference(
+        title = { Text("DEBUG: Lyrics blur") },
+        icon = { Icon(Icons.Rounded.Science, null) },
+        selectedValue = LyricsBlur.strengthOf(strength)?.name.orEmpty(),
+        values = listOf("") + LyricsBlur.Strength.entries.map { it.name },
+        valueText = { if (it.isEmpty()) "Off" else it.lowercase().replaceFirstChar { c -> c.uppercase() } },
+        onValueSelected = onStrengthChange,
+    )
+}
