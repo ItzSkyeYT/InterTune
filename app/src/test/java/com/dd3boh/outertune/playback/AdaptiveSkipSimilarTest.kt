@@ -200,7 +200,7 @@ class AdaptiveSkipSimilarTest {
         assertTrue(lists, "?: if (snap.ask.skip && id == snap.view.lastSkipped) skipPage(id, snap)" in lists)
         // every list by version, as the pass reads the seeds' lists
         assertTrue(lists, "?.map(SkipSimilar::keyOf)" in lists)
-        assertTrue("val ADAPTIVE_SIMILAR = BuildConfig.DEBUG" in File("src/main/java/com/dd3boh/outertune/constants/Unreleased.kt").readText())
+        assertTrue("val ADAPTIVE_SIMILAR = BuildConfig.PREVIEW_FEATURES" in File("src/main/java/com/dd3boh/outertune/constants/Unreleased.kt").readText())
     }
 
     // ---- what it does over long sessions
@@ -339,6 +339,6 @@ class AdaptiveSkipSimilarTest {
 
     @Test
     fun `the flag is the debug builds' only`() {
-        assertEquals(com.dd3boh.outertune.BuildConfig.DEBUG, Unreleased.ADAPTIVE_SIMILAR)
+        assertEquals(com.dd3boh.outertune.BuildConfig.PREVIEW_FEATURES, Unreleased.ADAPTIVE_SIMILAR)
     }
 }

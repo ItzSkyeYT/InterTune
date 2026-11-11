@@ -220,7 +220,7 @@ fun ColumnScope.DeveloperFrag(navController: NavController) {
                 )
             }
         }
-        if (VisionosTest.offered(testBuild = BuildConfig.DEBUG, identities = Unreleased.VISIONOS_IDENTITIES, fallback = Unreleased.WEB_FALLBACK)) {
+        if (VisionosTest.offered(testBuild = BuildConfig.PREVIEW_FEATURES, identities = Unreleased.VISIONOS_IDENTITIES, fallback = Unreleased.WEB_FALLBACK)) {
             // One row over the two keys. As two switches, "this app's VISIONOS" and "VISIONOS",
             // they read as one setting shown twice.
             ListPreference(
@@ -252,7 +252,7 @@ fun ColumnScope.DeveloperFrag(navController: NavController) {
                 onCheckedChange = onWebClientFirstChange,
             )
         }
-        if (BuildConfig.DEBUG && Unreleased.SABR) {
+        if (BuildConfig.PREVIEW_FEATURES && Unreleased.SABR) {
             SwitchPreference(
                 title = { Text(stringResource(R.string.sabr_only)) },
                 description = stringResource(R.string.sabr_only_description),

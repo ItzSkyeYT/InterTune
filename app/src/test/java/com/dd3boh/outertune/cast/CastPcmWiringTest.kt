@@ -26,7 +26,7 @@ class CastPcmWiringTest {
 
     @Test
     fun `the flag is held back to debug and preview builds`() {
-        assertTrue(Regex("""\bval CAST_PCM = BuildConfig\.DEBUG\s*$""", RegexOption.MULTILINE).containsMatchIn(code("constants/Unreleased.kt")))
+        assertTrue(Regex("""\bval CAST_PCM = BuildConfig\.PREVIEW_FEATURES\s*$""", RegexOption.MULTILINE).containsMatchIn(code("constants/Unreleased.kt")))
     }
 
     @Test

@@ -65,8 +65,8 @@ class SabrUpstreamTest {
     fun `the switch that plays everything over SABR is never read in a release`() {
         val service = File(playback, "MusicService.kt").readText()
         val read = service.substringAfter("// A test tool like the switches below: never read in a release.").substringBefore("}\n")
-        assertTrue("if (BuildConfig.DEBUG && Unreleased.SABR) {" in read)
-        assertTrue("if (BuildConfig.DEBUG && Unreleased.SABR && YTPlayerUtils.sabrOnly) {" in service)
+        assertTrue("if (BuildConfig.PREVIEW_FEATURES && Unreleased.SABR) {" in read)
+        assertTrue("if (BuildConfig.PREVIEW_FEATURES && Unreleased.SABR && YTPlayerUtils.sabrOnly) {" in service)
     }
 
     private fun start(id: String, expires: Long) =
