@@ -261,6 +261,7 @@ import com.dd3boh.outertune.ui.utils.dpadOverlay
 import com.dd3boh.outertune.ui.utils.dpadOverlayEscape
 import com.dd3boh.outertune.ui.utils.dpadTabBar
 import com.dd3boh.outertune.ui.utils.dpadBringIntoView
+import com.dd3boh.outertune.ui.utils.leaveSettings
 import com.dd3boh.outertune.ui.utils.resetHeightOffset
 import com.dd3boh.outertune.ui.utils.SameTextSize
 import com.dd3boh.outertune.ui.utils.shrinkToFit
@@ -2591,6 +2592,14 @@ private fun TabLabel(text: String, names: SameTextSize) {
  * scroll position. Coming from a sub-page there is nothing worth restoring and restoring is
  * precisely what breaks it. So: restore when leaving a tab, jump cleanly when leaving anything
  * else. One rule, both issues.
+ *
+ * Settings is no tab's page, and is left first (#135, "the only way to truly exit settings is to
+ * press those arrows"). What a tab parks comes back when the tab is tapped again, and Settings
+ * parked with it came back too: Settings over Library, then Home, and the next tap on Library
+ * put Settings over it again; Settings over Home, then Library and Home, and Home was Settings.
+ * A tap on a tab is a way out of it, so it is popped, with whatever was opened from it, as the
+ * arrow at its top pops it, before anything is parked. If the tab then showing is the one
+ * tapped, that is all there is to do.
  */
 private fun navigateToNavTab(
     navController: NavHostController,
@@ -2598,8 +2607,11 @@ private fun navigateToNavTab(
     navigationItems: List<Screens>,
     current: NavBackStackEntry?,
 ) {
+    val left = navController.leaveSettings()
+    val here = if (left) navController.currentBackStackEntry else current
+    if (left && here?.destination?.hierarchy?.any { it.route == route } == true) return
     val leavingATab = navigationItems.any { scr ->
-        current?.destination?.hierarchy?.any { it.route == scr.route } == true
+        here?.destination?.hierarchy?.any { it.route == scr.route } == true
     }
     navController.navigate(route) {
         popUpTo(navController.graph.startDestinationId) { saveState = true }
