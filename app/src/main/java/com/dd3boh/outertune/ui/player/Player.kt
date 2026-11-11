@@ -247,10 +247,12 @@ import com.dd3boh.outertune.extensions.supportsWideScreen
 import com.dd3boh.outertune.extensions.tabMode
 import com.dd3boh.outertune.extensions.toggleRepeatMode
 import com.dd3boh.outertune.models.MediaMetadata
+import com.dd3boh.outertune.playback.SavedQueueShown
 import com.dd3boh.outertune.ui.component.BottomSheet
 import com.dd3boh.outertune.ui.component.BottomSheetState
 import com.dd3boh.outertune.ui.component.LocalQueueSheet
 import com.dd3boh.outertune.ui.component.button.ResizableIconButton
+import com.dd3boh.outertune.ui.component.dismissedAnchor
 import com.dd3boh.outertune.ui.component.rememberBottomSheetState
 import com.dd3boh.outertune.ui.menu.PlayerMenu
 import com.dd3boh.outertune.ui.theme.extractGradientColors
@@ -537,6 +539,23 @@ fun BottomSheetPlayer(
         if (qbInit && !playerConnection.service.queueBoard.masterQueues.isEmpty() && state.isDismissed) {
             Log.d(TAG, "Triggering sheet collapseSoft")
             state.collapseSoft()
+        }
+    }
+
+    // And down again when it is up over nothing to play. Android brings a closed app's screen back
+    // with the sheet where it was left, and with Persistent queue off no queue comes back with it:
+    // the mini player then sat there with Play, Next and Previous doing nothing, until it was
+    // swiped away (a tester, 10 Nov 2026; SavedQueueShown).
+    val sheetOverNothing = SavedQueueShown.sheetOverNothing(
+        queuesRead = qbInit,
+        queues = playerConnection.service.queueBoard.masterQueues.size,
+        songShown = mediaMetadata != null,
+        sheetUp = state.anchor != dismissedAnchor,
+    )
+    LaunchedEffect(sheetOverNothing) {
+        if (sheetOverNothing) {
+            Log.d(TAG, "The sheet is up over nothing to play: dismissed")
+            state.dismiss()
         }
     }
 
