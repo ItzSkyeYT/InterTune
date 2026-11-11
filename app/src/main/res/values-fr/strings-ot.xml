@@ -2306,6 +2306,7 @@
     <string name="new_lyrics_save_body">Appuyez longuement sur une ligne des paroles : une carte ou une vidéo peut maintenant être enregistrée sur le téléphone, pas seulement partagée.</string>
     <string name="not_saved_storage_full" translatable="false">Non enregistré : stockage du téléphone plein. Libérez de la place.</string>
     <string name="not_saved" translatable="false">Non enregistré : un problème est survenu. Réessayez.</string>
+    <string name="remove_download_refused" translatable="false">Fichier non supprimé. Vérifiez le dossier de téléchargement.</string>
     <!-- A picker asked for on a device with none (#120, #121). -->
     <string name="no_app_to_pick">Pas de sélecteur de fichiers. Installez un gestionnaire de fichiers.</string>
     <string name="media_button_resuming" translatable="false">Reprise de votre file d\'attente</string>

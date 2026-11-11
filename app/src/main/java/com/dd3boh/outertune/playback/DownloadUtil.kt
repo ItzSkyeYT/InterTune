@@ -54,6 +54,7 @@ import com.dd3boh.outertune.playback.DownloadUtil.Companion.STATE_DOWNLOADING
 import com.dd3boh.outertune.playback.DownloadUtil.Companion.STATE_INVALID
 import com.dd3boh.outertune.playback.downloadManager.DownloadDirectoryManagerOt
 import com.dd3boh.outertune.playback.downloadManager.DownloadManagerOt
+import com.dd3boh.outertune.playback.downloadManager.FileRemoval
 import com.dd3boh.outertune.playback.downloadManager.SongFileCover
 import com.dd3boh.outertune.playback.downloadManager.SongFiles
 import com.dd3boh.outertune.playback.downloadManager.SongTags
@@ -975,8 +976,17 @@ class DownloadUtil @Inject constructor(
     // caller returns at once.
     private fun deleteSong(id: String) {
         CoroutineScope(dlCoroutine).launch {
-            val deleted = localMgr.deleteFile(id)
-            if (!deleted) return@launch
+            val removal = localMgr.deleteFile(id)
+            // A file the folder would not delete stays, and its song with it: nothing else on
+            // screen changes, so the person is told why. A toast is made on the main thread, which
+            // dlCoroutine is not (ToastOnMainThreadTest).
+            if (removal == FileRemoval.REFUSED) {
+                withContext(Dispatchers.Main) { Toaster.show(context, R.string.remove_download_refused, Toast.LENGTH_LONG) }
+            }
+            // A file gone already (deleted in a file manager) ends the song's download as a deleted
+            // one does. It used to give up here and leave the song listed with its download state
+            // until the next rescan (dvd, 11 Nov 2026: Remove all did nothing for it).
+            if (!removal.over) return@launch
             // Recorded before the map update, so a rescan walking the folder concurrently (which
             // may still list the file this just deleted, or may already have missed it) keeps
             // this removal instead of the merge putting the song back from its snapshot.
