@@ -1,10 +1,9 @@
 Version 0.12.10
 
-- Downloads waiting for Wi-Fi no longer close the app after six hours (Android 15+).
-- Shuffle on some playlists no longer closes the app.
-- Phones without a file picker say so instead of closing.
-- A headset or widget play press no longer closes the app.
-- A full phone or a refused network check no longer closes it.
-- Behind a VPN, the player says YouTube wants a sign-in.
+A big round of fixes, no new features:
+- Crashes: a headset, widget or notification play press, downloads waiting for Wi-Fi, a song listed twice, phones without a file picker, the lock screen cover.
+- Sound: better quality on mobile data and with battery saver, USB headphones, the volume past 100%.
+- Downloads, playlists and the queue: many fixes.
+- Settings, Back and artist pages behave.
 
 Full changelog: https://github.com/ItzSkyeYT/InterTune/releases/tag/v0.12.10
