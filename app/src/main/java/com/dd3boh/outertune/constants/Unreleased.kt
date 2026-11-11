@@ -27,6 +27,12 @@ import com.dd3boh.outertune.BuildConfig
  * build was installed was a gate that had outgrown its job. The release is what 0.10.8 is about,
  * and `assembleCoreRelease` is what proves the gate still holds.
  *
+ * What is held back reads [BuildConfig.PREVIEW_FEATURES]: on in the debug app, the Preview and the
+ * Tester app, off in a release. Not BuildConfig.DEBUG: the Tester app is not debuggable (it is shrunk
+ * and optimized like a release, so that it runs as smooth as one), and DEBUG is off in it. DEBUG is
+ * for developer tooling only (logs, files that make the app pretend, fault injection), which testers
+ * are not given. ReleasedFlagsTest fails, with the flag's name, for a held-back flag that reads DEBUG.
+ *
  * For 0.11: the widget is on already (both components enabled in AndroidManifest.xml), and [ENGINE]
  * is on in releases too, decided on 27 Sep 2026. The file stays for what is still held back.
  */
