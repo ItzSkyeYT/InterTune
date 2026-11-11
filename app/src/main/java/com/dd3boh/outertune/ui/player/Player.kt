@@ -1247,9 +1247,9 @@ fun BottomSheetPlayer(
             // Lyrics, the sleep timer and the menu under the transport controls, filled while the
             // thing they control is on. The timer shows what is left, so a running timer is visible
             // without opening anything, and a tap on it cancels, as the menu's entry does. With the
-            // queue on a button it joins the group in front of lyrics, the other button that opens
-            // a view, and the three stay exactly where they sit with it off. A small player always
-            // has it, so there it is simply one of four, all centred together.
+            // queue on a button it is the first of the row, in front of lyrics, the other button
+            // that opens a view, and the whole row is centred with it in (#142). A small player
+            // always has it, so there it is simply one of four, all centred together.
             val quickActions: @Composable () -> Unit = {
                 val inactive = onBackgroundColor.copy(alpha = 0.12f)
                 val rowPins = pins[PinPlace.CONNECTED_ROW].orEmpty().filter { it != PlayerPin.SHARE || canShareSong }
@@ -1276,16 +1276,15 @@ fun BottomSheetPlayer(
                         onClick = openQueue,
                     )
                 }
-                CentredRowWithLeading(
+                CentredRow(
                     gap = ConnectedButtonGap,
                     gutter = hPadding,
-                    leading = if (queueLayout.queueButton && !compactPlayer) queueSegment else null,
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = hPadding)
                         .padding(top = 16.dp)
                 ) {
-                    if (compactPlayer) queueSegment()
+                    if (queueLayout.queueButton) queueSegment()
                     rowPins.forEachIndexed { i, pin ->
                         val shape = connectedShape(first = i == 0 && !queueLayout.queueButton, last = false)
                         val liked = currentSong?.song?.liked == true
@@ -2205,68 +2204,42 @@ private fun connectedShape(first: Boolean, last: Boolean): RoundedCornerShape {
     )
 }
 
-/** How close to the edge of the gutter a leading button may come before the row moves over. */
-private val LeadingEdgeMargin = 8.dp
-
 /**
- * A row of [buttons] centred in its width, placed exactly as a Row centred and spaced [gap] apart
- * would place them, with [leading], when there is one, just before the first of them at the same
- * gap.
+ * A row of buttons centred in its width as a whole, placed exactly as a Row centred and spaced [gap]
+ * apart would place them, so it has as much space before its first button as after its last.
  *
- * The leading button is left out of the centring on purpose. It is how the queue button joins the
- * row under the controls without moving lyrics, the sleep timer or the menu, which people press
- * from memory: those three sit exactly where they do with the queue button off, and it takes the
- * space in front of lyrics. It may reach into the [gutter] beside the row, up to
- * [LeadingEdgeMargin] from its edge. Only a phone too narrow even for that, with the timer's time
- * showing, moves the whole row over, and then by no more than it needs.
+ * The queue button, when it is on, is the first of them like any other: leaving it out of the
+ * centring put the others in the middle and the whole row to the left of it (#142). A row wider
+ * than its space reaches into the [gutter] beside it, evenly on both sides and no nearer than
+ * [QuickRowEdgeMargin] to the edge of the screen, and past that its icon-only buttons give up a
+ * little width each, down to what an icon needs, see [fitQuickActionWidths]. Nothing is shifted to
+ * one side.
  */
 @Composable
-private fun CentredRowWithLeading(
+private fun CentredRow(
     gap: Dp,
     gutter: Dp,
-    leading: (@Composable () -> Unit)?,
     modifier: Modifier = Modifier,
     buttons: @Composable () -> Unit,
 ) {
-    Layout(
-        contents = listOf<@Composable () -> Unit>(leading ?: {}, buttons),
-        modifier = modifier,
-    ) { (leadingMeasurables, buttonMeasurables), constraints ->
+    Layout(content = buttons, modifier = modifier) { measurables, constraints ->
         val loose = constraints.copy(minWidth = 0, minHeight = 0)
-        val placeables = buttonMeasurables.map { it.measure(loose) }
-        val lead = leadingMeasurables.firstOrNull()?.measure(loose)
+        val placeables = measurables.map { it.measure(loose) }
+        val natural = IntArray(placeables.size) { placeables[it].width }
         val gapPx = gap.roundToPx()
-        val sizes = IntArray(placeables.size) { placeables[it].width }
         val width = if (constraints.hasBoundedWidth) constraints.maxWidth
-        else sizes.sum() + gapPx * (sizes.size - 1).coerceAtLeast(0)
-        val height = constraints.constrainHeight((placeables + listOfNotNull(lead)).maxOfOrNull { it.height } ?: 0)
+        else natural.sum() + gapPx * (natural.size - 1).coerceAtLeast(0)
 
-        // The very arrangement the Row used, so the buttons land on the same pixels as before.
-        val positions = IntArray(placeables.size)
-        with(Arrangement.spacedBy(gap, Alignment.CenterHorizontally)) {
-            arrange(width, sizes, layoutDirection, positions)
+        // Only a row too wide for its room measures again, and only the buttons that give way.
+        val widths = fitQuickActionWidths(natural, gapPx, quickRowRoom(width, gutter), QuickActionIconOnlyWidth.roundToPx())
+        val fitted = measurables.mapIndexed { i, measurable ->
+            if (widths[i] == natural[i]) placeables[i] else measurable.measure(loose.copy(minWidth = widths[i], maxWidth = widths[i]))
         }
-
-        // Start is on the left in a left-to-right layout and on the right otherwise, and the
-        // arrangement has already mirrored the buttons, so the leading one goes on whichever side
-        // of the first button reads as before it.
-        val reach = (gutter - LeadingEdgeMargin).coerceAtLeast(0.dp).roundToPx()
-        var shift = 0
-        var leadX = 0
-        if (lead != null && placeables.isNotEmpty()) {
-            if (layoutDirection == LayoutDirection.Ltr) {
-                leadX = positions[0] - gapPx - lead.width
-                if (leadX < -reach) shift = -reach - leadX
-            } else {
-                leadX = positions[0] + sizes[0] + gapPx
-                val over = leadX + lead.width - (width + reach)
-                if (over > 0) shift = -over
-            }
-        }
+        val positions = quickRowPositions(IntArray(fitted.size) { fitted[it].width }, gap, width, layoutDirection)
+        val height = constraints.constrainHeight(fitted.maxOfOrNull { it.height } ?: 0)
 
         layout(width, height) {
-            placeables.forEachIndexed { index, placeable -> placeable.place(positions[index] + shift, 0) }
-            lead?.place(leadX + shift, 0)
+            fitted.forEachIndexed { index, placeable -> placeable.place(positions[index], 0) }
         }
     }
 }
