@@ -57,7 +57,7 @@ object LyricsSave {
             put(MediaStore.MediaColumns.IS_PENDING, 1)
         }
         val uri = runCatching { resolver.insert(collection, values) }
-            .onFailure { Log.w(TAG, "No room for $name in ${place(video)}", it) }
+            .onFailure { Log.e(TAG, "No room for $name in ${place(video)}", it) }
             .getOrNull() ?: return@withContext false
         try {
             resolver.openOutputStream(uri)?.use(write) ?: error("nothing to write it to")
@@ -66,7 +66,7 @@ object LyricsSave {
         } catch (failure: Throwable) {
             runCatching { resolver.delete(uri, null, null) }
             if (failure is CancellationException) throw failure
-            Log.w(TAG, "Could not save $name", failure)
+            Log.e(TAG, "Could not save $name", failure)
             false
         }
     }
@@ -78,7 +78,7 @@ object LyricsSave {
             true
         } catch (failure: Throwable) {
             if (failure is CancellationException) throw failure
-            Log.w(TAG, "Could not save into $uri", failure)
+            Log.e(TAG, "Could not save into $uri", failure)
             false
         }
     }

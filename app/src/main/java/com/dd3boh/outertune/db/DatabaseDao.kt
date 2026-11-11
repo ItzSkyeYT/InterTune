@@ -182,9 +182,19 @@ interface DatabaseDao : SongsDao, AlbumsDao, ArtistsDao, PlaylistsDao, QueueDao,
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     fun insert(map: RelatedSongMap)
 
+    /** A length for a song whose row has none, never over one it has: see insert(mediaMetadata). */
+    @Query("UPDATE song SET duration = :duration WHERE id = :id AND duration <= 0")
+    fun fillSongDuration(id: String, duration: Int)
+
     @Transaction
     fun insert(mediaMetadata: MediaMetadata, block: (SongEntity) -> SongEntity = { it }) {
-        if (insert(mediaMetadata.toSongEntity().let(block)) == -1L) return
+        if (insert(mediaMetadata.toSongEntity().let(block)) == -1L) {
+            // The row was there already and is kept: the song table holds every song the app has
+            // seen, many first met in a radio or a search without a length. A length this one knows
+            // fills that gap, so a queue restored after a restart still has it (5 Nov 2026).
+            if (mediaMetadata.duration > 0) fillSongDuration(mediaMetadata.id, mediaMetadata.duration)
+            return
+        }
         mediaMetadata.artists.forEachIndexed { index, artist ->
             val artistId = artist.id ?: artistByName(artist.name)?.id ?: ArtistEntity.generateArtistId()
             insert( // TODO: use upsert???

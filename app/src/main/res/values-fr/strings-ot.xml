@@ -105,7 +105,7 @@
     <string name="sync_progress_success">Synchronisation terminée</string>
     <string name="tab_arrangement_home_required">L\'onglet Accueil est obligatoire.</string>
     <string name="scanner_manual_btn">Déclencher la synchronisation manuelle</string>
-    <string name="scanner_missing_storage_perm">Le scanner multimédia local nécessite des autorisations de stockage pour fonctionner</string>
+    <string name="scanner_missing_storage_perm">Le scanner local a besoin de l\'autorisation de stockage.</string>
     <string name="scanner_scan_fail">Échec de l\'analyse</string>
     <string name="scanner_ytm_link_fail">La tâche de liaison des artistes YouTube a échoué</string>
     <string name="scanner_ytm_link_success">Le travail de création de liens vers les artistes YouTube est terminé</string>
@@ -188,6 +188,7 @@
     <string name="clear_image_cache_confirm">Voulez-vous vraiment vider le cache des images ? Toutes les vignettes d\'albums existantes seront supprimées.</string>
     <string name="clear_song_cache_confirm">Êtes-vous sûr de vouloir vider le cache des chansons ?</string>
     <string name="dl_extra_path_title">Configurer des emplacements d’importation supplémentaires…</string>
+    <string name="dl_extra_path_dialog_title">Emplacements d\'importation supplémentaires</string>
     <string name="dl_main_path_description">Choisissez un dossier vide : InterTune peut y modifier ou supprimer des fichiers.</string>
     <string name="dl_rescan_confirm">Souhaitez-vous réanalyser tous les dossiers de téléchargement maintenant ? Cela peut prendre quelques minutes selon la taille de votre bibliothèque.</string>
     <string name="oobe_ytm_integration">Intégration de YouTube Music</string>
@@ -208,7 +209,13 @@
     <string name="scanner_rejected_dir">Sélection non valide. Un dossier d\'analyse ne peut pas être un sous-dossier du dossier de téléchargement, ni le dossier de téléchargement lui-même.</string>
     <string name="scanner_holds_download_dir">Ce dossier contient votre dossier de téléchargement (%s), il ne peut donc pas être un dossier d\'analyse</string>
     <string name="scanner_overlap_kept">Chevauche votre dossier de téléchargement ; conservé tel quel car il était déjà enregistré</string>
+    <string name="scanner_holds_import_dir">Ce dossier contient l\'un de vos dossiers d\'importation supplémentaires (%s), il ne peut donc pas être un dossier d\'analyse</string>
+    <string name="scanner_inside_import_dir">Ce dossier se trouve dans l\'un de vos dossiers d\'importation supplémentaires (%s), il ne peut donc pas être un dossier d\'analyse</string>
+    <string name="scanner_overlap_import_kept">Chevauche l\'un de vos dossiers d\'importation supplémentaires ; conservé tel quel car il était déjà enregistré</string>
+    <string name="scanner_rule">Un dossier d\'analyse ne peut ni contenir ni se trouver dans un dossier de téléchargement ou un dossier d\'importation supplémentaire</string>
     <string name="dl_extra_path_overlap_kept">Chevauche un dossier d\'analyse ; conservé tel quel car il était déjà enregistré</string>
+    <string name="dl_extra_path_overlaps_scan">Ce dossier chevauche un dossier d\'analyse, il ne peut donc pas être un emplacement d\'importation supplémentaire</string>
+    <string name="dl_main_path_part_of_scan">Ce dossier fait partie d\'un dossier d\'analyse, il ne peut donc pas être le dossier de téléchargement</string>
     <string name="oobe_ad_free_exp_description">Profitez d\'une lecture de musique ininterrompue</string>
     <string name="dl_oobe_tooltip">Les titres sont téléchargés dans le stockage privé de l\'application. Pour télécharger dans un dossier accessible, choisissez-en un ici ; vous pourrez le changer plus tard dans les Paramètres.</string>
     <string name="oobe_ytm_logon_subtitle">Connectez-vous à votre compte YouTube Music pour synchroniser et accéder à votre contenu privé. Cette option est facultative.</string>
@@ -227,7 +234,7 @@
     <string name="scanner_sensitivity_L0">Prendre le premier résultat fourni par YouTube lorsque la recherche sur YouTube est activée ; sinon, rechercher une correspondance avec le titre</string>
     <string name="app_info_title">Informations sur l\'application</string>
     <string name="device_info_title">Informations sur l\'appareil</string>
-    <string name="help_bug_report_action">Soumettre un rapport de bogue (via GitHub)</string>
+    <string name="help_bug_report_action">Signaler un problème</string>
     <string name="help_contact_email_inquiries">Autres demandes (Appuyez pour copier l\'adresse e-mail)</string>
     <string name="help_support_forum">Aide et support (via GitHub)</string>
     <string name="wiki">Wiki</string>
@@ -275,7 +282,7 @@
     <string name="action_done">Terminé</string>
     <string name="download_on_wifi_only_description">Attend une connexion Wi-Fi avant de télécharger. Les téléchargements lancés en données mobiles sont mis en attente et démarrent tout seuls dès que le Wi-Fi revient</string>
     <string name="download_on_wifi_only_title">Télécharger en Wi-Fi uniquement</string>
-    <string name="download_waiting_for_wifi">En attente. Le téléchargement démarrera dès que le Wi-Fi sera disponible</string>
+    <string name="download_waiting_for_wifi">En attente. Le téléchargement démarrera avec le Wi-Fi.</string>
     <plurals name="download_progress_songs">
         <item quantity="one">%1$d sur %2$d titre</item>
         <item quantity="many">%1$d sur %2$d titres</item>
@@ -421,7 +428,7 @@
     <string name="song_cache_max_size">Taille maximale du cache des morceaux</string>
     <string name="image_cache_max_size">Taille maximale du cache des pochettes</string>
     <string name="max_queues_description">Combien de files d\'attente l\'application conserve à la fois. La plus ancienne est supprimée au-delà de ce nombre.</string>
-    <string name="enable_proxy_description">Faire passer les requêtes et les flux de YouTube Music par un autre serveur. Les images, les paroles et les autres services utilisés par l\'application se connectent toujours directement. Laissez ceci désactivé sauf si vous savez que vous en avez besoin.</string>
+    <string name="enable_proxy_description">Faire passer tout ce que l\'application récupère par un autre serveur, images et paroles comprises. Les enceintes et téléviseurs de votre réseau restent joints directement. Laissez ceci désactivé sauf si vous savez que vous en avez besoin.</string>
     <string name="show_liked_and_downloaded_playlist_description">Afficher Titres aimés et Titres téléchargés comme des playlists dans votre bibliothèque.</string>
     <string name="pause_listen_history_description">Ne plus ajouter de morceaux à votre historique. Rien de ce qui s\'y trouve déjà n\'est supprimé.</string>
     <string name="pause_remote_listen_history_description">Ne plus indiquer à YouTube Music ce que vous écoutez. Votre historique dans cette application continue quoi qu\'il arrive.</string>
@@ -434,7 +441,7 @@
     <string name="audio_normalization_description">Égalise le volume entre les morceaux, pour qu\'aucun ne soit soudain bien plus fort que le précédent.</string>
     <string name="skip_silence_description">Passer les blancs au début et à la fin d\'un morceau.</string>
     <string name="stop_music_on_task_clear_description">Arrêter la musique quand vous balayez l\'application hors des applications récentes.</string>
-    <string name="enable_dynamic_theme_description">Reprendre les couleurs de l\'application depuis votre fond d\'écran.</string>
+    <string name="enable_dynamic_theme_description">Reprendre les couleurs de l\'application depuis la pochette du titre en cours de lecture. Désactivé, ou sans lecture, elle utilise les couleurs de votre téléphone (Android 12 ou plus récent).</string>
     <string name="pure_black_description">Utiliser du vrai noir au lieu du gris foncé. Sur un écran OLED, cela économise aussi un peu de batterie.</string>
     <string name="min_playback_duration_short">La part d\'un titre qui doit être lue pour compter comme une lecture. La page Historique affiche chaque titre écouté au moins 2 secondes, que la lecture compte ou non.</string>
     <string name="throttle_banner_title">YouTube a suspendu cette connexion</string>
@@ -551,11 +558,12 @@
     <string name="playback_auth_when_refused">Seulement quand un titre est refusé</string>
     <string name="playback_auth_always">Toujours</string>
     <string name="err_age_restricted">YouTube ne lira pas ce titre sans un compte ayant l\'âge requis. Les autres titres ne sont pas concernés.</string>
-    <string name="err_song_unavailable">YouTube n\'a plus ce titre, ou ne le propose pas là où vous êtes. Les autres titres ne sont pas concernés.</string>
+    <string name="err_song_unavailable">YouTube n\'a plus ce titre, ou pas là où vous êtes.</string>
+    <string name="err_not_audio">Ce qui est arrivé pour ce titre n\'est pas de l\'audio. Quelque chose sur cette connexion répond peut-être à la place de YouTube, comme un VPN ou un bloqueur de pubs.</string>
     <string name="err_sign_in_wanted">YouTube demande de se connecter pour lire depuis ce réseau. Les VPN et les connexions partagées sont souvent refusés.</string>
     <string name="gone_song_skipped">Titre passé, indisponible sur YouTube : « %1$s »</string>
     <!-- Dialog -->
-    <string name="create_sync_playlist_failed">Impossible de créer la playlist sur YouTube Music. Rien n\'a été créé ; réessayez une fois en ligne.</string>
+    <string name="create_sync_playlist_failed">Playlist non créée sur YouTube Music. Réessayez une fois en ligne.</string>
     <!-- Sync -->
     <string name="sync_progress_failed">La synchronisation n\'a pas abouti. Rien n\'a été supprimé ; réessayez plus tard.</string>
     <string name="sync_progress_nothing">Rien à synchroniser. Vérifiez que la synchronisation est activée pour au moins un type de contenu.</string>
@@ -648,16 +656,16 @@
     <string name="recognise_once_desc">Identifie un titre, puis s\'arrête.</string>
     <string name="recognise_keep_listening_short">Continue jusqu\'à ce que vous l\'arrêtiez.</string>
     <string name="recognition_source_room">Autour de vous</string>
-    <string name="recognition_source_phone">Sur ce téléphone</string>
+    <string name="recognition_source_phone">Sur cet appareil</string>
     <string name="recognition_phone_note">Android ne laisse une appli entendre les autres qu\'en enregistrant l\'écran, d\'où sa question. InterTune ne prend que le son, jamais l\'image, et seulement pour cette écoute.</string>
-    <string name="recognition_phone_tile">Titre sur ce téléphone</string>
-    <string name="recognition_service_title_phone">À l\'écoute de ce téléphone</string>
+    <string name="recognition_phone_tile">Titre sur cet appareil</string>
+    <string name="recognition_service_title_phone">À l\'écoute de cet appareil</string>
     <string name="recognition_phone_found_tap">touchez pour l\'ouvrir dans InterTune</string>
-    <string name="recognition_phone_nothing">Aucun titre trouvé sur ce téléphone</string>
+    <string name="recognition_phone_nothing">Aucun titre trouvé sur cet appareil</string>
     <string name="recognition_phone_nothing_hint">Réessayez pendant que le titre joue.</string>
-    <string name="recognition_phone_results_channel">Titres trouvés sur ce téléphone</string>
-    <string name="recognition_phone_needs_permission">InterTune a aussi besoin de l\'autorisation du micro pour écouter ce téléphone.</string>
-    <string name="recognition_phone_heard_nothing">Aucun son n\'est venu du téléphone. InterTune laisse de côté ses propres titres, et certaines applis bloquent l\'enregistrement.</string>
+    <string name="recognition_phone_results_channel">Titres trouvés sur cet appareil</string>
+    <string name="recognition_phone_needs_permission">InterTune a aussi besoin du micro pour écouter cet appareil.</string>
+    <string name="recognition_phone_heard_nothing">Aucun son n\'est venu de l\'appareil. InterTune laisse de côté ses propres titres, et certaines applis bloquent l\'enregistrement.</string>
     <string name="recognition_room_tile">Titre autour de vous</string>
     <string name="recognition_phone_continue">Continuer</string>
     <string name="recognition_phone_needs_notifications">InterTune a besoin des notifications pour vous donner le titre.</string>
@@ -737,7 +745,7 @@
     <string name="recognition_history">Ce que vous avez entendu</string>
     <string name="recognition_history_empty">Rien pour l\'instant. Les titres que vous identifiez apparaîtront ici.</string>
     <string name="recognition_no_match">Shazam n\'a pas reconnu ce titre.</string>
-    <string name="recognition_heard_nothing">Le micro n\'a rien entendu. Essayez de rapprocher le téléphone du haut-parleur.</string>
+    <string name="recognition_heard_nothing">Le micro n\'a rien entendu. Essayez de rapprocher l\'appareil du haut-parleur.</string>
     <string name="recognition_failed">Cela n\'a pas fonctionné. Vérifiez votre connexion et réessayez.</string>
     <string name="recognition_stop">Arrêter et identifier</string>
     <string name="recognition_try_again">Réessayer</string>
@@ -987,9 +995,9 @@
     <string name="exclusion_reason_snooze">Moins de cet artiste, pendant un mois</string>
     <string name="exclusion_reason_rest">Mis au repos après avoir été passé</string>
     <string name="exclusion_reason_gone">N\'est plus sur YouTube</string>
-    <string name="error_youtube_not_answering">YouTube ne répond pas pour le moment. Le titre a été essayé de plusieurs façons.</string>
+    <string name="error_youtube_not_answering">YouTube ne répond pas. Le titre a été essayé de plusieurs façons.</string>
     <string name="error_cached_part_stale">La partie enregistrée de ce titre ne correspond plus à ce que YouTube fournit. Appuyez sur lecture pour le charger à nouveau.</string>
-    <string name="error_connection_turned_away">YouTube refuse cette connexion, donc chaque titre semble indisponible. Un VPN, ou un réseau d\'école ou de travail, peut en être la cause.</string>
+    <string name="error_connection_turned_away">YouTube refuse cette connexion. Essayez sans VPN ou un autre Wi-Fi.</string>
     <string name="error_sign_in_wanted">YouTube demande de se connecter sur ce réseau. Essayez sans VPN.</string>
     <string name="menu_not_this_song">Pas ce titre</string>
     <string name="menu_less_of_artist">Moins de cet artiste</string>
@@ -1708,8 +1716,8 @@
     <string name="welcome_back_settings_show">Faire le tour</string>
     <string name="welcome_back_done">Terminé</string>
     <string name="welcome_back_entry">Nouveautés</string>
-    <string name="welcome_back_not_here">Ce n\'est pas à l\'écran avec ces réglages, il n\'y a donc rien à montrer.</string>
-    <string name="welcome_back_no_widget_host">Cet écran d\'accueil n\'accepte pas les widgets des applications. Ajoutez-le depuis la liste de widgets de l\'écran d\'accueil.</string>
+    <string name="welcome_back_not_here">Ce n\'est pas affiché avec ces réglages : rien à montrer.</string>
+    <string name="welcome_back_no_widget_host">Cet écran d\'accueil refuse les widgets d\'applis. Passez par sa liste.</string>
     <string name="welcome_card_see">Voir</string>
     <string name="welcome_card_dismiss">Masquer cette note</string>
     <string name="new_quick_picks_title">Une Sélection Rapide que vous pouvez orienter</string>
@@ -1959,9 +1967,10 @@
     <string name="equalizer_headphones_no_curve">Ce modèle n\'a pas de courbe à dix bandes. Essayez une autre de ses mesures.</string>
     <string name="equalizer_headphones_none_found">Aucun modèle de ce nom.</string>
     <string name="support_title">Soutenir InterTune</string>
-    <string name="support_text">InterTune est gratuit et sans publicité. Pour faire un don, envoyez un message privé au développeur sur le serveur Discord d\'InterTune.</string>
+    <string name="support_text">InterTune est gratuit et sans publicité. Pour donner, passez par le Ko-fi d\'InterTune et dites dans votre message si vous voulez figurer ici. Pour la crypto, écrivez au développeur sur Discord.</string>
     <string name="support_thanks">Merci à ceux qui ont déjà donné :</string>
     <string name="support_discord">Ouvrir Discord</string>
+    <string name="support_kofi">Faire un don sur Ko-fi</string>
     <plurals name="list_queued_here">
         <item quantity="one">%1$d titre ajouté à la fin de cette file d\'attente</item>
         <item quantity="many">%1$d titres ajoutés à la fin de cette file d\'attente</item>
@@ -2006,8 +2015,8 @@
     <string name="battery_use_saver">Économie</string>
     <string name="battery_use_full_description">Tout comme vous l\'avez réglé.</string>
     <string name="battery_use_balanced_description">La bibliothèque se synchronise toutes les deux heures au lieu de toutes les demi-heures, et les barres de lecture bougent plus calmement.</string>
-    <string name="battery_use_saver_description">Effets sonores coupés, thème noir, moins d\'images par seconde et qualité Faible sur les données mobiles. Synchronisation et téléchargements attendent le Wi-Fi.</string>
-    <string name="battery_use_explain">Ce que fait InterTune pendant que vous écoutez. « Équilibrée » synchronise la bibliothèque moins souvent et calme les barres de lecture. « Économie » coupe aussi les effets sonores, affiche un thème noir avec moins d\'images par seconde et diffuse en qualité Faible sur les données mobiles.</string>
+    <string name="battery_use_saver_description">Effets sonores coupés sauf l\'égaliseur, thème noir, moins d\'images par seconde et, si la qualité audio est Automatique, qualité Faible sur les données mobiles. Synchronisation et téléchargements attendent le Wi-Fi.</string>
+    <string name="battery_use_explain">Ce que fait InterTune pendant que vous écoutez. « Équilibrée » synchronise la bibliothèque moins souvent et calme les barres de lecture. « Économie » coupe aussi les effets sonores sauf l\'égaliseur, affiche un thème noir avec moins d\'images par seconde et, quand la qualité audio est sur Automatique, diffuse en qualité Faible sur les données mobiles.</string>
     <string name="battery_saver_holds_note">Réglé par « Utilisation de la batterie » tant qu\'elle est sur « Économie ».</string>
     <string name="battery_saver_quality_note">Faible sur les données mobiles tant que « Utilisation de la batterie » est sur « Économie ».</string>
     <string name="battery_saver_background_note">%1$s tant que « Utilisation de la batterie » est sur « Économie ».</string>
@@ -2093,6 +2102,9 @@
     <string name="auto_more_recent_line">Reprenez là où vous en étiez</string>
     <string name="auto_more_shuffle_library">Ma bibliothèque en aléatoire</string>
     <string name="auto_more_shuffle_line">Tout ce que vous avez gardé, mélangé</string>
+    <string name="auto_search_offline">Pas d\'internet sur le téléphone</string>
+    <string name="auto_search_no_answer">YouTube Music n\'a pas répondu</string>
+    <string name="auto_search_again">Touchez pour chercher à nouveau</string>
     <string name="auto_settings_sound">Son</string>
     <string name="auto_settings_playback">Lecture</string>
     <string name="auto_level_line">Un volume égal d\'un titre à l\'autre</string>
@@ -2199,7 +2211,7 @@
     <string name="region_note_title">YouTube Music en Corée du Sud</string>
     <string name="region_note_body">YouTube Music n\'a pas d\'offre gratuite en Corée du Sud : là-bas, YouTube ne montre les titres, les albums et les mix qu\'aux abonnés Premium. Les titres de vos playlists se lisent quand même, et la recherche trouve toujours les vidéos. Un compte Premium, ou un VPN ou un proxy hors de Corée, fait revenir le reste.</string>
     <string name="region_note_proxy">Réglages du proxy</string>
-    <string name="proxy_restart_title">Redémarrer pour utiliser le nouveau proxy</string>
+    <string name="proxy_restart_title">Redémarrer pour appliquer le réglage du proxy</string>
     <string name="proxy_restart_description">InterTune prend le proxy au démarrage. Touchez pour le redémarrer maintenant ; la musique s\'arrête.</string>
     <string name="why_stopped_sign_in_title">Votre connexion YouTube a expiré</string>
     <string name="why_stopped_sign_in_body">YouTube n\'accepte plus la connexion que garde InterTune, donc la recherche, les radios et les mix ne se chargent pas. Reconnectez-vous pour les retrouver.</string>
@@ -2255,7 +2267,7 @@
     <string name="unblocked">%1$s débloqué</string>
     <string name="blocked_search_note">%1$s est bloqué, donc rien de cet artiste ne s\'affiche.</string>
     <string name="blocked_song_skipped">%1$s est bloqué, donc son titre a été passé.</string>
-    <string name="blocked_songs_left">Les titres restants sont tous d\'artistes bloqués, donc la musique s\'est arrêtée.</string>
+    <string name="blocked_songs_left">Il ne reste que des titres d\'artistes bloqués : la musique s\'arrête.</string>
     <string name="search_words_blocked_artists">bannir, masquer, ignorer, liste noire</string>
     <string name="crash_newer_title">InterTune %1$s est disponible</string>
     <string name="crash_newer_body">Cette version corrige peut-être déjà ce plantage. Mettez à jour d\'abord, puis signalez-le s\'il revient.</string>
@@ -2306,7 +2318,19 @@
     <string name="new_lyrics_save_body">Appuyez longuement sur une ligne des paroles : une carte ou une vidéo peut maintenant être enregistrée sur le téléphone, pas seulement partagée.</string>
     <string name="not_saved_storage_full" translatable="false">Non enregistré : stockage du téléphone plein. Libérez de la place.</string>
     <string name="not_saved" translatable="false">Non enregistré : un problème est survenu. Réessayez.</string>
+    <string name="remove_download_refused" translatable="false">Fichier non supprimé. Vérifiez le dossier de téléchargement.</string>
     <!-- A picker asked for on a device with none (#120, #121). -->
     <string name="no_app_to_pick">Pas de sélecteur de fichiers. Installez un gestionnaire de fichiers.</string>
     <string name="media_button_resuming" translatable="false">Reprise de votre file d\'attente</string>
+    <string name="library_song_empty_liked" translatable="false">Les titres que vous aimez s\'afficheront ici</string>
+    <string name="library_song_empty_downloaded" translatable="false">Les titres téléchargés s\'afficheront ici</string>
+    <string name="remove_download_selection_confirm" translatable="false">Supprimer les téléchargements des titres choisis ?</string>
+    <string-array name="file_size_units">
+        <item>o</item>
+        <item>Ko</item>
+        <item>Mo</item>
+        <item>Go</item>
+        <item>To</item>
+        <item>Po</item>
+    </string-array>
 </resources>

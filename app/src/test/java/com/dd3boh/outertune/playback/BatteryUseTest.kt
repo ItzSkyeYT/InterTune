@@ -58,8 +58,8 @@ class BatteryUseTest {
         assertTrue(BatteryUse.syncAllowed(FULL, metered = true))
         assertEquals(5 * 60 * 1000L, BatteryUse.tasteKeptMs(FULL))
         assertEquals(BatteryUse.Bars.SCREEN_RATE, BatteryUse.bars(FULL))
-        assertFalse("no offload unless the developer's switch asks for it", BatteryUse.offload(FULL, developerSwitch = false, needsAppPath = false))
-        assertTrue(BatteryUse.offload(FULL, developerSwitch = true, needsAppPath = false))
+        assertFalse("no offload unless the developer's switch asks for it", BatteryUse.offload(FULL, developerSwitch = false, needsAppPath = false, outputSafe = true))
+        assertTrue(BatteryUse.offload(FULL, developerSwitch = true, needsAppPath = false, outputSafe = true))
         assertEquals(0, BatteryUse.songCacheMb(null, FULL))
     }
 
@@ -70,7 +70,7 @@ class BatteryUseTest {
         assertEquals(30 * 60 * 1000L, BatteryUse.tasteKeptMs(BALANCED))
         assertEquals(BatteryUse.Bars.STEPPED, BatteryUse.bars(BALANCED))
         assertEquals("thirty steps a second", 33L, BatteryUse.BARS_STEP_MS)
-        assertFalse(BatteryUse.offload(BALANCED, developerSwitch = false, needsAppPath = false))
+        assertFalse(BatteryUse.offload(BALANCED, developerSwitch = false, needsAppPath = false, outputSafe = true))
         assertFalse(BatteryUse.holdsEffects(BALANCED))
     }
 
@@ -97,7 +97,6 @@ class BatteryUseTest {
     fun `Saver turns the sound effects off`() {
         assertTrue(BatteryUse.holdsEffects(SAVER))
         for (chosen in SpatialAudioMode.entries) assertEquals(SpatialAudioMode.OFF, BatteryUse.spatialAudio(chosen, SAVER))
-        assertFalse(BatteryUse.equalizer(true, SAVER))
         assertFalse(BatteryUse.fade(true, SAVER))
         assertFalse("its scan runs while music plays", BatteryUse.proximity(true, SAVER))
         assertEquals("no boost past 100%", 1f, BatteryUse.volume(2.5f, SAVER))
@@ -106,22 +105,43 @@ class BatteryUseTest {
 
     @Test
     fun `Saver asks for the low-power path whenever nothing needs the app's own`() {
-        assertTrue(BatteryUse.offload(SAVER, developerSwitch = false, needsAppPath = false))
+        assertTrue(BatteryUse.offload(SAVER, developerSwitch = false, needsAppPath = false, outputSafe = true))
         // Skip silence, another speed, a sleep timer counting down: the song stays on the app's path.
         for (mode in modes) for (switch in listOf(true, false)) {
-            assertFalse("$mode, switch $switch", BatteryUse.offload(mode, switch, needsAppPath = true))
+            assertFalse("$mode, switch $switch", BatteryUse.offload(mode, switch, needsAppPath = true, outputSafe = true))
         }
     }
 
     @Test
-    fun `Saver streams at Low on mobile data and as chosen on Wi-Fi`() {
-        for (chosen in AudioQuality.entries) {
-            assertEquals(AudioQuality.LOW, BatteryUse.quality(chosen, metered = true, SAVER))
-            assertEquals(chosen, BatteryUse.quality(chosen, metered = false, SAVER))
-        }
-        // Auto already takes the smallest stream on mobile data, so only High and Highest change.
-        assertEquals(setOf(AudioQuality.HIGH, AudioQuality.MAX), AudioQuality.entries.filter { BatteryUse.lowersQuality(it, SAVER) }.toSet())
+    fun `Saver keeps the low-power path off USB headphones, a switch turned on by hand does not (#90)`() {
+        // A Pixel 11 with USB headphones went silent after half a minute with the screen off, and
+        // stayed silent until they were plugged in again.
+        assertFalse(BatteryUse.offload(SAVER, developerSwitch = false, needsAppPath = false, outputSafe = false))
+        for (mode in modes) assertTrue("$mode", BatteryUse.offload(mode, developerSwitch = true, needsAppPath = false, outputSafe = false))
+        assertFalse(BatteryUse.offload(SAVER, developerSwitch = true, needsAppPath = true, outputSafe = false))
+    }
+
+    @Test
+    fun `Saver takes Low on mobile data where Audio quality is Auto, and everything is as chosen on Wi-Fi`() {
+        assertEquals(AudioQuality.LOW, BatteryUse.quality(AudioQuality.AUTO, metered = true, SAVER))
+        for (chosen in AudioQuality.entries) assertEquals(chosen, BatteryUse.quality(chosen, metered = false, SAVER))
+        // Low is Low already. Only Auto is lowered: it is the app's own pick, which Saver says how little to spend on.
+        assertEquals(setOf(AudioQuality.AUTO), AudioQuality.entries.filter { BatteryUse.lowersQuality(it, SAVER) }.toSet())
         assertTrue(AudioQuality.entries.none { BatteryUse.lowersQuality(it, FULL) || BatteryUse.lowersQuality(it, BALANCED) })
+    }
+
+    @Test
+    fun `High and Highest are never lowered, in any mode on any network (#88, sometimes it gets so bad)`() {
+        // The phone's battery saver turns Saver on by itself, and used to take High down to the smallest stream
+        // (about 50 kbps) on mobile data without a word, while no other app did.
+        for (chosen in listOf(AudioQuality.HIGH, AudioQuality.MAX)) {
+            for (mode in modes) for (metered in listOf(true, false)) {
+                assertEquals("$chosen in $mode, metered $metered", chosen, BatteryUse.quality(chosen, metered, mode))
+            }
+            assertFalse("$chosen: no line under Audio quality says it is lowered", BatteryUse.lowersQuality(chosen, SAVER))
+        }
+        // and Low stays Low
+        for (mode in modes) for (metered in listOf(true, false)) assertEquals(AudioQuality.LOW, BatteryUse.quality(AudioQuality.LOW, metered, mode))
     }
 
     @Test
@@ -143,7 +163,6 @@ class BatteryUseTest {
         for (mode in listOf(FULL, BALANCED)) {
             for (chosen in SpatialAudioMode.entries) assertEquals(chosen, BatteryUse.spatialAudio(chosen, mode))
             for (chosen in listOf(true, false)) {
-                assertEquals(chosen, BatteryUse.equalizer(chosen, mode))
                 assertEquals(chosen, BatteryUse.fade(chosen, mode))
                 assertEquals(chosen, BatteryUse.proximity(chosen, mode))
                 assertEquals(chosen, BatteryUse.downloadsOnWifiOnly(chosen, mode))
@@ -167,10 +186,9 @@ class BatteryUseTest {
         assertEquals(BatteryUse.SAVER_SONG_CACHE_MB, BatteryUse.songCacheMb(null, SAVER))
         assertEquals("one of the sizes the setting offers", 512, BatteryUse.SAVER_SONG_CACHE_MB)
         // The developer's Enable offload stays on in every mode.
-        for (mode in modes) assertTrue(BatteryUse.offload(mode, developerSwitch = true, needsAppPath = false))
+        for (mode in modes) assertTrue(BatteryUse.offload(mode, developerSwitch = true, needsAppPath = false, outputSafe = true))
         // An effect switched off by hand stays off.
         for (mode in modes) {
-            assertFalse(BatteryUse.equalizer(false, mode))
             assertFalse(BatteryUse.fade(false, mode))
             assertEquals(SpatialAudioMode.OFF, BatteryUse.spatialAudio(SpatialAudioMode.OFF, mode))
         }

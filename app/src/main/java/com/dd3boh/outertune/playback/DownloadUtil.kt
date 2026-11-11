@@ -54,6 +54,7 @@ import com.dd3boh.outertune.playback.DownloadUtil.Companion.STATE_DOWNLOADING
 import com.dd3boh.outertune.playback.DownloadUtil.Companion.STATE_INVALID
 import com.dd3boh.outertune.playback.downloadManager.DownloadDirectoryManagerOt
 import com.dd3boh.outertune.playback.downloadManager.DownloadManagerOt
+import com.dd3boh.outertune.playback.downloadManager.FileRemoval
 import com.dd3boh.outertune.playback.downloadManager.SongFileCover
 import com.dd3boh.outertune.playback.downloadManager.SongFiles
 import com.dd3boh.outertune.playback.downloadManager.SongTags
@@ -77,8 +78,10 @@ import com.dd3boh.outertune.utils.Throttle
 import com.zionhuang.innertube.YouTube
 import com.zionhuang.innertube.models.SongItem
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
@@ -89,6 +92,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.isActive
@@ -100,6 +104,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.onEach
 import okhttp3.OkHttpClient
+import java.io.File
 import java.io.IOException
 import java.io.InputStream
 import java.time.Instant
@@ -121,6 +126,9 @@ class DownloadUtil @Inject constructor(
     val TAG = DownloadUtil::class.simpleName.toString()
 
     private val connectivityManager = context.getSystemService<ConnectivityManager>()!!
+
+    /** Whether the connection is metered now, as Auto's choice of stream reads it (AudioPick); metered when it cannot be told. */
+    private fun metered(): Boolean = runCatching { connectivityManager.isActiveNetworkMetered }.getOrDefault(true)
     private val audioQuality by enumPreference(context, AudioQualityKey, AudioQuality.AUTO)
     // Concurrent, because media3 runs each download on its own thread and this is read and written
     // from all of them. An unsynchronised HashMap can corrupt its table under concurrent put.
@@ -133,8 +141,14 @@ class DownloadUtil @Inject constructor(
     private val goneRun = GoneRun()
     private var lastResolveAt = 0L
     private val dataSourceFactory = ResolvingDataSource.Factory(
+        // The song cache is read here, never written: a song it holds whole is copied from it (see
+        // below), and nothing a download fetches goes into it. Without a writer of its own media3
+        // writes every byte read into the cache, and each download was kept twice, in the
+        // download cache and in the song cache: for good on Unlimited, and with a size it pushed
+        // out the songs kept from streaming. A download is kept once, where downloads live (KeptOnce).
         CacheDataSource.Factory()
             .setCache(playerCache)
+            .setCacheWriteDataSinkFactory(null)
             .setUpstreamDataSourceFactory(
                 // A sabr: address to the SABR reader, any other over the family the address was
                 // issued to, and a web client's with its page's headers, as its check was made:
@@ -173,15 +187,17 @@ class DownloadUtil @Inject constructor(
                 // A database that does not answer is taken as a copy of unknown quality, and the
                 // download takes it as it is. Given up: the better copy for this download, where
                 // the wait used to hold one of the three download threads for good.
-                val storedTier = runCatching { database.readOrNull { formatRow(mediaId) } }.getOrNull()?.qualityTier
-                if (!isStaleQualityTier(storedTier, audioQuality)) return@Factory dataSpec
+                val stored = runCatching { database.readOrNull { formatRow(mediaId) } }.getOrNull()
+                if (!isStaleQualityTier(stored?.qualityTier, audioQuality, metered = metered(), storedBitrate = stored?.bitrate)) return@Factory dataSpec
                 staleCopy = true
             }
             if (playerCache.holdsPartFromStart(mediaId)) {
                 runCatching { playerCache.removeResource(mediaId) }
                     .onFailure { Log.w(TAG, "Could not drop the partial copy of $mediaId", it) }
             }
-        } else if (playerCache.isCached(mediaId, dataSpec.position, length)) {
+        } else if (playerCache.isCached(mediaId, dataSpec.position, length) && sameRecordedStream(recordedLength(playerCache, mediaId), recordedLength(downloadCache, mediaId))) {
+            // A later range read from the player's copy only when both copies are the same stream: the
+            // player's may be another quality than the part already downloaded, and the file would be both.
             return@Factory dataSpec
         }
 
@@ -243,12 +259,17 @@ class DownloadUtil @Inject constructor(
         // has died since and this stream is a stand-in's, or the other way round) cannot be
         // finished: the file would be the start of one and the rest of the other. What is there
         // goes and this try fails, so that the next one takes the song from its start.
+        // The same for a part of another quality: Auto takes one stream on Wi-Fi and another on mobile data,
+        // and Audio quality may change between a start and its resume. Judged by the length
+        // the download's own cache recorded as it began; the format row is the player's as much as the download's.
         if (dataSpec.position > 0L) {
             val part = runCatching { database.readOrNull { formatRow(mediaId) } }.getOrNull()
-            if (anotherUpload(part?.itag, part?.contentLength, format.itag, format.contentLengthOrZero())) {
+            val another = partIsAnotherStream(recordedLength(downloadCache, mediaId), format.contentLengthOrZero())
+            if (another || anotherUpload(part?.itag, part?.contentLength, format.itag, format.contentLengthOrZero())) {
                 runCatching { downloadCache.removeResource(mediaId) }
-                    .onFailure { Log.w(TAG, "Could not drop the part of $mediaId that is another upload's", it) }
-                throw IOException("the part of this song already downloaded is another upload's")
+                    .onFailure { Log.w(TAG, "Could not drop the part of $mediaId that is another stream's", it) }
+                Log.i(TAG, "The part of $mediaId already downloaded is another stream's (${if (another) "its length" else "another upload"}): starting again")
+                throw IOException("the part of this song already downloaded is another stream's")
             }
         }
         // A whole copy of the song itself is not given up for a stand-in's stream.
@@ -274,10 +295,17 @@ class DownloadUtil @Inject constructor(
                     sampleRate = format.audioSampleRate,
                     contentLength = format.contentLengthOrZero(),
                     loudnessDb = playbackData.audioConfig?.effectiveLoudnessDb,
-                    qualityTier = audioQuality.name,
+                    qualityTier = cacheTier(audioQuality, metered()),
                     playbackTrackingUrl = playbackData.playbackTracking?.videostatsPlaybackUrl?.baseUrl
                 )
             )
+            // A song saved from a list that gave no length (a search shelf, 6 Nov 2026) kept none
+            // until it was played: the download has it now. Only the song's own stream, since a
+            // stand-in's can be another cut of it, and only where none is known.
+            if (played.from == mediaId) {
+                playbackData.videoDetails?.lengthSeconds?.toIntOrNull()?.takeIf { it > 0 }
+                    ?.let { fillSongDuration(mediaId, it) }
+            }
         }
 
         // The developer's "Stream over SABR only", as the player has it (MusicService): the same
@@ -308,7 +336,7 @@ class DownloadUtil @Inject constructor(
                 ExoDownloadService.TerminalStateNotificationHelper(
                     context = context,
                     notificationHelper = downloadNotificationHelper,
-                    nextNotificationId = ExoDownloadService.NOTIFICATION_ID + 1
+                    firstNotificationId = ExoDownloadService.FAILED_NOTIFICATION_ID_FIRST
                 )
             )
         }
@@ -333,21 +361,133 @@ class DownloadUtil @Inject constructor(
     /** Songs whose download finished since the last move into the folder, on the download manager's thread: see its onIdle. */
     private val finishedSinceMove = mutableSetOf<String>()
 
+    /**
+     * Where Remove download asks whether a song's kept cover can go, one at a time: a bulk removal
+     * asks once a song, each a read of the whole song table, and in parallel they took every
+     * database connection the lists read through.
+     */
+    private val coverChecks = Dispatchers.IO.limitedParallelism(1)
+
     fun getDownload(songId: String): Flow<LocalDateTime?> = downloads.map { it[songId] }
 
+    /** Whether [id] has landed, in the app or in a download folder. A song on its way is not yet. */
+    fun isDownloaded(id: String): Boolean = hasLanded(downloads.value[id])
+
+    /**
+     * Opens once the download folders have been listed since the start (the rescan in init): until
+     * then the folders' list is empty, and a song with its file in a folder is not found in it.
+     */
+    private val firstListing = java.util.concurrent.CountDownLatch(1)
+
+    /**
+     * The file of [id] in a download folder. Asked for a song whose row says its file is in one:
+     * while the folders have not been listed since the start, it waits for that, at most [waitMs].
+     * Until then the song was streamed, and offline it failed, unless the song cache happened to
+     * hold a copy; a download is no longer copied there (KeptOnce). It is the case when the player
+     * resumes as the app starts: a headset's button, Bluetooth in the car, Android Auto.
+     */
+    fun folderFileOf(id: String, waitMs: Long): androidx.documentfile.provider.DocumentFile? =
+        afterFirstListing(firstListing, waitMs) { localMgr.isExists(id) }
+
+    /**
+     * Drops the song cache's copy of [id] once its download holds the song whole: a song played
+     * before it was downloaded was kept in both, and the download was copied from the song cache.
+     * The player reads a download first, from the download cache or the folder, so the copy only
+     * took space. A copy the player is reading carries on from its open file; its next read comes
+     * from the download.
+     */
+    private fun dropSongCacheCopy(id: String, reason: String) {
+        runCatching { playerCache.removeResource(id) }
+            .onSuccess { Log.d(TAG, "The song cache's copy of $id goes, $reason") }
+            .onFailure { Log.w(TAG, "Could not drop the song cache's copy of $id", it) }
+    }
+
+    /** [dropSongCacheCopy] for a download that just landed, off the manager's thread, if the download cache holds it whole. */
+    private fun dropSongCacheCopyOnceDownloaded(id: String) {
+        CoroutineScope(Dispatchers.IO).launch {
+            if (runCatching { downloadCache.holdsWhole(id) }.getOrDefault(false)) dropSongCacheCopy(id, "it is downloaded")
+        }
+    }
+
+    /**
+     * The song cache's copies of songs the downloads hold whole, dropped: the ones every download
+     * left there before this version, and any a song got by being played before its download. After
+     * the rescan, so that the folders are listed and the map is whole.
+     */
+    private fun dropSongCacheCopiesOfDownloads() {
+        val keys = runCatching { playerCache.keys.toList() }.getOrDefault(emptyList())
+        if (keys.isEmpty()) return
+        val inFolders = runCatching { localMgr.getAvailableFiles().keys }.getOrDefault(emptySet())
+        val drop = KeptOnce.copiesToDrop(keys, downloads.value, inFolders) { id ->
+            runCatching { downloadCache.holdsWhole(id) }.getOrDefault(false)
+        }
+        if (drop.isEmpty()) return
+        Log.i(TAG, "Dropping ${drop.size} songs from the song cache, the downloads hold them")
+        drop.forEach { dropSongCacheCopy(it, "its download holds it") }
+    }
+
+    // Downloads asked for by hand: the liked catch up no longer leaves these songs out
+    // (LikedCatchUpMemory), whatever the person removed or what failed before.
+
     fun download(songs: List<MediaMetadata>) {
+        wantedAgain(songs.map { it.id })
         if (songs.any { downloads.value[it.id] == null }) notifyIfWaitingForWifi()
         songs.forEach { song -> downloadSong(song.id, song.title) }
     }
 
     fun download(song: MediaMetadata) {
+        wantedAgain(listOf(song.id))
         if (downloads.value[song.id] == null) notifyIfWaitingForWifi()
         downloadSong(song.id, song.title)
     }
 
     fun download(song: SongEntity) {
+        wantedAgain(listOf(song.id))
         if (downloads.value[song.id] == null) notifyIfWaitingForWifi()
         downloadSong(song.id, song.title)
+    }
+
+    /**
+     * Where what the liked catch up remembers is read and changed: one thing at a time, in the
+     * order they come, so that a failed download's removal is read after its failure
+     * (LikedCatchUpMemory.afterChange).
+     */
+    private val catchUpWork = Dispatchers.IO.limitedParallelism(1)
+    private val catchUpScope = CoroutineScope(catchUpWork + CoroutineExceptionHandler { _, e ->
+        Log.w(TAG, "What the liked catch up remembers could not be changed", e)
+    })
+    private val catchUpFile get() = File(context.filesDir, LIKED_CATCH_UP_FILE)
+
+    /** Read from its file the first time it is needed, on [catchUpWork]. */
+    private val catchUpMemory by lazy { LikedCatchUpMemory.load(catchUpFile) }
+
+    /** A write of [catchUpMemory] is on its way. On [catchUpWork]. */
+    private var catchUpSaveDue = false
+
+    /** Changes what the liked catch up remembers; written a moment later, so a bulk removal is one write. */
+    private fun rememberForCatchUp(change: LikedCatchUpMemory.() -> Boolean) {
+        catchUpScope.launch { if (catchUpMemory.change()) saveCatchUpSoon() }
+    }
+
+    /** On [catchUpWork]. */
+    private suspend fun saveCatchUpSoon() {
+        if (catchUpSaveDue) return
+        catchUpSaveDue = true
+        delay(CATCH_UP_SAVE_DELAY_MS)
+        catchUpSaveDue = false
+        runCatching { LikedCatchUpMemory.save(catchUpMemory, catchUpFile) }
+            .onFailure { Log.w(TAG, "Could not save what the liked catch up remembers", it) }
+    }
+
+    /**
+     * The person wants these songs again: downloaded by hand, liked anew here or on YouTube, or
+     * every liked song asked for in Settings. A removal or a run of failures the liked catch up
+     * remembered for them no longer holds it back (LikedCatchUpMemory).
+     */
+    fun wantedAgain(ids: Collection<String>) {
+        if (ids.isEmpty()) return
+        val asked = ids.toList()
+        rememberForCatchUp { this.wantedAgain(asked) }
     }
 
     /**
@@ -457,6 +597,10 @@ class DownloadUtil @Inject constructor(
     /** Batch variant, so liking 500 songs at once fires one Wi-Fi warning rather than 500. */
     fun autoDownloadOnLike(songs: List<SongEntity>) {
         unlikeRemovesDownloads(songs.filter { !it.liked })
+        // A like given anew: a download of the song removed earlier, or one that kept failing, is
+        // wanted again, even when the setting or Wi-Fi only holds it back now and the catch up
+        // fetches it later.
+        wantedAgain(songs.filter { it.liked }.map { it.id })
         val mode = likedAutodownload
         if (!autodownloadAllowedNow(mode)) return
         if (Throttle.isBlocked) return
@@ -562,6 +706,10 @@ class DownloadUtil @Inject constructor(
             }
 
             val batch = pending.map { it.id }.toSet()
+            // Asked for by the person, from Settings: songs whose download they removed come back,
+            // as the row says, and those that kept failing are tried. The sync's catch up leaves
+            // them out (downloadLikedSongs).
+            wantedAgain(batch)
             // A fresh record for this run. A late update for the last run's songs can still land
             // in it before the new batch is published, but any of those this run queues again gets
             // a fresh update from the enqueue below, and that clears it.
@@ -681,6 +829,12 @@ class DownloadUtil @Inject constructor(
      * that query and each state change would re-emit it: collecting it is a self-feeding loop. One
      * snapshot cannot loop, and each call only shrinks the pending set.
      *
+     * The liked sync's own, at every sync. It leaves out a song whose download the person removed
+     * and one whose download keeps failing until its wait is over (LikedCatchUpMemory): the first
+     * came back at the next sync, the second was queued and failed again, a new "Download failed"
+     * each time. Downloads the setting makes, so taking back the like takes them too, with its
+     * switch on (LikedDownloads).
+     *
      * @param mode passed in rather than read back, because the preference setter writes
      *   asynchronously and calling this straight after choosing a value would read the old one.
      * @return how many were queued, or -1 if the Wi-Fi rule blocked the whole run.
@@ -692,11 +846,29 @@ class DownloadUtil @Inject constructor(
         // Never race a scan: it clears every dateDownload first, so until it has finished
         // re-registering them, every song reads as not downloaded.
         if (isProcessingDownloads.value) return 0
-        val pending = database.likedSongsNotDownloaded().first().filter { isNotDownloaded(it.id) }
+        val missing = database.likedSongsNotDownloaded().first().filter { isNotDownloaded(it.id) }
+        val now = System.currentTimeMillis()
+        val pending = withContext(catchUpWork) {
+            forgetSongsNoLongerLiked(missing.mapTo(HashSet()) { it.id })
+            missing.filter { catchUpMemory.mayCatchUp(it.id, now) }
+        }
         if (pending.isEmpty()) return 0
         notifyIfWaitingForWifi()
-        pending.forEach { downloadSong(it.id, it.title) }
+        pending.forEach { downloadSong(it.id, it.title, byLikes = true) }
         return pending.size
+    }
+
+    /**
+     * What the liked catch up remembers of songs no longer liked goes. Asked of the database only
+     * when it holds a song outside [missing], the liked songs without a download, which is rare
+     * once it is tidy. On [catchUpWork].
+     */
+    private fun forgetSongsNoLongerLiked(missing: Set<String>) {
+        if (catchUpMemory.ids.all { it in missing }) return
+        val liked = runCatching { database.likedSongIds().toHashSet() }
+            .onFailure { Log.w(TAG, "Could not read the liked songs to tidy the catch up's memory", it) }
+            .getOrNull() ?: return
+        if (catchUpMemory.keepOnly(liked)) catchUpScope.launch { saveCatchUpSoon() }
     }
 
     /**
@@ -734,7 +906,12 @@ class DownloadUtil @Inject constructor(
                 false
             )
         }
-        if (sent && byLikes) rememberLikedDownload(id)
+        // The setting's own, or the person's: a song the setting downloaded once, whose download
+        // then failed or was cancelled, is downloaded again by hand, and taking back its like
+        // must not take that download (LikedDownloads, issue #64).
+        if (sent) {
+            if (byLikes) rememberLikedDownload(id) else forgetLikedDownload(id)
+        }
         return sent
     }
 
@@ -774,10 +951,19 @@ class DownloadUtil @Inject constructor(
      */
     fun removeDownload(id: String) {
         forgetLikedDownload(id)
-        CoroutineScope(Dispatchers.IO).launch {
-            runCatching { database.song(id).first()?.thumbnailUrl }.getOrNull()?.takeIf { it.startsWith("http") }?.let { url ->
-                for (model in listOf(url, url.resize(ART_PREVIEW_PX, ART_PREVIEW_PX))) DownloadCovers.remove(context.filesDir, model)
-            }
+        // The liked catch up leaves it removed (LikedCatchUpMemory). Here as well as at the
+        // download's removal in the listener: a song in a download folder has no download in
+        // media3 to remove.
+        val now = System.currentTimeMillis()
+        rememberForCatchUp { removedByPerson(id, now) }
+        // Its kept covers go once no download shows them. An album's songs share one cover, and
+        // removing one song's download took it from the others, which then showed none offline.
+        // Asked once this song's removal has reached the map, so that removing a whole album
+        // leaves the cover to its last song, which takes it (coverUnusedOnceRemoved).
+        CoroutineScope(coverChecks).launch {
+            val url = runCatching { database.songRow(id)?.thumbnailUrl }.getOrNull()?.takeIf { it.startsWith("http") } ?: return@launch
+            if (!coverUnusedOnceRemoved(id, downloads, COVER_WAIT_MS) { database.songsWithCover(url) }) return@launch
+            for (model in listOf(url, url.resize(ART_PREVIEW_PX, ART_PREVIEW_PX))) DownloadCovers.remove(context.filesDir, model)
         }
         deleteSong(id)
         sends.attempt("removing $id") {
@@ -804,8 +990,17 @@ class DownloadUtil @Inject constructor(
     // caller returns at once.
     private fun deleteSong(id: String) {
         CoroutineScope(dlCoroutine).launch {
-            val deleted = localMgr.deleteFile(id)
-            if (!deleted) return@launch
+            val removal = localMgr.deleteFile(id)
+            // A file the folder would not delete stays, and its song with it: nothing else on
+            // screen changes, so the person is told why. A toast is made on the main thread, which
+            // dlCoroutine is not (ToastOnMainThreadTest).
+            if (removal == FileRemoval.REFUSED) {
+                withContext(Dispatchers.Main) { Toaster.show(context, R.string.remove_download_refused, Toast.LENGTH_LONG) }
+            }
+            // A file gone already (deleted in a file manager) ends the song's download as a deleted
+            // one does. It used to give up here and leave the song listed with its download state
+            // until the next rescan (dvd, 11 Nov 2026: Remove all did nothing for it).
+            if (!removal.over) return@launch
             // Recorded before the map update, so a rescan walking the folder concurrently (which
             // may still list the file this just deleted, or may already have missed it) keeps
             // this removal instead of the merge putting the song back from its snapshot.
@@ -865,6 +1060,15 @@ class DownloadUtil @Inject constructor(
     }
 
     /**
+     * Settings > Migrate. On a scope of its own, as the liked catch up is: it ran on the Storage
+     * page's, and leaving the page cancelled it halfway, before the scan that registered the songs
+     * moved so far.
+     */
+    fun startMigrate() {
+        CoroutineScope(dlCoroutine).launch { migrateDownloads() }
+    }
+
+    /**
      * Moves the downloads kept inside the app into the download folder: all of them when asked
      * from Settings (Migrate), or [only] these songs, just downloaded, without a word ([quiet]).
      */
@@ -895,33 +1099,46 @@ class DownloadUtil @Inject constructor(
                 // Copied from the cache's files as the new file is written: read whole into memory
                 // first, a long mix ran the app out of memory (#67).
                 val fromCache = openFromCache(downloadCache, s.key) ?: return@forEach
-                // The file is written, and checked, before anything of the old copy goes. The
-                // cache used to be emptied first and a failed write swallowed, so a folder that
-                // refused the file cost the song outright.
-                val saved = fromCache.use { stream ->
-                    val displayName = database.song(s.key).first()?.title ?: ""
-                    localMgr.getFilePathIfExists(s.key)
-                        // A file other players open, with the song's tags and cover inside; the
-                        // stream as it is when the song cannot be one (saveSongFile).
-                        ?: (if (Unreleased.DOWNLOAD_FILES) saveSongFile(s.key) else null)
-                        ?: runCatching {
-                            localMgr.saveFile(s.key, stream, displayName)
-                        }.onFailure { reportException(it) }.getOrNull()
+                // The file written and checked, the song's row pointing to it, and only then the
+                // copy in the app gone, one song at a time (moveIntoFolder). The cache used to be
+                // emptied first and a failed write swallowed, so a folder that refused the file cost
+                // the song outright; then the copy went before the row knew the file, and the song
+                // played from the network until the scan after the whole batch.
+                val moved = moveIntoFolder(
+                    save = {
+                        fromCache.use { stream ->
+                            val displayName = database.song(s.key).first()?.title ?: ""
+                            localMgr.getFilePathIfExists(s.key)
+                                // A file other players open, with the song's tags and cover inside; the
+                                // stream as it is when the song cannot be one (saveSongFile).
+                                ?: (if (Unreleased.DOWNLOAD_FILES) saveSongFile(s.key) else null)
+                                ?: runCatching {
+                                    localMgr.saveFile(s.key, stream, displayName)
+                                }.onFailure { reportException(it) }.getOrNull()
+                        }
+                    },
+                    pathOf = { uri -> runCatching { fileFromUri(context, uri)?.absolutePath }.getOrNull() },
+                    // The date the download landed, as the download listener wrote it.
+                    record = { path -> database.registerDownloadSong(s.key, stateToLocalDateTime(s.value), path) },
+                    dropCopy = {
+                        // The index entry goes as well. Left behind it still said completed, and each
+                        // later scan registered the song as downloaded again, even once its file in the
+                        // folder had been deleted.
+                        runCatching { migratedIndex.removeDownload(s.key) }
+                            .onFailure { Log.w(TAG, "Could not drop the index entry of ${s.key}", it) }
+                        downloadCache.removeResource(s.key)
+                    },
+                )
+                when (moved) {
+                    FolderMove.MOVED -> Unit
+                    FolderMove.NOT_WRITTEN -> Log.w(TAG, "Could not migrate ${s.key}, its download stays in the app")
+                    FolderMove.NO_PATH -> Log.w(TAG, "The folder's file of ${s.key} has no path on the phone, its download stays in the app as well")
+                    FolderMove.NOT_RECORDED -> Log.w(TAG, "Could not record the folder's file of ${s.key}, its download stays in the app as well")
                 }
-                if (saved == null) {
-                    Log.w(TAG, "Could not migrate ${s.key}, its download stays in the app")
-                    return@forEach
-                }
-                // The index entry goes as well. Left behind it still said completed, and each
-                // later scan registered the song as downloaded again, even once its file in the
-                // folder had been deleted.
-                runCatching { migratedIndex.removeDownload(s.key) }
-                    .onFailure { Log.w(TAG, "Could not drop the index entry of ${s.key}", it) }
-                downloadCache.removeResource(s.key)
             }
-            // The scan is what registers the copied files, so the songs play from them. Called
-            // through scanDownloads() it returned at once, since this had already set the flag it
-            // checks, and the migrated songs would not play offline until some later scan.
+            // Each song's row was written as it moved; the scan still walks the folder once and
+            // brings the folder's list and the map up to date. Called through scanDownloads() it
+            // returned at once, since this had already set the flag it checks.
             scanDownloadsLocked()
         } catch (e: Exception) {
             reportException(e)
@@ -1153,6 +1370,20 @@ class DownloadUtil @Inject constructor(
         /** Minimum gap between the player requests downloads make. See the gate in the resolver. */
         private const val RESOLVE_GAP_MS = 700L
 
+        /**
+         * How long Remove download waits for the song's removal to reach the map before it asks
+         * whether the cover is still shown: a bulk removal of a few hundred songs in the download
+         * folder deletes their files one at a time. Past it the song counts as still downloaded,
+         * and the cover stays.
+         */
+        private const val COVER_WAIT_MS = 120_000L
+
+        /** What the liked catch up remembers between syncs, in the app's own files: LikedCatchUpMemory. */
+        private const val LIKED_CATCH_UP_FILE = "liked-catch-up.txt"
+
+        /** How long a change of it waits before it is written, so that a removal of hundreds of songs is one write. */
+        private const val CATCH_UP_SAVE_DELAY_MS = 1_000L
+
         /** Every message to the download service goes out through this: see DownloadServiceSends. */
         private val sends = DownloadServiceSends { Log.w("DownloadUtil", it) }
 
@@ -1169,7 +1400,13 @@ class DownloadUtil @Inject constructor(
         Log.i(TAG, "DownloadUtil init")
         // TODO: make sure db is update when download is queued
         CoroutineScope(dlCoroutine).launch {
-            rescanDownloads()
+            try {
+                rescanDownloads()
+            } finally {
+                // Open whatever happened: a player waiting on it gives up at once from now on.
+                firstListing.countDown()
+            }
+            dropSongCacheCopiesOfDownloads()
             // Downloads made before their covers were kept as files get theirs now, one at a time;
             // with no network nothing comes and the next start tries again (DownloadCovers).
             keepMissingCovers()
@@ -1210,6 +1447,9 @@ class DownloadUtil @Inject constructor(
                     if (download.state == Download.STATE_COMPLETED) {
                         finishedSinceMove += download.request.id
                         keepCoverForOffline(download.request.id)
+                        // The song is kept once: a copy in the song cache, from playing it before,
+                        // goes once the download cache holds the song whole (KeptOnce).
+                        dropSongCacheCopyOnceDownloaded(download.request.id)
                     }
                     // For Report a problem's trail: that one failed, never which.
                     if (download.state == Download.STATE_FAILED) ReportTrail.thisRun.downloadFailed()
@@ -1225,6 +1465,19 @@ class DownloadUtil @Inject constructor(
                     val batch = likedBatch
                     likedEnds.update {
                         LikedCatchUp.afterUpdate(it, batch, download.request.id, download.state)
+                    }
+
+                    // What the sync's liked catch up remembers between syncs: a download the
+                    // person removed or cancelled, one that failed, one that landed. Queued in the
+                    // order the changes come, so a failed download's removal below is read as the
+                    // app's, not the person's (LikedCatchUpMemory).
+                    val changedAt = System.currentTimeMillis()
+                    rememberForCatchUp { afterChange(download.request.id, download.state, changedAt) }
+                    // A download of the setting's that failed or went is no longer the setting's: a
+                    // later one by hand, or a file imported into the folder, must not go with the
+                    // like (LikedDownloads, issue #64).
+                    if (download.state == Download.STATE_FAILED || download.state == Download.STATE_REMOVING) {
+                        forgetLikedDownload(download.request.id)
                     }
 
                     // Before the map changes, so a rescan merging at the same moment keeps this
@@ -1251,6 +1504,18 @@ class DownloadUtil @Inject constructor(
                             database.updateDownloadStatus(download.request.id, null)
                         }
                     }
+
+                    // A download media3 has given up on kept the bytes it had, in its index, for a
+                    // retry nothing asks for: the song reads as not downloaded, so no Remove download
+                    // is offered, and only Clear all downloads freed them. Removed now, as Remove
+                    // download removes a finished one. Here, in the change itself, on the thread the
+                    // manager lives on: a download of the song asked for again afterwards is queued
+                    // after this removal, never taken by it. The run's count and the liked catch up
+                    // keep the song as failed through the removal (DownloadRun, LikedCatchUp).
+                    if (download.state == Download.STATE_FAILED) {
+                        runCatching { downloadManager.removeDownload(download.request.id) }
+                            .onFailure { Log.w(TAG, "Could not free what the failed download of ${download.request.id} had", it) }
+                    }
                 }
             }
         )
@@ -1259,6 +1524,9 @@ class DownloadUtil @Inject constructor(
 
 fun stateToLocalDateTime(download: Download): LocalDateTime =
     stateToLocalDateTime(download.state, download.updateTimeMs)
+
+/** Whether a date from the downloads map is a download that has landed: a real date, not the mark of one on its way. */
+fun hasLanded(date: LocalDateTime?): Boolean = date != null && date > DownloadUtil.STATE_DOWNLOADING
 
 /**
  * What a download scan stores in dateDownload for one of media3's downloads: when it finished, or
@@ -1279,34 +1547,65 @@ fun stateToLocalDateTime(state: Int, updateTimeMs: Long): LocalDateTime {
     }
 }
 
+/** A copy fetched under Auto on metered data: Auto took a middle stream there (AudioPick). */
+const val AUTO_METERED = "AUTO_METERED"
+
+/** A copy fetched under Auto on a connection that is not metered: the best stream, as High takes. */
+const val AUTO_UNMETERED = "AUTO_UNMETERED"
+
 /**
- * Where a setting sits relative to the others, for deciding what counts as an upgrade. The one
- * rank table: the download resolver and MusicService.shouldUpgradeCached both go through it, via
- * isStaleQualityTier.
- *
- * Auto and High share a rank because on an unmetered connection they resolve to the same stream,
- * so treating a move between them as an upgrade would re-fetch for nothing.
+ * Below this a copy recorded as plain "AUTO", before the network was recorded too, is taken for one
+ * Auto fetched on mobile data: about 55 kbps (Opus 249, or AAC 139) in 0.12, about 75 (Opus 250)
+ * since #88, where the best streams are 128 kbps and up.
  */
-private fun AudioQuality.upgradeRank() = when (this) {
-    AudioQuality.LOW -> 0
-    AudioQuality.AUTO -> 1
-    AudioQuality.HIGH -> 1
-    AudioQuality.MAX -> 2
+const val OLD_AUTO_SMALL_BPS = 100_000
+
+/**
+ * The tier a copy is recorded at: the setting, and for Auto the kind of connection it was fetched
+ * on, since Auto takes a middle stream on metered data and the best one elsewhere (AudioPick).
+ * Plain "AUTO" was recorded either way until 9 Nov 2026, so a song first played on mobile data
+ * stayed small on Wi-Fi for as long as it was cached.
+ */
+fun cacheTier(quality: AudioQuality, metered: Boolean): String = when {
+    quality != AudioQuality.AUTO -> quality.name
+    metered -> AUTO_METERED
+    else -> AUTO_UNMETERED
 }
 
 /**
- * Whether a copy recorded at [storedTier] ranks below [current], the quality setting now in
- * force. A plain function of two values, with no cache or database in it, so the rank rule is
- * tested without either.
+ * Where a recorded tier sits, for deciding what counts as an upgrade: Low, then Auto on metered
+ * data, then Auto elsewhere and High (the same stream), then Highest. The one rank table: the
+ * download resolver and MusicService.shouldUpgradeCached both go through it, via isStaleQualityTier.
+ * Null for a tier that is not one of these.
  *
- * Null, or a tier the enum no longer has a case for, means the copy predates this field, or came
+ * A plain "AUTO" from before the network was recorded ranks as Auto on metered data when its
+ * stream was a small one ([storedBitrate] under [OLD_AUTO_SMALL_BPS]), and as Auto elsewhere
+ * otherwise or when its bitrate is not known. Fetched again, it is recorded with its network, so a
+ * song whose best stream is a small one is fetched again once, not at every play.
+ */
+private fun recordedRank(tier: String, storedBitrate: Int?): Int? = when (tier) {
+    AudioQuality.LOW.name -> 0
+    AUTO_METERED -> 1
+    AudioQuality.AUTO.name -> if (storedBitrate != null && storedBitrate in 1 until OLD_AUTO_SMALL_BPS) 1 else 2
+    AUTO_UNMETERED, AudioQuality.HIGH.name -> 2
+    AudioQuality.MAX.name -> 3
+    else -> null
+}
+
+/**
+ * Whether a copy recorded at [storedTier] (with its stream's [storedBitrate]) ranks below what
+ * [current], the quality setting now in force, takes on this connection ([metered]). A plain
+ * function of values, with no cache or database in it, so the rank rule is tested without either.
+ *
+ * Null, or a tier that is not one of the recorded ones, means the copy predates this field, or came
  * from before quality tiers were recorded at all; treated as no upgrade, for playback and
  * downloads alike, rather than re-fetching someone's whole cache the first time they open the app
  * after an update.
  */
-fun isStaleQualityTier(storedTier: String?, current: AudioQuality): Boolean {
-    val stored = storedTier?.let { runCatching { AudioQuality.valueOf(it) }.getOrNull() } ?: return false
-    return current.upgradeRank() > stored.upgradeRank()
+fun isStaleQualityTier(storedTier: String?, current: AudioQuality, metered: Boolean = false, storedBitrate: Int? = null): Boolean {
+    val stored = storedTier?.let { recordedRank(it, storedBitrate) } ?: return false
+    val now = recordedRank(cacheTier(current, metered), null) ?: return false
+    return now > stored
 }
 
 /**
@@ -1364,6 +1663,56 @@ fun applyRescanResult(
 }
 
 /**
+ * Whether the covers kept for [id]'s download can go: once its removal has reached [downloads], or
+ * [waitMs] has passed, none of the songs that show the same cover ([sharing], read then, [id] among
+ * them) is downloaded or on its way. Asked after the removal, so that a whole album removed at once,
+ * every song asking before any removal has landed, leaves the cover to its last song, which takes
+ * it. A removal that never lands (a file in an import folder, a service Android refused) and songs
+ * that cannot be read keep the cover. Plain values in, so it is tested without a database.
+ */
+internal suspend fun coverUnusedOnceRemoved(
+    id: String,
+    downloads: StateFlow<Map<String, *>>,
+    waitMs: Long,
+    sharing: suspend () -> Collection<String>?,
+): Boolean {
+    withTimeoutOrNull(waitMs) { downloads.first { id !in it } }
+    val songs = runCatching { sharing() }.getOrNull() ?: return false
+    val now = downloads.value
+    return songs.none { it in now }
+}
+
+/**
+ * What [find] answers, asked again while the download folders have not been listed since the start
+ * ([listed] not open yet): every [stepMs], and once more when they have been, for at most [waitMs].
+ * Asked again on the way as well as at the end, because a full scan at start can fill the list
+ * before the rescan that opens [listed] gets its turn. None of it once they have been listed. Plain
+ * values in, so it is tested without a folder.
+ */
+internal fun <T : Any> afterFirstListing(
+    listed: java.util.concurrent.CountDownLatch,
+    waitMs: Long,
+    stepMs: Long = 250L,
+    find: () -> T?,
+): T? {
+    var answer = find()
+    val until = System.nanoTime() + java.util.concurrent.TimeUnit.MILLISECONDS.toNanos(waitMs)
+    while (answer == null && listed.count > 0L) {
+        val left = until - System.nanoTime()
+        if (left <= 0L) break
+        try {
+            listed.await(minOf(left, java.util.concurrent.TimeUnit.MILLISECONDS.toNanos(stepMs)), java.util.concurrent.TimeUnit.NANOSECONDS)
+        } catch (e: InterruptedException) {
+            // The player cancelled the load: it is told, and nothing more is waited for.
+            Thread.currentThread().interrupt()
+            break
+        }
+        answer = find()
+    }
+    return answer
+}
+
+/**
  * Whether an address remembered for a download, kept until [expiresAtMs], can still be read: a
  * sabr: one only while its start is kept. One SABR fault, in the download's read or the player's
  * of the same song, forgets every start of the song (SabrStarts.forget), and the remembered
@@ -1382,3 +1731,8 @@ internal fun stillUsable(address: String, expiresAtMs: Long, nowMs: Long = Syste
 internal fun downloadAddress(streamUrl: String, contentLength: Long?): String =
     if (streamUrl.startsWith(SabrStarts.SCHEME + "://")) streamUrl
     else "$streamUrl&range=0-${contentLength ?: 10000000}"
+
+/** The length [cache] recorded for [mediaId]'s stream, C.LENGTH_UNSET when it has none (media3's content metadata). */
+internal fun recordedLength(cache: androidx.media3.datasource.cache.Cache, mediaId: String): Long =
+    runCatching { androidx.media3.datasource.cache.ContentMetadata.getContentLength(cache.getContentMetadata(mediaId)) }
+        .getOrDefault(androidx.media3.common.C.LENGTH_UNSET.toLong())

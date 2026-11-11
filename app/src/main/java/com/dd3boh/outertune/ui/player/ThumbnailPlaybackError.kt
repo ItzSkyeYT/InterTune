@@ -125,6 +125,9 @@ fun ThumbnailPlaybackError(
     // And a song YouTube no longer serves, which every client turned down and no other copy of
     // the recording could stand in for: "Unexpected SongUnavailable" under the same wrapper.
     val isGone = remember(error) { YTPlayerUtils.isUnavailableSong(error) }
+    // And what came back not being audio at all ("Source error (3003): None of the available
+    // extractors ... could read the stream"): said plainly, with what usually causes it.
+    val isNotAudio = remember(error) { ErrorText.isNotAudio(error) }
 
     var showStackTrace by remember { mutableStateOf(false) }
 
@@ -154,6 +157,8 @@ fun ThumbnailPlaybackError(
                     stringResource(R.string.err_age_restricted)
                 } else if (isGone) {
                     stringResource(R.string.err_song_unavailable)
+                } else if (isNotAudio) {
+                    stringResource(R.string.err_not_audio)
                 } else {
                     // What the error says of itself goes through ErrorText, here and below: a
                     // connection that failed names the phone's own address, and this screen is

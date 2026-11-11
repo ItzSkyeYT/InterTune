@@ -116,7 +116,8 @@ class LocalPlaylistViewModel @Inject constructor(
                 }
                 _addSearching.value = true
                 val result = YouTube.search(query, YouTube.SearchFilter.FILTER_SONG).getOrNull()
-                _addResults.value = result?.items?.filterIsInstance<SongItem>().orEmpty()
+                // Each song once: YouTube's results can list one twice, and the rows are keyed by song (#105).
+                _addResults.value = result?.items?.filterIsInstance<SongItem>().orEmpty().distinctBy { it.id }
                 _addSearching.value = false
             }
         }

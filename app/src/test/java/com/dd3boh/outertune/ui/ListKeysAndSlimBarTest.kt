@@ -29,8 +29,22 @@ class ListKeysAndSlimBarTest {
         assertEquals(2, Regex("""key = \{ index, item -> "\$\{item\.id\}#\${'$'}index" \}""").findAll(items).count())
         val artist = read("ui/screens/artist/ArtistScreen.kt")
         assertTrue(artist.contains("key = { index, item -> \"song:\${item.id}#\$index\" }"))
-        assertEquals(2, Regex("""items = section\.items\.distinctBy \{ it\.id \}""").findAll(artist).count())
-        assertTrue(artist.contains("items = libraryAlbums.distinctBy { it.id }"))
+        // The songs' list and the row of cards (a scrolling row since #86, each card under key(item.id)).
+        assertEquals(2, Regex("""section\.items\.distinctBy \{ it\.id \}""").findAll(artist).count())
+        assertTrue(artist.contains("libraryAlbums.distinctBy { it.id }"))
+        assertEquals(2, Regex("""key\((album|item)\.id\) \{""").findAll(artist).count())
+        // Its song shelves are one list: a song in two shelves keys by its shelf (UI scan, 5 Nov 2026).
+        assertTrue(artist.contains("artistPage?.sections?.fastForEachIndexed { sectionIndex, section ->"))
+        assertTrue(artist.contains("key = { \"\$sectionIndex:\${it.id}\" }"))
+        assertFalse("a song shelf keys by the song alone", artist.contains("key = { it.id }"))
+    }
+
+    @Test
+    fun `a song in two days of the remote history does not key two rows the same`() {
+        val history = read("ui/screens/HistoryScreen.kt")
+        assertTrue(history.contains("historyPage?.sections?.forEachIndexed { sectionIndex, section ->"))
+        assertTrue(history.contains("key = { _, song -> \"\$sectionIndex:\${song.id}\" }"))
+        assertFalse(history.contains("key = { _, song -> song.id }"))
     }
 
     @Test

@@ -684,7 +684,7 @@ fun ColumnScope.HeadTrackingFrag() {
     )
 }
 
-private const val HEAD_TRACKING_WIKI = "https://github.com/ItzSkyeYT/InterTune/wiki/Head-tracking"
+private const val HEAD_TRACKING_WIKI = com.dd3boh.outertune.constants.WikiLinks.HEAD_TRACKING
 
 /** Pre-filled so a report arrives with the one thing that actually identifies the problem. */
 private const val HEAD_TRACKING_ISSUE =
@@ -806,8 +806,8 @@ fun ColumnScope.AudioQualityFrag() {
         key = AudioQualityKey,
         defaultValue = AudioQuality.AUTO
     )
-    // Battery use on Saver streams at Low on mobile data. Said only where that changes something:
-    // Auto already takes the smallest stream there.
+    // Battery use on Saver streams at Low on mobile data where Audio quality is Auto. Said only there:
+    // Low is Low already, and High and Highest are never lowered (BatteryUse.quality).
     val lowered = BatteryUse.lowersQuality(audioQuality, LocalBatteryMode.current)
 
     EnumListPreference(

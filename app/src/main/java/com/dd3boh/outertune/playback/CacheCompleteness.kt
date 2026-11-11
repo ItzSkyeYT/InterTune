@@ -47,3 +47,15 @@ fun sameStream(partItag: Int?, partLength: Long?, itag: Int, length: Long): Bool
  */
 fun anotherUpload(partItag: Int?, partLength: Long?, itag: Int, length: Long): Boolean =
     partItag == itag && partLength != null && partLength > 0L && length > 0L && partLength != length
+
+/**
+ * A download taken up partway, judged by the length its own cache recorded as it began ([partLength]: the
+ * download cache's content metadata, which media3 writes from the first answer's size; C.LENGTH_UNSET when it
+ * never learnt it) against the stream it would be taken up from ([length]). Both known and different: the part
+ * is another stream's, another quality or another upload, and finishing it would join two files in one. The
+ * song's format row cannot tell, since the player rewrites it whenever it plays the song, at its own quality.
+ */
+fun partIsAnotherStream(partLength: Long, length: Long): Boolean = partLength > 0L && length > 0L && partLength != length
+
+/** Whether two caches hold the same stream of a song, by the lengths each recorded: both known and equal. */
+fun sameRecordedStream(a: Long, b: Long): Boolean = a > 0L && b > 0L && a == b

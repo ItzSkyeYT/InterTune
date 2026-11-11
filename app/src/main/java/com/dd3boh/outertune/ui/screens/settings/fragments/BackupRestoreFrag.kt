@@ -74,6 +74,7 @@ import com.dd3boh.outertune.ui.component.SwitchPreference
 import com.dd3boh.outertune.ui.dialog.DefaultDialog
 import com.dd3boh.outertune.utils.AutoBackup
 import com.dd3boh.outertune.utils.AutoBackupPolicy
+import com.dd3boh.outertune.utils.FailureLog
 import com.dd3boh.outertune.utils.M3u
 import com.dd3boh.outertune.utils.rememberPreference
 import com.dd3boh.outertune.utils.reportException
@@ -180,6 +181,7 @@ fun ColumnScope.BackupAndRestoreFrag(viewModel: BackupRestoreViewModel) {
                     exportPlaylistsAsM3u(appContext, database, uri)
                 } catch (e: Exception) {
                     reportException(e)
+                    FailureLog.record("Exporting the playlists to a folder", e)
                     0
                 }
                 withContext(Dispatchers.Main) {
@@ -720,6 +722,12 @@ private suspend fun exportPlaylistsAsM3u(context: Context, database: MusicDataba
     val playlists = database.playlists(PlaylistFilter.LIBRARY, PlaylistSortType.NAME, true).first()
     val used = HashSet<String>()
     var exported = 0
+    // One line for the folder that refuses every file, not one for each playlist.
+    var told = false
+    fun tell(failure: Throwable?, why: String? = null) {
+        if (!told) FailureLog.record("Exporting the playlists to a folder", failure, why)
+        told = true
+    }
     for (playlist in playlists) {
         // Everything for one playlist sits in one try, and the catch is wide on purpose: a grant
         // that died with the activity surfaces as a SecurityException, not an IOException, and
@@ -734,17 +742,20 @@ private suspend fun exportPlaylistsAsM3u(context: Context, database: MusicDataba
             val file = folder.createFile("audio/x-mpegurl", name)
             if (file == null) {
                 reportException(IOException("Could not create $name in $treeUri"))
+                tell(null, "the folder would not take a file")
                 continue
             }
             val out = context.contentResolver.openOutputStream(file.uri)
             if (out == null) {
                 reportException(IOException("Could not open $name for writing"))
+                tell(null, "the file could not be opened for writing")
                 continue
             }
             out.use { it.write(M3u.playlist(songs).toByteArray(Charsets.UTF_8)) }
             exported++
         } catch (e: Exception) {
             reportException(e)
+            tell(e)
         }
     }
     return exported

@@ -63,7 +63,10 @@ class UpdateChecker @Inject constructor(
 
     private val _available = MutableStateFlow<Update?>(null)
 
-    /** The newer release, if there is one the user has not already dismissed. */
+    /**
+     * The newer release, if there is one the user has not already skipped. A check they start
+     * themselves offers a skipped one again ([shouldOffer]).
+     */
     val available: StateFlow<Update?> = _available.asStateFlow()
 
     private val _lastCheckFailed = MutableStateFlow(false)
@@ -90,8 +93,13 @@ class UpdateChecker @Inject constructor(
      * [force] skips the opt in and the rate limit, for the manual "check now" button. The automatic
      * call on app open does not, because the GitHub API allows 60 unauthenticated requests an hour
      * per IP and everyone behind one carrier NAT shares that budget.
+     *
+     * [manual] is for the person's own tap on Check for updates, and changes only what is offered:
+     * the version they skipped is offered again, the same as any other would be. The checks that
+     * run by themselves leave it out and still pass over that version, and the skip is left as it
+     * was ([shouldOffer]).
      */
-    suspend fun check(force: Boolean = false): Update? = withContext(Dispatchers.IO) {
+    suspend fun check(force: Boolean = false, manual: Boolean = false): Update? = withContext(Dispatchers.IO) {
         // Debug builds only: the fake-update file stands in for a release, whatever the switch
         // says, so the whole install can be tried on an emulator. See FAKE_UPDATE_FILE.
         fakeUpdate()?.let { fake ->
@@ -148,13 +156,10 @@ class UpdateChecker @Inject constructor(
 
         val update = runCatching { parse(body) }.getOrNull() ?: return@withContext null
 
-        if (update.versionCode <= BuildConfig.VERSION_CODE) {
-            clearAvailable()
-            return@withContext null
-        }
-
-        // Dismissing is per version, so a newer one still gets through.
-        if (update.versionCode == store.get(DismissedUpdateCodeKey, -1)) {
+        // Skipping is per version, so a newer one still gets through. And it holds back only the
+        // checks that run by themselves: one the person starts offers the skipped version again.
+        val skipped = store.get(DismissedUpdateCodeKey, -1)
+        if (!shouldOffer(update.versionCode, BuildConfig.VERSION_CODE, skipped, manual)) {
             clearAvailable()
             return@withContext null
         }
@@ -172,7 +177,8 @@ class UpdateChecker @Inject constructor(
             it[LastChangelogKey] = update.changelog
         }
 
-        Log.i(TAG, "Update available: ${update.versionName} (${update.versionCode})")
+        val aside = if (update.versionCode == skipped) ", skipped, offered because it was asked for" else ""
+        Log.i(TAG, "Update available: ${update.versionName} (${update.versionCode})$aside")
         _available.value = update
         update
     }
@@ -187,8 +193,9 @@ class UpdateChecker @Inject constructor(
     /**
      * The last found release, read back from disk.
      *
-     * Re-checked against the installed version and the dismissed one, so an update that was found,
-     * then installed or dismissed, does not come back from the dead after a restart.
+     * Re-checked against the installed version and the skipped one, so an update that was found,
+     * then installed or skipped, does not come back from the dead after a restart. Never as a
+     * check the person started: a skipped version is offered again by asking GitHub for it.
      */
     private suspend fun restoreFromDisk(): Update? {
         val store = context.dataStore
@@ -197,8 +204,8 @@ class UpdateChecker @Inject constructor(
         val name = store.get(LastVersionKey, "")
         val url = store.get(LastReleaseUrlKey, "")
         val apk = store.get(LastDownloadUrlKey, "")
-        if (code <= BuildConfig.VERSION_CODE || name.isEmpty() || url.isEmpty()) return null
-        if (code == store.get(DismissedUpdateCodeKey, -1)) return null
+        if (name.isEmpty() || url.isEmpty()) return null
+        if (!shouldOffer(code, BuildConfig.VERSION_CODE, store.get(DismissedUpdateCodeKey, -1), manual = false)) return null
 
         val restored = Update(
             code, name, url, apk,
@@ -228,7 +235,11 @@ class UpdateChecker @Inject constructor(
     /** Forgets the pending update entirely, for when it has been installed. */
     suspend fun clearFound() = clearAvailable()
 
-    /** Stops this particular version being raised again. A later one still will be. */
+    /**
+     * Skip this version: the checks that run by themselves stop raising this particular one. A later
+     * one still will be, and so will this one for a check the person starts. Offering it that way
+     * does not undo the skip.
+     */
     suspend fun dismiss(versionCode: Int) {
         context.dataStore.edit {
             it[DismissedUpdateCodeKey] = versionCode
@@ -302,3 +313,16 @@ class UpdateChecker @Inject constructor(
         private const val MIN_CHECK_INTERVAL_MS = 2 * 60 * 1000L
     }
 }
+
+/**
+ * Whether a release found online is put in front of the person.
+ *
+ * Only one newer than the build that is running. And not the one they skipped ([skippedCode], -1
+ * for none), except to a check they start themselves ([manual]): skipping quiets the checks that
+ * run by themselves, on opening the app and in the background, and does not hide the version from
+ * somebody who goes looking for it. A version newer than the skipped one is offered either way,
+ * and being offered by hand does not undo the skip. Kept apart from [UpdateChecker] so the rule
+ * is tested without a phone's storage or network.
+ */
+internal fun shouldOffer(latestCode: Int, installedCode: Int, skippedCode: Int, manual: Boolean): Boolean =
+    latestCode > installedCode && (manual || latestCode != skippedCode)

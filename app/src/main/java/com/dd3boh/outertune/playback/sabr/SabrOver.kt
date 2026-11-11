@@ -31,6 +31,7 @@ import okhttp3.OkHttpClient
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicReference
 import com.metrolist.innertubex.models.response.PlayerResponse as SabrPlayerResponse
 
 /**
@@ -93,6 +94,9 @@ object SabrOver {
 
     /** One start made at a time: see [over]. */
     private val making = Any()
+
+    /** The song and the end of the rest last said in the log: a walk asks once for each answer it kept. */
+    private val restSaid = AtomicReference<Pair<String, Long>?>(null)
 
     /**
      * Lets go of the connections kept: after a change of network they are on the old link. With
@@ -180,6 +184,9 @@ object SabrOver {
      * walks of one song can end at once (the player's own load of the next song and SabrAhead's),
      * and the second start replaced the first, which let go of what it had read ahead. Not one
      * made before a change of network ([networkChanges]).
+     *
+     * None is made while the song rests, YouTube having turned down its last two starts in a row
+     * ([SabrStarts.restsUntil]): null, and the walk ends in its own words as it does without SABR.
      */
     fun over(
         answer: PlayerAnswers.Answer,
@@ -192,6 +199,15 @@ object SabrOver {
         val left = secondsLeft(answer.at, data.streamExpiresInSeconds, now)
         if (left <= 0) {
             Log.w(TAG, "[$videoId] the answer to start SABR from has run out")
+            return null
+        }
+        // YouTube turned down this song's last two starts in a row: no third for a while, and the
+        // walk ends in its own words (SabrStarts.refused). Said once for each rest.
+        SabrStarts.restsUntil(clockId, now)?.let { until ->
+            if (restSaid.getAndSet(clockId to until) != (clockId to until)) {
+                val clock = java.text.SimpleDateFormat("HH:mm", java.util.Locale.ROOT).format(java.util.Date(until))
+                Log.w(TAG, "[$videoId] YouTube turned down this song's last two SABR starts: no new one before $clock, the walk ends without SABR")
+            }
             return null
         }
         val theirs = json.decodeFromString(SabrPlayerResponse.serializer(), answer.text)

@@ -59,6 +59,10 @@ object ProblemLog {
     val TELLING = setOf(
         "MusicService", "YTPlayerUtils", "QueueBoard", "StandIns", "Throttle", "DownloadUtil",
         "PlayerConnection", "MediaLibrarySessionCallback", "App", "MainActivity", "LibraryImport",
+        // Sharing lyrics as a picture or a video, and saving them: each said why it failed as a warning
+        // under these three, which no report held. "The video could not be made" (#general, 10 Nov
+        // 2026) came with a log that showed nothing.
+        "LyricsVideo", "LyricsCard", "LyricsSave",
     )
 
     /**
@@ -75,6 +79,8 @@ object ProblemLog {
     private val FAULTS_OF = TELLING + setOf(
         "ExoPlayerImplInternal", "MediaCodecAudioRenderer", "MediaCodecRenderer", "LoadTask", "DefaultAudioSink",
         "SimpleCache", "CacheDataSink", "AndroidRuntime",
+        // A failure the person was told about: see FailureLog.
+        FailureLog.TAG,
     )
 
     /** Warnings every phone writes for every song, whatever happens next. */
@@ -203,7 +209,11 @@ object ProblemLog {
         val at = blocks.indexOfFirst { it.startsWith(ReportTrail.HEADER_START) }
         // With the steps before the problem in it, they keep a share of the room: see fittedWithSteps.
         if (at >= 1) return fittedWithSteps(blocks, at, limit)
-        return fittedLog(report, limit)
+        // Without them the fault is kept as it is with them. The end of the log was a trace's last
+        // frames and the player's warning repeating it, and the line that named the fault was cut
+        // away (#90). With nothing that looked like a fault, the end, as fittedAroundFault has it.
+        val around = fittedAroundFault(report, limit)
+        return if (around.length <= limit) around else fittedLog(report, limit)
     }
 
     /** The heading block, a note, and as much of the end as fits from the start of a line. */

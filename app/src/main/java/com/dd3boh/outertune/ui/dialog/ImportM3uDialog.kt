@@ -64,6 +64,7 @@ import com.dd3boh.outertune.db.entities.SongEntity
 import com.dd3boh.outertune.models.toMediaMetadata
 import com.dd3boh.outertune.ui.component.EnumListPreference
 import com.dd3boh.outertune.ui.component.LazyColumnScrollbar
+import com.dd3boh.outertune.utils.FailureLog
 import com.dd3boh.outertune.utils.lmScannerCoroutine
 import com.dd3boh.outertune.utils.reportException
 import com.dd3boh.outertune.utils.scanners.LocalMediaScanner
@@ -119,6 +120,7 @@ fun ImportM3uDialog(
                 }
             } catch (e: Exception) {
                 reportException(e)
+                FailureLog.record("Importing a playlist file", e)
             } finally {
                 isLoading = false
             }
@@ -454,6 +456,7 @@ suspend fun loadM3u(
         }
     }.onFailure {
         reportException(it)
+        FailureLog.record("Importing a playlist file", it)
         // On the main thread. The dialog runs this on the scanner's thread, which has no looper:
         // a toast made there throws, the dialog's catch took that, and a file that could not be
         // read said nothing at all.

@@ -9,6 +9,7 @@
 
 package com.dd3boh.outertune
 
+import com.dd3boh.outertune.utils.AppProxySelector
 import com.dd3boh.outertune.utils.ProxyAddress
 import com.dd3boh.outertune.utils.ProxyAtStart
 import com.dd3boh.outertune.models.ContentFilter
@@ -93,6 +94,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import java.net.Proxy
+import java.net.ProxySelector
 import java.util.Locale
 import com.dd3boh.outertune.utils.Toaster
 
@@ -159,8 +161,12 @@ class App : Application(), SingletonImageLoader.Factory {
                     .onFailure(::reportException)
                     .getOrNull()
             }
-            if (proxy != null) YouTube.proxy = proxy
-            else Toaster.show(this, R.string.proxy_not_used_at_start, Toast.LENGTH_LONG)
+            if (proxy != null) {
+                YouTube.proxy = proxy
+                // And for everything else the app fetches, covers and downloads to a folder
+                // included, which went round it (#68); the home network stays direct.
+                ProxySelector.setDefault(AppProxySelector(proxy))
+            } else Toaster.show(this, R.string.proxy_not_used_at_start, Toast.LENGTH_LONG)
         }
 
         if (dataStore[UseLoginForBrowse] != false) {
