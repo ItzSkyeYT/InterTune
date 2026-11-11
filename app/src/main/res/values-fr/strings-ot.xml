@@ -2446,6 +2446,7 @@
     <string name="not_saved_storage_full" translatable="false">Non enregistré : stockage du téléphone plein. Libérez de la place.</string>
     <string name="not_saved" translatable="false">Non enregistré : un problème est survenu. Réessayez.</string>
     <string name="remove_download_selection_confirm" translatable="false">Supprimer les téléchargements des titres choisis ?</string>
+    <string name="remove_download_refused" translatable="false">Fichier non supprimé. Vérifiez le dossier de téléchargement.</string>
     <string name="queue_held_row_label" translatable="false">revenir au titre en cours</string>
     <string name="stats_found" translatable="false">InterTune vous a fait découvrir %1$s des titres que vous aimez.</string>
     <string name="found_way_radios" translatable="false">Radios</string>

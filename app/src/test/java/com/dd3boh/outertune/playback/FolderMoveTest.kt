@@ -107,7 +107,7 @@ class FolderMoveTest {
         assertTrue(songFile.contains("addAvailable(saved)"))
         // Under the same lock as deleteFile, so a save and a delete at the same moment cannot undo each other.
         assertTrue(folder.contains("@Synchronized\n    private fun addAvailable(file: DocumentFile) {"))
-        assertTrue(folder.contains("@Synchronized\n    fun deleteFile(mediaId: String): Boolean {"))
+        assertTrue(folder.contains("@Synchronized\n    fun deleteFile(mediaId: String): FileRemoval {"))
     }
 
     @Test
