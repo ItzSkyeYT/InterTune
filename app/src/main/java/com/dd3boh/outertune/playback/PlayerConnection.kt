@@ -21,6 +21,7 @@ import androidx.media3.common.Player.REPEAT_MODE_OFF
 import androidx.media3.common.Player.STATE_ENDED
 import androidx.media3.common.Player.STATE_IDLE
 import androidx.media3.common.Timeline
+import com.dd3boh.outertune.constants.PersistentQueueKey
 import com.dd3boh.outertune.constants.PlayOrigin
 import com.dd3boh.outertune.constants.PlayingQueueKey
 import com.dd3boh.outertune.db.MusicDatabase
@@ -131,7 +132,11 @@ class PlayerConnection(
         repeatMode.value = player.repeatMode
 
         scope.launch {
-            val resumption = if (player.currentMetadata == null) database.getResumptionQueue(service.dataStore[PlayingQueueKey]) else null
+            // Only what Play can load: with Persistent queue off the board holds no saved queue,
+            // and the rows are the ones saved before the switch went off (SavedQueueShown.song).
+            val resumption = if (SavedQueueShown.song(player.currentMetadata != null, service.dataStore.get(PersistentQueueKey, true))) {
+                database.getResumptionQueue(service.dataStore[PlayingQueueKey])
+            } else null
             mediaMetadata.value = player.currentMetadata ?: resumption?.getCurrentSong()
             if (resumption != null && player.currentMediaItem == null) {
                 restoredPosition.value = resumption.lastSongPos.takeIf { it > 0 }
