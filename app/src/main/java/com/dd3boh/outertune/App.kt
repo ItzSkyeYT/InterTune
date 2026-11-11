@@ -9,6 +9,7 @@
 
 package com.dd3boh.outertune
 
+import com.dd3boh.outertune.utils.AppLanguage
 import com.dd3boh.outertune.utils.AppProxySelector
 import com.dd3boh.outertune.utils.ProxyAddress
 import com.dd3boh.outertune.utils.ProxyAtStart
@@ -113,6 +114,11 @@ import com.dd3boh.outertune.utils.Toaster
 @HiltAndroidApp
 class App : Application(), SingletonImageLoader.Factory {
     private val TAG = App::class.simpleName.toString()
+
+    /** Before Android 13 the app's language is ours to apply (AppLanguage): here for the notification and the widget. */
+    override fun attachBaseContext(base: Context) {
+        super.attachBaseContext(AppLanguage.wrap(base))
+    }
 
     @OptIn(DelicateCoroutinesApi::class, ExperimentalCoroutinesApi::class)
     override fun onCreate() {

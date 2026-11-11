@@ -1,5 +1,7 @@
 package com.dd3boh.outertune.viewmodels
 
+import com.dd3boh.outertune.constants.ContentLanguageKey
+import com.dd3boh.outertune.constants.ContentCountryKey
 import com.dd3boh.outertune.models.AiFilter
 import com.dd3boh.outertune.models.ContentFilter
 import com.dd3boh.outertune.engine.PastSeeds
@@ -1703,7 +1705,14 @@ class HomeViewModel @Inject constructor(
         // flow replays its current value the moment it is collected.
         viewModelScope.launch {
             context.dataStore.data
-                .map { it[InnerTubeCookieKey].orEmpty() to it[QuickPicksSourceKey].orEmpty() }
+                .map {
+                    // The language and the country YouTube answers in too: the feed and Explore on
+                    // screen are in the old one until they are asked for again.
+                    listOf(
+                        it[InnerTubeCookieKey].orEmpty(), it[QuickPicksSourceKey].orEmpty(),
+                        it[ContentLanguageKey].orEmpty(), it[ContentCountryKey].orEmpty(),
+                    )
+                }
                 .distinctUntilChanged()
                 .drop(1)
                 .collect { refresh(force = true) }

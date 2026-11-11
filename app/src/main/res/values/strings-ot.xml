@@ -2787,4 +2787,6 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="sleep_notif_line_fade_after" translatable="false">Fades out %1$d&#160;s, after %2$s</string>
     <string name="sleep_notif_line_after" translatable="false">After %1$s</string>
     <string name="sleep_notif_stop" translatable="false">Stop</string>
+    <!-- The app's own language (AppLanguageFrag), above the content language. Held from translators until the next push of texts, the French beside it in values-fr. -->
+    <string name="app_language" translatable="false">App language</string>
 </resources>

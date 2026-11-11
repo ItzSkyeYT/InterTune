@@ -9,6 +9,8 @@
 
 package com.dd3boh.outertune
 
+import com.dd3boh.outertune.utils.AppLanguage
+import android.content.Context
 import com.dd3boh.outertune.utils.BuiltInKeys
 import com.dd3boh.outertune.recognition.RecognitionShortcut
 import com.dd3boh.outertune.ui.navigation.appDestinations
@@ -478,6 +480,11 @@ private fun playFromWidget(
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     val MAIN_TAG = "MainOtActivity"
+
+    /** Before Android 13 the app's language is ours to apply (AppLanguage); later the platform has done it. */
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(AppLanguage.wrap(newBase))
+    }
 
     @Inject
     lateinit var database: MusicDatabase

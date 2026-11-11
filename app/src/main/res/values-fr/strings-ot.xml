@@ -2583,4 +2583,5 @@
         <item>To</item>
         <item>Po</item>
     </string-array>
+    <string name="app_language">Langue de l\'application</string>
 </resources>

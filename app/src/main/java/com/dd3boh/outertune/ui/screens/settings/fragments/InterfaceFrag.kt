@@ -1,5 +1,9 @@
 package com.dd3boh.outertune.ui.screens.settings.fragments
 
+import com.dd3boh.outertune.utils.AppLanguage
+import androidx.compose.material.icons.rounded.Translate
+import android.content.ContextWrapper
+import android.app.Activity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -451,6 +455,41 @@ fun ColumnScope.SwipeGesturesFrag() {
         icon = { Icon(Icons.Rounded.SwipeDown, null) },
         checked = swipeToDismissPlayer,
         onCheckedChange = onSwipeToDismissPlayerChange
+    )
+}
+
+/**
+ * "App language": the language of the app's own words, where the two rows under it are the
+ * language and country YouTube Music answers in. System default, then every language the app
+ * is translated into, each in its own words. A pick switches the whole app at once (AppLanguage):
+ * the screen stays, the music goes on. The value is read from where the platform keeps it each
+ * time the screen is made, so it agrees with Android's own App languages page.
+ */
+@Composable
+fun ColumnScope.AppLanguageFrag() {
+    val context = LocalContext.current
+    var choice by remember { mutableStateOf(AppLanguage.current(context)) }
+    val choices = remember {
+        listOf(SYSTEM_DEFAULT) + AppLanguage.TAGS.sortedBy { AppLanguage.nameOf(it).lowercase() }
+    }
+
+    ListPreference(
+        modifier = Modifier.settingRow(R.string.app_language),
+        title = { Text(stringResource(R.string.app_language)) },
+        icon = { Icon(Icons.Rounded.Translate, null) },
+        selectedValue = choice,
+        values = choices,
+        valueText = {
+            if (it == SYSTEM_DEFAULT) stringResource(R.string.system_default) else AppLanguage.nameOf(it)
+        },
+        onValueSelected = { picked ->
+            var holder = context
+            while (holder !is Activity && holder is ContextWrapper) holder = holder.baseContext
+            (holder as? Activity)?.let { activity ->
+                choice = picked
+                AppLanguage.set(activity, picked)
+            }
+        }
     )
 }
 

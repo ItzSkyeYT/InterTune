@@ -7,6 +7,7 @@
  */
 package com.dd3boh.outertune.ui.screens.settings
 
+import com.dd3boh.outertune.ui.screens.settings.fragments.AppLanguageFrag
 import com.dd3boh.outertune.ui.menu.rememberArtistBlock
 import com.dd3boh.outertune.ui.menu.BlockArtistIcon
 import com.dd3boh.outertune.ui.component.PreferenceEntry
@@ -117,6 +118,7 @@ fun LibrarySettings(
         ElevatedCard(
             modifier = Modifier.fillMaxWidth()
         ) {
+            AppLanguageFrag()
             LocalizationFrag()
         }
 
