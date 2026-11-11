@@ -54,6 +54,9 @@ class ExoDownloadService : DownloadService(
     /** The notification is built again every second, from the first song that downloads until the last is done. */
     private var ticking = false
 
+    /** Android has ended this service's time in the foreground ([onTimeout]): it is stopping, and asks for nothing more. */
+    private var timedOut = false
+
     override fun onCreate() {
         super.onCreate()
         if (!selfPromoting) return
@@ -74,6 +77,30 @@ class ExoDownloadService : DownloadService(
             application.unregisterActivityLifecycleCallbacks(inFront)
         }
         super.onDestroy()
+    }
+
+    /**
+     * Android 15 and later give a dataSync foreground service six hours a day while the app is in
+     * the background, then call this, and a service that has not stopped a few seconds later is a
+     * crash that closes the whole app, the music playing with it ("A foreground service of type
+     * dataSync did not stop within its timeout"). Downloads waiting for Wi-Fi or a network keep this
+     * service in the foreground all along, so a night away from Wi-Fi was enough.
+     *
+     * Stopped at once, as Android asks. No download is lost: they are media3's, kept in its index,
+     * and its download manager lives in the app, not in this service. While the app runs, the
+     * manager goes on with them when the network comes back, and media3 starts this service again
+     * as a plain one; its promotion is refused (ForegroundPromotion) until a screen of the app comes
+     * to the front, which gives the six hours back. Once the app has been closed, its next start
+     * resumes them (resumeDownloadsOnStart). Playback has its own service, a mediaPlayback one with
+     * no such limit, and nothing here touches it.
+     */
+    override fun onTimeout(startId: Int, fgsType: Int) {
+        Log.w(TAG, "Android ended the download service's time in the foreground (type $fgsType): it stops, the downloads stay queued")
+        timedOut = true
+        ticking = false
+        handler.removeCallbacksAndMessages(null)
+        stopForeground(STOP_FOREGROUND_REMOVE)
+        stopSelf()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -131,6 +158,7 @@ class ExoDownloadService : DownloadService(
      * is built again every second; at any other change the notification follows, if it is up.
      */
     private fun refresh() {
+        if (timedOut) return
         val current = downloadManager.currentDownloads
         val running = current.any { it.needsForeground() }
         if (running) ticking = true
@@ -278,8 +306,11 @@ class ExoDownloadService : DownloadService(
     class TerminalStateNotificationHelper(
         private val context: Context,
         private val notificationHelper: DownloadNotificationHelper,
-        private var nextNotificationId: Int,
+        private val firstNotificationId: Int = FAILED_NOTIFICATION_ID_FIRST,
     ) : DownloadManager.Listener {
+        /** Failure notifications posted in this process; the id cycles through [FAILED_NOTIFICATIONS_KEPT]. */
+        private var posted = 0
+
         override fun onDownloadChanged(
             downloadManager: DownloadManager,
             download: Download,
@@ -297,7 +328,9 @@ class ExoDownloadService : DownloadService(
                         Util.fromUtf8Bytes(download.request.data)
                     )
                 ).setAutoCancel(true).build()
-                NotificationUtil.setNotification(context, nextNotificationId++, notification)
+                // Ids of their own, cycling: counted up from 2 for the life of the process, the
+                // 887th failure took playback's id (888) and replaced the player's notification.
+                NotificationUtil.setNotification(context, firstNotificationId + (posted++ % FAILED_NOTIFICATIONS_KEPT), notification)
             }
         }
     }
@@ -305,6 +338,10 @@ class ExoDownloadService : DownloadService(
     companion object {
         const val CHANNEL_ID = "download"
         const val NOTIFICATION_ID = 1
+
+        /** The failed downloads' notifications: ids FAILED_NOTIFICATION_ID_FIRST onwards, the last [FAILED_NOTIFICATIONS_KEPT] kept. */
+        const val FAILED_NOTIFICATION_ID_FIRST = 2000
+        const val FAILED_NOTIFICATIONS_KEPT = 20
         const val JOB_ID = 1
         const val REMOVE_ALL_PENDING_DOWNLOADS = "REMOVE_ALL_PENDING_DOWNLOADS"
 

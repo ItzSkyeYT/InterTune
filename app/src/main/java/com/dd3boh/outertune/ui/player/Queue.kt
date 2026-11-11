@@ -181,7 +181,7 @@ import com.dd3boh.outertune.ui.dialog.TextFieldDialog
 import com.dd3boh.outertune.ui.menu.PlayerMenu
 import com.dd3boh.outertune.ui.menu.QueueMenu
 import com.dd3boh.outertune.utils.QueueToPlaylist
-import com.dd3boh.outertune.utils.makeTimeString
+import com.dd3boh.outertune.utils.queueLengthText
 import com.dd3boh.outertune.utils.rememberEnumPreference
 import com.dd3boh.outertune.utils.rememberPreference
 import kotlinx.coroutines.Dispatchers
@@ -467,6 +467,13 @@ fun BoxScope.QueueContent(
      * queue to preview". Only the first is safe to clear automatically.
      */
     val fallbackSeed = remember { fallBackQueue }
+    // The queue the player will play, shown before play after a restart: the player holds nothing
+    // yet. A queue picked from the list to look at is not this one.
+    val movesStoredQueue = detachedHead && detachedQueue != null && detachedQueue === fallbackSeed && queueWindows.isEmpty()
+    // The bar's controls work for the player's queue and for that stored queue before play: the first
+    // tap loads it, as the mini player's play does (#127: after a restart they were all greyed out and
+    // did nothing). Only a queue picked from the list to look at leaves them off.
+    val barWorks = !detachedHead || movesStoredQueue
     val mutableQueues = remember { mutableStateListOf<MultiQueueObject>() }
     var playingQueue by remember { mutableIntStateOf(-1) }
 
@@ -489,6 +496,30 @@ fun BoxScope.QueueContent(
     val onExitSelectionMode = {
         inSelectMode = false
         selectedItems.clear()
+    }
+
+    fun exitDetachHead() {
+        detachedHead = false
+        detachedQueue = null // detachedQueue should only exist in detached mode
+        onExitSelectionMode()
+    }
+
+    /**
+     * A queue with nothing left in it once songs were taken out goes, as the queue list's own Delete
+     * takes one: the next queue is loaded, paused, or with no queue left the player closes. It used
+     * to stay, empty: the sheet said "No queues" over a bar still naming it "1 / 0", the mini player
+     * stayed on with no song and no cover (a tester's screenshot, 9 Nov 2026), and its last songs
+     * came back at the next start, since an empty queue is never saved.
+     */
+    val dropIfEmptied: () -> Unit = {
+        val emptied = qb.getCurrentQueue()?.takeIf { it.getSize() == 0 }
+        if (emptied != null) {
+            playerConnection.player.pause()
+            val remainingQueues = qb.deleteQueue(emptied)
+            qb.setCurrQueue()
+            exitDetachHead()
+            if (remainingQueues < 1) onTerminate()
+        }
     }
 
     // search
@@ -543,7 +574,8 @@ fun BoxScope.QueueContent(
     }
     val reorderableState = rememberReorderableLazyListState(
         lazyListState = lazySongsListState,
-        scrollThresholdPadding = WindowInsets.systemBars.add(
+        // No status bar on top: the song list stops at its edge (see songList).
+        scrollThresholdPadding = WindowInsets.systemBars.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal).add(
             WindowInsets(top = ListItemHeight, bottom = ListItemHeight)
         ).asPaddingValues()
     ) { from, to ->
@@ -611,12 +643,6 @@ fun BoxScope.QueueContent(
     }
 
     // Helpers
-    fun exitDetachHead() {
-        detachedHead = false
-        detachedQueue = null // detachedQueue should only exist in detached mode
-        onExitSelectionMode()
-    }
-
     /**
      * Undo the detached state that the fallback seeds on first composition.
      *
@@ -1058,10 +1084,20 @@ fun BoxScope.QueueContent(
     val songList: @Composable ColumnScope.(PaddingValues) -> Unit = { contentPadding ->
         Log.v("QueueContent", "QC-s_b")
         val songsScroll = rememberQueueSheetScroll(queueState)
+        // The space for the status bar sits outside the list, so a row scrolled up is cut at the
+        // status bar's edge instead of passing under the clock (Pixel 5, 5 Nov 2026). At rest the
+        // first row is where it was.
+        val listDirection = LocalLayoutDirection.current
         LazyColumn(
             state = lazySongsListState,
-            contentPadding = contentPadding,
-            modifier = if (songsScroll != null) Modifier.nestedScroll(songsScroll) else Modifier
+            contentPadding = PaddingValues(
+                start = contentPadding.calculateStartPadding(listDirection),
+                end = contentPadding.calculateEndPadding(listDirection),
+                bottom = contentPadding.calculateBottomPadding(),
+            ),
+            modifier = Modifier
+                .padding(top = contentPadding.calculateTopPadding())
+                .then(if (songsScroll != null) Modifier.nestedScroll(songsScroll) else Modifier)
         ) {
             if ((if (isSearching) filteredSongs else songs).isEmpty()) {
                 item {
@@ -1122,6 +1158,7 @@ fun BoxScope.QueueContent(
                                         mutableSongs.getOrNull(swipedIndex)?.id?.let { ActivityLog.note(context, database, it, SignalKind.REMOVED_FROM_QUEUE) }
                                         playerConnection.player.removeMediaItem(swipedIndex)
                                         mutableSongs.removeAt(swipedIndex)
+                                        dropIfEmptied()
                                     }
                                     haptic.performHapticFeedback(HapticFeedbackType.Confirm)
                                     return@rememberSwipeToDismissBoxState true
@@ -1133,6 +1170,7 @@ fun BoxScope.QueueContent(
                                         mutableSongs.getOrNull(swipedIndex)?.id?.let { ActivityLog.note(context, database, it, SignalKind.REMOVED_FROM_QUEUE) }
                                         playerConnection.player.removeMediaItem(swipedIndex)
                                         mutableSongs.removeAt(swipedIndex)
+                                        dropIfEmptied()
                                     }
                                     haptic.performHapticFeedback(HapticFeedbackType.Confirm)
                                     return@rememberSwipeToDismissBoxState true
@@ -1516,10 +1554,10 @@ fun BoxScope.QueueContent(
                         horizontalAlignment = Alignment.End,
                         modifier = Modifier.padding(horizontal = 8.dp)
                     ) {
-                        fun getQueueLength(): Int {
+                        fun getQueueLengths(): List<Int> {
                             return if (!detachedHead) {
-                                queueWindows.sumOf { it.mediaItem.metadata!!.duration }
-                            } else detachedQueue?.queue?.sumOf { it.duration } ?: 0
+                                queueWindows.map { it.mediaItem.metadata?.duration ?: -1 }
+                            } else detachedQueue?.queue?.map { it.duration } ?: emptyList()
                         }
 
                         fun getQueuePositionStr(): String {
@@ -1537,7 +1575,7 @@ fun BoxScope.QueueContent(
                         )
 
                         Text(
-                            text = makeTimeString(getQueueLength() * 1000L),
+                            text = queueLengthText(getQueueLengths()),
                             style = MaterialTheme.typography.bodyMedium
                         )
                     }
@@ -1564,8 +1602,9 @@ fun BoxScope.QueueContent(
                                     .align(Alignment.Center)
                                     .named(shuffleName(shuffleModeEnabled)),
                                 color = iconButtonColor,
-                                enabled = !detachedHead,
+                                enabled = barWorks,
                                 onClick = {
+                                    playerConnection.loadQueueIfEmpty()
                                     playerConnection.triggerShuffle()
                                     haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
                                 }
@@ -1580,7 +1619,7 @@ fun BoxScope.QueueContent(
                                     .align(Alignment.Center)
                                     .named(stringResource(R.string.widget_previous)),
                                 color = iconButtonColor,
-                                enabled = !detachedHead && canSkipPrevious,
+                                enabled = barWorks && (canSkipPrevious || movesStoredQueue),
                                 onClick = {
                                     // Cold start: the saved queue is not in the player yet, and a
                                     // skip in an empty player goes nowhere. As the full player does.
@@ -1598,9 +1637,9 @@ fun BoxScope.QueueContent(
                                         .size(32.dp)
                                         .align(Alignment.Center)
                                         .named(seekBackName()),
-                                    enabled = !detachedHead,
+                                    enabled = barWorks,
                                     onClick = {
-                                        playerConnection.player.seekTo(playerConnection.player.currentPosition - seekIncrement.millisec)
+                                        playerConnection.loadQueueIfEmpty().let { it.seekTo(it.currentPosition - seekIncrement.millisec) }
                                     }
                                 )
                             }
@@ -1616,7 +1655,7 @@ fun BoxScope.QueueContent(
                                     .align(Alignment.Center)
                                     .named(playPauseName(isPlaying && playbackState != STATE_ENDED)),
                                 color = iconButtonColor,
-                                enabled = !detachedHead,
+                                enabled = barWorks,
                                 onClick = {
                                     if (playbackState == STATE_ENDED) {
                                         playerConnection.player.seekTo(0, 0)
@@ -1640,9 +1679,9 @@ fun BoxScope.QueueContent(
                                         .size(32.dp)
                                         .align(Alignment.Center)
                                         .named(seekForwardName()),
-                                    enabled = !detachedHead,
+                                    enabled = barWorks,
                                     onClick = {
-                                        playerConnection.player.seekTo(playerConnection.player.currentPosition + seekIncrement.millisec)
+                                        playerConnection.loadQueueIfEmpty().let { it.seekTo(it.currentPosition + seekIncrement.millisec) }
                                     }
                                 )
                             }
@@ -1656,7 +1695,7 @@ fun BoxScope.QueueContent(
                                     .align(Alignment.Center)
                                     .named(stringResource(R.string.widget_next)),
                                 color = iconButtonColor,
-                                enabled = !detachedHead && canSkipNext,
+                                enabled = barWorks && (canSkipNext || movesStoredQueue),
                                 onClick = {
                                     playerConnection.loadQueueIfEmpty().seekToNext()
                                     haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
@@ -1667,7 +1706,8 @@ fun BoxScope.QueueContent(
                         Box(modifier = Modifier.weight(1f)) {
                             ResizableIconButton(
                                 icon = when (repeatMode) {
-                                    REPEAT_MODE_OFF -> R.drawable.repeat_off
+                                    // Off is the repeat icon greyed out, as the notification draws it (his word, 5 Nov 2026).
+                                    REPEAT_MODE_OFF -> R.drawable.repeat_on
                                     REPEAT_MODE_ALL -> R.drawable.repeat_on
                                     REPEAT_MODE_ONE -> R.drawable.repeat_one
                                     else -> throw IllegalStateException()
@@ -1677,8 +1717,8 @@ fun BoxScope.QueueContent(
                                     .padding(4.dp)
                                     .align(Alignment.Center)
                                     .named(repeatName(repeatMode)),
-                                color = iconButtonColor,
-                                enabled = !detachedHead,
+                                color = if (repeatMode == REPEAT_MODE_OFF) iconButtonColor.copy(alpha = REPEAT_OFF_ALPHA) else iconButtonColor,
+                                enabled = barWorks,
                                 onClick = {
                                     playerConnection.player.toggleRepeatMode()
                                     haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)

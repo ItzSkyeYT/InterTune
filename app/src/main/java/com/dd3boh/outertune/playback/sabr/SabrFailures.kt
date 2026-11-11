@@ -31,7 +31,10 @@ import javax.net.ssl.SSLException
  *   for, an error part, a protocol fault, any other status of its server. HTTP 403, once the
  *   start is forgotten: the route changes at the first failure, and a stopped song gets its quiet
  *   retry. As a bad status with no status in it, it was a plain retry of the same refused start,
- *   the route changed only at the second, and a stop was for good.
+ *   the route changed only at the second, and a stop was for good. A start has no route of its
+ *   own to change, though: the walk that follows comes to the same rung and makes a new start,
+ *   once, and a song whose two starts in a row were refused gets no third for a while
+ *   (SabrStarts.refused, issue #138).
  * - A start no longer known, run out or forgotten: HTTP 410, as an address that has run out.
  * - SABR's own server failing after the library's own tries (408, 425, 429, 5xx): that status,
  *   and the start stays.

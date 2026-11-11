@@ -105,6 +105,30 @@ class ProblemLogTest {
     }
 
     @Test
+    fun `a lyrics video that could not be made is the fault, with the step, the code and the encoder it names`() {
+        // As LyricsVideo writes it (Log.i at the start, the export's warning, then once at the error level with its trace).
+        // Before 10 Nov 2026 it was a warning under tags the report left out, and a report said "Nothing that looks like a fault".
+        val video = listOf(
+            "11-11 00:34:10.100 I/LyricsVideo( 9001): Making a 11.0 s video of aaaaaaaaaaa: H.264 encoders c2.mtk.avc.encoder (hardware), c2.android.avc.encoder (software), constant rate held",
+            "11-11 00:34:12.300 W/LyricsVideo( 9001): Export to picture.mp4 failed: ERROR_CODE_ENCODING_FORMAT_UNSUPPORTED, video encoder c2.mtk.avc.encoder",
+            "11-11 00:34:12.310 E/LyricsVideo( 9001): The lyrics video could not be made: picture, ERROR_CODE_ENCODING_FORMAT_UNSUPPORTED, video encoder c2.mtk.avc.encoder",
+            "11-11 00:34:12.310 E/LyricsVideo( 9001): com.dd3boh.outertune.lyrics.LyricsVideo\$Failed: The picture step failed: ERROR_CODE_ENCODING_FORMAT_UNSUPPORTED",
+            "11-11 00:34:12.310 E/LyricsVideo( 9001): \tat com.dd3boh.outertune.lyrics.LyricsVideo.make(LyricsVideo.kt:200)",
+            "11-11 00:34:12.311 E/LyricsVideo( 9001): Caused by: androidx.media3.transformer.ExportException: Codec exception",
+        )
+        val excerpt = ProblemLog.excerpt(song + video + after)
+        assertTrue("a fault is found", excerpt.faultAt != null)
+        val shown = words(excerpt)
+        assertTrue(shown.any { it.contains("could not be made: picture, ERROR_CODE_ENCODING_FORMAT_UNSUPPORTED, video encoder c2.mtk.avc.encoder") })
+        // what the phone has, and the line before it, from the lines of information
+        assertTrue(shown.any { it.contains("H.264 encoders c2.mtk.avc.encoder (hardware)") })
+        assertTrue(shown.any { it.contains("Export to picture.mp4 failed") })
+        // the sample report of a failing phone says so at the top, not "Nothing that looks like a fault"
+        val report = ProblemLog.report(excerpt, build = "0.12.9", device = "Xiaomi", installedFrom = "updater")
+        assertTrue(report, report.contains("The last fault and what led up to it:"))
+    }
+
+    @Test
     fun `of two faults the later one is the one shown`() {
         val later = listOf(
             "10-13 18:50:00.000 D/MusicService( 6711): PLAYING: song id = bbbbbbbbbbb",
@@ -212,6 +236,36 @@ class ProblemLogTest {
         assertTrue("the newest lines are the ones kept", cut.trimEnd().endsWith("[400]"))
         // The cut by characters alone, as it was, escapes half as long again: past what the link holds.
         assertTrue(ProblemLog.linkLength(ProblemLog.fitted(report, 5000)) > 7000)
+    }
+
+    @Test
+    fun `a report without the steps keeps the fault's own first lines for the link, not a trace's last frames (#90)`() {
+        // 0.12.9 on a Pixel 11, 6 Nov 2026: the end of the log was the trace's last frames and the
+        // player's warning that repeats it, and the line that named the fault was cut away.
+        val trace = listOf(
+            "11-06 12:59:12.403 E/MediaCodecAudioRenderer( 6711): Audio sink error",
+            "11-06 12:59:12.403 E/MediaCodecAudioRenderer( 6711):   K2.r: AudioTrack write failed: -32",
+        ) + List(12) { "11-06 12:59:12.403 E/MediaCodecAudioRenderer( 6711):       at M2.B.h$it(SourceFile:91)" }
+        val repeated = listOf(
+            "11-06 12:59:12.408 W/ExoPlayerImplInternal( 6711): Recoverable renderer error",
+            "11-06 12:59:12.408 W/ExoPlayerImplInternal( 6711):   K2.p: MediaCodecAudioRenderer error, index=1, format_supported=YES",
+        ) + List(12) { "11-06 12:59:12.408 W/ExoPlayerImplInternal( 6711):       at K2.U.j$it(SourceFile:1570)" }
+        val stops = List(8) { "11-06 13:0$it:47 STOPPED: paused by the headphones or the speaker went away (screen on, in the foreground)" }
+        val report = ProblemLog.report(
+            ProblemLog.excerpt(song + trace + repeated), build = "0.12.9 (101, core release)", device = "Google Pixel 11, Android 17 (API 37)",
+            installedFrom = "Obtainium", stops = stops,
+            phoneNow = "mobile data, metered, about 15 Mbps down and 15 Mbps up, no VPN, Data Saver off; battery saver on, Battery use Saver",
+        )
+        val cut = ProblemLog.fittedForLink(report, 3600, 5000)
+        assertTrue(ProblemLog.linkLength(cut) <= 3600)
+        assertTrue(cut.startsWith("InterTune 0.12.9 (101, core release)\nGoogle Pixel 11"))
+        assertTrue(">>> here" in cut)
+        assertTrue("Audio sink error" in cut)
+        assertTrue("the line that names the fault", "K2.r: AudioTrack write failed: -32" in cut)
+        // With no fault the end is kept, as before.
+        val quiet = ProblemLog.report(ProblemLog.excerpt(song + after), build = "b", device = "d", installedFrom = "F-Droid")
+        assertEquals(quiet, ProblemLog.fitted(quiet, quiet.length))
+        assertTrue(ProblemLog.fitted(quiet, 300).trimEnd().endsWith("Min threshold: 0.3 (duration 155s)"))
     }
 
     @Test

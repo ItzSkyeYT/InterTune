@@ -16,6 +16,7 @@ import android.annotation.SuppressLint
 import android.app.NotificationManager
 import android.app.StatusBarManager
 import android.app.SearchManager
+import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.os.Build
 import android.appwidget.AppWidgetManager
@@ -79,6 +80,7 @@ import androidx.datastore.preferences.core.edit
 import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.constants.UpdateCheckEnabledKey
 import com.dd3boh.outertune.constants.UsageCountEnabledKey
+import com.dd3boh.outertune.utils.FailureLog
 import com.dd3boh.outertune.utils.dataStore
 import androidx.compose.material3.Text
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
@@ -250,6 +252,7 @@ import com.dd3boh.outertune.ui.utils.dpadOverlay
 import com.dd3boh.outertune.ui.utils.dpadOverlayEscape
 import com.dd3boh.outertune.ui.utils.dpadTabBar
 import com.dd3boh.outertune.ui.utils.dpadBringIntoView
+import com.dd3boh.outertune.ui.utils.leaveSettings
 import com.dd3boh.outertune.ui.utils.resetHeightOffset
 import com.dd3boh.outertune.ui.utils.SameTextSize
 import com.dd3boh.outertune.ui.utils.shrinkToFit
@@ -259,6 +262,9 @@ import com.dd3boh.outertune.utils.installSource
 import com.dd3boh.outertune.utils.NetworkConnectivityObserver
 import com.dd3boh.outertune.utils.LoudnessRepair
 import com.dd3boh.outertune.utils.Scrobbler
+import com.dd3boh.outertune.utils.SavedStateSize
+import com.dd3boh.outertune.ui.navigation.KeptHistory
+import com.dd3boh.outertune.ui.navigation.LocalBackAnimations
 import com.dd3boh.outertune.utils.SyncUtils
 import com.dd3boh.outertune.utils.AutoBackup
 import com.dd3boh.outertune.utils.BackgroundCheckWorker
@@ -584,6 +590,7 @@ class MainActivity : ComponentActivity() {
                         throw e
                     } catch (e: Exception) {
                         Log.w(MAIN_TAG, "Could not search for a play from search", e)
+                        FailureLog.record("Playing from a search", e)
                         null
                     }
                     when (playSearchOutcome(found)) {
@@ -612,7 +619,8 @@ class MainActivity : ComponentActivity() {
      */
     private fun playLikedWhenReady() {
         lifecycleScope.launch {
-            val connection = snapshotFlow { playerConnection }.filterNotNull().first()
+            // A live one, as for the widget's songs: see PlayerConnection.isAlive.
+            val connection = snapshotFlow { playerConnection?.takeIf { it.isAlive } }.filterNotNull().first()
             val prefs = dataStore.data.first()
             val songs = database.likedSongs(
                 prefs[SongSortTypeKey].toEnum(SongSortType.CREATE_DATE),
@@ -643,6 +651,14 @@ class MainActivity : ComponentActivity() {
         // scan ends with one) goes out now that it is in front. The class is asked, not the
         // injected instance, which would be built at every launch (DownloadServiceSends).
         if (DownloadUtil.resumeOwed) downloadUtil.resumeDownloadsOnStart()
+    }
+
+    // What Android keeps of the app when it is left: the navigation's history cut to its newest
+    // pages (#107, see KeptHistory), and in debug builds its size in the log when it is large.
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        KeptHistory.cut(outState)
+        if (BuildConfig.DEBUG) SavedStateSize.log(outState)
     }
 
     // The person has left: coming back is what a tap on Open Auto Blocker waits for.
@@ -691,6 +707,22 @@ class MainActivity : ComponentActivity() {
         playerConnection = null
 
         super.onDestroy()
+    }
+
+    /**
+     * Every picker the app opens goes through here: a file, a folder, a picture. Some devices have
+     * no app to pick with (a projector, a stripped-down Android 10), and asking for one crashed the
+     * app (#120, #121). It now says so, and the screen that asked takes it as cancelled.
+     */
+    @Suppress("OVERRIDE_DEPRECATION", "DEPRECATION")
+    override fun startActivityForResult(intent: Intent, requestCode: Int, options: Bundle?) {
+        try {
+            super.startActivityForResult(intent, requestCode, options)
+        } catch (e: ActivityNotFoundException) {
+            Log.w(MAIN_TAG, "Nothing on this device answers ${intent.action}", e)
+            Toaster.show(this, R.string.no_app_to_pick, Toast.LENGTH_LONG)
+            activityResultRegistry.dispatchResult(requestCode, RESULT_CANCELED, null)
+        }
     }
 
     @SuppressLint("UnusedBoxWithConstraintsScope")
@@ -1366,13 +1398,17 @@ class MainActivity : ComponentActivity() {
                         )
                     }
                     LaunchedEffect(playerConnection, widgetSongPending, pendingWidgetTap.intent) {
+                        // Only a connection whose service is still there: one left from before the
+                        // service stopped took the tap and played nothing. The tap waits for the
+                        // next connection instead, which restarts this effect.
+                        val live = playerConnection?.takeIf { it.isAlive }
                         if (widgetSongPending) {
-                            playFromWidget(intent, database, playerConnection, coroutineScope)
-                            if (playerConnection != null) widgetSongPending = false
+                            playFromWidget(intent, database, live, coroutineScope)
+                            if (live != null) widgetSongPending = false
                         }
                         pendingWidgetTap.intent?.let { pending ->
-                            playFromWidget(pending, database, playerConnection, coroutineScope)
-                            if (playerConnection != null) pendingWidgetTap.intent = null
+                            playFromWidget(pending, database, live, coroutineScope)
+                            if (live != null) pendingWidgetTap.intent = null
                         }
                     }
 
@@ -1404,7 +1440,8 @@ class MainActivity : ComponentActivity() {
                     }
                     LaunchedEffect(pendingLaunchLink, pendingLink.link, playerConnection, oobeStatus) {
                         val link = pendingLaunchLink ?: pendingLink.link ?: return@LaunchedEffect
-                        val connection = playerConnection ?: return@LaunchedEffect
+                        // A live one, as for the widget's songs: see PlayerConnection.isAlive.
+                        val connection = playerConnection?.takeIf { it.isAlive } ?: return@LaunchedEffect
                         if (oobeStatus < OOBE_VERSION) return@LaunchedEffect
                         snapshotFlow { navBackStackEntry }.first { it != null }
                         if (pendingLaunchLink != null) pendingLaunchLink = null else pendingLink.link = null
@@ -2301,10 +2338,14 @@ class MainActivity : ComponentActivity() {
                                         .fillMaxSize()
                                         .then(if (navGlass && !glassStill) Modifier.layerBackdrop(navHostBackdrop).graphicsLayer() else Modifier)
                                 ) {
-                                    // Under the open player the pages cannot be seen, and what
-                                    // only moves for the eye holds still (PlayingIndicator).
-                                    CompositionLocalProvider(LocalHiddenByPlayer provides pagesHiddenByPlayer) {
-                                        navHost()
+                                    // The screens going away carry the page colour with them, with Back
+                                    // animations on (AppNavGraph, GitHub #134).
+                                    CompositionLocalProvider(LocalBackAnimations provides backAnimations) {
+                                        // Under the open player the pages cannot be seen, and what
+                                        // only moves for the eye holds still (PlayingIndicator).
+                                        CompositionLocalProvider(LocalHiddenByPlayer provides pagesHiddenByPlayer) {
+                                            navHost()
+                                        }
                                     }
                                 }
 
@@ -2487,6 +2528,14 @@ private fun TabLabel(text: String, names: SameTextSize) {
  * scroll position. Coming from a sub-page there is nothing worth restoring and restoring is
  * precisely what breaks it. So: restore when leaving a tab, jump cleanly when leaving anything
  * else. One rule, both issues.
+ *
+ * Settings is no tab's page, and is left first (#135, "the only way to truly exit settings is to
+ * press those arrows"). What a tab parks comes back when the tab is tapped again, and Settings
+ * parked with it came back too: Settings over Library, then Home, and the next tap on Library
+ * put Settings over it again; Settings over Home, then Library and Home, and Home was Settings.
+ * A tap on a tab is a way out of it, so it is popped, with whatever was opened from it, as the
+ * arrow at its top pops it, before anything is parked. If the tab then showing is the one
+ * tapped, that is all there is to do.
  */
 private fun navigateToNavTab(
     navController: NavHostController,
@@ -2494,8 +2543,11 @@ private fun navigateToNavTab(
     navigationItems: List<Screens>,
     current: NavBackStackEntry?,
 ) {
+    val left = navController.leaveSettings()
+    val here = if (left) navController.currentBackStackEntry else current
+    if (left && here?.destination?.hierarchy?.any { it.route == route } == true) return
     val leavingATab = navigationItems.any { scr ->
-        current?.destination?.hierarchy?.any { it.route == scr.route } == true
+        here?.destination?.hierarchy?.any { it.route == scr.route } == true
     }
     navController.navigate(route) {
         popUpTo(navController.graph.startDestinationId) { saveState = true }

@@ -83,6 +83,9 @@ class RecoveryTest {
             PlaybackException("decoder", null, PlaybackException.ERROR_CODE_DECODING_FAILED),
             stopped(refused(404), PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS),
             stopped(Loader.UnexpectedLoaderException(YTPlayerUtils.ConnectionTurnedAway("This video is not available"))),
+            // YouTube wanting a sign-in, in the bot check's words or in words of its own (issue #124).
+            stopped(Loader.UnexpectedLoaderException(YTPlayerUtils.SignInWanted(null))),
+            stopped(Loader.UnexpectedLoaderException(YTPlayerUtils.SignInWanted("Please sign in"))),
         )
         for (error in final) assertEquals(error.toString(), Recovery.Kind.FINAL, Recovery.kind(error))
     }

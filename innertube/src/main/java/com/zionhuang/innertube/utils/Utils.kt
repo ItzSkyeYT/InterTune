@@ -46,13 +46,18 @@ fun ByteArray.toHex(): String = joinToString(separator = "") { eachByte -> "%02x
 
 fun sha1(str: String): String = MessageDigest.getInstance("SHA-1").digest(str.toByteArray()).toHex()
 
-fun parseCookieString(cookie: String): Map<String, String> =
-    cookie.split("; ")
-        .filter { it.isNotEmpty() }
-        .associate {
-            val (key, value) = it.split("=")
-            key to value
-        }
+/**
+ * A cookie's parts by name, or none at all when a part has no "=" (an attribute such as "Secure"
+ * pasted from a Set-Cookie header, or a cookie cut by a line break): the app never writes such a
+ * string, so it is no sign-in, as the sign-in page already took it (LoginScreenTest). It used to
+ * throw, and every screen that reads the cookie while drawing closed the app with it. A value
+ * holding "=" is kept whole.
+ */
+fun parseCookieString(cookie: String): Map<String, String> {
+    val parts = cookie.split("; ").filter { it.isNotEmpty() }.map { it.split("=", limit = 2) }
+    if (parts.any { it.size < 2 }) return emptyMap()
+    return parts.associate { (key, value) -> key to value }
+}
 
 /**
  * A length as YouTube writes it, in seconds: "3:34", or "3.34" in the languages that put a dot

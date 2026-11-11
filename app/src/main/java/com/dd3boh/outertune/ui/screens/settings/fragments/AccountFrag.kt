@@ -165,14 +165,12 @@ fun ColumnScope.AccountFrag(navController: NavController) {
             onDismiss = { showTokenEditor = false },
             singleLine = false,
             maxLines = 20,
-            isInputValid = {
-                it.isNotEmpty() &&
-                        try {
-                            "SAPISID" in parseCookieString(it)
-                            true
-                        } catch (e: Exception) {
-                            false
-                        }
+            // The cookie line alone, as onDone saves it: empty (no account, the other lines edited)
+            // or one that signs in. The whole text was parsed instead, and the answer ignored.
+            isInputValid = { text ->
+                val cookie = text.lineSequence().firstOrNull { it.startsWith("***INNERTUBE COOKIE*** =") }
+                    ?.substringAfter("***INNERTUBE COOKIE*** =").orEmpty()
+                text.isNotEmpty() && (cookie.isEmpty() || "SAPISID" in parseCookieString(cookie))
             },
             extraContent = {
                 InfoLabel(text = stringResource(R.string.token_adv_login_description))

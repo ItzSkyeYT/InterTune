@@ -1,0 +1,8 @@
+Version 0.12.10
+
+Beaucoup de corrections, pas de nouveautés :
+- Plantages : lecture depuis un casque, le widget ou la notification, téléchargements en attente du Wi-Fi, titre en double, pas de sélecteur de fichiers, pochette de l'écran verrouillé.
+- Son : meilleure qualité en données mobiles et en économie de batterie, casques USB, volume au-delà de 100 %.
+- Téléchargements, playlists et file d'attente : nombreuses corrections.
+
+https://github.com/ItzSkyeYT/InterTune/releases/tag/v0.12.10

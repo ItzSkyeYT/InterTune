@@ -58,7 +58,9 @@ import com.dd3boh.outertune.utils.rememberPreference
 import com.zionhuang.innertube.YouTube
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.launch
+import com.dd3boh.outertune.utils.NotSaved
 import com.dd3boh.outertune.utils.Toaster
 
 @Composable
@@ -221,19 +223,27 @@ fun AddToPlaylistDialog(
                 modifier = Modifier.clickable {
                     selectedPlaylist = playlist
                     coroutineScope.launch(Dispatchers.IO) {
-                        if (onPreAdd != null) {
-                            val result = onPreAdd(playlist)
-                            if (idsFromPreAdd || songIds == null) {
-                                songIds = result
+                        // Said rather than thrown: a full phone fails the writes, and this scope
+                        // has no handler, so the app closed (see NotSaved).
+                        try {
+                            if (onPreAdd != null) {
+                                val result = onPreAdd(playlist)
+                                if (idsFromPreAdd || songIds == null) {
+                                    songIds = result
+                                }
                             }
-                        }
-                        val ids = songIds!!
-                        duplicates = database.playlistDuplicatesChunked(playlist.id, ids)
-                        if (duplicates.isNotEmpty()) {
-                            showDuplicateDialog = true
-                        } else {
-                            onDismiss()
-                            addAndSay(context, database, playlist, ids, onAdded)
+                            val ids = songIds!!
+                            duplicates = database.playlistDuplicatesChunked(playlist.id, ids)
+                            if (duplicates.isNotEmpty()) {
+                                showDuplicateDialog = true
+                            } else {
+                                onDismiss()
+                                addAndSay(context, database, playlist, ids, onAdded)
+                            }
+                        } catch (e: CancellationException) {
+                            throw e
+                        } catch (e: Exception) {
+                            NotSaved.say(context, e)
                         }
                     }
                 }
@@ -340,7 +350,14 @@ private fun addAndSay(
     ids: List<String>,
     onAdded: ((Playlist) -> Unit)?,
 ) {
-    val written = database.addSongToPlaylist(playlist, ids)
+    // The duplicates prompt's buttons call this on a scope with no handler: a failed write is
+    // said, not thrown (see NotSaved).
+    val written = try {
+        database.addSongToPlaylist(playlist, ids)
+    } catch (e: Exception) {
+        NotSaved.say(context, e)
+        return
+    }
     val left = ids.size - written.size
     if (left > 0) {
         val app = context.applicationContext

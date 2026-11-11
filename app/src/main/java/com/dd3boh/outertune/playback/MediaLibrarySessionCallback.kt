@@ -6,6 +6,7 @@ import android.content.ContentResolver
 import android.content.Context
 import android.net.Uri
 import android.os.Bundle
+import android.os.SystemClock
 import android.util.Log
 import androidx.annotation.DrawableRes
 import androidx.core.content.FileProvider
@@ -37,9 +38,12 @@ import com.dd3boh.outertune.extensions.toggleRepeatMode
 import com.dd3boh.outertune.extensions.toggleShuffleMode
 import com.dd3boh.outertune.playback.queues.YouTubeQueue
 import com.dd3boh.outertune.utils.albumWithOrderedSongs
+import com.dd3boh.outertune.utils.ErrorText
+import com.dd3boh.outertune.utils.PhoneState
 import com.dd3boh.outertune.utils.dataStore
 import com.dd3boh.outertune.utils.get
 import com.dd3boh.outertune.utils.reportException
+import com.dd3boh.outertune.utils.FaultInjection
 import com.dd3boh.outertune.widget.WidgetList
 import com.dd3boh.outertune.widget.WidgetStore
 import com.zionhuang.innertube.YouTube
@@ -51,6 +55,7 @@ import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import com.google.common.util.concurrent.MoreExecutors
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -61,6 +66,7 @@ import kotlinx.coroutines.guava.future
 import kotlinx.coroutines.plus
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.delay
 import javax.inject.Inject
 
 /** The longest a request to play waits for the saved queues to load at the service's start. */
@@ -135,9 +141,28 @@ class MediaLibrarySessionCallback @Inject constructor(
     ): ListenableFuture<MediaItemsWithStartPosition> = scope.future {
         // TODO: when this is stable, change to debug
         Log.i(TAG, "onPlaybackResumption() called")
-        resumptionItems() ?: run {
-            Log.w(TAG, "No resumption queue data. Loading empty list")
-            MediaItemsWithStartPosition(emptyList(), C.INDEX_UNSET, C.TIME_UNSET)
+        service.resumptionRunning = true
+        try {
+            val fault = FaultInjection.resumeFault(context)
+            fault?.delayMs?.takeIf { it > 0 }?.let {
+                Log.w(TAG, "Resumption held $it ms (fault injection)")
+                delay(it)
+            }
+            // A media button's start with nothing to resume lets go of the foreground it held, after
+            // media3 has put this answer in the player (MediaButtonStart).
+            val items = try {
+                if (fault?.empty == true) null else resumptionItems()
+            } catch (e: Exception) {
+                service.letGoOfMediaButtonHoldSoon("the saved queue could not be read")
+                throw e
+            }
+            items ?: run {
+                Log.w(TAG, "No resumption queue data. Loading empty list")
+                service.letGoOfMediaButtonHoldSoon("no saved queue to resume")
+                MediaItemsWithStartPosition(emptyList(), C.INDEX_UNSET, C.TIME_UNSET)
+            }
+        } finally {
+            service.resumptionRunning = false
         }
     }
 
@@ -343,6 +368,9 @@ class MediaLibrarySessionCallback @Inject constructor(
                         // In the car a playlist opens on the one thing most often wanted of it.
                         if (Unreleased.AUTO_REWORK && songs.size > 1) listOf(shuffleRow(playlistId, songs.size)) + songs else songs
                     }
+
+                    // The last row of a search YouTube Music gave nothing to: the same search again.
+                    parentId.startsWith("${CarSearch.AGAIN}/") -> CarSearch.againQuery(parentId)?.let { carSearchItems(it) }.orEmpty()
 
                     else -> emptyList()
                 }
@@ -573,38 +601,66 @@ class MediaLibrarySessionCallback @Inject constructor(
         return MediaItemsWithStartPosition(items, startIndex, startPositionMs)
     }
 
+    /** The songs a search from the car finds, for a search said to it and for a result tapped in it. */
+    private suspend fun searchCar(query: String): List<Song> = findForCar(query).songs
+
+    /** What a search from the car found, and why YouTube Music's songs are missing when they are. */
+    private class CarFound(val songs: List<Song>, val miss: CarSearch.Miss?)
+
     /**
-     * What a search from the car finds: the library's answer, and since the rework YouTube
-     * Music's own after it. A driver says the name of a song and expects it to play; from the
-     * library alone, a song never played before was "nothing found". What YouTube Music answers
-     * is written into the library's table of songs seen, as anything shown anywhere in the app
-     * is, which is what lets it be played and its cover be served. Its failing, or its taking
-     * too long, leaves the library's answer as it was.
+     * What a search from the car finds (CarSearch): the library's answer, then YouTube Music's,
+     * in every build. A driver says or types the name of a song and expects it to be there; from
+     * the library alone, a song never played before was "nothing found", and until 0.13 that was
+     * all a release asked (#112). What YouTube Music answers is written into the library's table
+     * of songs seen, as anything shown anywhere in the app is, which is what lets it be played
+     * and its cover be served. Its failing, or its taking too long, leaves the library's answer
+     * as it was, and says why.
      */
-    private suspend fun searchCar(query: String): List<Song> {
+    private suspend fun findForCar(query: String): CarFound {
+        val started = SystemClock.elapsedRealtime()
         val library = searchLibrary(query)
-        if (!Unreleased.AUTO_REWORK || library.size >= AutoBrowse.MOST || query.trim().length < 3) return library
-        // The car asks again at every letter typed and once more for the list it then shows, and
-        // the tap that plays a result asks a third time: the same question is asked of YouTube
-        // Music once.
-        searchedOnline?.takeIf { it.first == query }?.let { return (library + it.second).distinctBy { song -> song.id } }
-        val found = withTimeoutOrNull(SEARCH_ONLINE_MS) {
+        if (!CarSearch.asksOnline(query, library.size)) return CarFound(library, null)
+        // The car's own screens ask again at every letter typed and once more for the list they
+        // then show, and the tap that plays a result asks a third time: the same question is
+        // asked of YouTube Music once. Only an answer is kept, so a search that failed is asked
+        // again.
+        searchedOnline?.takeIf { it.first == query }?.let { return CarFound((library + it.second).distinctBy { song -> song.id }, null) }
+        // Null when it took too long.
+        val online: Result<List<Song>>? = withTimeoutOrNull(SEARCH_ONLINE_MS) {
             withContext(Dispatchers.IO) {
-                runCatching {
-                    YouTube.search(query, YouTube.SearchFilter.FILTER_SONG).getOrThrow().items
-                        .filterIsInstance<SongItem>()
-                        .take(AutoBrowse.MOST)
-                        .mapNotNull { item ->
-                            val seen = item.toMediaMetadata()
-                            runCatching { database.insert(seen) }
-                            database.song(seen.id).first()
-                        }
-                }.onFailure { Log.w(TAG, "YouTube Music gave the car's search nothing", it) }.getOrDefault(emptyList())
+                try {
+                    Result.success(
+                        YouTube.search(query, YouTube.SearchFilter.FILTER_SONG).getOrThrow().items
+                            .filterIsInstance<SongItem>()
+                            .take(CarSearch.MOST)
+                            .mapNotNull { item ->
+                                val seen = item.toMediaMetadata()
+                                runCatching { database.insert(seen) }
+                                database.song(seen.id).first()
+                            }
+                    )
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    Result.failure(e)
+                }
             }
-        }.orEmpty()
+        }
+        val found = online?.getOrNull().orEmpty()
         if (found.isNotEmpty()) searchedOnline = query to found
-        return (library + found).distinctBy { it.id }
+        val answered = online?.isSuccess == true
+        // The query is left out: a report's log is posted in public.
+        val ms = SystemClock.elapsedRealtime() - started
+        when {
+            online == null -> Log.w(TAG, "The car's search: ${library.size} songs in the library, YouTube Music did not answer within $SEARCH_ONLINE_MS ms")
+            !answered -> Log.w(TAG, "The car's search: ${library.size} songs in the library, YouTube Music failed after $ms ms", online.exceptionOrNull()?.let { ErrorText.forLog(it) })
+            else -> Log.i(TAG, "The car's search: ${library.size} songs in the library, ${found.size} from YouTube Music in $ms ms")
+        }
+        return CarFound((library + found).distinctBy { it.id }, CarSearch.miss(asked = true, answered = answered, online = answered || phoneOnline()))
     }
+
+    /** Whether the phone has the internet, as Android sees it: a network, and found to reach out. */
+    private fun phoneOnline(): Boolean = PhoneState.read(context).let { it.network != null && it.validated }
 
     /** The library search the search results list, so a spoken query plays what a typed one shows. */
     private suspend fun searchLibrary(query: String): List<Song> = combine(
@@ -633,24 +689,14 @@ class MediaLibrarySessionCallback @Inject constructor(
         pageSize: Int,
         params: MediaLibraryService.LibraryParams?
     ): ListenableFuture<LibraryResult<ImmutableList<MediaItem>>> {
-        Log.d(TAG, "MediaLibrarySessionCallback.onGetSearchResult: $query")
+        Log.d(TAG, "MediaLibrarySessionCallback.onGetSearchResult: $query, page $page of $pageSize")
         return scope.future {
             if (query.isEmpty()) {
                 return@future LibraryResult.ofItemList(emptyList(), params)
             }
 
             try {
-                // Playable and not browsable. Marked both, a result could open as a folder in the
-                // car, and a search result has no children, so it opened empty.
-                val items = searchCar(query)
-                    .map {
-                        it.toMediaItem(
-                            path = "${MusicService.SEARCH}/$query",
-                            isPlayable = true,
-                            isBrowsable = false
-                        )
-                    }
-                LibraryResult.ofItemList(items, params)
+                LibraryResult.ofItemList(CarSearch.page(carSearchItems(query), page, pageSize), params)
             } catch (e: Exception) {
                 Log.d(TAG, "Could not get search results")
                 reportException(e)
@@ -658,6 +704,31 @@ class MediaLibrarySessionCallback @Inject constructor(
             }
         }
     }
+
+    /**
+     * A search's answer as the car lists it: the songs found, and when YouTube Music's half is
+     * missing, a last row that says why and searches again.
+     */
+    private suspend fun carSearchItems(query: String): List<MediaItem> {
+        val found = findForCar(query)
+        // Playable and not browsable. Marked both, a result could open as a folder in the car,
+        // and a search result has no children, so it opened empty.
+        val songs = found.songs.map { it.toMediaItem(path = "${MusicService.SEARCH}/$query", isPlayable = true, isBrowsable = false) }
+        return songs + listOfNotNull(found.miss?.let { searchAgainRow(query, it) })
+    }
+
+    /**
+     * The row that ends a search YouTube Music gave nothing to: why, in a few words, and at a tap
+     * the same search again, as a list of what it finds now (onGetChildren). A list and not
+     * something to play, so that the tap shows what was found instead of starting a song unseen.
+     */
+    private fun searchAgainRow(query: String, miss: CarSearch.Miss): MediaItem = browsableMediaItem(
+        CarSearch.againId(query),
+        context.getString(if (miss == CarSearch.Miss.OFFLINE) R.string.auto_search_offline else R.string.auto_search_no_answer),
+        context.getString(R.string.auto_search_again),
+        drawableUri(R.drawable.auto_search),
+        MediaMetadata.MEDIA_TYPE_FOLDER_MIXED,
+    )
 
     private fun drawableUri(@DrawableRes id: Int) = Uri.Builder()
         .scheme(ContentResolver.SCHEME_ANDROID_RESOURCE)

@@ -54,6 +54,7 @@ import com.dd3boh.outertune.ui.component.ListPreference
 import com.dd3boh.outertune.utils.BackgroundCheckWorker
 import com.dd3boh.outertune.ui.component.PreferenceGroupTitle
 import com.dd3boh.outertune.ui.component.SwitchPreference
+import com.dd3boh.outertune.utils.FailureLog
 import com.dd3boh.outertune.utils.UpdateChecker
 import com.dd3boh.outertune.utils.rememberPreference
 import kotlinx.coroutines.launch
@@ -207,10 +208,14 @@ fun UpdateSettings(
                 onClick = {
                     coroutineScope.launch {
                         checking = true
-                        val result = updateChecker.check(force = true)
+                        // Asked for by hand, so a version skipped earlier is offered again here,
+                        // with its install button. The checks that run by themselves still pass
+                        // over it, and the skip stays until a later version comes.
+                        val result = updateChecker.check(force = true, manual = true)
                         checking = false
                         if (result == null) {
                             // A null result means nothing new only when the check got an answer.
+                            if (updateChecker.lastCheckFailed.value) FailureLog.record("Checking for updates", why = "the update check got no answer")
                             Toaster.show(
                                 context,
                                 context.getString(

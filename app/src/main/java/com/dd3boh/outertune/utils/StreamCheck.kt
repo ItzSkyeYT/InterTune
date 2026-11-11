@@ -77,6 +77,43 @@ object StreamCheck {
     fun refusalMessage(reason: String?, status: Int): String =
         reason?.takeIf { it.isNotBlank() } ?: "YouTube refused the stream (HTTP $status)"
 
+    /** YouTube's status for a request it will not answer without an account. */
+    private const val LOGIN_REQUIRED = "LOGIN_REQUIRED"
+
+    /**
+     * The bot check in YouTube's own words, for a walk that was turned away for a sign-in in
+     * words of its own or none (see [signInWanted]): the throttle and the error screen read
+     * these.
+     */
+    const val SIGN_IN_WORDS = "Sign in to confirm you’re not a bot"
+
+    /**
+     * The words a walk that found no stream fails with when YouTube turned it away for a sign-in,
+     * or null when it did not. [said] is what the fallback clients answered, as the walk kept it.
+     *
+     * Issue #124: on a VPN, signed in, five routes answered LOGIN_REQUIRED and the account's web
+     * client answered OK with an address the app could not decipher. The walk ended in that last
+     * answer, "Missing stream expire time", and the listener read "Unknown error" for every song,
+     * where the five routes had said what was the matter.
+     *
+     * Two things count, and only these:
+     *  - The bot check by its words, from any one client ([Throttle.looksLikeBlock], the rule the
+     *    throttle goes by): the others in the same walk may well say something else of the song.
+     *  - LOGIN_REQUIRED from every client that refused, in whatever words YouTube wrote it, so that
+     *    a change of wording does not turn it back into an unknown error. Not the age gate, which
+     *    is one song's, nor a song that is gone or private, which sign-in words go with too.
+     * A mixed answer, some asking for a sign-in and some saying something else, is not clear, and
+     * is left to the words the walk ends in.
+     */
+    fun signInWanted(said: List<PlayerResponse.PlayabilityStatus>): String? {
+        val refused = said.filter { it.status != "OK" }
+        refused.firstOrNull { Throttle.looksLikeBlock(it.reason) }?.let { return it.reason }
+        if (refused.isNotEmpty() && refused.all { it.status == LOGIN_REQUIRED && !Throttle.looksLikeAgeGate(it.reason) && !saysGone(it.reason) }) {
+            return refused.first().reason?.takeIf { it.isNotBlank() } ?: SIGN_IN_WORDS
+        }
+        return null
+    }
+
     /**
      * The visitorData to take from a /player answer, or null to keep the one the app has.
      *

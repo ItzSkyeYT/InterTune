@@ -419,15 +419,19 @@ object YouTube {
                 continuation = gridRenderer.continuations?.getContinuation()
             )
         } else {
-            val musicPlaylistShelfRenderer = response.contents?.singleColumnBrowseResultsRenderer?.tabs?.firstOrNull()
+            // A page with no header still lists its songs, and a page that has neither a grid nor a shelf
+            // says so: both used to end in a bare NullPointerException, shown as "Unknown error" (#119, an
+            // artist's videos, three such lines in the report and nothing to tell them apart).
+            val shelf = response.contents?.singleColumnBrowseResultsRenderer?.tabs?.firstOrNull()
                 ?.tabRenderer?.content?.sectionListRenderer?.contents?.firstOrNull()
                 ?.musicPlaylistShelfRenderer
+                ?: throw IllegalStateException("artist items: the page has neither a grid nor a playlist shelf")
             ArtistItemsPage(
-                title = response.header?.musicHeaderRenderer?.title?.runs?.firstOrNull()?.text!!,
-                items = musicPlaylistShelfRenderer?.contents?.getItems()?.mapNotNull {
+                title = response.header?.musicHeaderRenderer?.title?.runs?.firstOrNull()?.text.orEmpty(),
+                items = shelf.contents.getItems().mapNotNull {
                         ArtistItemsPage.fromMusicResponsiveListItemRenderer(it)
-                    }!!,
-                continuation = musicPlaylistShelfRenderer.contents.getContinuation()
+                    },
+                continuation = shelf.contents.getContinuation()
             )
         }
     }
