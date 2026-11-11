@@ -88,6 +88,22 @@ class ReleasedFlagsTest {
     }
 
     @Test
+    fun `no read of a held-back flag asks for BuildConfig DEBUG beside it, which the Tester app does not have`() {
+        // The Tester app is not debuggable (it is shrunk and optimized like a release), so BuildConfig.DEBUG is off in it: a test switch
+        // written `BuildConfig.DEBUG && Unreleased.X` would be gone for testers. It reads BuildConfig.PREVIEW_FEATURES. Only a flag
+        // that is for the debug app alone may keep DEBUG beside it.
+        val debugOnly = flags.filterValues { it == DEBUG_ONLY }.keys
+        val before = Regex("""BuildConfig\.DEBUG\s*&&\s*Unreleased\.([A-Z][A-Z0-9_]*)""")
+        val after = Regex("""Unreleased\.([A-Z][A-Z0-9_]*)\s*&&\s*BuildConfig\.DEBUG""")
+        val offenders = sources.walkTopDown().filter { it.extension == "kt" && it.name != "Unreleased.kt" }.flatMap { file ->
+            val text = code(file)
+            (before.findAll(text) + after.findAll(text)).map { it.groupValues[1] }.filter { it !in debugOnly }
+                .map { "${file.relativeTo(sources).path}: $it" }
+        }.toList()
+        assertTrue("read BuildConfig.PREVIEW_FEATURES instead of BuildConfig.DEBUG next to: $offenders", offenders.isEmpty())
+    }
+
+    @Test
     fun `0_12_5's picks are in every build, read where they were written`() {
         assertEquals(setOf("playback/MusicService.kt", "playback/sabr/SabrOver.kt"), readers("SABR_AHEAD"))
         assertEquals(setOf("playback/MusicService.kt"), readers("PLAY_NEXT_STAYS"))
