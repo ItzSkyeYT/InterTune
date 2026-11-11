@@ -827,7 +827,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="audio_normalization_description">Even out the volume between songs, so one is not suddenly much louder than the last.</string>
     <string name="skip_silence_description">Skip silent gaps at the start and end of a track.</string>
     <string name="stop_music_on_task_clear_description">Stop the music when you swipe the app away from your recent apps.</string>
-    <string name="enable_dynamic_theme_description">Take the app\'s colours from your wallpaper.</string>
+    <string name="enable_dynamic_theme_description">Take the app\'s colours from the cover of the song that is playing. Off, or with nothing playing, it uses your phone\'s own colours (Android 12 and newer).</string>
     <string name="pure_black_description">Use true black instead of dark grey. On an OLED screen this also saves a little battery.</string>
     <string name="min_playback_duration_short">How much of a song has to play to count as a play. History shows every song heard for 2 seconds or more, counted or not.</string>
     <string name="throttle_banner_title">YouTube has paused this connection</string>
@@ -2349,8 +2349,8 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="battery_use_saver">Saver</string>
     <string name="battery_use_full_description">Everything as you set it.</string>
     <string name="battery_use_balanced_description">Your library syncs every two hours instead of every half hour, and the playing bars move more calmly.</string>
-    <string name="battery_use_saver_description">Sound effects off, a black theme, fewer frames a second and Low quality on mobile data. Syncs and downloads wait for Wi-Fi.</string>
-    <string name="battery_use_explain">How much InterTune does while you listen. \"Balanced\" syncs your library less often and calms the playing bars. \"Saver\" also turns sound effects off, shows a black theme at fewer frames a second and streams at Low quality on mobile data.</string>
+    <string name="battery_use_saver_description">Sound effects off except the equalizer, a black theme, fewer frames a second and, on Auto, Low quality on mobile data. Syncs and downloads wait for Wi-Fi.</string>
+    <string name="battery_use_explain">How much InterTune does while you listen. \"Balanced\" syncs your library less often and calms the playing bars. \"Saver\" also turns sound effects off except the equalizer, shows a black theme at fewer frames a second and, with Audio quality on Auto, streams at Low quality on mobile data.</string>
     <string name="battery_saver_holds_note">Set by \"Battery use\" while it is on \"Saver\".</string>
     <string name="battery_saver_quality_note">Low on mobile data while \"Battery use\" is on \"Saver\".</string>
     <string name="battery_saver_background_note">%1$s while \"Battery use\" is on \"Saver\".</string>
@@ -2746,6 +2746,8 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="not_saved" translatable="false">Not saved: something went wrong. Please try again.</string>
     <!-- The question before the downloads of the songs picked in a selection are removed. Held for translators. -->
     <string name="remove_download_selection_confirm" translatable="false">Remove the downloads of the songs you picked?</string>
+    <!-- A toast when Remove download could not delete a song's file from the download folder (DownloadUtil.deleteSong): the song stays listed. Held for translators. -->
+    <string name="remove_download_refused" translatable="false">Could not delete the file. Check the download folder.</string>
     <!-- Read out by screen readers for the playing song's row held at the top or the foot of the queue while the list is scrolled away from it (#81): a tap puts the list back at the song. Held for translators. -->
     <string name="queue_held_row_label" translatable="false">go back to the song playing</string>
     <!-- Stats, Found with InterTune (his idea of 6 Nov 2026): a card among the findings. %1$s is how many of the songs the listener liked InterTune played them first, in the accent colour; under it the split by where those first plays came from, and "Only known since" the day the app began to note where songs come from. Held for translators. -->

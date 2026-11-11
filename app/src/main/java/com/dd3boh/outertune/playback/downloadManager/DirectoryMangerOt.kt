@@ -114,21 +114,28 @@ class DownloadDirectoryManagerOt(private var context: Context, private var dir: 
      * Deletes a song's file, from the main download folder only. The list holds the extra import
      * folders' files too, and those folders are promised never to be changed (the storage
      * tooltip), so a song imported from one keeps its file and has to be removed by hand.
+     * Says what came of it ([FileRemoval]). The list is only made again by a scan, so it can hold
+     * a file that a file manager deleted since: that one is gone already, and goes from the list
+     * as a deleted one does, so that its song's download ends with it instead of staying listed.
      * Synchronized because deletes run in parallel on dlCoroutine, and the read-modify-write of
      * availableFiles below would otherwise lose one, leaving the player a deleted file.
      */
     @Synchronized
-    fun deleteFile(mediaId: String): Boolean {
-        val file = isExists(mediaId) ?: return false
-        if (!isInMainDir(file)) return false
-        val deleted = file.delete()
+    fun deleteFile(mediaId: String): FileRemoval {
+        val file = isExists(mediaId) ?: return FileRemoval.NOT_HERE
+        if (!isInMainDir(file)) return FileRemoval.NOT_HERE
+        val removal = fileRemoval(
+            deleted = file.delete(),
+            fileThere = { file.exists() },
+            folderThere = { mainDir?.exists() == true },
+        )
         // Out of the list as well, or the player went on handing out the deleted file for the
         // rest of the session and the song could not be streamed instead.
-        if (deleted) {
+        if (removal.over) {
             availableFiles = availableFiles - file
             documentId(file)?.let { songFileIds.remove(it) }
         }
-        return deleted
+        return removal
     }
 
     fun saveFile(mediaId: String, input: InputStream, displayName: String?): Uri? {
@@ -330,6 +337,45 @@ fun knownPaths(songs: List<Song>): Map<String, String> =
         .groupBy({ it.first }, { it.second })
         .filterValues { it.distinct().size == 1 }
         .mapValues { it.value.first() }
+
+/**
+ * What came of deleting a song's file from the main download folder (DownloadDirectoryManagerOt.deleteFile).
+ * [over]: the song's download is over, whether the file went just now or was gone already; the
+ * song leaves the Downloads list and its download state is cleared (DownloadUtil.deleteSong).
+ */
+enum class FileRemoval(val over: Boolean) {
+    /** The file was deleted. */
+    DELETED(true),
+
+    /**
+     * The folder's list held the file, but it is not there: a file manager deleted it since the
+     * list was made. The folder answers and has no such file, so nothing is left to delete.
+     */
+    GONE(true),
+
+    /** Nothing was tried: no file of the song in the list, or one in an extra folder, which is never changed. */
+    NOT_HERE(false),
+
+    /**
+     * The file is there and could not be deleted (a permission, a provider that does not delete),
+     * or the folder cannot be reached to say whether it is (a card not mounted, a grant that is
+     * gone). The song stays listed, as a scan spares it (unlistedDownloadDirs).
+     */
+    REFUSED(false),
+}
+
+/**
+ * Tells a delete that went through, one that found the file gone already, and one that was refused.
+ * A delete that did not go through is gone already only when the file is not there while the
+ * folder answers: a folder that cannot be reached is not an empty one, and says nothing of the
+ * file. Asked only as far as it has to be, each question being a call to the storage provider.
+ */
+fun fileRemoval(deleted: Boolean, fileThere: () -> Boolean, folderThere: () -> Boolean): FileRemoval = when {
+    deleted -> FileRemoval.DELETED
+    fileThere() -> FileRemoval.REFUSED
+    folderThere() -> FileRemoval.GONE
+    else -> FileRemoval.REFUSED
+}
 
 /**
  * Which download dirs a full listing has to treat as not looked at, rather than as empty.
