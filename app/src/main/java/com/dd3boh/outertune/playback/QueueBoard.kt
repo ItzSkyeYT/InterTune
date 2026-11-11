@@ -460,6 +460,19 @@ class QueueBoard(
     }
 
     /**
+     * [song] put back into [q] at [pos] in play order, where a removal from the queue sheet took it out
+     * and Undo brings it back (ui/player/QueueUndo). Saved. The player is the caller's to hand the copy
+     * returned here, the one the queue now holds, so that both hold the same song; nothing is loaded
+     * again, and the queue's place stays on the song it was on (insertAtPlayIndex).
+     */
+    fun putBack(q: MultiQueueObject, pos: Int, song: MediaMetadata): MediaMetadata {
+        val at = pos.coerceIn(0, q.getSize())
+        q.insertAtPlayIndex(at, listOf(song))
+        saveQueueSongs(q)
+        return q.getCurrentQueueShuffled()[at]
+    }
+
+    /**
      * The adaptive queue's edits to the current queue in one go: each replaces, takes out or puts in
      * songs at a place in play order, after checking that the board and the player both hold the
      * song the plan was made for (its uid, composeUidWorkaround). The player is edited item by item,

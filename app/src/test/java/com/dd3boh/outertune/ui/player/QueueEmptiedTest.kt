@@ -40,9 +40,7 @@ class QueueEmptiedTest {
         val picked = queue.substringAfter("val removeSelected").substringBefore("\n    }\n")
         assertTrue("Remove from queue", "dropIfEmptied()" in picked)
         assertTrue("before the mini player is read again, which then finds no queue", picked.indexOf("dropIfEmptied()") < picked.indexOf("storedQueueEdited()"))
-        for (side in listOf("SwipeToDismissBoxValue.StartToEnd ->" to "SwipeToDismissBoxValue.EndToStart ->", "SwipeToDismissBoxValue.EndToStart ->" to "SwipeToDismissBoxValue.Settled ->")) {
-            val swipe = queue.substringAfter(side.first).substringBefore(side.second)
-            assertTrue("a swipe ${side.first}", "dropIfEmptied()" in swipe)
-        }
+        val swipe = queue.substringAfter("val removeSwiped: () -> Boolean = swipe@{").substringBefore("val onCheckedChange")
+        assertTrue("a swipe", "dropIfEmptied()" in swipe)
     }
 }
