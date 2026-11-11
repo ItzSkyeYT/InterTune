@@ -1,5 +1,6 @@
 package com.dd3boh.outertune.ui.utils
 
+import android.annotation.SuppressLint
 import androidx.navigation.NavController
 import androidx.navigation.NavGraph
 import com.dd3boh.outertune.ui.screens.Screens
@@ -63,6 +64,10 @@ internal fun pagesLeftWithSettings(routes: List<String?>): Int {
  * It is left here first, the way the arrow at the top of it leaves it, and what is parked is the
  * tab's own.
  */
+// The pages under the current one can only be read from the navigation library's own list, which it marks
+// as for its library group; nothing public gives them. The library's version is pinned, and an update that
+// took the list away would fail the build, not the app.
+@SuppressLint("RestrictedApi")
 fun NavController.leaveSettings(): Boolean {
     val pages = currentBackStack.value.filter { it.destination !is NavGraph }.map { it.destination.route }
     var left = 0
