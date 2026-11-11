@@ -66,6 +66,15 @@ class SavedQueueShownTest {
     }
 
     @Test
+    fun `a queue that comes while the sheet is on its way down brings it back up`() {
+        // A song from the widget or a link plays as the app opens: its queue can arrive a frame
+        // after the sheet was sent down over nothing, while it is still drawn on its way.
+        val up = player.substringAfter("LaunchedEffect(qbInit, playerConnection.service.queueBoard.masterQueues.toList()) {").substringBefore("\n    }")
+        assertTrue(up.contains("&& (state.isDismissed || state.anchor == dismissedAnchor)) {"))
+        assertTrue(up.contains("state.collapseSoft()"))
+    }
+
+    @Test
     fun `with Persistent queue off the board starts with no queue`() {
         // What both rules above stand on. A board that reads the saved queues whatever the switch
         // says would need them looked at again.
