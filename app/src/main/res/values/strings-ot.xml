@@ -2255,8 +2255,8 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="battery_use_saver">Saver</string>
     <string name="battery_use_full_description">Everything as you set it.</string>
     <string name="battery_use_balanced_description">Your library syncs every two hours instead of every half hour, and the playing bars move more calmly.</string>
-    <string name="battery_use_saver_description">Sound effects off, a black theme, fewer frames a second and, on Auto, Low quality on mobile data. Syncs and downloads wait for Wi-Fi.</string>
-    <string name="battery_use_explain">How much InterTune does while you listen. \"Balanced\" syncs your library less often and calms the playing bars. \"Saver\" also turns sound effects off, shows a black theme at fewer frames a second and, with Audio quality on Auto, streams at Low quality on mobile data.</string>
+    <string name="battery_use_saver_description">Sound effects off except the equalizer, a black theme, fewer frames a second and, on Auto, Low quality on mobile data. Syncs and downloads wait for Wi-Fi.</string>
+    <string name="battery_use_explain">How much InterTune does while you listen. \"Balanced\" syncs your library less often and calms the playing bars. \"Saver\" also turns sound effects off except the equalizer, shows a black theme at fewer frames a second and, with Audio quality on Auto, streams at Low quality on mobile data.</string>
     <string name="battery_saver_holds_note">Set by \"Battery use\" while it is on \"Saver\".</string>
     <string name="battery_saver_quality_note">Low on mobile data while \"Battery use\" is on \"Saver\".</string>
     <string name="battery_saver_background_note">%1$s while \"Battery use\" is on \"Saver\".</string>
