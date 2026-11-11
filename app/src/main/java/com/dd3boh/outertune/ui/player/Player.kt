@@ -539,7 +539,9 @@ fun BottomSheetPlayer(
 
     LaunchedEffect(qbInit, playerConnection.service.queueBoard.masterQueues.toList()) {
         Log.d(TAG, "Queues changed. qbInit = $qbInit")
-        if (qbInit && !playerConnection.service.queueBoard.masterQueues.isEmpty() && state.isDismissed) {
+        // Down, or on its way down: a queue that comes while the rule below is taking the sheet
+        // down (a song from the widget or a link, played as the app opens) brings it back up.
+        if (qbInit && !playerConnection.service.queueBoard.masterQueues.isEmpty() && (state.isDismissed || state.anchor == dismissedAnchor)) {
             Log.d(TAG, "Triggering sheet collapseSoft")
             state.collapseSoft()
         }
