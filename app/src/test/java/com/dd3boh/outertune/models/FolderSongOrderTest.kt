@@ -7,11 +7,14 @@
 package com.dd3boh.outertune.models
 
 import com.dd3boh.outertune.constants.FolderSongSortType
+import com.dd3boh.outertune.db.entities.ArtistEntity
+import com.dd3boh.outertune.db.entities.PlayCountEntity
 import com.dd3boh.outertune.db.entities.Song
 import com.dd3boh.outertune.db.entities.SongEntity
 import com.dd3boh.outertune.utils.scanners.TrackTags
 import org.junit.Assert.assertEquals
 import org.junit.Test
+import java.time.LocalDateTime
 
 /**
  * Issue #39: a folder sorted by track number came out in no order at all. These songs carry their
@@ -123,5 +126,85 @@ class FolderSongOrderTest {
             listOf("Two", "Three", "Ten", "Second disc opener", "One", "Bonus b", "Bonus a"),
             titles(FolderSongOrder.sorted(folder, FolderSongSortType.NAME, descending = true)),
         )
+    }
+
+    /**
+     * The Folders tab's report of 11 Nov 2026 ("sorting by artist, name, date added, track number
+     * etc in folders doesnt work"): every order the songs' sort offers has to put a folder's songs
+     * in order, both ways. Songs with a real value for each tag (the tests above only had ties for
+     * the artist, the dates and the plays), shuffled as the library hands a folder over.
+     */
+    private fun tagged(
+        title: String,
+        artist: String,
+        track: Int,
+        added: Int,
+        modified: Int,
+        released: Int,
+        plays: Int,
+    ) = Song(
+        song = SongEntity(
+            id = "LS$title",
+            title = title,
+            isLocal = true,
+            localPath = "/storage/emulated/0/Music/Night Drive/$title.mp3",
+            trackNumber = track,
+            inLibrary = LocalDateTime.of(2026, 11, added, 12, 0),
+            dateModified = LocalDateTime.of(2026, 5, modified, 12, 0),
+            date = LocalDateTime.of(released, 1, 1, 0, 0),
+        ),
+        artists = listOf(ArtistEntity(id = "LA$artist", name = artist, isLocal = true)),
+        playCount = if (plays == 0) emptyList() else listOf(PlayCountEntity("LS$title", 2026, 11, plays)),
+    )
+
+    // Every column runs in an order of its own: by title Afterglow, Cold, Harbor, Midnight, Zero;
+    // by artist Aki, Bo, Cleo, Mira, Zed; by track 1 to 5; by the day added Cold, Afterglow,
+    // Midnight, Harbor, Zero; and so on. No two columns run alike, so an order that is not the one
+    // asked for shows.
+    private val nightDrive = listOf(
+        tagged("Zero Hour", "Mira Tolland", track = 3, added = 5, modified = 3, released = 2019, plays = 4),
+        tagged("Afterglow", "Bo Venn", track = 1, added = 2, modified = 1, released = 2021, plays = 1),
+        tagged("Midnight Run", "Aki Sato", track = 4, added = 3, modified = 5, released = 2017, plays = 9),
+        tagged("Cold Lights", "Zed Harper", track = 2, added = 1, modified = 2, released = 2020, plays = 0),
+        tagged("Harbor Fog", "Cleo Marsh", track = 5, added = 4, modified = 4, released = 2018, plays = 2),
+    )
+
+    private val ascending = mapOf(
+        FolderSongSortType.NAME to listOf("Afterglow", "Cold Lights", "Harbor Fog", "Midnight Run", "Zero Hour"),
+        FolderSongSortType.ARTIST to listOf("Midnight Run", "Afterglow", "Harbor Fog", "Zero Hour", "Cold Lights"),
+        FolderSongSortType.TRACK_NUMBER to listOf("Afterglow", "Cold Lights", "Zero Hour", "Midnight Run", "Harbor Fog"),
+        FolderSongSortType.CREATE_DATE to listOf("Cold Lights", "Afterglow", "Midnight Run", "Harbor Fog", "Zero Hour"),
+        FolderSongSortType.MODIFIED_DATE to listOf("Afterglow", "Cold Lights", "Zero Hour", "Harbor Fog", "Midnight Run"),
+        FolderSongSortType.RELEASE_DATE to listOf("Midnight Run", "Harbor Fog", "Zero Hour", "Cold Lights", "Afterglow"),
+        FolderSongSortType.PLAY_COUNT to listOf("Cold Lights", "Afterglow", "Harbor Fog", "Zero Hour", "Midnight Run"),
+    )
+
+    @Test
+    fun `every order the songs' sort offers puts a folder's songs in order`() {
+        assertEquals(FolderSongSortType.entries.toSet(), ascending.keys)
+        for (sort in FolderSongSortType.entries) {
+            assertEquals("$sort ascending", ascending.getValue(sort), titles(FolderSongOrder.sorted(nightDrive, sort, descending = false)))
+        }
+    }
+
+    @Test
+    fun `every order the songs' sort offers runs the other way when its arrow is turned`() {
+        for (sort in FolderSongSortType.entries) {
+            val expected = ascending.getValue(sort).reversed()
+            assertEquals("$sort descending", expected, titles(FolderSongOrder.sorted(nightDrive, sort, descending = true)))
+            // Whatever order the library hands the folder over in.
+            assertEquals("$sort descending, handed over backwards", expected, titles(FolderSongOrder.sorted(nightDrive.reversed(), sort, descending = true)))
+        }
+    }
+
+    @Test
+    fun `a song with no value for the order goes first, and last when the order is turned round`() {
+        val bare = Song(SongEntity(id = "LSbare", title = "Bare", localPath = "/m/Bare.mp3", isLocal = true), artists = emptyList())
+        for (sort in listOf(FolderSongSortType.ARTIST, FolderSongSortType.CREATE_DATE, FolderSongSortType.MODIFIED_DATE, FolderSongSortType.RELEASE_DATE)) {
+            val up = titles(FolderSongOrder.sorted(nightDrive + bare, sort, descending = false))
+            assertEquals("$sort ascending", "Bare", up.first())
+            val down = titles(FolderSongOrder.sorted(nightDrive + bare, sort, descending = true))
+            assertEquals("$sort descending", "Bare", down.last())
+        }
     }
 }
