@@ -1893,7 +1893,7 @@ class MusicService : MediaLibraryService(),
                     .collectLatest(scope) { YTPlayerUtils.askWebClientFirst = it }
             }
             // A test tool like the switches below: never read in a release.
-            if (BuildConfig.DEBUG && Unreleased.SABR) {
+            if (BuildConfig.PREVIEW_FEATURES && Unreleased.SABR) {
                 dataStore.data.map { it[SabrOnlyKey] ?: false }
                     .distinctUntilChanged()
                     .collectLatest(scope) { YTPlayerUtils.sabrOnly = it }
@@ -1917,12 +1917,12 @@ class MusicService : MediaLibraryService(),
             // read only where the developer options have their row, in a debug or preview build,
             // whatever the two flags say. A restored backup can bring a switch that is on into a
             // release, which has no row to turn it off with.
-            if (BuildConfig.DEBUG && Unreleased.WEB_FALLBACK) {
+            if (BuildConfig.PREVIEW_FEATURES && Unreleased.WEB_FALLBACK) {
                 dataStore.data.map { it[VisionosRefusedKey] ?: false }
                     .distinctUntilChanged()
                     .collectLatest(scope) { YTPlayerUtils.takeVisionosForRefused(it) }
             }
-            if (BuildConfig.DEBUG && Unreleased.VISIONOS_IDENTITIES) {
+            if (BuildConfig.PREVIEW_FEATURES && Unreleased.VISIONOS_IDENTITIES) {
                 dataStore.data.map { it[OwnVisionosRefusedKey] ?: false }
                     .distinctUntilChanged()
                     .collectLatest(scope) { YTPlayerUtils.takeVisionosForRefused(it, onlyAsSaidHere = true) }
@@ -3593,7 +3593,7 @@ class MusicService : MediaLibraryService(),
 
             // The developer's "Stream over SABR only": the same answer over SABR instead of its
             // direct address, the walk otherwise as it always is (playback/sabr/SabrOver).
-            val streamed = if (BuildConfig.DEBUG && Unreleased.SABR && YTPlayerUtils.sabrOnly) {
+            val streamed = if (BuildConfig.PREVIEW_FEATURES && Unreleased.SABR && YTPlayerUtils.sabrOnly) {
                 // From the answer for the upload played, paced by the song the player asked for.
                 SabrOver.over(played.from, playbackData, since = resolveBegan, clockId = mediaId) ?: playbackData
             } else {

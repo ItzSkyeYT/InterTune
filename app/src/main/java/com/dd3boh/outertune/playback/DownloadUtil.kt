@@ -362,7 +362,7 @@ class DownloadUtil @Inject constructor(
 
         // The developer's "Stream over SABR only", as the player has it (MusicService): the same
         // answer over SABR, so that a download goes over it too.
-        val streamed = if (BuildConfig.DEBUG && Unreleased.SABR && YTPlayerUtils.sabrOnly) {
+        val streamed = if (BuildConfig.PREVIEW_FEATURES && Unreleased.SABR && YTPlayerUtils.sabrOnly) {
             SabrOver.over(played.from, playbackData, since = resolveBegan, forDownload = true) ?: playbackData
         } else {
             playbackData
