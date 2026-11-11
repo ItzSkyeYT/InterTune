@@ -11,7 +11,6 @@ import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -31,8 +30,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.List
 import androidx.compose.material.icons.rounded.AccountTree
-import androidx.compose.material.icons.rounded.ArrowDownward
-import androidx.compose.material.icons.rounded.ArrowUpward
 import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.SdCard
@@ -47,10 +44,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBarScrollBehavior
-import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -72,9 +69,6 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
@@ -96,6 +90,8 @@ import com.dd3boh.outertune.constants.FolderSongSortDescendingKey
 import com.dd3boh.outertune.constants.FolderSongSortType
 import com.dd3boh.outertune.constants.FolderSongSortTypeKey
 import com.dd3boh.outertune.constants.FolderSortDescendingKey
+import com.dd3boh.outertune.constants.FolderSortType
+import com.dd3boh.outertune.constants.FolderSortTypeKey
 import com.dd3boh.outertune.constants.LastLocalScanKey
 import com.dd3boh.outertune.constants.ListThumbnailSize
 import com.dd3boh.outertune.constants.LocalLibraryEnableKey
@@ -163,6 +159,7 @@ fun FolderScreen(
 
     val (sortType, onSortTypeChange) = rememberEnumPreference(FolderSongSortTypeKey, FolderSongSortType.NAME)
     val (sortDescending, onSortDescendingChange) = rememberPreference(FolderSongSortDescendingKey, true)
+    val (folderSortType, onFolderSortTypeChange) = rememberEnumPreference(FolderSortTypeKey, FolderSortType.NAME)
     val (folderSortDescending, onFolderSortDescendingChange) = rememberPreference(FolderSortDescendingKey, false)
     val swipeEnabled by rememberPreference(SwipeToQueueKey, true)
 
@@ -262,15 +259,23 @@ fun FolderScreen(
         }
     }
 
-    // and folders by name with their own arrow, whatever the songs' sort (FolderOrder, tested).
-    // They followed the songs' sort and arrow: an artist's albums sorted by track number with the
-    // arrow down went from Z.
-    LaunchedEffect(folderSortDescending, currDir, flatSubfolders) {
+    // and folders by their own order and arrow, whatever the songs' sort: by name, or by the
+    // newest date among the songs under each (FolderOrder, tested). They followed the songs' sort
+    // and arrow, and an artist's albums sorted by track number with the arrow down went from Z;
+    // then they went by name alone and the date orders over a list of folders did nothing.
+    LaunchedEffect(folderSortType, folderSortDescending, currDir, flatSubfolders) {
         val folders = if (flatSubfolders) currDir.getFlattenedSubdirs() else currDir.subdirs.toList()
+        val dates = if (FolderOrder.byDate(folderSortType)) viewModel.folderDates(folderSortType) else emptyMap()
         shownFolders.apply {
             clear()
-            addAll(FolderOrder.sorted(folders, folderSortDescending))
+            addAll(FolderOrder.sorted(folders, folderSortDescending, folderSortType, dates))
         }
+    }
+
+    // The songs a search finds, in the songs' order too: they came in the order the library
+    // gave them, and the order offered above them did nothing to them.
+    val searchedSongs by remember(sortType, sortDescending) {
+        derivedStateOf { FolderSongOrder.sorted(filteredSongs, sortType, sortDescending) }
     }
 
     Box(
@@ -364,32 +369,61 @@ fun FolderScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.padding(start = 16.dp, end = 8.dp)
                         ) {
-                            // The songs' sort where it always was, and right after it the folders'
-                            // own arrow. The count and the three dots keep their place.
+                            // Each list has the orders that mean something for it: the songs' (all seven),
+                            // and after them, with a folder in front, the folders' (name or a date). A
+                            // list that is not on this screen has no order shown: over a list of folders
+                            // alone the songs' sort had nothing to sort and looked broken. The count and
+                            // the three dots keep their place.
+                            val showSongSort = isSearching || currDir.files.isNotEmpty()
+                            val showFolderSort = !isSearching && currDir.subdirs.isNotEmpty()
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 modifier = Modifier.weight(1f)
                             ) {
-                                SortHeader(
-                                    sortType = sortType,
-                                    sortDescending = sortDescending,
-                                    onSortTypeChange = onSortTypeChange,
-                                    onSortDescendingChange = onSortDescendingChange,
-                                    sortTypeText = { sortType ->
-                                        when (sortType) {
-                                            FolderSongSortType.CREATE_DATE -> R.string.sort_by_create_date
-                                            FolderSongSortType.MODIFIED_DATE -> R.string.sort_by_date_modified
-                                            FolderSongSortType.RELEASE_DATE -> R.string.sort_by_date_released
-                                            FolderSongSortType.NAME -> R.string.sort_by_name
-                                            FolderSongSortType.ARTIST -> R.string.sort_by_artist
-                                            FolderSongSortType.PLAY_COUNT -> R.string.sort_by_play_count
-                                            FolderSongSortType.TRACK_NUMBER -> R.string.sort_by_track_number
-                                        }
-                                    },
-                                    modifier = Modifier.weight(1f, fill = false)
-                                )
-                                if (!isSearching && currDir.subdirs.isNotEmpty()) {
-                                    FolderOrderArrow(folderSortDescending, onFolderSortDescendingChange)
+                                if (showSongSort) {
+                                    SortHeader(
+                                        sortType = sortType,
+                                        sortDescending = sortDescending,
+                                        onSortTypeChange = onSortTypeChange,
+                                        onSortDescendingChange = onSortDescendingChange,
+                                        sortTypeText = { sortType ->
+                                            when (sortType) {
+                                                FolderSongSortType.CREATE_DATE -> R.string.sort_by_create_date
+                                                FolderSongSortType.MODIFIED_DATE -> R.string.sort_by_date_modified
+                                                FolderSongSortType.RELEASE_DATE -> R.string.sort_by_date_released
+                                                FolderSongSortType.NAME -> R.string.sort_by_name
+                                                FolderSongSortType.ARTIST -> R.string.sort_by_artist
+                                                FolderSongSortType.PLAY_COUNT -> R.string.sort_by_play_count
+                                                FolderSongSortType.TRACK_NUMBER -> R.string.sort_by_track_number
+                                            }
+                                        },
+                                        modifier = Modifier.weight(1f, fill = false)
+                                    )
+                                }
+                                if (showFolderSort) {
+                                    Icon(
+                                        Icons.Rounded.Folder,
+                                        contentDescription = stringResource(R.string.folders),
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier
+                                            .padding(start = if (showSongSort) 8.dp else 4.dp)
+                                            .size(16.dp)
+                                    )
+                                    SortHeader(
+                                        sortType = folderSortType,
+                                        sortDescending = folderSortDescending,
+                                        onSortTypeChange = onFolderSortTypeChange,
+                                        onSortDescendingChange = onFolderSortDescendingChange,
+                                        sortTypeText = { folderSortType ->
+                                            when (folderSortType) {
+                                                FolderSortType.NAME -> R.string.sort_by_name
+                                                FolderSortType.CREATE_DATE -> R.string.sort_by_create_date
+                                                FolderSortType.MODIFIED_DATE -> R.string.sort_by_date_modified
+                                                FolderSortType.RELEASE_DATE -> R.string.sort_by_date_released
+                                            }
+                                        },
+                                        modifier = Modifier.weight(1f, fill = false)
+                                    )
                                 }
                             }
 
@@ -522,7 +556,7 @@ fun FolderScreen(
             // all songs get listed here
             val thumbnailSize = (ListThumbnailSize.value * density.density).roundToInt()
             itemsIndexed(
-                items = if (isSearching) filteredSongs else mutableSongs,
+                items = if (isSearching) searchedSongs else mutableSongs,
                 key = { _, item -> item.id },
                 contentType = { _, _ -> CONTENT_TYPE_SONG }
             ) { index, song ->
@@ -550,7 +584,7 @@ fun FolderScreen(
                         // While searching, the rows come from every folder below this one, and this
                         // folder's own files may not hold the song tapped at all, so the queue is
                         // built from the rows on screen.
-                        val shownSongs = if (isSearching) filteredSongs else mutableSongs
+                        val shownSongs = if (isSearching) searchedSongs else mutableSongs
                         playerConnection.playQueue(
                             ListQueue(
                                 title = currDir.currentDir.substringAfterLast('/'),
@@ -621,7 +655,7 @@ fun FolderScreen(
             // While searching, the rows are the results from every folder below this one: Select
             // all takes those and nothing hidden, and a selected result from a subfolder is looked
             // up there, since this folder's own files do not hold it and it was silently dropped.
-            val shownSongs = if (isSearching) filteredSongs else mutableSongs
+            val shownSongs = if (isSearching) searchedSongs else mutableSongs
             SelectHeader(
                 navController = navController,
                 selectedItems = selection.mapNotNull { songId ->
@@ -642,41 +676,6 @@ fun FolderScreen(
             modifier = Modifier
                 .windowInsetsPadding(LocalPlayerAwareWindowInsets.current)
                 .align(Alignment.BottomCenter)
-        )
-    }
-}
-
-/**
- * The folders' own arrow, drawn as the songs' arrow beside it is: folders always go by name
- * (FolderOrder), A to Z with the arrow up, as an ascending sort has it, Z to A with it down. The
- * folder in front says whose arrow it is.
- */
-@Composable
-private fun FolderOrderArrow(descending: Boolean, onDescendingChange: (Boolean) -> Unit) {
-    val name = stringResource(if (descending) R.string.folder_order_z_to_a else R.string.folder_order_a_to_z)
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = ripple(bounded = false),
-                role = Role.Button,
-                onClick = { onDescendingChange(!descending) }
-            )
-            .semantics { contentDescription = name }
-            .padding(8.dp)
-    ) {
-        Icon(
-            Icons.Rounded.Folder,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(16.dp)
-        )
-        Icon(
-            if (descending) Icons.Rounded.ArrowDownward else Icons.Rounded.ArrowUpward,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(16.dp)
         )
     }
 }

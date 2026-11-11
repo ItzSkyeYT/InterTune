@@ -37,6 +37,8 @@ import com.dd3boh.outertune.constants.FolderSongSortDescendingKey
 import com.dd3boh.outertune.constants.FolderSongSortType
 import com.dd3boh.outertune.constants.FolderSongSortTypeKey
 import com.dd3boh.outertune.constants.FolderSortDescendingKey
+import com.dd3boh.outertune.constants.FolderSortType
+import com.dd3boh.outertune.constants.FolderSortTypeKey
 import com.dd3boh.outertune.db.entities.Song
 import com.dd3boh.outertune.extensions.toMediaItem
 import com.dd3boh.outertune.models.DirectoryTree
@@ -71,9 +73,10 @@ fun FolderMenu(
 
     val allFolderSongs = remember { mutableStateListOf<Song>() }
     // The sort of the Folders tab, which a folder played from here follows: the songs' sort, and
-    // the folders' own arrow.
+    // the folders' own order and arrow.
     val (sortType) = rememberEnumPreference(FolderSongSortTypeKey, FolderSongSortType.NAME)
     val (sortDescending) = rememberPreference(FolderSongSortDescendingKey, true)
+    val (folderSortType) = rememberEnumPreference(FolderSortTypeKey, FolderSortType.NAME)
     val (folderSortDescending) = rememberPreference(FolderSortDescendingKey, false)
     var subDirSongCount by remember {
         mutableIntStateOf(0)
@@ -101,8 +104,9 @@ fun FolderMenu(
         val dbSongs = database.localSongsInDirDeep(dir)
         // In the order the folder's screen shows them, folder by folder (FolderOrder). They came
         // in the order the library holds them, so Play ignored the sort picked.
+        val dates = if (FolderOrder.byDate(folderSortType)) FolderOrder.newestDates(database.localFolderDates(dir), folderSortType) else emptyMap()
         allFolderSongs.clear()
-        allFolderSongs.addAll(FolderOrder.playOrder(dir, dbSongs, sortType, sortDescending, folderSortDescending))
+        allFolderSongs.addAll(FolderOrder.playOrder(dir, dbSongs, sortType, sortDescending, folderSortDescending, folderSortType, dates))
         if (onFetch != null) {
             onFetch()
         }
