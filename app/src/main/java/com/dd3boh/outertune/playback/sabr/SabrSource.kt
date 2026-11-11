@@ -18,9 +18,11 @@ import androidx.media3.datasource.DataSpec
 import androidx.media3.datasource.HttpDataSource
 import androidx.media3.datasource.TransferListener
 import com.dd3boh.outertune.sabr.SabrFile
+import com.dd3boh.outertune.utils.RouteTimes
 import com.dd3boh.outertune.utils.StreamFamily
 import java.io.IOException
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * The SABR starts the resolver has handed out, by the address it handed out for them:
@@ -46,9 +48,67 @@ object SabrStarts {
         val pacedByPlayer: Boolean = true,
         val songId: String = videoId,
         val networkChanges: Int = 0,
-    )
+    ) {
+        /** Whether its refusal was counted: two reads of one start can both meet it. See [refused]. */
+        internal val refusalCounted = AtomicBoolean(false)
+    }
 
     private val starts = ConcurrentHashMap<String, Start>()
+
+    /** How many starts of a song in a row YouTube has turned down, and when the last one was. */
+    private class Refused(val inARow: Int, val lastAt: Long)
+
+    /** By the song the player asked for. Guarded by itself. */
+    private val refusals = HashMap<String, Refused>()
+
+    /**
+     * YouTube turned [start] down, at [nowMs]: it goes with every other start of its video, as
+     * [forget] has it, and the refusal is counted for the song the player asked for.
+     *
+     * One refusal is answered with a new start, made from a new answer by the walk that follows:
+     * a start can age, and YouTube asks for a fresh player response of one that has. When the
+     * start made after it is turned down as well, before it brought the player any music and
+     * within [RouteTimes.SABR_REFUSED_REST_MS], that is YouTube's word on the session and not on
+     * the start, and a third asked the same way gets it again. Nothing told those walks apart, a
+     * start over SABR having no route to change: the player's four loads and its three quiet
+     * retries each walked the whole chain to this rung, sixteen walks for one song, which was
+     * then given up as "no answer from YouTube's servers" (issue #138, signed in behind a VPN).
+     * So the song rests: see [restsUntil].
+     */
+    fun refused(start: Start, nowMs: Long = System.currentTimeMillis()) {
+        forget(start.videoId)
+        if (!start.refusalCounted.compareAndSet(false, true)) return
+        synchronized(refusals) {
+            // A refusal as old as the rest is no longer part of a row, nor is one a clock set back left ahead.
+            refusals.values.removeIf { nowMs < it.lastAt || nowMs - it.lastAt >= RouteTimes.SABR_REFUSED_REST_MS }
+            refusals[start.songId] = Refused((refusals[start.songId]?.inARow ?: 0) + 1, nowMs)
+        }
+    }
+
+    /** A start of [songId] brought the player music: what was refused before it no longer counts. */
+    fun served(songId: String) {
+        synchronized(refusals) { refusals.remove(songId) }
+    }
+
+    /**
+     * Until when (wall clock) no new start of [songId] is made, or null when one may be: YouTube
+     * turned down its last [REFUSALS_IN_A_ROW] starts in a row, the last of them less than
+     * [RouteTimes.SABR_REFUSED_REST_MS] ago. The walk then ends as it does without SABR, in
+     * YouTube's own words, which the player does not try again (SabrOver.over).
+     */
+    fun restsUntil(songId: String, nowMs: Long = System.currentTimeMillis()): Long? {
+        val seen = synchronized(refusals) { refusals[songId] } ?: return null
+        val end = seen.lastAt + RouteTimes.SABR_REFUSED_REST_MS
+        return end.takeIf { seen.inARow >= REFUSALS_IN_A_ROW && nowMs >= seen.lastAt && nowMs < end }
+    }
+
+    /** For the tests, each of which starts as a new process does. */
+    internal fun forgetRefusals() {
+        synchronized(refusals) { refusals.clear() }
+    }
+
+    /** How many starts of a song in a row YouTube turns down before the song rests. */
+    const val REFUSALS_IN_A_ROW = 2
 
     /**
      * A download's start has an address of its own. Under one address, the second start of a
@@ -138,6 +198,9 @@ class SabrRead(private val starts: SabrStarts = SabrStarts, private val cutWith:
     @Volatile
     private var cut = false
 
+    /** How many bytes this read has handed over since it was opened, counted up to [SERVED_BYTES]. */
+    private var handedOver = 0L
+
     /** The song read, while the read is open. */
     val videoId: String? get() = start?.videoId
 
@@ -158,6 +221,7 @@ class SabrRead(private val starts: SabrStarts = SabrStarts, private val cutWith:
         val opened = found.file.open(position, length)
         reader = opened
         cut = false
+        handedOver = 0
         cuttable = cutWith?.cutAlongside(
             java.io.Closeable {
                 cut = true
@@ -188,10 +252,17 @@ class SabrRead(private val starts: SabrStarts = SabrStarts, private val cutWith:
             if (failure !is java.io.InterruptedIOException || failure is java.net.SocketTimeoutException) {
                 android.util.Log.w("SabrDataSource", "[${song?.videoId}] SABR read failed", failure)
             }
-            throw SabrFailures.asPlayerSees(failure, spec, HttpDataSource.HttpDataSourceException.TYPE_READ) { song?.let { starts.forget(it.videoId) } }
+            // A refusal forgets the start and is counted for the song: see SabrStarts.refused.
+            throw SabrFailures.asPlayerSees(failure, spec, HttpDataSource.HttpDataSourceException.TYPE_READ) { song?.let { starts.refused(it) } }
         }
         if (n < 0) return C.RESULT_END_OF_INPUT
         if (bytesRemaining > 0) bytesRemaining -= n
+        // Music has come from this start, more than a file's first piece: the refusals before it
+        // were not YouTube's word on the session, and no longer count (SabrStarts.served).
+        if (handedOver < SERVED_BYTES) {
+            handedOver += n
+            if (handedOver >= SERVED_BYTES) song?.let { starts.served(it.songId) }
+        }
         return n
     }
 
@@ -209,6 +280,14 @@ class SabrRead(private val starts: SabrStarts = SabrStarts, private val cutWith:
                 SabrClock.closed()
             }
         }
+    }
+
+    companion object {
+        /**
+         * How much of a song one read has to hand over before its start counts as having brought
+         * music: a few seconds of it, and well past the first piece of a file, which holds none.
+         */
+        const val SERVED_BYTES = 64 * 1024L
     }
 }
 
