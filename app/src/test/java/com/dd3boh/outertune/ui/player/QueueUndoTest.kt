@@ -88,6 +88,18 @@ class QueueUndoTest {
     }
 
     @Test
+    fun `after two removals in a row only the last is put back, at the place it had then, and the first stays out`() {
+        // A swipe, then a second one while the bar of the first shows: the bar is replaced, and Undo is for the last alone.
+        val (afterFirst, first) = takeOut(ten, listOf(1))
+        val (afterSecond, second) = takeOut(afterFirst, listOf(2))
+        assertEquals(listOf("b"), first.map { it.song })
+        assertEquals(listOf("d"), second.map { it.song })
+        val undone = QueueUndo.putBack(afterSecond, second)
+        assertEquals(afterFirst, undone)
+        assertEquals(listOf("a", "c", "d", "e", "f", "g", "h", "i", "j"), undone)
+    }
+
+    @Test
     fun `into an empty queue they go in, in order`() {
         val (_, taken) = takeOut(ten, listOf(5, 1, 3))
         assertEquals(listOf("b", "d", "f"), QueueUndo.putBack(emptyList(), taken))
