@@ -22,17 +22,17 @@ class QueueSwipeBeforePlayTest {
 
     @Test
     fun `the swipe is there before play, on the queue that will play`() {
-        assertTrue(queue.contains("if (!lockQueue && !inSelectMode && (!detachedHead || movesStoredQueue)) {\n                            SwipeToDismissBox("))
+        assertTrue(queue.contains("if (!lockQueue && !inSelectMode && (!detachedHead || movesStoredQueue)) {\n                            SwipeToRemoveBox("))
     }
 
     @Test
-    fun `both swipes take the song from the player only when it holds the queue, and read the saved one again when not`() {
-        for (side in listOf("SwipeToDismissBoxValue.StartToEnd ->" to "SwipeToDismissBoxValue.EndToStart ->", "SwipeToDismissBoxValue.EndToStart ->" to "SwipeToDismissBoxValue.Settled ->")) {
-            val swipe = queue.substringAfter(side.first).substringBefore(side.second)
-            assertTrue(side.first, "val loaded = playerConnection.player.mediaItemCount > 0" in swipe)
-            assertTrue(side.first, "if (loaded) playerConnection.player.removeMediaItem(swipedIndex)" in swipe)
-            assertTrue(side.first, "if (!loaded) playerConnection.storedQueueEdited()" in swipe)
-            assertTrue("after an emptied queue has gone", swipe.indexOf("dropIfEmptied()") < swipe.indexOf("if (!loaded) playerConnection.storedQueueEdited()"))
-        }
+    fun `a swipe takes the song from the player only when it holds the queue, and reads the saved one again when not`() {
+        // One function for both sides, since the swipe goes either way (the row's swipe box asks for it
+        // once the finger has let go: SwipeToRemoveBox).
+        val swipe = queue.substringAfter("val removeSwiped: () -> Boolean = swipe@{").substringBefore("val onCheckedChange")
+        assertTrue("val loaded = playerConnection.player.mediaItemCount > 0" in swipe)
+        assertTrue("if (loaded) playerConnection.player.removeMediaItem(swipedIndex)" in swipe)
+        assertTrue("if (!loaded) playerConnection.storedQueueEdited()" in swipe)
+        assertTrue("after an emptied queue has gone", swipe.indexOf("dropIfEmptied()") < swipe.indexOf("if (!loaded) playerConnection.storedQueueEdited()"))
     }
 }

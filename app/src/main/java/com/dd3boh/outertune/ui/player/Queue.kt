@@ -78,12 +78,9 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBarDefaults
-import androidx.compose.material3.SwipeToDismissBox
-import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
-import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -179,6 +176,7 @@ import com.dd3boh.outertune.ui.component.openProxySetting
 import com.dd3boh.outertune.playback.QueueStart
 import com.dd3boh.outertune.ui.component.FloatingFooter
 import com.dd3boh.outertune.ui.component.SelectHeader
+import com.dd3boh.outertune.ui.component.SwipeToRemoveBox
 import com.dd3boh.outertune.ui.component.button.IconButton
 import com.dd3boh.outertune.ui.component.button.ResizableIconButton
 import com.dd3boh.outertune.ui.component.items.MediaMetadataListItem
@@ -1236,63 +1234,37 @@ fun BoxScope.QueueContent(
                 } else {
                     displayIndex
                 }
-                // The swipe state keeps the confirmValueChange from the row's first composition
-                // (Material3 remembers it with no inputs), so an index captured there goes stale.
-                // Removing a song shifts every later one down without changing its key, and a second
-                // swipe then removed the song after the one swiped. The lambda reads this instead.
+                // Read when the swipe asks to remove the row, not when it was composed: an index kept
+                // from then goes stale. Removing a song shifts every later one down without changing
+                // its key, and a second swipe then removed the song after the one swiped.
                 val currentIndex by rememberUpdatedState(index)
                 ReorderableItem(
                     state = reorderableState,
                     key = QueueRows.key(window)
                 ) {
-                    val dismissState = rememberSwipeToDismissBoxState(
-                        positionalThreshold = { totalDistance ->
-                            totalDistance
-                        },
-                        confirmValueChange = { dismissValue ->
-                            // Read once, so the removal and the log below agree on the row.
-                            val swipedIndex = currentIndex
-                            // A row whose song has already left the queue (a search result stays on
-                            // screen until the results refresh) has no place of its own any more,
-                            // and a swipe on it must not take another song with it.
-                            if (dismissValue != SwipeToDismissBoxValue.Settled && mutableSongs.getOrNull(swipedIndex) != window) {
-                                return@rememberSwipeToDismissBoxState false
-                            }
-                            when (dismissValue) {
-                                SwipeToDismissBoxValue.StartToEnd -> {
-                                    if (qb.removeCurrentQueueSong(swipedIndex)) {
-                                        mutableSongs.getOrNull(swipedIndex)?.let { playerConnection.service.noteRemovedByHand(it) }
-                                        mutableSongs.getOrNull(swipedIndex)?.id?.let { ActivityLog.note(context, database, it, SignalKind.REMOVED_FROM_QUEUE) }
-                                        val loaded = playerConnection.player.mediaItemCount > 0
-                                        if (loaded) playerConnection.player.removeMediaItem(swipedIndex)
-                                        mutableSongs.removeAt(swipedIndex)
-                                        dropIfEmptied()
-                                        if (!loaded) playerConnection.storedQueueEdited()
-                                    }
-                                    haptic.performHapticFeedback(HapticFeedbackType.Confirm)
-                                    return@rememberSwipeToDismissBoxState true
-                                }
-
-                                SwipeToDismissBoxValue.EndToStart -> {
-                                    if (qb.removeCurrentQueueSong(swipedIndex)) {
-                                        mutableSongs.getOrNull(swipedIndex)?.let { playerConnection.service.noteRemovedByHand(it) }
-                                        mutableSongs.getOrNull(swipedIndex)?.id?.let { ActivityLog.note(context, database, it, SignalKind.REMOVED_FROM_QUEUE) }
-                                        val loaded = playerConnection.player.mediaItemCount > 0
-                                        if (loaded) playerConnection.player.removeMediaItem(swipedIndex)
-                                        mutableSongs.removeAt(swipedIndex)
-                                        dropIfEmptied()
-                                        if (!loaded) playerConnection.storedQueueEdited()
-                                    }
-                                    haptic.performHapticFeedback(HapticFeedbackType.Confirm)
-                                    return@rememberSwipeToDismissBoxState true
-                                }
-
-                                SwipeToDismissBoxValue.Settled -> {
-                                    return@rememberSwipeToDismissBoxState false
-                                }
-                            }
+                    // Asked once the finger has let go of the row far enough along and clearly sideways,
+                    // and the row has slid out (SwipeToRemoveBox), the same either way. False leaves the
+                    // song where it is, and the row slides back.
+                    val removeSwiped: () -> Boolean = swipe@{
+                        // Read once, so the removal and the log below agree on the row.
+                        val swipedIndex = currentIndex
+                        // A row whose song has already left the queue (a search result stays on
+                        // screen until the results refresh) has no place of its own any more,
+                        // and a swipe on it must not take another song with it.
+                        if (mutableSongs.getOrNull(swipedIndex) != window) return@swipe false
+                        val removed = qb.removeCurrentQueueSong(swipedIndex)
+                        if (removed) {
+                            mutableSongs.getOrNull(swipedIndex)?.let { playerConnection.service.noteRemovedByHand(it) }
+                            mutableSongs.getOrNull(swipedIndex)?.id?.let { ActivityLog.note(context, database, it, SignalKind.REMOVED_FROM_QUEUE) }
+                            val loaded = playerConnection.player.mediaItemCount > 0
+                            if (loaded) playerConnection.player.removeMediaItem(swipedIndex)
+                            mutableSongs.removeAt(swipedIndex)
+                            dropIfEmptied()
+                            if (!loaded) playerConnection.storedQueueEdited()
+                            haptic.performHapticFeedback(HapticFeedbackType.Confirm)
                         }
-                    )
+                        removed
+                    }
 
                     val onCheckedChange: (Boolean) -> Unit = {
                         haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
@@ -1384,9 +1356,8 @@ fun BoxScope.QueueContent(
                         // Before play after a restart too (movesStoredQueue), as Remove from queue is: the songs
                         // leave the saved queue alone, the player holding nothing yet.
                         if (!lockQueue && !inSelectMode && (!detachedHead || movesStoredQueue)) {
-                            SwipeToDismissBox(
-                                state = dismissState,
-                                backgroundContent = {},
+                            SwipeToRemoveBox(
+                                onRemove = removeSwiped,
                                 content = { content() }
                             )
                         } else {
