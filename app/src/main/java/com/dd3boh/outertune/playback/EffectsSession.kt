@@ -16,16 +16,27 @@ package com.dd3boh.outertune.playback
  * the sound came back: the effects left with each pause and returned a moment into the music,
  * which played without them, louder and unequalized, until they did.
  *
- * So the session is announced once, when music first plays on the phone, and stays announced
- * through pauses, the end of the queue, stops and errors. It is closed, under the id it was
- * announced with, only when the service ends, when the sound goes to a receiver, or when the upmix
- * comes on (MusicService.syncEffectsSession says why those two).
+ * So a pause no longer closes it. The session is announced each time music starts to play on the
+ * phone, as before, and stays announced through pauses, the end of the queue, stops and errors.
+ * It is closed, under the id it was announced with, only when the service ends, when the sound goes
+ * to a receiver, or when the upmix comes on (MusicService.syncEffectsSession says why those two).
+ *
+ * Why it is still announced at every play: an equalizer app opened after the music began knows
+ * nothing of the session until it is told, and its users are told to pause and play. To an app
+ * that holds the session already the announcement is a repeat, which Android's two own equalizer
+ * apps ignore: MusicFX returns for a session it has (ControlPanelEffect.openSession) and
+ * LineageOS's AudioFX only keeps the effects it had (SessionManager). Android asks no more of it:
+ * a player may announce "before starting playback", and an effect made where one of its kind
+ * exists on the session is that same one.
  */
 class EffectsSession(private val send: (open: Boolean, sessionId: Int) -> Unit) {
 
     /** The session id the equalizer apps hold, null while they hold none. */
     var announced: Int? = null
         private set
+
+    /** Whether music was playing at the last look, so that a play is told from a pause that goes on. */
+    private var wasPlaying = false
 
     /**
      * Brings what is announced in line with the player. [sessionId] is the player's audio session,
@@ -36,18 +47,27 @@ class EffectsSession(private val send: (open: Boolean, sessionId: Int) -> Unit) 
         val held = announced
         when {
             barred -> close()
+            // Not made yet: the play is not counted, so it is announced once the id is there.
             sessionId == UNSET -> Unit
-            held == null -> if (playing) open(sessionId)
             // media3 keeps one id for the player's life; were it ever given another, the effects follow.
-            held != sessionId -> {
+            held != null && held != sessionId -> {
                 close()
                 open(sessionId)
+                wasPlaying = playing
+            }
+            else -> {
+                if (playing && !wasPlaying) open(sessionId)
+                wasPlaying = playing
             }
         }
     }
 
-    /** The equalizer apps let go of the session: the service ends, or the sound leaves the phone. */
+    /**
+     * The equalizer apps let go of the session: the service ends, or the sound leaves the phone.
+     * Music that plays on the phone after it is a play again, and announces it.
+     */
     fun close() {
+        wasPlaying = false
         val held = announced ?: return
         announced = null
         send(false, held)

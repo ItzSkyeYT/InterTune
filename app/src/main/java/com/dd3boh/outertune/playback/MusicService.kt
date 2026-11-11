@@ -1168,8 +1168,9 @@ class MusicService : MediaLibraryService(),
         .build()
 
     /**
-     * What the phone's equalizer apps have been told of the player's audio session: announced once,
-     * kept through pauses, closed when the service ends (EffectsSession, #133). Main thread.
+     * What the phone's equalizer apps have been told of the player's audio session: announced at
+     * every play, never closed at a pause, closed when the service ends (EffectsSession, #133).
+     * Main thread.
      */
     private val effectsSession = EffectsSession { open, sessionId ->
         Log.i(TAG, "EFFECTS: audio session $sessionId ${if (open) "announced to" else "closed for"} the phone's equalizer apps")
@@ -3149,9 +3150,10 @@ class MusicService : MediaLibraryService(),
 
     /**
      * Brings what the phone's equalizer apps know of the player's audio session in line with the
-     * phone's own player, by [EffectsSession]'s rule: announced when music first plays, then kept
-     * whatever the player does. [playing] is that player loading or playing and meant to play.
-     * Called on the main thread when the player's state, its session id or the upmix changes.
+     * phone's own player, by [EffectsSession]'s rule: announced each time music starts to play,
+     * and kept whatever the player does then. [playing] is that player loading or playing and
+     * meant to play. Called on the main thread when the player's state, its session id or the
+     * upmix changes.
      */
     private fun syncEffectsSession(
         playing: Boolean = exoPlayer.playWhenReady &&
@@ -5859,9 +5861,9 @@ class MusicService : MediaLibraryService(),
             // Music is coming out of the speaker again, so whatever stopped it is history.
             if (player.playbackState == Player.STATE_READY) stoppedByError = false
             if (!isCasting) plays.playbackState(player.currentMediaItem?.mediaId, player.playbackState)
-            // Announced to the phone's equalizer apps when music first plays, and not taken back
-            // at a pause, the end of the queue or a stop: their effects would leave with it and
-            // come back a moment into the music at the next play (#133). See EffectsSession.
+            // Announced to the phone's equalizer apps at each play, and not taken back at a
+            // pause, the end of the queue or a stop: their effects would leave with it and come
+            // back a moment into the music at the next play (#133). See EffectsSession.
             syncEffectsSession(isBufferingOrReady && player.playWhenReady)
             // The proximity scan is decided here rather than in onIsPlayingChanged, which fires on
             // every seek and skip and not on a pause while buffering. Never while casting: this

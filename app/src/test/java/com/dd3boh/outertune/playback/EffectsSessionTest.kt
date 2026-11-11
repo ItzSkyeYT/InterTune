@@ -20,8 +20,10 @@ import java.io.File
  * An equalizer app puts its effects on the player's audio session when the player announces it
  * and takes them off when the player closes it. The session used to be closed at every pause and
  * announced again at every play, so with Precise Volume the first moment after Play was heard
- * without its equalizer and its lower volume. The rule is tested as it is; a JVM test cannot play,
- * so the places in the service that follow it are read from the source, comments taken out.
+ * without its equalizer and its lower volume. Now a pause closes nothing, and each play still
+ * announces the session, so that an equalizer app opened after the music began is told at the
+ * next play, as its users expect. The rule is tested as it is; a JVM test cannot play, so the
+ * places in the service that follow it are read from the source, comments taken out.
  */
 class EffectsSessionTest {
 
@@ -31,23 +33,45 @@ class EffectsSessionTest {
     private fun EffectsSession.player(playing: Boolean, id: Int = 7, barred: Boolean = false) = update(id, playing, barred)
 
     @Test
-    fun `a pause and a play say nothing to the equalizer apps`() {
+    fun `a pause never closes the session`() {
         session.player(playing = true)
-        assertEquals(listOf("open 7"), sent)
         repeat(5) {
             session.player(playing = false)
             session.player(playing = true)
         }
-        assertEquals("the session was closed or announced again around a pause", listOf("open 7"), sent)
+        assertFalse("the session was closed around a pause: $sent", sent.any { it.startsWith("close") })
         assertEquals(7, session.announced)
     }
 
     @Test
-    fun `the end of the queue, a stop and an error leave the session announced`() {
+    fun `each play announces the session, for an equalizer app opened since the last one`() {
         session.player(playing = true)
-        // Ended, idle after a stop or an error, loading again and ready: all of them not playing or playing.
-        for (playing in listOf(false, false, true, true, false)) session.player(playing)
         assertEquals(listOf("open 7"), sent)
+        session.player(playing = false)
+        assertEquals("a pause says nothing", listOf("open 7"), sent)
+        session.player(playing = true)
+        assertEquals(listOf("open 7", "open 7"), sent)
+    }
+
+    @Test
+    fun `music that goes on playing says nothing more`() {
+        session.player(playing = true)
+        // Loading turns to ready, a seek loads again, the next song comes: still playing.
+        repeat(6) { session.player(playing = true) }
+        assertEquals(listOf("open 7"), sent)
+    }
+
+    @Test
+    fun `the end of the queue, a stop and an error do not close it, and the next start announces it`() {
+        session.player(playing = true)
+        // Ended, or idle after a stop or an error: not playing, twice over.
+        session.player(playing = false)
+        session.player(playing = false)
+        assertEquals(listOf("open 7"), sent)
+        // Loading again and meant to play, then ready.
+        session.player(playing = true)
+        session.player(playing = true)
+        assertEquals(listOf("open 7", "open 7"), sent)
     }
 
     @Test
@@ -77,19 +101,28 @@ class EffectsSessionTest {
         session.player(playing = false, barred = true)
         session.player(playing = true, barred = true)
         assertEquals(2, sent.size)
-        // Free again, but paused: it waits for music, as it does at the start.
-        session.player(playing = false)
-        assertEquals(2, sent.size)
+        // Free again while the music plays on: announced, although no pause came in between.
         session.player(playing = true)
         assertEquals(listOf("open 7", "close 7", "open 7"), sent)
     }
 
     @Test
-    fun `the id not made yet is never announced, and the one made is, once the music plays`() {
+    fun `a session closed by hand while music plays is announced at the next look`() {
+        // The hand-over to a receiver closes it itself, and the phone may be playing again
+        // before any event of the receiver's has been heard.
+        session.player(playing = true)
+        session.close()
+        session.player(playing = true)
+        assertEquals(listOf("open 7", "close 7", "open 7"), sent)
+    }
+
+    @Test
+    fun `the id not made yet is never announced, and the one made is, for the play that waited`() {
         // media3 1.8.0 answers 0 until its session id has been made: to Android, all the phone's sound.
         assertEquals(C.AUDIO_SESSION_ID_UNSET, EffectsSession.UNSET)
         session.player(playing = true, id = EffectsSession.UNSET)
         assertEquals(emptyList<String>(), sent)
+        // The id arrives while that music still plays: no new play, and it is announced all the same.
         session.player(playing = true, id = 7)
         assertEquals(listOf("open 7"), sent)
         // And an id that goes back to unset while announced changes nothing.
@@ -98,9 +131,9 @@ class EffectsSessionTest {
     }
 
     @Test
-    fun `another session id closes the one announced and announces the new one`() {
+    fun `another session id closes the one announced and announces the new one, once`() {
         session.player(playing = true, id = 7)
-        session.player(playing = false, id = 9)
+        session.player(playing = true, id = 9)
         assertEquals(listOf("open 7", "close 7", "open 9"), sent)
         session.close()
         assertEquals("closed under the id it was announced with", "close 9", sent.last())
