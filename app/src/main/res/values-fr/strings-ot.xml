@@ -2585,4 +2585,10 @@
         <item>To</item>
         <item>Po</item>
     </string-array>
+    <string name="queue_removed_one">%1$s retiré</string>
+    <plurals name="queue_removed_songs">
+        <item quantity="one">%1$d titre retiré</item>
+        <item quantity="many">%1$d titres retirés</item>
+        <item quantity="other">%1$d titres retirés</item>
+    </plurals>
 </resources>

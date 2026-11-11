@@ -2789,4 +2789,10 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="sleep_notif_line_fade_after" translatable="false">Fades out %1$d&#160;s, after %2$s</string>
     <string name="sleep_notif_line_after" translatable="false">After %1$s</string>
     <string name="sleep_notif_stop" translatable="false">Stop</string>
+    <!-- Said under the queue after songs were taken out of it by hand, with Undo beside it (QueueUndo): the song's title, or how many. Held from translators. -->
+    <string name="queue_removed_one" translatable="false">Removed %1$s</string>
+    <plurals name="queue_removed_songs" translatable="false">
+        <item quantity="one">Removed %1$d song</item>
+        <item quantity="other">Removed %1$d songs</item>
+    </plurals>
 </resources>
