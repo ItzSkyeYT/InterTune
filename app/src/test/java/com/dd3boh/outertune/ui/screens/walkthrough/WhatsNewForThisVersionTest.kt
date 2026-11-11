@@ -24,9 +24,10 @@ class WhatsNewForThisVersionTest {
     /**
      * Versions that only fix things, named here on purpose. 0.12.9: radios in Indonesian, Finnish
      * and Danish (#83), a song YouTube no longer plays skipped instead of stopping the music (#82),
-     * and the report's boxes kept until sent; nothing to show round.
+     * and the report's boxes kept until sent; nothing to show round. 0.12.10: crash fixes only
+     * (#98, #120, #121, #123, #124, #126, #128 to #130, #132).
      */
-    private val NOTHING_TO_SHOW = setOf("0.12.9")
+    private val NOTHING_TO_SHOW = setOf("0.12.9", "0.12.10")
 
     @Test
     fun `the version this build is has its own New in entries`() {

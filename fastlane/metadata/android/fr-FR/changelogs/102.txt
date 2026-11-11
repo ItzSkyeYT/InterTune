@@ -1,0 +1,10 @@
+Version 0.12.10
+
+- Les téléchargements en attente du Wi-Fi ne ferment plus l'appli après 6 h (Android 15+).
+- Aléatoire sur certaines playlists ne ferme plus l'appli.
+- Sans sélecteur de fichiers, l'appli le dit au lieu de fermer.
+- Lecture depuis un casque ou le widget : plus de fermeture.
+- Un téléphone plein ou sans suivi réseau ne la ferme plus.
+- Derrière un VPN, le lecteur dit que YouTube veut une connexion.
+
+Journal complet : https://github.com/ItzSkyeYT/InterTune/releases/tag/v0.12.10
