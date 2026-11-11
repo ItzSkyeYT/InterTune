@@ -257,7 +257,7 @@ class TestersPageBuildTest {
     @Test
     fun `the test switches are the developer block's own rows, and the page makes no switch of its own`() {
         assertEquals(1, Regex("fun FamiliarFirstRows\\(").findAll(developer).count())
-        assertTrue("internal val familiarFirstOffered: Boolean get() = BuildConfig.DEBUG" in developer)
+        assertTrue("internal val familiarFirstOffered: Boolean get() = BuildConfig.PREVIEW_FEATURES" in developer)
         assertTrue("if (familiarFirstOffered) {\n            FamiliarFirstRows()\n        }" in developer)
         assertTrue("if (familiarFirstOffered) {\n            PreferenceGroupTitle(title = stringResource(R.string.testers_page_switches))" in page)
         assertEquals(1, Regex("FamiliarFirstRows\\(\\)").findAll(page).count())
@@ -266,10 +266,10 @@ class TestersPageBuildTest {
         assertEquals(1, Regex("title = \\{ Text\\(stringResource\\(R\\.string\\.familiar_mix\\)\\) \\}").findAll(developer).count())
         // No new switch, no new key, no new flag.
         for (invented in listOf("SwitchPreference(", "booleanPreferencesKey", "rememberPreference", "Unreleased.")) assertFalse(invented, invented in page)
-        assertFalse(Regex("val .* = BuildConfig\\.DEBUG").containsMatchIn(page))
+        assertFalse(Regex("val .* = BuildConfig\\.(DEBUG|PREVIEW_FEATURES)").containsMatchIn(page))
         // The same two keys the home screen reads under the same test.
         val home = main("viewmodels/HomeViewModel.kt")
-        assertTrue("BuildConfig.DEBUG && context.dataStore[FamiliarFirstKey] == true" in home)
+        assertTrue("BuildConfig.PREVIEW_FEATURES && context.dataStore[FamiliarFirstKey] == true" in home)
     }
 
     @Test

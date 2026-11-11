@@ -114,7 +114,7 @@ fun AboutScreen(
     if (cardOpen) VersionCardDialog(onDismiss = { cardOpen = false })
     val versionTap = rememberVersionTap(onCard = { cardOpen = true })
 
-    val showDebugInfo = BuildConfig.DEBUG || BuildConfig.BUILD_TYPE == "userdebug"
+    val showDebugInfo = BuildConfig.PREVIEW_FEATURES || BuildConfig.BUILD_TYPE == "userdebug"
 
     ColumnWithContentPadding(
         modifier = Modifier.fillMaxHeight(),

@@ -36,7 +36,7 @@ object Unreleased {
      * the three he said yes to for 0.13 (17 Oct 2026). Debug and Preview builds only, from the
      * player's menu, while it is built.
      */
-    val LISTEN_TOGETHER = BuildConfig.DEBUG
+    val LISTEN_TOGETHER = BuildConfig.PREVIEW_FEATURES
 
     /**
      * The engine as a Quick picks source: Best recommendations, Try both, the context chips that
@@ -114,7 +114,7 @@ object Unreleased {
      * English only and held back. To ship: set this to true, or delete it with the one check that
      * reads it, in LyricFrag, and the three entries of SETTINGS_INDEX that say which rows it shows.
      */
-    val LYRICS_SOURCES = BuildConfig.DEBUG
+    val LYRICS_SOURCES = BuildConfig.PREVIEW_FEATURES
 
     /**
      * The equalizer in the app (EqualizerAudioProcessor): ten bands from 31 Hz to 16 kHz, presets,
@@ -157,7 +157,7 @@ object Unreleased {
      * or delete it with the check that reads it and move the three window settings into
      * Theme.InterTune.WidgetConfig.
      */
-    val WIDGET_ON_WALLPAPER = BuildConfig.DEBUG
+    val WIDGET_ON_WALLPAPER = BuildConfig.PREVIEW_FEATURES
 
     /**
      * Similar artists in the Favourite artists mix, and the "Favourites only" switch on that page
@@ -167,7 +167,7 @@ object Unreleased {
      * before. When it is agreed: set this to true or delete it with the two checks that read it,
      * in AutoPlaylistViewModel and AutoPlaylistScreen, and make its strings translatable.
      */
-    val FAVOURITES_GUESTS = BuildConfig.DEBUG
+    val FAVOURITES_GUESTS = BuildConfig.PREVIEW_FEATURES
 
     /**
      * A layout for a phone on its side (Landscape.kt): the navigation rail whenever the window is
@@ -252,7 +252,7 @@ object Unreleased {
      * plain text, as before. When it is agreed: set this to true, or delete it with the one check
      * that reads it, in Explain.kt.
      */
-    val EXPLANATION_LINKS = BuildConfig.DEBUG
+    val EXPLANATION_LINKS = BuildConfig.PREVIEW_FEATURES
 
     /**
      * A small moving picture at the head of an explanation, in the manner of the ones Android's
@@ -287,7 +287,7 @@ object Unreleased {
      * Nor does the fetching of a web client's address, which used to ask this switch whether to
      * send the page's headers and now reads that off the address alone (WebStreamHeaders).
      */
-    val WEB_CLIENT_FIRST = BuildConfig.DEBUG
+    val WEB_CLIENT_FIRST = BuildConfig.PREVIEW_FEATURES
 
     /**
      * SABR's two developer switches, test tools read in a debug or preview build only: "Stream
@@ -299,7 +299,7 @@ object Unreleased {
      * Stays held back in 0.12.5: SABR itself reaches everyone through [SABR_RUNG] and [SABR_AHEAD],
      * and a switch of these restored from a debug build's backup would have no row in a release.
      */
-    val SABR = BuildConfig.DEBUG
+    val SABR = BuildConfig.PREVIEW_FEATURES
 
     /**
      * SABR as the last rung of the walk: when YouTube turned every direct address down, the song
@@ -399,7 +399,7 @@ object Unreleased {
      * window. Without it the list is the cards. When it is agreed: set this to true, or delete it
      * with the one check that reads it, in SettingsScreen.
      */
-    val SETTINGS_TWO_PANE = BuildConfig.DEBUG
+    val SETTINGS_TWO_PANE = BuildConfig.PREVIEW_FEATURES
 
     /**
      * A recording in 5.1 or 7.1 goes through the spatial renderer as its own loudspeakers, each
@@ -412,7 +412,7 @@ object Unreleased {
      * it, and YouTube Music has none: this is for local files. When it is agreed: set this to
      * true, or delete it with the one check that reads it, in BinauralAudioProcessor.onConfigure.
      */
-    val SURROUND_IN = BuildConfig.DEBUG
+    val SURROUND_IN = BuildConfig.PREVIEW_FEATURES
 
     /**
      * Three more controls under Spatial audio on Headphones, for a stereo recording: "Strength",
@@ -427,7 +427,7 @@ object Unreleased {
      * set this to true, or delete it with the checks that read it, in PlayerFrag, MusicService
      * and the entries of its rows in SETTINGS_INDEX, and make its six strings translatable.
      */
-    val SPATIAL_TUNING = BuildConfig.DEBUG
+    val SPATIAL_TUNING = BuildConfig.PREVIEW_FEATURES
 
     /**
      * An experiment for a stereo recording under Spatial audio on Headphones: "Ambience". The
@@ -445,7 +445,7 @@ object Unreleased {
      * MusicService, the key, two strings, DirectAmbientSplit and everything named "air" in
      * BinauralAudioProcessor.
      */
-    val DIRECT_AMBIENT = BuildConfig.DEBUG
+    val DIRECT_AMBIENT = BuildConfig.PREVIEW_FEATURES
 
     /**
      * What Android Auto is shown, reworked for somebody who is driving (AutoBrowse): a first
@@ -467,7 +467,7 @@ object Unreleased {
      * MediaLibrarySessionCallback and MusicService, the four kinds of request it added to
      * PlayRequest, three drawables and nine strings.
      */
-    val AUTO_REWORK = BuildConfig.DEBUG
+    val AUTO_REWORK = BuildConfig.PREVIEW_FEATURES
 
     /**
      * "Bluetooth signal log", the row under "Quieter as you walk away" (ProximityProbe): the
@@ -481,7 +481,7 @@ object Unreleased {
      * (ProximityProbe.forgetOldLogs). To drop it: this flag, the row in PlayerFrag,
      * ProximityProbe but for forgetOldLogs, and eleven strings.
      */
-    val SIGNAL_LOG = BuildConfig.DEBUG
+    val SIGNAL_LOG = BuildConfig.PREVIEW_FEATURES
 
     /**
      * "Submit a bug report" in About opens a page of the app's own instead of the browser: the
@@ -588,7 +588,7 @@ object Unreleased {
      * Home's Next passed on to the phone). To ship: publish the receiver in the Cast console,
      * with its page on intertune.app, then set this to true.
      */
-    val OWN_CAST_RECEIVER = BuildConfig.DEBUG
+    val OWN_CAST_RECEIVER = BuildConfig.PREVIEW_FEATURES
 
     /**
      * Casting to AirPlay speakers the classic way (AirPlay 1, RAOP), his ask of 5 Nov 2026 after a
@@ -603,7 +603,7 @@ object Unreleased {
      * Without it nothing looks for AirPlay speakers, and nothing else changes. No new texts. When
      * it is agreed: set this to true and add its name to ReleasedFlagsTest.
      */
-    val CAST_AIRPLAY = BuildConfig.DEBUG
+    val CAST_AIRPLAY = BuildConfig.PREVIEW_FEATURES
 
     /**
      * Songs put in with Play next stay next when a song is picked out of a list: they play right
@@ -698,7 +698,7 @@ object Unreleased {
      * values-fr. When it is agreed: set this to true, add its name to ReleasedFlagsTest, and make its text
      * translatable.
      */
-    val REPORT_PLUS = BuildConfig.DEBUG
+    val REPORT_PLUS = BuildConfig.PREVIEW_FEATURES
 
     /**
      * Send to InterTune in Report a problem (his idea, mock and plan of 27 Oct 2026,
@@ -756,7 +756,7 @@ object Unreleased {
      * header's cover is a picture and nothing more. When it is agreed: set this to true, make its
      * texts translatable.
      */
-    val PLAYLIST_COVER = BuildConfig.DEBUG
+    val PLAYLIST_COVER = BuildConfig.PREVIEW_FEATURES
 
     /**
      * Block artist (ArtistBlock), asked for by Dennis on Discord on 1 Nov 2026: an artist blocked
@@ -826,7 +826,7 @@ object Unreleased {
      * beside it in values-fr. When it is agreed: set this to true, add its name to
      * ReleasedFlagsTest, make its texts translatable.
      */
-    val DOWNLOAD_FILES = BuildConfig.DEBUG
+    val DOWNLOAD_FILES = BuildConfig.PREVIEW_FEATURES
 
     /**
      * Settings > Widgets, under Look and feel (WidgetsSettings), his ask of 3 Nov 2026 for "a easy
@@ -842,7 +842,7 @@ object Unreleased {
      * values-fr. When it is agreed: set this to true, add its name to ReleasedFlagsTest, make its
      * texts translatable.
      */
-    val WIDGETS_PAGE = BuildConfig.DEBUG
+    val WIDGETS_PAGE = BuildConfig.PREVIEW_FEATURES
 
     /**
      * Follow-up questions in polls (PollFollowUps, PollDialog), his ask of 4 Nov 2026: an option of a
@@ -854,7 +854,7 @@ object Unreleased {
      * so one poll works for every version. No new texts: Next and Back are the app's own. When it is
      * agreed: set this to true and add its name to ReleasedFlagsTest.
      */
-    val POLL_FOLLOW_UPS = BuildConfig.DEBUG
+    val POLL_FOLLOW_UPS = BuildConfig.PREVIEW_FEATURES
 
     /**
      * Casting to a DLNA speaker that takes only raw audio (Geogos's Zeppelin Wireless, 4 Nov 2026:
@@ -870,7 +870,7 @@ object Unreleased {
      * before. No new texts. When it is agreed: set this to true and add its name to
      * ReleasedFlagsTest.
      */
-    val CAST_PCM = BuildConfig.DEBUG
+    val CAST_PCM = BuildConfig.PREVIEW_FEATURES
 
     /**
      * Casting to a DLNA speaker adapts to it (his word of 5 Nov 2026: "the casting thing should try
@@ -887,7 +887,7 @@ object Unreleased {
      * from translators, their French beside them in values-fr. When it is agreed: set this to true,
      * add its name to ReleasedFlagsTest, and make its texts translatable.
      */
-    val CAST_LADDER = BuildConfig.DEBUG
+    val CAST_LADDER = BuildConfig.PREVIEW_FEATURES
 
     /**
      * A radio YouTube Music refuses still plays (his word of 4 Nov 2026, after Val's radio of one
@@ -903,7 +903,7 @@ object Unreleased {
      * are held from translators, their French beside them in values-fr. When it is agreed: set this
      * to true, add its name to ReleasedFlagsTest, make its texts translatable.
      */
-    val RADIO_FALLBACK = BuildConfig.DEBUG
+    val RADIO_FALLBACK = BuildConfig.PREVIEW_FEATURES
 
     /**
      * Lyrics videos lit word by word (his idea, 4 Nov 2026), as the lyrics view lights them, where
@@ -912,7 +912,7 @@ object Unreleased {
      * times, a video lights whole lines as before. No new texts. When it is agreed: set this to true
      * and add its name to ReleasedFlagsTest.
      */
-    val LYRICS_VIDEO_WORDS = BuildConfig.DEBUG
+    val LYRICS_VIDEO_WORDS = BuildConfig.PREVIEW_FEATURES
 
     /**
      * The AI filter (AiFilter, TODO section 17, upstream #1173): a row under Settings > Library and
@@ -931,7 +931,7 @@ object Unreleased {
      * SettingsIndex, AiArtistMark (the artist menus' row), OnlineSearchResult and MusicService (the
      * queue's skip). To drop it instead: this flag and those reads, then AiFilter and its calls.
      */
-    val AI_FILTER = BuildConfig.DEBUG
+    val AI_FILTER = BuildConfig.PREVIEW_FEATURES
 
     /**
      * Playlists in an order of your own (a listener's ask, relayed 8 Nov 2026: to reorganise the
@@ -942,7 +942,7 @@ object Unreleased {
      * the playlist's own, already translated. Without the flag Custom order is not offered and a
      * stored one reads as Date added. To ship: set this to true and add it to ReleasedFlagsTest.
      */
-    val PLAYLIST_ORDER = BuildConfig.DEBUG
+    val PLAYLIST_ORDER = BuildConfig.PREVIEW_FEATURES
 
     /**
      * Downloads in their own quality (third in the 0.13 poll, "Downloads in their own quality"):
@@ -962,7 +962,7 @@ object Unreleased {
      * agreed: set this to true, add its name to ReleasedFlagsTest, make its texts translatable, give
      * Download quality a place in ReportSettings' downloads and an entry among what is new.
      */
-    val DOWNLOAD_QUALITY = BuildConfig.DEBUG
+    val DOWNLOAD_QUALITY = BuildConfig.PREVIEW_FEATURES
 
     /**
      * Downloads in the file format of your choice, and Export to folder (9 Nov 2026, the MP3 that
@@ -997,7 +997,7 @@ object Unreleased {
      * them in values-fr. When it is agreed: set this to true, add its name to ReleasedFlagsTest, make
      * its texts translatable.
      */
-    val DOWNLOAD_FORMATS = BuildConfig.DEBUG
+    val DOWNLOAD_FORMATS = BuildConfig.PREVIEW_FEATURES
 
     /**
      * The adaptive queue reads a skip by what the skipped song is like (an idea of 9 Nov 2026). A song
@@ -1009,7 +1009,7 @@ object Unreleased {
      * tail. Without the flag the pass reads the stored list of the song just skipped, as before. To ship:
      * set this to true and add it to ReleasedFlagsTest.
      */
-    val ADAPTIVE_SIMILAR = BuildConfig.DEBUG
+    val ADAPTIVE_SIMILAR = BuildConfig.PREVIEW_FEATURES
 
     /**
      * Choose what's in the three-dot menus (0.13 roadmap): hold any entry of a menu and the menu is
@@ -1021,5 +1021,5 @@ object Unreleased {
      * them. Without the flag GridMenu draws every entry whatever is stored, and holding does nothing.
      * To ship: set this to true and add it to ReleasedFlagsTest.
      */
-    val MENU_CHOICES = BuildConfig.DEBUG
+    val MENU_CHOICES = BuildConfig.PREVIEW_FEATURES
 }

@@ -26,7 +26,7 @@ class CastPcmWiringTest {
 
     @Test
     fun `the flag is held back to debug and preview builds`() {
-        assertTrue(Regex("""\bval CAST_PCM = BuildConfig\.DEBUG\s*$""", RegexOption.MULTILINE).containsMatchIn(code("constants/Unreleased.kt")))
+        assertTrue(Regex("""\bval CAST_PCM = BuildConfig\.PREVIEW_FEATURES\s*$""", RegexOption.MULTILINE).containsMatchIn(code("constants/Unreleased.kt")))
     }
 
     @Test
@@ -45,7 +45,7 @@ class CastPcmWiringTest {
 
     @Test
     fun `the ladder is held back to debug and preview builds, and given to the remote player only with its flag`() {
-        assertTrue(Regex("""\bval CAST_LADDER = BuildConfig\.DEBUG\s*$""", RegexOption.MULTILINE).containsMatchIn(code("constants/Unreleased.kt")))
+        assertTrue(Regex("""\bval CAST_LADDER = BuildConfig\.PREVIEW_FEATURES\s*$""", RegexOption.MULTILINE).containsMatchIn(code("constants/Unreleased.kt")))
         val service = code("playback/MusicService.kt")
         assertTrue("rungMemory = if (Unreleased.CAST_LADDER) castRungMemory else null," in service)
         // On the phone only: never in a backup.

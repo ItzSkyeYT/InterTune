@@ -79,7 +79,7 @@ class MenuChoicesTest {
         assertEquals("the 13 menus with a grid", 13, grids)
         val grid = code("ui/menu/GridMenu.kt")
         assertTrue("if (kind == null || !Unreleased.MENU_CHOICES) {" in grid)
-        assertTrue("val MENU_CHOICES = BuildConfig.DEBUG" in code("constants/Unreleased.kt"))
+        assertTrue("val MENU_CHOICES = BuildConfig.PREVIEW_FEATURES" in code("constants/Unreleased.kt"))
     }
 
     @Test

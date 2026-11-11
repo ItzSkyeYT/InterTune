@@ -25,6 +25,9 @@ class TesterAppBuildTest {
     private val preview = build.substringAfter("create(\"preview\") {").substringBefore("create(\"beta\")")
     private val beta = build.substringAfter("create(\"beta\") {").substringBefore("create(\"userdebug\")")
 
+    /** The build file's lines without the comments, so a sentence that names a setting is not taken for the setting. */
+    private fun code(text: String) = text.lines().filter { !it.trim().startsWith("//") }.joinToString("\n")
+
     @Test
     fun `the beta type is the preview under the package of the Tester app, and the preview is what it was`() {
         // Three apps that install side by side, by their package: the release is the id itself.
@@ -32,12 +35,52 @@ class TesterAppBuildTest {
         assertEquals(listOf(".debug", ".preview", ".tester"), suffixes)
         assertTrue("initWith(getByName(\"preview\"))" in beta)
         assertTrue("applicationIdSuffix = \".tester\"" in beta)
-        assertTrue("it falls back to the preview's, then the debug's, as the preview falls back to the debug's", "matchingFallbacks += listOf(\"preview\", \"debug\")" in beta)
+        assertTrue("its libraries are the release's, the native TagLib among them: built with optimization, as the release's", "matchingFallbacks += listOf(\"release\")" in beta)
+        assertTrue("and the list the preview handed it is emptied first", "matchingFallbacks.clear()" in beta)
         // The Preview, his own: still a debug build under .preview, with a lock only when the property says so.
         assertTrue("initWith(getByName(\"debug\"))" in preview)
         assertTrue("applicationIdSuffix = \".preview\"" in preview)
         assertTrue("matchingFallbacks += listOf(\"debug\")" in preview)
         assertTrue("testerLock(on = project.findProperty(\"intertune.testerLock\") == \"true\")" in preview)
+    }
+
+    @Test
+    fun `the beta type is not debuggable and is shrunk and optimized as the release is, signed with the debug key as ever`() {
+        // A debuggable app is never compiled ahead of time and runs Compose far slower than a release does: testers called
+        // the Tester app choppy next to 0.12.9 (11 Nov 2026).
+        val release = build.substringAfter("buildTypes {").substringBefore("        debug {")
+        assertTrue("isDebuggable = false" in beta)
+        assertFalse("isDebuggable = true" in beta)
+        assertTrue("isMinifyEnabled = true" in beta)
+        assertTrue("isShrinkResources = true" in beta)
+        // The release's own rules, the same two files: the Tester app runs what the release runs through R8.
+        val rules = "proguardFiles(getDefaultProguardFile(\"proguard-android-optimize.txt\"), \"proguard-rules.pro\")"
+        assertTrue(rules in release)
+        assertTrue(rules in beta)
+        // A tester updates the app they have installed over itself, and a new key would be refused: the debug key, as every
+        // Tester build has had, and never the release's.
+        assertTrue("signingConfig = signingConfigs.getByName(\"debug\")" in beta)
+        assertFalse("ot_release" in beta)
+        assertFalse("the preview, which is a debug build, keeps its own debug-ness", "isDebuggable" in code(preview))
+        assertFalse("isMinifyEnabled" in code(preview))
+    }
+
+    @Test
+    fun `the features a preview shows are kept by PREVIEW_FEATURES, which the debug, preview and beta types have and a release has not`() {
+        val release = build.substringAfter("buildTypes {").substringBefore("        debug {")
+        val debug = build.substringAfter("        debug {").substringBefore("create(\"preview\")")
+        val userdebug = build.substringAfter("create(\"userdebug\") {").substringBefore("\n        }")
+        val on = "buildConfigField(\"boolean\", \"PREVIEW_FEATURES\", \"true\")"
+        val off = "buildConfigField(\"boolean\", \"PREVIEW_FEATURES\", \"false\")"
+        // Each type says it itself: none depends on what initWith copies from another.
+        for ((name, block) in listOf("debug" to debug, "preview" to code(preview), "beta" to beta)) assertTrue("$name: PREVIEW_FEATURES on", on in block)
+        for ((name, block) in listOf("release" to release, "userdebug" to userdebug)) assertTrue("$name: PREVIEW_FEATURES off", off in block)
+        assertEquals(5, Regex("PREVIEW_FEATURES").findAll(code(build)).count())
+        // The unreleased flags read it, not BuildConfig.DEBUG, which the beta type, not being debuggable, has off.
+        val flags = File("src/main/java/com/dd3boh/outertune/constants/Unreleased.kt").readText()
+            .lines().filter { !it.trim().startsWith("*") && !it.trim().startsWith("/*") && !it.trim().startsWith("//") }
+        val legacy = flags.filter { Regex("^\\s*val [A-Z][A-Z0-9_]* = BuildConfig\\.DEBUG\\s*$").matches(it) }
+        assertTrue("flags still reading BuildConfig.DEBUG: $legacy", legacy.isEmpty())
     }
 
     @Test

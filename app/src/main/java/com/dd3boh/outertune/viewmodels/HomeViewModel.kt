@@ -310,7 +310,7 @@ class HomeViewModel @Inject constructor(
     private fun storedLean(): Lean =
         // The developer's Familiar first, a test of a row that leads with the familiar; never read
         // in a release, where a restored backup could otherwise bring it.
-        if (BuildConfig.DEBUG && context.dataStore[FamiliarFirstKey] == true) Lean.FAMILIAR
+        if (BuildConfig.PREVIEW_FEATURES && context.dataStore[FamiliarFirstKey] == true) Lean.FAMILIAR
         else Lean.ofName(context.dataStore[QuickPicksLeanKey])
 
     /** The choice as it stands, for the first chip's label (and the settings line under it). */
@@ -332,7 +332,7 @@ class HomeViewModel @Inject constructor(
             // The new Auto as measured on 467 Last.fm listeners: the mix learned, the familiar songs
             // in the ranker's order, three cards an artist (his choice of 16 Oct 2026).
             .let {
-                if (BuildConfig.DEBUG && context.dataStore.get(FamiliarMixKey, false)) it.copy(mixLearned = true, familiarRanker = true, maxPerArtist = 3,
+                if (BuildConfig.PREVIEW_FEATURES && context.dataStore.get(FamiliarMixKey, false)) it.copy(mixLearned = true, familiarRanker = true, maxPerArtist = 3,
                     // The slider nudges the learned mix there, fewer new songs to the left, more to the right.
                     mixNudge = MixShare.nudge(context.dataStore.get(AdventurousnessKey, DefaultAdventurousness)))
                 else it

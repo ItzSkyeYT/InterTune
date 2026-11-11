@@ -22,7 +22,7 @@ class ForkGuardTest {
     @Test
     fun `only InterTune itself counts as InterTune, its own debug builds by their app id`() {
         val keys = read("utils/BuiltInKeys.kt")
-        assertTrue(keys.contains("genuine = (BuildConfig.DEBUG && context.packageName.startsWith(OWN_PACKAGE)) ||"))
+        assertTrue(keys.contains("genuine = (BuildConfig.PREVIEW_FEATURES && context.packageName.startsWith(OWN_PACKAGE)) ||"))
         assertTrue(keys.contains("private const val OWN_PACKAGE = \"dev.skye.intertune\""))
         assertTrue(keys.contains("val official: Boolean get() = genuine"))
     }

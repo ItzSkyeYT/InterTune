@@ -40,7 +40,7 @@ class DownloadFormatsWiringTest {
 
     @Test
     fun `the flag is held back like the others of debug and preview builds`() {
-        assertTrue(Regex("""^\s*val DOWNLOAD_FORMATS = BuildConfig\.DEBUG\s*$""", RegexOption.MULTILINE).containsMatchIn(fileCode("constants/Unreleased.kt")))
+        assertTrue(Regex("""^\s*val DOWNLOAD_FORMATS = BuildConfig\.PREVIEW_FEATURES\s*$""", RegexOption.MULTILINE).containsMatchIn(fileCode("constants/Unreleased.kt")))
     }
 
     @Test

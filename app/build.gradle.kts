@@ -163,14 +163,20 @@ android {
             // The app's own screens in a car (AutoCarService, AutoSettingsService) exist only where
             // Unreleased.AUTO_REWORK is on: a car that finds them draws the app from them, held back or not.
             manifestPlaceholders["carScreens"] = "false"
-            // The widget's settings: a dialog. Where Unreleased.WIDGET_ON_WALLPAPER is on (every debuggable
-            // build), a full window over the wallpaper; a dialog there lets the home screen show through.
+            // The widget's settings: a dialog. Where Unreleased.WIDGET_ON_WALLPAPER is on (every build with
+            // the preview features), a full window over the wallpaper; a dialog there lets the home screen show through.
             manifestPlaceholders["widgetConfigTheme"] = "@style/Theme.InterTune.WidgetConfig"
+            // What is held back in Unreleased.kt is off. BuildConfig.PREVIEW_FEATURES, and not BuildConfig.DEBUG, is
+            // what a held-back flag reads: DEBUG says the build is debuggable, which the Tester app no longer is.
+            buildConfigField("boolean", "PREVIEW_FEATURES", "false")
         }
         debug {
             applicationIdSuffix = ".debug"
             manifestPlaceholders["carScreens"] = "true"
             manifestPlaceholders["widgetConfigTheme"] = "@style/Theme.InterTune.WidgetConfig.Wallpaper"
+            // The builds that show what is held back (Unreleased.kt): this one, the preview and the beta type. Each type
+            // says it itself, so that none depends on what initWith copies from another.
+            buildConfigField("boolean", "PREVIEW_FEATURES", "true")
         }
 
         // A debug build that installs beside the release and the debug build, for trying a
@@ -190,6 +196,7 @@ android {
             // -Pintertune.testerLock=true is passed; without it there is none. No other build type reads
             // the property, and none of them has the gate's code. The beta type below has the lock always.
             testerLock(on = project.findProperty("intertune.testerLock") == "true")
+            buildConfigField("boolean", "PREVIEW_FEATURES", "true")
         }
 
         // The testers' own app, InterTune Tester (dev.skye.intertune.tester): the Preview under a package, a name
@@ -201,12 +208,30 @@ android {
         // (experiments/features/tester-app/STATE.md).
         // The type is called beta and not tester because the Android Gradle plugin refuses a build type whose
         // name starts with "test": "BuildType names cannot start with 'test'".
+        //
+        // It is not debuggable, and it is shrunk and optimized as the release is (R8 with the release's own rules, the
+        // resources shrunk, the baseline profiles of Compose and its libraries packed): a debuggable app is never
+        // compiled ahead of time and runs Compose far slower than a release does, which testers called choppy
+        // ("noticeably choppier than 0.12.9", 11 Nov 2026). What a Preview shows is kept by BuildConfig.PREVIEW_FEATURES,
+        // which Unreleased.kt and the test switches read where they used to read BuildConfig.DEBUG; what is developer
+        // tooling (logs, files that make the app pretend, fault injection) still reads BuildConfig.DEBUG and is off here.
+        // Its libraries are the release's too (matchingFallbacks), the native TagLib among them, built with optimization.
+        // The signing key is the debug key, as ever: a tester's installed app is updated over, and a new key would be refused.
         create("beta") {
             initWith(getByName("preview"))
             applicationIdSuffix = ".tester"
-            matchingFallbacks += listOf("preview", "debug")
+            matchingFallbacks.clear()
+            matchingFallbacks += listOf("release")
             versionNameSuffix = getByName("preview").versionNameSuffix
             testerLock(on = true)
+            buildConfigField("boolean", "PREVIEW_FEATURES", "true")
+
+            isDebuggable = false
+            isMinifyEnabled = true
+            isShrinkResources = true
+            isCrunchPngs = false
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            signingConfig = signingConfigs.getByName("debug")
         }
 
         // userdebug is release builds without minify
@@ -217,6 +242,7 @@ android {
 //            isDebuggable = true
             isProfileable = true
             matchingFallbacks += listOf("release")
+            buildConfigField("boolean", "PREVIEW_FEATURES", "false")
         }
     }
 

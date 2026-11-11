@@ -15,8 +15,9 @@ import java.io.File
 /**
  * What a release has of Unreleased.kt.
  *
- * A flag that is `true` is on in every build. One that is `BuildConfig.DEBUG` is on in debug and
- * preview builds and off in a release. Which flags a release has on is a decision each time, and
+ * A flag that is `true` is on in every build. One that is `BuildConfig.PREVIEW_FEATURES` is on in the debug app,
+ * the Preview and the Tester app and off in a release (BuildConfig.DEBUG is not what it reads: the Tester app is
+ * not debuggable). Which flags a release has on is a decision each time, and
  * the list here is those decisions: a flag turned on by mistake, or by a merge, fails here with
  * its name, and so does one of these turned off again. To ship a flag, set it to true in
  * Unreleased.kt and add its name here. A new flag that is held back needs nothing here.
@@ -76,9 +77,13 @@ class ReleasedFlagsTest {
     fun `every other flag is on in debug and preview builds only, or in debug builds only`() {
         // Not false, which would take a feature from the debug build too, and nothing worked out.
         // Debug builds only keeps a feature from the previews testers get (AutoMix, 26 Oct 2026).
-        val held = setOf("BuildConfig.DEBUG", DEBUG_ONLY)
+        val held = setOf("BuildConfig.PREVIEW_FEATURES", DEBUG_ONLY)
         for ((flag, value) in flags - inEveryBuild) {
-            assertTrue("$flag is neither on in every build nor held back: $value", value in held)
+            assertTrue(
+                "$flag is neither on in every build nor held back: $value" +
+                    (if (value == "BuildConfig.DEBUG") " (a held-back flag reads BuildConfig.PREVIEW_FEATURES: the Tester app is not debuggable, so DEBUG is off there)" else ""),
+                value in held,
+            )
         }
     }
 
@@ -102,7 +107,7 @@ class ReleasedFlagsTest {
     fun `the developer's switch for the web client is not a flag to ship`() {
         // Its doc comment says never in a release. Named here so that shipping it takes more
         // than adding a name to the list above.
-        assertEquals("BuildConfig.DEBUG", flags["WEB_CLIENT_FIRST"])
+        assertEquals("BuildConfig.PREVIEW_FEATURES", flags["WEB_CLIENT_FIRST"])
         assertFalse("WEB_CLIENT_FIRST" in inEveryBuild)
     }
 
@@ -269,15 +274,15 @@ class ReleasedFlagsTest {
         // "Stream over SABR only" and "Take every direct address for refused": rows of the
         // developer options, read in a debug or preview build only. A restored backup can bring a
         // switch that is on into a release, which has no row to turn it off with.
-        assertEquals("BuildConfig.DEBUG", flags["SABR"])
+        assertEquals("BuildConfig.PREVIEW_FEATURES", flags["SABR"])
         assertEquals(
             setOf("utils/YTPlayerUtils.kt", "playback/MusicService.kt", "playback/DownloadUtil.kt", "ui/screens/settings/fragments/DeveloperFrag.kt"),
             readers("SABR"),
         )
-        assertWritten("playback/MusicService.kt", "if (BuildConfig.DEBUG && Unreleased.SABR) {")
-        assertWritten("ui/screens/settings/fragments/DeveloperFrag.kt", "if (BuildConfig.DEBUG && Unreleased.SABR) {")
+        assertWritten("playback/MusicService.kt", "if (BuildConfig.PREVIEW_FEATURES && Unreleased.SABR) {")
+        assertWritten("ui/screens/settings/fragments/DeveloperFrag.kt", "if (BuildConfig.PREVIEW_FEATURES && Unreleased.SABR) {")
         for (path in listOf("playback/MusicService.kt", "playback/DownloadUtil.kt")) {
-            assertWritten(path, "val streamed = if (BuildConfig.DEBUG && Unreleased.SABR && YTPlayerUtils.sabrOnly) {")
+            assertWritten(path, "val streamed = if (BuildConfig.PREVIEW_FEATURES && Unreleased.SABR && YTPlayerUtils.sabrOnly) {")
         }
     }
 

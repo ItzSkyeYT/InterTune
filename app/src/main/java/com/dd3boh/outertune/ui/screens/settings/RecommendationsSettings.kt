@@ -116,7 +116,7 @@ fun RecommendationsSettings(
     val (familiarFirst, _) = rememberPreference(FamiliarFirstKey, defaultValue = false)
     val (familiarMix, _) = rememberPreference(FamiliarMixKey, defaultValue = false)
     val (learnedShare, _) = rememberPreference(MixShareKey, defaultValue = -1f)
-    val newAuto = BuildConfig.DEBUG && familiarFirst && familiarMix
+    val newAuto = BuildConfig.PREVIEW_FEATURES && familiarFirst && familiarMix
     val share = learnedShare.takeIf { it >= 0f }?.toDouble()
     // Kept by name and read as Home reads it; unset, or a name this version does not know, is Auto.
     val (leanName, onLeanNameChange) = rememberPreference(QuickPicksLeanKey, defaultValue = "")
