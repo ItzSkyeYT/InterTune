@@ -86,12 +86,14 @@ import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.referentialEqualityPolicy
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
@@ -481,12 +483,13 @@ fun BoxScope.QueueContent(
     var detachedQueue by remember { mutableStateOf<MultiQueueObject?>(fallBackQueue) }
 
     /**
-     * The queue the fallback seeded us with, captured once alongside the remembers above.
+     * The queue the fallback seeded us with, captured alongside the remembers above, and again
+     * when the board comes to hold another object for it (the effect under exitDetachHead's).
      *
      * Used to tell "we are detached because nothing had loaded yet" apart from "the user picked a
      * queue to preview". Only the first is safe to clear automatically.
      */
-    val fallbackSeed = remember { fallBackQueue }
+    var fallbackSeed by remember { mutableStateOf(fallBackQueue, referentialEqualityPolicy()) }
     // The queue the player will play, shown before play after a restart. The player holds nothing
     // yet, so these rows are the queue board's own: they can be dragged, and a move goes to the
     // board alone, which saves it. A queue picked from the list to look at is not this one.
@@ -761,6 +764,30 @@ fun BoxScope.QueueContent(
     LaunchedEffect(queueWindows.isEmpty()) {
         if (queueWindows.isNotEmpty() && detachedHead && detachedQueue === fallbackSeed) {
             exitDetachHead()
+        }
+    }
+
+    /**
+     * The saved queue shown before play is the board's own object, and stays the board's.
+     *
+     * The board is built again from the database, with new objects, whenever the music service
+     * is: with nothing loaded the service ends when the app is left and a new one starts when the
+     * app comes back (and after a scan, or for a new Max queues). A sheet left open across that
+     * went on showing the object it was seeded with, while Remove from queue, a swipe and a drag
+     * all go to the board's current queue. So the picked songs left the saved queue, the rows came
+     * straight back from the old object and the bar still counted them: "the remove from queue
+     * doesn't work" (a tester's video, 10 Nov 2026), and the next try took out whichever songs
+     * stood at those places by then. The old object is swapped for the board's as soon as they
+     * differ. A selection is of the old rows and goes with them, as when the player's list changes.
+     *
+     * Only the seed: a queue picked from the list to look at is not the board's current one.
+     */
+    val seedReplacedBy = fallBackQueue?.takeIf { detachedHead && detachedQueue === fallbackSeed && it !== fallbackSeed }
+    SideEffect {
+        if (seedReplacedBy != null) {
+            fallbackSeed = seedReplacedBy
+            detachedQueue = seedReplacedBy
+            onExitSelectionMode()
         }
     }
 
