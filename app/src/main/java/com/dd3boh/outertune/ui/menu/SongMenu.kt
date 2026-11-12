@@ -310,16 +310,20 @@ fun SongMenu(
             }
         }
 
-        GridMenuItem(
-            icon = R.drawable.artist,
-            title = R.string.view_artist
-        ) {
-            if (song.artists.size == 1) {
-                ActivityLog.note(context, database, song.id, SignalKind.ARTIST_PAGE)
-                navController.navigate("artist/${song.artists[0].id}")
-                onDismiss()
-            } else {
-                showSelectArtistDialog = true
+        // A local file with no artist tag has no artist: the choice of artists would open empty
+        // (#150). Left out then, as the player's menu does.
+        if (song.artists.isNotEmpty()) {
+            GridMenuItem(
+                icon = R.drawable.artist,
+                title = R.string.view_artist
+            ) {
+                if (song.artists.size == 1) {
+                    ActivityLog.note(context, database, song.id, SignalKind.ARTIST_PAGE)
+                    navController.navigate("artist/${song.artists[0].id}")
+                    onDismiss()
+                } else {
+                    showSelectArtistDialog = true
+                }
             }
         }
         if (song.song.albumId != null && !song.song.isLocal) {
