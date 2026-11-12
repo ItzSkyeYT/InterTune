@@ -2813,4 +2813,55 @@ class ChainWalkTest {
         assertEquals("Missing stream expire time", failure?.message)
         assertFalse(YTPlayerUtils.isSignInWanted(failure))
     }
+
+    // ---- a video in several languages (#151) ----
+
+    /**
+     * VISIONOS's answer for a video with a machine dub and its original, both as Opus 251, the dub
+     * listed first and the larger, as for the podcast episode of OriginalAudioTest. The xtags are
+     * YouTube's own for the two: acont=dubbed-auto, lang=it and acont=original, lang=en-US.
+     */
+    private fun dubbedAnswer() = playable("VISIONOS", loudness = 5.0, seconds = "200").let { a ->
+        val opus = a.streamingData!!.adaptiveFormats.single()
+        val dub = opus.copy(
+            bitrate = 147_000, contentLength = 3_300_000, lastModified = 1L,
+            xtags = "ChQKBWFjb250EgtkdWJiZWQtYXV0bwoKCgRsYW5nEgJpdA",
+            audioTrack = PlayerResponse.StreamingData.Format.AudioTrack("it.10", "Italian", false),
+        )
+        val original = opus.copy(
+            bitrate = 145_000, contentLength = 3_000_000, lastModified = 2L,
+            xtags = "ChEKBWFjb250EghvcmlnaW5hbAoNCgRsYW5nEgVlbi1VUw",
+            audioTrack = PlayerResponse.StreamingData.Format.AudioTrack("en-US.4", "English (US) original", true),
+        )
+        a.copy(streamingData = a.streamingData!!.copy(adaptiveFormats = listOf(dub, original)))
+    }
+
+    @Test
+    fun `a video in several languages plays in its original, not in the larger dub`() {
+        remembering("VISIONOS", "ANDROID_VR")
+        val data = walk(Script(mapOf("VISIONOS" to listOf(dubbedAnswer())))).getOrThrow()
+        assertEquals("en-US.4", data.format.audioTrack?.id)
+        assertEquals(3_000_000L, data.format.contentLength)
+    }
+
+    @Test
+    fun `mid-song in a dub, the dub the player has bytes of is carried on with`() {
+        remembering("VISIONOS", "ANDROID_VR")
+        fun walkWanting(sameStream: Pair<Int, Long>?) = runBlocking(YTPlayerUtils.RouteWish("TESTVIDEO01", emptySet(), sameStream)) {
+            YTPlayerUtils.playerResponseForPlayback("TESTVIDEO01", null, AudioQuality.HIGH, connectivity, Script(mapOf("VISIONOS" to listOf(dubbedAnswer()))))
+        }.getOrThrow()
+
+        // A song begun in the dub before this was mended: the rest of it is the same stream, never two languages in one copy.
+        assertEquals("it.10", walkWanting(251 to 3_300_000L).format.audioTrack?.id)
+        assertEquals("from its start, the original", "en-US.4", walkWanting(null).format.audioTrack?.id)
+    }
+
+    @Test
+    fun `over SABR too, the original is what is asked for`() {
+        val script = refusedEverywhere("VISIONOS" to listOf(dubbedAnswer()))
+        val data = walk(script).getOrThrow()
+        assertTrue(data.streamUrl.startsWith("sabr://"))
+        assertEquals("en-US.4", script.sabrAsked.single().data.format.audioTrack?.id)
+        assertEquals("en-US.4", data.format.audioTrack?.id)
+    }
 }
