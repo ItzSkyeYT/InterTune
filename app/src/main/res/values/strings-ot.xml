@@ -2810,4 +2810,22 @@ while also allowing users to translate our app as well. New, specific strings to
         <item quantity="one">Removed %1$d song</item>
         <item quantity="other">Removed %1$d songs</item>
     </plurals>
+    <!-- A download folder saved that does not open (DownloadFolderState): under its row on Settings > Storage, and said once, in a toast (so 70 characters at most, ToastLengthTest), when a download cannot be moved into it. Then the question after a folder is chosen while downloads are still inside the app. Held from translators. -->
+    <string name="dl_folder_cannot_open" translatable="false">InterTune can\'t open this folder any more. New downloads stay inside the app until you choose it again.</string>
+    <string name="dl_folder_cannot_open_notice" translatable="false">InterTune can\'t open your download folder. Downloads stay in the app.</string>
+    <string name="dl_move_here_title" translatable="false">Move your downloads here?</string>
+    <plurals name="dl_move_here_text" translatable="false">
+        <item quantity="one">%d song is still inside the app. Move it to this folder now?</item>
+        <item quantity="other">%d songs are still inside the app. Move them to this folder now?</item>
+    </plurals>
+    <string name="dl_move_here_move" translatable="false">Move</string>
+    <string name="dl_move_here_not_now" translatable="false">Not now</string>
+    <!-- While Migrate, or the move offered once a folder is chosen, puts the downloads kept inside the app into the folder (MoveNotice): the notification as it goes and the line it ends with. Held from translators. -->
+    <string name="dl_move_notice_title" translatable="false">Moving downloads</string>
+    <string name="dl_move_notice_text" translatable="false">%1$d of %2$d</string>
+    <string name="dl_move_notice_done" translatable="false">Downloads moved to your folder</string>
+    <plurals name="dl_move_notice_failed" translatable="false">
+        <item quantity="one">%d song could not be moved and stays inside the app</item>
+        <item quantity="other">%d songs could not be moved and stay inside the app</item>
+    </plurals>
 </resources>
