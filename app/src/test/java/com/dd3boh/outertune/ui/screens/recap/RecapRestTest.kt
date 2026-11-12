@@ -40,6 +40,16 @@ class RecapRestTest {
     }
 
     @Test
+    fun `the Recap stands still by the app's one rule, Android's Remove animations or the Animations switch`() {
+        // Its story runs on a clock of its own, which the pace given to the window does not reach
+        // (Animations): asked here, so that the switch off is the still Recap and not half of one.
+        val motion = code(File(sources, "ui/screens/recap/RecapMotion.kt"))
+        assertTrue("fun still(): Boolean = Animations.off" in motion)
+        val asked = recapFiles.filter { "areAnimatorsEnabled" in code(it) || "ANIMATOR_DURATION_SCALE" in code(it) }.map { it.name }
+        assertTrue("Android's setting is read apart from the app's rule in $asked", asked.isEmpty())
+    }
+
+    @Test
     fun `a resting shape drifts slowly and only a little`() {
         assertEquals(ActorId.entries.toSet(), RecapMotion.Rest.drift.keys)
         for ((id, d) in RecapMotion.Rest.drift) {

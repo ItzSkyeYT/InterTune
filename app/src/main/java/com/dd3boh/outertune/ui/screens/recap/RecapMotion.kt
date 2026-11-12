@@ -6,8 +6,6 @@
 
 package com.dd3boh.outertune.ui.screens.recap
 
-import android.animation.ValueAnimator
-import android.os.Build
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.Easing
 import androidx.compose.runtime.Stable
@@ -16,6 +14,7 @@ import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
+import com.dd3boh.outertune.ui.utils.Animations
 import kotlin.math.floor
 import kotlin.math.pow
 import kotlin.math.roundToLong
@@ -249,11 +248,13 @@ internal object RecapMotion {
     const val BACK_SHARE = 0.3f
 
     /**
-     * Whether things move at all. With Remove animations on, or the animator turned off in the
-     * developer options, the Recap fades instead: parts appear in place, slides cross-fade, the
-     * shapes change where they are, and nothing moves while a slide rests.
+     * Whether things move at all. With Remove animations on, the animator turned off in the
+     * developer options, or the app's own Animations switch off, the Recap fades instead: parts
+     * appear in place, slides cross-fade, the shapes change where they are, and nothing moves while
+     * a slide rests. The app's one rule (Animations.off, which reads Android's setting too): the
+     * story runs on a clock of its own, and what does asks that rule, as Living blur does.
      */
-    fun still(): Boolean = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !ValueAnimator.areAnimatorsEnabled()
+    fun still(): Boolean = Animations.off
 }
 
 /** A curve given as evenly spaced samples from 0 to 1, joined by straight lines: the web's linear(). */
