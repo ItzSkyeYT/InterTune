@@ -10,9 +10,9 @@ package com.dd3boh.outertune.recap
  * How a Recap being opened is counted: exactly as the first opening of an announcement or a poll
  * from the banner on Home is (PollChecker.viewed). One event, Umami's "poll_view", carrying these
  * four fields and nothing else: no id, no account, nothing about the phone or what was played.
- * Once per install for each year's Recap, the first time its story is opened, and only with News
- * from InterTune switched on, whose words already say that the first time one is opened is counted
- * anonymously. Nothing at all in a build without the maintainer's keys.
+ * Once per install for each year's Recap, the first time its story is opened, from every install
+ * (decided on 25 Oct 2026; until then only with News from InterTune switched on). Nothing at all in
+ * a build without the maintainer's keys.
  *
  * The dashboard already groups these by type and id, so the Recap shows up there as its own row.
  */
