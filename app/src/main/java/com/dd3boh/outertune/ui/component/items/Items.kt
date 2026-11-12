@@ -283,6 +283,8 @@ fun GridItem(
     fillMaxWidth: Boolean = false,
     /** A song the listener chose not to play (DontPlay): the whole tile shown switched off. */
     isDontPlay: Boolean = false,
+    /** Under the line that holds the badges and the subtitle: what a tile says beyond them. */
+    below: @Composable () -> Unit = {},
 ) {
     Column(
         modifier = if (fillMaxWidth) {
@@ -315,6 +317,8 @@ fun GridItem(
 
             subtitle()
         }
+
+        below()
     }
 }
 
@@ -328,6 +332,10 @@ fun GridItem(
  *
  * [titleSize] is for such tiles side by side: handed the same one, their titles all take the
  * size of the one that needs the smallest.
+ *
+ * [lines] go under the subtitle, each on a line of its own and in its style: the plays under a
+ * most played album, the plays and the time under a most played artist (StatsScreen). A line is
+ * never wrapped, so a tile's numbers stay one under the other at any font size.
  */
 @Composable
 fun GridItem(
@@ -341,6 +349,7 @@ fun GridItem(
     shrinks: Boolean = false,
     titleSize: SameTextSize? = null,
     isDontPlay: Boolean = false,
+    lines: List<String> = emptyList(),
 ) = GridItem(
     modifier = modifier,
     title = {
@@ -384,7 +393,18 @@ fun GridItem(
     thumbnailContent = thumbnailContent,
     thumbnailRatio = thumbnailRatio,
     fillMaxWidth = fillMaxWidth,
-    isDontPlay = isDontPlay
+    isDontPlay = isDontPlay,
+    below = {
+        lines.forEach { line ->
+            Text(
+                text = line,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.secondary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
 )
 
 @Composable
