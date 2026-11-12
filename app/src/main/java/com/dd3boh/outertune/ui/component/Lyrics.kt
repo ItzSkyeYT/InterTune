@@ -306,21 +306,15 @@ fun Lyrics(
             keep.pickedIn = lyricsModel
         }
         lyricsModel?.let { model ->
-            if (isSynced) {
-                val lyrics = lyricsModel as SemanticLyrics.SyncedLyrics
-                lines.addAll(lyrics.text)
-
-                if (lyricsFancy && lyrics.text.fastAny { it.words != null }) {
-                    lyricRefreshRate = lyricsUpdateSpeed.toLrcRefreshMillis()
-                } else {
-                    lyricRefreshRate = Speed.SLOW.toLrcRefreshMillis()
-                }
+            // What kind they are is asked of the lyrics in hand, here and in lyricsLines, and not
+            // read from isSynced. That is the answer the view had when it started this, and these
+            // can be other lyrics by the time it runs: two songs' lyrics coming between two
+            // frames, synced ones then plain ones, had the plain ones taken for synced here, and
+            // the app closed (#146, #148).
+            lines.addAll(lyricsLines(model))
+            if (model is SemanticLyrics.SyncedLyrics && lyricsFancy && model.text.fastAny { it.words != null }) {
+                lyricRefreshRate = lyricsUpdateSpeed.toLrcRefreshMillis()
             } else {
-                // A line each, as synced lyrics have, so that one can be picked to share. They
-                // stand with no room between them below, and read as the one block they were.
-                model.unsyncedText.forEach { (text, _) ->
-                    lines.add(LyricLine(text, 0L.toULong(), 0L.toULong(), null, null, false))
-                }
                 lyricRefreshRate = Speed.SLOW.toLrcRefreshMillis()
             }
         }
@@ -444,7 +438,12 @@ fun Lyrics(
     // went away left this waiting for an old "playing" that never came, and the lines stood still
     // while the song played on, until the lyrics were closed and opened again.
     LaunchedEffect(lyricsModel, lifecycleOwner, playerConnection) {
-        if (lyricsModel == null || !isSynced || (lyricsModel as SemanticLyrics.SyncedLyrics).text.isEmpty()) {
+        // Asked of the lyrics as they are now, as it is where the lines are filled: isSynced is
+        // the view's answer from before this ran, and the cast that stood here would have closed
+        // the app on plain lyrics come since, the same way. isSynced stays in the test, so that
+        // the song is followed in no case where it was not before.
+        val synced = lyricsModel as? SemanticLyrics.SyncedLyrics
+        if (!isSynced || synced == null || synced.text.isEmpty()) {
             currentLineIndex = -1
             return@LaunchedEffect
         }
@@ -1085,6 +1084,21 @@ fun HorizontalReveal(
         ) {
             content()
         }
+    }
+}
+
+/**
+ * The lines the view shows for [lyrics]: synced lyrics' own, and for plain ones a line each with
+ * no times, as synced lyrics have, so that one can be picked to share. Those stand with no room
+ * between them in the view, and read as the one block they were.
+ *
+ * Which of the two they are is asked of the lyrics themselves. "Lyrics not found" is plain lyrics
+ * too (LyricsEntity.uninitializedLyric).
+ */
+internal fun lyricsLines(lyrics: SemanticLyrics): List<LyricLine> = when (lyrics) {
+    is SemanticLyrics.SyncedLyrics -> lyrics.text
+    is SemanticLyrics.UnsyncedLyrics -> lyrics.unsyncedText.map { (text, _) ->
+        LyricLine(text, 0L.toULong(), 0L.toULong(), null, null, false)
     }
 }
 
