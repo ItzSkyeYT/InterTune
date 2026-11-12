@@ -110,9 +110,9 @@ fun ArtistGridItem(
         }
     },
     fillMaxWidth: Boolean = false,
-    /** Under the count of songs, a line each: the plays and the time of a most played artist (StatsScreen). */
+    /** Under the subtitle, a line each: the time listened to a most played artist (StatsScreen). */
     lines: List<String> = emptyList(),
-    /** In place of the count of songs, for the looks of the Stats page that are being compared (StatsNumbersLook). */
+    /** In place of the count of songs: a most played artist's plays (StatsScreen). */
     subtitle: String? = null,
 ) = GridItem(
     title = artist.artist.name,

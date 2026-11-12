@@ -1,6 +1,5 @@
 package com.dd3boh.outertune.ui.screens
 
-import android.content.Context
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.WindowInsetsSides
@@ -19,19 +18,16 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.navigation.NavController
-import com.dd3boh.outertune.BuildConfig
 import com.dd3boh.outertune.LocalMenuState
 import com.dd3boh.outertune.constants.PlayOrigin
 import com.dd3boh.outertune.LocalPlayerAwareWindowInsets
@@ -54,11 +50,8 @@ import com.dd3boh.outertune.ui.component.items.SongListItem
 import com.dd3boh.outertune.ui.menu.AlbumMenu
 import com.dd3boh.outertune.ui.menu.ArtistMenu
 import com.dd3boh.outertune.ui.menu.SongMenu
-import com.dd3boh.outertune.utils.joinByBullet
-import com.dd3boh.outertune.utils.makeTimeString
 import com.dd3boh.outertune.utils.rememberPreference
 import com.dd3boh.outertune.viewmodels.StatsViewModel
-import java.io.File
 import kotlin.math.roundToInt
 import com.dd3boh.outertune.ui.utils.itemsInColumns
 import com.dd3boh.outertune.ui.utils.rememberListColumns
@@ -92,9 +85,6 @@ fun StatsScreen(
     val lazyListState = rememberLazyListState()
     // The numbers of the three lists are written as the cards above write theirs.
     val format = rememberStatsFormat()
-    // Where they sit: the page's own look, or in a debug build another one, to be photographed.
-    val context = LocalContext.current
-    val look = remember { StatsNumbersLook.of(context) }
 
     val mostPlayedSongTitle = stringResource(R.string.most_played_songs)
     val statsTitle = stringResource(R.string.stats)
@@ -204,15 +194,10 @@ fun StatsScreen(
                         origin = PlayOrigin.STATS,
                     )
                 },
-                // Its plays in the period, at the end of the row, where History has the time of a
-                // play: the line under the title stays the artist and the length, as on every list.
-                trailingText = plays.takeIf { look == StatsNumbersLook.A },
-                // The looks that put it in that line instead, after the length or in its place.
-                caption = when (look) {
-                    StatsNumbersLook.B -> joinByBullet(makeTimeString(song.song.duration * 1000L), plays)
-                    StatsNumbersLook.C -> plays
-                    else -> null
-                },
+                // Its plays in the period, which rank the list, in the line under the title in place
+                // of the length: "Artist • 12 plays" (his pick of 12 Nov 2026, the look C of
+                // experiments/features/stats-more/sheet.png).
+                caption = plays,
                 modifier = Modifier
                     .fillMaxWidth()
                     .animateItem()
@@ -239,15 +224,10 @@ fun StatsScreen(
                         val time = format.duration(played.playTime).takeIf { played.playTime >= ListeningInsights.MINUTE_MS }
                         ArtistGridItem(
                             artist = artist,
-                            // The plays that rank the row and the time listened, one under the other
-                            // below the count of songs: a tile is too narrow for the two side by
-                            // side. In the looks B and C the plays take the place of that count.
-                            subtitle = plays.takeIf { look == StatsNumbersLook.B || look == StatsNumbersLook.C },
-                            lines = when (look) {
-                                StatsNumbersLook.NONE -> emptyList()
-                                StatsNumbersLook.A -> listOfNotNull(plays, time)
-                                else -> listOfNotNull(time)
-                            },
+                            // The plays that rank the row in place of the count of songs, and the
+                            // time listened under them: a tile is too narrow for the two side by side.
+                            subtitle = plays,
+                            lines = listOfNotNull(time),
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .combinedClickable(
@@ -288,7 +268,7 @@ fun StatsScreen(
                         val album = played.album
                         AlbumGridItem(
                             album = album,
-                            lines = if (look == StatsNumbersLook.NONE) emptyList() else listOf(playsText(played.plays, format)),
+                            lines = listOf(playsText(played.plays, format)),
                             isActive = album.id == mediaMetadata?.album?.id,
                             isPlaying = isPlaying,
                             coroutineScope = coroutineScope,
@@ -335,37 +315,6 @@ fun StatsScreen(
     )
 
     FloatingTopBar(title = stringResource(R.string.stats), navController = navController)
-}
-
-/**
- * Where the numbers of the Most played lists sit. [A] is the page's look. The others are here to
- * be photographed beside it while the choice is open (experiments/features/stats-more/sheet.png),
- * and go with this switch once it is made. A debug build takes the letter in the file [FILE] of
- * its files folder, read when the page opens; any other build, and a debug build without the
- * file, has [A].
- */
-internal enum class StatsNumbersLook {
-    /** The page as it was, without the numbers: the picture of before, from the same build. */
-    NONE,
-
-    /** Nothing gives way: a song's plays at the end of its row, an artist's plays and time under the count of songs. */
-    A,
-
-    /** In the lines there are: "Artist • 4:04 • 12 plays", and an artist's plays in place of the count of songs. */
-    B,
-
-    /** As [B], with a song's plays in place of its length: "Artist • 12 plays". */
-    C;
-
-    companion object {
-        const val FILE = "stats_numbers_look"
-
-        fun of(context: Context): StatsNumbersLook {
-            if (!BuildConfig.DEBUG) return A
-            val letter = runCatching { File(context.filesDir, FILE).readText().trim() }.getOrNull()
-            return StatsNumbersLook.entries.firstOrNull { it.name == letter } ?: A
-        }
-    }
 }
 
 /** "12 plays", the count in the phone's own digits and grouping, as the cards above write one. */

@@ -102,10 +102,10 @@ object StatsSql {
     """
 
     /**
-     * Most played songs, the list above the artists, each with its plays in the period. The
-     * ranking is SongsDao.MOST_PLAYED_SONGS's, by the time played, which Home's Keep listening, the
-     * widget and the car read: the same songs in the same order (StatsSqlTest holds the two
-     * together), with the count the inner query makes in the pass that adds up the time.
+     * Most played songs, the list above the artists, each with its plays in the period, ranked by
+     * those plays and then by the time played, as the artists are: the number beside a song never
+     * stands below a bigger one. SongsDao.MOST_PLAYED_SONGS, which Home's Keep listening, the
+     * widget and the car read, stays by the time. Both counts come out of the one pass.
      *
      * The + in the GROUP BY is the one of [SONGS_BEFORE] and of the artists below: the events are
      * read in table order and grouped in a temporary tree. Without it SQLite walks the songId
@@ -120,18 +120,19 @@ object StatsSql {
             FROM event
             WHERE timestamp > :fromTimeStamp
             GROUP BY +songId
-            ORDER BY totalPlayTime DESC
+            ORDER BY plays DESC, totalPlayTime DESC
             LIMIT :limit
         ) ranked
         JOIN song ON song.id = ranked.songId
-        ORDER BY ranked.totalPlayTime DESC
+        ORDER BY ranked.plays DESC, ranked.totalPlayTime DESC
     """
 
     /**
-     * Most played albums, the last row, each with the plays of its songs in the period. The
-     * ranking is AlbumsDao.mostPlayedAlbums's, by the time played, which Home reads too. Every row
-     * grouped here is one play of one of the album's songs, so the count is of rows; the download
-     * count is that query's own, kept as it is.
+     * Most played albums, the last row, each with the plays of its songs in the period, ranked by
+     * those plays and then by the time played, as the songs and artists are. AlbumsDao's
+     * mostPlayedAlbums, which Home reads, stays by the time. Every row grouped here is one play of
+     * one of the album's songs, so the count is of rows; the download count is that query's own,
+     * kept as it is.
      */
     const val MOST_PLAYED_ALBUMS = """
         SELECT album.*, count(song.dateDownload) downloadCount, COUNT(*) AS plays
@@ -140,7 +141,7 @@ object StatsSql {
             JOIN event ON song.id = event.songId
         WHERE event.timestamp > :fromTimeStamp
         GROUP BY album.id
-        ORDER BY SUM(event.playTime) DESC
+        ORDER BY COUNT(*) DESC, SUM(event.playTime) DESC
         LIMIT :limit
     """
 
