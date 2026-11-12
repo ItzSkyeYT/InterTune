@@ -134,6 +134,30 @@ interface DatabaseDao : SongsDao, AlbumsDao, ArtistsDao, PlaylistsDao, QueueDao,
     @Query(RelatedSql.YOUTUBE_RELATED_SONGS)
     fun youtubeRelatedSongs(songId: String): List<Song>
 
+    // ---- A radio made on the phone when YouTube gives none (LocalRadio). See [RadioSql].
+    @Transaction
+    @Query(RadioSql.LISTED_FOR)
+    fun radioListedFor(songId: String, source: Int, limit: Int): List<Song>
+
+    @Transaction
+    @Query(RadioSql.LISTING)
+    fun radioListing(songId: String, limit: Int): List<Song>
+
+    @Transaction
+    @Query(RadioSql.NEIGHBOURS_LIST)
+    fun radioNeighboursList(songId: String, limit: Int): List<Song>
+
+    @Transaction
+    @Query(RadioSql.HEARD_WITH)
+    fun radioHeardWith(songId: String, limit: Int): List<Song>
+
+    @Transaction
+    @Query(RadioSql.BY_ITS_ARTISTS)
+    fun radioByItsArtists(songId: String, limit: Int): List<Song>
+
+    @Query(RadioSql.EXCLUSIONS_IN_FORCE)
+    fun exclusionsInForce(now: Long): List<com.dd3boh.outertune.engine.EngineExclusionRow>
+
     @Query("""
         SELECT * FROM genre
         WHERE genre.isLocal = 1
@@ -182,9 +206,19 @@ interface DatabaseDao : SongsDao, AlbumsDao, ArtistsDao, PlaylistsDao, QueueDao,
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     fun insert(map: RelatedSongMap)
 
+    /** A length for a song whose row has none, never over one it has: see insert(mediaMetadata). */
+    @Query("UPDATE song SET duration = :duration WHERE id = :id AND duration <= 0")
+    fun fillSongDuration(id: String, duration: Int)
+
     @Transaction
     fun insert(mediaMetadata: MediaMetadata, block: (SongEntity) -> SongEntity = { it }) {
-        if (insert(mediaMetadata.toSongEntity().let(block)) == -1L) return
+        if (insert(mediaMetadata.toSongEntity().let(block)) == -1L) {
+            // The row was there already and is kept: the song table holds every song the app has
+            // seen, many first met in a radio or a search without a length. A length this one knows
+            // fills that gap, so a queue restored after a restart still has it (5 Nov 2026).
+            if (mediaMetadata.duration > 0) fillSongDuration(mediaMetadata.id, mediaMetadata.duration)
+            return
+        }
         mediaMetadata.artists.forEachIndexed { index, artist ->
             val artistId = artist.id ?: artistByName(artist.name)?.id ?: ArtistEntity.generateArtistId()
             insert( // TODO: use upsert???

@@ -1,0 +1,11 @@
+Version 0.12.8
+
+- Signaler un bug sans compte GitHub, ou le partager en fichier.
+- Les sauvegardes laissent vos connexions de côté, sauf si vous les cochez.
+- Les radios qui échouaient sans compte remarchent.
+- Les erreurs disent pourquoi YouTube ne charge pas.
+- Enregistrer les cartes et vidéos de paroles.
+- La file revient après un redémarrage.
+- Moins de plantages : téléphone plein, téléchargements, file vide.
+
+Full changelog : https://github.com/ItzSkyeYT/InterTune/releases/tag/v0.12.8

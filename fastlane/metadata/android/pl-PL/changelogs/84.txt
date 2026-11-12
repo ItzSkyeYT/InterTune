@@ -1,0 +1,10 @@
+Version 0.10.7
+=== Zmiany i ulepszenia ===
+• Zarówno zgody (opt-ins), aktualizacje, jak i pytania są teraz wyświetlane raz po aktualizacji lub przywróceniu kopii zapasowej – dzięki temu nie będą już niewidoczne dla osób, które pominęły konfigurację.
+• Odświeżanie ekranu głównego (Home) sięga teraz głębiej niż pierwsza odpowiedź serwera i rzeczywiście znajduje nowe utwory, dając około cztery razy większą pulę do wyboru.
+• Dodano przycisk „+” na ekranie biblioteki do szybkiego tworzenia playlisty.
+• Pusta playlista automatycznie otwiera teraz wyszukiwarkę pierwszego utworu, zamiast prowadzić do ślepego zaułka.
+• Stuknięcie w powiadomienie o pytaniu otwiera bezpośrednio to pytanie, a nie tylko samą aplikację.
+
+Pełna lista zmian:
+https://github.com

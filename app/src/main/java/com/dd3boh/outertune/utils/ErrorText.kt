@@ -7,6 +7,7 @@
 package com.dd3boh.outertune.utils
 
 import androidx.media3.common.PlaybackException
+import androidx.media3.exoplayer.source.UnrecognizedInputFormatException
 import java.io.PrintStream
 import java.io.PrintWriter
 
@@ -112,4 +113,16 @@ object ErrorText {
     fun playerLine(error: PlaybackException, unknown: String = ""): String = withoutAddresses(
         "${error.message} (${error.errorCode}): ${error.cause?.message ?: error.cause?.cause?.message ?: unknown}"
     )
+
+    /**
+     * Whether what came back for the song was not audio at all: no container the player knows,
+     * and not a damaged one ("None of the available extractors could read the stream",
+     * contentIsMalformed=false). The song's cached copy is dropped and fetched again by then
+     * (BadCachedCopy), so what is left is the fetch itself answered by something else: an empty
+     * reply or a page from a VPN, an ad blocker or a network in YouTube's place (a Discord report,
+     * 7 Nov 2026, most of a playlist on one phone while the same song played here).
+     */
+    fun isNotAudio(error: PlaybackException): Boolean =
+        error.errorCode == PlaybackException.ERROR_CODE_PARSING_CONTAINER_UNSUPPORTED ||
+            generateSequence<Throwable>(error) { it.cause }.take(10).any { it is UnrecognizedInputFormatException }
 }

@@ -150,6 +150,8 @@ interface AlbumsDao : ArtistsDao {
             AlbumSortType.YEAR -> "album.year ASC"
             AlbumSortType.SONG_COUNT -> "album.songCount ASC"
             AlbumSortType.LENGTH -> "album.duration ASC"
+            // An order of your own: oldest first here, then the library's one order (LibraryAlbumsViewModel).
+            AlbumSortType.CUSTOM -> "album.rowId ASC"
         }
 
         val where = when (filter) {

@@ -69,13 +69,16 @@ object LikedCatchUp {
      * longer holds. That is what lets [tally] trust a recorded ending over the map: while one is
      * there, the last thing the listener heard about the song was that it ended. Songs outside the
      * batch belong to somebody else's download and are left alone.
+     *
+     * A failed song stays failed when it is then removed: that removal is the app freeing the bytes
+     * the failed download had (DownloadUtil's listener), not anybody's stop.
      */
     fun afterUpdate(ends: Map<String, End>, batch: Set<String>, id: String, state: Int): Map<String, End> {
         if (id !in batch) return ends
         return when (state) {
             Download.STATE_COMPLETED -> ends + (id to End.LANDED)
             Download.STATE_FAILED -> ends + (id to End.FAILED)
-            Download.STATE_REMOVING -> ends + (id to End.REMOVED)
+            Download.STATE_REMOVING -> if (ends[id] == End.FAILED) ends else ends + (id to End.REMOVED)
             else -> ends - id
         }
     }

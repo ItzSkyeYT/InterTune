@@ -9,6 +9,7 @@ package com.dd3boh.outertune.ui.dialog
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
@@ -17,8 +18,10 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.VolunteerActivism
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -36,9 +39,10 @@ import com.dd3boh.outertune.constants.Links
 import com.dd3boh.outertune.utils.Donors
 
 /**
- * About > Support InterTune: a line on how to give, which is a direct message on the Discord
- * server (decided on 17 Oct 2026, the day the first donation came that way), and thanks to those
- * who have, each name on a line of its own. The names come from README > Donors ([Donors]): the
+ * About > Support InterTune: how to give, which is InterTune's Ko-fi since 8 Nov 2026 (cards, then
+ * PayPal), or a direct message on the Discord server for crypto (as the first donation came, on
+ * 17 Oct 2026), and thanks to those who have, each name on a line of its own. The two ways are
+ * buttons the width of the note, so a large font never pushes them into each other. The names come from README > Donors ([Donors]): the
  * last list shows at once, and the README is asked again while the note is open, so a donor added
  * there appears without an update. The text scrolls, so a long list never pushes the buttons off
  * a short screen.
@@ -58,6 +62,24 @@ fun SupportDialog(onDismiss: () -> Unit) {
         text = {
             Column(Modifier.verticalScroll(rememberScrollState())) {
                 Text(stringResource(R.string.support_text), style = MaterialTheme.typography.bodyMedium)
+                // InterTune's own Ko-fi and server, not a fork's (FORKS.md).
+                if (BuiltInKeys.official) {
+                    Spacer(Modifier.height(16.dp))
+                    FilledTonalButton(
+                        onClick = {
+                            uriHandler.openUri(Links.KOFI)
+                            onDismiss()
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) { Text(stringResource(R.string.support_kofi)) }
+                    OutlinedButton(
+                        onClick = {
+                            uriHandler.openUri(Links.DISCORD)
+                            onDismiss()
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) { Text(stringResource(R.string.support_discord)) }
+                }
                 if (donors.isNotEmpty()) {
                     Spacer(Modifier.height(16.dp))
                     Text(
@@ -80,13 +102,6 @@ fun SupportDialog(onDismiss: () -> Unit) {
                 }
             }
         },
-        confirmButton = {
-            // InterTune's server, not a fork's (FORKS.md).
-            if (BuiltInKeys.official) TextButton(onClick = {
-                uriHandler.openUri(Links.DISCORD)
-                onDismiss()
-            }) { Text(stringResource(R.string.support_discord)) }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(android.R.string.ok)) } },
+        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(android.R.string.ok)) } },
     )
 }

@@ -1,0 +1,13 @@
+Version 0.12.7
+
+- Téléchargements en quelques secondes.
+- Paroles en vidéo jusqu'à 10 min, Living blur suit la musique.
+- Le widget Étagère a trois looks.
+- Les titres partagés s'affichent en discussion.
+- Moins de plantages : démarrage, téléchargements.
+- Sauter les silences respecte la musique calme.
+- L'égaliseur du lecteur fonctionne.
+- Rechercher les paroles en trouve plus.
+- Un message pour la Corée du Sud.
+
+Full changelog : https://github.com/ItzSkyeYT/InterTune/releases/tag/v0.12.7

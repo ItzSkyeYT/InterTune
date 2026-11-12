@@ -52,8 +52,8 @@ android {
         applicationId = "dev.skye.intertune"
         minSdk = 24
         targetSdk = 36
-        versionCode = 97
-        versionName = "0.12.5"
+        versionCode = 102
+        versionName = "0.12.10"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         // Obfuscated, not encrypted, and the difference matters. Anything the app can read, so
@@ -143,10 +143,20 @@ android {
             // The app's own screens in a car (AutoCarService, AutoSettingsService) exist only where
             // Unreleased.AUTO_REWORK is on: a car that finds them draws the app from them, held back or not.
             manifestPlaceholders["carScreens"] = "false"
+            // The widget's settings: a dialog. Where Unreleased.WIDGET_ON_WALLPAPER is on (every build with
+            // the preview features), a full window over the wallpaper; a dialog there lets the home screen show through.
+            manifestPlaceholders["widgetConfigTheme"] = "@style/Theme.InterTune.WidgetConfig"
+            // What is held back in Unreleased.kt is off. BuildConfig.PREVIEW_FEATURES, and not BuildConfig.DEBUG, is
+            // what a held-back flag reads: DEBUG says the build is debuggable, which the Tester app no longer is.
+            buildConfigField("boolean", "PREVIEW_FEATURES", "false")
         }
         debug {
             applicationIdSuffix = ".debug"
             manifestPlaceholders["carScreens"] = "true"
+            manifestPlaceholders["widgetConfigTheme"] = "@style/Theme.InterTune.WidgetConfig.Wallpaper"
+            // The builds that show what is held back (Unreleased.kt): this one, the preview and the beta type. Each type
+            // says it itself, so that none depends on what initWith copies from another.
+            buildConfigField("boolean", "PREVIEW_FEATURES", "true")
         }
 
         // A debug build that installs beside the release and the debug build, for trying a
@@ -170,6 +180,7 @@ android {
 //            isDebuggable = true
             isProfileable = true
             matchingFallbacks += listOf("release")
+            buildConfigField("boolean", "PREVIEW_FEATURES", "false")
         }
     }
 
@@ -270,6 +281,17 @@ android {
             // Allowed set of licenses, this project will be able to use without build failure
             allowedLicenses.addAll("Apache-2.0", "BSD-3-Clause", "GNU LESSER GENERAL PUBLIC LICENSE, Version 2.1", "GNU GENERAL PUBLIC LICENSE, Version 3", "GPL-3.0-only", "GPL-3.0-or-later", "EPL-2.0", "MIT", "MPL-2.0", "Public Domain")
 
+            // CameraX's core carries libyuv (Chromium's, a BSD licence, GPL-compatible) for Listen
+            // together's QR scanner. Allowed for that library alone, so that no other "BSD License"
+            // comes in unseen under the same vague name.
+            allowedLicensesMap.put("44d1a25c593283261968a15c8cc213cd", listOf("androidx.camera:camera-core"))
+
+            // jump3r, the Java port of the LAME MP3 encoder behind MP3 downloads (Mp3FileEncoder), says
+            // "LGPL v2.1+" in its POM, a name AboutLibraries has no id for. LGPL 2.1 or later may be
+            // used under the GPL (its section 3), which is the licence of the app. Allowed for that
+            // library alone, by the name its POM gives.
+            allowedLicensesMap.put("LGPL v2.1+", listOf("de.sciss:jump3r"))
+
             // Full license text for license IDs mentioned here will be included, even if no detected dependency uses them.
              additionalLicenses.addAll("apache_2_0", "gpl_2_1") // taglib, ffMpeg in ffMetadataEx
         }
@@ -309,6 +331,11 @@ ksp {
 dependencies {
     implementation(libs.kyant.backdrop)
     implementation(libs.guava)
+    implementation(libs.zxing.core)
+    implementation(libs.camerax.core)
+    implementation(libs.camerax.camera2)
+    implementation(libs.camerax.lifecycle)
+    implementation(libs.camerax.view)
     implementation(libs.coroutines.guava)
     implementation(libs.concurrent.futures)
 
@@ -360,6 +387,8 @@ dependencies {
     implementation(libs.room.ktx)
 
     implementation(libs.apache.lang3)
+    // MP3 files made on the phone (Unreleased.DOWNLOAD_FORMATS, Mp3FileEncoder): LAME's Java port.
+    implementation(libs.jump3r)
 
     implementation(libs.hilt)
     ksp(libs.hilt.compiler)
@@ -376,9 +405,14 @@ dependencies {
     // The XML pull parser Android itself uses, so the lyrics TTML parser runs in plain JVM tests,
     // where android.util.Xml has no parser behind it. See TtmlInternalNamespaceTest.
     testImplementation(libs.kxml2)
+    // YouTube's answers turned into the exceptions the app's client throws, with no network. See
+    // WhyStoppedTest.
+    testImplementation(libs.ktor.client.mock)
 
     // modules
     implementation(project(":fingerprint"))
+    // AutoMix's analysis, planning and mixing, pure Kotlin like the fingerprint code (Unreleased.AUTOMIX).
+    implementation(project(":mix"))
     implementation(project(":innertube"))
     implementation(project(":sabr"))
     implementation(libs.ktor.client.okhttp)

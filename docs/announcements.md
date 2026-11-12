@@ -77,6 +77,54 @@ An announcement or a question can be kept to certain Android versions, certain d
 
 The phone decides by itself from the document everyone gets. Nothing about the phone is sent anywhere to be matched, and answers still carry only the app version.
 
+## Questions: a follow-up after an answer
+
+A choice of a question can carry `then`: a second question, asked right after the first in the same card, to whoever picked that choice. "Keep it, but polish the details", then "Which details?", often with boxes to tick. Each picked choice that has one asks it next, in the order of the choices, with Back to the question before, and then one Send for the whole answer.
+
+```json
+{
+  "id": "look-2026-11",
+  "banner": "Quick question about InterTune's look",
+  "question": "Should InterTune get a new look?",
+  "options": [
+    { "id": "keep", "label": "Keep it as it is" },
+    {
+      "id": "polish",
+      "label": "Keep it, but polish the details",
+      "then": {
+        "question": "Which details?",
+        "body": "Tick all that apply.",
+        "multiple": true,
+        "options": [
+          { "id": "spacing", "label": "Spacing and alignment" },
+          { "id": "icons", "label": "Icons" },
+          { "id": "other", "label": "Something else", "other": true, "placeholder": "What would you polish?" }
+        ]
+      }
+    },
+    { "id": "new", "label": "A whole new look" }
+  ]
+}
+```
+
+- `then` takes `question` (needed), `body`, `multiple` and `options`. Its choices are written like a question's own: `id`, `label`, and `other` and `placeholder` if wanted.
+- One level only: a choice inside `then` has no `then` of its own.
+- It is sent in the same answer as the first question. For the example, somebody who picked polish and ticked icons and spacing sends `answer_id` `polish,polish/icons,polish/spacing` (a follow-up's picks as `<choice id>/<follow-up choice id>`), with `answer` holding the first question's label only. Words typed for an Other go in `text` as before, one box to a line if there are two. So no choice `id` may hold `/` or `,`.
+- A follow-up can be left with nothing picked, so it never costs the first answer. An Other picked in it needs its words.
+- Only builds with follow-ups show them: debug and preview builds since 4 Nov 2026 (`Unreleased.POLL_FOLLOW_UPS`), and releases once it is turned on, 0.13 at the earliest. Every other build ignores `then` and sends the first answer alone, so one poll works for all of them. A `then` the app cannot read is left out, never the question.
+- `tools/polls/gist.py check` refuses a choice id used twice in one question, an id holding `/` or `,`, a `then` with no question or no choices, and a `then` inside a `then`.
+
+## Trying a question first
+
+A debug or preview build reads a poll document from the phone itself while there is one: `files/poll-stand-in.json` in the app's own storage. Start from the live document (`tools/polls/gist.py fetch`, which keeps the announcements and the playback block as they are), add the question, then:
+
+```
+adb push polls.json /data/local/tmp/poll-stand-in.json
+adb shell run-as dev.skye.intertune.debug cp /data/local/tmp/poll-stand-in.json files/
+```
+
+With Questions on, the question shows at the next check (Settings, Questions and news, or the next start). While the file is there nothing is fetched and nothing is sent: an answer goes to the log instead (`adb logcat -s PollChecker`), so a test never lands among the real answers. Let me be asked again shows an answered question again. `adb shell run-as dev.skye.intertune.debug rm files/poll-stand-in.json` ends it. Releases never read it.
+
 ## Worth knowing
 
 - A mistake leaves out that one announcement, never the others. A date or version the app cannot read hides it, rather than showing it early or for ever, so if one does not appear, check those first.

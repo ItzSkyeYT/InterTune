@@ -35,6 +35,7 @@ import com.dd3boh.outertune.LocalDatabase
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.db.entities.PlaylistEntity
 import com.dd3boh.outertune.utils.ErrorText
+import com.dd3boh.outertune.utils.FailureLog
 import com.dd3boh.outertune.utils.mayPushToYouTube
 import com.zionhuang.innertube.YouTube
 import kotlinx.coroutines.CoroutineScope
@@ -44,6 +45,7 @@ import kotlinx.coroutines.withContext
 import java.time.LocalDateTime
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.ui.semantics.Role
+import com.dd3boh.outertune.utils.Toaster
 
 @Composable
 fun CreatePlaylistDialog(
@@ -70,8 +72,9 @@ fun CreatePlaylistDialog(
                     // no YouTube side, and the person is told.
                     YouTube.createPlaylist(playlistName).getOrElse {
                         Log.w("CreatePlaylistDialog", "Could not create the playlist on YouTube Music", ErrorText.forLog(it))
+                        FailureLog.record("Creating the playlist on YouTube Music", it)
                         withContext(Dispatchers.Main) {
-                            Toast.makeText(appContext, R.string.create_sync_playlist_failed, Toast.LENGTH_LONG).show()
+                            Toaster.show(appContext, R.string.create_sync_playlist_failed, Toast.LENGTH_LONG)
                         }
                         return@launch
                     }

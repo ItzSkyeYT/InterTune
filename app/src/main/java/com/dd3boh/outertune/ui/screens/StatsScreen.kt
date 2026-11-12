@@ -75,6 +75,7 @@ fun StatsScreen(
     val mostPlayedArtists by viewModel.mostPlayedArtists.collectAsState()
     val mostPlayedAlbums by viewModel.mostPlayedAlbums.collectAsState()
     val insights by viewModel.insights.collectAsState()
+    val found by viewModel.found.collectAsState()
     var showAllInsights by rememberSaveable { mutableStateOf(false) }
     // Two cards to a row once there is room for two, as on a phone turned sideways.
     val wide = LocalConfiguration.current.screenWidthDp >= 600
@@ -143,6 +144,7 @@ fun StatsScreen(
                 expanded = showAllInsights,
                 onExpandedChange = { showAllInsights = it },
                 actions = insightActions,
+                found = found,
             )
         }
 

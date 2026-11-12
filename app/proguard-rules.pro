@@ -89,3 +89,7 @@
 ## Quality of life for logs
 -keepclasseswithmembernames class com.dd3boh.outertune.playback.**
 -keepclasseswithmembernames class com.dd3boh.outertune.utils.scanners.**
+
+## MP3 files (Mp3FileEncoder): jump3r's command line and its javax.sound wrapper are never used, and need classes Android lacks
+-dontwarn javax.sound.**
+-dontwarn java.beans.**

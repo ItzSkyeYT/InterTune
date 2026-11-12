@@ -1,0 +1,135 @@
+/*
+ * Copyright (C) 2026 InterTune
+ *
+ * SPDX-License-Identifier: GPL-3.0
+ */
+
+package com.dd3boh.outertune.playback.automix
+
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+/** Which changes of song AutoMix may mix at all, each refusal with its reason. */
+class AutomixGuardsTest {
+
+    private val a = AutomixGuards.Song("a", "album-a", 200_000)
+    private val b = AutomixGuards.Song("b", "album-b", 180_000)
+
+    private fun snapshot(
+        settingOn: Boolean = true,
+        stageInChain: Boolean = true,
+        casting: Boolean = false,
+        repeatOne: Boolean = false,
+        current: AutomixGuards.Song? = a,
+        next: AutomixGuards.Song? = b,
+        speed: Float = 1f,
+        pitch: Float = 1f,
+        skipSilence: Boolean = false,
+        headTracking: Boolean = false,
+        upmix: Boolean = false,
+        ambience: Boolean = false,
+        ffmpeg: Boolean = false,
+        sleepTimer: Boolean = false,
+    ) = AutomixGuards.Snapshot(
+        settingOn, stageInChain, casting, repeatOne, current, next, speed, pitch, skipSilence,
+        headTracking, upmix, ambience, ffmpeg, sleepTimer,
+    )
+
+    @Test
+    fun `two songs of different albums, a minute or longer, with nothing in the way, may be mixed`() {
+        assertNull(AutomixGuards.whyNot(snapshot()))
+    }
+
+    @Test
+    fun `each guard refuses on its own, and says why`() {
+        val refusals = mapOf(
+            "AutoMix is off" to snapshot(settingOn = false),
+            "casting" to snapshot(casting = true),
+            "nothing is playing" to snapshot(current = null),
+            "repeat one is on" to snapshot(repeatOne = true),
+            "nothing comes next" to snapshot(next = null),
+            "the same song comes again" to snapshot(next = AutomixGuards.Song("a", "album-a", 200_000)),
+            "the two songs are from one album" to snapshot(next = AutomixGuards.Song("b", "album-a", 180_000)),
+            "this song is under a minute" to snapshot(current = AutomixGuards.Song("a", null, 59_999)),
+            "this song's length is not known" to snapshot(current = AutomixGuards.Song("a", null, -1)),
+            "the next song is under a minute" to snapshot(next = AutomixGuards.Song("b", null, 54_000)),
+            "the next song's length is not known" to snapshot(next = AutomixGuards.Song("b", null, -1)),
+            "the speed or the pitch is not as recorded" to snapshot(speed = 1.25f),
+            "the speed or the pitch is not as recorded" to snapshot(pitch = 0.9f),
+            "skip silence is on" to snapshot(skipSilence = true),
+            "the surround upmix is on" to snapshot(upmix = true),
+            "the spatial Ambience is on" to snapshot(ambience = true),
+            "FFmpeg decodes this build's audio" to snapshot(ffmpeg = true),
+            "a sleep timer is set" to snapshot(sleepTimer = true),
+            "AutoMix was not on yet as this song started" to snapshot(stageInChain = false),
+        )
+        for ((why, s) in refusals) assertEquals(why, AutomixGuards.whyNot(s))
+    }
+
+    @Test
+    fun `head tracking does not stop a change, its switch on or off, AutoMix or Crossfade (his word, 6 Nov)`() {
+        // His word of 6 Nov 2026: a saved change plays regardless. The switch alone, with spatial
+        // audio off, held every change back on his phone.
+        assertNull(AutomixGuards.whyNot(snapshot(headTracking = true)))
+        assertNull(AutomixGuards.whyNot(snapshot(settingOn = false, headTracking = true).withCrossfade()))
+        // The surround upmix and Ambience still do: they change the channels or delay the sound.
+        assertEquals("the surround upmix is on", AutomixGuards.whyNot(snapshot(headTracking = true, upmix = true)))
+    }
+
+    @Test
+    fun `the playlist's lines and the queue's line hold back what playback holds back, head tracking not among it`() {
+        // 6 Nov 2026: playback stopped refusing for head tracking, but the lines between a playlist's
+        // songs still showed every change as held back for it, and never the one he had saved.
+        val service = java.io.File("src/main/java/com/dd3boh/outertune/playback/MusicService.kt").readText()
+        val blocker = service.substringAfter("fun mixBlocker(): PlainReason? {").substringBefore("\n    }\n")
+        assertTrue(blocker, "spatial = c.upmix || c.ambience," in blocker)
+        assertFalse("headTracking" in blocker.substringAfter("PlayerFacts("))
+    }
+
+    @Test
+    fun `with Crossfade on, a change may be made with AutoMix off, and every other guard still refuses`() {
+        assertNull(AutomixGuards.whyNot(snapshot(settingOn = false).withCrossfade()))
+        assertNull(AutomixGuards.whyNot(snapshot(settingOn = true).withCrossfade()))
+        val refusals = mapOf(
+            "casting" to snapshot(settingOn = false, casting = true),
+            "nothing is playing" to snapshot(settingOn = false, current = null),
+            "repeat one is on" to snapshot(settingOn = false, repeatOne = true),
+            "nothing comes next" to snapshot(settingOn = false, next = null),
+            "the same song comes again" to snapshot(settingOn = false, next = AutomixGuards.Song("a", "album-a", 200_000)),
+            "the two songs are from one album" to snapshot(settingOn = false, next = AutomixGuards.Song("b", "album-a", 180_000)),
+            "this song is under a minute" to snapshot(settingOn = false, current = AutomixGuards.Song("a", null, 59_999)),
+            "this song's length is not known" to snapshot(settingOn = false, current = AutomixGuards.Song("a", null, -1)),
+            "the next song is under a minute" to snapshot(settingOn = false, next = AutomixGuards.Song("b", null, 54_000)),
+            "the next song's length is not known" to snapshot(settingOn = false, next = AutomixGuards.Song("b", null, -1)),
+            "the speed or the pitch is not as recorded" to snapshot(settingOn = false, speed = 0.8f),
+            "skip silence is on" to snapshot(settingOn = false, skipSilence = true),
+            "the surround upmix is on" to snapshot(settingOn = false, upmix = true),
+            "the spatial Ambience is on" to snapshot(settingOn = false, ambience = true),
+            "FFmpeg decodes this build's audio" to snapshot(settingOn = false, ffmpeg = true),
+            "a sleep timer is set" to snapshot(settingOn = false, sleepTimer = true),
+            "AutoMix was not on yet as this song started" to snapshot(settingOn = false, stageInChain = false),
+        )
+        for ((why, s) in refusals) assertEquals(why, AutomixGuards.whyNot(s.withCrossfade()))
+    }
+
+    /** [this] with Crossfade on and the rest as it is. */
+    private fun AutomixGuards.Snapshot.withCrossfade() = AutomixGuards.Snapshot(
+        settingOn, stageInChain, casting, repeatOne, current, next, speed, pitch, skipSilence,
+        headTracking, upmix, ambience, ffmpeg, sleepTimer, crossfadeOn = true,
+    )
+
+    @Test
+    fun `a minute exactly is long enough`() {
+        assertNull(AutomixGuards.whyNot(snapshot(current = AutomixGuards.Song("a", null, 60_000), next = AutomixGuards.Song("b", null, 60_000))))
+    }
+
+    @Test
+    fun `songs with no album, or a blank one, are never taken for one album`() {
+        assertFalse(AutomixGuards.sameAlbum(AutomixGuards.Song("a", null, 1), AutomixGuards.Song("b", null, 1)))
+        assertFalse(AutomixGuards.sameAlbum(AutomixGuards.Song("a", " ", 1), AutomixGuards.Song("b", " ", 1)))
+        assertTrue(AutomixGuards.sameAlbum(AutomixGuards.Song("a", "x", 1), AutomixGuards.Song("b", "x", 1)))
+    }
+}

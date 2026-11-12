@@ -71,6 +71,12 @@ data class MultiQueueObject(
     }
 
     /**
+     * The songs' ids in the queue's own order, shuffle aside: the playlist's order for a queue
+     * started from one. A copy, for Crossfade's rule (AutomixController).
+     */
+    fun songIds(): List<String> = queue.map { it.id }
+
+    /**
      * Retrieve the song at current position in the queue
      */
     fun getCurrentSong(): MediaMetadata? {
@@ -79,16 +85,17 @@ data class MultiQueueObject(
     }
 
     /**
-     * Retrieve a song given a song ID. Returns null if no song is found
+     * Retrieve a song given a song ID. Returns null if no song is found.
+     *
+     * Read only, and null rather than a throw: it is called off the main thread (the player's
+     * loader at every open, the song cache, the cast server) while the main thread may be removing
+     * a song. Through getCurrentSong it used to repair the queue's place in passing, which in that
+     * moment switched the shuffle off and moved the queue to its start, and a list shrinking under
+     * the read threw, which failed that song's load.
      */
-    fun findSong(mediaId: String): MediaMetadata? {
-        val currentSong = getCurrentSong()
-        if (currentSong?.id == mediaId) {
-            return currentSong
-        }
-
-        return queue.fastFirstOrNull { it.id == mediaId }
-    }
+    fun findSong(mediaId: String): MediaMetadata? = runCatching {
+        queue.getOrNull(queuePos)?.takeIf { it.id == mediaId } ?: queue.fastFirstOrNull { it.id == mediaId }
+    }.getOrNull()
 
     /**
      * Returns the index of current queue position considering shuffle state
@@ -307,6 +314,9 @@ data class MultiQueueObject(
      * [currentPlayIndex] is the player's currentMediaItemIndex. It is consulted only when the
      * playing song itself is removed.
      *
+     * When that song is the one removed, [lastSongPos] goes with it: the song that follows starts
+     * from its top.
+     *
      * Returns whether a song was removed. An index that names no song removes nothing. As with
      * every read of the position, a queuePos that is already out of range is repaired first
      * (validateQueuePos), which turns shuffle off.
@@ -338,6 +348,12 @@ data class MultiQueueObject(
             // The playing song itself was removed. After renumbering, the song that followed it
             // sits at index, which is where the player moves too. The clamp below covers removing
             // the last one.
+            //
+            // The resume point was the removed song's. A queue the player holds has it dropped by
+            // the player's own change of song (ResumePoint.afterTransition); a queue the player
+            // holds nothing of, the saved one before play after a restart, has no such change, and
+            // the next play would start the song that follows at the removed song's point.
+            lastSongPos = C.TIME_UNSET
             if (index < currentPlayIndex) {
                 // The player was already past it, out of step with the board.
                 newQueuePos--

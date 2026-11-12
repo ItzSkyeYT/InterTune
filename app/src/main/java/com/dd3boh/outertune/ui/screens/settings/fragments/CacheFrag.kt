@@ -49,6 +49,7 @@ import com.dd3boh.outertune.ui.screens.walkthrough.tourTarget
 
 @Composable
 fun ColumnScope.SongCacheFrag() {
+    val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val playerCache = LocalPlayerConnection.current?.service?.playerCache ?: return
 
@@ -79,7 +80,7 @@ fun ColumnScope.SongCacheFrag() {
     if (maxSongCacheSize != 0) {
         if (maxSongCacheSize == -1) {
             Text(
-                text = stringResource(R.string.size_used, formatFileSize(playerCacheSize)),
+                text = stringResource(R.string.size_used, formatFileSize(context, playerCacheSize)),
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
             )
@@ -94,7 +95,7 @@ fun ColumnScope.SongCacheFrag() {
             Text(
                 text = stringResource(
                     R.string.size_used,
-                    "${formatFileSize(playerCacheSize)} / ${formatFileSize(maxSongCacheSize * 1024 * 1024L)}"
+                    "${formatFileSize(context, playerCacheSize)} / ${formatFileSize(context, maxSongCacheSize * 1024 * 1024L)}"
                 ),
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
@@ -114,7 +115,7 @@ fun ColumnScope.SongCacheFrag() {
             when (it) {
                 0 -> stringResource(androidx.compose.ui.R.string.state_off)
                 -1 -> stringResource(R.string.unlimited)
-                else -> formatFileSize(it * 1024 * 1024L)
+                else -> formatFileSize(context, it * 1024 * 1024L)
             }
         },
         onValueSelected = onMaxSongCacheSizeChange
@@ -217,7 +218,7 @@ fun ColumnScope.ImageCacheFrag() {
         Text(
             text = stringResource(
                 R.string.size_used,
-                "${formatFileSize(imageCacheSize)} / ${formatFileSize(imageDiskCache.maxSize)}"
+                "${formatFileSize(context, imageCacheSize)} / ${formatFileSize(context, imageDiskCache.maxSize)}"
             ),
             style = MaterialTheme.typography.bodyMedium,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
@@ -232,7 +233,7 @@ fun ColumnScope.ImageCacheFrag() {
         valueText = {
             when (it) {
                 0 -> stringResource(androidx.compose.ui.R.string.state_off)
-                else -> formatFileSize(it * 1024 * 1024L)
+                else -> formatFileSize(context, it * 1024 * 1024L)
             }
         },
         onValueSelected = onMaxImageCacheSizeChange

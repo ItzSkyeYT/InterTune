@@ -1,0 +1,56 @@
+/*
+ * Copyright (C) 2026 InterTune
+ *
+ * SPDX-License-Identifier: GPL-3.0
+ */
+
+package com.dd3boh.outertune.ui
+
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
+import org.junit.Test
+import java.io.File
+
+/**
+ * Two fixes of 27 Oct 2026. #53: a list given the same item twice crashed the app ("Key ... was
+ * already used"), and YouTube can list a song twice on an artist's page. dvd: the slim bar's icons
+ * sat high, because each tab still handed Material an empty label, which keeps its room.
+ */
+class ListKeysAndSlimBarTest {
+    private fun read(path: String) = File("src/main/java/com/dd3boh/outertune/$path").readText()
+
+    @Test
+    fun `the artist's lists never key two rows the same`() {
+        for (path in listOf("ui/screens/artist/ArtistItemsScreen.kt", "ui/screens/artist/ArtistScreen.kt")) {
+            assertFalse("$path still keys by hashCode", read(path).contains("key = { _, item -> item.hashCode() }"))
+        }
+        val items = read("ui/screens/artist/ArtistItemsScreen.kt")
+        assertEquals(2, Regex("""key = \{ index, item -> "\$\{item\.id\}#\${'$'}index" \}""").findAll(items).count())
+        val artist = read("ui/screens/artist/ArtistScreen.kt")
+        assertTrue(artist.contains("key = { index, item -> \"song:\${item.id}#\$index\" }"))
+        // The songs' list and the row of cards (a scrolling row since #86, each card under key(item.id)).
+        assertEquals(2, Regex("""section\.items\.distinctBy \{ it\.id \}""").findAll(artist).count())
+        assertTrue(artist.contains("libraryAlbums.distinctBy { it.id }"))
+        assertEquals(2, Regex("""key\((album|item)\.id\) \{""").findAll(artist).count())
+        // Its song shelves are one list: a song in two shelves keys by its shelf (UI scan, 5 Nov 2026).
+        assertTrue(artist.contains("artistPage?.sections?.fastForEachIndexed { sectionIndex, section ->"))
+        assertTrue(artist.contains("key = { \"\$sectionIndex:\${it.id}\" }"))
+        assertFalse("a song shelf keys by the song alone", artist.contains("key = { it.id }"))
+    }
+
+    @Test
+    fun `a song in two days of the remote history does not key two rows the same`() {
+        val history = read("ui/screens/HistoryScreen.kt")
+        assertTrue(history.contains("historyPage?.sections?.forEachIndexed { sectionIndex, section ->"))
+        assertTrue(history.contains("key = { _, song -> \"\$sectionIndex:\${song.id}\" }"))
+        assertFalse(history.contains("key = { _, song -> song.id }"))
+    }
+
+    @Test
+    fun `a slim bar's tabs have no label, so the icon sits in the middle`() {
+        val main = read("MainActivity.kt")
+        assertEquals(2, Regex("""label = if \(slimNav\) null else \(\{ TabLabel\(""").findAll(main).count())
+        assertFalse(main.contains("if (!slimNav) TabLabel("))
+    }
+}

@@ -15,11 +15,22 @@ import org.junit.Test
 class SettingsTwoPaneTest {
 
     @Test
-    fun `the list has the four groups of the upright cards, fifteen screens in all`() {
-        val groups = settingsGroups(engine = true, battery = true)
-        assertEquals(listOf(3, 4, 4, 4), groups.map { it.size })
+    fun `the list has the four groups of the upright cards, sixteen screens in all`() {
+        // Widgets (Unreleased.WIDGETS_PAGE, 4 Nov 2026) is the second group's fifth, under Look and feel.
+        // Listen together, only where rooms are offered, is the next test's.
+        val groups = settingsGroups(engine = true, together = false, battery = true, widgets = true)
+        assertEquals(listOf(3, 5, 4, 4), groups.map { it.size })
         assertEquals("settings/account_sync", groups.first().first().route)
         assertEquals("settings/about", groups.last().last().route)
+    }
+
+    @Test
+    fun `where rooms are offered, Listen together comes last in its group and nothing moves`() {
+        val without = settingsGroups(engine = true, together = false)
+        val with = settingsGroups(engine = true, together = true)
+        assertEquals("settings/together", with[1].last().route)
+        assertEquals(without[1], with[1].dropLast(1))
+        assertEquals(without.flatten().map { it.route }, with.flatten().map { it.route } - "settings/together")
     }
 
     @Test
@@ -35,6 +46,14 @@ class SettingsTwoPaneTest {
         val without = settingsGroups(engine = true, battery = false).flatten().map { it.route }
         assertEquals("settings/battery", with[with.indexOf("settings/storage") + 1])
         assertEquals(with - "settings/battery", without)
+    }
+
+    @Test
+    fun `without the Widgets page its screen is not offered, and nothing else goes`() {
+        val with = settingsGroups(engine = true, widgets = true).flatten().map { it.route }
+        val without = settingsGroups(engine = true, widgets = false).flatten().map { it.route }
+        assertEquals("settings/widgets", with[with.indexOf("settings/appearance") + 1])
+        assertEquals(with - "settings/widgets", without)
     }
 
     @Test
@@ -157,5 +176,27 @@ class SettingsTwoPaneTest {
             assertTrue(out.size() > 0)
         }
     }
+    /**
+     * 7 Nov 2026: a screen of settings opened upright stayed a page of its own when the phone turned,
+     * where the list turned the same way shows the two panes. It goes into the panes now, and what was
+     * chosen in the panes opens as a page of its own when the phone turns back upright.
+     */
+    @Test
+    fun `a screen turned on its side goes into the panes, and back upright it is a page again`() {
+        assertEquals(listOf("settings/player"), settingsChainFor("settings/player"))
+        assertEquals(listOf("settings/about", "settings/about/oss_licenses"), settingsChainFor("settings/about/oss_licenses"))
+        assertEquals(null, settingsChainFor("settings"))
+        assertEquals(null, settingsChainFor("library"))
+        val main = java.io.File("src/main/java/com/dd3boh/outertune/MainActivity.kt").readText()
+        assertTrue("SettingsFollowTheTurn(navController, tourState.running)" in main)
+        val turn = java.io.File("src/main/java/com/dd3boh/outertune/ui/screens/settings/SettingsTurn.kt").readText()
+        // Only a screen opened upright moves: one opened on its side from a link stays as it was opened.
+        assertTrue("if (handle.get<Boolean>(OPENED_UPRIGHT) != true || tourRunning) return@LaunchedEffect" in turn)
+        assertTrue("navController.popBackStack(Tour.ROUTE_SETTINGS, inclusive = false)" in turn)
+        val screen = java.io.File("src/main/java/com/dd3boh/outertune/ui/screens/settings/SettingsScreen.kt").readText()
+        assertTrue("initialOpen = pending," in screen)
+        assertTrue("if (!tourRunning) chain.forEach { navController.navigate(it) }" in screen)
+        val panes = java.io.File("src/main/java/com/dd3boh/outertune/ui/screens/settings/SettingsTwoPane.kt").readText()
+        assertTrue("LaunchedEffect(initialOpen) { initialOpen?.takeIf { it.isNotEmpty() }?.let { show(it) } }" in panes)
+    }
 }
-

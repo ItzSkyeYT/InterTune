@@ -26,6 +26,7 @@ import com.dd3boh.outertune.recap.RecapSound
 import com.dd3boh.outertune.recognition.RecognitionHistory
 import com.dd3boh.outertune.ui.screens.recap.RecapCards
 import com.dd3boh.outertune.utils.PollChecker
+import com.dd3boh.outertune.utils.Toaster
 import com.dd3boh.outertune.utils.dataStore
 import com.dd3boh.outertune.utils.reportException
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -184,7 +185,7 @@ class RecapViewModel @Inject constructor(
 
     /** A short word to the listener, from wherever it is said: a toast. */
     fun say(@StringRes text: Int) {
-        viewModelScope.launch(Dispatchers.Main) { Toast.makeText(context, text, Toast.LENGTH_LONG).show() }
+        viewModelScope.launch(Dispatchers.Main) { Toaster.show(context, text, Toast.LENGTH_LONG) }
     }
 
     /** The window went for good with the Recap open: its players let go, the listener's music left as it is. */

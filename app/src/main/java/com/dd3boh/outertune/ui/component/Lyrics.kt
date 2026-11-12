@@ -112,7 +112,9 @@ import com.dd3boh.outertune.constants.LyricClickable
 import com.dd3boh.outertune.constants.LyricAutoScrollKey
 import com.dd3boh.outertune.constants.LyricFontSizeKey
 import com.dd3boh.outertune.constants.LyricKaraokeEnable
+import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.constants.LyricLatinKey
+import com.dd3boh.outertune.constants.LyricsBlurKey
 import com.dd3boh.outertune.constants.LyricUpdateSpeed
 import com.dd3boh.outertune.constants.LyricsPosition
 import com.dd3boh.outertune.constants.LyricsTextPositionKey
@@ -150,6 +152,8 @@ import java.io.File
 import kotlin.time.Duration.Companion.seconds
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.withFrameNanos
+import androidx.compose.ui.node.Ref
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.unit.Density
 import androidx.media3.common.Player
@@ -157,6 +161,7 @@ import com.dd3boh.outertune.lyrics.LyricsClock
 import com.dd3boh.outertune.lyrics.LyricsMoments
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.withTimeoutOrNull
+import com.dd3boh.outertune.utils.Toaster
 
 @SuppressLint("UnusedBoxWithConstraintsScope")
 @Composable
@@ -195,6 +200,9 @@ fun Lyrics(
     val lyricsUpdateSpeed by rememberEnumPreference(LyricUpdateSpeed, Speed.MEDIUM)
     var lyricRefreshRate = lyricsUpdateSpeed.toLrcRefreshMillis()
     val showLatin by rememberPreference(LyricLatinKey, false)
+    // Progressive blur, the debug app's trial (LyricsBlur): how strong, or null for the lines as they are.
+    val blurStored by rememberPreference(LyricsBlurKey, "")
+    val blur = if (Unreleased.LYRICS_BLUR) LyricsBlur.strengthOf(blurStored) else null
 
     val mediaMetadata by playerConnection.mediaMetadata.collectAsState()
 
@@ -242,12 +250,24 @@ fun Lyrics(
     var cardVideo by keep::cardVideo
     var cardSong by keep::cardSong
     val mostLines = pluralStringResource(R.plurals.lyrics_pick_most, LyricsShare.MOST_LINES, LyricsShare.MOST_LINES)
-    val mostForVideo = pluralStringResource(R.plurals.lyrics_pick_most_video, LyricsShare.MOST_LINES, LyricsShare.MOST_LINES)
+    val mostForVideo = pluralStringResource(
+        R.plurals.lyrics_pick_most_video_minutes, LyricsShare.MOST_LINES, LyricsShare.MOST_LINES, (LyricsVideoPlan.LONGEST_MS / 60_000).toInt(),
+    )
 
-    /** The lines with their times in the song, as the timing bar moved them, for a video of them; none for lyrics that are not synced. */
-    fun timedLines(): List<LyricsVideoPlan.Timed>? = if (!isSynced) null else lines.map {
+    /**
+     * The lines with their times in the song, as the timing bar moved them, for a video of them; none
+     * for lyrics that are not synced. With word by word on, their words too, which the video then
+     * lights one by one as this view does (Unreleased.LYRICS_VIDEO_WORDS).
+     */
+    fun timedLines(): List<LyricsVideoPlan.Timed>? = if (!isSynced) null else lines.map { line ->
         LyricsVideoPlan.Timed(
-            it.text, LyricsTiming.songPosition(it.start.toLong(), shiftNow), LyricsTiming.songPosition(it.end.toLong(), shiftNow), it.isTranslated,
+            line.text, LyricsTiming.songPosition(line.start.toLong(), shiftNow), LyricsTiming.songPosition(line.end.toLong(), shiftNow), line.isTranslated,
+            words = if (!Unreleased.LYRICS_VIDEO_WORDS || !lyricsFancy) emptyList() else line.words.orEmpty().map { word ->
+                LyricsVideoPlan.Word(
+                    word.charRange.first, word.charRange.last + 1,
+                    LyricsTiming.songPosition(word.timeRange.first.toLong(), shiftNow), LyricsTiming.songPosition(word.timeRange.last.toLong(), shiftNow),
+                )
+            },
         )
     }
 
@@ -276,7 +296,7 @@ fun Lyrics(
                 picked.addAll(result.lines)
             }
 
-            LyricsShare.Pick.Full -> Toast.makeText(context, if (isSynced) mostForVideo else mostLines, Toast.LENGTH_SHORT).show()
+            LyricsShare.Pick.Full -> Toaster.show(context, if (isSynced) mostForVideo else mostLines, Toast.LENGTH_SHORT)
 
             LyricsShare.Pick.Empty -> Unit
         }
@@ -292,21 +312,15 @@ fun Lyrics(
             keep.pickedIn = lyricsModel
         }
         lyricsModel?.let { model ->
-            if (isSynced) {
-                val lyrics = lyricsModel as SemanticLyrics.SyncedLyrics
-                lines.addAll(lyrics.text)
-
-                if (lyricsFancy && lyrics.text.fastAny { it.words != null }) {
-                    lyricRefreshRate = lyricsUpdateSpeed.toLrcRefreshMillis()
-                } else {
-                    lyricRefreshRate = Speed.SLOW.toLrcRefreshMillis()
-                }
+            // What kind they are is asked of the lyrics in hand, here and in lyricsLines, and not
+            // read from isSynced. That is the answer the view had when it started this, and these
+            // can be other lyrics by the time it runs: two songs' lyrics coming between two
+            // frames, synced ones then plain ones, had the plain ones taken for synced here, and
+            // the app closed (#146, #148).
+            lines.addAll(lyricsLines(model))
+            if (model is SemanticLyrics.SyncedLyrics && lyricsFancy && model.text.fastAny { it.words != null }) {
+                lyricRefreshRate = lyricsUpdateSpeed.toLrcRefreshMillis()
             } else {
-                // A line each, as synced lyrics have, so that one can be picked to share. They
-                // stand with no room between them below, and read as the one block they were.
-                model.unsyncedText.forEach { (text, _) ->
-                    lines.add(LyricLine(text, 0L.toULong(), 0L.toULong(), null, null, false))
-                }
                 lyricRefreshRate = Speed.SLOW.toLrcRefreshMillis()
             }
         }
@@ -425,8 +439,17 @@ fun Lyrics(
     // frame (LyricsClock.wait), so that the line changes on the frame it is sung on. A pause, a
     // seek or a change of speed wakes it at once.
     val lifecycleOwner = LocalLifecycleOwner.current
-    LaunchedEffect(lyricsModel, lifecycleOwner) {
-        if (lyricsModel == null || !isSynced || (lyricsModel as SemanticLyrics.SyncedLyrics).text.isEmpty()) {
+    // Started again with each player connection: the app makes a new one every time it comes back
+    // to the front and stops the old one listening. Kept on the old one, a song paused when the app
+    // went away left this waiting for an old "playing" that never came, and the lines stood still
+    // while the song played on, until the lyrics were closed and opened again.
+    LaunchedEffect(lyricsModel, lifecycleOwner, playerConnection) {
+        // Asked of the lyrics as they are now, as it is where the lines are filled: isSynced is
+        // the view's answer from before this ran, and the cast that stood here would have closed
+        // the app on plain lyrics come since, the same way. isSynced stays in the test, so that
+        // the song is followed in no case where it was not before.
+        val synced = lyricsModel as? SemanticLyrics.SyncedLyrics
+        if (!isSynced || synced == null || synced.text.isEmpty()) {
             currentLineIndex = -1
             return@LaunchedEffect
         }
@@ -487,6 +510,11 @@ fun Lyrics(
 
     val lazyListState = rememberLazyListState()
     val scope = rememberCoroutineScope()
+
+    // The blur is there only while the view follows the song: a scroll by hand clears it at its
+    // first move, until the view goes back to the song's line, and so does picking lines.
+    val blurFollows by remember { derivedStateOf { lastPreviewTime == 0L && !keep.picking } }
+    val blurSteps by remember { derivedStateOf { LyricsBlur.steps(lines.map { it.isTranslated }) } }
 
     /** Opens the timing bar on [song], where its lyrics are now, when it is the song playing. */
     fun startTiming(song: String) {
@@ -626,7 +654,13 @@ fun Lyrics(
                 .add(WindowInsets(top = maxHeight / 2, bottom = maxHeight / 2))
                 .asPaddingValues(),
             modifier = Modifier
-                .fadingEdge(vertical = lyricsFadeLength(maxHeight, smallWindow))
+                // The lines scroll up under the status bar: clear there, and fading in under it,
+                // where a line used to stand half lit behind the clock (seen on the Pixel 5, 5 Nov 2026).
+                .fadingEdge(
+                    top = lyricsFadeLength(maxHeight, smallWindow),
+                    bottom = lyricsFadeLength(maxHeight, smallWindow),
+                    topClear = WindowInsets.systemBars.only(WindowInsetsSides.Top).asPaddingValues().calculateTopPadding(),
+                )
                 // Only watched, on the way in, and left for the lines and the list to act on.
                 .pointerInput(Unit) {
                     awaitEachGesture {
@@ -682,6 +716,7 @@ fun Lyrics(
                 }
             } else if (lyricsModel != uninitializedLyric) {
                 val maxW = maxWidth - 48.dp
+                val blurFontPx = with(density) { lyricsFontSize.sp.toPx() }
                 itemsIndexed(
                     items = lines,
                     contentType = { _, _ -> LYRICS_LINE },
@@ -710,6 +745,15 @@ fun Lyrics(
                     val joinsAbove = isPicked && !isSynced && (index - 1) in picked
                     val joinsBelow = isPicked && !isSynced && (index + 1) in picked
                     val seeks = isSynced && lyricsClickable
+                    // How far out of focus the line is (LyricsBlur): by its steps from the line
+                    // being sung while the view follows the song, and not at all otherwise.
+                    val lineBlur = if (blur == null) null else rememberLineBlur(
+                        if (isSynced && lyricsAutoScroll && blurFollows) {
+                            blur.radius(LyricsBlur.distance(blurSteps, index, displayedCurrentLineIndex), blurFontPx)
+                        } else {
+                            0f
+                        }
+                    )
                     Column(
                         horizontalAlignment = when (lyricsTextPosition) {
                             LyricsPosition.LEFT -> Alignment.Start
@@ -805,8 +849,9 @@ fun Lyrics(
                             }
 
                             // Lit as the frames are drawn, at where the song is at each one: the line
-                            // asks for every frame while it is being sung and the music plays.
-                            LaunchedEffect(Unit) {
+                            // asks for every frame while it is being sung and the music plays. Started
+                            // again with each player connection, as the lines' own clock above is.
+                            LaunchedEffect(playerConnection) {
                                 lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                                     while (isActive) {
                                         if (!playerConnection.isPlaying.value) playerConnection.isPlaying.first { it }
@@ -848,28 +893,36 @@ fun Lyrics(
                             val isConsumed = doneWith
                             val isHighlighted =
                                 ((index == displayedCurrentLineIndex || (index == displayedCurrentLineIndex + 1 && item.isTranslated)))
+                            val lineColor = if (isConsumed && !isHighlighted) prevTextColor else textColor
+                            val lineAlpha = if (picking) {
+                                // The picked lines stand out from the rest, whichever is being sung.
+                                if (isPicked) 1f else 0.45f
+                            } else if (!isSynced || isHighlighted) {
+                                1f
+                            } else if (isConsumed) {
+                                0.6f
+                            } else {
+                                0.5f
+                            }
+                            // The text as it was laid out, which a line out of focus is drawn from (LyricsBlur).
+                            val laidOut = remember { Ref<TextLayoutResult>() }
                             Text(
                                 text = remember(item.text, itemLatin, latinSize) { withLatin(item.text, itemLatin, latinSize) },
                                 fontSize = lyricFontSizeAdjusted.sp,
-                                color = if (isConsumed && !isHighlighted) prevTextColor else textColor,
+                                color = lineColor,
                                 textAlign = when (lyricsTextPosition) {
                                     LyricsPosition.LEFT -> TextAlign.Left
                                     LyricsPosition.CENTER -> TextAlign.Center
                                     LyricsPosition.RIGHT -> TextAlign.Right
                                 },
                                 fontWeight = FontWeight.Bold,
-                                modifier = Modifier.alpha(
-                                    if (picking) {
-                                        // The picked lines stand out from the rest, whichever is being sung.
-                                        if (isPicked) 1f else 0.45f
-                                    } else if (!isSynced || isHighlighted) {
-                                        1f
-                                    } else if (isConsumed) {
-                                        0.6f
-                                    } else {
-                                        0.5f
-                                    }
-                                )
+                                onTextLayout = { result -> laidOut.value = result },
+                                // Without the blur's trial, the line behind its dimming, as ever.
+                                modifier = if (lineBlur == null) {
+                                    Modifier.alpha(lineAlpha)
+                                } else {
+                                    Modifier.lyricsLineBlur({ lineBlur.value }, lineAlpha, lineColor) { laidOut.value }
+                                }
                             )
                         }
                     }
@@ -1060,6 +1113,21 @@ fun HorizontalReveal(
         ) {
             content()
         }
+    }
+}
+
+/**
+ * The lines the view shows for [lyrics]: synced lyrics' own, and for plain ones a line each with
+ * no times, as synced lyrics have, so that one can be picked to share. Those stand with no room
+ * between them in the view, and read as the one block they were.
+ *
+ * Which of the two they are is asked of the lyrics themselves. "Lyrics not found" is plain lyrics
+ * too (LyricsEntity.uninitializedLyric).
+ */
+internal fun lyricsLines(lyrics: SemanticLyrics): List<LyricLine> = when (lyrics) {
+    is SemanticLyrics.SyncedLyrics -> lyrics.text
+    is SemanticLyrics.UnsyncedLyrics -> lyrics.unsyncedText.map { (text, _) ->
+        LyricLine(text, 0L.toULong(), 0L.toULong(), null, null, false)
     }
 }
 

@@ -159,6 +159,7 @@ class SettingsIndexTest {
             "settings/library" to "Tour.ROUTE_LIBRARY",
             "settings/local" to "Tour.ROUTE_LOCAL",
             "settings/appearance" to "Tour.ROUTE_LOOK_AND_FEEL",
+            "settings/widgets" to "Tour.ROUTE_WIDGETS",
             "settings/player" to "Tour.ROUTE_PLAYER",
             "settings/battery" to "Tour.ROUTE_BATTERY",
             "settings/recognition" to "Tour.ROUTE_RECOGNITION",
@@ -174,6 +175,7 @@ class SettingsIndexTest {
 
         /** Rows that are not settings to search for, by a string of their title, and why. */
         val LEFT_OUT = mapOf(
+            "automix" to "The AutoMix prototype's one switch, drawn only with AUTOMIX on and Mix (AUTOMIX_EDITOR) off, which no build has: each playlist's Mix switch stands in for it.",
             "lastfm_unavailable" to "Says that this build has no Last.fm; there is nothing to set.",
             "lastfm_connected_as" to "The connected account, named: \"Connect a Last.fm account\" lights the Scrobble switch beside it instead.",
             "polls_unavailable" to "Says that this build has no questions; there is nothing to set.",
@@ -189,6 +191,11 @@ class SettingsIndexTest {
             "update_skip" to "A step of an update that has been found.",
             "import_library_source_other" to "A step of the import, which its own row in Backup leads to.",
             "settings/player/equalizer:equalizer" to "The switch of the screen that the Equalizer row of Player and audio leads to.",
+            // A card of Widgets is one widget on the home screen: there once for each, and not at all without one.
+            "settings/widgets:widget_config_background" to "A widget's own choice, on its card: search finds the page.",
+            "settings/widgets:widget_config_buttons" to "A widget's own choice, on its card: search finds the page.",
+            "settings/widgets:widget_config_which_list" to "A widget's own choice, on its card: search finds the page.",
+            "settings/widgets:widgets_all_options" to "The way to a widget's own setup sheet, on its card: search finds the page.",
         )
 
         /** Rows made by a function of the package that are never settings, and why. */

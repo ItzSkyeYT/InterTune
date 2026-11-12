@@ -1,0 +1,12 @@
+Version 0.11.5
+
+- Znacznie mniejsze zużycie baterii: przy wyłączonym ekranie odtwarzanie obciążało procesor cztery razy bardziej niż było to wymagane.
+- Utwory, które zniknęły z YouTube, ponownie się odtwarzają.
+- Więcej alternatywnych źródeł w przypadku, gdy YouTube odmawia dostępu do standardowego strumienia.
+- Importowanie playlist ze Spotify, Apple Music i innych platform.
+- Układ interfejsu przystosowany do telefonu obróconego na bok (tryb poziomy).
+- Konfiguracja wstępna podzielona na trzy strony, z jednym pytaniem na raz.
+- Ruchome obrazy w kilku objaśnieniach.
+
+Pełna lista zmian:
+https://github.com

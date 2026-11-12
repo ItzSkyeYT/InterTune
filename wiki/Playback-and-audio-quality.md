@@ -7,15 +7,15 @@ Everything here is in Settings > Player and audio, unless it says otherwise.
 
 Settings > Player and audio > Audio quality. There are three choices.
 
-- **Auto**. This is what you get if you never touch the setting. On Wi-Fi it takes the best version of the song. On mobile data it takes the smallest one, to save your data. (To be exact, it goes by whether your phone counts the connection as one that costs data, so a Wi-Fi network you have marked as metered counts as mobile data here.)
+- **Auto**. This is what you get if you never touch the setting. On Wi-Fi it takes the best version of the song. On mobile data it takes a middle one, which sounds clearly better than the smallest for a little more data. (To be exact, it goes by whether your phone counts the connection as one that costs data, so a Wi-Fi network you have marked as metered counts as mobile data here.)
 - **High**. Always the best version, including on mobile data.
 - **Low**. Always the smallest version, including on Wi-Fi.
 
-InterTune does not pick a bitrate of its own. It asks YouTube which versions of that song exist and takes the biggest or the smallest from that list, so what you actually get depends on the song. When two versions are close in size it leans towards the Opus one, a format that sounds better for the space it takes.
+InterTune does not pick a bitrate of its own. It asks YouTube which versions of that song exist and takes the biggest, a middle one or the smallest from that list, so what you actually get depends on the song. When two versions are close in size it leans towards the Opus one, a format that sounds better for the space it takes.
 
 This only affects songs streamed from YouTube. Files already on your phone play exactly as they are.
 
-The same setting decides the quality of a download, at the moment you download it. On Auto that means a download started on mobile data is a small one. A song downloaded while the setting was on Low stays Low. Delete it and download it again to change that.
+The same setting decides the quality of a download, at the moment you download it. On Auto that means a download started on mobile data is a middle one, not the best. A song downloaded while the setting was on Low stays Low. Delete it and download it again to change that.
 
 ## Audio normalization
 

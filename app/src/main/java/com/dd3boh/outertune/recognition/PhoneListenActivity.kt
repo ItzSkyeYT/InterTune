@@ -26,6 +26,7 @@ import com.dd3boh.outertune.constants.PhoneAudioExplainedKey
 import com.dd3boh.outertune.utils.dataStore
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import com.dd3boh.outertune.utils.Toaster
 
 /**
  * The Song on this phone tile's way to Android's "Start recording or casting?": a screen with
@@ -54,7 +55,7 @@ class PhoneListenActivity : ComponentActivity() {
     private val permissions = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { granted ->
         when {
             granted[Manifest.permission.RECORD_AUDIO] == false -> {
-                Toast.makeText(this, R.string.recognition_phone_needs_permission, Toast.LENGTH_LONG).show()
+                Toaster.show(this, R.string.recognition_phone_needs_permission, Toast.LENGTH_LONG)
                 finish()
             }
             !canNotify() -> refuseWithoutNotifications()
@@ -90,7 +91,7 @@ class PhoneListenActivity : ComponentActivity() {
      * settings opened once Android no longer asks by itself (refused twice, or turned off there).
      */
     private fun refuseWithoutNotifications() {
-        Toast.makeText(this, R.string.recognition_phone_needs_notifications, Toast.LENGTH_LONG).show()
+        Toaster.show(this, R.string.recognition_phone_needs_notifications, Toast.LENGTH_LONG)
         val androidStillAsks = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             shouldShowRequestPermissionRationale(Manifest.permission.POST_NOTIFICATIONS)
         if (!androidStillAsks) {

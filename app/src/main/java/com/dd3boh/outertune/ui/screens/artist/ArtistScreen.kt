@@ -1,8 +1,16 @@
 package com.dd3boh.outertune.ui.screens.artist
 
+import com.dd3boh.outertune.ui.menu.rememberArtistBlock
+import com.dd3boh.outertune.ui.menu.BlockedNote
+import com.dd3boh.outertune.ui.menu.BlockArtistIcon
+import com.dd3boh.outertune.ui.menu.BlockArtistConfirm
+import com.dd3boh.outertune.models.BlockedArtist
+import com.dd3boh.outertune.constants.Unreleased
 import android.content.Intent
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,7 +29,6 @@ import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -49,6 +56,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -64,7 +72,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.util.fastForEach
+import androidx.compose.ui.util.fastForEachIndexed
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.navigation.NavController
 import coil3.compose.AsyncImage
@@ -167,6 +175,17 @@ fun ArtistScreen(
     val lazyListState = rememberLazyListState()
     val snackbarHostState = LocalSnackbarHostState.current
     var showLocal by rememberSaveable { mutableStateOf(false) }
+
+    // A blocked artist's page, opened from an old link or a shared one, is blank but for one line
+    // and Unblock (ArtistBlock).
+    val block = rememberArtistBlock()
+    val shownName = artistPage?.artist?.title ?: libraryArtist?.artist?.name
+    val blockedHere = if (Unreleased.ARTIST_BLOCK) block.entry(viewModel.artistId, shownName) else null
+    if (blockedHere != null) {
+        BlockedArtistPage(blockedHere, navController)
+        return
+    }
+    var askingToBlock by rememberSaveable { mutableStateOf(false) }
 
     val transparentAppBar by remember {
         derivedStateOf {
@@ -344,7 +363,8 @@ fun ArtistScreen(
                         val thumbnailSize = (ListThumbnailSize.value * density.density).roundToInt()
                         itemsIndexed(
                             items = librarySongs,
-                            key = { _, item -> "song:${item.id}" }
+                            // A song listed twice keeps a key of its own: its place (#53).
+                            key = { index, item -> "song:${item.id}#$index" }
                         ) { index, song ->
                             SongListItem(
                                 song = song,
@@ -389,34 +409,33 @@ fun ArtistScreen(
                         }
 
                         item {
-                            LazyRow {
-                                items(
-                                    items = libraryAlbums,
-                                    key = { it.id }
-                                ) { album ->
-                                    AlbumGridItem(
-                                        album = album,
-                                        isActive = album.id == mediaMetadata?.album?.id,
-                                        isPlaying = isPlaying,
-                                        coroutineScope = coroutineScope,
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .combinedClickable(
-                                                onClick = {
-                                                    navController.navigate("album/${album.id}")
-                                                },
-                                                onLongClick = {
-                                                    menuState.show {
-                                                        AlbumMenu(
-                                                            originalAlbum = album,
-                                                            navController = navController,
-                                                            onDismiss = menuState::dismiss
-                                                        )
+                            // Every card at once, not a lazy row: see the rows of the sections below (#86).
+                            Row(Modifier.horizontalScroll(rememberScrollState())) {
+                                libraryAlbums.distinctBy { it.id }.forEach { album ->
+                                    key(album.id) {
+                                        AlbumGridItem(
+                                            album = album,
+                                            isActive = album.id == mediaMetadata?.album?.id,
+                                            isPlaying = isPlaying,
+                                            coroutineScope = coroutineScope,
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .combinedClickable(
+                                                    onClick = {
+                                                        navController.navigate("album/${album.id}")
+                                                    },
+                                                    onLongClick = {
+                                                        menuState.show {
+                                                            AlbumMenu(
+                                                                originalAlbum = album,
+                                                                navController = navController,
+                                                                onDismiss = menuState::dismiss
+                                                            )
+                                                        }
                                                     }
-                                                }
-                                            )
-                                            .animateItem()
-                                    )
+                                                )
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -434,7 +453,7 @@ fun ArtistScreen(
                     }
                 }
 
-                if (!showLocal) artistPage?.sections?.fastForEach { section ->
+                if (!showLocal) artistPage?.sections?.fastForEachIndexed { sectionIndex, section ->
                     val isSongsSection = (section.items.firstOrNull() as? SongItem)?.album != null
 
                     item {
@@ -450,8 +469,10 @@ fun ArtistScreen(
 
                     if (isSongsSection) {
                         items(
-                            items = section.items,
-                            key = { it.id }
+                            // Played by finding the song in section.items, so a song YouTube lists twice is shown once (#53).
+                            items = section.items.distinctBy { it.id },
+                            // Keys are the whole list's, and a song in two shelves would have had one key twice.
+                            key = { "$sectionIndex:${it.id}" }
                         ) { song ->
                             SwipeToQueueBox(
                                 item = (song as SongItem).toMediaItem(),
@@ -516,77 +537,76 @@ fun ArtistScreen(
                         }
                     } else {
                         item {
-                            LazyRow {
-                                items(
-                                    items = section.items,
-                                    key = { it.id }
-                                ) { item ->
-                                    YouTubeGridItem(
-                                        item = item,
-                                        isActive = when (item) {
-                                            is SongItem -> mediaMetadata?.id == item.id
-                                            is AlbumItem -> mediaMetadata?.album?.id == item.id
-                                            else -> false
-                                        },
-                                        isPlaying = isPlaying,
-                                        coroutineScope = coroutineScope,
-                                        modifier = Modifier
-                                            .combinedClickable(
-                                                onClick = {
-                                                    when (item) {
-                                                        is SongItem -> playerConnection.playQueue(
-                                                            YouTubeQueue.radio(
-                                                                item.toMediaMetadata()
-                                                            ),
-                                                            isRadio = true,
-                                                            title = artistPage.artist.title
-                                                        )
-
-                                                        is AlbumItem -> navController.navigate(
-                                                            "album/${item.id}"
-                                                        )
-
-                                                        is ArtistItem -> navController.navigate(
-                                                            "artist/${item.id}"
-                                                        )
-
-                                                        is PlaylistItem -> navController.navigate(
-                                                            "online_playlist/${item.id}"
-                                                        )
-                                                    }
-                                                },
-                                                onLongClick = {
-                                                    menuState.show {
+                            // Every card of the section at once, not a lazy row, which is only as tall as the cards on screen: a long album name scrolling in or out made it grow or shrink, and the page under it moved (#86). A section holds a few dozen cards at most.
+                            Row(Modifier.horizontalScroll(rememberScrollState())) {
+                                section.items.distinctBy { it.id }.forEach { item ->
+                                    key(item.id) {
+                                        YouTubeGridItem(
+                                            item = item,
+                                            isActive = when (item) {
+                                                is SongItem -> mediaMetadata?.id == item.id
+                                                is AlbumItem -> mediaMetadata?.album?.id == item.id
+                                                else -> false
+                                            },
+                                            isPlaying = isPlaying,
+                                            coroutineScope = coroutineScope,
+                                            modifier = Modifier
+                                                .combinedClickable(
+                                                    onClick = {
                                                         when (item) {
-                                                            is SongItem -> YouTubeSongMenu(
-                                                                song = item,
-                                                                navController = navController,
-                                                                onDismiss = menuState::dismiss
+                                                            is SongItem -> playerConnection.playQueue(
+                                                                YouTubeQueue.radio(
+                                                                    item.toMediaMetadata()
+                                                                ),
+                                                                isRadio = true,
+                                                                title = artistPage.artist.title
                                                             )
 
-                                                            is AlbumItem -> YouTubeAlbumMenu(
-                                                                albumItem = item,
-                                                                navController = navController,
-                                                                onDismiss = menuState::dismiss
+                                                            is AlbumItem -> navController.navigate(
+                                                                "album/${item.id}"
                                                             )
 
-                                                            is ArtistItem -> YouTubeArtistMenu(
-                                                                artist = item,
-                                                                onDismiss = menuState::dismiss
+                                                            is ArtistItem -> navController.navigate(
+                                                                "artist/${item.id}"
                                                             )
 
-                                                            is PlaylistItem -> YouTubePlaylistMenu(
-                                                                navController = navController,
-                                                                playlist = item,
-                                                                coroutineScope = coroutineScope,
-                                                                onDismiss = menuState::dismiss
+                                                            is PlaylistItem -> navController.navigate(
+                                                                "online_playlist/${item.id}"
                                                             )
                                                         }
+                                                    },
+                                                    onLongClick = {
+                                                        menuState.show {
+                                                            when (item) {
+                                                                is SongItem -> YouTubeSongMenu(
+                                                                    song = item,
+                                                                    navController = navController,
+                                                                    onDismiss = menuState::dismiss
+                                                                )
+
+                                                                is AlbumItem -> YouTubeAlbumMenu(
+                                                                    albumItem = item,
+                                                                    navController = navController,
+                                                                    onDismiss = menuState::dismiss
+                                                                )
+
+                                                                is ArtistItem -> YouTubeArtistMenu(
+                                                                    artist = item,
+                                                                    onDismiss = menuState::dismiss
+                                                                )
+
+                                                                is PlaylistItem -> YouTubePlaylistMenu(
+                                                                    navController = navController,
+                                                                    playlist = item,
+                                                                    coroutineScope = coroutineScope,
+                                                                    onDismiss = menuState::dismiss
+                                                                )
+                                                            }
+                                                        }
                                                     }
-                                                }
-                                            )
-                                            .animateItem()
-                                    )
+                                                )
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -635,6 +655,12 @@ fun ArtistScreen(
             navController = navController,
             actions = {
                 TopBarActions {
+                    // First, so that the heart and share stay where they were.
+                    if (Unreleased.ARTIST_BLOCK && shownName != null) {
+                        IconButton(onClick = { askingToBlock = true }) {
+                            Icon(BlockArtistIcon, contentDescription = stringResource(R.string.menu_block_artist))
+                        }
+                    }
                     IconButton(
                         onClick = {
                             database.transaction {
@@ -695,4 +721,30 @@ fun ArtistScreen(
             )
         }
     }
+
+    if (askingToBlock && shownName != null) {
+        BlockArtistConfirm(
+            artist = BlockedArtist(
+                id = viewModel.artistId,
+                name = shownName,
+                thumbnail = artistPage?.artist?.thumbnail ?: libraryArtist?.artist?.thumbnailUrl,
+            ),
+            onDismiss = { askingToBlock = false },
+            // The page turns blank by itself, the block being followed above.
+            onBlocked = { askingToBlock = false },
+        )
+    }
+}
+
+/** The page of a blocked artist: under the bar with its back button, one quiet line and Unblock. */
+@Composable
+private fun BlockedArtistPage(artist: BlockedArtist, navController: NavController) {
+    Box(modifier = Modifier.fillMaxSize()) {
+        // The page's top inset is below the bar already.
+        BlockedNote(
+            artist = artist,
+            modifier = Modifier.windowInsetsPadding(LocalPlayerAwareWindowInsets.current.only(WindowInsetsSides.Horizontal + WindowInsetsSides.Top)),
+        )
+    }
+    FloatingTopBar(title = null, navController = navController)
 }

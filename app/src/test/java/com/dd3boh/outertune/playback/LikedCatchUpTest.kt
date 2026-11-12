@@ -55,6 +55,33 @@ class LikedCatchUpTest {
 
     private fun ids(n: Int) = (1..n).map { "song$it" }.toSet()
 
+    /**
+     * The state a song's count follows, after [state] came for it: the state itself, except a
+     * removal that comes after a failure, which is the app freeing what the failed download had and
+     * leaves the song failed.
+     */
+    private fun endingAfter(before: Int?, state: Int): Int =
+        if (state == Download.STATE_REMOVING && before == Download.STATE_FAILED) before else state
+
+    @Test
+    fun `a failed song stays failed while the app frees what it had`() {
+        // DownloadUtil removes a failed download at once, for its bytes, and media3 reports that as
+        // removing. It is nobody's stop: the run is not cut short and the song counts as failed.
+        val run = Run(ids(3))
+        run.updateAll(Download.STATE_QUEUED)
+        run.update("song1", Download.STATE_COMPLETED)
+        run.update("song2", Download.STATE_COMPLETED)
+        run.update("song3", Download.STATE_FAILED)
+        run.update("song3", Download.STATE_REMOVING)
+
+        assertEquals(LikedCatchUp.Tally(landed = 2, failed = 1, removed = 0, open = 0), run.tally)
+        assertFalse(run.tally.cutShort)
+
+        // Queued again afterwards, it is open again, as any failed song is.
+        run.update("song3", Download.STATE_QUEUED)
+        assertEquals(LikedCatchUp.Tally(landed = 2, failed = 0, removed = 0, open = 1), run.tally)
+    }
+
     @Test
     fun `a queued or downloading song has not landed`() {
         val run = Run(ids(300))
@@ -343,7 +370,7 @@ class LikedCatchUpTest {
             val id = if (random.nextInt(10) == 0) "other${random.nextInt(5)}" else "song${random.nextInt(1, 41)}"
             val state = states[random.nextInt(states.size)]
             run.update(id, state)
-            if (id in run.batch) last[id] = state
+            if (id in run.batch) last[id] = endingAfter(last[id], state)
 
             val tally = run.tally
             // The moment between the listener's two writes may still count a song that had landed
@@ -389,7 +416,7 @@ class LikedCatchUpTest {
                 val id = "song${random.nextInt(1, 41)}"
                 val state = states[random.nextInt(states.size)]
                 run.update(id, state)
-                last[id] = state
+                last[id] = endingAfter(last[id], state)
             }
             history += run.map
 

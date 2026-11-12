@@ -1,0 +1,13 @@
+Version 0.12
+
+- Przesyłanie obrazu i dźwięku na urządzenia Chromecast, odbiorniki FCast oraz telewizory z DLNA.
+- Funkcja radia uczy się na podstawie Twoich pominięć i polubień utworów.
+- Żywe rozmycie (Living blur): tło odtwarzacza porusza się w rytm muzyki.
+- Korektor dźwięku z możliwością dopasowania własnej krzywej dla Twoich słuchawek.
+- Udostępnianie tekstu piosenek w formie tekstu, obrazu lub wideo, bądź czytanie go w alfabecie łacińskim.
+- Wyłącznik czasowy (sleep timer) może uruchamiać się automatycznie każdego dnia.
+- Ukrywanie utworów oraz teledysków z wulgaryzmami lub oznaczeniem explicit.
+- Funkcja „Co jest odtwarzane?” rozpoznaje utwory w wersjach przyspieszonych (sped-up) i zwolnionych (slowed).
+
+Pełna lista zmian:
+https://github.com

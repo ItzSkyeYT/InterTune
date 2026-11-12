@@ -52,8 +52,8 @@ class SignalLogTest {
     fun `the flag is on in a debug build only`() {
         val flags = source("constants/Unreleased.kt")
         assertTrue(
-            "SIGNAL_LOG is not BuildConfig.DEBUG",
-            Regex("""val SIGNAL_LOG\s*=\s*BuildConfig\.DEBUG\b""").containsMatchIn(flags),
+            "SIGNAL_LOG is not BuildConfig.PREVIEW_FEATURES",
+            Regex("""val SIGNAL_LOG\s*=\s*BuildConfig\.PREVIEW_FEATURES\b""").containsMatchIn(flags),
         )
     }
 

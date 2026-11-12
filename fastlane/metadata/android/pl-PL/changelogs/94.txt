@@ -1,0 +1,10 @@
+Version 0.11.6
+
+- Muzyka zatrzymana po rozłączeniu urządzenia Bluetooth może zostać automatycznie wznowiona po ponownym połączeniu.
+- Rozpoznawanie utworów w Twoim otoczeniu za pomocą kafelka szybkich ustawień lub przycisku na ekranie głównym.
+- Koniec z przycinaniem dźwięku, gdy YouTube przesyła utwór wolniej, niż trwa jego odtwarzanie.
+- Próba skanowania bez wybranego folderu otwiera teraz listę folderów, zamiast zamykać aplikację.
+- Karta z nowościami pozostaje widoczna do momentu, aż sprawdzisz wszystkie elementy, które się na niej znajdują.
+
+Pełna lista zmian:
+https://github.com

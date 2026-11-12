@@ -12,6 +12,15 @@
         android:name="androidx.car.app.MEDIA_TEMPLATES"
         tools:node="remove" />
 
+    <!-- A release with Listen together held back (Unreleased.LISTEN_TOGETHER) asks for no camera:
+         only its Scan button reads a room's QR code. When rooms ship, these two lines go. -->
+    <uses-permission
+        android:name="android.permission.CAMERA"
+        tools:node="remove" />
+    <uses-feature
+        android:name="android.hardware.camera.any"
+        tools:node="remove" />
+
     <application>
         <service
             android:name="com.dd3boh.outertune.playback.AutoCarService"

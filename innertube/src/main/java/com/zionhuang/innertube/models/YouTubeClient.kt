@@ -52,6 +52,9 @@ data class YouTubeClient(
         const val REFERER_YOUTUBE_MUSIC = "$ORIGIN_YOUTUBE_MUSIC/"
         const val API_URL_YOUTUBE_MUSIC = "$ORIGIN_YOUTUBE_MUSIC/youtubei/v1/"
 
+        /** YouTube's own API, for the watch-next of a mix (InnerTube.watchNext). */
+        const val API_URL_YOUTUBE = "https://www.youtube.com/youtubei/v1/"
+
         const val USER_AGENT_VISIONOS = "com.google.ios.youtube/1.02 (RealityDevice17,1; U; visionOS 2_3)"
 
         /**

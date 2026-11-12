@@ -38,6 +38,23 @@ class DatabaseFlowsAreKeptTest {
     }
 
     @Test
+    fun `no composable collects a download flow it has just made`() {
+        // DownloadUtil.getDownload maps the downloads anew on every call: a song menu drawn again
+        // (the volume moved, a like) started a new collection each time.
+        val made = Regex("""\b(downloadUtil|LocalDownloadUtil\s*\.\s*current)\s*\.\s*\w+\([^()\n]*\)\s*\.collectAsState""")
+        assertTrue(made.containsMatchIn("val download by LocalDownloadUtil.current.getDownload(song.id).collectAsState(initial = null)"))
+        val found = File("src/main/java/com/dd3boh/outertune/ui").walkTopDown()
+            .filter { it.isFile && it.extension == "kt" }
+            .flatMap { file ->
+                stripComments(file.readText()).lineSequence()
+                    .filter { made.containsMatchIn(it) && "remember" !in it.substringBefore("ownloadUtil") }
+                    .map { "${file.name}: ${it.trim()}" }
+            }
+            .toList()
+        assertTrue("made anew on every recomposition, wrap each in remember(key) { }:\n" + found.joinToString("\n"), found.isEmpty())
+    }
+
+    @Test
     fun `the search still finds what it is looking for`() {
         // So the test above cannot pass because the pattern stopped matching anything.
         val made = Regex("""\bdatabase\s*\.\s*\w+\([^()\n]*\)\s*\.collectAsState""")

@@ -22,17 +22,28 @@ import javax.xml.parsers.DocumentBuilderFactory
  * The manifest named the action only inside the YouTube link filters, which also want a link, so a
  * plain request never reached the app. This pins the filter, what MainActivity takes from the
  * intent and the request it hands the media session. What the session then plays needs a device.
+ *
+ * The filter stays on MainActivity itself: the YouTube links moved to an activity that "Open links
+ * in InterTune" can turn off, and a voice request must not go with it (OpenLinksTest).
  */
 class PlayFromSearchTest {
 
     private class Filter(val actions: Set<String>, val categories: Set<String>, val data: List<Map<String, String>>)
 
     /** MainActivity's intent filters, as the manifest declares them. */
-    private fun mainActivityFilters(): List<Filter> {
+    private fun mainActivityFilters(): List<Filter> = filtersOf("activity", ".MainActivity")
+
+    /**
+     * The filters of the activity that carries the links (OpenLinksTest), which "Open links in
+     * InterTune" turns on and off: the YouTube links are there and no longer on MainActivity.
+     */
+    private fun linkFilters(): List<Filter> = filtersOf("activity", ".OpenLinksActivity")
+
+    private fun filtersOf(tag: String, name: String): List<Filter> {
         val manifest = DocumentBuilderFactory.newInstance().newDocumentBuilder()
             .parse(File("src/main/AndroidManifest.xml"))
-        val activity = manifest.getElementsByTagName("activity").elements()
-            .single { it.getAttribute("android:name") == ".MainActivity" }
+        val activity = manifest.getElementsByTagName(tag).elements()
+            .single { it.getAttribute("android:name") == name }
         return activity.getElementsByTagName("intent-filter").elements().map { filter ->
             fun named(tag: String) = filter.getElementsByTagName(tag).elements().map { it.getAttribute("android:name") }.toSet()
             Filter(
@@ -61,7 +72,7 @@ class PlayFromSearchTest {
 
     @Test
     fun `the YouTube links still open the app`() {
-        val links = mainActivityFilters().filter { "android.intent.action.VIEW" in it.actions && it.data.isNotEmpty() }
+        val links = linkFilters().filter { "android.intent.action.VIEW" in it.actions && it.data.isNotEmpty() }
         fun opens(scheme: String, host: String? = null) = links.any { filter ->
             filter.data.any { it["android:scheme"] == scheme } &&
                 (host == null || filter.data.any { it["android:host"] == host })
@@ -83,11 +94,30 @@ class PlayFromSearchTest {
 
     @Test
     fun `a link, or any other intent, is not a play from search`() {
-        // With data it came in through a YouTube filter, and the link handling has it.
+        // With data it is no request for words, and the link handling has it.
         assertNull(searchToPlay(MediaStore.INTENT_ACTION_MEDIA_PLAY_FROM_SEARCH, hasData = true, query = "daft punk"))
         assertNull(searchToPlay("android.intent.action.VIEW", hasData = false, query = "daft punk"))
         assertNull(searchToPlay(MainActivity.ACTION_PLAY_LIKED, hasData = false, query = null))
         assertNull(searchToPlay(null, hasData = false, query = "daft punk"))
+    }
+
+    @Test
+    fun `a search that could not be made is not told as nothing found`() {
+        // The session's search failing, or the session gone, was told as nothing found (audit of
+        // 2 Nov 2026, 3.8). Only an answer with nothing in it is that now.
+        val source = File("src/main/java/com/dd3boh/outertune/MainActivity.kt").readText()
+        val play = source.substringAfter("private fun playFromSearch(").substringBefore("\n    }\n")
+        assertTrue(play, play.contains("R.string.play_search_failed"))
+        val caught = play.substringAfter("} catch (e: Exception) {").substringBefore("}")
+        assertTrue(caught, !caught.contains("no_results_found"))
+    }
+
+    @Test
+    fun `nothing found and no answer are told apart`() {
+        assertEquals(PlaySearch.PLAY, playSearchOutcome(3))
+        assertEquals(PlaySearch.NOTHING, playSearchOutcome(0))
+        // The session failed, answered with an error, or was gone.
+        assertEquals(PlaySearch.FAILED, playSearchOutcome(null))
     }
 
     @Test

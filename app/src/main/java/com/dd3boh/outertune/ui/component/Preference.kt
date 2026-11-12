@@ -245,6 +245,8 @@ fun EditTextPreference(
     onValueChange: (String) -> Unit,
     singleLine: Boolean = true,
     isInputValid: (String) -> Boolean = { it.isNotEmpty() },
+    /** A line under the field for what is typed, such as why it cannot be taken; null for none. */
+    inputHint: ((String) -> String?)? = null,
     isEnabled: Boolean = true,
 ) {
     var showDialog by remember {
@@ -259,6 +261,7 @@ fun EditTextPreference(
             ),
             singleLine = singleLine,
             isInputValid = isInputValid,
+            inputHint = inputHint,
             onDone = onValueChange,
             onDismiss = { showDialog = false }
         )
@@ -267,7 +270,8 @@ fun EditTextPreference(
     PreferenceEntry(
         modifier = modifier,
         title = title,
-        description = value,
+        // Nothing stored is no line, rather than an empty one.
+        description = value.ifEmpty { null },
         icon = icon,
         onClick = { showDialog = true },
         isEnabled = isEnabled

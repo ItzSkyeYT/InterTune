@@ -63,3 +63,18 @@ data class StatsBounds(
     /** The start of the first listen the live log wrote, which is where skips and sources begin. */
     val firstLiveAt: Long?,
 )
+
+/** A liked song's first listen: [com.dd3boh.outertune.db.StatsSql.FOUND_FIRST_LISTENS]. */
+data class FoundFirstListen(
+    val songId: String,
+    /** As stored: the phone's wall clock written as if it were UTC (db/Converters). */
+    val likedDate: Long,
+    /** True UTC, dated back from its end on the odd row with no start. */
+    val firstAt: Long,
+    /** The phone's offset from UTC when that listen was written. */
+    val tzOffsetMin: Int,
+    /** A [com.dd3boh.outertune.constants.PlayOrigin] code. */
+    val origin: Int,
+    /** 0 when the listener picked the song, more when it came after one they picked. */
+    val autoplayDepth: Int,
+)

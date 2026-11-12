@@ -458,4 +458,59 @@ class LastAskedTest {
         Thread.sleep(50)
         assertEquals(listOf("a", "b"), tried.toList())
     }
+
+    /** A picture whoever holds it can spoil, as a phone's system frees a cover it was handed (#108). */
+    private class Picture(val name: String) {
+        var spoiled = false
+    }
+
+    private fun sharing(find: suspend (String, (Picture) -> Unit) -> Picture?) = LastAsked<String, Picture>(
+        scope,
+        find = find,
+        instead = { Picture("stand-in") },
+        share = { kept -> check(!kept.spoiled) { "a spoiled picture was kept" }; Picture(kept.name) },
+    )
+
+    @Test
+    fun `with a share each asker gets a copy of its own, and one spoiled does not reach the next`() {
+        val gate = CompletableDeferred<Picture?>()
+        val copies = sharing { _, _ -> gate.await() }
+        val first = copies.ask("song")
+        val second = copies.ask("song")
+        gate.complete(Picture("cover"))
+        val a = first.soon()
+        val b = second.soon()
+        assertEquals(listOf("cover", "cover"), listOf(a.name, b.name))
+        assertNotSame("two askers at once get two copies", a, b)
+        a.spoiled = true                       // the system freed what it was given
+        val c = copies.ask("song").soon()
+        assertFalse("the next ask gets a sound copy", c.spoiled)
+        assertNotSame(a, c)
+        assertNotSame(b, c)
+    }
+
+    @Test
+    fun `with a share the cover at hand and the stand-in go out as copies too`() {
+        val gate = CompletableDeferred<Picture?>()
+        val copies = sharing { _, meanwhile -> meanwhile(Picture("small")); gate.await() }
+        val one = copies.ask("song").soon()
+        val two = copies.ask("song").soon()
+        assertEquals(listOf("small", "small"), listOf(one.name, two.name))
+        assertNotSame(one, two)
+        one.spoiled = true
+        assertFalse(copies.ask("song").soon().spoiled)
+
+        val nothing = sharing { _, _ -> null }
+        val x = nothing.ask("gone").soon()
+        val y = nothing.ask("gone").soon()
+        assertEquals(listOf("stand-in", "stand-in"), listOf(x.name, y.name))
+        assertNotSame(x, y)
+    }
+
+    @Test
+    fun `without a share everybody gets the very thing kept, as before`() {
+        open("a", "cover of a")
+        val first = covers.ask("a").soon()
+        assertSame(first, covers.ask("a").soon())
+    }
 }

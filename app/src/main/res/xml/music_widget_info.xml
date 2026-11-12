@@ -10,6 +10,10 @@
   again from the launcher's own edit button. Not "configuration_optional", which lets a launcher
   skip the question entirely, and then nobody ever learns the widget can be anything else.
 
+  Until the app has drawn it, which after an update of the app takes several seconds (the app must
+  start first), the launcher shows the initial layout: the widget's own picture from the picker,
+  not Glance's spinner card (his pick, 5 Nov 2026).
+
   No update period: the app redraws the widget itself whenever it has something to say, and a timer
   would only wake the phone to redraw the same thing. Force stopping the app empties its widget
   until the app is next opened, which is Android's rule for every widget and not something a period
@@ -18,7 +22,7 @@
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
     android:configure="com.dd3boh.outertune.widget.WidgetConfigActivity"
     android:description="@string/widget_description"
-    android:initialLayout="@layout/glance_default_loading_layout"
+    android:initialLayout="@layout/widget_preview"
     android:minHeight="110dp"
     android:minResizeHeight="40dp"
     android:minResizeWidth="40dp"

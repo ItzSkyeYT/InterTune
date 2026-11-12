@@ -8,6 +8,7 @@ package com.dd3boh.outertune.utils
 
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
+import com.google.common.util.concurrent.MoreExecutors
 import com.google.common.util.concurrent.SettableFuture
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -52,6 +53,10 @@ import kotlinx.coroutines.launch
  *   answer went out: the thing itself, or something lesser in the stand-in's place
  * @param retryAfterMs how long a try that came to nothing is left alone before an ask tries again
  * @param retryDelaysMs the waits before each try made by itself after one that came to nothing
+ * @param share what each asker is given of what is kept: a copy of its own made from it, so that
+ *   one who spoils what it was given spoils nothing for the next (#108: a phone's system freed the
+ *   cover it was handed, and the next ask was answered with the freed one). By default, with none,
+ *   everybody gets the very thing kept.
  * @param now the time in milliseconds, for the tests to set
  */
 internal class LastAsked<K : Any, V : Any>(
@@ -61,6 +66,7 @@ internal class LastAsked<K : Any, V : Any>(
     private val better: (K) -> Unit = {},
     private val retryAfterMs: Long = 0,
     private val retryDelaysMs: List<Long> = emptyList(),
+    private val share: ((V) -> V)? = null,
     private val now: () -> Long = { System.nanoTime() / 1_000_000 },
 ) {
     private class Asked<K, V>(val key: K) {
@@ -90,8 +96,15 @@ internal class LastAsked<K : Any, V : Any>(
 
     private var last: Asked<K, V>? = null
 
-    @Synchronized
+    /** The thing for [key]: what is kept, or a copy of its own when a [share] is given (made outside the lock). */
     fun ask(key: K): ListenableFuture<V> {
+        val kept = kept(key)
+        val copy = share ?: return kept
+        return Futures.transform(kept, { copy(it) }, MoreExecutors.directExecutor())
+    }
+
+    @Synchronized
+    private fun kept(key: K): ListenableFuture<V> {
         last?.let { asked ->
             if (asked.key == key && !asked.first.isCancelled) {
                 // What is in hand goes out again as it is. If that is not the thing itself, it is

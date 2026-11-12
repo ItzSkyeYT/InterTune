@@ -83,13 +83,14 @@ object ProtocolInfo {
 
     /**
      * What the renderer plays over HTTP. A list with `*` as a type, or with nothing over HTTP, says
-     * nothing, and is treated as saying nothing.
+     * nothing, and is treated as saying nothing. Its audio/L16 entries are kept whole besides,
+     * since their rate and channels say which raw audio it takes (PcmFormats.offer).
      */
     fun support(sink: String?): FormatSupport {
         val http = parse(sink ?: return FormatSupport.Unknown).filter { it.protocol.equals("http-get", ignoreCase = true) }
         val types = http.map { CastMime.bare(it.contentFormat) }
         if (types.isEmpty() || types.any { it == "*" || it == "*/*" || it == "audio/*" }) return FormatSupport.Unknown
-        return FormatSupport.Listed(types.toSet())
+        return FormatSupport.Listed(types.toSet(), http.mapNotNull { PcmFormats.offer(it.contentFormat, it.additionalInfo) })
     }
 }
 
@@ -97,17 +98,20 @@ object ProtocolInfo {
 object Didl {
     /**
      * A `res` protocolInfo for a song of [mimeType]. DLNA.ORG_OP=01 says byte ranges work, which
-     * is true whenever the server knows the length; the flags match what the server sends in
-     * contentFeatures.dlna.org.
+     * is true whenever the server knows the length; the rest matches what the server sends in
+     * contentFeatures.dlna.org (CastHttp.dlnaFeatures). Raw audio keeps its rate and channels in
+     * the type, says DLNA.ORG_PN=LPCM where it is that profile, and DLNA.ORG_CI=1 as [converted].
      */
-    fun protocolInfo(mimeType: String, byteSeek: Boolean): String =
-        "http-get:*:${CastMime.bare(mimeType)}:DLNA.ORG_OP=${if (byteSeek) "01" else "00"};DLNA.ORG_CI=0;${CastHttp.DLNA_FLAGS}"
+    fun protocolInfo(mimeType: String, byteSeek: Boolean, converted: Boolean = false): String {
+        val type = if (PcmFormats.isL16(mimeType)) mimeType.trim() else CastMime.bare(mimeType)
+        return "http-get:*:$type:${CastHttp.dlnaFeatures(mimeType, byteSeek, converted)}"
+    }
 
     /**
      * One track. Every value is escaped, so this is well-formed XML; Soap then escapes it again as
      * an argument. A missing title becomes the id, because a few renderers refuse a track without one.
      */
-    fun track(item: CastItem, protocolInfo: String = protocolInfo(item.mimeType, item.length >= 0)): String = buildString {
+    fun track(item: CastItem, protocolInfo: String = protocolInfo(item.mimeType, item.length >= 0, item.converted)): String = buildString {
         fun element(name: String, value: String?) {
             if (value.isNullOrBlank()) return
             append('<').append(name).append('>').append(UpnpXml.escape(value)).append("</").append(name).append('>')

@@ -138,8 +138,9 @@ class StreamPaceTest {
         val body = service.substring(start, service.indexOf("\n    }\n", start))
         assertTrue("the player fetches streams without the pace guard", "PaceGuardDataSource.Factory(" in body)
         // SABR's reader may sit in between: it hands every address but a sabr: one to the fetch
-        // as it is (SabrOrHttp), and the guard never meters a sabr: read.
-        assertTrue("the guard no longer wraps the stream fetch", Regex("""PaceGuardDataSource\.Factory\((\s*//[^\n]*)*\s*(SabrOrHttp\.Factory\(\s*)?OkHttpDataSource\.Factory\(""").containsMatchIn(body))
+        // as it is (SabrOrHttp), and the guard never meters a sabr: read. StreamAnswer may sit there
+        // too: it passes every call through and only notes how a stream began.
+        assertTrue("the guard no longer wraps the stream fetch", Regex("""PaceGuardDataSource\.Factory\((\s*//[^\n]*)*\s*(StreamAnswer\.Factory\(\s*)?(SabrOrHttp\.Factory\(\s*)?OkHttpDataSource\.Factory\(""").containsMatchIn(body))
     }
 
     @Test

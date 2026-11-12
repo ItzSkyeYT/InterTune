@@ -98,7 +98,49 @@ class DlnaTest {
         assertEquals(FormatSupport.Unknown, ProtocolInfo.support("rtsp-rtp-udp:*:audio/mpeg:*"))
     }
 
+    @Test
+    fun `a renderer's L16 entries are kept with their rates and channels, and L8 is not`() {
+        // The Zeppelin Wireless's kind of list (4 Nov 2026).
+        val support = ProtocolInfo.support(
+            "http-get:*:audio/L16;rate=44100;channels=2:DLNA.ORG_PN=LPCM," +
+                "http-get:*:audio/L16;rate=48000;channels=2:DLNA.ORG_PN=LPCM," +
+                "http-get:*:audio/L8;rate=44100;channels=2:*",
+        )
+        assertEquals(
+            FormatSupport.Listed(
+                setOf("audio/l16", "audio/l8"),
+                listOf(
+                    PcmOffer("audio/L16;rate=44100;channels=2", 44_100, 2, "LPCM"),
+                    PcmOffer("audio/L16;rate=48000;channels=2", 48_000, 2, "LPCM"),
+                ),
+            ),
+            support,
+        )
+    }
+
     // DIDL-Lite
+
+    @Test
+    fun `raw audio is described with its rate and channels, as LPCM the phone made`() {
+        val pcm = item.copy(
+            url = "http://192.168.1.20:47800/c/abcd/l16-44100-2/dQw4w9WgXcQ.pcm",
+            mimeType = "audio/L16;rate=44100;channels=2",
+            length = 37_661_400,
+            converted = true,
+        )
+        assertEquals(
+            "http-get:*:audio/L16;rate=44100;channels=2:DLNA.ORG_PN=LPCM;DLNA.ORG_OP=01;DLNA.ORG_CI=1;DLNA.ORG_FLAGS=01700000000000000000000000000000",
+            Didl.protocolInfo(pcm.mimeType, byteSeek = true, converted = true),
+        )
+        val res = UpnpXml.child(UpnpXml.child(UpnpXml.parse(Didl.track(pcm))!!, "item")!!, "res")!!
+        assertEquals(Didl.protocolInfo(pcm.mimeType, byteSeek = true, converted = true), res.getAttribute("protocolInfo"))
+        assertEquals("37661400", res.getAttribute("size"))
+        // A WAV made on the phone says so, with no profile.
+        assertEquals(
+            "http-get:*:audio/wav:DLNA.ORG_OP=01;DLNA.ORG_CI=1;DLNA.ORG_FLAGS=01700000000000000000000000000000",
+            Didl.protocolInfo("audio/wav", byteSeek = true, converted = true),
+        )
+    }
 
     private val item = CastItem(
         mediaId = "dQw4w9WgXcQ",

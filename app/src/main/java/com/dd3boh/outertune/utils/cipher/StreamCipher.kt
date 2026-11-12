@@ -85,6 +85,24 @@ object StreamCipher {
     }
 
     /**
+     * Why [solved] gives no address for [address] with these answers, in a few words for the log, or
+     * null when it gives one. Never the values: they are the address's own and the solver's.
+     *
+     * The log used to say only that a web client's address was not deciphered (issue #124, the
+     * account's web client answering OK on a VPN), and a report could not tell the solver from the
+     * script from YouTube sending something new.
+     */
+    fun whyNotSolved(address: Address, signature: String?, n: String?): String? = when {
+        !isStreamHost(address.url) -> "the address is not on a stream host"
+        address.n != null && n == null -> "no answer for n"
+        address.n != null && n != null && !isAnswer(n, address.n) ->
+            if (n == address.n) "n came back as it was asked" else "an answer for n that cannot be one"
+        address.signature != null && signature == null -> "no answer for the signature"
+        address.signature != null && signature != null && !isAnswer(signature, address.signature) -> "an answer for the signature that cannot be one"
+        else -> null
+    }
+
+    /**
      * [url] with a po token on it, or as it is without one.
      *
      * Encoded as a value in an address has to be. The player used to append the token as it came,

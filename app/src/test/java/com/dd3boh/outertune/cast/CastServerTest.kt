@@ -18,6 +18,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
+import java.io.File
 import java.io.IOException
 import java.net.InetAddress
 import java.net.InetSocketAddress
@@ -110,8 +111,40 @@ class CastServerTest {
         servable: (String) -> Boolean = { true },
         maxConnections: Int = CastServer.MAX_CONNECTIONS,
         port: Int = 0,
-    ): CastServer = CastServer(source, loopback, servable, port = port, maxConnections = maxConnections)
+        pcmDecoder: PcmDecoder? = null,
+    ): CastServer = CastServer(source, loopback, servable, port = port, maxConnections = maxConnections, pcmDecoder = pcmDecoder)
         .also { servers += it; it.start() }
+
+    private fun pcmAt(frame: Long, channel: Int): Short = ((frame * 3 + channel * 1_000) % 30_000).toShort()
+
+    /** Decodes any song into [frames] stereo frames at [rate], each sample worked out from its frame. */
+    private inner class ToneDecoder(val rate: Int, val frames: Long) : PcmDecoder {
+        val probes = AtomicInteger()
+
+        override fun probe(song: CastSong): PcmSource {
+            probes.incrementAndGet()
+            return PcmSource(rate, 2, frames * 1_000_000L / rate)
+        }
+
+        override fun open(song: CastSong, fromUs: Long): DecodedAudio = object : DecodedAudio {
+            var at = fromUs * rate / 1_000_000L
+            val samples = ShortArray(2048)
+
+            override fun next(): DecodedPiece? {
+                if (at >= frames) return null
+                val count = minOf(1024L, frames - at).toInt()
+                for (i in 0 until count) {
+                    samples[2 * i] = pcmAt(at + i, 0)
+                    samples[2 * i + 1] = pcmAt(at + i, 1)
+                }
+                val piece = DecodedPiece(at * 1_000_000L / rate, rate, 2, samples, count)
+                at += count
+                return piece
+            }
+
+            override fun close() = Unit
+        }
+    }
 
     private fun CastServer.url(id: String, ext: String = "webm") =
         "http://127.0.0.1:$boundPort/c/$token/s/$id.$ext"
@@ -353,6 +386,79 @@ class CastServerTest {
         head(server.url("v")).close()
         assertEquals(2, source.aacOpens.get())
         assertEquals(2, source.opens.get())
+    }
+
+    @Test
+    fun `raw audio is decoded from the song as it is, described without decoding, and served from any byte`() {
+        val decoder = ToneDecoder(48_000, 48_000)
+        val source = FakeSource("v" to FakeSong(6000, mimeType = "audio/webm"))
+        val server = serve(source, pcmDecoder = decoder)
+        val offer = server.preparePcm("v", PcmTarget(listOf(PcmOffer("audio/L16;rate=48000;channels=2", 48_000, 2, "LPCM"))))
+        assertEquals("http://127.0.0.1:${server.boundPort}/c/${server.token}/l16-48000-2/v.pcm", offer.url)
+        assertEquals("audio/L16;rate=48000;channels=2", offer.mimeType)
+        assertEquals(192_000L, offer.length)
+        assertEquals(1_000L, offer.durationMs)
+        head(offer.url).use {
+            assertEquals(200, it.code)
+            assertEquals("192000", it.header("Content-Length"))
+            assertEquals("audio/L16;rate=48000;channels=2", it.header("Content-Type"))
+            assertEquals("Streaming", it.header("transferMode.dlna.org"))
+            assertEquals(
+                "DLNA.ORG_PN=LPCM;DLNA.ORG_OP=01;DLNA.ORG_CI=1;DLNA.ORG_FLAGS=01700000000000000000000000000000",
+                it.header("contentFeatures.dlna.org"),
+            )
+        }
+        // A seek: a range from the middle of a frame, the samples big-endian.
+        get(offer.url, "bytes=96002-").use {
+            assertEquals(206, it.code)
+            assertEquals("bytes 96002-191999/192000", it.header("Content-Range"))
+            val body = it.body!!.bytes()
+            assertEquals(95_998, body.size)
+            assertEquals(pcmAt(24_000, 1), ((body[0].toInt() shl 8) or (body[1].toInt() and 0xFF)).toShort())
+            assertEquals(pcmAt(24_001, 0), ((body[2].toInt() shl 8) or (body[3].toInt() and 0xFF)).toShort())
+        }
+        get(offer.url).use { assertEquals(192_000, it.body!!.bytes().size) }
+        assertEquals("the song is looked at once", 1, decoder.probes.get())
+        assertEquals(1, source.opens.get())
+
+        // Forgetting the song forgets what it decodes to as well.
+        server.forget("v")
+        head(offer.url).close()
+        assertEquals(2, decoder.probes.get())
+    }
+
+    @Test
+    fun `the app's sound goes on the raw audio served, unless the link puts it on itself`() {
+        val target = PcmTarget(listOf(PcmOffer("audio/L16;rate=48000;channels=2", 48_000, 2, "LPCM")))
+        fun firstSample(server: CastServer): Short {
+            val offer = server.preparePcm("v", target)
+            assertEquals(48_000, offer.rate)
+            return get(offer.url, "bytes=96000-").use {
+                val body = it.body!!.bytes()
+                ((body[0].toInt() shl 8) or (body[1].toInt() and 0xFF)).toShort()
+            }
+        }
+        val sound = MarkingSound()
+        val shaped = serve(FakeSource("v" to FakeSong(6000)), pcmDecoder = ToneDecoder(48_000, 48_000)).apply { pcmSound = sound }
+        assertEquals((-pcmAt(24_000, 0)).toShort(), firstSample(shaped))
+        assertEquals("the song's level looked up as it was prepared", listOf("v"), sound.prepared)
+        // An AirPlay link's server: the samples as they were decoded, which the link shapes as it sends.
+        val plain = serve(FakeSource("v" to FakeSong(6000)), pcmDecoder = ToneDecoder(48_000, 48_000))
+        assertEquals(pcmAt(24_000, 0), firstSample(plain))
+        // A song as it is says no rate: the receiver decodes it.
+        assertEquals(-1, plain.prepare("v").rate)
+    }
+
+    @Test
+    fun `a server that cannot decode says so, and sends no raw audio`() {
+        val server = serve(FakeSource("v" to FakeSong(6000)))
+        try {
+            server.preparePcm("v", PcmTarget.LPCM)
+            fail("Raw audio was offered without a decoder")
+        } catch (e: CastUnavailableException) {
+            assertEquals("Raw audio cannot be sent from this build", e.message)
+        }
+        get("http://127.0.0.1:${server.boundPort}/c/${server.token}/l16-44100-2/v.pcm").use { assertEquals(503, it.code) }
     }
 
     @Test
@@ -600,12 +706,42 @@ class CastServerTest {
             } catch (expected: IOException) {
             }
         }
-        try {
-            Socket().use { it.connect(InetSocketAddress("127.0.0.1", port), 2000) }
-            fail("Still listening after stop")
-        } catch (expected: IOException) {
+        // The port is the system's again once the server stops, and on a busy machine another
+        // program can take it at once: a Gradle or Kotlin daemon opening a loopback port failed a
+        // full check on 7 Nov 2026. So what is checked is that this process no longer listens
+        // there, read from Linux's own table, and where there is none, that nothing answers.
+        val listening = listeningHere(port)
+        if (listening != null) {
+            assertFalse("Still listening after stop", listening)
+        } else {
+            try {
+                Socket().use { it.connect(InetSocketAddress("127.0.0.1", port), 2000) }
+                fail("Still listening after stop")
+            } catch (expected: IOException) {
+            }
         }
         server.stop()
+    }
+
+    /**
+     * Whether this process has a socket listening on [port], from /proc/net/tcp and tcp6 (the
+     * listening sockets, by inode) and /proc/self/fd (this process's own); null without /proc.
+     */
+    private fun listeningHere(port: Int): Boolean? {
+        val tables = listOf(File("/proc/net/tcp"), File("/proc/net/tcp6")).filter { it.canRead() }
+        val fds = File("/proc/self/fd").listFiles()
+        if (tables.isEmpty() || fds == null) return null
+        val hex = "%04X".format(port)
+        // Each line: sl, local address (ip:port in hex), remote address, state (0A is LISTEN), ..., inode.
+        val inodes = tables.flatMap { it.readLines().drop(1) }.mapNotNull { line ->
+            val f = line.trim().split(Regex("\\s+"))
+            if (f.size > 9 && f[1].substringAfterLast(':') == hex && f[3] == "0A") f[9] else null
+        }.toSet()
+        if (inodes.isEmpty()) return false
+        return fds.any { fd ->
+            val target = runCatching { java.nio.file.Files.readSymbolicLink(fd.toPath()).toString() }.getOrNull()
+            target != null && target.removePrefix("socket:[").removeSuffix("]") in inodes
+        }
     }
 
     @Test
@@ -657,11 +793,17 @@ class CastServerTest {
         }
 
         server.stop()
-        for (host in listOf("127.0.0.1", "127.0.0.2")) {
-            try {
-                Socket().use { it.connect(InetSocketAddress(host, port), 2000) }
-                fail("Still listening on $host after stop")
-            } catch (expected: IOException) {
+        // As in the stop test: the port is the system's again, so this process's own sockets are read.
+        val listening = listeningHere(port)
+        if (listening != null) {
+            assertFalse("Still listening after stop", listening)
+        } else {
+            for (host in listOf("127.0.0.1", "127.0.0.2")) {
+                try {
+                    Socket().use { it.connect(InetSocketAddress(host, port), 2000) }
+                    fail("Still listening on $host after stop")
+                } catch (expected: IOException) {
+                }
             }
         }
     }

@@ -54,6 +54,7 @@ import com.dd3boh.outertune.ui.component.ListPreference
 import com.dd3boh.outertune.utils.BackgroundCheckWorker
 import com.dd3boh.outertune.ui.component.PreferenceGroupTitle
 import com.dd3boh.outertune.ui.component.SwitchPreference
+import com.dd3boh.outertune.utils.FailureLog
 import com.dd3boh.outertune.utils.UpdateChecker
 import com.dd3boh.outertune.utils.rememberPreference
 import kotlinx.coroutines.launch
@@ -68,6 +69,7 @@ import com.dd3boh.outertune.utils.AutoBlocker
 import com.dd3boh.outertune.ui.component.androidUpdateButton
 import com.dd3boh.outertune.ui.screens.walkthrough.Tour
 import com.dd3boh.outertune.ui.screens.walkthrough.tourTarget
+import com.dd3boh.outertune.utils.Toaster
 
 /**
  * Everything to do with app updates, in one place.
@@ -206,18 +208,22 @@ fun UpdateSettings(
                 onClick = {
                     coroutineScope.launch {
                         checking = true
-                        val result = updateChecker.check(force = true)
+                        // Asked for by hand, so a version skipped earlier is offered again here,
+                        // with its install button. The checks that run by themselves still pass
+                        // over it, and the skip stays until a later version comes.
+                        val result = updateChecker.check(force = true, manual = true)
                         checking = false
                         if (result == null) {
                             // A null result means nothing new only when the check got an answer.
-                            Toast.makeText(
+                            if (updateChecker.lastCheckFailed.value) FailureLog.record("Checking for updates", why = "the update check got no answer")
+                            Toaster.show(
                                 context,
                                 context.getString(
                                     if (updateChecker.lastCheckFailed.value) R.string.update_check_failed
                                     else R.string.no_updates_available
                                 ),
                                 Toast.LENGTH_SHORT
-                            ).show()
+                            )
                         }
                     }
                 }
@@ -308,12 +314,13 @@ fun UpdateSettings(
                                     )
                                 }
 
-                            // Blocked on a Samsung phone: Auto Blocker's switch is the way through, and
-                            // the row is back to Install for when they return.
+                            // Blocked on a Samsung phone: Auto Blocker's switch is the way through. The
+                            // row is back to Install for when they return, and the install starts
+                            // again by itself then.
                             UpdateInstaller.State.Blocked ->
                                 if (AutoBlocker.likely()) {
                                     installer.acknowledge()
-                                    AutoBlocker.open(context)
+                                    AutoBlocker.openForUpdate(context)
                                 } else {
                                     installer.acknowledge()
                                     installer.installOrDownload(found.downloadUrl, found.sizeBytes)

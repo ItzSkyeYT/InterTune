@@ -1,0 +1,13 @@
+Version 0.12.7
+
+- Downloads finish in seconds.
+- Lyrics videos up to 10 minutes; Living blur follows the music.
+- The Shelf widget comes in three looks.
+- Shared songs show their card in chats.
+- Fewer crashes: startup, moving long downloads.
+- Skip silence keeps quiet music at its speed.
+- The player menu's Equalizer works.
+- Search lyrics finds more.
+- A note for South Korea.
+
+Full changelog: https://github.com/ItzSkyeYT/InterTune/releases/tag/v0.12.7

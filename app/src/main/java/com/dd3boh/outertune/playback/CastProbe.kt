@@ -24,6 +24,7 @@ import com.dd3boh.outertune.cast.CastNetwork
 import com.dd3boh.outertune.cast.CastServer
 import com.dd3boh.outertune.cast.FCastLink
 import com.dd3boh.outertune.cast.FormatChoice
+import com.dd3boh.outertune.cast.PcmTarget
 import com.dd3boh.outertune.cast.ReceiverLink
 import com.dd3boh.outertune.cast.ReceiverState
 import com.dd3boh.outertune.cast.ReceiverStatus
@@ -48,8 +49,9 @@ import kotlinx.coroutines.withContext
  *         --es cmd "'cast fcast 10.0.2.2:46899'"
  *
  * The commands:
- * - `serve [id] [aac]` starts the server and logs where a song is served, the current one unless
- *   an id in the queue is given, as it is or as AAC;
+ * - `serve [id] [aac|pcm]` starts the server and logs where a song is served, the current one
+ *   unless an id in the queue is given, as it is, as AAC, or decoded as raw audio (L16 at the
+ *   song's own rate, with Unreleased.CAST_PCM);
  * - `cast <address>` connects to a receiver, written as Add by address takes it (`fcast host:port`,
  *   `chromecast host`, or a DLNA description url), and sends it the current song;
  * - `load [id]` sends another song from the queue;
@@ -61,10 +63,11 @@ import kotlinx.coroutines.withContext
  * The commands other than `session` drive a link of their own and share the cast server with a
  * session, so they are refused while one is casting.
  *
- * A song goes in the format the receiver said it plays, and one it fails is tried once more as AAC
- * when it said nothing, the same rules the remote player will follow (CastFormats). Everything
- * done, and every report from the receiver, is logged under CastProbe. The player on the phone is
- * left alone: handing playback over is the remote player's job, not this.
+ * A song goes in the format the receiver said it plays, raw audio included, and one it fails is
+ * tried once more as AAC when it said nothing, the same rules the remote player will follow
+ * (CastFormats). Everything done, and every report from the receiver, is logged under CastProbe.
+ * The player on the phone is left alone: handing playback over is the remote player's job, not
+ * this.
  */
 class CastProbe(
     private val service: MusicService,
@@ -145,9 +148,13 @@ class CastProbe(
         }
         when (words.firstOrNull()) {
             "serve" -> {
-                val id = words.getOrNull(1)?.takeIf { it != "aac" } ?: currentId()
-                val offer = server().prepare(id, aac = "aac" in words.drop(1))
-                Log.i(TAG, "Serving $id as ${offer.mimeType}, ${offer.length} bytes, at ${offer.url}")
+                val id = words.getOrNull(1)?.takeIf { it != "aac" && it != "pcm" } ?: currentId()
+                val offer = if ("pcm" in words.drop(1)) {
+                    server().preparePcm(id, PcmTarget.LPCM, song(id).duration * 1000L)
+                } else {
+                    server().prepare(id, aac = "aac" in words.drop(1))
+                }
+                Log.i(TAG, "Serving $id as ${offer.mimeType}, ${offer.length} bytes, ${offer.durationMs} ms, at ${offer.url}")
             }
             "cast" -> {
                 val device = CastAddress.parse(command.substringAfter(' ', ""))
@@ -186,19 +193,25 @@ class CastProbe(
         val choice = when (aac) {
             true -> FormatChoice.Aac
             false -> FormatChoice.AsIs
-            null -> CastFormats.choose(link.caps.formats, asIs.mimeType, canFetchAac = !local)
+            null -> CastFormats.choose(link.caps.formats, asIs.mimeType, canFetchAac = !local, canDecode = Unreleased.CAST_PCM)
         }
         if (choice is FormatChoice.Unplayable) {
             Log.w(TAG, "${link.device.name} plays nothing $mediaId can be sent as (${choice.mimeType})")
             return
         }
-        val offer = if (choice == FormatChoice.Aac) server.prepare(mediaId, aac = true) else asIs
+        val durationMs = if (song.duration > 0) song.duration * 1000L else -1L
+        val offer = when (choice) {
+            FormatChoice.Aac -> server.prepare(mediaId, aac = true)
+            is FormatChoice.Pcm -> server.preparePcm(mediaId, choice.target, durationMs)
+            else -> asIs
+        }
         val item = CastItem(
             mediaId = mediaId,
             url = offer.url,
             mimeType = offer.mimeType,
             length = offer.length,
-            durationMs = if (song.duration > 0) song.duration * 1000L else -1,
+            durationMs = offer.durationMs.takeIf { it > 0 } ?: durationMs,
+            converted = choice is FormatChoice.Pcm,
             title = song.title,
             artist = song.artists.joinToString { it.name }.takeIf { it.isNotEmpty() },
             album = song.album?.title,

@@ -6,6 +6,7 @@
 
 package com.dd3boh.outertune.utils
 
+import android.content.Context
 import android.util.Log
 import com.dd3boh.outertune.BuildConfig
 import okhttp3.Interceptor
@@ -17,6 +18,7 @@ import okio.Buffer
 import okio.BufferedSource
 import okio.ForwardingSource
 import okio.buffer
+import java.io.File
 import java.io.IOException
 import java.net.SocketTimeoutException
 import java.util.concurrent.atomic.AtomicBoolean
@@ -37,6 +39,8 @@ object FaultInjection {
         PLAYER_HANGS_VISIONOS("/player hangs for VISIONOS"),
         STREAM_STOPS("The stream stops after 1 MB, once"),
         STREAM_403("The stream gets 403 after 1 MB"),
+        SONG_GONE("The next song fetched is gone from YouTube"),
+        NOT_AUDIO("The stream answers with a page, not audio"),
     }
 
     /** Where an interceptor sits. */
@@ -62,13 +66,52 @@ object FaultInjection {
     @Volatile
     private var refused: String? = null
 
+    /** The song [Mode.SONG_GONE] fell on: see [callsGone]. */
+    @Volatile
+    private var gone: String? = null
+
     fun set(mode: Mode) {
         if (!enabled) return
         this.mode = mode
         delivered.set(0)
         stalled.set(false)
         refused = null
+        gone = null
         Log.w(TAG, "fault injection: ${mode.words}")
+    }
+
+    /**
+     * Whether the player's fetch of [videoId] fails as a song every client calls gone
+     * ([Mode.SONG_GONE]): the first song whose stream is fetched once the mode is on, and from
+     * then on that one only, so that a queue can be played up to it and past it, as past a real
+     * one (issue #82, GoneSkip). Put a song next with Play next after choosing the mode.
+     */
+    fun callsGone(videoId: String): Boolean {
+        if (!enabled || mode != Mode.SONG_GONE) return false
+        val first = synchronized(this) { gone ?: videoId.also { gone = it } }
+        if (first == videoId) Log.w(TAG, "fault injection: $videoId is called gone")
+        return first == videoId
+    }
+
+    /**
+     * A cold start from a media button, slowed or emptied (issue #98). The row above is lost with
+     * the process, so this one is a file in the app's own files, written from the shell while the
+     * app is closed: `adb shell run-as <debug package> sh -c 'echo "slow 12000" > files/fault-resume'`.
+     * "slow <ms>" holds the resumption that long, "empty" finds no saved queue, and "nohold" with
+     * either leaves out the placeholder notification of MediaButtonStart, as before it. Removed
+     * with `rm files/fault-resume`. Read only by a debug build.
+     */
+    class ResumeFault(val delayMs: Long, val empty: Boolean, val noHold: Boolean)
+
+    fun resumeFault(context: Context): ResumeFault? {
+        if (!enabled) return null
+        val words = runCatching { File(context.filesDir, "fault-resume").takeIf { it.isFile }?.readText() }
+            .getOrNull()?.trim()?.split(Regex("\\s+"))?.filter { it.isNotEmpty() } ?: return null
+        if (words.isEmpty()) return null
+        val slow = words.indexOf("slow").takeIf { it >= 0 }?.let { words.getOrNull(it + 1)?.toLongOrNull() } ?: 0L
+        return ResumeFault(delayMs = slow, empty = "empty" in words, noHold = "nohold" in words).also {
+            Log.w(TAG, "fault injection: resumption ${words.joinToString(" ")}")
+        }
     }
 
     /** Whether a /player request of [client] is to hang. */
@@ -94,6 +137,17 @@ object FaultInjection {
                     .code(403)
                     .message("Forbidden (fault injection)")
                     .body("".toResponseBody(null))
+                    .build()
+            // What a network, a VPN or an ad blocker answering in YouTube's place sends: a page with a
+            // 200, which no extractor reads (a Discord report of 7 Nov 2026, "Source error (3003)").
+            target == Target.STREAM && now == Mode.NOT_AUDIO ->
+                Response.Builder()
+                    .request(request)
+                    .protocol(Protocol.HTTP_1_1)
+                    .code(200)
+                    .message("OK")
+                    .header("Content-Type", "text/html")
+                    .body("<!doctype html><html><body><h1>This site is blocked</h1><p>fault injection</p></body></html>".toResponseBody(null))
                     .build()
             target == Target.STREAM && (now == Mode.STREAM_STOPS || now == Mode.STREAM_403) -> {
                 val response = chain.proceed(request)

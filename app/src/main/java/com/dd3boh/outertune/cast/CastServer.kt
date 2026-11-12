@@ -26,8 +26,12 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 
-/** What a receiver is told about a song: where to fetch it, what it is, and how long. */
-data class CastOffer(val url: String, val mimeType: String, val length: Long)
+/**
+ * What a receiver is told about a song: where to fetch it, what it is, and how long in bytes; for
+ * raw audio also in milliseconds, worked out from its frames ([durationMs], -1 otherwise), and
+ * its rate in Hz ([rate], -1 for the song as it is, which the receiver decodes itself).
+ */
+data class CastOffer(val url: String, val mimeType: String, val length: Long, val durationMs: Long = -1, val rate: Int = -1)
 
 /**
  * The HTTP server a receiver fetches the queue's songs from while the phone is casting.
@@ -61,6 +65,12 @@ data class CastOffer(val url: String, val mimeType: String, val length: Long)
  *
  * Songs are streamed in 64 KB pieces, never held whole, and a song is resolved once per session:
  * the HEAD, the first GET and every seek after it reuse what [source] said the first time.
+ *
+ * For a renderer that takes neither the song as it is nor AAC, [pcmDecoder] decodes the song as it
+ * is into raw audio ([preparePcm], PcmCastSong), on the worker sending it, so the renderer's reading
+ * paces the decoding and closing the connection ends it. Null where that is off (Unreleased.CAST_PCM).
+ * The app's sound goes on that raw audio as it is made ([pcmSound]), unless the link sends it on
+ * with the sound put on there (AirPlay).
  */
 class CastServer(
     private val source: CastSource,
@@ -74,6 +84,7 @@ class CastServer(
     private val maxPerPeer: Int = MAX_PER_PEER,
     private val firstByteTimeoutMs: Int = FIRST_BYTE_TIMEOUT_MS,
     private val stalledAfterMs: Long = STALLED_AFTER_MS,
+    private val pcmDecoder: PcmDecoder? = null,
 ) {
     private val lock = Any()
 
@@ -94,6 +105,25 @@ class CastServer(
     /** What each song resolved to, by id, and apart from it what its AAC fetch resolved to. */
     private val songs = ConcurrentHashMap<String, Lazy<CastSong>>()
     private val aacSongs = ConcurrentHashMap<String, Lazy<CastSong>>()
+
+    /** What each song decodes to, by id; its raw audio by id and form (`id/l16-44100-2`). */
+    private val pcmSources = ConcurrentHashMap<String, Lazy<PcmSource>>()
+    private val pcmSongs = ConcurrentHashMap<String, Lazy<PcmCastSong>>()
+
+    /** The forms picked for this session's renderer, by url kind, with its words for the type. */
+    private val pcmForms = ConcurrentHashMap<String, PcmForm>()
+
+    /** Each song's length as the queue knows it, for a decode that cannot tell its own. */
+    private val durationHints = ConcurrentHashMap<String, Long>()
+    private val parking = PcmParking()
+
+    /**
+     * The app's sound, put on the raw audio this server decodes as a renderer fetches it; null to
+     * send it as decoded, as for an AirPlay link, which puts the sound on each packet itself.
+     * Set by the cast session once the link has said which, before the first song is prepared.
+     */
+    @Volatile
+    var pcmSound: PcmSound? = null
 
     val isRunning: Boolean get() = serverSocket?.isClosed == false
 
@@ -200,6 +230,10 @@ class CastServer(
             refusing.clear()
             songs.clear()
             aacSongs.clear()
+            parking.shut()
+            pcmSongs.clear()
+            pcmSources.clear()
+            pcmForms.clear()
             Log.i(TAG, "Stopped")
         }
     }
@@ -221,11 +255,71 @@ class CastServer(
         return CastHttp.songUrl(bindAddress, port, token, mediaId, CastMime.extensionFor(mimeType), aac)
     }
 
+    /** The url for [mediaId] decoded into raw audio of [form]. */
+    fun urlFor(mediaId: String, form: PcmForm): String {
+        val port = boundPort.takeIf { it > 0 } ?: error("The cast server is not running")
+        return CastHttp.songUrl(bindAddress, port, token, mediaId, form.extension, pcm = form)
+    }
+
+    /**
+     * Resolves [mediaId], works out what it decodes to, and says where a renderer that takes only
+     * raw audio ([target], what it listed) fetches it: the form PcmFormats.pick chooses, and its
+     * length from the song's duration, or from [durationHintMs] when the song does not say.
+     * Blocking, and it may go to the network, so never on the main thread. Throws
+     * [CastUnavailableException] when the song cannot be had or decoded.
+     */
+    fun preparePcm(mediaId: String, target: PcmTarget, durationHintMs: Long = -1): CastOffer {
+        if (durationHintMs > 0) durationHints[mediaId] = durationHintMs
+        val decoded = pcmSourceFor(mediaId)
+        val form = PcmFormats.pick(target, decoded.rate, decoded.channels)
+        pcmForms[form.key] = form
+        // The song's level, looked up here on the remote player's worker rather than on the
+        // renderer's, which only reads it.
+        pcmSound?.prepare(mediaId)
+        val song = pcmSongFor(mediaId, form)
+        Log.i(TAG, "$mediaId decodes at ${decoded.rate} Hz in ${decoded.channels} channels; serving ${song.mimeType}, ${song.length} bytes, ${song.durationMs} ms")
+        return CastOffer(urlFor(mediaId, form), song.mimeType, song.length, song.durationMs, form.rate)
+    }
+
     /** Resolves [mediaId] afresh on its next request, after the receiver said it failed. */
     fun forget(mediaId: String) {
         songs.remove(mediaId)
         aacSongs.remove(mediaId)
+        pcmSources.remove(mediaId)
+        val prefix = "$mediaId/"
+        pcmSongs.keys.filter { it.startsWith(prefix) }.forEach { key ->
+            pcmSongs.remove(key)?.let { if (it.isInitialized()) it.value.close() }
+        }
     }
+
+    private fun pcmSourceFor(mediaId: String): PcmSource {
+        val decoder = pcmDecoder ?: throw CastUnavailableException("Raw audio cannot be sent from this build")
+        val decoded = pcmSources.getOrPut(mediaId) {
+            lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
+                val song = songFor(mediaId)
+                try {
+                    decoder.probe(song)
+                } catch (e: CastUnavailableException) {
+                    throw e
+                } catch (e: Exception) {
+                    throw CastUnavailableException("The song could not be decoded" + (e.message?.let { ": $it" } ?: ""), e)
+                }
+            }
+        }.value
+        if (decoded.durationUs > 0) return decoded
+        val hint = durationHints[mediaId] ?: return decoded
+        return decoded.copy(durationUs = hint * 1000)
+    }
+
+    private fun pcmSongFor(mediaId: String, form: PcmForm): PcmCastSong =
+        pcmSongs.getOrPut("$mediaId/${form.key}") {
+            lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
+                PcmCastSong(
+                    songFor(mediaId), form, pcmSourceFor(mediaId), pcmDecoder ?: throw CastUnavailableException("No decoder"), parking,
+                    mediaId = mediaId, sound = pcmSound,
+                )
+            }
+        }.value
 
     private fun songFor(mediaId: String, aac: Boolean = false): CastSong =
         if (aac) {
@@ -369,7 +463,8 @@ class CastServer(
         if (!isServable(path.mediaId)) return sendText(output, method, 404, "Not found")
 
         val song = try {
-            songFor(path.mediaId, path.aac)
+            val pcm = path.pcm
+            if (pcm != null) pcmSongFor(path.mediaId, pcmForms[pcm.key] ?: pcm) else songFor(path.mediaId, path.aac)
         } catch (e: CastUnavailableException) {
             Log.i(TAG, "Cannot serve ${path.mediaId}: ${e.message}")
             return sendText(output, method, 503, e.message ?: "Unavailable")
@@ -378,7 +473,7 @@ class CastServer(
             return sendText(output, method, 503, "The song could not be found")
         }
 
-        val reply = CastHttp.songReply(request, song.mimeType, song.length)
+        val reply = CastHttp.songReply(request, song.mimeType, song.length, song.converted)
         output.write(CastHttp.head(reply.status, reply.headers))
         if (method == "HEAD" || reply.bodyLength == 0L) {
             output.flush()

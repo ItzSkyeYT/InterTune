@@ -7,6 +7,7 @@
 package com.dd3boh.outertune.widget
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
@@ -66,10 +67,20 @@ class WidgetShortListTest {
      */
     @Test
     fun `a new widget fills Recently played up, and Home's rows only when they are empty`() {
+        val few = listOf(song("a"), song("b"))
+        val full = List(WidgetLayout.MAX_PICKS) { song("s$it") }
+        assertTrue(libraryFills(WidgetList.RECENT, few))
+        assertTrue(libraryFills(WidgetList.RECENT, emptyList()))
+        assertFalse(libraryFills(WidgetList.RECENT, full))
+        for (home in listOf(WidgetList.QUICK_PICKS, WidgetList.FORGOTTEN_FAVOURITES, WidgetList.KEEP_LISTENING)) {
+            assertTrue(libraryFills(home, emptyList()))
+            assertFalse("$home: Home's row, short or not, is Home's", libraryFills(home, few))
+        }
+        // hydrate asks exactly that, and fills up what it says, the held songs first.
         val hydrate = File("src/main/java/com/dd3boh/outertune/widget/WidgetStore.kt").readText()
             .substringAfter("suspend fun hydrate(")
             .substringBefore("private suspend fun fromLibrary(")
-        assertTrue("which == WidgetList.RECENT) held.size < WidgetLayout.MAX_PICKS else held.isEmpty()" in hydrate)
-        assertTrue("filledUp(held, fromLibrary(context, which), WidgetLayout.MAX_PICKS)" in hydrate)
+        assertTrue("libraryFills(which, held)" in hydrate)
+        assertTrue("filledUp(held, more, WidgetLayout.MAX_PICKS)" in hydrate)
     }
 }

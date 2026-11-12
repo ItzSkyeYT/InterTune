@@ -43,11 +43,4 @@ class StatsViewModelTest {
         assertFalse(albumPageWanted(tapes))
         assertFalse(albumPageWanted(tapes.copy(album = tapes.album.copy(songCount = 0))))
     }
-
-    @Test
-    fun `an album YouTube no longer has is deleted only when it has no songs`() {
-        assertTrue(albumDeletedWhenGone(greatestHits.copy(album = greatestHits.album.copy(songCount = 0))))
-        // One the repair made from songs keeps them together until someone opens it.
-        assertFalse(albumDeletedWhenGone(greatestHits.copy(artists = emptyList())))
-    }
 }

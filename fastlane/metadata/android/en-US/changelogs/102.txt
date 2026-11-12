@@ -1,0 +1,9 @@
+Version 0.12.10
+
+A big round of fixes, no new features:
+- Crashes: a headset, widget or notification play press, downloads waiting for Wi-Fi, a song listed twice, phones without a file picker, the lock screen cover.
+- Sound: better quality on mobile data and with battery saver, USB headphones, the volume past 100%.
+- Downloads, playlists and the queue: many fixes.
+- Settings, Back and artist pages behave.
+
+Full changelog: https://github.com/ItzSkyeYT/InterTune/releases/tag/v0.12.10

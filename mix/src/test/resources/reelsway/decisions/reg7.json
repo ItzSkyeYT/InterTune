@@ -1,0 +1,101 @@
+{
+ "n": "7",
+ "a": "lvsandals",
+ "b": "softcore",
+ "aBpm": 95.0,
+ "bBpm": 94.0,
+ "aT0": 0.009621421975993649,
+ "aPhase": 0,
+ "bT0": 0.24965040706026823,
+ "bPhase": 0,
+ "fit": {
+  "tempo": true,
+  "tempoOffPct": 1.06,
+  "octave": 1,
+  "entry": true,
+  "anyPlacement": false,
+  "voiceGate": true,
+  "best": {
+   "A": 43,
+   "D": 34,
+   "gridA": true,
+   "gridAInfo": {
+    "share": 1.0,
+    "medAbsLagMs": 2.0,
+    "spreadMs": 2.8,
+    "barAgreement": 1.0,
+    "bars": [
+     27,
+     46
+    ]
+   },
+   "gridB": true,
+   "gridBInfo": {
+    "share": 1.0,
+    "medAbsLagMs": 5.0,
+    "spreadMs": 3.4,
+    "barAgreement": 1.0,
+    "bars": [
+     34,
+     37
+    ]
+   },
+   "bothEarly": 3,
+   "bothLast": 1
+  },
+  "why": [
+   "voices not kept apart by any placement"
+  ]
+ },
+ "ratio": 1.0,
+ "stretch": false,
+ "octave": 1,
+ "entryBarB": 0,
+ "entryT": 0.24965040706026823,
+ "aEndLine": 43,
+ "firstDownbeatB": 0,
+ "fullPhraseB": 0,
+ "aCandidates": [
+  {
+   "L": 43,
+   "t": 108.6412003693444,
+   "lift": 0.0,
+   "isLift": false,
+   "boxLow": -0.10360126495361399,
+   "thin": false,
+   "end": true,
+   "leftS": 0.0,
+   "score": 0.5,
+   "gridOk": true,
+   "gridInfo": {
+    "share": 1.0,
+    "medAbsLagMs": 2.0,
+    "spreadMs": 2.8,
+    "barAgreement": 1.0,
+    "bars": [
+     27,
+     46
+    ]
+   }
+  }
+ ],
+ "bGridOk": true,
+ "bGridInfo": {
+  "share": 1.0,
+  "medAbsLagMs": 0.0,
+  "spreadMs": 1.4,
+  "barAgreement": 1.0,
+  "bars": [
+   0,
+   3
+  ]
+ },
+ "tempoRatioIfMatched": 1.0106382978723405,
+ "move": "echo",
+ "exitBar": 43,
+ "exitT": 108.6412003693444,
+ "aSingsLast": true,
+ "bSingsStart": false,
+ "aFullBass": true,
+ "bFullBass": true
+}

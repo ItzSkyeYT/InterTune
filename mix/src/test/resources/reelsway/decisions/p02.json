@@ -1,0 +1,119 @@
+{
+ "n": "p02",
+ "a": "savetheworld",
+ "b": "thenights",
+ "aBpm": 127.08333333333333,
+ "bBpm": 125.97864768683273,
+ "aT0": 0.12853191684219376,
+ "aPhase": 0,
+ "bT0": 0.040442833349655614,
+ "bPhase": 2,
+ "fit": {
+  "tempo": true,
+  "tempoOffPct": 0.88,
+  "octave": 1,
+  "entry": true,
+  "anyPlacement": true,
+  "voiceGate": true,
+  "best": {
+   "A": 93,
+   "D": 32,
+   "gridA": true,
+   "gridAInfo": {
+    "share": 1.0,
+    "medAbsLagMs": 11.0,
+    "spreadMs": 16.0,
+    "barAgreement": 0.990990990990991,
+    "bars": [
+     77,
+     96
+    ]
+   },
+   "gridB": true,
+   "gridBInfo": {
+    "share": 1.0,
+    "medAbsLagMs": 2.0,
+    "spreadMs": 0.0,
+    "barAgreement": 0.9574468085106383,
+    "bars": [
+     32,
+     35
+    ]
+   },
+   "bothEarly": 1,
+   "bothLast": 0
+  }
+ },
+ "move": "reels",
+ "exitBar": 93,
+ "exitT": 175.7613188020881,
+ "boxStartBarA": 85,
+ "boxStartT": 160.65312208077663,
+ "dropBar": 32,
+ "dropSure": true,
+ "dropT": 61.9556970706378,
+ "entryBarB": 24,
+ "entryT": 46.715019104536104,
+ "leadOffsetBars": 0,
+ "shape": "intro",
+ "swap": true,
+ "swapBoxBar": 5,
+ "ratio": 1.0087688323917139,
+ "stretch": true,
+ "echo": false,
+ "octave": 1,
+ "aEndLine": 110,
+ "dLow": 10.715865135192871,
+ "dLevel": 1.727736473083496,
+ "aCandidates": [
+  {
+   "L": 93,
+   "t": 175.7613188020881,
+   "lift": 30.00557041168213,
+   "isLift": true,
+   "boxLow": -10.945518112182619,
+   "thin": true,
+   "end": false,
+   "leftS": 32.104918032786884,
+   "score": 7.697377049180328,
+   "bothSungEarly": 1,
+   "bothSungLast": 0,
+   "bothSung": 1
+  },
+  {
+   "L": 110,
+   "t": 207.866236834875,
+   "lift": 0.0,
+   "isLift": false,
+   "boxLow": -7.138516521453859,
+   "thin": false,
+   "end": true,
+   "leftS": 0.0,
+   "score": 0.5,
+   "bothSungEarly": 4,
+   "bothSungLast": 0
+  }
+ ],
+ "bCandidates": [
+  {
+   "bar": 32,
+   "rise": 31.125340938568115,
+   "before": -31.950836086273192,
+   "sustain": 1.1366468429565444
+  }
+ ],
+ "voices": {
+  "aSungBoxBars": [
+   6,
+   7,
+   8
+  ],
+  "bSungBoxBars": [
+   1,
+   3,
+   4,
+   6
+  ],
+  "rule7": false
+ }
+}

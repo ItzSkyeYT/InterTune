@@ -32,6 +32,7 @@ import androidx.compose.material.icons.rounded.Coronavirus
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.material.icons.rounded.History
+import androidx.compose.material.icons.rounded.HighQuality
 import androidx.compose.material.icons.rounded.Science
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.WarningAmber
@@ -64,6 +65,8 @@ import com.dd3boh.outertune.LocalPlayerConnection
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.AudioGaplessOffloadKey
 import com.dd3boh.outertune.constants.AudioOffloadKey
+import com.dd3boh.outertune.constants.AutomixStyleKey
+import com.dd3boh.outertune.constants.LyricsBlurKey
 import com.dd3boh.outertune.constants.OobeStatusKey
 import com.dd3boh.outertune.constants.PauseListenHistoryKey
 import com.dd3boh.outertune.constants.PauseRemoteListenHistoryKey
@@ -81,7 +84,9 @@ import com.dd3boh.outertune.constants.WebClientFirstKey
 import com.dd3boh.outertune.constants.SabrOnlyKey
 import com.dd3boh.outertune.constants.EveryDirectRefusedKey
 import com.dd3boh.outertune.playback.HistoryAddressCheck
+import com.dd3boh.outertune.playback.RadioAnswers
 import com.dd3boh.outertune.ui.component.ListPreference
+import com.dd3boh.outertune.ui.component.LyricsBlur
 import com.dd3boh.outertune.ui.component.PreferenceEntry
 import com.dd3boh.outertune.ui.component.SwitchPreference
 import com.dd3boh.outertune.ui.screens.OptInCatchUp
@@ -95,6 +100,8 @@ import com.dd3boh.outertune.utils.scanners.LocalMediaScanner
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
+import com.dd3boh.outertune.utils.Toaster
 
 /**
  * Which of VISIONOS's identities are taken for refused, to hear the clients behind them take over:
@@ -181,7 +188,7 @@ fun ColumnScope.DeveloperFrag(navController: NavController) {
         PreferenceEntry(
             title = { Text("Important: About audio offload compatibility and issues") },
             onClick = {
-                uriHandler.openUri("https://github.com/ItzSkyeYT/InterTune/wiki/Audio-offload")
+                uriHandler.openUri(com.dd3boh.outertune.constants.WikiLinks.AUDIO_OFFLOAD)
             }
         )
 
@@ -189,6 +196,7 @@ fun ColumnScope.DeveloperFrag(navController: NavController) {
 
         if (BuildConfig.DEBUG) {
             HistoryAddressCheckRow()
+            PremiumCheckRow()
             // Faults made on purpose, to see the player keep the music going: see FaultInjection.
             // In memory only, so it is off again at the next start.
             var fault by remember { mutableStateOf(FaultInjection.mode) }
@@ -203,8 +211,24 @@ fun ColumnScope.DeveloperFrag(navController: NavController) {
                     fault = it
                 },
             )
+            if (Unreleased.RADIO_FALLBACK) {
+                // Radios refused on purpose, to see each step a refused radio takes (RadioLadder,
+                // LocalRadio) without a network YouTube distrusts. In memory only, as the row above.
+                var radioTest by remember { mutableStateOf(RadioAnswers.test) }
+                ListPreference(
+                    title = { Text("DEBUG: Refuse radios") },
+                    icon = { Icon(Icons.Rounded.Science, null) },
+                    selectedValue = radioTest,
+                    values = RadioAnswers.Test.entries,
+                    valueText = { it.words },
+                    onValueSelected = {
+                        RadioAnswers.setTest(it)
+                        radioTest = it
+                    },
+                )
+            }
         }
-        if (BuildConfig.DEBUG && Unreleased.RECAP) {
+        if (BuildConfig.PREVIEW_FEATURES && Unreleased.RECAP) {
             // The InterTune Recap on demand, and its reveal day brought forward: see RecapCalendar.
             PreferenceEntry(
                 title = { Text("DEBUG: Open the InterTune Recap") },
@@ -228,7 +252,7 @@ fun ColumnScope.DeveloperFrag(navController: NavController) {
                 },
             )
         }
-        if (VisionosTest.offered(testBuild = BuildConfig.DEBUG, identities = Unreleased.VISIONOS_IDENTITIES, fallback = Unreleased.WEB_FALLBACK)) {
+        if (VisionosTest.offered(testBuild = BuildConfig.PREVIEW_FEATURES, identities = Unreleased.VISIONOS_IDENTITIES, fallback = Unreleased.WEB_FALLBACK)) {
             // One row over the two keys. As two switches, "this app's VISIONOS" and "VISIONOS",
             // they read as one setting shown twice.
             ListPreference(
@@ -260,7 +284,7 @@ fun ColumnScope.DeveloperFrag(navController: NavController) {
                 onCheckedChange = onWebClientFirstChange,
             )
         }
-        if (BuildConfig.DEBUG && Unreleased.SABR) {
+        if (BuildConfig.PREVIEW_FEATURES && Unreleased.SABR) {
             SwitchPreference(
                 title = { Text(stringResource(R.string.sabr_only)) },
                 description = stringResource(R.string.sabr_only_description),
@@ -275,6 +299,12 @@ fun ColumnScope.DeveloperFrag(navController: NavController) {
                 checked = everyDirectRefused,
                 onCheckedChange = onEveryDirectRefusedChange,
             )
+        }
+        if (BuildConfig.DEBUG && Unreleased.AUTOMIX) {
+            AutomixStyleRow()
+        }
+        if (BuildConfig.DEBUG && Unreleased.LYRICS_BLUR) {
+            LyricsBlurRow()
         }
 
         PreferenceEntry(
@@ -298,17 +328,19 @@ fun ColumnScope.DeveloperFrag(navController: NavController) {
             title = { Text("DEBUG: Force local to remote artist migration NOW") },
             icon = { Icon(Icons.Rounded.Backup, null) },
             onClick = {
-                Toast.makeText(context, context.getString(R.string.scanner_ytm_link_start), Toast.LENGTH_SHORT)
-                    .show()
+                Toaster.show(context, context.getString(R.string.scanner_ytm_link_start), Toast.LENGTH_SHORT)
                 coroutineScope.launch(lmScannerCoroutine) {
                     val scanner = LocalMediaScanner.getScanner(context, ScannerImpl.TAGLIB, SCANNER_OWNER_LM)
                     Log.i(SETTINGS_TAG, "Force Migrating local artists to YTM (MANUAL TRIGGERED)")
                     scanner.localToRemoteArtist(database)
-                    Toast.makeText(
-                        context,
-                        context.getString(R.string.scanner_ytm_link_success),
-                        Toast.LENGTH_SHORT
-                    ).show()
+                    // Back on the main thread: a toast made on the scanner's worker thread closes the app (#74).
+                    withContext(Dispatchers.Main) {
+                        Toaster.show(
+                            context,
+                            context.getString(R.string.scanner_ytm_link_success),
+                            Toast.LENGTH_SHORT
+                        )
+                    }
                 }
             }
         )
@@ -634,7 +666,7 @@ fun ColumnScope.DeveloperFrag(navController: NavController) {
                 title = { Text("DEBUG: Nuke local lib") },
                 icon = { Icon(Icons.Rounded.ErrorOutline, null) },
                 onClick = {
-                    Toast.makeText(context, "Nuking local files from database...", Toast.LENGTH_SHORT).show()
+                    Toaster.show(context, "Nuking local files from database...", Toast.LENGTH_SHORT)
                     coroutineScope.launch(Dispatchers.IO) {
                         Log.i(SETTINGS_TAG, "Nuke database status:  ${database.nukeLocalData()}")
                     }
@@ -644,7 +676,7 @@ fun ColumnScope.DeveloperFrag(navController: NavController) {
                 title = { Text("DEBUG: Nuke local artists") },
                 icon = { Icon(Icons.Rounded.WarningAmber, null) },
                 onClick = {
-                    Toast.makeText(context, "Nuking local artists from database...", Toast.LENGTH_SHORT).show()
+                    Toaster.show(context, "Nuking local artists from database...", Toast.LENGTH_SHORT)
                     coroutineScope.launch(Dispatchers.IO) {
                         Log.i(SETTINGS_TAG, "Nuke database status:  ${database.nukeLocalArtists()}")
                     }
@@ -654,8 +686,7 @@ fun ColumnScope.DeveloperFrag(navController: NavController) {
                 title = { Text("DEBUG: Nuke dangling format entities") },
                 icon = { Icon(Icons.Rounded.WarningAmber, null) },
                 onClick = {
-                    Toast.makeText(context, "Nuking dangling format entities from database...", Toast.LENGTH_SHORT)
-                        .show()
+                    Toaster.show(context, "Nuking dangling format entities from database...", Toast.LENGTH_SHORT)
                     coroutineScope.launch(Dispatchers.IO) {
                         Log.i(SETTINGS_TAG, "Nuke database status:  ${database.nukeDanglingFormatEntities()}")
                     }
@@ -665,7 +696,7 @@ fun ColumnScope.DeveloperFrag(navController: NavController) {
                 title = { Text("DEBUG: Nuke local db lyrics") },
                 icon = { Icon(Icons.Rounded.WarningAmber, null) },
                 onClick = {
-                    Toast.makeText(context, "Nuking local lyrics from database...", Toast.LENGTH_SHORT).show()
+                    Toaster.show(context, "Nuking local lyrics from database...", Toast.LENGTH_SHORT)
                     coroutineScope.launch(Dispatchers.IO) {
                         Log.i(SETTINGS_TAG, "Nuke database status:  ${database.nukeLocalLyrics()}")
                     }
@@ -675,7 +706,7 @@ fun ColumnScope.DeveloperFrag(navController: NavController) {
                 title = { Text("DEBUG: Nuke dangling db lyrics") },
                 icon = { Icon(Icons.Rounded.WarningAmber, null) },
                 onClick = {
-                    Toast.makeText(context, "Nuking dangling lyrics from database...", Toast.LENGTH_SHORT).show()
+                    Toaster.show(context, "Nuking dangling lyrics from database...", Toast.LENGTH_SHORT)
                     coroutineScope.launch(Dispatchers.IO) {
                         Log.i(SETTINGS_TAG, "Nuke database status:  ${database.nukeDanglingLyrics()}")
                     }
@@ -685,7 +716,7 @@ fun ColumnScope.DeveloperFrag(navController: NavController) {
                 title = { Text("DEBUG: Nuke remote playlists") },
                 icon = { Icon(Icons.Rounded.WarningAmber, null) },
                 onClick = {
-                    Toast.makeText(context, "Nuking remote playlists from database...", Toast.LENGTH_SHORT).show()
+                    Toaster.show(context, "Nuking remote playlists from database...", Toast.LENGTH_SHORT)
                     coroutineScope.launch(Dispatchers.IO) {
                         Log.i(SETTINGS_TAG, "Nuke database status:  ${database.nukeRemotePlaylists()}")
                     }
@@ -728,6 +759,40 @@ private fun HistoryAddressCheckRow() {
                     nowPlaying = playing != null,
                     historyPaused = historyPaused,
                     remoteHistoryPaused = remoteHistoryPaused,
+                ).joinToString("\n")
+                asking = false
+            }
+        },
+    )
+}
+
+/**
+ * "Check Premium formats": asks YouTube, as the account, for the song now playing (or a fixed one) and
+ * lists the audio streams it offers, Premium's 256 kbps ones named apart. See [PremiumCheck]. Debug
+ * builds only.
+ */
+@Composable
+private fun PremiumCheckRow() {
+    val playerConnection = LocalPlayerConnection.current
+    val coroutineScope = rememberCoroutineScope()
+    var asking by remember { mutableStateOf(false) }
+    var answered by remember { mutableStateOf<String?>(null) }
+
+    PreferenceEntry(
+        title = { Text(stringResource(R.string.premium_check)) },
+        description = when {
+            asking -> stringResource(R.string.history_address_check_asking)
+            else -> answered ?: stringResource(R.string.premium_check_description)
+        },
+        icon = { Icon(Icons.Rounded.HighQuality, null) },
+        isEnabled = !asking,
+        onClick = {
+            val playing = playerConnection?.mediaMetadata?.value?.takeIf { !it.isLocal }?.id
+            asking = true
+            coroutineScope.launch {
+                answered = com.dd3boh.outertune.playback.PremiumCheck.run(
+                    videoId = playing ?: com.dd3boh.outertune.playback.HistoryAddressCheck.FIXED_SONG,
+                    nowPlaying = playing != null,
                 ).joinToString("\n")
                 asking = false
             }
@@ -797,6 +862,55 @@ fun HapticBox(
                 .clickable(
                     onClick = onClick
                 )
+        )
+    }
+}
+
+/**
+ * Debug builds only: the style every AutoMix change is asked to take, to hear one style on any two
+ * songs. A style a pair does not allow is still refused, and that change is today's; the log says
+ * why. Not a setting, so its words are not translated.
+ */
+@Composable
+private fun AutomixStyleRow() {
+    val (style, onStyleChange) = rememberPreference(key = AutomixStyleKey, defaultValue = "")
+    ListPreference(
+        title = { Text("DEBUG: AutoMix style") },
+        icon = { Icon(Icons.Rounded.Science, null) },
+        selectedValue = style,
+        values = AUTOMIX_STYLES,
+        valueText = { if (it.isEmpty()) "Its own choice" else it.lowercase().replaceFirstChar { c -> c.uppercase() } },
+        onValueSelected = onStyleChange,
+    )
+}
+
+/** The planner's own choice, then each style by its name in com.dd3boh.outertune.mix.Style. */
+private val AUTOMIX_STYLES = listOf("", "GAPLESS", "BLEND", "SMOOTH", "BEAT", "CUT")
+
+/**
+ * Debug builds only: progressive blur on the lyrics (LyricsBlur). Its switch starts on Medium, the
+ * strength he chose from the first pictures, and while it is on a row under it says how strong,
+ * to try the two others. A trial to look at, not a setting, so its words are not translated.
+ */
+@Composable
+private fun LyricsBlurRow() {
+    val (stored, onStoredChange) = rememberPreference(key = LyricsBlurKey, defaultValue = "")
+    val strength = LyricsBlur.strengthOf(stored)
+    SwitchPreference(
+        title = { Text("DEBUG: Lyrics blur") },
+        description = "The line being sung stays sharp, the lines around it go out of focus.",
+        icon = { Icon(Icons.Rounded.Science, null) },
+        checked = strength != null,
+        onCheckedChange = { on -> onStoredChange(LyricsBlur.switched(on)) },
+    )
+    if (strength != null) {
+        ListPreference(
+            title = { Text("DEBUG: Lyrics blur, how strong") },
+            icon = { Icon(Icons.Rounded.Science, null) },
+            selectedValue = strength,
+            values = LyricsBlur.Strength.entries,
+            valueText = { it.name.lowercase().replaceFirstChar { c -> c.uppercase() } },
+            onValueSelected = { onStoredChange(it.name) },
         )
     }
 }

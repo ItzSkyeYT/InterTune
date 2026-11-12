@@ -13,8 +13,10 @@ import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.datastore.preferences.core.mutablePreferencesOf
 import androidx.glance.appwidget.compose
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.withContext
 
 /**
  * The widget as the launcher would draw it, at any size and with any settings, without a widget.
@@ -30,9 +32,11 @@ suspend fun renderWidget(
     heightDp: Int,
     /** A snapshot to draw instead of the real one, such as nothing playing at all. */
     drawn: WidgetStore.Drawn? = null,
-): RemoteViews {
+): RemoteViews = withContext(Dispatchers.Default) {
+    // Off the main thread, as a widget on a home screen is drawn: a Shelf's looks draw their pictures
+    // (a crate, records, the blurred cover) while they are composed.
     val state = mutablePreferencesOf().also { WidgetKeys.write(it, settings) }
-    return MusicWidget(drawn).compose(context, size = DpSize(widthDp.dp, heightDp.dp), state = state)
+    MusicWidget(drawn).compose(context, size = DpSize(widthDp.dp, heightDp.dp), state = state)
 }
 
 /**

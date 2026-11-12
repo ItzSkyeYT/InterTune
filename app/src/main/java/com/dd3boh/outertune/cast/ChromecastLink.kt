@@ -29,6 +29,7 @@ import java.io.OutputStream
 import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.Socket
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
@@ -81,6 +82,10 @@ class ChromecastLink(
     private val timing: Timing = Timing(),
     /** How the link introduces itself when it connects. */
     private val userAgent: String = "InterTune",
+    /** The media players to open, in order: InterTune's own first when the build has one, Google's last. */
+    private val receivers: List<String> = Chromecast.receivers(),
+    /** The players devices would not open, shared by every link so a refusal is not waited for twice. */
+    private val refusals: Refusals = Refusals.shared,
 ) : ReceiverLink {
     data class Timing(
         val connectTimeoutMs: Int = 5_000,
@@ -88,6 +93,11 @@ class ChromecastLink(
         val answerTimeoutMs: Long = 5_000,
         /** For the device to open its media player, which takes older ones several seconds. */
         val launchTimeoutMs: Long = 20_000,
+        /**
+         * For a player that is not the last to try (InterTune's own, whose page comes from the
+         * internet) before the next is asked for instead.
+         */
+        val ownLaunchTimeoutMs: Long = 10_000,
         val pingEveryMs: Long = 5_000,
         val deadAfterMs: Long = 15_000,
         val statusEveryMs: Long = 5_000,
@@ -139,8 +149,11 @@ class ChromecastLink(
     @Volatile
     private var saidGoodbye = false
 
-    /** The media player songs go to: its session on the device, and the address of its connection. */
-    private class Player(val sessionId: String, val transportId: String, val launchedHere: Boolean) {
+    /**
+     * The media player songs go to: which receiver it is, its session on the device, and the
+     * address of its connection.
+     */
+    private class Player(val appId: String?, val sessionId: String, val transportId: String, val launchedHere: Boolean) {
         /** False once the device closed our virtual connection to it; it may still be running. */
         var connected = true
     }
@@ -337,6 +350,81 @@ class ChromecastLink(
         if (unmute) sendNow(toDevice(Chromecast.setVolume(requestIds.incrementAndGet(), muted = false)))
     }
 
+    /** The lyrics last asked for, sent again to a player opened after them. */
+    @Volatile
+    private var lyrics: CastLyrics? = null
+
+    /** What the rest of our own receiver's screens were last told, sent again to a player opened after it. */
+    @Volatile
+    private var phoneName: String? = null
+
+    @Volatile
+    private var upNext: List<CastNext>? = null
+
+    @Volatile
+    private var room: CastRoom? = null
+
+    override suspend fun showLyrics(lyrics: CastLyrics?) {
+        this.lyrics = lyrics
+        // Off the main thread, where the cast session calls from: Android refuses a socket write
+        // there, and the refusal went unseen, so no lyrics ever left the phone (3 Nov 2026).
+        withContext(Dispatchers.IO) { tellLyrics() }
+    }
+
+    override suspend fun hello(name: String) {
+        phoneName = name
+        // Off the main thread, like every send to our own receiver (see showLyrics).
+        withContext(Dispatchers.IO) { tellOurs("The phone's name", Chromecast.hello(name)) }
+    }
+
+    override suspend fun showQueue(next: List<CastNext>) {
+        upNext = next
+        // Off the main thread, like every send to our own receiver (see showLyrics).
+        withContext(Dispatchers.IO) { tellOurs("The queue", Chromecast.queue(next)) }
+    }
+
+    override suspend fun showRoom(room: CastRoom?) {
+        this.room = room
+        // Off the main thread, like every send to our own receiver (see showLyrics).
+        withContext(Dispatchers.IO) { tellOurs("The room", Chromecast.room(room)) }
+    }
+
+    override suspend fun sayBye(): Boolean {
+        // A link that is gone would be heard by nobody, and nobody should wait for it.
+        if (_status.value.link != LinkState.CONNECTED) return false
+        // Off the main thread, like every send to our own receiver (see showLyrics).
+        return withContext(Dispatchers.IO) { tellOurs("The goodbye", Chromecast.bye()) }
+    }
+
+    /**
+     * Sends [payload] on our own namespace to the player when it is InterTune's own receiver, and
+     * says whether it went; Google's has no screen for any of it. Writes to the socket: never on
+     * the main thread. A failure is logged here, not thrown, so the cast goes on without the
+     * screen; [what] names the message for the log.
+     */
+    private fun tellOurs(what: String, payload: String): Boolean {
+        val now = synchronized(stateLock) { player }
+        val player = now?.takeIf { it.connected && it.appId != null && it.appId != Chromecast.DEFAULT_MEDIA_RECEIVER }
+        if (player == null) {
+            Log.d(TAG, "$what not sent to ${device.name}: ${if (now == null) "no player yet" else "its player is ${now.appId}"}")
+            return false
+        }
+        return runCatching { send(Outgoing(clientId, player.transportId, Chromecast.NS_INTERTUNE, payload)) }
+            .onFailure { Log.w(TAG, "$what not sent to ${device.name}", it) }
+            .isSuccess
+    }
+
+    private fun tellLyrics() {
+        tellOurs("Lyrics", Chromecast.lyrics(lyrics))
+    }
+
+    /** What our own receiver's screens were last told, said again to a player opened after it. */
+    private fun tellKept() {
+        phoneName?.let { tellOurs("The phone's name", Chromecast.hello(it)) }
+        upNext?.let { tellOurs("The queue", Chromecast.queue(it)) }
+        room?.let { tellOurs("The room", Chromecast.room(it)) }
+    }
+
     override fun close() {
         val songStop: Outgoing?
         val unanswered: Loaded?
@@ -525,33 +613,83 @@ class ChromecastLink(
                 recent.retainAll { it === current }
                 newestSession = 0
             }
-            Player(app.sessionId!!, app.transportId!!, launchedHere).also { player = it }
+            Player(app.appId, app.sessionId!!, app.transportId!!, launchedHere).also { player = it }
         }
         Log.i(TAG, "${if (running != null) "Joined" else "Launched"} the media player on ${device.name}")
         send(Outgoing(clientId, player.transportId, Chromecast.NS_CONNECTION, Chromecast.connect(userAgent)))
+        // A player opened again after a song's lyrics were sent has none of them yet, nor the rest.
+        if (lyrics != null) tellLyrics()
+        tellKept()
         return player
     }
 
+    /**
+     * Opens a media player: each of [receivers] in turn. One the device refuses, or leaves unopened
+     * for [Timing.ownLaunchTimeoutMs], goes into [refusals] and the next is asked for; the last
+     * (Google's) is always tried, with the full wait, and its failure is the link's.
+     */
     private suspend fun launchPlayer(): Chromecast.App {
+        val tries = receivers.filterIndexed { i, app -> i == receivers.lastIndex || !refusals.refuses(device.id, app) }
+        for (app in tries.dropLast(1)) {
+            try {
+                return launch(app, timing.ownLaunchTimeoutMs)
+            } catch (e: CastLinkException) {
+                if (closed || lostWith != null) throw e
+                refusals.refused(device.id, app)
+                Log.i(TAG, "${device.name} did not open receiver $app (${e.message}), opening the next")
+            }
+        }
+        return launch(tries.last(), timing.launchTimeoutMs)
+    }
+
+    private suspend fun launch(appId: String, timeoutMs: Long): Chromecast.App {
         val requestId = requestIds.incrementAndGet()
-        val answer = expect(timing.launchTimeoutMs, { payload, message ->
+        val answer = expect(timeoutMs, { payload, message ->
             message.namespace == Chromecast.NS_RECEIVER && when {
                 payload.requestId == requestId && payload.type != Chromecast.RECEIVER_STATUS -> true
-                payload.type == Chromecast.RECEIVER_STATUS -> runningPlayer(Chromecast.parseDevice(payload.body)) != null
+                payload.type == Chromecast.RECEIVER_STATUS -> runningApp(Chromecast.parseDevice(payload.body), appId) != null
                 else -> false
             }
         }) {
-            send(toDevice(Chromecast.launch(requestId)))
+            send(toDevice(Chromecast.launch(requestId, appId)))
         } ?: throw CastLinkException("${device.name} did not open its media player", problem = LinkProblem.STOPPED_ANSWERING)
         if (answer.type != Chromecast.RECEIVER_STATUS) {
             val reason = Chromecast.reasonOf(answer.body) ?: answer.type
             throw CastLinkException("${device.name} would not open its media player ($reason)", problem = LinkProblem.NOT_A_RECEIVER)
         }
-        return runningPlayer(Chromecast.parseDevice(answer.body))!!
+        return runningApp(Chromecast.parseDevice(answer.body), appId)!!
     }
 
-    private fun runningPlayer(status: Chromecast.Device?): Chromecast.App? = status?.apps?.firstOrNull {
-        it.appId == Chromecast.DEFAULT_MEDIA_RECEIVER && it.sessionId != null && it.transportId != null
+    /** A player of ours the device is running already: any of [receivers], in their order. */
+    private fun runningPlayer(status: Chromecast.Device?): Chromecast.App? =
+        receivers.firstNotNullOfOrNull { runningApp(status, it) }
+
+    private fun runningApp(status: Chromecast.Device?, appId: String): Chromecast.App? = status?.apps?.firstOrNull {
+        it.appId == appId && it.sessionId != null && it.transportId != null
+    }
+
+    /**
+     * The players devices would not open, by device: one is not asked for again on that device
+     * for [forgetAfterMs], so a cast to a device that cannot open InterTune's own receiver (one
+     * not registered while it is unpublished) goes straight to Google's. A device registered
+     * since is asked again once the refusal is forgotten.
+     */
+    class Refusals(
+        private val now: () -> Long = { System.nanoTime() / 1_000_000L },
+        private val forgetAfterMs: Long = 10 * 60_000L,
+    ) {
+        private val seen = ConcurrentHashMap<Pair<String, String>, Long>()
+
+        fun refused(deviceId: String, appId: String) {
+            seen[deviceId to appId] = now()
+        }
+
+        fun refuses(deviceId: String, appId: String): Boolean =
+            seen[deviceId to appId]?.let { now() - it < forgetAfterMs } == true
+
+        companion object {
+            val shared = Refusals()
+        }
     }
 
     /**

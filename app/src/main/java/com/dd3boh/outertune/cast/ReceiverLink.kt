@@ -11,8 +11,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.emptyFlow
 import java.io.IOException
 
-/** The kinds of receiver casting talks to, in the order they were built. */
-enum class CastProtocol { FCAST, DLNA, CHROMECAST }
+/** The kinds of receiver casting talks to, in the order they were built. AirPlay only with Unreleased.CAST_AIRPLAY. */
+enum class CastProtocol { FCAST, DLNA, CHROMECAST, AIRPLAY }
 
 /**
  * A receiver, found on the network or typed in by address.
@@ -37,7 +37,8 @@ data class CastDevice(
 /**
  * One song as a receiver is given it: where to fetch it (the cast server's url), what it is, and
  * what to show while it plays. [length] is in bytes and [durationMs] in milliseconds, each -1
- * when not known.
+ * when not known. [converted] is raw audio the phone decodes for a renderer that takes nothing
+ * else, which a DLNA renderer is told (DLNA.ORG_CI=1).
  */
 data class CastItem(
     val mediaId: String,
@@ -49,7 +50,46 @@ data class CastItem(
     val artist: String? = null,
     val album: String? = null,
     val artworkUrl: String? = null,
+    val converted: Boolean = false,
 )
+
+/**
+ * The playing song's synced lyrics, for a receiver with a screen for them: each line with its
+ * start in the song, moved by [shiftMs] as the phone's own lines are (LyricsTiming). A blank
+ * line is a pause in the singing.
+ */
+data class CastLyrics(val mediaId: String, val lines: List<Line>, val shiftMs: Long = 0) {
+    data class Line(val startMs: Long, val text: String)
+}
+
+/**
+ * One of the songs that play next, as a receiver with a screen for them lists it under "Up next":
+ * what to call it, who sings it, and a small cover (a web address, or none).
+ */
+data class CastNext(val title: String, val artist: String? = null, val cover: String? = null)
+
+/**
+ * A Listen together room, for a receiver with a screen for it (InterTune's own): its [name], how
+ * many are [count]ed in it, the first letters of some of their names ([people]), and the room's
+ * invite as a QR code, a PNG data url in [qr] (QrPng), for a phone beside the TV to scan.
+ */
+data class CastRoom(val name: String, val count: Int, val people: List<String> = emptyList(), val qr: String? = null) {
+    companion object {
+        /** How many people's first letters one message carries. */
+        const val MAX_PEOPLE = 6
+
+        /** The room of [name] with [members] in it, each by name: their count and first letters. */
+        fun of(name: String, members: List<String>, qr: String?): CastRoom =
+            CastRoom(name, members.size, members.take(MAX_PEOPLE).map(::initialOf), qr)
+
+        /** The first letter of [name], in capitals: a whole emoji when the name starts with one. */
+        fun initialOf(name: String): String {
+            val trimmed = name.trim()
+            if (trimmed.isEmpty()) return "?"
+            return String(Character.toChars(trimmed.codePointAt(0))).uppercase()
+        }
+    }
+}
 
 /** Whether the link to a receiver is up. */
 enum class LinkState {
@@ -136,12 +176,14 @@ data class ReceiverStatus(
 
 /**
  * What a receiver said it can do, once connected. [formats] decides which encoding a song is
- * sent in (CastFormats).
+ * sent in (CastFormats). [shapesSound]: the link puts the app's sound (PcmSound) on the raw audio
+ * itself as it sends it, so the server must send it the samples as they were decoded (AirPlay).
  */
 data class LinkCaps(
     val formats: FormatSupport = FormatSupport.Unknown,
     val canSetSpeed: Boolean = false,
     val hasVolume: Boolean = true,
+    val shapesSound: Boolean = false,
 )
 
 /**
@@ -180,6 +222,38 @@ interface ReceiverLink {
 
     /** The receiver's volume, from 0 to 1. */
     suspend fun setVolume(level: Float)
+
+    /**
+     * Shows [lyrics] on the receiver's screen, or puts them away when null. Only InterTune's own
+     * Chromecast receiver has a screen for them; every other link ignores this.
+     */
+    suspend fun showLyrics(lyrics: CastLyrics?) {}
+
+    /**
+     * Tells the receiver's screen what the phone is called, for its idle screen to say who is
+     * connected. Only InterTune's own Chromecast receiver has a screen for it; every other link
+     * ignores this.
+     */
+    suspend fun hello(name: String) {}
+
+    /**
+     * Shows the songs that play after the current one ([next], the first few) on the receiver's
+     * screen, or none. Only InterTune's own Chromecast receiver has a screen for them.
+     */
+    suspend fun showQueue(next: List<CastNext>) {}
+
+    /**
+     * Shows a Listen together [room] on the receiver's screen, or puts it away when null. Only
+     * InterTune's own Chromecast receiver has a screen for it.
+     */
+    suspend fun showRoom(room: CastRoom?) {}
+
+    /**
+     * Tells the receiver's screen the cast is over, for it to say so for a moment. True when it
+     * was told, so the caller gives the screen that moment before stopping (CastFarewell); false
+     * for every receiver with no screen of ours, and when the link is gone.
+     */
+    suspend fun sayBye(): Boolean = false
 
     /** Hangs up. Safe to call more than once, from any thread. */
     fun close()

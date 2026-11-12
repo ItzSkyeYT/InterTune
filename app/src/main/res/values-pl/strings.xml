@@ -80,7 +80,7 @@
     <string name="sort_by_length">Długość</string>
     <string name="sort_by_play_time">Długość utworu</string>
     <string name="sort_by_custom">Niestandardowa kolejność</string>
-    <string name="media_id">ID media</string>
+    <string name="media_id">ID multimediów</string>
     <string name="mime_type">Typ MIME</string>
     <string name="codecs">Kodeki</string>
     <string name="bitrate">Przepływność</string>
@@ -222,7 +222,7 @@
     <string name="privacy">Prywatność</string>
     <string name="pause_listen_history">Wstrzymaj historię odtwarzania</string>
     <string name="clear_listen_history">Wyczyść historię odtwarzania</string>
-    <string name="clear_listen_history_confirm">Czy na pewno chcesz wyczyścić całą historię odtwarzania?</string>
+    <string name="clear_listen_history_confirm">Wyczyścić wszystko, co zostało zapisane o odtwarzanych utworach? Spowoduje to również wyczyszczenie dziennika, z którego uczy się sekcja „Szybki wybór”, usunięcie dotychczasowych danych nauki oraz historii wyświetlonych kart.</string>
     <string name="pause_search_history">Wstrzymaj historię wyszukiwania</string>
     <string name="clear_search_history">Wyczyść historię wyszukiwania</string>
     <string name="clear_search_history_confirm">Czy na pewno chcesz wyczyścić całą historię wyszukiwania?</string>

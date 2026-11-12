@@ -55,6 +55,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import com.dd3boh.outertune.utils.Toaster
 
 /**
  * Living blur as it will look in the player, small, beside the two sliders that shape it: the real
@@ -147,7 +148,7 @@ fun LivingBlurSample(strength: Float, smoothing: Float, colours: LivingColours, 
                             }
                             val pick = candidates.randomOrNull()
                             if (pick == null) {
-                                Toast.makeText(context, R.string.player_living_sample_nothing, Toast.LENGTH_LONG).show()
+                                Toaster.show(context, R.string.player_living_sample_nothing, Toast.LENGTH_LONG)
                             } else {
                                 // MENU: asked for by name from a button, like a play from a menu.
                                 playerConnection.playQueue(

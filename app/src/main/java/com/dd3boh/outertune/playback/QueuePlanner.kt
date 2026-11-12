@@ -58,6 +58,8 @@ object QueuePlanner {
         BANNED("banned"),
         LASTING_DISLIKE("lasting dislike"),
         PREVIEW("a preview"),
+        /** Closer to two of the run's skipped songs than to any song kept (SkipSimilar, ADAPTIVE_SIMILAR). */
+        LIKE_SONGS_SKIPPED("like two songs skipped"),
     }
 
     /**

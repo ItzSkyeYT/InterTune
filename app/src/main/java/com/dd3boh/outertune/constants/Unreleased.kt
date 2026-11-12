@@ -27,10 +27,23 @@ import com.dd3boh.outertune.BuildConfig
  * build was installed was a gate that had outgrown its job. The release is what 0.10.8 is about,
  * and `assembleCoreRelease` is what proves the gate still holds.
  *
+ * What is held back reads [BuildConfig.PREVIEW_FEATURES]: on in the debug app, the Preview and the
+ * Tester app, off in a release. Not BuildConfig.DEBUG: the Tester app is not debuggable (it is shrunk
+ * and optimized like a release, so that it runs as smooth as one), and DEBUG is off in it. DEBUG is
+ * for developer tooling only (logs, files that make the app pretend, fault injection), which testers
+ * are not given. ReleasedFlagsTest fails, with the flag's name, for a held-back flag that reads DEBUG.
+ *
  * For 0.11: the widget is on already (both components enabled in AndroidManifest.xml), and [ENGINE]
  * is on in releases too, decided on 27 Sep 2026. The file stays for what is still held back.
  */
 object Unreleased {
+    /**
+     * Listening rooms (together/): a room that follows its host, through Nostr relays, step 1 of
+     * the three he said yes to for 0.13 (17 Oct 2026). Debug and Preview builds only, from the
+     * player's menu, while it is built.
+     */
+    val LISTEN_TOGETHER = BuildConfig.PREVIEW_FEATURES
+
     /**
      * The engine as a Quick picks source: Best recommendations, Try both, the context chips that
      * only appear above its row, and the settings that only steer it.
@@ -107,7 +120,7 @@ object Unreleased {
      * English only and held back. To ship: set this to true, or delete it with the one check that
      * reads it, in LyricFrag, and the three entries of SETTINGS_INDEX that say which rows it shows.
      */
-    val LYRICS_SOURCES = BuildConfig.DEBUG
+    val LYRICS_SOURCES = BuildConfig.PREVIEW_FEATURES
 
     /**
      * The equalizer in the app (EqualizerAudioProcessor): ten bands from 31 Hz to 16 kHz, presets,
@@ -150,7 +163,7 @@ object Unreleased {
      * or delete it with the check that reads it and move the three window settings into
      * Theme.InterTune.WidgetConfig.
      */
-    val WIDGET_ON_WALLPAPER = BuildConfig.DEBUG
+    val WIDGET_ON_WALLPAPER = BuildConfig.PREVIEW_FEATURES
 
     /**
      * Similar artists in the Favourite artists mix, and the "Favourites only" switch on that page
@@ -160,7 +173,7 @@ object Unreleased {
      * before. When it is agreed: set this to true or delete it with the two checks that read it,
      * in AutoPlaylistViewModel and AutoPlaylistScreen, and make its strings translatable.
      */
-    val FAVOURITES_GUESTS = BuildConfig.DEBUG
+    val FAVOURITES_GUESTS = BuildConfig.PREVIEW_FEATURES
 
     /**
      * A layout for a phone on its side (Landscape.kt): the navigation rail whenever the window is
@@ -245,7 +258,7 @@ object Unreleased {
      * plain text, as before. When it is agreed: set this to true, or delete it with the one check
      * that reads it, in Explain.kt.
      */
-    val EXPLANATION_LINKS = BuildConfig.DEBUG
+    val EXPLANATION_LINKS = BuildConfig.PREVIEW_FEATURES
 
     /**
      * A small moving picture at the head of an explanation, in the manner of the ones Android's
@@ -280,7 +293,7 @@ object Unreleased {
      * Nor does the fetching of a web client's address, which used to ask this switch whether to
      * send the page's headers and now reads that off the address alone (WebStreamHeaders).
      */
-    val WEB_CLIENT_FIRST = BuildConfig.DEBUG
+    val WEB_CLIENT_FIRST = BuildConfig.PREVIEW_FEATURES
 
     /**
      * SABR's two developer switches, test tools read in a debug or preview build only: "Stream
@@ -292,7 +305,7 @@ object Unreleased {
      * Stays held back in 0.12.5: SABR itself reaches everyone through [SABR_RUNG] and [SABR_AHEAD],
      * and a switch of these restored from a debug build's backup would have no row in a release.
      */
-    val SABR = BuildConfig.DEBUG
+    val SABR = BuildConfig.PREVIEW_FEATURES
 
     /**
      * SABR as the last rung of the walk: when YouTube turned every direct address down, the song
@@ -392,7 +405,7 @@ object Unreleased {
      * window. Without it the list is the cards. When it is agreed: set this to true, or delete it
      * with the one check that reads it, in SettingsScreen.
      */
-    val SETTINGS_TWO_PANE = BuildConfig.DEBUG
+    val SETTINGS_TWO_PANE = BuildConfig.PREVIEW_FEATURES
 
     /**
      * A recording in 5.1 or 7.1 goes through the spatial renderer as its own loudspeakers, each
@@ -405,7 +418,7 @@ object Unreleased {
      * it, and YouTube Music has none: this is for local files. When it is agreed: set this to
      * true, or delete it with the one check that reads it, in BinauralAudioProcessor.onConfigure.
      */
-    val SURROUND_IN = BuildConfig.DEBUG
+    val SURROUND_IN = BuildConfig.PREVIEW_FEATURES
 
     /**
      * Three more controls under Spatial audio on Headphones, for a stereo recording: "Strength",
@@ -420,7 +433,7 @@ object Unreleased {
      * set this to true, or delete it with the checks that read it, in PlayerFrag, MusicService
      * and the entries of its rows in SETTINGS_INDEX, and make its six strings translatable.
      */
-    val SPATIAL_TUNING = BuildConfig.DEBUG
+    val SPATIAL_TUNING = BuildConfig.PREVIEW_FEATURES
 
     /**
      * An experiment for a stereo recording under Spatial audio on Headphones: "Ambience". The
@@ -438,7 +451,7 @@ object Unreleased {
      * MusicService, the key, two strings, DirectAmbientSplit and everything named "air" in
      * BinauralAudioProcessor.
      */
-    val DIRECT_AMBIENT = BuildConfig.DEBUG
+    val DIRECT_AMBIENT = BuildConfig.PREVIEW_FEATURES
 
     /**
      * What Android Auto is shown, reworked for somebody who is driving (AutoBrowse): a first
@@ -460,7 +473,7 @@ object Unreleased {
      * MediaLibrarySessionCallback and MusicService, the four kinds of request it added to
      * PlayRequest, three drawables and nine strings.
      */
-    val AUTO_REWORK = BuildConfig.DEBUG
+    val AUTO_REWORK = BuildConfig.PREVIEW_FEATURES
 
     /**
      * "Bluetooth signal log", the row under "Quieter as you walk away" (ProximityProbe): the
@@ -474,7 +487,7 @@ object Unreleased {
      * (ProximityProbe.forgetOldLogs). To drop it: this flag, the row in PlayerFrag,
      * ProximityProbe but for forgetOldLogs, and eleven strings.
      */
-    val SIGNAL_LOG = BuildConfig.DEBUG
+    val SIGNAL_LOG = BuildConfig.PREVIEW_FEATURES
 
     /**
      * "Submit a bug report" in About opens a page of the app's own instead of the browser: the
@@ -516,22 +529,106 @@ object Unreleased {
     val CASTING = true
 
     /**
+     * AutoMix, under Player and audio: a song that ends by itself blends into the next one, as a DJ
+     * set runs. The next song's opening is read and analysed ahead of time, the last stage of the
+     * audio chain holds the end of the song going out, and the two are played into each other: on
+     * the beat when both have a steady one, as a plain blend when less is known, and as the change
+     * of today whenever anything is unsure or not ready in time (the playback/automix package and
+     * the :mix module). Never for a song chosen by hand, a seek, repeat one or casting.
+     *
+     * For 0.13. Its analysis and its mixes were checked on the PC (AutomixTrial, 38 songs, through
+     * a model of media3's audio sink), not yet heard on a phone. The setting starts off, and with
+     * it off, or this off, playback is what it was. To ship: set this to true, or delete it with
+     * the checks that read it, in MusicService, PlayerSettings, PlayerFrag and DeveloperFrag.
+     *
+     * Debug builds only since 26 Oct 2026: kept out of the previews that testers get.
+     */
+    val AUTOMIX = BuildConfig.DEBUG && BuildConfig.BUILD_TYPE == "debug"
+
+    /**
+     * Mix, the next step of AutoMix: a Mix switch on each playlist, a line between two songs that
+     * says how one goes into the next, and a page to shape that change by hand and hear it as it
+     * will play, on lows, mids and highs (experiments/features/automix/DESIGN.md, 21 Oct 2026).
+     * A change saved by hand belongs to its two songs, wherever they meet, and is kept in a file of
+     * its own under the app's files (TransitionStore in :mix), not in the database.
+     *
+     * Not in any release. With this off, playlists, the queue and the player are what they were,
+     * and nothing reads or writes those files. It plays only with AUTOMIX on. To ship: set this to
+     * true, or delete it with the checks that read it.
+     *
+     * Debug builds only, as AutoMix is: kept out of the previews that testers get.
+     */
+    val AUTOMIX_EDITOR = BuildConfig.DEBUG && BuildConfig.BUILD_TYPE == "debug"
+
+    /**
+     * Crossfade, under Player and audio beside Fade between tracks and AutoMix: a song that ends by
+     * itself fades out while the next one fades in, an equal-power blend of the length chosen (2 to
+     * 12 s) that ends where the outgoing song's music does (Planner.crossfade). Asked for on 5 Nov
+     * 2026: "make a plain crossfade and name it crossfade".
+     *
+     * It plays on AutoMix's stage, under the same guards (never for a song chosen by hand, nor
+     * between two songs of one album), and side by side with it: with both on, Auto plans first and
+     * a change it would leave gapless is crossfaded. A queue that plays as a mix gets no crossfade
+     * at all: one from a playlist whose Mix switch is on, one where two songs side by side have a
+     * change saved for them, and one where Auto has already mixed two songs (Crossfade.whyOff).
+     * While it is on, Fade between tracks is not used.
+     *
+     * Not heard on a phone yet. Its texts are held from translators, their French beside them. It
+     * plays only with AUTOMIX on, whose stage it uses, so it ships with AUTOMIX or after it. With it
+     * off the setting is never read, and playback is what it was. To ship: set this to true, or
+     * delete it with the checks that read it, in MusicService, PlayerSettings, PlayerFrag and
+     * SettingsIndex, and make its texts translatable.
+     *
+     * Debug builds only, as AutoMix is, whose stage it plays on (his word of 5 Nov 2026: into 0.13
+     * behind its debug switch).
+     */
+    val CROSSFADE = BuildConfig.DEBUG && BuildConfig.BUILD_TYPE == "debug"
+
+    /**
+     * Casting to a Chromecast opens InterTune's own receiver first (Chromecast.INTERTUNE_RECEIVER:
+     * our screen on the TV, and Google Home's buttons passed back to the phone), and Google's
+     * Default Media Receiver when the device refuses it or leaves it unopened. Ours is unpublished
+     * while it is tried, so only the devices registered in the Cast console can open it, and a
+     * release that asked every device first would wait for a refusal at each cast. App ID
+     * 0EF3B3F0 since 3 Nov 2026, the day it first played on a Chromecast Ultra (with Google
+     * Home's Next passed on to the phone). To ship: publish the receiver in the Cast console,
+     * with its page on intertune.app, then set this to true.
+     */
+    val OWN_CAST_RECEIVER = BuildConfig.PREVIEW_FEATURES
+
+    /**
+     * Casting to AirPlay speakers the classic way (AirPlay 1, RAOP), his ask of 5 Nov 2026 after a
+     * Zeppelin Wireless refused every DLNA form: the picker lists what answers `_raop._tcp` on the
+     * Wi-Fi (AirPlayDevices), and AirPlayLink plays there. Unlike DLNA and Chromecast, AirPlay is
+     * pushed: the phone decodes each song (the cast server's raw audio, so it needs [CAST_PCM]) and
+     * sends it in real time over RTP, two seconds ahead of the speaker, as uncompressed Apple
+     * Lossless or L16. Unencrypted only, the way most AirPlay 2 speakers still take it, with the
+     * auth-setup step for those that ask it; speakers that need a password or a pairing code are
+     * refused with the picker's words for a receiver it cannot cast to.
+     *
+     * Without it nothing looks for AirPlay speakers, and nothing else changes. No new texts. When
+     * it is agreed: set this to true and add its name to ReleasedFlagsTest.
+     */
+    val CAST_AIRPLAY = BuildConfig.PREVIEW_FEATURES
+
+    /**
      * InterTune Recap, the year told as a story (recap/Recaps.kt, ui/screens/recap): worked out on
      * the phone from the listen log, nothing uploaded. From the reveal day (RecapCalendar) it opens
      * once by itself, full screen and easy to close, and after that a banner at the top of Settings
      * opens it whenever wanted. Its first opening each year is counted as a banner's is, from
-     * every install (PollChecker.recapOpened). A debug build has two rows in the developer options,
-     * one that opens it at once and one that makes today the reveal day, and a made-up year to
-     * write from adb (RecapSample).
+     * every install (PollChecker.recapOpened). The builds that have it (the debug app, the Preview,
+     * the Tester app) have two rows in the developer options, one that opens it at once and one that
+     * makes today the reveal day; the debug app alone has a made-up year to write from adb
+     * (RecapSample).
      *
      * For the December release: the numbers, the slides, the share cards and the way in, and the
      * sound under the slides (RecapSound): each slide's song from its Most replayed peak, the
      * listener's music paused while it plays, the last song slid into their queue at the end. Its
-     * texts are held back from translators for now. When it ships: set this to true, or delete it
-     * with the checks that read it, in RecapEntry (twice), SettingsScreen, SettingsTwoPane,
-     * DeveloperFrag and RecapSample.
+     * texts are held back from translators for now. When it ships: set this to true and add its
+     * name to ReleasedFlagsTest, or delete it with the checks that read it, in RecapEntry (twice),
+     * SettingsScreen, SettingsTwoPane, DeveloperFrag and RecapSample.
      */
-    val RECAP = BuildConfig.DEBUG
+    val RECAP = BuildConfig.PREVIEW_FEATURES
 
     /**
      * Songs put in with Play next stay next when a song is picked out of a list: they play right
@@ -581,4 +678,372 @@ object Unreleased {
      * On in every build from 0.12.5, picked on 26 Oct 2026.
      */
     val BATTERY_MODES = true
+
+    /**
+     * Saved twice (issue #47, for 0.13): a round button with a count beside Play and Shuffle in
+     * Liked songs, in the library's songs list and in a playlist the app lets you change, shown
+     * only when a song is in there more than once; it opens a screen that lists each song's copies
+     * with one picked to keep, and takes the others out the way the heart, Remove from library and
+     * Remove from playlist do, with Undo after (SavedTwice, SavedTwiceShelf, SavedTwiceScreen).
+     * The look is the mockup he approved on 29 Oct 2026.
+     *
+     * Without it there is no button and nothing is counted. Its texts (saved_twice*) are held from
+     * translators, their French beside them in values-fr. When it is agreed: set this to true and
+     * make its texts translatable.
+     */
+    val SAVED_TWICE = true
+
+    /**
+     * An album carries on after its last song when Auto load more songs is on, as YouTube Music
+     * does: five songs from the end the radio of the last song that has a YouTube id is asked for
+     * and joins the queue (EndlessQueue, MusicService.onMediaItemTransition). The queue is a radio
+     * from then on, so the radio's own top-up keeps it going, and the album's songs stay as they
+     * were chosen. Until now only a radio or a mix went on, and an album stopped at its end. A
+     * listener asked on 2 Nov 2026 how to turn that on.
+     *
+     * Albums and radios only, by his word of 2 Nov 2026: a playlist, the liked songs, a search, the
+     * history, files on the phone and a queue made by hand end where they end. Not with repeat on,
+     * offline, or for an album of files on the phone, which have no radio. Without it an album
+     * stops at its end, as before. When it is agreed: set this to true, or delete it with the one
+     * check that reads it, in MusicService.onMediaItemTransition.
+     */
+    val ENDLESS_QUEUE = true
+
+    /**
+     * Report a problem and the crash page say more (ReportSettings, ReportTrail, ReportExtras): the settings
+     * that bear on what went wrong, mostly those changed from their default, and a short trail of what was
+     * done in the last few minutes (screens opened, settings changed, songs started, skipped or sought,
+     * playback errors, the network lost and back, the app sent to the background). His idea of 2 Nov 2026,
+     * "to make logs better, shouldn't it show the concerned settings active, as well as the actions leading
+     * up to it?", with his guards: only the settings of the problem's area; no song title or id, search words,
+     * account name or email in the trail; and everything shown before it is sent.
+     *
+     * Without it the report is as it was, nothing is kept in memory, and the crash file is the same. Its text
+     * (the line under the report's first paragraph) is held from translators, its French beside it in
+     * values-fr. When it is agreed: set this to true, add its name to ReleasedFlagsTest, and make its text
+     * translatable.
+     */
+    val REPORT_PLUS = BuildConfig.PREVIEW_FEATURES
+
+    /**
+     * Send to InterTune in Report a problem (his idea, mock and plan of 27 Oct 2026,
+     * experiments/features/report-relay/PLAN.md): the report goes to intertune.app, which files it
+     * as an issue on InterTune's GitHub and gives back its link, so nobody needs an account. A way to
+     * reach the sender is optional and stays on the site. Only InterTune's own builds send (ReportRelay).
+     *
+     * Without it Report a problem is as it was: Open the form, Copy and Close. Its texts
+     * (problem_report_send and the rest) are held from translators, their French beside them in
+     * values-fr. When it is agreed and the site files for real: set this to true and make its texts
+     * translatable.
+     */
+    // On in every build from 0.12.8, picked on 4 Nov 2026.
+    val REPORT_RELAY = true
+
+    /**
+     * What's playing with no connection (issue #48, planned for 0.13 on 26 Oct 2026): a listen
+     * whose request finds no connection keeps the fingerprint the phone made of it, never the
+     * sound, and the song is named once the phone is back online (RecogniseLater,
+     * RecogniseLaterWorker), into What you have heard at the time it was heard, with one quiet
+     * notification. Listen once stops there and says so; Keep listening keeps one about every two
+     * minutes and goes on. What waits shows in What you have heard.
+     *
+     * A first cut, debug and preview builds only. Its texts (recognise_later_*) are held from
+     * translators until their words are agreed, the French beside them in values-fr. Without it a
+     * listen with no connection fails as before. To ship: set this to true, or delete it with the
+     * checks that read it, in RecognitionEngine.keepForLater, RecogniseLaterWorker and
+     * RecognitionHistoryScreen.
+     */
+    val RECOGNISE_OFFLINE = true
+
+    /**
+     * Liked songs kept in sync with their downloads (issue #64, on the 0.13 roadmap): under "Liked
+     * songs can download themselves", a switch that makes taking back a like remove the download the
+     * setting made for that song, and never one downloaded by hand (LikedDownloads). Its words are held
+     * from translators until he says.
+     */
+    val LIKED_SYNC = true
+
+    /**
+     * Change a playlist's cover (PlaylistCovers, PlaylistCoverSheet), asked for in #general on 31 Oct
+     * 2026: a playlist of one's own wears its first song's picture, often a frame from a music video,
+     * and now the listener picks it. Edit playlist shows the cover with "Change cover" under it, a
+     * tap on the cover in the playlist's header opens the same sheet, and the sheet offers Automatic
+     * (the first song's cover, as it was), a photo from the phone (Android's photo picker, which asks
+     * for no permission) or the cover of one of the playlist's songs. A pick applies at once.
+     *
+     * The choice is kept in the playlist's own picture field, so it shows wherever a playlist is
+     * drawn, and a photo is copied into the app's own storage at 1024 px at most, so it stays when
+     * the photo is deleted from the phone. Local playlists only: a playlist from YouTube keeps
+     * YouTube's picture, which its sync writes into the same field.
+     *
+     * Its texts (playlist_cover_*) are held from translators, their French beside them in
+     * values-fr. Seen on an emulator only. Without it Edit playlist keeps its pencil and the
+     * header's cover is a picture and nothing more. When it is agreed: set this to true, make its
+     * texts translatable.
+     */
+    val PLAYLIST_COVER = BuildConfig.PREVIEW_FEATURES
+
+    /**
+     * Block artist (ArtistBlock), asked for by Dennis on Discord on 1 Nov 2026: an artist blocked
+     * is gone from InterTune, from what YouTube offers (Home, search, artist pages, radios) and
+     * from what the listener has (the library, playlists, downloads, local files), and a song of
+     * theirs that still comes up is skipped. "Block artist" is the last item of the song menus,
+     * an artist's page has it at the start of the pill of its heart and share, and Settings >
+     * Library and content > Blocked artists lists them, with Unblock and a field to add one by
+     * name. A search for a blocked artist's name shows one quiet line and Unblock. "Never this
+     * artist" stays as it was, for the recommendation rows only.
+     *
+     * Its song half, Don't play this song (DontPlay, #78), stands beside Block artist in the song
+     * menus and after the player menu's items that are always there: radios and autoplay never
+     * bring the song nor another upload of it, the player passes over it where it comes to it by
+     * itself (DontPlaySkip), and it still plays when the listener picks it. Kept as a row of
+     * Exclusions of its own reason, where Lift takes it back, as does the same menu item; "Not this
+     * song" stays as it was, for the recommendation rows only.
+     *
+     * Kept in one setting (BlockedArtistsKey), read only with this on, so a release that restores
+     * a backup from a debug build hides nothing. Its texts, Don't play this song's with them, are
+     * open to translators, their French beside them in values-fr. Seen on an emulator only.
+     * Without it no menu or page has any of it.
+     *
+     * On in every build from 0.13, Don't play this song with it, picked on 8 Nov 2026.
+     */
+    val ARTIST_BLOCK = true
+
+    /**
+     * The Animations switch in Look and feel (Animations, ThemeFrag): off, screens and controls
+     * change at once and Living blur and the glass stand still, as with Android's own Remove
+     * animations. A tester's wish in the 0.13 poll, for older and smaller phones; his yes of 4 Nov
+     * 2026. Without it there is no row and the switch counts as on, so only Android's setting
+     * decides, as before. Its texts (animations_*, living_blur_still_switch) are held from
+     * translators, their French beside them in values-fr. When it is agreed: set this to true and
+     * make its texts translatable.
+     */
+    val ANIMATIONS_SWITCH = true
+
+    /**
+     * Share as a file under a report's text, in Report a problem and the crash page (ReportFile,
+     * ShareReportFile): the report as InterTune-report-<day>-<time>.txt to any app. Discord takes a
+     * file from anyone, where a message past 2,000 characters wants Nitro and a log pasted in pieces
+     * came out garbled; his yes of 2 Nov 2026, with the day and time in the name.
+     *
+     * Without it the report has Copy and its way to send, as before. Its text is held from
+     * translators, its French beside it in values-fr. When it is agreed: set this to true, add its
+     * name to ReleasedFlagsTest, and make its text translatable.
+     */
+    // On in every build from 0.12.8, picked on 4 Nov 2026.
+    val REPORT_FILE = true
+
+    /**
+     * Downloads other apps can use (third in the 0.13 poll, the loudest topic on Discord): a song
+     * downloaded into a folder set under Storage and downloads is saved as a file every player and
+     * car opens, "Artist - Title.opus" for YouTube's Opus and "Artist - Title.m4a" for its AAC, the
+     * same audio rewrapped and never encoded again (SongFiles, OggOpusWriter, M4aWriter), with the
+     * title, artists, album, year, track number when known and the cover inside (SongTags). The
+     * song's link is in the file's comment, which is how the app knows the file again (SongFileIds),
+     * along with the path the database keeps. A stream that cannot be rewrapped is saved as before.
+     * Seen on an emulator only: Opus and AAC from YouTube, packet for packet the cached stream.
+     *
+     * Without it a download is saved as the raw stream, "Title [id].mka", as before. In every build,
+     * so files saved with it on keep working after an update without it: a song file is known by
+     * its path in the database, and played past the song cache (downloadedKey). Reading a file's
+     * tags to know it is with this on only. Old .mka downloads stay as they are and still play. Its
+     * text (dl_song_files_note, under the folder's warning) is held from translators, its French
+     * beside it in values-fr. When it is agreed: set this to true, add its name to
+     * ReleasedFlagsTest, make its texts translatable.
+     */
+    val DOWNLOAD_FILES = BuildConfig.PREVIEW_FEATURES
+
+    /**
+     * Settings > Widgets, under Look and feel (WidgetsSettings), his ask of 3 Nov 2026 for "a easy
+     * settings menu for widgets", built as the mockup he approved
+     * (experiments/features/widget-settings-mock): a card for each widget on the home screen with
+     * its live preview, its style, the two choices most changed and All options, which opens that
+     * widget's own setup sheet; and at the foot the two widgets, each with Add, which asks the
+     * launcher for its own box. A change on a card is the sheet's own write
+     * (WidgetStore.saveSettings) and redraws that widget at once.
+     *
+     * Without it Settings has no such row, and a widget is set up from the home screen only, as
+     * before. Its texts (widgets_*) are held from translators, their French beside them in
+     * values-fr. When it is agreed: set this to true, add its name to ReleasedFlagsTest, make its
+     * texts translatable.
+     */
+    val WIDGETS_PAGE = BuildConfig.PREVIEW_FEATURES
+
+    /**
+     * Follow-up questions in polls (PollFollowUps, PollDialog), his ask of 4 Nov 2026: an option of a
+     * poll may carry "then", a question of its own that comes right after the first one in the same
+     * card, for whoever picked that option ("Keep it, but polish the details", then "Which details?").
+     * Its picks go in the same single answer as "<optionId>/<followUpOptionId>" (docs/announcements.md).
+     *
+     * Without it the app ignores "then", as every older build does, and sends the first answer alone,
+     * so one poll works for every version. No new texts: Next and Back are the app's own. When it is
+     * agreed: set this to true and add its name to ReleasedFlagsTest.
+     */
+    val POLL_FOLLOW_UPS = BuildConfig.PREVIEW_FEATURES
+
+    /**
+     * Casting to a DLNA speaker that takes only raw audio (Geogos's Zeppelin Wireless, 4 Nov 2026:
+     * "does not play audio/webm (it lists audio/l16, audio/l8)"): when the speaker takes neither
+     * the song as it is nor AAC, the phone decodes the song itself (MediaCodecPcmDecoder) and the
+     * cast server sends it as audio/L16, big-endian 16-bit at a rate the speaker lists, or as WAV
+     * to one that lists WAV and not L16 (CastFormats.choose, PcmFormats, PcmCastSong). Never L8.
+     * About 1.5 Mbit/s on the Wi-Fi, no loss beyond the decode the phone does anyway, and a
+     * windowed-sinc resampler only when the speaker lists no rate the song decodes at. His "we do
+     * that" of 4 Nov 2026, for 0.13.
+     *
+     * Without it such a speaker is refused every song with the message naming what it lists, as
+     * before. No new texts. When it is agreed: set this to true and add its name to
+     * ReleasedFlagsTest.
+     */
+    val CAST_PCM = BuildConfig.PREVIEW_FEATURES
+
+    /**
+     * A radio YouTube Music refuses still plays (his word of 4 Nov 2026, after Val's radio of one
+     * song and his own try through Orbot: "we need to find a good method to let the users be able to
+     * listen to music"). When YouTube Music's own answer is refused or holds nothing but the song,
+     * the radio asks again as a visitor with a visitorData issued now, then for YouTube's own mix of
+     * the song through its web client and its VR client (RadioLadder, RadioAnswers); and when none
+     * of them gives anything, it is made from what the phone knows: Last.fm's and YouTube's lists
+     * of similar songs, the listener's own history and the song's artists (LocalRadio), with a line
+     * in the queue that says so. For a radio's start, its top-ups and the adaptive queue's pages.
+     *
+     * Without it a refused radio is the song alone, as before. Its texts (radio_from_intertune_*)
+     * are held from translators, their French beside them in values-fr. When it is agreed: set this
+     * to true, add its name to ReleasedFlagsTest, make its texts translatable.
+     */
+    val RADIO_FALLBACK = BuildConfig.PREVIEW_FEATURES
+
+    /**
+     * Lyrics videos lit word by word (his idea, 4 Nov 2026), as the lyrics view lights them, where
+     * the lyrics have word times and word by word is on in the lyrics settings: the line being sung
+     * at LyricsVideoPlan.UNSUNG, and each word lit across as it is sung. Without it, or without word
+     * times, a video lights whole lines as before. No new texts. When it is agreed: set this to true
+     * and add its name to ReleasedFlagsTest.
+     */
+    val LYRICS_VIDEO_WORDS = BuildConfig.PREVIEW_FEATURES
+
+    /**
+     * The AI filter (AiFilter, TODO section 17, upstream #1173): a row under Settings > Library and
+     * content with three states, Off, Hide from recommendations and Block everywhere, going by a
+     * hand-made list of AI artists bundled as assets/ai_artists.txt (tools/ai-filter/build_list.py:
+     * CevvalKoala's blocklist and a few known AI acts). Mark as AI and Not AI in an artist's
+     * long-press menu, and a line over search results saying how many were hidden, with a tap to
+     * show them.
+     *
+     * A first cut, seen on an emulator only, its texts held from translators (ai_filter_*), their
+     * French beside them. Without the flag the setting reads as Off whatever is stored (a restored
+     * backup can bring it), the menus have no row, and the list is never read. Built for 0.12.5 if
+     * it is solid in time (his word, 25 Oct 2026), Off by default: every path is a release's, with
+     * the bundled list and no fetch, so shipping it is this flag set to true and its name added to
+     * ReleasedFlagsTest. AiFilterFlagTest holds its reads: App, AiFilter.modeOf, LibrarySettings,
+     * SettingsIndex, AiArtistMark (the artist menus' row), OnlineSearchResult and MusicService (the
+     * queue's skip). To drop it instead: this flag and those reads, then AiFilter and its calls.
+     */
+    val AI_FILTER = BuildConfig.PREVIEW_FEATURES
+
+    /**
+     * Playlists in an order of your own (a listener's ask, relayed 8 Nov 2026: to reorganise the
+     * playlists in the library exactly like songs in a playlist). Custom order in Library >
+     * Playlists' sort, then each playlist is dragged by its handle as a playlist's songs are, with
+     * the same lock. The order is one preference of ids (PlaylistOrder); playlists made or saved
+     * since come first, newest first. Add to playlist lists them in the same order. Its words are
+     * the playlist's own, already translated. Without the flag Custom order is not offered and a
+     * stored one reads as Date added. To ship: set this to true and add it to ReleasedFlagsTest.
+     */
+    val PLAYLIST_ORDER = BuildConfig.PREVIEW_FEATURES
+
+    /**
+     * Downloads in their own quality (third in the 0.13 poll, "Downloads in their own quality"):
+     * Download quality under Settings > Storage and downloads, with Same as playback, Highest, High
+     * and Low (DownloadQuality). A download is fetched at the choice, or at Audio quality for Same as
+     * playback, which is what every download was fetched at before. Auto is not among the choices:
+     * it follows the connection, and a download may run on Wi-Fi hours after it was asked for.
+     *
+     * The download resolver (DownloadUtil, qualityForDownload) reads it once for each song and judges
+     * the song cache's copy by it, picks the stream by it and records the copy at it: a copy fetched
+     * below it is fetched again, one above it is taken as it is, since fetching to make a download
+     * worse would spend data and lose quality. Songs already downloaded are never fetched again.
+     *
+     * Without the flag the setting reads as Same as playback whatever is stored (a restored backup
+     * can bring it), and the row has no place in Settings or its search. Its three texts
+     * (download_quality*) are held from translators, their French beside them in values-fr. When it is
+     * agreed: set this to true, add its name to ReleasedFlagsTest, make its texts translatable, give
+     * Download quality a place in ReportSettings' downloads and an entry among what is new.
+     */
+    val DOWNLOAD_QUALITY = BuildConfig.PREVIEW_FEATURES
+
+    /**
+     * Downloads in the file format of your choice, and Export to folder (9 Nov 2026, the MP3 that
+     * DOWNLOAD_FILES left out): File format under the download folder in Settings > Storage
+     * and downloads, with Original (the Opus or M4A YouTube sent, rewrapped and never encoded again, as
+     * DOWNLOAD_FILES makes them), MP3, M4A (AAC), FLAC and WAV (DownloadFormat), and, for MP3 and M4A
+     * only, a Bitrate row of Auto, 128, 192, 256 and 320 kbps (DownloadBitrate). Auto follows the
+     * stream the song was downloaded as (AudioBitrate.auto), since a file cannot be better than what
+     * YouTube sent, and a fixed rate above it is honoured with a plain note that it only makes the
+     * file bigger.
+     *
+     * The phone converts after the bytes have landed, in the download's own work (SongConverter, from
+     * DownloadUtil.saveSongFile): it decodes with MediaExtractor and MediaCodec (MediaCodecPcmDecoder,
+     * the cast server's decoder) and encodes with LAME's Java port jump3r (MP3), MediaCodec's AAC
+     * encoder (M4A), and writers of its own (FLAC, WAV). A song YouTube sent as AAC is never encoded to
+     * AAC again: its .m4a is Original's. The title, artists, album, year, track, cover and the song's
+     * link are written by the writers themselves, as DOWNLOAD_FILES does (ID3v2.3 in an MP3 and in a
+     * WAV, Vorbis comments and a picture block in a FLAC, iTunes atoms in an M4A), and read back from
+     * the file's first bytes (SongFileIds). Everything is written to a temporary file in the app's
+     * own work folder (files/convert, not the cache, which Android empties when storage runs low)
+     * first and put in the folder only when whole; a conversion that fails or is cancelled leaves
+     * nothing in the folder and the song is saved as Original instead, with the reason in the log.
+     * It builds on DOWNLOAD_FILES: nothing is converted without it.
+     *
+     * Export to folder, in the songs' selection menu and a song's own menu, converts songs that are
+     * downloaded or cached whole to a format and a folder picked in a sheet, and says how many were
+     * exported and why some were not; songs not on the phone are named, never fetched.
+     *
+     * Without the flag the setting reads as Original whatever is stored (a restored backup can bring
+     * it), the rows and the menu entry are not there, and the files are made as they were. Its texts
+     * (download_format*, download_bitrate*, export_*) are held from translators, their French beside
+     * them in values-fr. When it is agreed: set this to true, add its name to ReleasedFlagsTest, make
+     * its texts translatable.
+     */
+    val DOWNLOAD_FORMATS = BuildConfig.PREVIEW_FEATURES
+
+    /**
+     * The adaptive queue reads a skip by what the skipped song is like (an idea of 9 Nov 2026). A song
+     * skipped early and not gone back to has its related list asked for when the phone has none (one radio
+     * page of it, online only, never while YouTube refuses us, once a song in a run and one every
+     * SKIP_PAGE_EVERY_MS at most), and the songs ahead that stand closer to it than to any song kept or
+     * liked in the run make way (SkipSimilar), where before every song on a stored list did and a song with
+     * no stored list changed nothing. A song like two of the run's skipped songs goes wherever it is in the
+     * tail. Without the flag the pass reads the stored list of the song just skipped, as before. To ship:
+     * set this to true and add it to ReleasedFlagsTest.
+     */
+    val ADAPTIVE_SIMILAR = BuildConfig.PREVIEW_FEATURES
+
+    /**
+     * Choose what's in the three-dot menus (0.13 roadmap): hold any entry of a menu and the menu is
+     * edited the way Android's Quick Settings are, a minus on each entry, the hidden ones under Hidden
+     * with a plus, Done. Kept per kind of menu (MenuKind: a song's menus share one, the player's is
+     * its own) in MenuHiddenEntriesKey, by each entry's text resource name, so a version or a language
+     * changes nothing. A trimmed menu says under it how many it hides, with Edit. Its texts are held
+     * from translators (menu_hidden, menu_hidden_hint, menu_hidden_count, menu_edit_*), French beside
+     * them. Without the flag GridMenu draws every entry whatever is stored, and holding does nothing.
+     * To ship: set this to true and add it to ReleasedFlagsTest.
+     */
+    val MENU_CHOICES = BuildConfig.PREVIEW_FEATURES
+
+    /**
+     * Progressive blur on the lyrics (his wish of 11 Nov 2026, seen in another player, as Apple
+     * Music has it): the line being sung is sharp and each line further from it is a little more
+     * out of focus, dimmed as before; scrolled by hand every line is sharp, and the blur comes back
+     * when the view follows the song again (LyricsBlur). Never for lyrics with no times, nor with
+     * "Follow the song" off.
+     *
+     * A trial to look at, in pictures first: off until it is turned on in the developer options
+     * ("DEBUG: Lyrics blur", which starts on Medium, the strength he chose from the first pictures;
+     * Soft and Strong are in the row under it), and it has no text of its own. Without the flag the choice
+     * is never read and the lines are drawn as they were.
+     *
+     * Debug builds only, kept out of the previews that testers get.
+     */
+    val LYRICS_BLUR = BuildConfig.DEBUG && BuildConfig.BUILD_TYPE == "debug"
 }

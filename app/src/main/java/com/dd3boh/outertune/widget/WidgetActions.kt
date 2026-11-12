@@ -175,12 +175,15 @@ object WidgetCommands {
 
 class PlayPauseAction : ActionCallback {
     override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {
+        // The start of a tap's way to the redrawn widget (WidgetStore.DRAW_TAG).
+        Log.d(WidgetStore.DRAW_TAG, "Tapped play or pause")
         WidgetCommands.mediaKey(context, KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE)
     }
 }
 
 class NextAction : ActionCallback {
     override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {
+        Log.d(WidgetStore.DRAW_TAG, "Tapped next")
         WidgetCommands.mediaKey(context, KeyEvent.KEYCODE_MEDIA_NEXT)
     }
 }

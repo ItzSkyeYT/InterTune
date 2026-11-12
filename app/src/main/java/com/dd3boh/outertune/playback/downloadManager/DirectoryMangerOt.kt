@@ -4,13 +4,21 @@ import android.content.Context
 import android.net.Uri
 import android.provider.DocumentsContract
 import android.util.Log
+import android.webkit.MimeTypeMap
 import androidx.documentfile.provider.DocumentFile
 import androidx.documentfile.provider.TreeDocumentFileOt
+import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.db.entities.Song
 import com.dd3boh.outertune.utils.scanners.LocalMediaScanner.Companion.scanDfRecursive
 import com.dd3boh.outertune.utils.scanners.documentFileFromUri
+import com.dd3boh.outertune.utils.scanners.fileFromUri
+import java.io.BufferedInputStream
+import java.io.BufferedOutputStream
 import java.io.IOException
 import java.io.InputStream
+import java.io.OutputStream
+import java.util.concurrent.ConcurrentHashMap
+import com.dd3boh.outertune.utils.Toaster
 
 class DownloadDirectoryManagerOt(private var context: Context, private var dir: Uri, extraDirs: List<Uri>) {
     val TAG = DownloadDirectoryManagerOt::class.simpleName.toString()
@@ -18,6 +26,14 @@ class DownloadDirectoryManagerOt(private var context: Context, private var dir: 
     var allDirs: List<DocumentFile> = mutableListOf()
 
     var availableFiles: Set<DocumentFile> = mutableSetOf()
+
+    /**
+     * Which song each song file is (SongFileNames: an .opus or .m4a whose name holds no id), by its
+     * document id: the ones saved by this run, the ones the database links to, the ones whose tags
+     * were read (SongFileIds). [notSongs]: the ones whose tags name no song, read once a run.
+     */
+    private val songFileIds = ConcurrentHashMap<String, String>()
+    private val notSongs = ConcurrentHashMap.newKeySet<String>()
 
     /**
      * The download dirs the last non-cached getAvailableFiles call could not list at all: a
@@ -89,7 +105,7 @@ class DownloadDirectoryManagerOt(private var context: Context, private var dir: 
             allDirs = mutableListOf()
             unreadableExtraDirs = emptyList()
 //            reportException(e)
-//            Toast.makeText(context, "Failed to initiate download manager: " + e.message, Toast.LENGTH_LONG).show()
+//            Toaster.show(context, "Failed to initiate download manager: " + e.message, Toast.LENGTH_LONG)
             // TODO: snackbar for failed uri or not set up?
         }
     }
@@ -98,18 +114,28 @@ class DownloadDirectoryManagerOt(private var context: Context, private var dir: 
      * Deletes a song's file, from the main download folder only. The list holds the extra import
      * folders' files too, and those folders are promised never to be changed (the storage
      * tooltip), so a song imported from one keeps its file and has to be removed by hand.
+     * Says what came of it ([FileRemoval]). The list is only made again by a scan, so it can hold
+     * a file that a file manager deleted since: that one is gone already, and goes from the list
+     * as a deleted one does, so that its song's download ends with it instead of staying listed.
      * Synchronized because deletes run in parallel on dlCoroutine, and the read-modify-write of
      * availableFiles below would otherwise lose one, leaving the player a deleted file.
      */
     @Synchronized
-    fun deleteFile(mediaId: String): Boolean {
-        val file = isExists(mediaId) ?: return false
-        if (!isInMainDir(file)) return false
-        val deleted = file.delete()
+    fun deleteFile(mediaId: String): FileRemoval {
+        val file = isExists(mediaId) ?: return FileRemoval.NOT_HERE
+        if (!isInMainDir(file)) return FileRemoval.NOT_HERE
+        val removal = fileRemoval(
+            deleted = file.delete(),
+            fileThere = { file.exists() },
+            folderThere = { mainDir?.exists() == true },
+        )
         // Out of the list as well, or the player went on handing out the deleted file for the
         // rest of the session and the song could not be streamed instead.
-        if (deleted) availableFiles = availableFiles - file
-        return deleted
+        if (removal.over) {
+            availableFiles = availableFiles - file
+            documentId(file)?.let { songFileIds.remove(it) }
+        }
+        return removal
     }
 
     fun saveFile(mediaId: String, input: InputStream, displayName: String?): Uri? {
@@ -128,11 +154,92 @@ class DownloadDirectoryManagerOt(private var context: Context, private var dir: 
             // for an empty file.
             val out = resolver.openOutputStream(newFile.uri) ?: throw IOException("Could not open $fileName")
             out.use { input.copyTo(it) }
-            return newFile.uri
         } catch (e: Exception) {
             // Not left behind half written, where the next scan would take it for the download.
             newFile.delete()
             throw e
+        }
+        // In the list at once, as a song file is (saveSongFile): the player finds a download in the
+        // folder through it, and Remove download deletes through it. Left out until the next full
+        // scan, the song was streamed meanwhile and Remove download did nothing.
+        addAvailable(TreeDocumentFileOt(null, context, newFile.uri, newFile.name ?: fileName, "audio/mka"))
+        return newFile.uri
+    }
+
+    /** Under the same lock as [deleteFile], so a save and a delete at the same moment cannot undo each other in the list. */
+    @Synchronized
+    private fun addAvailable(file: DocumentFile) {
+        availableFiles = availableFiles + file
+    }
+
+    /**
+     * Saves a download as a song file other players open (SongFiles), called [fileName], with what
+     * [write] puts in it. The file is known as [mediaId]'s from now on, though its name does not say
+     * so. A failed write leaves nothing behind, as in [saveFile].
+     */
+    fun saveSongFile(mediaId: String, fileName: String, write: (OutputStream) -> Unit): Uri? {
+        val directory = DocumentFile.fromTreeUri(context, dir)
+        if (directory == null || !directory.isDirectory) {
+            throw IOException("Invalid directory")
+        }
+        // The type Android itself gives the extension: given another, a provider may add the
+        // extension of that type to the name, as in "Song.opus.ogg".
+        val extension = fileName.substringAfterLast('.')
+        val mimeType = MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension) ?: "application/octet-stream"
+        val newFile = directory.createFile(mimeType, fileName) ?: return null
+        try {
+            val out = context.contentResolver.openOutputStream(newFile.uri) ?: throw IOException("Could not open $fileName")
+            out.use { stream ->
+                val buffered = BufferedOutputStream(stream, 64 * 1024)
+                write(buffered)
+                buffered.flush()
+            }
+        } catch (e: Exception) {
+            newFile.delete()
+            throw e
+        }
+        documentId(newFile)?.let { songFileIds[it] = mediaId }
+        val saved = TreeDocumentFileOt(null, context, newFile.uri, newFile.name ?: fileName, mimeType)
+        addAvailable(saved)
+        return newFile.uri
+    }
+
+    private fun documentId(file: DocumentFile): String? =
+        runCatching { DocumentsContract.getDocumentId(file.uri) }.getOrNull()
+
+    /**
+     * Which song [file] is: for a song file, what is known of it (see [songFileIds]); for any other
+     * file, the id in its name, "Title [id].mka", as downloads were always named.
+     */
+    fun idOf(file: DocumentFile): String? {
+        val name = file.name ?: return null
+        if (SongFileNames.isSongFile(name)) {
+            return documentId(file)?.let { songFileIds[it] } ?: SongFileNames.idInName(name)
+        }
+        return (file as? TreeDocumentFileOt)?.id ?: name.substringAfterLast('[').substringBeforeLast(']')
+    }
+
+    /**
+     * Learns which song each song file in [files] is, unless known already: from [knownPaths], the
+     * database's file of each downloaded song, then, with Unreleased.DOWNLOAD_FILES, from the file's
+     * own tags. A path two songs claim is not taken from the database.
+     */
+    private fun learnSongFiles(files: List<DocumentFile>, knownPaths: Map<String, String>) {
+        for (file in files) {
+            val name = file.name ?: continue
+            if (!SongFileNames.isSongFile(name)) continue
+            val docId = documentId(file) ?: continue
+            if (songFileIds.containsKey(docId) || docId in notSongs) continue
+            val known = runCatching { fileFromUri(context, file.uri)?.absolutePath }.getOrNull()?.let { knownPaths[it] }
+            if (known != null) {
+                songFileIds[docId] = known
+                continue
+            }
+            if (!Unreleased.DOWNLOAD_FILES) continue
+            val read = runCatching {
+                context.contentResolver.openInputStream(file.uri)?.use { SongFileIds.read(name, BufferedInputStream(it, 16 * 1024)) }
+            }.getOrNull()
+            if (read != null) songFileIds[docId] = read else notSongs += docId
         }
     }
 
@@ -145,7 +252,7 @@ class DownloadDirectoryManagerOt(private var context: Context, private var dir: 
     }
 
     fun isExists(mediaId: String): DocumentFile? {
-        return availableFiles.find { (it as TreeDocumentFileOt).id == mediaId }
+        return availableFiles.find { idOf(it) == mediaId }
     }
 
     fun getFilePathIfExists(mediaId: String): Uri? {
@@ -154,14 +261,14 @@ class DownloadDirectoryManagerOt(private var context: Context, private var dir: 
 
     fun getMissingFiles(mediaId: List<Song>): List<Song> {
         val missingFiles = mediaId.toMutableSet()
-        val result = getAvailableFiles(false)
+        val result = getAvailableFiles(false, knownPaths(mediaId))
         missingFiles.removeIf { f -> result.any { it.key == f.id } }
         return missingFiles.toList()
     }
 
     fun getAvailableFiles() = getAvailableFiles(true)
 
-    fun getAvailableFiles(useCache: Boolean = true): Map<String, Uri> {
+    fun getAvailableFiles(useCache: Boolean = true, knownPaths: Map<String, String> = emptyMap()): Map<String, Uri> {
         val availableFiles = HashMap<String, Uri>()
         val result = ArrayList<DocumentFile>()
         if (useCache) {
@@ -182,12 +289,13 @@ class DownloadDirectoryManagerOt(private var context: Context, private var dir: 
                 unopenedExtras = unreadableExtraDirs.map { it.toString() },
                 unlistable = unlistable.map { it.toString() },
             ).map(Uri::parse)
+            learnSongFiles(result, knownPaths)
             this.availableFiles = result.toSet()
         }
 
         for (file in result) {
-            val path = file.name ?: continue
-            availableFiles.put(path.substringAfterLast('[').substringBeforeLast(']'), file.uri)
+            val id = idOf(file) ?: continue
+            availableFiles.put(id, file.uri)
         }
         return availableFiles
     }
@@ -218,6 +326,55 @@ class DownloadDirectoryManagerOt(private var context: Context, private var dir: 
 
         return result.filter { it.name != null }.sumOf { it.length() }
     }
+}
+
+/**
+ * Each downloaded song's file as the database has it, to the song's id: how a song file, whose name
+ * holds no id, is known again without opening it. A path two songs claim says nothing.
+ */
+fun knownPaths(songs: List<Song>): Map<String, String> =
+    songs.mapNotNull { s -> s.song.localPath?.let { it to s.song.id } }
+        .groupBy({ it.first }, { it.second })
+        .filterValues { it.distinct().size == 1 }
+        .mapValues { it.value.first() }
+
+/**
+ * What came of deleting a song's file from the main download folder (DownloadDirectoryManagerOt.deleteFile).
+ * [over]: the song's download is over, whether the file went just now or was gone already; the
+ * song leaves the Downloads list and its download state is cleared (DownloadUtil.deleteSong).
+ */
+enum class FileRemoval(val over: Boolean) {
+    /** The file was deleted. */
+    DELETED(true),
+
+    /**
+     * The folder's list held the file, but it is not there: a file manager deleted it since the
+     * list was made. The folder answers and has no such file, so nothing is left to delete.
+     */
+    GONE(true),
+
+    /** Nothing was tried: no file of the song in the list, or one in an extra folder, which is never changed. */
+    NOT_HERE(false),
+
+    /**
+     * The file is there and could not be deleted (a permission, a provider that does not delete),
+     * or the folder cannot be reached to say whether it is (a card not mounted, a grant that is
+     * gone). The song stays listed, as a scan spares it (unlistedDownloadDirs).
+     */
+    REFUSED(false),
+}
+
+/**
+ * Tells a delete that went through, one that found the file gone already, and one that was refused.
+ * A delete that did not go through is gone already only when the file is not there while the
+ * folder answers: a folder that cannot be reached is not an empty one, and says nothing of the
+ * file. Asked only as far as it has to be, each question being a call to the storage provider.
+ */
+fun fileRemoval(deleted: Boolean, fileThere: () -> Boolean, folderThere: () -> Boolean): FileRemoval = when {
+    deleted -> FileRemoval.DELETED
+    fileThere() -> FileRemoval.REFUSED
+    folderThere() -> FileRemoval.GONE
+    else -> FileRemoval.REFUSED
 }
 
 /**

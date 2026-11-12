@@ -159,10 +159,8 @@ class StreamAddressesTest {
         // Casting made the resolver a class, which the cast server has one of as well. The player's
         // is given the service's own addresses, the ones onPlayerError forgets.
         // One for the service since SABR reads the next song ahead through it (SabrAhead).
-        assertTrue("the player's resolver is not given the service's addresses", "private val playerResolver by lazy { SongResolver(streamAddresses) }" in service)
-        // The player, and the Recap's players beside it (recapSource), so that a stream either finds is both's.
-        assertTrue("the player does not read through its resolver", "val resolver = if (playersResolver) playerResolver else SongResolver(streamAddresses)" in bodyOf("private fun createDataSourceFactory("))
-        assertTrue("the player's reads are not the player's resolver's by default", "private fun createDataSourceFactory(forPlayer: Boolean = true, playersResolver: Boolean = forPlayer)" in service)
+        assertTrue("the player's resolver is not given the service's addresses", "SongResolver(streamAddresses)" in bodyOf("private val playerResolver: SongResolver by lazy"))
+        assertTrue("the player does not read through the one resolver", "val resolver = playerResolver" in bodyOf("private fun createDataSourceFactory("))
         val resolver = bodyOf("inner class SongResolver(")
         assertTrue("the resolver does not ask its addresses for the address", "addresses.of(" in resolver)
         assertTrue("the resolver does not keep the address it resolved", "addresses.keep(" in resolver)

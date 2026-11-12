@@ -28,6 +28,9 @@ import java.util.Locale
  * words, not a preview, not banned, not a lasting dislike, playable (offline: on the phone), not
  * heard in this listening session or well in the last hour, and with nothing from this sitting
  * against it: no artist skipped once, no words against the run, not on the skipped song's list.
+ * With Unreleased.ADAPTIVE_SIMILAR, "on the skipped song's list" means closer to it than to any song kept
+ * (SkipSimilar), the list is asked for when the phone has none, and a song like two skipped songs is
+ * taken out wherever it is in the tail (QueuePlanner.Unwanted.LIKE_SONGS_SKIPPED).
  *
  * No Android in here, so it is tested.
  */
@@ -59,6 +62,13 @@ object AdaptivePass {
         val sources: List<Source>,
         /** The songs on the stored related list of the song just skipped, after a skip. */
         val skippedRelated: Set<String> = emptySet(),
+        /**
+         * With Unreleased.ADAPTIVE_SIMILAR ([similar]): the related lists of the run's skipped songs, newest
+         * first (AdaptiveQueue.View.skippedIds), each in YouTube's order and each song by SkipSimilar.keyOf,
+         * read against the seeds' own lists ([sources]) by SkipSimilar in place of [skippedRelated].
+         */
+        val skippedLists: List<List<String>> = emptyList(),
+        val similar: Boolean = false,
         val offline: Boolean = false,
         /** Whether a song plays with no network: on the phone, downloaded or wholly cached. */
         val playsOffline: (MediaMetadata) -> Boolean = { true },
@@ -66,6 +76,26 @@ object AdaptivePass {
         val byScore: Boolean = true,
     ) {
         val share: Double get() = if (kind == Kind.ORDINARY) AdaptiveQueue.MAX_DROP_SHARE else AdaptiveQueue.STRONG_DROP_SHARE
+
+        /** What this run's skips say, read once for the pass, with [similar] only. */
+        private val skipRead: SkipSimilar.Read? by lazy {
+            if (similar) SkipSimilar.read(skippedLists, sources.map { source -> source.songs.map(SkipSimilar::keyOf) }, kind == Kind.SKIP) else null
+        }
+
+        /**
+         * Songs like the one just skipped, on the pass after the skip: with [similar] closer to it than to
+         * any song kept or liked in the run, by version; without, on its stored list, by id.
+         */
+        val likeSkipped: Set<String> get() = skipRead?.likeLast ?: skippedRelated
+
+        /** With [similar], songs like two of the run's skipped songs, by version: a pattern, taken out wherever they are. */
+        val likeSkippedTwice: Set<String> get() = skipRead?.likeTwo ?: emptySet()
+
+        /** Whether [song] is one of [likeSkipped]. */
+        fun isLikeSkipped(song: MediaMetadata): Boolean = if (skipRead != null) SkipSimilar.keyOf(song) in likeSkipped else song.id in skippedRelated
+
+        /** Whether [song] is one of [likeSkippedTwice]. */
+        fun isLikeSkippedTwice(song: MediaMetadata): Boolean = skipRead != null && SkipSimilar.keyOf(song) in likeSkippedTwice
     }
 
     class Result(
@@ -142,7 +172,7 @@ object AdaptivePass {
         // Nothing of its own against it from this sitting, or the next pass could choose its place
         // again. A milder habit of skipping its artist stays in its fit: in a long history most
         // artists have a skip somewhere, and leaving all of them out would leave few picks.
-        if (score.oneSkip || score.tagFit < 0 || song.id in input.skippedRelated) return false
+        if (score.oneSkip || score.tagFit < 0 || input.isLikeSkipped(song) || input.isLikeSkippedTwice(song)) return false
         return true
     }
 
@@ -159,6 +189,7 @@ object AdaptivePass {
             // A song the listener liked goes only when banned.
             liked -> null
             artists.any { it in view.turnedDown.artists } -> QueuePlanner.Unwanted.ARTIST_TURNED_DOWN
+            input.isLikeSkippedTwice(song) -> QueuePlanner.Unwanted.LIKE_SONGS_SKIPPED
             view.turnedDown.songs.isNotEmpty() &&
                 SongVersions.baseTitle(song.title, song.artists.firstOrNull()?.name) in view.turnedDown.songs -> QueuePlanner.Unwanted.SONG_TURNED_DOWN
             SongTags.isPreview(song.title) -> QueuePlanner.Unwanted.PREVIEW
@@ -174,14 +205,14 @@ object AdaptivePass {
             // Not a pick of this run: it was the best there was with this same habit counted.
             score.habit > 0 && song.id !in view.picks -> "often skipped"
             score.tagFit < 0 -> "breaks the run"
-            song.id in input.skippedRelated -> "like the song skipped"
+            input.isLikeSkipped(song) -> "like the song skipped"
             else -> null
         }
         // Right after a skip, a song by an artist skipped, or one on the skipped song's own list,
         // close ahead is what the listener just turned from: a pick no worse takes its place, with
         // no margin to beat. With the margin, one skip on a new install changed nothing unless two
         // seeds listed the pick, and the queue looked as if it had not heard the skip at all.
-        val firm = byScore != null && input.kind == Kind.SKIP && (score.oneSkip || song.id in input.skippedRelated)
+        val firm = byScore != null && input.kind == Kind.SKIP && (score.oneSkip || input.isLikeSkipped(song))
         return QueuePlanner.Slot(place.index, song.id, artists.firstOrNull(), score.fit, place.byHand, unwanted, byWords, byScore, firm)
     }
 

@@ -43,6 +43,9 @@ import com.dd3boh.outertune.ui.menu.YouTubePlaylistMenu
 import com.dd3boh.outertune.ui.screens.settings.fragments.AccountFrag
 import com.dd3boh.outertune.utils.rememberPreference
 import com.dd3boh.outertune.viewmodels.AccountViewModel
+import com.dd3boh.outertune.ui.component.FailedNote
+import com.dd3boh.outertune.ui.component.RetryWhenSignInChanges
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 import com.zionhuang.innertube.utils.parseCookieString
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
@@ -67,6 +70,9 @@ fun AccountScreen(
     val albums by viewModel.albums.collectAsState()
     val artists by viewModel.artists.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
+    val failedKind by viewModel.failedKind.collectAsState()
+    // Signed in again from the note: the page asks again for what the old sign-in failed.
+    RetryWhenSignInChanges(failed = failedKind != null, retry = viewModel::retry)
 
     LazyVerticalGrid(
         columns = GridCells.Adaptive(minSize = GridThumbnailHeight + 24.dp),
@@ -155,6 +161,19 @@ fun AccountScreen(
                         }
                     )
             )
+        }
+
+        // Nothing came back: why, when it is clear (a sign-in YouTube no longer accepts, a
+        // connection that does not reach it), and Retry. This page was empty, the name of the
+        // account over nothing, which is where somebody whose sign-in lapsed would look.
+        if (isLoggedIn && isLoading >= 3 && failedKind != null && playlists == null && albums == null && artists == null) {
+            item(key = "not_loaded", span = { GridItemSpan(maxLineSpan) }) {
+                FailedNote(
+                    kind = failedKind,
+                    onSignIn = { navController.navigate("login") },
+                    onRetry = viewModel::retry,
+                )
+            }
         }
 
         if (isLoggedIn && (playlists == null && isLoading < 3)) {

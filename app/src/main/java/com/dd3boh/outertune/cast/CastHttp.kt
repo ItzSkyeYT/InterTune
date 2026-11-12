@@ -34,9 +34,10 @@ class CastRequest(val method: String, val target: String, val headers: Map<Strin
 
 /**
  * A song url taken apart: the session's token, the song's id, and whether it is the song fetched
- * again as AAC for a receiver that takes no Opus (`/aac/` rather than `/s/`).
+ * again as AAC for a receiver that takes no Opus (`/aac/` rather than `/s/`), or decoded into raw
+ * audio of [pcm]'s form for one that takes neither (`/l16-44100-2/`, `/wav-48000-2/`).
  */
-data class CastPath(val token: String, val mediaId: String, val aac: Boolean = false)
+data class CastPath(val token: String, val mediaId: String, val aac: Boolean = false, val pcm: PcmForm? = null)
 
 /** What reading a request head off a connection came to. */
 sealed interface HeadRead {
@@ -146,14 +147,25 @@ object CastHttp {
 
     /**
      * The url a receiver fetches a song from: `http://host:port/c/{token}/s/{id}.{ext}`, or with
-     * [aac] `/c/{token}/aac/{id}.m4a` for the same song fetched as AAC.
+     * [aac] `/c/{token}/aac/{id}.m4a` for the same song fetched as AAC, or with [pcm]
+     * `/c/{token}/l16-44100-2/{id}.pcm` for it decoded into raw audio of that form.
      *
      * The extension is for the renderers that will not play a url without one; the server itself
      * goes by the id. The id is percent-encoded, dots included, so the last dot is always the one
      * before the extension.
      */
-    fun songUrl(host: InetAddress, port: Int, token: String, mediaId: String, extension: String, aac: Boolean = false): String =
-        "http://${hostForUrl(host)}:$port/c/$token/${if (aac) "aac" else "s"}/${encodeSegment(mediaId)}.$extension"
+    fun songUrl(
+        host: InetAddress,
+        port: Int,
+        token: String,
+        mediaId: String,
+        extension: String,
+        aac: Boolean = false,
+        pcm: PcmForm? = null,
+    ): String {
+        val kind = pcm?.key ?: if (aac) "aac" else "s"
+        return "http://${hostForUrl(host)}:$port/c/$token/$kind/${encodeSegment(mediaId)}.$extension"
+    }
 
     /** An address as it goes in a url: IPv6 in brackets, with a zone's % escaped. */
     fun hostForUrl(host: InetAddress): String {
@@ -215,13 +227,15 @@ object CastHttp {
             path = if (slash < 0) "/" else path.substring(slash)
         }
         val parts = path.split('/')
-        if (parts.size != 5 || parts[0].isNotEmpty() || parts[1] != "c" || (parts[3] != "s" && parts[3] != "aac")) return null
+        if (parts.size != 5 || parts[0].isNotEmpty() || parts[1] != "c") return null
+        val pcm = PcmForm.fromKey(parts[3])
+        if (parts[3] != "s" && parts[3] != "aac" && pcm == null) return null
         val token = parts[2].takeIf { it.isNotEmpty() } ?: return null
         val file = parts[4]
         val dot = file.lastIndexOf('.')
         val encodedId = if (dot >= 0) file.substring(0, dot) else file
         val mediaId = decodeSegment(encodedId)?.takeIf { it.isNotEmpty() } ?: return null
-        return CastPath(token, mediaId, aac = parts[3] == "aac")
+        return CastPath(token, mediaId, aac = parts[3] == "aac", pcm = pcm)
     }
 
     // Requests
@@ -267,15 +281,24 @@ object CastHttp {
     // Responses
 
     /**
+     * The fourth field of a DLNA protocolInfo, which is also the value of contentFeatures.dlna.org:
+     * the profile where there is one (LPCM, for raw audio at 44.1 or 48 kHz), whether byte ranges
+     * work, and whether the phone made the file ([converted]) rather than serving the song's own.
+     */
+    fun dlnaFeatures(mimeType: String, byteSeek: Boolean, converted: Boolean = false): String =
+        (PcmFormats.profile(mimeType)?.let { "DLNA.ORG_PN=$it;" } ?: "") +
+            "DLNA.ORG_OP=${if (byteSeek) "01" else "00"};DLNA.ORG_CI=${if (converted) 1 else 0};$DLNA_FLAGS"
+
+    /**
      * The reply to a GET or HEAD for a song of type [mimeType] and [total] bytes (below 0 when
-     * not known).
+     * not known), [converted] when the phone made it (raw audio).
      *
      * Every reply says Accept-Ranges and carries the DLNA headers: renderers that do not know
      * them ignore them, and some that do will not seek without them. CORS is open because a
      * browser-based receiver fetches from another origin and needs to read Content-Range; the
      * token, not the origin, is what guards the url.
      */
-    fun songReply(request: CastRequest, mimeType: String, total: Long): SongReply {
+    fun songReply(request: CastRequest, mimeType: String, total: Long, converted: Boolean = false): SongReply {
         val headers = mutableListOf(
             "Content-Type" to mimeType,
             "Cache-Control" to "no-store",
@@ -288,11 +311,11 @@ object CastHttp {
             // A copy whose length nothing recorded. Served whole and ended by closing, since no
             // Content-Range or Content-Length can be written for it.
             headers += "Accept-Ranges" to "none"
-            headers += "contentFeatures.dlna.org" to "DLNA.ORG_OP=00;DLNA.ORG_CI=0;$DLNA_FLAGS"
+            headers += "contentFeatures.dlna.org" to dlnaFeatures(mimeType, byteSeek = false, converted)
             return SongReply(200, headers, 0, -1)
         }
         headers += "Accept-Ranges" to "bytes"
-        headers += "contentFeatures.dlna.org" to "DLNA.ORG_OP=01;DLNA.ORG_CI=0;$DLNA_FLAGS"
+        headers += "contentFeatures.dlna.org" to dlnaFeatures(mimeType, byteSeek = true, converted)
         return when (val range = parseRange(request.header("range"), total)) {
             RangeAnswer.Whole -> {
                 headers += "Content-Length" to total.toString()

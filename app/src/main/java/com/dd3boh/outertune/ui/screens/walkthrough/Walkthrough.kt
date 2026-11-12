@@ -8,7 +8,12 @@ package com.dd3boh.outertune.ui.screens.walkthrough
 
 import androidx.annotation.StringRes
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Animation
+import androidx.compose.material.icons.rounded.Autorenew
 import androidx.compose.material.icons.rounded.Backup
+import androidx.compose.material.icons.rounded.ContentCopy
+import androidx.compose.material.icons.rounded.Timer
+import androidx.compose.material.icons.rounded.HeartBroken
 import androidx.compose.material.icons.rounded.BluetoothAudio
 import androidx.compose.material.icons.rounded.BlurOn
 import androidx.compose.material.icons.rounded.AutoAwesome
@@ -26,6 +31,7 @@ import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.LibraryAdd
 import androidx.compose.material.icons.rounded.LibraryMusic
 import androidx.compose.material.icons.rounded.Recommend
+import androidx.compose.material.icons.rounded.Lyrics
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.Battery5Bar
 import androidx.compose.material.icons.rounded.Search
@@ -37,6 +43,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import com.dd3boh.outertune.BuildConfig
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.Unreleased
+import com.dd3boh.outertune.ui.menu.BlockArtistIcon
+import com.dd3boh.outertune.ui.menu.DontPlayIcon
 
 /**
  * The build 0.11 ships as.
@@ -129,6 +137,26 @@ private const val V0_12 = 95
 private const val V0_12_5 = 97
 
 /**
+ * 0.12.7, released 2 Nov 2026 as 99 without a card of its own: its things are listed from the
+ * next build (0.12.8, as it turned out), his pick of 2 Nov 2026, so somebody coming from 0.12.6 or
+ * older is shown them. Somebody who already had 0.12.7 is shown only what came after it.
+ */
+private const val V0_12_7 = 99
+
+/**
+ * 0.12.8 (his yes of 4 Nov 2026): reports sent to InterTune with no GitHub account or shared as a
+ * file, backups that leave the sign-ins out, and lyrics cards and videos saved on the phone.
+ */
+private const val V0_12_8 = 100
+
+/**
+ * The first build 0.13 can ship as: 0.12.9 and 0.12.10, fixes only, took 101 and 102. Raise it if
+ * another fix release comes between, or somebody who had a tour on that one would be shown none of
+ * what 0.13 brings.
+ */
+private const val V0_13 = 103
+
+/**
  * A walk round Settings: its four groups, one bubble each.
  *
  * Settings is thirteen screens and the rows already say what is in each. What they do not give is
@@ -169,9 +197,12 @@ val SETTINGS_CATEGORIES = listOfNotNull(
     Tour.ROUTE_LIBRARY,
     Tour.ROUTE_LOCAL,
     Tour.ROUTE_LOOK_AND_FEEL,
+    Tour.ROUTE_WIDGETS.takeIf { Unreleased.WIDGETS_PAGE },
     Tour.ROUTE_PLAYER,
     Tour.ROUTE_RECOGNITION,
     Tour.ROUTE_LYRICS,
+    // On the list only where rooms are offered (togetherAvailable), last of its card.
+    Tour.ROUTE_TOGETHER,
     Tour.ROUTE_STORAGE,
     Tour.ROUTE_BATTERY.takeIf { Unreleased.BATTERY_MODES },
     Tour.ROUTE_BACKUP,
@@ -187,9 +218,11 @@ val SETTINGS_CATEGORIES = listOfNotNull(
  * has either stops or a reason: the test fails on one with neither.
  */
 val CLOSER_LOOK_LEFT_OUT = mapOf(
+    Tour.ROUTE_WIDGETS to "A card for each widget on the home screen and the two to add: none of it is a setting of the app, and with no widget there is no card to point at.",
     Tour.ROUTE_BATTERY to "One choice, and the line under it says what each mode turns down: a bubble would only say it again.",
     Tour.ROUTE_ADVANCED to "Emptying the image cache and the switch for the developer's own settings: upkeep, with nothing to choose between.",
     Tour.ROUTE_ABOUT to "Nothing on it is a setting. It holds the way back into this tour.",
+    Tour.ROUTE_TOGETHER to "Listening rooms are in debug and preview builds only until 0.13, and the page is new: its stops come when it ships.",
 )
 
 /** A stop of the closer look: [title] is the string its row is titled with, [body] the sentence. */
@@ -343,6 +376,168 @@ val RECOGNITION_ICON get() = Icons.Rounded.GraphicEq
 
 /** Newest first: what somebody sees at the top is what they have never seen before. */
 val NEW_THINGS = listOf(
+    // 0.13's own, the six things on for everyone from it (picked on 8 Nov 2026), Don't play this
+    // song with Block artist. A setting is shown where it is; what lives in menus and lists outside
+    // Settings has a card that says where it is.
+    NewThing(
+        id = "block_artist",
+        release = "0.13",
+        sinceVersionCode = V0_13,
+        title = R.string.new_block_artist_title,
+        body = R.string.new_block_artist_body,
+        icon = BlockArtistIcon,
+        stops = listOf(
+            TourStop("block_artist_row", Tour.ROW_LIBRARY, Tour.ROUTE_SETTINGS, R.string.grp_library_and_content, R.string.new_block_artist_way, V0_13),
+            TourStop("block_artist_setting", Tour.SETTING_BLOCKED_ARTISTS, Tour.ROUTE_LIBRARY, R.string.blocked_artists, R.string.new_block_artist_here, V0_13),
+        ),
+        there = { Unreleased.ARTIST_BLOCK },
+    ),
+    NewThing(
+        id = "dont_play",
+        release = "0.13",
+        sinceVersionCode = V0_13,
+        title = R.string.new_dont_play_title,
+        body = R.string.new_dont_play_body,
+        icon = DontPlayIcon,
+        action = NewThingAction.NONE,
+        there = { Unreleased.ARTIST_BLOCK },
+    ),
+    NewThing(
+        id = "saved_twice",
+        release = "0.13",
+        sinceVersionCode = V0_13,
+        title = R.string.new_saved_twice_title,
+        body = R.string.new_saved_twice_body,
+        icon = Icons.Rounded.ContentCopy,
+        action = NewThingAction.NONE,
+        there = { Unreleased.SAVED_TWICE },
+    ),
+    // The sleep timer with more ways to stop and a notification that counts down (his todo of
+    // 9 Nov 2026), for everyone. It lives in the player, outside Settings: the card says where.
+    NewThing(
+        id = "sleep_timer_more",
+        release = "0.13",
+        sinceVersionCode = V0_13,
+        title = R.string.new_sleep_timer_title,
+        body = R.string.new_sleep_timer_body,
+        icon = Icons.Rounded.Timer,
+        action = NewThingAction.NONE,
+    ),
+    NewThing(
+        id = "liked_sync",
+        release = "0.13",
+        sinceVersionCode = V0_13,
+        title = R.string.new_liked_sync_title,
+        body = R.string.new_liked_sync_body,
+        icon = Icons.Rounded.HeartBroken,
+        stops = listOf(
+            TourStop("liked_sync_row", Tour.ROW_STORAGE, Tour.ROUTE_SETTINGS, R.string.grp_storage_and_downloads, R.string.new_liked_sync_way, V0_13),
+            TourStop("liked_sync_setting", Tour.SETTING_LIKED_SYNC, Tour.ROUTE_STORAGE, R.string.liked_download_sync, R.string.new_liked_sync_here, V0_13),
+        ),
+        there = { Unreleased.LIKED_SYNC },
+    ),
+    NewThing(
+        id = "album_goes_on",
+        release = "0.13",
+        sinceVersionCode = V0_13,
+        title = R.string.new_album_goes_on_title,
+        body = R.string.new_album_goes_on_body,
+        icon = Icons.Rounded.Autorenew,
+        stops = listOf(
+            TourStop("album_goes_on_row", Tour.ROW_PLAYER, Tour.ROUTE_SETTINGS, R.string.player_and_audio, R.string.new_album_goes_on_way, V0_13),
+            TourStop("album_goes_on_setting", Tour.SETTING_AUTO_LOAD_MORE, Tour.ROUTE_PLAYER, R.string.auto_load_more, R.string.new_album_goes_on_here, V0_13),
+        ),
+        there = { Unreleased.ENDLESS_QUEUE },
+    ),
+    NewThing(
+        id = "recognise_offline",
+        release = "0.13",
+        sinceVersionCode = V0_13,
+        title = R.string.new_recognise_offline_title,
+        body = R.string.new_recognise_offline_body,
+        icon = RECOGNITION_ICON,
+        action = NewThingAction.NONE,
+        there = { Unreleased.RECOGNISE_OFFLINE },
+    ),
+    NewThing(
+        id = "animations",
+        release = "0.13",
+        sinceVersionCode = V0_13,
+        title = R.string.new_animations_title,
+        body = R.string.new_animations_body,
+        icon = Icons.Rounded.Animation,
+        stops = listOf(
+            TourStop("animations_row", Tour.ROW_LOOK_AND_FEEL, Tour.ROUTE_SETTINGS, R.string.look_and_feel, R.string.new_animations_way, V0_13),
+            TourStop("animations_setting", Tour.SETTING_ANIMATIONS, Tour.ROUTE_LOOK_AND_FEEL, R.string.animations_title, R.string.new_animations_here, V0_13),
+        ),
+        there = { Unreleased.ANIMATIONS_SWITCH },
+    ),
+    // 0.12.8's own. Sending a report is shown where Report a problem is, in About, and the
+    // backup's choice where backups are made. The lyrics' Save lives outside Settings, so its
+    // card says where it is.
+    NewThing(
+        id = "report_send",
+        release = "0.12.8",
+        sinceVersionCode = V0_12_8,
+        title = R.string.new_report_send_title,
+        body = R.string.new_report_send_body,
+        icon = Icons.Rounded.BugReport,
+        stops = listOf(
+            TourStop("report_send_row", Tour.ROW_ABOUT, Tour.ROUTE_SETTINGS, R.string.about, R.string.new_report_way, V0_12_8),
+            TourStop("report_send_setting", Tour.SETTING_BUG_REPORT, Tour.ROUTE_ABOUT, R.string.help_bug_report_action, R.string.new_report_here, V0_12_8),
+        ),
+    ),
+    NewThing(
+        id = "backup_parts",
+        release = "0.12.8",
+        sinceVersionCode = V0_12_8,
+        title = R.string.new_backup_parts_title,
+        body = R.string.new_backup_parts_body,
+        icon = Icons.Rounded.Backup,
+        stops = listOf(
+            TourStop("backup_parts_row", Tour.ROW_BACKUP, Tour.ROUTE_SETTINGS, R.string.backup_restore, R.string.new_backup_parts_way, V0_12_8),
+            TourStop("backup_parts_setting", Tour.SETTING_BACKUP, Tour.ROUTE_BACKUP, R.string.action_backup, R.string.new_backup_parts_here, V0_12_8),
+        ),
+    ),
+    NewThing(
+        id = "lyrics_save",
+        release = "0.12.8",
+        sinceVersionCode = V0_12_8,
+        title = R.string.new_lyrics_save_title,
+        body = R.string.new_lyrics_save_body,
+        icon = Icons.Rounded.Lyrics,
+        action = NewThingAction.NONE,
+    ),
+    // 0.12.7's, listed from 0.12.8 (see V0_12_7). The Shelf is added from its card, as the widget
+    // styles were; the lyrics videos and the share cards live outside Settings, so their cards
+    // say where they are.
+    NewThing(
+        id = "shelf_looks",
+        release = "0.12.7",
+        sinceVersionCode = V0_12_7,
+        title = R.string.new_shelf_looks_title,
+        body = R.string.new_shelf_looks_body,
+        icon = Icons.Rounded.Widgets,
+        action = NewThingAction.ADD_WIDGET,
+    ),
+    NewThing(
+        id = "lyrics_video_long",
+        release = "0.12.7",
+        sinceVersionCode = V0_12_7,
+        title = R.string.new_lyrics_video_long_title,
+        body = R.string.new_lyrics_video_long_body,
+        icon = Icons.Rounded.Lyrics,
+        action = NewThingAction.NONE,
+    ),
+    NewThing(
+        id = "share_cards",
+        release = "0.12.7",
+        sinceVersionCode = V0_12_7,
+        title = R.string.new_share_cards_title,
+        body = R.string.new_share_cards_body,
+        icon = Icons.Rounded.Share,
+        action = NewThingAction.NONE,
+    ),
     // 0.12.5's own. The widget is added from its card, as 0.11's was: its styles are picked in
     // the question it asks when it is dropped. The other three are shown where they are. The
     // search and Battery use are on the list of settings itself, so each is one stop there.

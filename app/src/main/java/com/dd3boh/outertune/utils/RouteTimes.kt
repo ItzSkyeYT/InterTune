@@ -134,6 +134,16 @@ object RouteTimes {
      */
     const val SABR_READ_MS = 8_000L
 
+    /**
+     * SABR: once YouTube has turned down two starts of a song in a row, how long no new one is
+     * made for that song, and how close together the two have to be to count as a row. One
+     * refusal is answered with a new start from a new answer, since a start can age. The one
+     * after it turned down as well is YouTube's word on the session, and a third asked the same
+     * way got it again: sixteen walks of the chain for one song (issue #138). As long as a new
+     * visitorData waits after a try that failed (StreamCheck.NEW_VISITOR_RETRY_MS).
+     */
+    const val SABR_REFUSED_REST_MS = 10 * 60 * 1000L
+
     /** Second tries and clients asked alongside: at most this many a minute, and per song. */
     const val HEDGES_PER_MINUTE = 4
     const val EXTRA_PLAYER_PER_SONG = 2

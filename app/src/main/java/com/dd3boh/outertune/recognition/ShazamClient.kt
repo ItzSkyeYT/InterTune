@@ -7,6 +7,7 @@
 package com.dd3boh.outertune.recognition
 
 import android.util.Log
+import com.dd3boh.outertune.fingerprint.DecodedSignature
 import com.dd3boh.outertune.fingerprint.SIGNATURE_SAMPLE_RATE_HZ
 import com.dd3boh.outertune.fingerprint.SignatureGenerator
 import com.dd3boh.outertune.utils.ErrorText
@@ -66,6 +67,24 @@ data class Recognised(
     val searchQuery: String get() = listOfNotNull(title, artist).joinToString(" ")
 }
 
+/**
+ * A window of sound as Shazam is sent it: the fingerprint the phone makes of it, a few kilobytes
+ * where twelve seconds of the sound itself are 384, and never the sound. What is kept of a listen
+ * with no connection ([RecogniseLater]).
+ *
+ * @param rate the speed the window was put back from ([SpeedRetry]), 1 for the window as heard.
+ */
+data class Fingerprint(val uri: String, val sampleMs: Long, val rate: Double = 1.0) {
+    companion object {
+        /** [samples] at the fingerprint's own rate, heard at [rate] and put back from it if not 1. */
+        fun of(samples: ShortArray, rate: Double = 1.0): Fingerprint =
+            of(SignatureGenerator.makeSignature(samples), samples.size, rate)
+
+        internal fun of(signature: DecodedSignature, samples: Int, rate: Double = 1.0) =
+            Fingerprint(signature.encodeToUri(), samples * 1000L / SIGNATURE_SAMPLE_RATE_HZ, rate)
+    }
+}
+
 sealed interface RecognitionOutcome {
     data class Match(val track: Recognised) : RecognitionOutcome
     /** The request worked and Shazam simply did not know it. */
@@ -73,8 +92,14 @@ sealed interface RecognitionOutcome {
     /**
      * @param retryAfterMs how long Shazam asked to be left alone, when it refused and said so. See
      * [ShazamBackoff].
+     * @param unsent the fingerprint the request was to send, when it never reached Shazam: no
+     * connection, or one too slow to answer. What a listen keeps for later ([RecogniseLater]).
      */
-    data class Failed(val reason: String, val retryAfterMs: Long? = null) : RecognitionOutcome
+    data class Failed(
+        val reason: String,
+        val retryAfterMs: Long? = null,
+        val unsent: Fingerprint? = null,
+    ) : RecognitionOutcome
 }
 
 /**
@@ -112,7 +137,14 @@ class ShazamClient @Inject constructor() {
             return@withContext RecognitionOutcome.Failed("silence")
         }
         Log.i(TAG, "Fingerprinted ${samples.size} samples into $peaks peaks")
+        ask(Fingerprint.of(signature, samples.size))
+    }
 
+    /**
+     * Sends [print] and reads the answer: what [identify] does once the fingerprint is made, and
+     * all that is left to do for one kept from a listen with no connection ([RecogniseLater]).
+     */
+    suspend fun ask(print: Fingerprint): RecognitionOutcome = withContext(Dispatchers.IO) {
         val timestamp = System.currentTimeMillis() / 1000
         val payload = JSONObject()
             .put(
@@ -121,9 +153,9 @@ class ShazamClient @Inject constructor() {
             )
             .put(
                 "signature", JSONObject()
-                    .put("samplems", samples.size * 1000L / SIGNATURE_SAMPLE_RATE_HZ)
+                    .put("samplems", print.sampleMs)
                     .put("timestamp", timestamp)
-                    .put("uri", signature.encodeToUri())
+                    .put("uri", print.uri)
             )
             .put("timestamp", timestamp)
             .put("timezone", java.util.TimeZone.getDefault().id)
@@ -144,7 +176,7 @@ class ShazamClient @Inject constructor() {
             ).execute().use { Triple(it.code, it.body?.string().orEmpty(), it.header("Retry-After")) }
         }.getOrElse {
             Log.w(TAG, "Recognition request failed", ErrorText.forLog(it))
-            return@withContext RecognitionOutcome.Failed("network")
+            return@withContext RecognitionOutcome.Failed("network", unsent = print)
         }
 
         val (code, text, retryAfter) = response

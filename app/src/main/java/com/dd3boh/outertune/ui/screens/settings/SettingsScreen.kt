@@ -27,6 +27,7 @@ import androidx.compose.material.icons.rounded.AccountCircle
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Explore
 import androidx.compose.material.icons.rounded.GraphicEq
+import androidx.compose.material.icons.rounded.Group
 import androidx.compose.material.icons.rounded.Lyrics
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.PlayArrow
@@ -38,6 +39,7 @@ import androidx.compose.material.icons.rounded.Storage
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Update
+import androidx.compose.material.icons.rounded.Widgets
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.ElevatedCard
@@ -48,6 +50,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
+import kotlinx.coroutines.flow.MutableStateFlow
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -70,6 +73,7 @@ import com.dd3boh.outertune.ui.screens.walkthrough.Tour
 import com.dd3boh.outertune.ui.screens.walkthrough.tourTarget
 import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.ui.component.PreferenceEntry
+import com.dd3boh.outertune.ui.dialog.togetherAvailable
 import com.dd3boh.outertune.ui.component.button.IconButton
 import com.dd3boh.outertune.ui.component.button.backButtonSurface
 import com.dd3boh.outertune.ui.utils.backToMain
@@ -105,10 +109,31 @@ fun SettingsScreen(
     LaunchedEffect(tourRunning) { if (tourRunning) query = "" }
     if (Unreleased.SETTINGS_SEARCH) ScreenBackHandler(enabled = query.isNotEmpty()) { query = "" }
 
+    // What the panes hold once chosen there, so that turning the phone upright opens that screen
+    // as a page of its own, as Samsung's settings do; and what a page that was open upright is to
+    // open in the panes as the phone turns (SettingsFollowTheTurn).
+    var picked by rememberSaveable { mutableStateOf<ArrayList<String>?>(null) }
+    val listHandle = remember(navController) { runCatching { navController.getBackStackEntry(Tour.ROUTE_SETTINGS).savedStateHandle }.getOrNull() }
+    val pending by remember(listHandle) { listHandle?.getStateFlow<ArrayList<String>?>(SETTINGS_PANES_OPEN, null) ?: MutableStateFlow<ArrayList<String>?>(null) }.collectAsState()
+
     // A window wide enough for it has the list and the chosen screen side by side.
     if (Unreleased.SETTINGS_TWO_PANE && LocalLandscape.current.windowWidth >= SettingsTwoPaneMinWidth) {
-        SettingsTwoPane(navController, scrollBehavior, tourRunning, query, onQueryChange = { query = it })
+        SettingsTwoPane(
+            navController, scrollBehavior, tourRunning, query, onQueryChange = { query = it },
+            initialOpen = pending,
+            onOpen = {
+                picked = ArrayList(it)
+                if (pending != null) listHandle?.set(SETTINGS_PANES_OPEN, null)
+            },
+        )
         return
+    }
+    // Upright again after the panes: the screen chosen there opens as a page of its own.
+    LaunchedEffect(Unit) {
+        picked?.let { chain ->
+            picked = null
+            if (!tourRunning) chain.forEach { navController.navigate(it) }
+        }
     }
     val focus = LocalFocusManager.current
 
@@ -155,6 +180,15 @@ fun SettingsScreen(
                 icon = { Icon(Icons.Rounded.Palette, null) },
                 onClick = { navController.navigate("settings/appearance") }
             )
+            // The widgets on the home screen and the ones to add: how the app looks from outside it.
+            if (Unreleased.WIDGETS_PAGE) {
+                PreferenceEntry(
+                    title = { Text(stringResource(R.string.widgets)) },
+                    description = stringResource(R.string.settings_widgets_description),
+                    icon = { Icon(Icons.Rounded.Widgets, null) },
+                    onClick = { navController.navigate("settings/widgets") }
+                )
+            }
             PreferenceEntry(
                 modifier = Modifier.tourTarget(Tour.ROW_PLAYER),
                 title = { Text(stringResource(R.string.player_and_audio)) },
@@ -174,6 +208,15 @@ fun SettingsScreen(
                 icon = { Icon(Icons.Rounded.Lyrics, null) },
                 onClick = { navController.navigate("settings/library/lyrics") }
             )
+            // Where rooms are offered at all, and last, so that nothing above it moves.
+            if (togetherAvailable) {
+                PreferenceEntry(
+                    title = { Text(stringResource(R.string.together_title)) },
+                    description = stringResource(R.string.settings_together_description),
+                    icon = { Icon(Icons.Rounded.Group, null) },
+                    onClick = { navController.navigate("settings/together") }
+                )
+            }
         }
     }
     val kept: @Composable () -> Unit = {
@@ -181,6 +224,7 @@ fun SettingsScreen(
             modifier = Modifier.fillMaxWidth().tourTarget(Tour.SETTINGS_KEPT)
         ) {
             PreferenceEntry(
+                modifier = Modifier.tourTarget(Tour.ROW_STORAGE),
                 title = { Text(stringResource(R.string.grp_storage_and_downloads)) },
                 description = stringResource(R.string.settings_storage_description),
                 icon = { Icon(Icons.Rounded.Storage, null) },

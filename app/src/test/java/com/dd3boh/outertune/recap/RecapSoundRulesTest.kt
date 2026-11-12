@@ -62,8 +62,8 @@ class RecapSoundRulesTest {
         assertTrue("volumes[song.id] ?: service.volumeFor(song.id, song.local)" in player)
         assertEquals(2, Regex("""val volume = volumeOf\(song\)""").findAll(player).count())
         val service = code("playback/MusicService.kt")
-        assertTrue("normalizeFactor.value = levelOf(normalizeAudio, isLocal, format?.loudnessDb)" in service)
-        assertTrue("val level = levelOf(dataStore.get(AudioNormalizationKey, true), isLocal, loudness)" in service)
+        assertTrue("normalizeFactor.value = Normalization.factor(format?.loudnessDb, isLocal, normalizeAudio)" in service)
+        assertTrue("val level = Normalization.factor(loudness, isLocal, dataStore.get(AudioNormalizationKey, true))" in service)
     }
 
     @Test
@@ -72,8 +72,10 @@ class RecapSoundRulesTest {
         // queue at Done without being looked up again.
         assertTrue("val source = service.recapSource()" in player)
         val service = code("playback/MusicService.kt")
-        assertTrue("fun recapSource(): DataSource.Factory = createDataSourceFactory(forPlayer = false, playersResolver = true)" in service)
-        assertTrue("val resolver = if (playersResolver) playerResolver else SongResolver(streamAddresses)" in service)
+        // Every source reads through the player's one resolver on this line, on calls of its own.
+        assertTrue("fun recapSource(): DataSource.Factory = createDataSourceFactory(forPlayer = false)" in service)
+        assertTrue("val resolver = playerResolver" in service.substringAfter("private fun createDataSourceFactory(").substringBefore("\n    }\n"))
+        assertTrue("val calls = if (forPlayer) playerCalls else StreamFamily.Calls(playerStreamClient)" in service)
         // The stall watch still hears only of the player's own reads.
         assertTrue("if (forPlayer) resolvingSongs.merge(mediaId, 1, Int::plus)" in service)
     }
@@ -98,7 +100,7 @@ class RecapSoundRulesTest {
         val slideIn = service.substringAfter("fun slideIn(songId: String, positionMs: Long) {").substringBefore("\n    }\n")
         // In front of the song that was current, by the listener's hand, that song set aside and not skipped.
         assertTrue("queueBoard.addSongsToQueue(q, at, listOf(song))" in slideIn)
-        assertTrue("noteByHand(q, listOf(song.toMediaItem()))" in slideIn)
+        assertTrue("noteByHand(q, listOf(song.id))" in slideIn)
         assertTrue("userChoicePending = true" in slideIn)
         assertTrue("activePlayer.seekTo(at, positionMs)" in slideIn)
         assertTrue("resumeAfterSlideIn = current.mediaId to currentAt" in slideIn)

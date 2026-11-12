@@ -80,6 +80,41 @@ class WidgetWordsFirstTest {
         assertFalse("imageLoader" in fromLibrary)
     }
 
+    /**
+     * The widget of the report of 4 Nov 2026 (experiments/bugs/widget-1104) was a card with nothing
+     * on it after it was added. A widget just added is written and drawn from what the snapshot
+     * holds before the library is read: History alone is every play there has been. And the library
+     * is read with no lock held, since every play and pause waits for that lock.
+     */
+    @Test
+    fun `a widget that has just appeared is drawn before the library is read, which is read outside the lock`() {
+        val draws = hydrate.indexOf("updateAll(context)")
+        val reads = hydrate.indexOf("fromLibrary(context")
+        assertTrue("$draws, $reads", draws in 0 until reads)
+        val body = hydrate.substringBefore("private suspend fun shownLists(")
+        var at = body.indexOf("mutex.withLock {")
+        var locks = 0
+        while (at >= 0) {
+            val block = body.substring(at, closing(body, body.indexOf('{', at)) + 1)
+            assertFalse(block, "fromLibrary(" in block)
+            locks++
+            at = body.indexOf("mutex.withLock {", at + 1)
+        }
+        assertTrue(locks >= 2)
+    }
+
+    /** Where the block opened by the brace at [open] closes, counting braces. */
+    private fun closing(text: String, open: Int): Int {
+        var depth = 0
+        for (i in open until text.length) {
+            when (text[i]) {
+                '{' -> depth++
+                '}' -> if (--depth == 0) return i
+            }
+        }
+        error("no closing brace after $open")
+    }
+
     @Test
     fun `a new widget draws the cover of what is playing before it fetches a single row's`() {
         // On a phone that never had a widget, every list's covers are missing: a few dozen downloads,

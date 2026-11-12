@@ -1,0 +1,36 @@
+Version 0.10.8
+
+=== Nowości ===
+• Automatyczne kopie zapasowe: wybierz folder, częstotliwość (codziennie/co tydzień) oraz liczbę zachowywanych kopii na suwaku. Obejmuje bibliotekę, playlisty, ustawienia i historię słuchania. Domyślnie wyłączone.
+• Zapisywanie kolejki jako playlisty za pomocą przycisku na ekranie kolejki, w aktualnie wyświetlanej kolejności.
+• Eksport każdej playlisty do pliku M3U jednym dotknięciem, do wybranego folderu.
+
+=== Poprawki ===
+• Muzyka nie zawiesza się już na komunikacie „Czekaj na ponowne połączenie” do momentu wymuszenia zamknięcia aplikacji.
+• Opcja „Zezwól innym aplikacjom na jednoczesne odtwarzanie” działa natychmiast po włączeniu, bez konieczności ubijania procesu aplikacji.
+• Utwory nie zawierają już liczby odtworzeń ani daty przesłania w miejscu, gdzie powinna znajdować się nazwa wykonawcy.
+• Dodano przycisk wstecz w miniodtwarzaczu, który wcześniej oferował tylko opcje odtwarzania i przejścia do następnego utworu.
+• Przełączanie utworów jest lżejsze: wcześniej zmiana piosenki wysyłała cztery zapytania do pliku ustawień, z czego trzy w wątku odpowiedzialnym za rysowanie ekranu.
+
+=== Szybki wybór ===
+• Wiersz nie robi się pusty przy każdym odświeżeniu, a ekran główny nie wyświetla już dwóch sekcji o nazwie „Szybki wybór”.
+• Dla źródła YouTube Music sekcja ta korzysta teraz z natywnej półki YouTube, więc miksy trwające ponad godzinę nie trafiają już pod ten nagłówek.
+• Odtwarzana karta pozostaje na swoim miejscu do momentu odświeżenia.
+• Przeciągnięcie w celu odświeżenia ładuje nowe utwory, a nie te same w innej kolejności.
+• Naprawiono dwa długotrwałe błędy w zapytaniach biblioteki – wersje na żywo, zwolnione oraz zremiksowane tego samego utworu nie są już wyświetlane obok siebie.
+• Sekcja ładuje się około 4 sekundy szybciej, ponieważ nie czeka na zapytania obsługujące wiersze w niższej części ekranu.
+
+=== Interfejs ===
+• Przejścia przewidywanego gestu wstecz oraz odsłaniania ekranu.
+• Karta Offline: lista utworów, które można odtworzyć bez połączenia z siecią.
+• Usuwanie utworu z playlisty bez konieczności opuszczania odtwarzacza.
+• Opcja wznawiania odtwarzania po otwarciu aplikacji.
+• Najwyższy dostępny format audio oraz informacja w ustawieniach, co jest aktualnie odtwarzane.
+• Aplikacja informuje o wyłączeniu pamięci podręcznej utworów.
+
+=== Uwagi ===
+• Wersje z F-Droida aktualizują się przez F-Droid; wbudowany instalator w aplikacji ustępuje im miejsca.
+• Aplikacja rejestruje odtwarzaną muzykę lokalnie na urządzeniu, tworząc historię pod przyszłe rekomendacje. Korzystają z niej wyłącznie ulepszenia sekcji „Szybki wybór”. Można to wyłączyć w: Ustawienia &gt; Prywatność i historia &gt; Wstrzymaj historię odtwarzania.
+
+Pełna lista zmian:
+https://github.com

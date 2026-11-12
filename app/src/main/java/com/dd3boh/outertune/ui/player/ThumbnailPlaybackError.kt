@@ -16,16 +16,24 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.material.icons.rounded.BugReport
+import com.dd3boh.outertune.ui.component.ProblemReportDialog
+import com.dd3boh.outertune.ui.component.PlayerErrorReport
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.AccountCircle
 import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.Public
+import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -52,14 +60,18 @@ import com.dd3boh.outertune.LocalBatteryMode
 import com.dd3boh.outertune.playback.BatteryUse
 import com.dd3boh.outertune.constants.PlayerBackgroundStyle
 import com.dd3boh.outertune.constants.PlayerBackgroundStyleKey
+import com.dd3boh.outertune.ui.component.rememberSignedIn
 import com.dd3boh.outertune.ui.utils.fadingEdge
 import com.dd3boh.outertune.utils.ErrorText
 import com.dd3boh.outertune.utils.rememberEnumPreference
 import com.dd3boh.outertune.utils.Throttle
 import com.dd3boh.outertune.utils.YTPlayerUtils
+import com.dd3boh.outertune.playback.StreamAnswer
+import com.dd3boh.outertune.LocalPlayerConnection
 import com.dd3boh.outertune.utils.installedFrom
 import android.widget.Toast
 import androidx.compose.ui.platform.LocalContext
+import com.dd3boh.outertune.utils.Toaster
 
 @SuppressLint("UnusedBoxWithConstraintsScope")
 @Composable
@@ -67,9 +79,18 @@ fun ThumbnailPlaybackError(
     error: PlaybackException,
     retry: () -> Unit,
     modifier: Modifier = Modifier,
+    /**
+     * Where the way out of YouTube wanting a sign-in leads, both away from the player: the login
+     * page and the proxy setting. The caller takes the sheet down on the way (BottomSheetPlayer),
+     * or the page opens under it unseen.
+     */
+    onSignIn: () -> Unit = {},
+    onProxy: () -> Unit = {},
 ) {
     val clipboardManager = LocalClipboard.current
     val context = LocalContext.current
+    // The song the error is about, for what its stream's server sent at its start (StreamAnswer).
+    val song = LocalPlayerConnection.current?.player?.currentMediaItem?.mediaId
 
     val playerBackground by rememberEnumPreference(
         key = PlayerBackgroundStyleKey,
@@ -97,7 +118,13 @@ fun ThumbnailPlaybackError(
     // ERROR_CODE_IO_UNSPECIFIED, "Unexpected P" is a minified class name, and only the tail carries
     // any information. Branching on errorCode would never fire, because the code set when the
     // response is rejected does not survive the re-wrap. Walk the cause chain instead.
-    val isYouTubeBusy = remember(error) { Throttle.isBlock(error) }
+    //
+    // And YouTube asking for a sign-in, which is what the bot check and a LOGIN_REQUIRED from every
+    // route come to: it used to end as "Unknown error" when the walk's last answer was an OK with
+    // no address (issue #124). Signed out the way out is to sign in, and signed in the account
+    // was asked already, so what is left is the network.
+    val isYouTubeBusy = remember(error) { YTPlayerUtils.isSignInWanted(error) }
+    val signedIn = rememberSignedIn()
     // The other thing that arrives wearing the same unreadable wrapper, and the far more common
     // one: a single song YouTube age gates. Nothing is wrong with the app, the network or the
     // account, and the raw text says none of that.
@@ -105,8 +132,12 @@ fun ThumbnailPlaybackError(
     // And a song YouTube no longer serves, which every client turned down and no other copy of
     // the recording could stand in for: "Unexpected SongUnavailable" under the same wrapper.
     val isGone = remember(error) { YTPlayerUtils.isUnavailableSong(error) }
+    // And what came back not being audio at all ("Source error (3003): None of the available
+    // extractors ... could read the stream"): said plainly, with what usually causes it.
+    val isNotAudio = remember(error) { ErrorText.isNotAudio(error) }
 
     var showStackTrace by remember { mutableStateOf(false) }
+    var reporting by remember { mutableStateOf(false) }
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -129,11 +160,13 @@ fun ThumbnailPlaybackError(
             )
             Text(
                 text = if (isYouTubeBusy) {
-                    stringResource(R.string.err_youtube_busy)
+                    if (signedIn) stringResource(R.string.err_youtube_busy) else stringResource(R.string.err_sign_in_wanted)
                 } else if (isAgeGated) {
                     stringResource(R.string.err_age_restricted)
                 } else if (isGone) {
                     stringResource(R.string.err_song_unavailable)
+                } else if (isNotAudio) {
+                    stringResource(R.string.err_not_audio)
                 } else {
                     // What the error says of itself goes through ErrorText, here and below: a
                     // connection that failed names the phone's own address, and this screen is
@@ -144,6 +177,76 @@ fun ThumbnailPlaybackError(
                 style = MaterialTheme.typography.bodyMedium
             )
         }
+        // The way out of it: Log in for who is signed out, and the proxy setting, where a network
+        // YouTube turns away can be left behind. Before Retry, which tries the same thing again.
+        if (isYouTubeBusy) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (!signedIn) {
+                    TextButton(onClick = onSignIn) {
+                        Icon(
+                            imageVector = Icons.Rounded.AccountCircle,
+                            contentDescription = null,
+                            tint = textColor,
+                            modifier = Modifier.size(18.dp),
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            text = stringResource(R.string.action_login),
+                            color = textColor,
+                            style = MaterialTheme.typography.labelLarge,
+                        )
+                    }
+                }
+                TextButton(onClick = onProxy) {
+                    Icon(
+                        imageVector = Icons.Rounded.Public,
+                        contentDescription = null,
+                        tint = textColor,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        text = stringResource(R.string.region_note_proxy),
+                        color = textColor,
+                        style = MaterialTheme.typography.labelLarge,
+                    )
+                }
+            }
+        }
+        // The retry this screen is handed was never drawn: the play button was the only way to try
+        // again, and nothing said so. Beside it, Report: the error, which client served the song and
+        // what each one answered, straight into Report a problem, anonymous or with GitHub (7 Nov 2026).
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            TextButton(onClick = retry) {
+                Icon(
+                    imageVector = Icons.Rounded.Refresh,
+                    contentDescription = null,
+                    tint = textColor,
+                    modifier = Modifier.size(18.dp),
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = stringResource(R.string.retry),
+                    color = textColor,
+                    style = MaterialTheme.typography.labelLarge,
+                )
+            }
+            TextButton(onClick = { reporting = true }) {
+                Icon(
+                    imageVector = Icons.Rounded.BugReport,
+                    contentDescription = null,
+                    tint = textColor,
+                    modifier = Modifier.size(18.dp),
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = stringResource(R.string.player_error_report),
+                    color = textColor,
+                    style = MaterialTheme.typography.labelLarge,
+                )
+            }
+        }
+        if (reporting) ProblemReportDialog(onDismiss = { reporting = false }, playerError = playerErrorReport(error, song))
         // Copying used to be a hidden tap on the stack trace itself, which meant nobody found it
         // and bug reports arrived as photographs of a screen. It is a button now, and it says when
         // it has worked.
@@ -154,14 +257,7 @@ fun ThumbnailPlaybackError(
                 appendLine("${Build.BRAND} ${Build.DEVICE} (${Build.MODEL})")
                 appendLine("Installed from: ${context.installedFrom()}")
                 appendLine("Android ${Build.VERSION.RELEASE}, API ${Build.VERSION.SDK_INT} (${Build.ID})")
-                // Which of the player clients produced the url. Without it a report of a 403
-                // partway through a song says nothing about which of three clients to go and
-                // look at, and that is the question every one of these has turned out to be.
-                appendLine("stream client: ${YTPlayerUtils.lastStreamClient ?: "unknown"}")
-                // And what every client answered on the way there. The one that ended the chain is
-                // rarely the cause: issue #17 reported IOS's 403, and VISIONOS had refused first.
-                // For a song looked for under another id, every walk of that lookup: see StandIns.
-                appendLine("stream chain: ${YTPlayerUtils.lastStreamTrail ?: "unknown"}")
+                streamLines(song).forEach { appendLine(it) }
             }
             // The lines about the app and the phone go in as they are. Only the error's own words
             // are given to ErrorText, which would take a version for an address.
@@ -170,7 +266,7 @@ fun ThumbnailPlaybackError(
             clipboardManager.nativeClipboard.setPrimaryClip(
                 ClipData.newPlainText("InterTune player error", AnnotatedString(report))
             )
-            Toast.makeText(context, R.string.copied, Toast.LENGTH_SHORT).show()
+            Toaster.show(context, R.string.copied, Toast.LENGTH_SHORT)
         }
 
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -208,3 +304,24 @@ fun ThumbnailPlaybackError(
         Spacer(Modifier.height(64.dp))
     }
 }
+
+/**
+ * Which of the player clients produced the url. Without it a report of a 403 partway through a song
+ * says nothing about which of three clients to go and look at, and that is the question every one
+ * of these has turned out to be. And what every client answered on the way there: the one that ended
+ * the chain is rarely the cause (issue #17 reported IOS's 403, and VISIONOS had refused first). For a
+ * song looked for under another id, every walk of that lookup: see StandIns.
+ */
+internal fun streamLines(mediaId: String? = null): List<String> = listOfNotNull(
+    "stream client: ${YTPlayerUtils.lastStreamClient ?: "unknown"}",
+    "stream chain: ${YTPlayerUtils.lastStreamTrail ?: "unknown"}",
+    // What the server sent at the song's start: see StreamAnswer.
+    StreamAnswer.of(mediaId)?.let { "stream answer: $it" },
+)
+
+/** The player's [error] for Report a problem: its line and the stream's, the error in full, and the issue's name. */
+internal fun playerErrorReport(error: PlaybackException, mediaId: String? = null) = PlayerErrorReport(
+    lines = listOf("Player error: ${ErrorText.playerLine(error)}") + streamLines(mediaId),
+    full = ErrorText.of(error),
+    title = "Player error: ${error.errorCodeName}",
+)

@@ -165,6 +165,8 @@ class ChainWalkTest {
          * none unless a test says so, so that every other walk ends as it always did.
          */
         private val sabrFrom: Set<String> = emptySet(),
+        /** False: SabrOver makes no start, as while YouTube has turned down the song's last two (SabrStarts.restsUntil). */
+        private val sabrGives: Boolean = true,
     ) : YTPlayerUtils.Wire {
         /** The answers kept for a start over SABR, this walk's and any a test put there before it. */
         val answers = PlayerAnswers()
@@ -178,6 +180,7 @@ class ChainWalkTest {
 
         override fun overSabr(answer: PlayerAnswers.Answer, data: YTPlayerUtils.PlaybackData, clockId: String, forDownload: Boolean): YTPlayerUtils.PlaybackData? {
             sabrAsked += SabrAsked(answer, data, clockId, forDownload)
+            if (!sabrGives) return null
             return data.copy(streamUrl = "sabr://${answer.videoId}?itag=${data.format.itag}&lmt=0")
         }
         /** Every n step started, by the client its host names. */
@@ -1839,19 +1842,80 @@ class ChainWalkTest {
     }
 
     @Test
-    fun `a song the clients before it call gone is not asked of the web client, and is called gone as before`() {
+    fun `a song the clients before it call gone is asked of the web client once, and is called gone when it says so too`() {
+        // Issue #82: YouTube Music's web client plays songs the others call "not available", so
+        // it is asked before a song is called gone. Its own word for a song that is gone, "Video
+        // unavailable", is not counted: the song is called gone in the first client's words.
         remembering("VISIONOS", "ANDROID_VR")
         val gone = refused("This video is not available", status = "UNPLAYABLE")
         val script = Script(
-            says = mapOf("VISIONOS" to listOf(gone), "ANDROID_VR" to listOf(refused(bot)), "IOS" to listOf(gone)),
+            says = mapOf(
+                "VISIONOS" to listOf(gone),
+                "ANDROID_VR" to listOf(refused(bot)),
+                "WEB_REMIX" to listOf(refused("Video unavailable", status = "UNPLAYABLE")),
+                "IOS" to listOf(gone),
+            ),
+            playerScript = playerScript,
+            solver = solving,
             canSolve = true,
         )
         val failure = walk(script).exceptionOrNull()
 
-        assertEquals(listOf("VISIONOS", "ANDROID_VR", "IOS"), script.askedOf)
-        assertEquals("no player script was fetched to hear it said a third time", 0, script.scriptsAskedFor)
+        assertEquals(listOf("VISIONOS", "ANDROID_VR", "WEB_REMIX", "IOS"), script.askedOf)
+        assertEquals("as a visitor", listOf("WEB_REMIX" to false), script.carriedInOrder.filter { it.first == "WEB_REMIX" })
         assertTrue("the song is called gone, so that its other copy is looked for: $failure", failure is YTPlayerUtils.SongUnavailable)
         assertEquals("This video is not available", failure?.message)
+        assertEquals("VISIONOS UNPLAYABLE, ANDROID_VR LOGIN_REQUIRED, WEB_REMIX UNPLAYABLE, IOS UNPLAYABLE", YTPlayerUtils.lastStreamTrail)
+        assertEquals("nothing learned of the web client for the songs after", "VISIONOS", YTPlayerUtils.streamMemory.worked)
+        assertFalse("WEB_REMIX" in YTPlayerUtils.streamMemory.refusedAt.keys)
+    }
+
+    @Test
+    fun `a song the clients before it call gone plays when the web client serves it, and the web client is not asked first after that`() {
+        // Issue #82: kynPZKHJixA, UNPLAYABLE to VISIONOS and ANDROID_VR, played whole from
+        // WEB_REMIX on the emulator (5 Nov 2026). Its own turn, before IOS.
+        remembering("VISIONOS", "ANDROID_VR")
+        val gone = refused("This video is not available", status = "UNPLAYABLE")
+        val script = Script(
+            says = mapOf("VISIONOS" to listOf(gone), "ANDROID_VR" to listOf(gone), "WEB_REMIX" to listOf(ciphered())),
+            playerScript = playerScript,
+            solver = solving,
+            canSolve = true,
+        )
+        val data = walk(script).getOrThrow()
+
+        assertEquals(listOf("VISIONOS", "ANDROID_VR", "WEB_REMIX"), script.askedOf)
+        assertEquals("VISIONOS UNPLAYABLE, ANDROID_VR UNPLAYABLE, WEB_REMIX OK, HEAD 200 with the video's token", YTPlayerUtils.lastStreamTrail)
+        assertEquals(asked(Script.VIDEO_TOKEN), data.streamUrl)
+        assertTrue(data.validated)
+        assertEquals("one song only the web client plays does not make it the first asked", "VISIONOS", YTPlayerUtils.streamMemory.worked)
+    }
+
+    @Test
+    fun `whatever else the web client answers before a song is called gone, the song is called gone on what the others said, and nothing of it is counted`() {
+        // The bot check, no answer at all, an OK whose address is refused: none says the song is
+        // there to be had, and none goes to the throttle or to StreamOrder.
+        for (webSays in listOf<Any>(refused(bot), UnknownHostException("no address"), ciphered())) {
+            Throttle.clear("the next case")
+            YTPlayerUtils.forgetGoneInARow()
+            remembering("VISIONOS", "ANDROID_VR")
+            val gone = refused("This video is not available", status = "UNPLAYABLE")
+            val script = Script(
+                says = mapOf("VISIONOS" to listOf(gone), "ANDROID_VR" to listOf(gone), "WEB_REMIX" to listOf(webSays), "IOS" to listOf(gone)),
+                heads = mapOf("web-remix" to 403),
+                playerScript = playerScript,
+                solver = solving,
+                canSolve = true,
+            )
+            val failure = walk(script).exceptionOrNull()
+
+            assertTrue("$webSays: $failure", failure is YTPlayerUtils.SongUnavailable)
+            assertEquals("This video is not available", failure?.message)
+            assertEquals("$webSays: asked once", 1, script.askedOf.count { it == "WEB_REMIX" })
+            assertFalse("$webSays: nothing told to the throttle", Throttle.isBlocked)
+            assertEquals("$webSays: nothing learned of it", "VISIONOS", YTPlayerUtils.streamMemory.worked)
+            assertFalse("$webSays: no strike", "WEB_REMIX" in YTPlayerUtils.streamMemory.refusedAt.keys)
+        }
     }
 
     // --- VISIONOS under its two other identities (Unreleased.VISIONOS_IDENTITIES). ---
@@ -2174,15 +2238,41 @@ class ChainWalkTest {
     }
 
     @Test
-    fun `signed out, a song every client calls gone is called gone as before, and no web client is asked`() {
+    fun `signed out, a song the clients before it call gone is asked of the web client as a visitor, and plays when it is served`() {
+        // It used to be called gone with the web client never asked (issue #82).
         remembering("VISIONOS", "ANDROID_VR")
         val script = goneButFor(ciphered())
+        val data = walk(script).getOrThrow()
+
+        assertEquals(listOf("VISIONOS", "ANDROID_VR", "WEB_REMIX"), script.askedOf)
+        assertEquals("as a visitor", listOf("WEB_REMIX" to false), script.carriedInOrder.filter { it.first == "WEB_REMIX" })
+        assertTrue(data.validated)
+    }
+
+    @Test
+    fun `signed out, a song every client calls gone, the web client too, is called gone with no account's word on it`() {
+        remembering("VISIONOS", "ANDROID_VR")
+        val script = goneButFor(refused("Video unavailable", status = "UNPLAYABLE"))
         val failure = walk(script).exceptionOrNull()
 
-        assertEquals(listOf("VISIONOS", "ANDROID_VR", "IOS"), script.askedOf)
-        assertEquals("no player script fetched", 0, script.scriptsAskedFor)
+        assertEquals(listOf("VISIONOS", "ANDROID_VR", "WEB_REMIX", "IOS"), script.askedOf)
         assertTrue(failure.toString(), failure is YTPlayerUtils.SongUnavailable)
         assertFalse("no account to have said anything", (failure as YTPlayerUtils.SongUnavailable).byTheAccountToo)
+    }
+
+    @Test
+    fun `signed out, the web client is asked once in a walk before a song is called gone, and not while two other songs in a row were`() {
+        val gone = refused("Video unavailable", status = "UNPLAYABLE")
+        assertTrue(walkSong("TESTVIDEO01", goneButFor(gone)).exceptionOrNull() is YTPlayerUtils.SongUnavailable)
+        // The second song in a row called gone is walked twice (issue #28): the web client once.
+        val second = goneButFor(gone)
+        assertTrue(walkSong("TESTVIDEO02", second).exceptionOrNull() is YTPlayerUtils.SongUnavailable)
+        assertTrue("walked again with a new visitorData: ${second.askedOf}", "ANDROID_VR as a new visitor" in second.askedOf)
+        assertEquals("the web client once, in the first pass: ${second.askedOf}", 1, second.askedOf.count { it == "WEB_REMIX" })
+        // A connection YouTube turns away calls every song gone: not asked once more for each.
+        val third = goneButFor(ciphered())
+        assertTrue(walkSong("TESTVIDEO03", third).exceptionOrNull() is YTPlayerUtils.SongUnavailable)
+        assertFalse("the web client was asked: ${third.askedOf}", "WEB_REMIX" in third.askedOf)
     }
 
     @Test
@@ -2455,7 +2545,7 @@ class ChainWalkTest {
     // ---- SABR, the last rung ----
 
     /** Every direct address refused, as on the day they stop: each client's check gets 403. */
-    private fun refusedEverywhere(vararg instead: Pair<String, List<Any>>, sabrFrom: Set<String> = setOf("VISIONOS")) = Script(
+    private fun refusedEverywhere(vararg instead: Pair<String, List<Any>>, sabrFrom: Set<String> = setOf("VISIONOS"), sabrGives: Boolean = true) = Script(
         says = mapOf(
             "ANDROID_VR" to listOf(refused(bot)),
             "VISIONOS" to listOf(playable("VISIONOS", loudness = 5.0, seconds = "200")),
@@ -2464,6 +2554,7 @@ class ChainWalkTest {
         ) + instead,
         heads = mapOf("VISIONOS" to 403, "VISIONOS_104" to 403, "VISIONOS_SAFARI" to 403, "IOS" to 403),
         sabrFrom = sabrFrom,
+        sabrGives = sabrGives,
     )
 
     @Test
@@ -2479,9 +2570,27 @@ class ChainWalkTest {
     }
 
     @Test
+    fun `a song YouTube turned down over SABR twice in a row is given no third start, and the walk ends in its own words`() {
+        // Issue #138: SabrOver makes no start while the song rests (SabrRefusedTwiceTest). The walk
+        // used to come back to this rung at every load and every quiet retry, sixteen times a song.
+        val script = refusedEverywhere(sabrGives = false)
+        val failure = walk(script).exceptionOrNull()
+        assertEquals("the rung asked for the answer it had, and was given nothing", 1, script.sabrAsked.size)
+        assertEquals("the walk's own error, as without SABR", "YouTube refused the stream (HTTP 403)", failure?.message)
+        assertTrue("YouTube's word, not a want of an answer: $failure", failure is PlaybackException && !StreamOrder.networkDidNotAnswer(failure))
+        // As the loader hands it to the player, which then stops or skips: no quiet retry walks here again.
+        val stopped = androidx.media3.exoplayer.ExoPlaybackException.createForSource(
+            androidx.media3.exoplayer.upstream.Loader.UnexpectedLoaderException(failure!!),
+            PlaybackException.ERROR_CODE_IO_UNSPECIFIED,
+        )
+        assertEquals(Recovery.Kind.FINAL, Recovery.kind(stopped))
+    }
+
+    @Test
     fun `SABR may take over only what YouTube turned down, never a walk that heard nothing or a song it calls gone`() {
         assertTrue("the bot check", YTPlayerUtils.sabrMayTakeOver(PlaybackException(bot, null, PlaybackException.ERROR_CODE_REMOTE_ERROR)))
         assertTrue("every address refused", YTPlayerUtils.sabrMayTakeOver(PlaybackException("YouTube refused the stream (HTTP 403)", null, PlaybackException.ERROR_CODE_REMOTE_ERROR)))
+        assertTrue("a sign-in asked for, in words of its own or the bot check's", YTPlayerUtils.sabrMayTakeOver(YTPlayerUtils.SignInWanted("Please sign in")))
         // An OK answer with no direct address in it, which is what a client that streams only over SABR gives.
         assertTrue("no address given", YTPlayerUtils.sabrMayTakeOver(Exception("Missing stream expire time")))
         assertFalse("no network", YTPlayerUtils.sabrMayTakeOver(UnknownHostException("music.youtube.com")))
@@ -2583,5 +2692,176 @@ class ChainWalkTest {
         val result = walk(script)
         assertEquals(0, script.sabrAsked.size)
         assertEquals("YouTube refused the stream (HTTP 403)", result.exceptionOrNull()?.message)
+    }
+
+    // --- Issue #124: YouTube wanting a sign-in, and the walk saying so. ---
+    // 10 Nov 2026, a Pixel 7 Pro on a VPN, signed in: VISIONOS (under its three names), ANDROID_VR,
+    // the web client as a visitor and IOS all answered LOGIN_REQUIRED, the web client as the account
+    // answered OK with an address the app could not decipher, and the walk ended in that last
+    // answer as "Missing stream expire time", which the player showed as "Unknown error".
+
+    /** A solver that hands n back as it came, as NewPipeExtractor's did on 9 Oct 2026: the address stays ciphered. */
+    private val idleSolver: suspend (List<String>, List<String>) -> ChallengeSolver.Solved = { signatures, ns ->
+        ChallengeSolver.Solved(signatures.associateWith { "UNSCRAMBLED" }, ns.associateWith { it })
+    }
+
+    /** What the log of #124 shows every anonymous route answering, and the account's web client, whose cipher is left as it is. */
+    private fun everyRouteAsksForASignIn() = Script(
+        says = mapOf(
+            "VISIONOS" to listOf(refused(bot)),
+            "ANDROID_VR" to listOf(refused(bot)),
+            "VISIONOS_104" to listOf(refused(bot)),
+            "VISIONOS_SAFARI" to listOf(refused(bot)),
+            // The chain's own web client as a visitor, then the same client as the account.
+            "WEB_REMIX" to listOf(refused(bot), ciphered()),
+            "IOS" to listOf(refused(bot)),
+            "ANDROID_VR as a new visitor" to listOf(refused(bot, carrying = newVisitor)),
+        ),
+        playerScript = playerScript,
+        solver = idleSolver,
+        canSolve = true,
+    )
+
+    @Test
+    fun `signed in on a VPN, every route asks for a sign-in and the account's address cannot be deciphered, the walk says what YouTube asked`() {
+        remembering("VISIONOS", "ANDROID_VR")
+        signedIn()
+        YTPlayerUtils.identitiesInChain = true
+        val script = everyRouteAsksForASignIn()
+        val failure = walk(script).exceptionOrNull()
+
+        assertTrue(failure.toString(), failure is YTPlayerUtils.SignInWanted)
+        assertEquals("YouTube's own words, which the throttle and the error screen read", bot, failure?.message)
+        assertTrue(YTPlayerUtils.isSignInWanted(failure))
+        assertFalse("not the bare error the listener can only call unknown", failure?.message.orEmpty().contains("expire time"))
+        assertTrue(
+            YTPlayerUtils.lastStreamTrail.orEmpty(),
+            YTPlayerUtils.lastStreamTrail.orEmpty().endsWith(
+                "VISIONOS LOGIN_REQUIRED, ANDROID_VR LOGIN_REQUIRED, VISIONOS_104 LOGIN_REQUIRED, VISIONOS_SAFARI LOGIN_REQUIRED, " +
+                    "WEB_REMIX LOGIN_REQUIRED, IOS LOGIN_REQUIRED, WEB_REMIX (account) OK, address not deciphered"
+            ),
+        )
+        assertEquals("the account's web client was asked, as the account", listOf("WEB_REMIX" to false, "WEB_REMIX" to true), script.carriedInOrder.filter { it.first == "WEB_REMIX" })
+        assertTrue("the throttle hears it, as it hears the bot check", Throttle.isBlocked)
+    }
+
+    @Test
+    fun `the player's quiet retries leave it alone, and SABR may still take it over`() {
+        remembering("VISIONOS", "ANDROID_VR")
+        signedIn()
+        YTPlayerUtils.identitiesInChain = true
+        val failure = walk(everyRouteAsksForASignIn()).exceptionOrNull()!!
+
+        val stopped = androidx.media3.exoplayer.ExoPlaybackException.createForSource(
+            androidx.media3.exoplayer.upstream.Loader.UnexpectedLoaderException(failure),
+            PlaybackException.ERROR_CODE_IO_UNSPECIFIED,
+        )
+        assertEquals(Recovery.Kind.FINAL, Recovery.kind(stopped))
+        assertTrue("YouTube answered and turned the direct addresses down", YTPlayerUtils.sabrMayTakeOver(failure))
+        assertFalse("and it is not a song that is gone", YTPlayerUtils.isUnavailableSong(failure))
+    }
+
+    @Test
+    fun `signed out, every route asking for a sign-in ends as YouTube's words, found as a sign-in wanted`() {
+        remembering("VISIONOS", "ANDROID_VR")
+        val script = Script(
+            mapOf(
+                "VISIONOS" to listOf(refused(bot)),
+                "ANDROID_VR" to listOf(refused(bot)),
+                "IOS" to listOf(refused(bot)),
+                "ANDROID_VR as a new visitor" to listOf(refused(bot, carrying = newVisitor)),
+            )
+        )
+        val failure = walk(script).exceptionOrNull()
+
+        assertEquals(bot, failure?.message)
+        assertTrue(YTPlayerUtils.isSignInWanted(failure))
+    }
+
+    @Test
+    fun `an OK with no address after a sign-in was asked for is a sign-in wanted, whatever the last client was`() {
+        remembering("VISIONOS", "ANDROID_VR")
+        // The bot check from IOS, then VISIONOS's OK that holds no address at all, which is what a client that streams only over SABR gives.
+        YTPlayerUtils.streamMemory = Memory("IOS", mapOf("ANDROID_VR" to System.currentTimeMillis() - 60_000, "VISIONOS" to System.currentTimeMillis() - 60_000))
+        val script = Script(
+            mapOf(
+                "ANDROID_VR" to listOf(refused(bot)),
+                "IOS" to listOf(refused(bot)),
+                "VISIONOS" to listOf(withoutAddress(playable("VISIONOS", loudness = 5.0, seconds = "200"))),
+            )
+        )
+        val failure = walk(script).exceptionOrNull()
+
+        assertTrue(failure.toString(), failure is YTPlayerUtils.SignInWanted)
+        assertEquals("IOS LOGIN_REQUIRED, ANDROID_VR LOGIN_REQUIRED, VISIONOS OK, no address", YTPlayerUtils.lastStreamTrail)
+    }
+
+    @Test
+    fun `an OK with nothing to fetch after no sign-in was asked for ends as it always did`() {
+        remembering("VISIONOS", "ANDROID_VR")
+        // Nothing here asks for a sign-in: the main client's bot check is its own and routine, and VISIONOS says something else.
+        val script = Script(
+            mapOf(
+                "VISIONOS" to listOf(refused("Something went wrong", status = "ERROR")),
+                "ANDROID_VR" to listOf(refused(bot)),
+                "IOS" to listOf(withoutAddress(playable("IOS", loudness = 5.0, seconds = "200"))),
+            )
+        )
+        val failure = walk(script).exceptionOrNull()
+
+        assertFalse(failure.toString(), failure is YTPlayerUtils.SignInWanted)
+        assertEquals("Missing stream expire time", failure?.message)
+        assertFalse(YTPlayerUtils.isSignInWanted(failure))
+    }
+
+    // ---- a video in several languages (#151) ----
+
+    /**
+     * VISIONOS's answer for a video with a machine dub and its original, both as Opus 251, the dub
+     * listed first and the larger, as for the podcast episode of OriginalAudioTest. The xtags are
+     * YouTube's own for the two: acont=dubbed-auto, lang=it and acont=original, lang=en-US.
+     */
+    private fun dubbedAnswer() = playable("VISIONOS", loudness = 5.0, seconds = "200").let { a ->
+        val opus = a.streamingData!!.adaptiveFormats.single()
+        val dub = opus.copy(
+            bitrate = 147_000, contentLength = 3_300_000, lastModified = 1L,
+            xtags = "ChQKBWFjb250EgtkdWJiZWQtYXV0bwoKCgRsYW5nEgJpdA",
+            audioTrack = PlayerResponse.StreamingData.Format.AudioTrack("it.10", "Italian", false),
+        )
+        val original = opus.copy(
+            bitrate = 145_000, contentLength = 3_000_000, lastModified = 2L,
+            xtags = "ChEKBWFjb250EghvcmlnaW5hbAoNCgRsYW5nEgVlbi1VUw",
+            audioTrack = PlayerResponse.StreamingData.Format.AudioTrack("en-US.4", "English (US) original", true),
+        )
+        a.copy(streamingData = a.streamingData!!.copy(adaptiveFormats = listOf(dub, original)))
+    }
+
+    @Test
+    fun `a video in several languages plays in its original, not in the larger dub`() {
+        remembering("VISIONOS", "ANDROID_VR")
+        val data = walk(Script(mapOf("VISIONOS" to listOf(dubbedAnswer())))).getOrThrow()
+        assertEquals("en-US.4", data.format.audioTrack?.id)
+        assertEquals(3_000_000L, data.format.contentLength)
+    }
+
+    @Test
+    fun `mid-song in a dub, the dub the player has bytes of is carried on with`() {
+        remembering("VISIONOS", "ANDROID_VR")
+        fun walkWanting(sameStream: Pair<Int, Long>?) = runBlocking(YTPlayerUtils.RouteWish("TESTVIDEO01", emptySet(), sameStream)) {
+            YTPlayerUtils.playerResponseForPlayback("TESTVIDEO01", null, AudioQuality.HIGH, connectivity, Script(mapOf("VISIONOS" to listOf(dubbedAnswer()))))
+        }.getOrThrow()
+
+        // A song begun in the dub before this was mended: the rest of it is the same stream, never two languages in one copy.
+        assertEquals("it.10", walkWanting(251 to 3_300_000L).format.audioTrack?.id)
+        assertEquals("from its start, the original", "en-US.4", walkWanting(null).format.audioTrack?.id)
+    }
+
+    @Test
+    fun `over SABR too, the original is what is asked for`() {
+        val script = refusedEverywhere("VISIONOS" to listOf(dubbedAnswer()))
+        val data = walk(script).getOrThrow()
+        assertTrue(data.streamUrl.startsWith("sabr://"))
+        assertEquals("en-US.4", script.sabrAsked.single().data.format.audioTrack?.id)
+        assertEquals("en-US.4", data.format.audioTrack?.id)
     }
 }

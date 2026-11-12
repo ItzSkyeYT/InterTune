@@ -879,6 +879,15 @@ object YTPlayerUtils {
 
         /** It answered in YouTube's words for a song that is gone: see [SongUnavailable.byTheAccountToo]. */
         var saidGone = false
+
+        /**
+         * YouTube Music's web client asked as a visitor in this walk, wherever it stood and
+         * whatever it said. Where the walk has no account on the web client, it is the one asked
+         * before a song is called gone, on the same terms: see [StreamCheck.asksWebBeforeGone].
+         * Neither teaches StreamOrder anything then: a song only the web client plays must not
+         * make it the first asked for every song after.
+         */
+        var webAsked = false
     }
 
     /**
@@ -900,6 +909,34 @@ object YTPlayerUtils {
             t = t.cause
         }
         return false
+    }
+
+    /**
+     * The walk found no stream because YouTube turned it away for a sign-in: the routes that
+     * answered all said so (see [StreamCheck.signInWanted]), which is the usual lot of a VPN or a
+     * shared connection. Thrown where the walk would end in "Missing stream expire time" or
+     * another bare Exception, which the listener can only read as an unknown error (issue #124).
+     * A PlaybackException with the code this failure always had, carrying YouTube's own words, so
+     * that nothing that maps a failure changes: the throttle and the error screen read the bot
+     * check in them. Its type is for the words that are not the bot check's.
+     */
+    class SignInWanted(youtubeSaid: String?) :
+        PlaybackException(youtubeSaid?.takeIf { it.isNotBlank() } ?: StreamCheck.SIGN_IN_WORDS, null, PlaybackException.ERROR_CODE_REMOTE_ERROR)
+
+    /**
+     * Whether [error] is YouTube turning the request down for a sign-in: a [SignInWanted], or the
+     * bot check's words, anywhere among its causes. It reaches the player inside a loader's
+     * "unexpected" exception inside ExoPlayer's source error, so the causes are looked down, a few
+     * deep and no further.
+     */
+    fun isSignInWanted(error: Throwable?): Boolean {
+        var t = error
+        var depth = 0
+        while (t != null && depth++ < 8) {
+            if (t is SignInWanted) return true
+            t = t.cause
+        }
+        return Throttle.isBlock(error)
     }
 
     /**
@@ -1700,16 +1737,26 @@ object YTPlayerUtils {
             // says counts only if it plays the song or calls it gone too. See AccountBeforeGone.
             var beforeGone = false
             if (client === WEB_FALLBACK_CLIENT || client === ACCOUNT_WEB_CLIENT) {
-                // A song every client asked before it calls gone is gone for this one too, and
-                // would cost a player script to hear it said again: see StreamCheck.saysGone.
-                // But for the account, once, before the song is called so: it may be served what
-                // a visitor is not. See StreamCheck.asksAccountBeforeGone.
+                // A song every client asked before it calls gone used to be taken for gone for the
+                // web client too, and passed over here, sparing a player script. It is not always
+                // so: YouTube Music's own web client plays songs the others call "not available"
+                // (issue #82). So the web client is asked, once, before the song is called gone:
+                // as the account where the walk has the account's web client, which may be served
+                // what a visitor is not, and as a visitor where it has not. See
+                // StreamCheck.asksAccountBeforeGone and StreamCheck.asksWebBeforeGone.
                 if (fallbackSaid.isNotEmpty() && fallbackSaid.all { it.status != "OK" && StreamCheck.saysGone(it.reason) }) {
-                    beforeGone = client === ACCOUNT_WEB_CLIENT &&
-                        StreamCheck.asksAccountBeforeGone(
+                    beforeGone = when {
+                        client === ACCOUNT_WEB_CLIENT -> StreamCheck.asksAccountBeforeGone(
                             fallbackSaid, unreached = songLeftOpen, askedAlready = account.asked, ofAnotherCopy = account.ofAnotherCopy,
                             othersGoneInARow = othersGoneInARow(videoId),
                         )
+                        // The account's turn comes: the same web client, asked as more than a visitor.
+                        ACCOUNT_WEB_CLIENT in clients -> false
+                        else -> StreamCheck.asksWebBeforeGone(
+                            fallbackSaid, unreached = songLeftOpen, askedAlready = account.webAsked, ofAnotherCopy = account.ofAnotherCopy,
+                            othersGoneInARow = othersGoneInARow(videoId),
+                        )
+                    }
                     if (!beforeGone) continue
                 }
                 // Held, the account's as well: asked in this pass it would serve every song as the
@@ -1735,7 +1782,10 @@ object YTPlayerUtils {
             // The experiment's client, of which nothing is counted: see TRIAL_CLIENT.
             val isTrial = client === trial
             if (asAccount && !isTrial) account.asked = true
-            if (beforeGone) Log.i(TAG, "[$videoId] every client before it called the song gone: asking the account before calling it so")
+            if (client === WEB_FALLBACK_CLIENT) account.webAsked = true
+            if (beforeGone) {
+                Log.i(TAG, "[$videoId] every client before it called the song gone: asking ${if (asAccount) "the account" else "YouTube Music's web client"} before calling it so")
+            }
             // Where this client's own answer went in fallbackSaid when it was OK, so that an OK whose
             // address is then refused can be taken back (see the refusal below).
             var saidOkAt = -1
@@ -1813,7 +1863,8 @@ object YTPlayerUtils {
             streamPlayerResponse = result.getOrNull()
             result.exceptionOrNull()?.let { failure ->
                 val unreached = StreamOrder.networkDidNotAnswer(failure)
-                if (!unreached) asked += StreamOrder.Asked(clientLabel, worked = false, asAccount)
+                // Asked before a song is called gone, a client teaches StreamOrder nothing: see AccountBeforeGone.
+                if (!unreached && !beforeGone) asked += StreamOrder.Asked(clientLabel, worked = false, asAccount)
                 // No network at all ends the song at once, at the main client or the first
                 // request of all, so offline the error comes quickly. Anything else, a timeout
                 // above all, goes on to the next client: one request that did not answer said
@@ -1833,7 +1884,7 @@ object YTPlayerUtils {
             // Noted as having given no stream, until its url passes the check below.
             // A song YouTube calls gone, region locked or age gated says nothing of the client:
             // no strike. See StreamOrder.strikes.
-            if (streamPlayerResponse != null && StreamOrder.strikes(streamPlayerResponse?.playabilityStatus?.reason)) {
+            if (streamPlayerResponse != null && !beforeGone && StreamOrder.strikes(streamPlayerResponse?.playabilityStatus?.reason)) {
                 asked += StreamOrder.Asked(clientLabel, worked = false, asAccount)
             }
             if (!isMain && !isTrial && !beforeGone) streamPlayerResponse?.rememberBlock()
@@ -1889,6 +1940,8 @@ object YTPlayerUtils {
                         preferredMime,
                         wish?.sameStream,
                     ) ?: continue
+                // What kept a web client's address from being deciphered, for the log: see StreamCipher.whyNotSolved.
+                var notDeciphered: String? = null
                 val address =
                     if (isWeb) {
                         // A web client's address is read here and solved by the solver, in what
@@ -1902,12 +1955,19 @@ object YTPlayerUtils {
                                     .getOrNull()
                             }
                         }
-                        asIssued?.let { issued ->
-                            StreamCipher.solved(
-                                issued,
-                                signature = issued.signature?.let { answers?.signatures?.get(it) },
-                                n = issued.n?.let { answers?.ns?.get(it) },
-                            )
+                        if (asIssued == null) {
+                            notDeciphered = "the cipher could not be read"
+                            null
+                        } else {
+                            val signature = asIssued.signature?.let { answers?.signatures?.get(it) }
+                            val n = asIssued.n?.let { answers?.ns?.get(it) }
+                            StreamCipher.solved(asIssued, signature = signature, n = n).also { solvedAddress ->
+                                if (solvedAddress == null) {
+                                    notDeciphered =
+                                        if (asIssued.needsSolving && answers == null) "the solver gave no answer"
+                                        else StreamCipher.whyNotSolved(asIssued, signature, n)
+                                }
+                            }
                         }
                     } else {
                         val decipheredAt = System.nanoTime()
@@ -1938,7 +1998,7 @@ object YTPlayerUtils {
                     trail[trail.lastIndex] = StreamCheck.trailStep(clientLabel, "OK", null, checked = false, lacking = lacking)
                     // An n step that did not answer is the connection's, not the client's: no strike.
                     if (decipherUnanswered && asked.lastOrNull()?.client == clientLabel) asked.removeAt(asked.lastIndex)
-                    Log.w(TAG, "[$videoId] [${client.clientName}] answered OK, $lacking")
+                    Log.w(TAG, "[$videoId] [${client.clientName}] answered OK, $lacking${notDeciphered?.let { " ($it)" }.orEmpty()}")
                     continue
                 }
                 streamExpiresInSeconds =
@@ -1996,7 +2056,9 @@ object YTPlayerUtils {
                 // goes, when it made one: an OK in words that call the song gone made none (see
                 // StreamOrder.strikes), and the last one noted, another client's, went instead.
                 if (asked.lastOrNull()?.client == clientLabel) asked.removeAt(asked.lastIndex)
-                if (status != null) {
+                // Not a client asked before a song is called gone: one song only YouTube Music's web
+                // client plays must not make it the first asked for every song after (StreamOrder).
+                if (status != null && !beforeGone) {
                     asked += StreamOrder.Asked(clientLabel, worked = verdict == StreamCheck.Verdict.PASS, asAccount)
                 }
                 if (verdict == StreamCheck.Verdict.PASS) {
@@ -2135,6 +2197,12 @@ object YTPlayerUtils {
                 null,
                 PlaybackException.ERROR_CODE_REMOTE_ERROR
             )
+        }
+        // The last client answered OK and gave nothing to fetch (an address that could not be
+        // deciphered, none at all), after the others had turned the request down for a sign-in:
+        // that is the story, and the bare errors below are not. Issue #124.
+        if (streamExpiresInSeconds == null || format == null || streamUrl == null) {
+            StreamCheck.signInWanted(fallbackSaid)?.let { throw SignInWanted(it) }
         }
         if (streamExpiresInSeconds == null) {
             throw Exception("Missing stream expire time")
@@ -2371,7 +2439,7 @@ object YTPlayerUtils {
         return LoudnessResult.Found(db)
     }
 
-    /** Prints what YouTube offered and what was taken. Debug only; four tiers, two outcomes. */
+    /** Prints what YouTube offered and what was taken. Debug only; four tiers, three outcomes. */
     private val TRACE_FORMATS = com.dd3boh.outertune.BuildConfig.DEBUG
 
     private fun findFormat(
@@ -2383,12 +2451,24 @@ object YTPlayerUtils {
         // of the song is the same encoding. See RouteWish.
         sameStream: Pair<Int, Long>? = null,
     ): PlayerResponse.StreamingData.Format? {
-        val audioFormats = playerResponse.streamingData?.adaptiveFormats
+        val offered = playerResponse.streamingData?.adaptiveFormats
             ?.filter { it.isAudio && (preferredMime == null || it.mimeType.startsWith(preferredMime)) }
-        if (audioFormats.isNullOrEmpty()) return null
-        if (sameStream != null) {
-            audioFormats.firstOrNull { it.itag == sameStream.first && it.contentLength == sameStream.second }?.let { return it }
+        if (offered.isNullOrEmpty()) return null
+        // For a video offered in several languages, which one plays and why (#151). Said in every
+        // build: it is what a report of the wrong language is read by. Nothing for a song.
+        fun say(taken: PlayerResponse.StreamingData.Format?, kept: Boolean = false) {
+            OriginalAudio.said(offered, taken, kept)?.let { Log.i(TAG, "[${playerResponse.videoDetails?.videoId}] $it") }
         }
+        if (sameStream != null) {
+            // Whatever its language: the rest of a song begun in a dub is that dub, never two in one copy.
+            offered.firstOrNull { it.itag == sameStream.first && it.contentLength == sameStream.second }?.let {
+                say(it, kept = true)
+                return it
+            }
+        }
+        // The streams in the language the video was made in. AudioPick keeps to them by itself;
+        // here so that the trace below lists what the quality is chosen among.
+        val audioFormats = OriginalAudio.of(offered)
         if (TRACE_FORMATS) {
             android.util.Log.d(
                 "YTPlayerUtils",
@@ -2398,33 +2478,17 @@ object YTPlayerUtils {
             )
         }
 
-        // MAX takes the largest stream and nothing else is allowed a say. In particular it skips
-        // the codec bonus below, which is there to break ties between streams of similar size and
-        // would otherwise hand a 160 kbps Opus the win over a 256 kbps AAC, and it ignores whether
-        // the connection is metered, because a tier called highest that quietly drops on mobile
-        // data would be lying about what it does. Sample rate breaks genuine ties.
-        if (audioQuality == AudioQuality.MAX) {
-            @Suppress("NAME_SHADOWING")
-            return audioFormats.maxWithOrNull(
-                compareBy<PlayerResponse.StreamingData.Format> { it.bitrate }
-                    .thenBy { it.audioSampleRate ?: 0 }
-            )
-        }
-
-        return audioFormats.maxByOrNull {
-            it.bitrate * when (audioQuality) {
-                AudioQuality.AUTO -> if (connectivityManager.isActiveNetworkMetered) -1 else 1
-                AudioQuality.HIGH -> 1
-                AudioQuality.LOW -> -1
-                AudioQuality.MAX -> 1 // returned above
-            } + (if (it.mimeType.startsWith("audio/webm")) 10240 else 0) // prefer opus stream
-        }.also {
+        // The tiers are AudioPick's: Highest and High count Opus at what it is worth to the ear
+        // (#57) and never drop on mobile data; Low takes the smallest, and Auto on metered data the
+        // middle one (#88).
+        return AudioPick.choose(audioFormats, audioQuality, connectivityManager.isActiveNetworkMetered).also {
             if (TRACE_FORMATS) {
                 android.util.Log.d(
                     "YTPlayerUtils",
                     "quality=$audioQuality took=${it?.itag}@${it?.bitrate} metered=${connectivityManager.isActiveNetworkMetered}",
                 )
             }
+            say(it)
         }
     }
 

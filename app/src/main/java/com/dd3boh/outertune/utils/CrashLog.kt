@@ -9,6 +9,7 @@ package com.dd3boh.outertune.utils
 import android.content.Context
 import android.os.Build
 import com.dd3boh.outertune.BuildConfig
+import com.dd3boh.outertune.constants.Unreleased
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -60,6 +61,16 @@ object CrashLog {
 
     private fun file(context: Context) = File(context.filesDir, FILE_NAME)
 
+    /**
+     * Report a problem's extras for a crash ([ReportExtras]): from memory only, since the process is going
+     * down and must not read a file now. Null without Unreleased.REPORT_PLUS, with nothing kept, or if
+     * anything goes wrong: the crash is kept either way.
+     */
+    private fun extras(): String? = runCatching {
+        if (!Unreleased.REPORT_PLUS) return@runCatching null
+        ReportExtras.forCrash(ReportFeed.latest, ReportTrail.thisRun, System.currentTimeMillis())?.let(ReportExtras::block)
+    }.getOrNull()
+
     private fun report(context: Context, thread: Thread, throwable: Throwable): String = buildString {
         appendLine("InterTune ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}, ${BuildConfig.FLAVOR} ${BuildConfig.BUILD_TYPE})")
         appendLine("Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT}), ${Build.MANUFACTURER} ${Build.MODEL}")
@@ -72,5 +83,8 @@ object CrashLog {
         // anywhere in the chain, so a crash that began with the phone offline came with no trace.
         // Through ErrorText, so that what people are asked to send does not name their address.
         append(ErrorText.of(throwable))
+        // The settings that bear on it and the steps before it come after the trace, in a block of their own: what
+        // crashed stays first, which is where the title of a report is read from, and what a link has room for.
+        extras()?.let { append(if (endsWith('\n')) "\n" else "\n\n").append(it) }
     }
 }

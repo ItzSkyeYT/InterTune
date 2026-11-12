@@ -67,6 +67,8 @@ fun ArtistListItem(
         AsyncImage(
             model = artist.artist.thumbnailUrl,
             contentDescription = null,
+            // A wide photo fills the round, as on the grid; fitted, it shrank to a strip across it.
+            contentScale = ContentScale.Crop,
             modifier = Modifier
                 .size(ListThumbnailSize)
                 .clip(CircleShape)

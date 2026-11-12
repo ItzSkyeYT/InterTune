@@ -1,0 +1,123 @@
+{
+ "n": "p11",
+ "a": "clarity",
+ "b": "titanium",
+ "aBpm": 128.0,
+ "bBpm": 126.0,
+ "aT0": 0.02128859857482192,
+ "aPhase": 0,
+ "bT0": 0.029181263786165354,
+ "bPhase": 1,
+ "fit": {
+  "tempo": true,
+  "tempoOffPct": 1.59,
+  "octave": 1,
+  "entry": true,
+  "anyPlacement": false,
+  "voiceGate": true,
+  "best": {
+   "A": 113,
+   "D": 16,
+   "gridA": true,
+   "gridAInfo": {
+    "share": 1.0,
+    "medAbsLagMs": 2.0,
+    "spreadMs": 4.0,
+    "barAgreement": 0.7032967032967034,
+    "bars": [
+     97,
+     116
+    ]
+   },
+   "gridB": true,
+   "gridBInfo": {
+    "share": 1.0,
+    "medAbsLagMs": 4.0,
+    "spreadMs": 1.4,
+    "barAgreement": 0.991869918699187,
+    "bars": [
+     16,
+     19
+    ]
+   },
+   "bothEarly": 3,
+   "bothLast": 0
+  },
+  "why": [
+   "voices not kept apart by any placement"
+  ]
+ },
+ "ratio": 1.0,
+ "stretch": false,
+ "octave": 1,
+ "entryBarB": 8,
+ "entryT": 15.74346697807188,
+ "aEndLine": 138,
+ "firstDownbeatB": 0,
+ "fullPhraseB": 8,
+ "aCandidates": [
+  {
+   "L": 113,
+   "t": 211.8962885985748,
+   "lift": 17.46046733856201,
+   "isLift": true,
+   "boxLow": -7.457559776306152,
+   "thin": false,
+   "end": false,
+   "leftS": 46.875,
+   "score": 3.693241834640503,
+   "gridOk": true,
+   "gridInfo": {
+    "share": 1.0,
+    "medAbsLagMs": 2.0,
+    "spreadMs": 4.0,
+    "barAgreement": 0.7032967032967034,
+    "bars": [
+     97,
+     116
+    ]
+   }
+  },
+  {
+   "L": 138,
+   "t": 258.7712885985748,
+   "lift": 0.0,
+   "isLift": false,
+   "boxLow": -1.2588054656982415,
+   "thin": false,
+   "end": true,
+   "leftS": 0.0,
+   "score": 0.5,
+   "gridOk": true,
+   "gridInfo": {
+    "share": 1.0,
+    "medAbsLagMs": 0.0,
+    "spreadMs": 8.0,
+    "barAgreement": 0.7032967032967034,
+    "bars": [
+     122,
+     141
+    ]
+   }
+  }
+ ],
+ "bGridOk": true,
+ "bGridInfo": {
+  "share": 1.0,
+  "medAbsLagMs": 4.0,
+  "spreadMs": 1.4,
+  "barAgreement": 0.991869918699187,
+  "bars": [
+   8,
+   11
+  ]
+ },
+ "tempoRatioIfMatched": 1.0158730158730158,
+ "move": "cut",
+ "exitBar": 113,
+ "exitT": 211.8962885985748,
+ "aSingsLast": true,
+ "bSingsStart": true,
+ "aFullBass": false,
+ "bFullBass": true
+}

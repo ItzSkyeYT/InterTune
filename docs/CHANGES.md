@@ -425,10 +425,7 @@ Streams are resolved signed out here, exactly as they are in upstream 0.10.1.
   and it cannot be fixed from inside the app. InterTune explains it in plain English on the
   player and stops background downloads and syncs hammering a connection that is already
   refusing them, but playback keeps failing until the block lifts on its own.
-- [#830](https://github.com/OuterTune/OuterTune/issues/830), downloads at about 50 kbps. Audio
-  quality on **Auto** deliberately takes the smallest stream whenever Android reports the
-  connection as metered, and bakes that choice into the file. Set it to **High** and download
-  the song again.
+- [#830](https://github.com/OuterTune/OuterTune/issues/830), downloads at about 50 kbps. Audio quality on **Auto** takes a middle stream (Opus at about 75 kbps) whenever Android reports the connection as metered, **Low** takes the smallest, and that choice is baked into the file. Set it to **High** and download the song again.
 
 ### Not fixed
 

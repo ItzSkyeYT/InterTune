@@ -1,5 +1,10 @@
 package com.dd3boh.outertune.ui.screens
 
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.WindowInsetsSides
+import com.dd3boh.outertune.ui.menu.rememberArtistBlock
+import com.dd3boh.outertune.ui.menu.BlockedNote
+import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.ui.component.ScreenBackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -80,6 +85,7 @@ import com.dd3boh.outertune.LocalDatabase
 import com.dd3boh.outertune.constants.PlayOrigin
 import com.dd3boh.outertune.LocalDownloadUtil
 import com.dd3boh.outertune.LocalMenuState
+import com.dd3boh.outertune.LocalNetworkConnected
 import com.dd3boh.outertune.LocalPlayerAwareWindowInsets
 import com.dd3boh.outertune.LocalPlayerConnection
 import com.dd3boh.outertune.LocalSnackbarHostState
@@ -97,6 +103,11 @@ import com.dd3boh.outertune.ui.component.FloatingFooter
 import com.dd3boh.outertune.ui.component.FloatingTopBar
 import com.dd3boh.outertune.ui.component.FontSizeRange
 import com.dd3boh.outertune.ui.component.LazyColumnScrollbar
+import com.dd3boh.outertune.ui.component.FailedNote
+import com.dd3boh.outertune.ui.component.KeptAlbumNote
+import com.dd3boh.outertune.ui.component.RetryWhenSignInChanges
+import com.dd3boh.outertune.utils.WhyStopped
+import com.dd3boh.outertune.viewmodels.keptAlbumNoteShown
 import com.dd3boh.outertune.ui.component.NavigationTitle
 import com.dd3boh.outertune.ui.component.SelectHeader
 import com.dd3boh.outertune.ui.component.button.IconButton
@@ -146,10 +157,31 @@ fun AlbumScreen(
     val isPlaying by playerConnection.isPlaying.collectAsState()
     val mediaMetadata by playerConnection.mediaMetadata.collectAsState()
 
-    val albumWithSongs by viewModel.albumWithSongs.collectAsState()
+    val albumAsStored by viewModel.albumWithSongs.collectAsState()
+    // Without a blocked artist's songs, a feature on someone else's album (ArtistBlock); an album
+    // of theirs, opened from a link, is blank but for one line and Unblock.
+    val block = rememberArtistBlock()
+    val albumWithSongs = remember(albumAsStored, block) {
+        albumAsStored?.let { if (block.isEmpty) it else it.copy(songs = block.library(it.songs)) }
+    }
+    val blockedHere = if (Unreleased.ARTIST_BLOCK) albumAsStored?.artists?.firstNotNullOfOrNull { block.entry(it.id, it.name) } else null
+    if (blockedHere != null) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            BlockedNote(
+                artist = blockedHere,
+                modifier = Modifier.windowInsetsPadding(LocalPlayerAwareWindowInsets.current.only(WindowInsetsSides.Horizontal + WindowInsetsSides.Top)),
+            )
+        }
+        FloatingTopBar(title = null, navController = navController)
+        return
+    }
     val otherVersions by viewModel.otherVersions.collectAsState()
     val state = rememberLazyListState()
     val isLoading by viewModel.isLoading.collectAsState()
+    val failedKind by viewModel.failedKind.collectAsState()
+    val online = LocalNetworkConnected.current
+    // Signed in again from the note: the album the old sign-in failed is asked again.
+    RetryWhenSignInChanges(failed = failedKind != null, retry = viewModel::retry)
 
     // The song a link opened the album on (youtubeNavigator): brought into view once, under the
     // header and a third of the way down, and lit for a moment, so it is clear which one it was.
@@ -446,6 +478,19 @@ fun AlbumScreen(
                 paneTop()
             }
 
+            // YouTube did not send the album, and these are the songs the library had: it stays
+            // as it is (AlbumViewModel), and says so here, with why when that is clear, and Retry.
+            val kept = failedKind
+            if (kept != null && keptAlbumNoteShown(kept, isLoading, online)) {
+                item(key = "not_refreshed") {
+                    KeptAlbumNote(
+                        kind = kept,
+                        onSignIn = { navController.navigate("login") },
+                        onRetry = viewModel::retry,
+                    )
+                }
+            }
+
             val thumbnailSize = (ListThumbnailSize.value * density.density).roundToInt()
             itemsIndexed(
                 items = albumWithSongs!!.songs,
@@ -571,6 +616,21 @@ fun AlbumScreen(
                         ListItemPlaceHolder()
                     }
                 }
+            }
+        } else if (albumWithSongsLocal?.album?.isLocal != true) {
+            // Not loading and no songs: YouTube refused the album or sent none. This was an empty
+            // page, and in South Korea every album was one, since YouTube keeps albums there for
+            // Premium members (#68).
+            item(key = "not_loaded") {
+                // And why, when it is clear: a sign-in YouTube no longer accepts, a connection that
+                // does not reach it, or the closed country (WhyStopped). Retry either way. An album
+                // that came back with no songs failed for no clear reason, which in a closed country
+                // is the country's, as before.
+                FailedNote(
+                    kind = failedKind ?: WhyStopped.Kind.OTHER,
+                    onSignIn = { navController.navigate("login") },
+                    onRetry = viewModel::retry,
+                )
             }
         }
     }

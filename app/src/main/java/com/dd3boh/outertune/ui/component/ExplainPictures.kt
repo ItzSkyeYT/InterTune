@@ -6,7 +6,6 @@
 
 package com.dd3boh.outertune.ui.component
 
-import android.provider.Settings
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
@@ -33,11 +32,11 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.lerp
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.unit.dp
 import com.dd3boh.outertune.constants.StageWidthKey
 import com.dd3boh.outertune.playback.BinauralAudioProcessor
+import com.dd3boh.outertune.ui.utils.Animations
 import com.dd3boh.outertune.utils.rememberPreference
 import kotlin.math.PI
 import kotlin.math.atan2
@@ -300,12 +299,10 @@ internal fun ripple(number: Int, seconds: Float): Pair<Float, Float> {
  */
 @Composable
 fun ExplainPicturePanel(picture: ExplainPicture, modifier: Modifier = Modifier, stage: SoundStage? = null) {
-    val context = LocalContext.current
-    // The system's own setting for how fast things move: 0 is animations off, and the picture
-    // then stands still.
-    val pace = remember {
-        Settings.Global.getFloat(context.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f)
-    }
+    // How fast things move, Android's own pace or none with the Animations switch off: 0 is
+    // animations off, and the picture then stands still. Read as it is composed, so a flip of
+    // either is seen at once.
+    val pace = Animations.current.scaleFactor
     val moving = pace > 0f
     // Read where the picture is drawn and nowhere else, so a new frame draws the picture again
     // and composes nothing.

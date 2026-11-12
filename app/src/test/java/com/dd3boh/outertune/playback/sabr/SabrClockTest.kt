@@ -136,7 +136,7 @@ class SabrClockTest {
 
     /** Every block MusicService runs only in some builds: a debug or preview build, or under a flag. */
     private fun conditionalBlocks(): List<IntRange> =
-        Regex("""if \((?:BuildConfig\.DEBUG|Unreleased\.)[^\n]*\{\n""").findAll(service).map { block(service, it.value.trimEnd('\n'), it.range.first) }.toList()
+        Regex("""if \((?:BuildConfig\.(?:DEBUG|PREVIEW_FEATURES)|Unreleased\.)[^\n]*\{\n""").findAll(service).map { block(service, it.value.trimEnd('\n'), it.range.first) }.toList()
 
     @Test
     fun `the clock follows the open reads in every build, never a debug build's switch`() {
@@ -156,7 +156,7 @@ class SabrClockTest {
 
     @Test
     fun `the developer's switches stay in a debug build's block, and the clock is not among them`() {
-        val switches = service.substring(block(service, "if (BuildConfig.DEBUG && Unreleased.SABR) {"))
+        val switches = service.substring(block(service, "if (BuildConfig.PREVIEW_FEATURES && Unreleased.SABR) {"))
         assertTrue(switches.contains("YTPlayerUtils.sabrOnly = it"))
         assertTrue(switches.contains("YTPlayerUtils.everyDirectRefused = it"))
         assertFalse(switches.contains("SabrClock"))

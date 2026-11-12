@@ -21,7 +21,9 @@ import androidx.media3.common.Player.REPEAT_MODE_OFF
 import androidx.media3.common.Player.STATE_ENDED
 import androidx.media3.common.Player.STATE_IDLE
 import androidx.media3.common.Timeline
+import com.dd3boh.outertune.constants.PersistentQueueKey
 import com.dd3boh.outertune.constants.PlayOrigin
+import com.dd3boh.outertune.constants.PlayingQueueKey
 import com.dd3boh.outertune.db.MusicDatabase
 import com.dd3boh.outertune.db.entities.LyricsEntity.Companion.uninitializedLyric
 import com.dd3boh.outertune.extensions.currentMetadata
@@ -31,6 +33,8 @@ import com.dd3boh.outertune.extensions.metadata
 import com.dd3boh.outertune.extensions.togglePlayPause
 import com.dd3boh.outertune.lyrics.LyricsLookup
 import com.dd3boh.outertune.playback.queues.Queue
+import com.dd3boh.outertune.utils.dataStore
+import com.dd3boh.outertune.utils.get
 import com.dd3boh.outertune.utils.reportException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -54,6 +58,14 @@ class PlayerConnection(
     val service = binder.getService()!!
     val player = service.player
     val scope = binder.viewModelScope
+
+    /**
+     * False once the service this connection was made for has stopped. The service stops by itself
+     * when a queue ends with the app in the background, and the app's screen keeps this connection
+     * until the next one arrives, a moment after it comes back. What is asked of it in between plays
+     * nothing: a song tapped on the widget then opened the app on silence (Pixel 5, 6 Nov 2026).
+     */
+    val isAlive: Boolean get() = !service.isDestroyed
 
     val playbackState = MutableStateFlow(player.playbackState)
     private val playWhenReady = MutableStateFlow(player.playWhenReady)
@@ -120,7 +132,11 @@ class PlayerConnection(
         repeatMode.value = player.repeatMode
 
         scope.launch {
-            val resumption = if (player.currentMetadata == null) database.getResumptionQueue() else null
+            // Only what Play can load: with Persistent queue off the board holds no saved queue,
+            // and the rows are the ones saved before the switch went off (SavedQueueShown.song).
+            val resumption = if (SavedQueueShown.song(player.currentMetadata != null, service.dataStore.get(PersistentQueueKey, true))) {
+                database.getResumptionQueue(service.dataStore[PlayingQueueKey])
+            } else null
             mediaMetadata.value = player.currentMetadata ?: resumption?.getCurrentSong()
             if (resumption != null && player.currentMediaItem == null) {
                 restoredPosition.value = resumption.lastSongPos.takeIf { it > 0 }
@@ -148,6 +164,24 @@ class PlayerConnection(
      */
     fun loadSavedQueue() {
         loadQueueIfEmpty()
+    }
+
+    /**
+     * Songs were taken out of the saved queue before play, the player holding nothing yet (the
+     * queue sheet after a restart): the song on screen and where it starts are the queue's again.
+     * The song the queue was on may be one of those taken out, and the one that followed it is what
+     * plays now, from its top (MultiQueueObject.removeAtPlayIndex); a queue with nothing left shows
+     * no song. The sheet and the artwork strip read the queue board again too
+     * (MusicService.unloadedQueueChanged). Once the player holds the queue its own events say all
+     * this, and nothing is done.
+     */
+    fun storedQueueEdited() {
+        if (player.currentMediaItem != null) return
+        val queue = service.queueBoard.getCurrentQueue()
+        val song = queue?.takeIf { it.getSize() > 0 }?.getCurrentSong()
+        mediaMetadata.value = song
+        restoredPosition.value = queue?.lastSongPos?.takeIf { song != null && it > 0 }
+        service.unloadedQueueChanged.value += 1
     }
 
     fun playQueue(

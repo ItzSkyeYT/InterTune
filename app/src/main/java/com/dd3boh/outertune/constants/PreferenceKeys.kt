@@ -29,11 +29,15 @@ val LivingColoursKey = stringPreferencesKey("livingBlurColours")
 val PlayerLiquidGlassKey = booleanPreferencesKey("playerLiquidGlass")
 val DarkModeKey = stringPreferencesKey("darkMode")
 val PureBlackKey = booleanPreferencesKey("pureBlack")
+/** The Animations switch, on by default: off, nothing in the app animates (Animations). */
+val AnimationsKey = booleanPreferencesKey("animations")
 val BackAnimationsKey = booleanPreferencesKey("backAnimations")
 val ShowLikedAndDownloadedPlaylist = booleanPreferencesKey("showLikedAndDownloadedPlaylist")
 /** What Home, search, artist pages and radio leave out (ContentFilter). Both off by default. */
 val HideExplicitKey = booleanPreferencesKey("hideExplicit")
 val HideVideoSongsKey = booleanPreferencesKey("hideVideoSongs")
+/** The artists the listener blocked, as ArtistBlock.encode writes them (Unreleased.ARTIST_BLOCK). None by default. */
+val BlockedArtistsKey = stringPreferencesKey("blockedArtists")
 val SwipeToQueueKey = booleanPreferencesKey("swipeToQueue")
 val FlatSubfoldersKey = booleanPreferencesKey("flatSubfolders")
 val TabletUiKey = booleanPreferencesKey("tabletUi")
@@ -52,8 +56,14 @@ val YtmSyncContentKey = stringPreferencesKey("ytmSyncContent")
 val YtmSyncModeKey = stringPreferencesKey("ytmSyncMode")
 val YtmSyncConflictKey = stringPreferencesKey("ytmSyncConflict")
 val LikedAutoDownloadKey = stringPreferencesKey("likedAutoDownloadKey")
+/** Whether taking back a like removes the download that LikedAutoDownloadKey made for the song (issue #64): LikedDownloads. */
+val LikedDownloadSyncKey = booleanPreferencesKey("likedDownloadSync")
+/** The songs LikedAutoDownloadKey downloaded itself, by id, so that an unlike removes those and never one downloaded by hand. */
+val LikedAutoDownloadedKey = stringSetPreferencesKey("likedAutoDownloaded")
 val ContentLanguageKey = stringPreferencesKey("contentLanguage")
 val ContentCountryKey = stringPreferencesKey("contentCountry")
+/** The country the note about YouTube Music with no free plan was sent away for: YouTubeRegion. */
+val RegionNoteDoneKey = stringPreferencesKey("regionNoteDone")
 val ProxyEnabledKey = booleanPreferencesKey("proxyEnabled")
 val ProxyUrlKey = stringPreferencesKey("proxyUrl")
 val ProxyTypeKey = stringPreferencesKey("proxyType")
@@ -119,6 +129,13 @@ val MaxQueuesKey = intPreferencesKey("maxQueues")
 val PersistentQueueKey = booleanPreferencesKey("persistentQueue")
 
 /**
+ * The id of the queue playing, for the next start (QueueBoard.notePlaying). The list of queues keeps
+ * the order it is dragged into, so the last queue in it is not always the one playing. Missing, or
+ * naming a queue that is gone, the last queue is taken, as it always was.
+ */
+val PlayingQueueKey = longPreferencesKey("playingQueue")
+
+/**
  * Start playing the restored queue as soon as the app opens, rather than waiting to be told.
  *
  * Off by default and it must stay that way. This is sound without anybody pressing anything, and
@@ -153,6 +170,13 @@ val SleepTimerFadeKey = booleanPreferencesKey("sleepTimerFade")
 val SleepTimerFadeDurationKey = intPreferencesKey("sleepTimerFadeDuration")
 
 /**
+ * Let the song finish: when a sleep timer's time is up, the music plays on to the end of the song
+ * it is in, and stops there. Off by default, so a timer stops at the time it says. Set from the
+ * sleep timer's own sheet, and read by the service as it is set, running timer included.
+ */
+val SleepTimerSongFinishKey = booleanPreferencesKey("sleepTimerSongFinish")
+
+/**
  * The sleep timer on a schedule (ScheduledSleep): off by default, from 23:00, for 30 minutes. The
  * start is in minutes after midnight and the length in minutes.
  */
@@ -178,6 +202,41 @@ val TransitionFadeKey = booleanPreferencesKey("transitionFade")
 /** How long each fade lasts, in seconds. One of TransitionFadeEnvelope.SECONDS_CHOICES. */
 val TransitionFadeSecondsKey = intPreferencesKey("transitionFadeSeconds")
 
+/**
+ * Whether a song that ends by itself blends into the next one, as a DJ would play them. Off when
+ * absent, and read only while Unreleased.AUTOMIX is on. While it is on, Fade between tracks is not
+ * used. See AutomixController.
+ */
+val AutomixKey = booleanPreferencesKey("automix")
+
+/**
+ * Whether a song that ends by itself fades out while the next one fades in (Crossfade). Off when
+ * absent, and read only while Unreleased.CROSSFADE is on. It plays on AutoMix's stage, under its
+ * guards and beside it, never in a queue that plays as a mix. While it is on, Fade between tracks
+ * is not used. See playback.automix.Crossfade.
+ */
+val CrossfadeKey = booleanPreferencesKey("crossfade")
+
+/** How long each crossfade lasts, in seconds: one of Crossfade.SECONDS_CHOICES, 6 when absent. */
+val CrossfadeSecondsKey = intPreferencesKey("crossfadeSeconds")
+
+/**
+ * Debug builds only: the style every AutoMix transition is asked to take, by its name in
+ * com.dd3boh.outertune.mix.Style, or absent for the planner's own choice. A style that cannot be
+ * done for a pair is still refused, and that change stays as it is today.
+ */
+val AutomixStyleKey = stringPreferencesKey("automixStyle")
+
+/**
+ * Mix (Unreleased.AUTOMIX_EDITOR): the library playlists whose Mix switch is on, by their id.
+ * Absent or without a playlist's id, that playlist plays as it always did. In the settings, not the
+ * database, so it needs no migration and still travels with a backup.
+ */
+val MixPlaylistsKey = stringSetPreferencesKey("mixPlaylists")
+
+/** Mix: which playlist each queue was started from, as QueueLinks writes them. See MusicService.refreshMix. */
+val MixQueueLinksKey = stringSetPreferencesKey("mixQueueLinks")
+
 
 /**
  * Lyrics
@@ -201,6 +260,12 @@ val LyricClickable = booleanPreferencesKey("lyricClickable")
 val LyricAutoScrollKey = booleanPreferencesKey("lyricAutoScroll")
 val LyricKaraokeEnable = booleanPreferencesKey("lyricKaraokeEnable")
 val LyricUpdateSpeed = stringPreferencesKey("lyricUpdateSpeed")
+/**
+ * The debug app's trial of progressive blur on the lyrics (Unreleased.LYRICS_BLUR): how strong, by
+ * its name in LyricsBlur.Strength, or absent for the lines as they are. Read only with the flag on,
+ * so a backup from a debug build blurs nothing in a release.
+ */
+val LyricsBlurKey = stringPreferencesKey("lyricsBlur")
 
 /**
  * Show in Latin letters: a line in Japanese, Korean, Chinese, Cyrillic, Greek or an Indian script
@@ -215,6 +280,22 @@ val LyricLatinKey = booleanPreferencesKey("lyricLatin")
 val DownloadExtraPathKey = stringPreferencesKey("dlExtraPath") // previously "downloadExtraPath"
 val DownloadPathKey = stringPreferencesKey("dlPath") // previously "downloadPath"
 val DownloadOnWifiOnlyKey = booleanPreferencesKey("downloadOnWifiOnly")
+
+/**
+ * What downloads are fetched at, a DownloadQuality by name (Unreleased.DOWNLOAD_QUALITY). Never
+ * written but by its own row, and never written for anybody who has not picked one: absent, it
+ * reads as Same as playback, so nothing changes for anyone who never touches it.
+ */
+val DownloadQualityKey = stringPreferencesKey("downloadQuality")
+
+/**
+ * The file format of a download in the download folder, a DownloadFormat by name (Unreleased.DOWNLOAD_FORMATS),
+ * and the bitrate of an MP3 or an M4A, a DownloadBitrate by name. Written only by their own rows;
+ * absent they read as Original and Auto, so nothing changes for anyone who never touches them.
+ */
+val DownloadFormatKey = stringPreferencesKey("downloadFormat")
+val DownloadBitrateKey = stringPreferencesKey("downloadBitrate")
+
 val MaxImageCacheSizeKey = intPreferencesKey("maxImageCacheSize")
 
 /**
@@ -350,8 +431,11 @@ val ExcludedScanPathsKey = stringPreferencesKey("exclScanPaths") // previously "
 val LastLocalScanKey = longPreferencesKey("lastLocalScan")
 /** Whether the automatic scan has asked for the storage permission yet. It asks once; see scanInit. */
 val LocalMediaPermissionAskedKey = booleanPreferencesKey("localMediaPermissionAsked")
-/** Set once TrackTagReread has read the track tags of the local songs that had no number (issue #39). */
-val TrackTagsRereadKey = booleanPreferencesKey("trackTagsReread")
+/**
+ * Set once TrackTagReread has read the tags of the local songs that had no track or no disc number
+ * (issue #39). "trackTagsReread" was the pass of 0.12.5, which looked at the track numbers only.
+ */
+val TrackTagsRereadKey = booleanPreferencesKey("trackTagsRereadDiscs")
 
 /**
  * Experimental settings
@@ -394,6 +478,14 @@ val SwipeToDismissPlayerKey = booleanPreferencesKey("swipeToDismissPlayer")
  * nothing chosen yet, and the first share asks; the pick made there or in Settings is kept here.
  */
 val ShareLinkKindKey = stringPreferencesKey("shareLinkKind")
+
+/**
+ * How Report a problem and the crash page send a report: a ReportWay. Unset, it reads as
+ * ReportWay.ANONYMOUS; the way last picked is kept for the next report (his rule of 28 Oct 2026:
+ * anonymous for people who would rather not sign in, the account way kept once someone picks it,
+ * and anonymous still one tap away).
+ */
+val ReportWayKey = stringPreferencesKey("reportWay")
 
 /**
  * Whether the transport controls sit inside one shared panel, or stand on their own.
@@ -444,6 +536,8 @@ val MediaControlButtonsKey = stringPreferencesKey("mediaControlButtons")
 val SongSortTypeKey = stringPreferencesKey("songSortType")
 val SongSortDescendingKey = booleanPreferencesKey("songSortDescending")
 val FolderSortTypeKey = stringPreferencesKey("folderSortType")
+/** The Folders tab's own arrow for its folders, which always go by name: false is A to Z. The songs have theirs. */
+val FolderSortDescendingKey = booleanPreferencesKey("folderSortDescending")
 val FolderSongSortTypeKey = stringPreferencesKey("folderSongSortType")
 val FolderSongSortDescendingKey = booleanPreferencesKey("folderSongSortDescending")
 val PlaylistSongSortTypeKey = stringPreferencesKey("playlistSongSortType")
@@ -470,6 +564,20 @@ val LibraryFilterKey = stringPreferencesKey("libraryFilter")
 val LibraryViewTypeKey = stringPreferencesKey("libraryViewType")
 
 val PlaylistEditLockKey = booleanPreferencesKey("playlistEditLock")
+// Library > Playlists in Custom order: the playlists' ids in that order, one a line (PlaylistOrder),
+// and whether their order is locked against a stray drag, as a playlist's songs are.
+val PlaylistCustomOrderKey = stringPreferencesKey("playlistCustomOrder")
+val PlaylistsOrderLockKey = booleanPreferencesKey("playlistsOrderLock")
+// Library > Albums and Library > Artists in Custom order: whether their rows can be dragged, as the playlists'.
+val AlbumsOrderLockKey = booleanPreferencesKey("albumsOrderLock")
+val ArtistsOrderLockKey = booleanPreferencesKey("artistsOrderLock")
+// Custom order on the Library page and under Playlists, one order for both: every album, artist and
+// playlist by its key, one a line (LibraryOrder). Until something is dragged after an update it
+// starts from the playlists' order above; the lock above is the lock of both.
+val LibraryCustomOrderKey = stringPreferencesKey("libraryCustomOrder")
+// Entries taken out of the three-dot menus (MENU_CHOICES): "kind:name" pairs one a line, the name being the
+// entry's text resource's name (MenuChoices). Empty: every menu as it comes.
+val MenuHiddenEntriesKey = stringPreferencesKey("menuHiddenEntries")
 
 val SearchSourceKey = stringPreferencesKey("searchSource")
 
@@ -545,6 +653,21 @@ val UpdateSnoozeUntilKey = longPreferencesKey("updateSnoozeUntil")
 /** The version code the background check last notified about, so it says so once, not every run. */
 val LastNotifiedUpdateCodeKey = intPreferencesKey("lastNotifiedUpdateCode")
 
+/**
+ * Epoch millis of the tap on Open Auto Blocker that the install is to start again after: it starts
+ * when the person is next back in InterTune, within half an hour, and this is cleared as it does.
+ * Unset when nothing is owed. In the settings and not in memory, since the app can be ended while
+ * the person is in Settings. See AutoBlockerReturn.
+ */
+val AutoBlockerReturnAtKey = longPreferencesKey("autoBlockerReturnAt")
+
+/**
+ * The version code of the build that last saw Auto Blocker stop an install. The build that
+ * replaces it says once that Auto Blocker can go back on, and clears this as it does. Unset when
+ * there is nothing to say. See AutoBlockerReturn.
+ */
+val AutoBlockerBlockedByKey = intPreferencesKey("autoBlockerBlockedBy")
+
 /** The poll id the background check last notified about, for the same reason. */
 val LastNotifiedPollIdKey = stringPreferencesKey("lastNotifiedPollId")
 
@@ -575,6 +698,18 @@ val DismissedUpdateCodeKey = intPreferencesKey("dismissedUpdateCode")
 val BackgroundCheckHoursKey = intPreferencesKey("backgroundCheckHours")
 
 val PollsEnabledKey = booleanPreferencesKey("pollsEnabled")
+
+/**
+ * The AI filter (AiFilter, Unreleased.AI_FILTER): an AiFilterMode by name, Off, hide from
+ * recommendations, or block everywhere. Unset is Off, and so is anything in a build without the flag.
+ */
+val AiFilterKey = stringPreferencesKey("aiFilter")
+
+/** Channel ids of the artists the listener marked as AI from the artist's menu. See AiFilter.toggle. */
+val AiMarkedArtistsKey = stringSetPreferencesKey("aiMarkedArtists")
+
+/** Channel ids of the artists the listener marked Not AI: never hidden, whatever the list says. */
+val AiNotArtistsKey = stringSetPreferencesKey("aiNotArtists")
 
 /**
  * Whether announcements are shown, separately from questions. Unset means never asked. Someone who
@@ -608,6 +743,21 @@ val RecogniseListenSecondsKey = intPreferencesKey("recogniseListenSeconds")
 
 /** Song on this phone's tile has said once why Android asks to record the screen (PhoneListenActivity). */
 val PhoneAudioExplainedKey = booleanPreferencesKey("phoneAudioExplained")
+
+/** Debug builds: the Nostr relays listening rooms use instead of the public ones, comma separated (TogetherSession). */
+val TogetherRelaysKey = stringPreferencesKey("togetherRelays")
+
+/** The name the others in a room see; empty or unset means the phone's own name. */
+val TogetherNameKey = stringPreferencesKey("togetherName")
+
+/** How far a follower may drift once in step before it corrects again, in ms (SyncLock). */
+val TogetherToleranceKey = intPreferencesKey("togetherToleranceMs")
+
+/** How much faster or slower a follower plays to catch up, in percent of the speed (SyncLock.maxNudge). */
+val TogetherCatchUpKey = intPreferencesKey("togetherCatchUpPercent")
+
+/** How late this phone's sound comes out (Bluetooth), in ms: the room's timing makes up for it. */
+val TogetherDelayKey = intPreferencesKey("togetherDelayMs")
 
 /** Add confident matches to the playlist without being asked. Continuous runs only. */
 val RecogniseAutoAddKey = booleanPreferencesKey("recogniseAutoAdd")
@@ -644,8 +794,9 @@ val ViewedPollIdsKey = stringSetPreferencesKey("viewedPollIds")
 val RecapPopUpShownKey = intPreferencesKey("recapPopUpShown")
 
 /**
- * The developer options' "today is the reveal day", read in a debug build only: the Recap's
- * pop-up and its banner in Settings behave as they will from the reveal day.
+ * The developer options' "today is the reveal day", read only in a build that has that row
+ * (BuildConfig.PREVIEW_FEATURES): the Recap's pop-up and its banner in Settings behave as they
+ * will from the reveal day.
  */
 val RecapRevealedEarlyKey = booleanPreferencesKey("recapRevealedEarly")
 
@@ -800,6 +951,16 @@ val UsageCountLastDayKey = stringPreferencesKey("usageCountLastDay")
 
 /** The receivers cast to before, the latest first, as cast/RecentReceivers writes them. */
 val CastRecentKey = stringPreferencesKey("castRecent")
+
+/**
+ * The day this device's card was found under About's version line (VersionCard): its code and the
+ * date, "3F9AC21B 2026-11-07". The code is there so that a backup restored on another device does
+ * not count as found there.
+ */
+val VersionCardFoundKey = stringPreferencesKey("versionCardFound")
+
+/** A random id the card is drawn from where Android gives the app none (VersionCard). Never sent anywhere. */
+val VersionCardIdKey = stringPreferencesKey("versionCardId")
 
 val LanguageCodeToName = mapOf(
     "af" to "Afrikaans",

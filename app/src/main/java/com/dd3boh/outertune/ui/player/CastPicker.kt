@@ -835,6 +835,7 @@ private fun describe(device: CastDevice): String {
         CastProtocol.DLNA -> listOfNotNull("DLNA", device.model).joinToString(", ")
         // A Chromecast's model is often just "Chromecast", which needs saying only once.
         CastProtocol.CHROMECAST -> listOfNotNull("Chromecast", device.model?.takeIf { !it.equals("Chromecast", ignoreCase = true) }).joinToString(", ")
+        CastProtocol.AIRPLAY -> listOfNotNull("AirPlay", device.model).joinToString(", ")
     }
     // Where it is only when that is all there is to tell two apart: one typed in by address is named by it.
     return if (device.name == device.host) kind else "$kind, ${device.host}"
@@ -844,5 +845,5 @@ private fun describe(device: CastDevice): String {
 private fun iconOf(device: CastDevice): ImageVector = when (device.protocol) {
     CastProtocol.FCAST -> Icons.Rounded.Tv
     CastProtocol.DLNA -> Icons.Rounded.Speaker
-    CastProtocol.CHROMECAST -> if (device.audioOnly) Icons.Rounded.Speaker else Icons.Rounded.Tv
+    CastProtocol.CHROMECAST, CastProtocol.AIRPLAY -> if (device.audioOnly) Icons.Rounded.Speaker else Icons.Rounded.Tv
 }

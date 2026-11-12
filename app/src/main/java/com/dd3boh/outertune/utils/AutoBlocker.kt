@@ -10,6 +10,8 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.provider.Settings
+import com.dd3boh.outertune.BuildConfig
+import java.io.File
 
 /**
  * Samsung's Auto Blocker ("Rampart" inside One UI 6 and later) refuses every install that does not
@@ -23,18 +25,40 @@ import android.provider.Settings
  * may not read since Android 12, and Auto Blocker's own providers need Samsung's signature.
  *
  * Downloading the apk from GitHub does not get round it either, since a browser or a file manager
- * is refused the same way. The only way through is turning Auto Blocker off for the install.
+ * is refused the same way. The only way through is turning Auto Blocker off for the install, so the
+ * app sends the person to its page, starts the install again by itself when they are back
+ * ([AutoBlockerReturn]), and says afterwards that it can go back on.
  */
 object AutoBlocker {
+    internal const val FAKE_SAMSUNG_FILE = "fake-samsung"
+
     private const val ACTION_SETTINGS = "com.samsung.android.rampart.action.MAIN_SETTING_ACTIVITY"
+
+    /** Debug builds only: see [pretendFrom]. Never true in a release. */
+    @Volatile
+    private var pretending = false
 
     /** A Samsung phone on One UI 6 or later, where Auto Blocker exists, whether it is on or off. */
     fun likely(): Boolean =
-        Build.MANUFACTURER.equals("samsung", ignoreCase = true) &&
-                Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE
+        pretending || (
+                Build.MANUFACTURER.equals("samsung", ignoreCase = true) &&
+                        Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
 
-    /** Opens Auto Blocker's own page, or the security settings, or Settings, whichever opens. */
-    fun open(context: Context) {
+    /**
+     * Debug builds only: with the file [FAKE_SAMSUNG_FILE] in filesDir this phone counts as a Samsung
+     * with Auto Blocker, so what the app says and does about it can be seen on an emulator. Read
+     * when the app starts. It does not make the install fail: that is the file of UpdateInstaller
+     * that answers as Auto Blocker would, which can be taken away again to stand for turning it off.
+     */
+    fun pretendFrom(context: Context) {
+        pretending = BuildConfig.DEBUG && File(context.filesDir, FAKE_SAMSUNG_FILE).exists()
+    }
+
+    /**
+     * Opens Auto Blocker's own page, or the security settings, or Settings, whichever opens, and
+     * says whether one did.
+     */
+    fun open(context: Context): Boolean {
         val tries = listOf(
             Intent(ACTION_SETTINGS),
             Intent(Settings.ACTION_SECURITY_SETTINGS),
@@ -44,7 +68,17 @@ object AutoBlocker {
             val opened = runCatching {
                 context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
             }.isSuccess
-            if (opened) return
+            if (opened) return true
         }
+        return false
+    }
+
+    /**
+     * Opens Auto Blocker for someone whose update it stopped, and asks for the install to start
+     * again by itself when they are back in InterTune ([AutoBlockerReturn]). Asked only when a page
+     * opened: with none, there is nowhere to come back from.
+     */
+    fun openForUpdate(context: Context) {
+        if (open(context)) AutoBlockerReturn.ask(context)
     }
 }

@@ -98,15 +98,18 @@ class RecapPrivacyTest {
         assertTrue(counted < sample.indexOf("ImportSearch.songs") && counted < sample.indexOf("transactionNow"))
         // And the count is only ever sent for a first opening, which that record rules out.
         val poll = code(File(sources, "utils/PollChecker.kt"))
-        assertTrue("if (!firstOpening(RecapCount.id(year)) || !Polls.isConfigured) return@withContext" in poll)
+        assertTrue("if (!firstOpening(RecapCount.id(year)) || !Polls.isConfigured || standIn() != null) return@withContext" in poll)
     }
 
     @Test
-    fun `the developer's ways in are a debug build's only`() {
+    fun `the developer's ways in are never a release's`() {
+        // The builds that show what is held back (PREVIEW_FEATURES: the debug app, the Preview, the
+        // Tester app, which is not debuggable, so DEBUG would hide them there: ReleasedFlagsTest).
         val developer = code(File(sources, "ui/screens/settings/fragments/DeveloperFrag.kt"))
-        assertTrue("if (BuildConfig.DEBUG && Unreleased.RECAP) {" in developer.lines().map { it.trim() })
+        assertTrue("if (BuildConfig.PREVIEW_FEATURES && Unreleased.RECAP) {" in developer.lines().map { it.trim() })
         val entry = code(File(sources, "ui/screens/recap/RecapEntry.kt"))
-        // "Today is the reveal day" counts in a debug build alone, for the pop-up and for the banner.
-        assertEquals(2, Regex("""revealedEarly && BuildConfig\.DEBUG""").findAll(entry).count())
+        // "Today is the reveal day" counts where its row is and nowhere else, for the pop-up and for the banner.
+        assertEquals(2, Regex("""revealedEarly && BuildConfig\.PREVIEW_FEATURES""").findAll(entry).count())
+        assertFalse("BuildConfig.DEBUG" in entry)
     }
 }

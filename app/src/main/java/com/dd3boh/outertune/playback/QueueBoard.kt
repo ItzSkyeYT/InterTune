@@ -12,9 +12,12 @@ import android.util.Log
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.util.fastForEachIndexed
+import androidx.datastore.preferences.core.edit
 import androidx.media3.common.C
 import com.dd3boh.outertune.constants.PlayOrigin
+import com.dd3boh.outertune.constants.PlayingQueueKey
 import com.dd3boh.outertune.constants.QUEUE_DEBUG
+import com.dd3boh.outertune.db.daos.playingQueueAt
 import com.dd3boh.outertune.db.entities.QueueEntity
 import com.dd3boh.outertune.extensions.currentMetadata
 import com.dd3boh.outertune.extensions.metadata
@@ -25,6 +28,7 @@ import com.dd3boh.outertune.models.MultiQueueObject
 import com.dd3boh.outertune.utils.dataStore
 import com.dd3boh.outertune.utils.get
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
@@ -46,7 +50,9 @@ class QueueBoard(
     private val player: MusicService,
     val masterQueues: SnapshotStateList<MultiQueueObject> = mutableStateListOf(),
     queues: MutableList<MultiQueueObject> = ArrayList(),
-    private var maxQueues: Int
+    private var maxQueues: Int,
+    /** The id of the queue playing (PlayingQueueKey), for the board to start on it. */
+    playingId: Long? = null,
 ) {
     private val TAG = QueueBoard::class.simpleName.toString()
 
@@ -59,7 +65,7 @@ class QueueBoard(
             maxQueues = 1
         }
         if (!queues.isEmpty()) {
-            masterQueues.addAll(queues.subList((queues.size - maxQueues).coerceAtLeast(0), queues.size))
+            masterQueues.addAll(queuesKept(queues, maxQueues, playingId))
         }
         // One queue per id: two boards built at the same moment on this same shared list could each
         // clear it and add the saved queues, leaving every queue in twice, and the list of queues then
@@ -71,7 +77,10 @@ class QueueBoard(
         // MusicService threads the previous board's list back in. On a cold start that previous
         // board is empty, so the index came out -1 while N queues then loaded, leaving the board
         // pointing at nothing.
-        masterIndex = masterQueues.size - 1
+        //
+        // By its id, not as the last queue: the list keeps the order it is dragged into (move), so
+        // a queue dragged below the one playing came back as the one playing.
+        masterIndex = playingQueueAt(masterQueues.map { it.id }, playingId)
     }
 
     /**
@@ -147,7 +156,8 @@ class QueueBoard(
      * if the queue already exists
      * @param origin Where the queue began, for a queue made by hand outside playQueue: a new one,
      * or one that says nothing yet, takes it, with a run of its own. A queue that already says
-     * where it began keeps that. Null for the callers that set it on the queue themselves.
+     * where it began keeps that. Null for the callers that set it on the queue themselves. With
+     * PlayOrigin.QUEUE, the menus' Add to queue, the songs are noted as the listener's ([noteAddedByHand]).
      * @param startFirst With [shuffled]: the song at [startIndex] plays first and the others are
      * shuffled after it, for a song picked out of a list while shuffle is on (QueueStart). Without
      * it a shuffled queue begins on any song, as a list's Shuffle button asks.
@@ -253,11 +263,22 @@ class QueueBoard(
 
                 saveQueueSongs(match)
                 return match
+            } else if (match.playlistId != null) {
+                // A radio stays a radio. Picked in Add to queue, it used to get the songs at the end
+                // of everything it held and lose its continuation, so it stopped topping itself up
+                // and keeping up to date, and became a list named after it with a "+". The songs go
+                // where the swipe's add to the end puts them now: after the listener's own songs
+                // ahead and before the radio's (MusicService.addToQueue).
+                if (QUEUE_DEBUG)
+                    Log.d(TAG, "Adding to queue: into a radio")
+                player.addToQueue(match, mediaList.filterNotNull())
+                return match
             } else if (match.title.endsWith("+\u200B") || anyExts != null) { // this queue is an already an extension queue
                 if (QUEUE_DEBUG)
                     Log.d(TAG, "Adding to queue: extension queue additive")
                 // add items to existing queue unconditionally
                 if (anyExts != null) {
+                    noteAddedByHand(anyExts, mediaList, origin)
                     addSongsToQueue(anyExts, Int.MAX_VALUE, mediaList.filterNotNull(), saveToDb = false)
                     if (shuffled) {
                         shuffle(anyExts, false, true)
@@ -265,6 +286,7 @@ class QueueBoard(
                         anyExts.playlistId = continuationEndpoint
                     }
                 } else {
+                    noteAddedByHand(match, mediaList, origin)
                     addSongsToQueue(match, Int.MAX_VALUE, mediaList.filterNotNull(), saveToDb = false)
                     if (shuffled) {
                         shuffle(match, false, true)
@@ -283,6 +305,7 @@ class QueueBoard(
                 if (QUEUE_DEBUG)
                     Log.d(TAG, "Adding to queue: extension queue rename + extension queue additive")
                 // add items to existing queue unconditionally
+                noteAddedByHand(match, mediaList, origin)
                 addSongsToQueue(match, Int.MAX_VALUE, mediaList.filterNotNull(), saveToDb = false)
                 if (shuffled) {
                     shuffle(match, false, true)
@@ -319,6 +342,8 @@ class QueueBoard(
                 continuationEndpoint
             )
             newQueue.startedByHand(origin, System.currentTimeMillis())
+            // In the run it has just been given, which its first song makes current.
+            noteAddedByHand(newQueue, q, origin)
             masterQueues.add(newQueue)
             if (shuffled) {
                 shuffle(masterQueues.size - 1, startFirst, true)
@@ -330,6 +355,16 @@ class QueueBoard(
         }
     }
 
+
+    /**
+     * [mediaList] went into [q] with a menu's Add to queue, [origin] PlayOrigin.QUEUE: the songs are
+     * the listener's, noted so in [q]'s run before they load (MusicService.notePutInByHand). Nothing
+     * for addQueue's other callers, playQueue's starts and the car's lists, which pass no origin. A
+     * radio picked there goes through MusicService.addToQueue, which notes them itself.
+     */
+    private fun noteAddedByHand(q: MultiQueueObject, mediaList: List<MediaMetadata?>, origin: PlayOrigin?) {
+        if (origin == PlayOrigin.QUEUE) player.notePutInByHand(q, mediaList.mapNotNull { it?.id })
+    }
 
     /**
      * Add songs to end of CURRENT QUEUE & update it in the player
@@ -425,6 +460,19 @@ class QueueBoard(
     }
 
     /**
+     * [song] put back into [q] at [pos] in play order, where a removal from the queue sheet took it out
+     * and Undo brings it back (ui/player/QueueUndo). Saved. The player is the caller's to hand the copy
+     * returned here, the one the queue now holds, so that both hold the same song; nothing is loaded
+     * again, and the queue's place stays on the song it was on (insertAtPlayIndex).
+     */
+    fun putBack(q: MultiQueueObject, pos: Int, song: MediaMetadata): MediaMetadata {
+        val at = pos.coerceIn(0, q.getSize())
+        q.insertAtPlayIndex(at, listOf(song))
+        saveQueueSongs(q)
+        return q.getCurrentQueueShuffled()[at]
+    }
+
+    /**
      * The adaptive queue's edits to the current queue in one go: each replaces, takes out or puts in
      * songs at a place in play order, after checking that the board and the player both hold the
      * song the plan was made for (its uid, composeUidWorkaround). The player is edited item by item,
@@ -464,6 +512,8 @@ class QueueBoard(
             val deleted = masterQueues.indexOf(match)
             masterQueues.remove(match)
             masterIndex = masterIndexAfterDelete(deleted, masterIndex, masterQueues.size)
+            // The queue playing may have been this one: the queue current now is noted instead.
+            notePlaying()
 
             // In line with the saves (see saveDispatcher): a save of this queue asked for before
             // the delete, still waiting its turn, would otherwise put the row back after it.
@@ -622,48 +672,15 @@ class QueueBoard(
         fromIndex: Int,
         toIndex: Int,
     ): Int {
-        val items = queue.getCurrentQueueShuffled()
-        var newQueuePos = queue.getQueuePosShuffled()
-        val currentMediaItemIndex = player.activePlayer.currentMediaItemIndex
-
-        // update current position only if the move will affect it
-        if (currentMediaItemIndex >= min(fromIndex, toIndex) && currentMediaItemIndex <= max(fromIndex, toIndex)) {
-            if (fromIndex == currentMediaItemIndex) {
-                newQueuePos = toIndex
-            } else if (currentMediaItemIndex == toIndex) {
-                if (currentMediaItemIndex < fromIndex) {
-                    newQueuePos++
-                } else {
-                    newQueuePos--
-                }
-            } else if (toIndex > currentMediaItemIndex) {
-                newQueuePos--
-            } else {
-                newQueuePos++
-            }
-        }
-
-        // I like to move it move it
-        if (queue.shuffled) {
-            items.move(fromIndex, toIndex)
-            items.fastForEachIndexed { index, s ->
-                // items is a copy of queue.queue, assume all objects will exist *once* only
-                queue.queue.find { it == s }?.shuffleIndex = index
-            }
-        } else {
-            queue.queue.move(fromIndex, toIndex)
-        }
-        queue.getCurrentQueueShuffled().fastForEachIndexed { index, s -> s.shuffleIndex = index }
-        // setCurrentQueuePos takes a place in play order, so it runs once the play order is
-        // renumbered. A shuffled queue's stored order does not change on a move, so its current
-        // song keeps its stored place, and writing the play position there named another song as
-        // current.
-        queue.setCurrentQueuePos(newQueuePos)
+        // No index while the player holds nothing: before play after a restart, when the queue
+        // sheet moves songs in the stored queue. The player's index then reads 0.
+        val playerIndex = player.activePlayer.takeIf { it.mediaItemCount > 0 }?.currentMediaItemIndex
+        val newQueuePos = moveInPlayOrder(queue, fromIndex, toIndex, playerIndex)
 
         saveQueueSongs(queue)
 
         if (QUEUE_DEBUG)
-            Log.d(TAG, "Moved item from $currentMediaItemIndex to $newQueuePos")
+            Log.d(TAG, "Moved item from $fromIndex to $toIndex, the queue's place is now $newQueuePos")
         return newQueuePos
     }
 
@@ -871,7 +888,7 @@ class QueueBoard(
     var queueSongMap = PriorityQueue<PriorityJob>()
     var jobActive = Mutex()
     // One save at a time, in the order they were asked for: see saveDispatcher.
-    val coroutineScope = CoroutineScope(saveDispatcher)
+    val coroutineScope = CoroutineScope(saveDispatcher + saveFailed)
 
     /**
      * Execute the most recent save request, with a 5 second delay from function call
@@ -981,8 +998,24 @@ class QueueBoard(
         }
     }
 
+    /**
+     * Notes the queue playing by its id (PlayingQueueKey), which the next start goes by: the list
+     * keeps the order it is dragged into, so the last queue in it need not be the one playing. Only
+     * when it changed, on the save scope, whose handler logs a write that fails (a full phone). Not
+     * with Persistent queue off, which saves no queue either.
+     */
+    private fun notePlaying() {
+        if (!player.persistentQueue) return
+        val id = masterQueues.getOrNull(masterIndex)?.id ?: return
+        if (player.dataStore[PlayingQueueKey] == id) return
+        coroutineScope.launch { player.dataStore.edit { it[PlayingQueueKey] = id } }
+    }
+
     private fun saveAllQueues(mq: MutableList<MultiQueueObject>) {
         if (player.persistentQueue) {
+            // First, so it is under way before the save of the list: a start that finds the new
+            // order has to find the queue playing noted with it.
+            notePlaying()
             // The list is copied here, on the player's thread, as saveQueueSongs copies the songs.
             // The save walks it on IO, and bubbleUp moving a queue to the top in the meantime threw
             // ConcurrentModificationException there: a shuffle followed by loading the queue does
@@ -1017,6 +1050,12 @@ class QueueBoard(
          * still be running.
          */
         private val saveDispatcher = Dispatchers.IO.limitedParallelism(1)
+
+        /**
+         * A save or delete that fails (a full phone fails them all) is logged: on a scope with no
+         * handler it would end the app.
+         */
+        private val saveFailed = CoroutineExceptionHandler { _, e -> Log.e("QueueBoard", "Saving the queues failed", e) }
     }
 
 }
@@ -1151,6 +1190,20 @@ internal fun masterIndexAfterDelete(deleted: Int, current: Int, sizeAfter: Int):
 }
 
 /**
+ * The saved [queues] a board built for at most [max] keeps, in the list's order: the last ones,
+ * and the queue playing ([playingId]) wherever it stands. Only that one can be found above the last
+ * ones, once it has been dragged up the list; dropping it when Max queues went down left the music
+ * without its queue, and each song change then saved its place into another one.
+ */
+internal fun queuesKept(queues: List<MultiQueueObject>, max: Int, playingId: Long?): List<MultiQueueObject> {
+    if (max <= 0) return emptyList()
+    val from = (queues.size - max).coerceAtLeast(0)
+    val playing = queues.indexOfFirst { it.id == playingId }
+    if (playing !in 0 until from) return queues.subList(from, queues.size)
+    return listOf(queues[playing]) + queues.subList(from + 1, queues.size)
+}
+
+/**
  * The queues for saveAllQueues to write: a copy of the list, taken on the thread that changes it,
  * so the save can walk it on IO while the list itself goes on changing.
  *
@@ -1159,3 +1212,55 @@ internal fun masterIndexAfterDelete(deleted: Int, current: Int, sizeAfter: Int):
  * the older one back, which is why saveQueueSongs copies only the songs too.
  */
 internal fun queuesToSave(queues: List<MultiQueueObject>): List<MultiQueueObject> = queues.toList()
+
+
+/**
+ * Moves the song at [fromIndex] to [toIndex] in [queue]'s play order, and keeps the queue's place on
+ * the song it was on. Returns that place, in play order.
+ *
+ * [playerIndex] is the player's index of the song playing, or null while the player holds nothing:
+ * before play after a restart, when the queue sheet shows the stored queue and its rows can be
+ * dragged. The queue's own place names the song that will play then. The player's index, which
+ * reads 0 when it is empty, counted the first song as playing, so a move across the one that was
+ * to play left the place on the song before or after it.
+ */
+internal fun moveInPlayOrder(queue: MultiQueueObject, fromIndex: Int, toIndex: Int, playerIndex: Int?): Int {
+    val items = queue.getCurrentQueueShuffled()
+    var newQueuePos = queue.getQueuePosShuffled()
+    val currentMediaItemIndex = playerIndex ?: newQueuePos
+
+    // update current position only if the move will affect it
+    if (currentMediaItemIndex >= min(fromIndex, toIndex) && currentMediaItemIndex <= max(fromIndex, toIndex)) {
+        if (fromIndex == currentMediaItemIndex) {
+            newQueuePos = toIndex
+        } else if (currentMediaItemIndex == toIndex) {
+            if (currentMediaItemIndex < fromIndex) {
+                newQueuePos++
+            } else {
+                newQueuePos--
+            }
+        } else if (toIndex > currentMediaItemIndex) {
+            newQueuePos--
+        } else {
+            newQueuePos++
+        }
+    }
+
+    // I like to move it move it
+    if (queue.shuffled) {
+        items.move(fromIndex, toIndex)
+        items.fastForEachIndexed { index, s ->
+            // items is a copy of queue.queue, assume all objects will exist *once* only
+            queue.queue.find { it == s }?.shuffleIndex = index
+        }
+    } else {
+        queue.queue.move(fromIndex, toIndex)
+    }
+    queue.getCurrentQueueShuffled().fastForEachIndexed { index, s -> s.shuffleIndex = index }
+    // setCurrentQueuePos takes a place in play order, so it runs once the play order is
+    // renumbered. A shuffled queue's stored order does not change on a move, so its current
+    // song keeps its stored place, and writing the play position there named another song as
+    // current.
+    queue.setCurrentQueuePos(newQueuePos)
+    return newQueuePos
+}

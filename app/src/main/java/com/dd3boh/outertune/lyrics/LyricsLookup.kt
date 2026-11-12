@@ -8,7 +8,9 @@ package com.dd3boh.outertune.lyrics
 
 import com.dd3boh.outertune.models.MediaMetadata
 import java.io.IOException
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
@@ -17,6 +19,7 @@ import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 
 /** The automatic lookup's walk through the providers, apart from Android so it can be tested. */
@@ -112,5 +115,38 @@ object LyricsLookup {
             if (plain == null) plain = text
         }
         return Outcome(plain, answered)
+    }
+
+    /**
+     * Everything the providers offer for the lyrics search, given as it arrives: each provider asked
+     * side by side and on its own, so one that fails or is slow no longer ends the search for the
+     * others. It used to walk them in turn and stop at the first that threw: LRCLIB answered 503 for
+     * "Get Lucky" by "Pharrell Williams, Daft Punk, Nile Rodgers", and the search said "Lyrics not
+     * found" over the lyrics on the screen (his report of 1 Nov 2026). The same words from two
+     * providers are offered once.
+     */
+    suspend fun all(
+        providers: List<LyricsProvider>,
+        query: LyricsQuery,
+        onFailure: (LyricsProvider, Throwable) -> Unit,
+        onFound: (LyricsProvider, String) -> Unit,
+    ) = coroutineScope {
+        val seen = HashSet<String>()
+        for (provider in providers) {
+            launch {
+                try {
+                    provider.getAllLyrics(query) { text ->
+                        val words = text.trim()
+                        if (words.isNotEmpty() && synchronized(seen) { seen.add(words) }) onFound(provider, text)
+                    }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    // A provider that caught the search being stopped hands it back as a failure.
+                    ensureActive()
+                    onFailure(provider, e)
+                }
+            }
+        }
     }
 }

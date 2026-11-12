@@ -10,14 +10,19 @@ import kotlin.math.max
 import kotlin.math.min
 
 /**
- * Lines of synced lyrics as a short video: the song plays from just before the first line to the
+ * Lines of synced lyrics as a video: the song plays from just before the first line to the
  * end of the last, the lines scroll by as they are sung, and sound and picture fade out quickly
  * after. This says which stretch of the song that is, which lines are in it, and where everything
  * stands at each moment; LyricsVideo makes the video. No Android in here, so it is tested.
  */
 object LyricsVideoPlan {
-    /** The most of a song a video takes: what a story or a status holds. */
-    const val LONGEST_MS = 60_000L
+    /**
+     * The most of a song a video takes: ten minutes, which is all of nearly any song. A story or a
+     * status holds a minute, but the picking bar says how long the video will be, so whoever picks
+     * the lines knows before it is made. The limit keeps lyrics with wrong times in them from
+     * asking for an hour of video.
+     */
+    const val LONGEST_MS = 10 * 60_000L
 
     /** It starts this long before the first line, so that the voice does not come in on the first frame. */
     const val LEAD_MS = 600L
@@ -43,6 +48,15 @@ object LyricsVideoPlan {
     /** How bright a line is that is not being sung, against 1 for the one that is. */
     const val DIM = 0.42f
 
+    /**
+     * In a video lit word by word, how bright the words of the line being sung are until they are
+     * sung, against [DIM] for the other lines and 1 for the words already sung.
+     */
+    const val UNSUNG = 0.62f
+
+    /** A word is lit across this long at the least, so that one timed as a moment sweeps rather than blinks. */
+    const val SHORTEST_WORD_MS = 120L
+
     const val FRAMES_A_SECOND = 30
 
     /**
@@ -55,8 +69,9 @@ object LyricsVideoPlan {
 
     /**
      * Bits a second for the picture and for the sound, kept low so a video is quick to send: a
-     * minute, the longest there is, comes to about 9 MB, under the 10 MB Discord takes without
-     * paying. Encoders held to a rate still overshoot it a little (1.31 Mbit/s for 1.2 asked).
+     * minute comes to about 9 MB, under the 10 MB Discord takes without paying, and each minute
+     * more adds as much again. Encoders held to a rate still overshoot it a little (1.31 Mbit/s
+     * for 1.2 asked).
      */
     const val PICTURE_BITRATE = 1_000_000
     const val SOUND_BITRATE = 128_000
@@ -64,11 +79,30 @@ object LyricsVideoPlan {
     /** About how big a video [durationMs] long comes out, in bytes. Encoders aim at the bitrate; most land under it. */
     fun bytes(durationMs: Long): Long = (PICTURE_BITRATE + SOUND_BITRATE).toLong() * durationMs / 8_000
 
-    /** A line as the lyrics view has it: its text, when it starts and ends in the song, and whether it is the line before it in another language. */
-    data class Timed(val text: String, val startMs: Long, val endMs: Long, val translated: Boolean = false)
+    /**
+     * A line as the lyrics view has it: its text, when it starts and ends in the song, whether it is
+     * the line before it in another language, and its words where they are timed one by one and the
+     * video lights them so (Unreleased.LYRICS_VIDEO_WORDS).
+     */
+    data class Timed(
+        val text: String,
+        val startMs: Long,
+        val endMs: Long,
+        val translated: Boolean = false,
+        val words: List<Word> = emptyList(),
+    )
 
-    /** A line of the video: when it starts, from the start of the video, and the lyrics' translation of it where they have one. */
-    data class Line(val text: String, val startMs: Long, val translation: String? = null)
+    /**
+     * A word of a line: where it is in the line's text, from [from] up to [to], which is not part of
+     * it, and when it is sung, in the song in a [Timed], from the start of the video in a [Line].
+     */
+    data class Word(val from: Int, val to: Int, val startMs: Long, val endMs: Long)
+
+    /**
+     * A line of the video: when it starts, from the start of the video, the lyrics' translation of
+     * it where they have one, and its words in its text, for lighting it word by word.
+     */
+    data class Line(val text: String, val startMs: Long, val translation: String? = null, val words: List<Word> = emptyList())
 
     /** The stretch of the song from [startMs] to [endMs], and the lines sung in it. */
     data class Clip(val startMs: Long, val endMs: Long, val lines: List<Line>) {
@@ -113,7 +147,19 @@ object LyricsVideoPlan {
         if (songMs != null && songMs > 0) end = min(end, songMs)
         if (end <= start || end - start > LONGEST_MS) return null
 
-        return Clip(start, end, sung.mapIndexed { i, line -> Line(line.text.trim(), line.startMs - start, translations[i]) })
+        return Clip(start, end, sung.mapIndexed { i, line -> Line(line.text.trim(), line.startMs - start, translations[i], wordsOf(line, start)) })
+    }
+
+    /** [line]'s words in its text as the video has it, trimmed, with times from the video's [start]; a word left with no letters is left out. */
+    private fun wordsOf(line: Timed, start: Long): List<Word> {
+        if (line.words.isEmpty()) return emptyList()
+        val lead = line.text.length - line.text.trimStart().length
+        val length = line.text.trim().length
+        return line.words.mapNotNull { word ->
+            val from = (word.from - lead).coerceAtLeast(0)
+            val to = (word.to - lead).coerceAtMost(length)
+            if (from < to) Word(from, to, word.startMs - start, word.endMs - start) else null
+        }
     }
 
     /** Whether the lines picked at [picked] of [lines] make a video ([clip]). */
@@ -146,11 +192,41 @@ object LyricsVideoPlan {
      * shows of the video before it plays.
      */
     fun light(clip: Clip, i: Int, ms: Long): Float {
-        val line = clip.lines.getOrNull(i) ?: return DIM
-        val up = if (i == 0) 1f else ((ms - line.startMs).toFloat() / LIGHT_MS).coerceIn(0f, 1f)
-        val next = clip.lines.getOrNull(i + 1)?.startMs
-        val down = if (next == null) 0f else ((ms - next).toFloat() / LIGHT_MS).coerceIn(0f, 1f)
-        return DIM + (1f - DIM) * up * (1f - down)
+        if (clip.lines.getOrNull(i) == null) return DIM
+        return DIM + (1f - DIM) * up(clip, i, ms) * (1f - down(clip, i, ms))
+    }
+
+    /**
+     * In a video lit word by word, how bright line [i] of [clip] is at [ms] where its words are not
+     * sung yet: [DIM], up to [UNSUNG] while it is the line being sung, and back down once the next
+     * starts. The first is up from the first frame, as with [light].
+     */
+    fun unsung(clip: Clip, i: Int, ms: Long): Float {
+        if (clip.lines.getOrNull(i) == null) return DIM
+        return DIM + (UNSUNG - DIM) * up(clip, i, ms) * (1f - down(clip, i, ms))
+    }
+
+    /** And where they are sung: full, and back down to [DIM] once the next line starts. */
+    fun lit(clip: Clip, i: Int, ms: Long): Float {
+        if (clip.lines.getOrNull(i) == null) return DIM
+        return DIM + (1f - DIM) * (1f - down(clip, i, ms))
+    }
+
+    /**
+     * How much of [word] is lit at [ms], 0 to 1: across from its start to its end as it is sung, as
+     * the lyrics view lights it, over [SHORTEST_WORD_MS] at the least.
+     */
+    fun wordLit(word: Word, ms: Long): Float =
+        ((ms - word.startMs).toFloat() / max(word.endMs - word.startMs, SHORTEST_WORD_MS)).coerceIn(0f, 1f)
+
+    /** How far line [i] has come up as the one being sung, 0 to 1 over [LIGHT_MS] from its start; the first from the first frame. */
+    private fun up(clip: Clip, i: Int, ms: Long): Float =
+        if (i == 0) 1f else ((ms - clip.lines[i].startMs).toFloat() / LIGHT_MS).coerceIn(0f, 1f)
+
+    /** How far line [i] has gone back down, 0 to 1 over [LIGHT_MS] from when the next line starts. */
+    private fun down(clip: Clip, i: Int, ms: Long): Float {
+        val next = clip.lines.getOrNull(i + 1)?.startMs ?: return 0f
+        return ((ms - next).toFloat() / LIGHT_MS).coerceIn(0f, 1f)
     }
 
     /**
@@ -166,6 +242,26 @@ object LyricsVideoPlan {
      * before it plays.
      */
     fun picture(ms: Long, durationMs: Long): Float = fadingOut(ms.toDouble(), durationMs)
+
+    /**
+     * How much of Living blur shows behind the lyrics in the player, 0 to 1, as it is drawn there
+     * in the dark theme (the video's lines are white, so it is always the dark theme's): the field
+     * at [ARTWORK] of its strength, black at [OVERLAY] over it, and black at [LYRICS_SCRIM] more
+     * while the lyrics are up. Liquid glass, at [glass] (0 off, up to 1), halves the field and
+     * takes the overlay away. The video is shaded to show exactly as much (Player.kt draws these;
+     * LyricsVideoShadeTest checks the numbers are still the player's).
+     */
+    fun livingShows(glass: Float): Float {
+        val t = glass.coerceIn(0f, 1f)
+        val artwork = ARTWORK + (ARTWORK_UNDER_GLASS - ARTWORK) * t
+        val overlay = OVERLAY * (1f - t)
+        return artwork * (1f - overlay) * (1f - LYRICS_SCRIM)
+    }
+
+    const val ARTWORK = 1f
+    const val ARTWORK_UNDER_GLASS = 0.5f
+    const val OVERLAY = 0.4f
+    const val LYRICS_SCRIM = 0.3f
 
     /** How many frames a video [durationMs] long has. */
     fun frames(durationMs: Long): Int = ((durationMs * FRAMES_A_SECOND + 999) / 1000).toInt()

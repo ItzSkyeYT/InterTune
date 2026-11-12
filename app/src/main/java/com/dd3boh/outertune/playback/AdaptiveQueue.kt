@@ -173,6 +173,20 @@ object AdaptiveQueue {
     }
 
     /**
+     * How many songs of [queue] the queue sheet shows while the far end is folded away: everything
+     * through [settled] (see [settledThrough]) and the [ahead] after it, and on through the
+     * listener's own songs that follow the song playing at [playing], [byHand]: put in with Play
+     * next or Add to queue, or moved there. Those are settled as well, since no pass touches them,
+     * and in a radio they play before the radio's own songs (AddToQueue). Folded with the radio's,
+     * the fifth song somebody added vanished under "Chosen as you listen", which it was not.
+     */
+    fun <T> shownInSheet(settled: Int, playing: Int, queue: List<T>, id: (T) -> String?, byHand: Set<String>, ahead: Int): Int {
+        var mine = playing + 1
+        while (mine in queue.indices && id(queue[mine])?.let { it in byHand } == true) mine++
+        return maxOf(settled + 1 + ahead, mine).coerceIn(0, queue.size)
+    }
+
+    /**
      * How a song that stopped being the one playing was left, as far as the listener's taste goes.
      *
      * [RAN_OUT] it played to its end by itself, or came round again on repeat. [KEPT] next was
@@ -259,6 +273,17 @@ object AdaptiveQueue {
 
         /** The songs put in or moved by hand in this run, which no pass touches. A view. */
         val byHand: Set<String> get() = run.byHand
+
+        /**
+         * The songs put in or moved by hand in the run of [queue] and [runId], wherever that run is
+         * kept: the one playing, one kept beside it, or one the last process saved. Nothing is
+         * switched to or made for the asking, so a queue never played has none.
+         */
+        fun byHandIn(queue: Long, runId: Long): Set<String> {
+            val key = keyOf(queue, runId)
+            if (key == run.key) return run.byHand.toSet()
+            return earlier[key]?.byHand?.toSet() ?: stored[key]?.byHand?.toSet() ?: emptySet()
+        }
 
         /** What the queue sheet says about the last change in this run, null for nothing. */
         var note: AdaptiveNote.Note?
@@ -483,6 +508,9 @@ object AdaptiveQueue {
                 dismissed = r.dismissed.toSet(), likePending = r.likePending,
                 lastSkipped = r.lastSkipped, playingId = r.recent.firstOrNull()?.song?.id,
                 played = r.played,
+                // Each song by its newest play: one gone back to has a newer entry, which forgave it.
+                skippedIds = r.recent.asSequence().distinctBy { it.song.id }
+                    .filter { it.skipped && !it.liked }.map { it.song.id }.take(SKIPPED_LISTS).toList(),
             )
         }
 
@@ -692,6 +720,11 @@ object AdaptiveQueue {
         val lastSkipped: String?,
         val playingId: String?,
         val played: Int,
+        /**
+         * The songs skipped in this run and not gone back to or liked since, newest first, [SKIPPED_LISTS]
+         * at most: whose related lists say what the listener turns from (SkipSimilar).
+         */
+        val skippedIds: List<String> = emptyList(),
     )
 
     /** One song as it was heard: what it was, by whom, and how long it is (-1 when not known). */
@@ -727,6 +760,9 @@ object AdaptiveQueue {
 
     /** Skips of one artist in a queue before their other songs go. One skip is a mood, two a pattern. */
     const val ARTIST_SKIPS = 2
+
+    /** The run's newest skipped songs whose related lists a pass reads (SkipSimilar). */
+    const val SKIPPED_LISTS = 3
 
     /** Songs in a row it takes to call a run plain. */
     const val PLAIN_RUN = 4

@@ -78,21 +78,22 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBarDefaults
-import androidx.compose.material3.SwipeToDismissBox
-import androidx.compose.material3.SwipeToDismissBoxValue
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
-import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.referentialEqualityPolicy
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
@@ -133,11 +134,16 @@ import androidx.media3.common.Player.REPEAT_MODE_ALL
 import androidx.media3.common.Player.REPEAT_MODE_OFF
 import androidx.media3.common.Player.REPEAT_MODE_ONE
 import androidx.media3.common.Player.STATE_ENDED
+import androidx.media3.common.Timeline
 import androidx.navigation.NavController
 import com.dd3boh.outertune.LocalMenuState
+import com.dd3boh.outertune.LocalSnackbarHostState
 import com.dd3boh.outertune.LocalPlayerAwareWindowInsets
 import com.dd3boh.outertune.LocalPlayerConnection
 import com.dd3boh.outertune.R
+import com.dd3boh.outertune.constants.Unreleased
+import com.dd3boh.outertune.ui.screens.mix.MixNextLine
+import com.dd3boh.outertune.ui.screens.mix.MixQueueChip
 import com.dd3boh.outertune.constants.CONTENT_TYPE_SONG
 import com.dd3boh.outertune.constants.InsetsSafeE
 import com.dd3boh.outertune.constants.InsetsSafeS
@@ -158,6 +164,7 @@ import com.dd3boh.outertune.db.entities.PlaylistSongMap
 import com.dd3boh.outertune.extensions.metadata
 import com.dd3boh.outertune.extensions.move
 import com.dd3boh.outertune.extensions.supportsWideScreen
+import com.dd3boh.outertune.extensions.toMediaItem
 import com.dd3boh.outertune.extensions.toggleRepeatMode
 import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.models.MultiQueueObject
@@ -168,8 +175,14 @@ import com.dd3boh.outertune.ui.component.EmptyPlaceholder
 import com.dd3boh.outertune.playback.AdaptiveNote
 import com.dd3boh.outertune.playback.AdaptiveQueue
 import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.Radio
 import com.dd3boh.outertune.ui.component.LazyColumnScrollbar
+import com.dd3boh.outertune.ui.component.FailedNote
+import com.dd3boh.outertune.ui.component.openProxySetting
+import com.dd3boh.outertune.playback.QueueStart
+import com.dd3boh.outertune.ui.component.FloatingFooter
 import com.dd3boh.outertune.ui.component.SelectHeader
+import com.dd3boh.outertune.ui.component.SwipeToRemoveBox
 import com.dd3boh.outertune.ui.component.button.IconButton
 import com.dd3boh.outertune.ui.component.button.ResizableIconButton
 import com.dd3boh.outertune.ui.component.items.MediaMetadataListItem
@@ -177,7 +190,7 @@ import com.dd3boh.outertune.ui.dialog.TextFieldDialog
 import com.dd3boh.outertune.ui.menu.PlayerMenu
 import com.dd3boh.outertune.ui.menu.QueueMenu
 import com.dd3boh.outertune.utils.QueueToPlaylist
-import com.dd3boh.outertune.utils.makeTimeString
+import com.dd3boh.outertune.utils.queueLengthText
 import com.dd3boh.outertune.utils.rememberEnumPreference
 import com.dd3boh.outertune.utils.rememberPreference
 import kotlinx.coroutines.Dispatchers
@@ -204,6 +217,7 @@ import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
 import java.time.LocalDateTime
 import kotlin.math.roundToInt
+import com.dd3boh.outertune.utils.Toaster
 
 /** The adaptive queue's note in words: see AdaptiveNote. */
 @Composable
@@ -251,14 +265,27 @@ internal val QueueFlingAfter = 64.dp
  * Puts the list at [index] once its rows reach that far, and says whether it did. Rows just put
  * into the list are laid out a frame later, and a scroll asked for before then is cut to the top.
  * Done once per opening, that was never put right, so the queue opened at its first song instead
- * of the one playing (his report, 26 Oct 2026).
+ * of the one playing (his report, 26 Oct 2026). A few songs stay in sight above it: see
+ * [queueRowsAbove].
  */
 internal suspend fun LazyListState.scrollToWhenLaidOut(index: Int): Boolean {
     if (index < 0) return false
     withTimeoutOrNull(2_000) { snapshotFlow { layoutInfo.totalItemsCount }.first { it > index } } ?: return false
-    scrollToItem(index)
+    val info = layoutInfo
+    val visible = info.viewportSize.height - info.beforeContentPadding - info.afterContentPadding
+    val above = queueRowsAbove(visible, info.visibleItemsInfo.firstOrNull()?.size ?: 0)
+    scrollToItem((index - above).coerceAtLeast(0))
     return true
 }
+
+/**
+ * How many songs show above the one playing when the queue opens (#80, 4 Nov 2026): about a third
+ * of the list in sight, rounded, three at most, so what came before it is there without scrolling.
+ * Cut down instead of rounded, the Pixel 5 showed two, a hair short of the reporter's three. None
+ * before the rows are laid out.
+ */
+internal fun queueRowsAbove(visibleHeight: Int, rowHeight: Int): Int =
+    if (visibleHeight <= 0 || rowHeight <= 0) 0 else (visibleHeight * 0.3f / rowHeight).roundToInt().coerceIn(0, 3)
 
 /**
  * The queue's own link from a list to its sheet, with [QueueOvershootBuffer]. Only the queue has
@@ -456,12 +483,24 @@ fun BoxScope.QueueContent(
     var detachedQueue by remember { mutableStateOf<MultiQueueObject?>(fallBackQueue) }
 
     /**
-     * The queue the fallback seeded us with, captured once alongside the remembers above.
+     * The queue the fallback seeded us with, captured alongside the remembers above, and again
+     * when the board comes to hold another object for it (the effect under exitDetachHead's).
      *
      * Used to tell "we are detached because nothing had loaded yet" apart from "the user picked a
      * queue to preview". Only the first is safe to clear automatically.
      */
-    val fallbackSeed = remember { fallBackQueue }
+    var fallbackSeed by remember { mutableStateOf(fallBackQueue, referentialEqualityPolicy()) }
+    // The queue the player will play, shown before play after a restart. The player holds nothing
+    // yet, so these rows are the queue board's own: they can be dragged, and a move goes to the
+    // board alone, which saves it. A queue picked from the list to look at is not this one.
+    val movesStoredQueue = detachedHead && detachedQueue != null && detachedQueue === fallbackSeed && queueWindows.isEmpty()
+    // The bar's controls work for the player's queue and for that stored queue before play: the first
+    // tap loads it, as the mini player's play does (#127: after a restart they were all greyed out and
+    // did nothing). Only a queue picked from the list to look at leaves them off.
+    val barWorks = !detachedHead || movesStoredQueue
+    // The shown queue's place, read again when the stored queue is said to have changed: a move
+    // there takes the place along with the song that will play, and the lit row has to follow it.
+    val detachedPlace = remember(detachedQueue, unloadedQueueChanged) { detachedQueue?.getQueuePosShuffled() }
     val mutableQueues = remember { mutableStateListOf<MultiQueueObject>() }
     var playingQueue by remember { mutableIntStateOf(-1) }
 
@@ -470,6 +509,8 @@ fun BoxScope.QueueContent(
      * SONG LIST
      */
     val mutableSongs = remember { mutableStateListOf<MediaMetadata>() }
+    // Which of the player's lists mutableSongs was last filled from, by the effect that fills it.
+    var songsFrom by remember { mutableStateOf<List<Timeline.Window>?>(null) }
     // Which queue the list was last put at its playing song for. Null until this opening's first.
     var scrolledFor by remember { mutableStateOf<String?>(null) }
     val lazySongsListState = rememberLazyListState()
@@ -482,6 +523,103 @@ fun BoxScope.QueueContent(
     val onExitSelectionMode = {
         inSelectMode = false
         selectedItems.clear()
+    }
+
+    fun exitDetachHead() {
+        detachedHead = false
+        detachedQueue = null // detachedQueue should only exist in detached mode
+        onExitSelectionMode()
+    }
+
+    /**
+     * A queue with nothing left in it once songs were taken out goes, as the queue list's own Delete
+     * takes one: the next queue is loaded, paused, or with no queue left the player closes. It used
+     * to stay, empty: the sheet said "No queues" over a bar still naming it "1 / 0", the mini player
+     * stayed on with no song and no cover (a tester's screenshot, 9 Nov 2026), and its last songs
+     * came back at the next start, since an empty queue is never saved.
+     */
+    val dropIfEmptied: () -> Unit = {
+        val emptied = qb.getCurrentQueue()?.takeIf { it.getSize() == 0 }
+        if (emptied != null) {
+            playerConnection.player.pause()
+            val remainingQueues = qb.deleteQueue(emptied)
+            qb.setCurrQueue()
+            exitDetachHead()
+            if (remainingQueues < 1) onTerminate()
+        }
+    }
+    // Undo for songs taken out by hand: a swipe, the pill's button and the menu's entry (the owner's pick of 11 Nov
+    // 2026, after testers hit Remove from queue by mistake). A small message says for a few seconds what went,
+    // and Undo puts the songs back where they were, in order, into the queue they came out of: the queue board
+    // first, which saves, then the player when it holds the queue, or the saved queue alone before play, as a
+    // removal does. What is playing, and where it is, are not asked about: the player moves its own place along
+    // as songs come in above it, and the queue keeps its place on the song it was on.
+    val snackbarHostState = LocalSnackbarHostState.current
+    val undoLabel = stringResource(R.string.undo)
+    val putBackTaken: (Long, List<QueueUndo.Taken<MediaMetadata>>) -> Unit = put@{ queueId, taken ->
+        val queue = qb.getCurrentQueue()?.takeIf { it.id == queueId } ?: return@put
+        val loaded = playerConnection.player.mediaItemCount > 0
+        for (at in QueueUndo.insertions(taken, queue.getSize())) {
+            val held = qb.putBack(queue, at.place, at.song)
+            if (loaded) playerConnection.player.addMediaItem(at.place, held.toMediaItem())
+            mutableSongs.add(at.place.coerceIn(0, mutableSongs.size), held)
+        }
+        if (!loaded) playerConnection.storedQueueEdited()
+        haptic.performHapticFeedback(HapticFeedbackType.Confirm)
+    }
+    val offerUndo: (Long?, List<QueueUndo.Taken<MediaMetadata>>) -> Unit = offer@{ queueId, taken ->
+        if (queueId == null || taken.isEmpty()) return@offer
+        // Not for a queue that went with its last songs (dropIfEmptied): there is nothing to put them back into.
+        qb.getCurrentQueue()?.takeIf { it.id == queueId && it.getSize() > 0 } ?: return@offer
+        val message = if (taken.size == 1) {
+            context.getString(R.string.queue_removed_one, taken[0].song.title)
+        } else {
+            context.resources.getQuantityString(R.plurals.queue_removed_songs, taken.size, taken.size)
+        }
+        coroutineScope.launch {
+            // A second removal while the bar shows replaces it: only the last can be undone.
+            snackbarHostState.currentSnackbarData?.dismiss()
+            val result = snackbarHostState.showSnackbar(
+                message = message,
+                actionLabel = undoLabel,
+                duration = SnackbarDuration.Long,
+            )
+            if (result == SnackbarResult.ActionPerformed) putBackTaken(queueId, taken)
+        }
+    }
+    // Undo ends here
+
+    // The songs picked, taken out of the queue in one go, each as a swipe takes one: the last place
+    // first, so the places still to go keep their songs. Offered where the rows are the queue being
+    // listened to: unlocked, and the one playing or the one that will play before play after a
+    // restart (movesStoredQueue), not another queue looked at from the list. Before play the player
+    // holds nothing, and it is not asked to remove what it does not hold: the songs come out of the
+    // queue board alone, as a drag moves them, and the song on the mini player is read from the
+    // board again, since the one it showed may be among them. A song in the queue twice shows both
+    // rows picked, so both go.
+    val removeSelected: (() -> Unit)? = if (lockQueue || (detachedHead && !movesStoredQueue)) null else {
+        {
+            val picked = selectedItems.toSet()
+            val places = mutableSongs.indices.filter { mutableSongs[it].hashCode() in picked }.sortedDescending()
+            val loaded = playerConnection.player.mediaItemCount > 0
+            val queueId = qb.getCurrentQueue()?.id
+            val taken = ArrayList<QueueUndo.Taken<MediaMetadata>>()
+            for (place in places) {
+                val song = mutableSongs.getOrNull(place) ?: continue
+                if (qb.removeCurrentQueueSong(place)) {
+                    playerConnection.service.noteRemovedByHand(song)
+                    ActivityLog.note(context, database, song.id, SignalKind.REMOVED_FROM_QUEUE)
+                    if (loaded) playerConnection.player.removeMediaItem(place)
+                    mutableSongs.removeAt(place)
+                    taken += QueueUndo.Taken(place, song)
+                }
+            }
+            dropIfEmptied()
+            if (!loaded) playerConnection.storedQueueEdited()
+            haptic.performHapticFeedback(HapticFeedbackType.Confirm)
+            offerUndo(queueId, taken)
+            onExitSelectionMode()
+        }
     }
 
     // search
@@ -536,7 +674,8 @@ fun BoxScope.QueueContent(
     }
     val reorderableState = rememberReorderableLazyListState(
         lazyListState = lazySongsListState,
-        scrollThresholdPadding = WindowInsets.systemBars.add(
+        // No status bar on top: the song list stops at its edge (see songList).
+        scrollThresholdPadding = WindowInsets.systemBars.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal).add(
             WindowInsets(top = ListItemHeight, bottom = ListItemHeight)
         ).asPaddingValues()
     ) { from, to ->
@@ -561,7 +700,13 @@ fun BoxScope.QueueContent(
             dragInfo?.let { (from, to) ->
                 if (from != to) {
                     qb.moveSong(from, to)
-                    playerConnection.player.moveMediaItem(from, to)
+                    if (playerConnection.player.mediaItemCount > 0) {
+                        playerConnection.player.moveMediaItem(from, to)
+                    } else {
+                        // Nothing the player reports says the stored queue changed: the artwork
+                        // strip and this sheet read it from the queue board again.
+                        playerConnection.service.unloadedQueueChanged.value += 1
+                    }
                     // Where the listener put it, the adaptive queue leaves it.
                     mutableSongs.getOrNull(to)?.id?.let { playerConnection.service.noteMovedByHand(it) }
                 }
@@ -604,12 +749,6 @@ fun BoxScope.QueueContent(
     }
 
     // Helpers
-    fun exitDetachHead() {
-        detachedHead = false
-        detachedQueue = null // detachedQueue should only exist in detached mode
-        onExitSelectionMode()
-    }
-
     /**
      * Undo the detached state that the fallback seeds on first composition.
      *
@@ -625,6 +764,30 @@ fun BoxScope.QueueContent(
     LaunchedEffect(queueWindows.isEmpty()) {
         if (queueWindows.isNotEmpty() && detachedHead && detachedQueue === fallbackSeed) {
             exitDetachHead()
+        }
+    }
+
+    /**
+     * The saved queue shown before play is the board's own object, and stays the board's.
+     *
+     * The board is built again from the database, with new objects, whenever the music service
+     * is: with nothing loaded the service ends when the app is left and a new one starts when the
+     * app comes back (and after a scan, or for a new Max queues). A sheet left open across that
+     * went on showing the object it was seeded with, while Remove from queue, a swipe and a drag
+     * all go to the board's current queue. So the picked songs left the saved queue, the rows came
+     * straight back from the old object and the bar still counted them: "the remove from queue
+     * doesn't work" (a tester's video, 10 Nov 2026), and the next try took out whichever songs
+     * stood at those places by then. The old object is swapped for the board's as soon as they
+     * differ. A selection is of the old rows and goes with them, as when the player's list changes.
+     *
+     * Only the seed: a queue picked from the list to look at is not the board's current one.
+     */
+    val seedReplacedBy = fallBackQueue?.takeIf { detachedHead && detachedQueue === fallbackSeed && it !== fallbackSeed }
+    SideEffect {
+        if (seedReplacedBy != null) {
+            fallbackSeed = seedReplacedBy
+            detachedQueue = seedReplacedBy
+            onExitSelectionMode()
         }
     }
 
@@ -648,25 +811,46 @@ fun BoxScope.QueueContent(
     // the one playing, going back to the first song folded away every song played since, and they
     // seemed to vanish. See AdaptiveQueue.settledThrough.
     val reachedInQueue by playerConnection.service.reachedInQueue.collectAsState()
+    // The songs the listener put in or moved by hand: shown with the songs ahead, not folded away
+    // with the radio's (AdaptiveQueue.shownInSheet).
+    val byHandInQueue by playerConnection.service.byHandInQueue.collectAsState()
     // What the adaptive queue last changed, said under the songs on show, and the songs it put in
     // that have not played, marked in their rows. Only for the live queue of a radio.
     val adaptivePicks by playerConnection.service.adaptivePicks.collectAsState()
     val adaptiveNote by playerConnection.service.adaptiveNote.collectAsState()
     val adaptiveSaying = adaptiveTailActive && !isSearching && detachedQueue == null
+    // Why the radio or mix this queue was to become did not start, said under the song it left
+    // alone: Val's queue of one ("Radiotemp", 1/1, Discord, 1 Nov 2026) said nothing at all.
+    val radioStopped by playerConnection.service.radioStopped.collectAsState()
+    // A radio YouTube gave nothing, going on from the app's own picks (LocalRadio): said under its
+    // songs, so nobody takes them for YouTube's.
+    val radioFromInterTune by playerConnection.service.radioFromInterTune.collectAsState()
     // The preview the sheet shows while the player holds nothing yet (after an update or a
     // restart, until something plays) is of the queue that is playing: its far end is folded
     // away like the live queue's, from the song it is at, not shown in full. Another queue looked
     // at from the list of queues still shows all of it.
     val previewOfPlaying = detachedQueue != null && detachedQueue?.id == qb.getCurrentQueue()?.id
     val foldTail = adaptiveTailActive && !isSearching && (detachedQueue == null || previewOfPlaying)
+    // The songs the list shows. mutableSongs is filled from the player's list by the effect below,
+    // which runs only once the frame the player's list changed in has been drawn. In that frame the
+    // song playing, what the queue has reached and so the fold were new already, and the songs
+    // were not. Back in the app after the phone was locked with the queue open, the far end had
+    // been changed meanwhile, and that frame put the new fold over the old songs: songs the queue
+    // no longer held showed for a moment, then the right ones (his note of 30 Oct 2026). Until the
+    // effect has caught up, the list shows the player's own songs, worked out in the same frame as
+    // the fold. A drag (the player's list unchanged while a row moves) and a swipe (the row taken
+    // out before the player says so) still show mutableSongs, as before.
+    val playerSongs = remember(queueWindows) { QueueRows.of(queueWindows.mapNotNull { it.mediaItem.metadata }) }
+    val songs = QueueRows.onShow(mutableSongs, playerSongs, caughtUp = songsFrom === queueWindows, preview = detachedQueue != null || fallBackQueue != null)
     val visibleSongs: List<MediaMetadata> =
-        if (!foldTail) mutableSongs
+        if (!foldTail) songs
         else {
-            val settled = detachedQueue?.let { AdaptiveQueue.settledThrough(it.getQueuePosShuffled(), mutableSongs, { it.id }, reachedInQueue) }
-                ?: AdaptiveQueue.settledThrough(currentWindowIndex, mutableSongs, { it.id }, reachedInQueue)
-            mutableSongs.take((settled + 1 + ADAPTIVE_VISIBLE_AHEAD).coerceIn(0, mutableSongs.size))
+            val playing = detachedQueue?.getQueuePosShuffled() ?: currentWindowIndex
+            val settled = detachedQueue?.let { AdaptiveQueue.settledThrough(it.getQueuePosShuffled(), songs, { it.id }, reachedInQueue) }
+                ?: AdaptiveQueue.settledThrough(currentWindowIndex, songs, { it.id }, reachedInQueue)
+            songs.take(AdaptiveQueue.shownInSheet(settled, playing, songs, { it.id }, byHandInQueue, ADAPTIVE_VISIBLE_AHEAD))
         }
-    val hiddenTailCount = if (isSearching) 0 else mutableSongs.size - visibleSongs.size
+    val hiddenTailCount = if (isSearching) 0 else songs.size - visibleSongs.size
 
     // Refreshed while searching as well, and only the scroll waits for the search to close. It
     // used to stop here during a search, so Start radio from a result replaced the queue while the
@@ -705,7 +889,7 @@ fun BoxScope.QueueContent(
         // Each row under a name of its own that it keeps: see QueueRows. A list that comes back
         // the same, as it does when only a song's length was learned, is left alone, and so is a
         // selection made in it.
-        val shown = QueueRows.of(queueWindows.mapNotNull { it.mediaItem.metadata })
+        val shown = playerSongs
         if (!QueueRows.same(shown, mutableSongs)) {
             mutableSongs.apply {
                 clear()
@@ -714,6 +898,7 @@ fun BoxScope.QueueContent(
             // A selection is of the list as it was: cleared with it, as it always was.
             selectedItems.clear()
         }
+        songsFrom = queueWindows
 
         val showing = "playing " + qb.getCurrentQueue()?.id
         // Not before the song playing is in the list: queueWindows can still be empty on the
@@ -778,7 +963,7 @@ fun BoxScope.QueueContent(
                     }.onFailure { Log.w("Queue.kt", "Could not save the queue as a playlist", it) }.isSuccess
                     if (saved) {
                         withContext(Dispatchers.Main) {
-                            Toast.makeText(context, context.getString(R.string.saved_as_playlist, name), Toast.LENGTH_SHORT).show()
+                            Toaster.show(context, context.getString(R.string.saved_as_playlist, name), Toast.LENGTH_SHORT)
                         }
                     }
                 }
@@ -942,7 +1127,7 @@ fun BoxScope.QueueContent(
                                     )
                                 }
                                 Text(
-                                    text = "${index + 1}. ${mq.title}",
+                                    text = "${index + 1}. ${QueueStart.shownTitle(mq.title) { mq.getCurrentQueueShuffled().firstOrNull()?.title }}",
                                     maxLines = 1,
                                     overflow = TextOverflow.MiddleEllipsis,
                                     modifier = Modifier.padding(horizontal = 20.dp, vertical = 0.dp)
@@ -975,7 +1160,7 @@ fun BoxScope.QueueContent(
                 .fillMaxWidth()
                 .padding(horizontal = 20.dp, vertical = 8.dp)
         ) {
-            Column {
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = stringResource(R.string.songs),
                     fontSize = 24.sp,
@@ -983,6 +1168,8 @@ fun BoxScope.QueueContent(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
+                // The switch of the playlist this queue came from, so Mix can be turned off here.
+                if (Unreleased.AUTOMIX_EDITOR) MixQueueChip(Modifier.padding(start = 12.dp))
             }
 
             // The lock normally lives in the saved-queues header, which songsOnly hides. Locking
@@ -1029,15 +1216,72 @@ fun BoxScope.QueueContent(
         }
     }
 
+    // A song's ⋮: in its row, and on the playing song's row held at the edge of the list (#81).
+    fun showSongMenu(song: MediaMetadata) {
+        menuState.show {
+            PlayerMenu(
+                mediaMetadata = song,
+                navController = navController,
+                playerBottomSheetState = playerState,
+                onDismiss = {
+                    menuState.dismiss()
+                },
+            )
+        }
+        haptic.performHapticFeedback(HapticFeedbackType.ContextClick)
+    }
+
+    // On its side the songs run to the foot of the screen, under the navigation bar: the song held
+    // at their bottom stays above it (#81). Upright, the bar of controls at the foot leaves the room.
+    val heldBottomRoom = if (landscape) WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom).asPaddingValues().calculateBottomPadding() else 0.dp
+
     val songList: @Composable ColumnScope.(PaddingValues) -> Unit = { contentPadding ->
         Log.v("QueueContent", "QC-s_b")
         val songsScroll = rememberQueueSheetScroll(queueState)
+        // The space for the status bar sits outside the list, so a row scrolled up is cut at the
+        // status bar's edge instead of passing under the clock (Pixel 5, 5 Nov 2026). At rest the
+        // first row is where it was.
+        val listDirection = LocalLayoutDirection.current
+        val thumbnailSize = (ListThumbnailSize.value * density.density).roundToInt()
+
+        // The song playing, held at the edge the list scrolled away from (#81): see QueueHeld. Its
+        // room at the foot is the bar's that floats over the list there, or on its side the
+        // navigation bar's (heldBottomRoom).
+        val heldRoom = maxOf(contentPadding.calculateBottomPadding(), heldBottomRoom)
+        val heldRoomPx = with(density) { heldRoom.roundToPx() }
+        val rowPx = with(density) { ListItemHeight.roundToPx() }
+        val placed = scrolledFor == "playing " + qb.getCurrentQueue()?.id
+        val heldSong = visibleSongs.getOrNull(currentWindowIndex)
+            ?.takeIf { QueueHeld.holds(isSearching, inSelectMode, detachedHead, reorderableState.isAnyItemDragging, placed) }
+        val heldAt = if (heldSong != null) currentWindowIndex else -1
+        val heldEdge by remember(heldAt, heldRoomPx, rowPx) {
+            derivedStateOf {
+                val info = lazySongsListState.layoutInfo
+                QueueHeld.edge(
+                    // The song's row alone, without the Mix's line under it (MixNextLine).
+                    laid = info.visibleItemsInfo.map { QueueHeld.Laid(it.index, it.offset, minOf(it.size, rowPx)) },
+                    playing = heldAt,
+                    top = 0,
+                    bottom = info.viewportEndOffset - heldRoomPx,
+                )
+            }
+        }
+
+        Box(
+            modifier = Modifier
+                .padding(top = contentPadding.calculateTopPadding())
+                .movesListFromHeldRow(lazySongsListState)
+        ) {
         LazyColumn(
             state = lazySongsListState,
-            contentPadding = contentPadding,
+            contentPadding = PaddingValues(
+                start = contentPadding.calculateStartPadding(listDirection),
+                end = contentPadding.calculateEndPadding(listDirection),
+                bottom = contentPadding.calculateBottomPadding(),
+            ),
             modifier = if (songsScroll != null) Modifier.nestedScroll(songsScroll) else Modifier
         ) {
-            if ((if (isSearching) filteredSongs else mutableSongs).isEmpty()) {
+            if ((if (isSearching) filteredSongs else songs).isEmpty()) {
                 item {
                     EmptyPlaceholder(
                         icon = Icons.Rounded.MusicNote,
@@ -1047,7 +1291,6 @@ fun BoxScope.QueueContent(
                 }
             }
 
-            val thumbnailSize = (ListThumbnailSize.value * density.density).roundToInt()
             itemsIndexed(
                 items = if (isSearching) filteredSongs else visibleSongs,
                 key = { _, item -> QueueRows.key(item) },
@@ -1067,57 +1310,39 @@ fun BoxScope.QueueContent(
                 } else {
                     displayIndex
                 }
-                // The swipe state keeps the confirmValueChange from the row's first composition
-                // (Material3 remembers it with no inputs), so an index captured there goes stale.
-                // Removing a song shifts every later one down without changing its key, and a second
-                // swipe then removed the song after the one swiped. The lambda reads this instead.
+                // Read when the swipe asks to remove the row, not when it was composed: an index kept
+                // from then goes stale. Removing a song shifts every later one down without changing
+                // its key, and a second swipe then removed the song after the one swiped.
                 val currentIndex by rememberUpdatedState(index)
                 ReorderableItem(
                     state = reorderableState,
                     key = QueueRows.key(window)
                 ) {
-                    val dismissState = rememberSwipeToDismissBoxState(
-                        positionalThreshold = { totalDistance ->
-                            totalDistance
-                        },
-                        confirmValueChange = { dismissValue ->
-                            // Read once, so the removal and the log below agree on the row.
-                            val swipedIndex = currentIndex
-                            // A row whose song has already left the queue (a search result stays on
-                            // screen until the results refresh) has no place of its own any more,
-                            // and a swipe on it must not take another song with it.
-                            if (dismissValue != SwipeToDismissBoxValue.Settled && mutableSongs.getOrNull(swipedIndex) != window) {
-                                return@rememberSwipeToDismissBoxState false
-                            }
-                            when (dismissValue) {
-                                SwipeToDismissBoxValue.StartToEnd -> {
-                                    if (qb.removeCurrentQueueSong(swipedIndex)) {
-                                        mutableSongs.getOrNull(swipedIndex)?.let { playerConnection.service.noteRemovedByHand(it) }
-                                        mutableSongs.getOrNull(swipedIndex)?.id?.let { ActivityLog.note(context, database, it, SignalKind.REMOVED_FROM_QUEUE) }
-                                        playerConnection.player.removeMediaItem(swipedIndex)
-                                        mutableSongs.removeAt(swipedIndex)
-                                    }
-                                    haptic.performHapticFeedback(HapticFeedbackType.Confirm)
-                                    return@rememberSwipeToDismissBoxState true
-                                }
-
-                                SwipeToDismissBoxValue.EndToStart -> {
-                                    if (qb.removeCurrentQueueSong(swipedIndex)) {
-                                        mutableSongs.getOrNull(swipedIndex)?.let { playerConnection.service.noteRemovedByHand(it) }
-                                        mutableSongs.getOrNull(swipedIndex)?.id?.let { ActivityLog.note(context, database, it, SignalKind.REMOVED_FROM_QUEUE) }
-                                        playerConnection.player.removeMediaItem(swipedIndex)
-                                        mutableSongs.removeAt(swipedIndex)
-                                    }
-                                    haptic.performHapticFeedback(HapticFeedbackType.Confirm)
-                                    return@rememberSwipeToDismissBoxState true
-                                }
-
-                                SwipeToDismissBoxValue.Settled -> {
-                                    return@rememberSwipeToDismissBoxState false
-                                }
-                            }
+                    // Asked once the finger has let go of the row far enough along and clearly sideways,
+                    // and the row has slid out (SwipeToRemoveBox), the same either way. False leaves the
+                    // song where it is, and the row slides back.
+                    val removeSwiped: () -> Boolean = swipe@{
+                        // Read once, so the removal and the log below agree on the row.
+                        val swipedIndex = currentIndex
+                        // A row whose song has already left the queue (a search result stays on
+                        // screen until the results refresh) has no place of its own any more,
+                        // and a swipe on it must not take another song with it.
+                        if (mutableSongs.getOrNull(swipedIndex) != window) return@swipe false
+                        val queueId = qb.getCurrentQueue()?.id
+                        val removed = qb.removeCurrentQueueSong(swipedIndex)
+                        if (removed) {
+                            mutableSongs.getOrNull(swipedIndex)?.let { playerConnection.service.noteRemovedByHand(it) }
+                            mutableSongs.getOrNull(swipedIndex)?.id?.let { ActivityLog.note(context, database, it, SignalKind.REMOVED_FROM_QUEUE) }
+                            val loaded = playerConnection.player.mediaItemCount > 0
+                            if (loaded) playerConnection.player.removeMediaItem(swipedIndex)
+                            mutableSongs.removeAt(swipedIndex)
+                            dropIfEmptied()
+                            if (!loaded) playerConnection.storedQueueEdited()
+                            haptic.performHapticFeedback(HapticFeedbackType.Confirm)
+                            offerUndo(queueId, listOf(QueueUndo.Taken(swipedIndex, window)))
                         }
-                    )
+                        removed
+                    }
 
                     val onCheckedChange: (Boolean) -> Unit = {
                         haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
@@ -1131,7 +1356,10 @@ fun BoxScope.QueueContent(
                     val content = @Composable {
                         MediaMetadataListItem(
                             mediaMetadata = window,
-                            isActive = (index == currentWindowIndex && !detachedHead) || index == detachedQueue?.getQueuePosShuffled(),
+                            // Not while the song is held at an edge (#81): the held row wears it then. What
+                            // is left of this row in sight is under that one, and the rest passes under
+                            // the bar at the foot, where its highlight showed the song a second time.
+                            isActive = (index == currentWindowIndex && !detachedHead && heldEdge == QueueHeld.Edge.NONE) || index == detachedPlace,
                             isPlaying = isPlaying && !detachedHead,
                             isNew = adaptiveSaying && window.id in adaptivePicks,
                             trailingContent = {
@@ -1142,19 +1370,7 @@ fun BoxScope.QueueContent(
                                     )
                                 } else {
                                     IconButton(
-                                        onClick = {
-                                            menuState.show {
-                                                PlayerMenu(
-                                                    mediaMetadata = window,
-                                                    navController = navController,
-                                                    playerBottomSheetState = playerState,
-                                                    onDismiss = {
-                                                        menuState.dismiss()
-                                                    },
-                                                )
-                                            }
-                                            haptic.performHapticFeedback(HapticFeedbackType.ContextClick)
-                                        }
+                                        onClick = { showSongMenu(window) }
                                     ) {
                                         Icon(
                                             imageVector = Icons.Rounded.MoreVert,
@@ -1164,7 +1380,7 @@ fun BoxScope.QueueContent(
                                     // Not over search results, as in a playlist: the results are not redrawn
                                     // after a move, so a second drag started from rows that were no longer
                                     // where they showed.
-                                    if (!lockQueue && !detachedHead && !isSearching) {
+                                    if (!lockQueue && (!detachedHead || movesStoredQueue) && !isSearching) {
                                         Icon(
                                             imageVector = Icons.Rounded.DragHandle,
                                             contentDescription = null,
@@ -1212,14 +1428,22 @@ fun BoxScope.QueueContent(
                         )
                     }
 
-                    if (!lockQueue && !inSelectMode && !detachedHead) {
-                        SwipeToDismissBox(
-                            state = dismissState,
-                            backgroundContent = {},
-                            content = { content() }
-                        )
-                    } else {
-                        content()
+                    // A column, as the item lays its content over itself: under the song playing
+                    // in a Mix queue, the next change in a line that is not swiped with the row.
+                    Column {
+                        // Before play after a restart too (movesStoredQueue), as Remove from queue is: the songs
+                        // leave the saved queue alone, the player holding nothing yet.
+                        if (!lockQueue && !inSelectMode && (!detachedHead || movesStoredQueue)) {
+                            SwipeToRemoveBox(
+                                onRemove = removeSwiped,
+                                content = { content() }
+                            )
+                        } else {
+                            content()
+                        }
+                        if (Unreleased.AUTOMIX_EDITOR && index == currentWindowIndex && !detachedHead && !isSearching) {
+                            MixNextLine(songs = mutableSongs, index = index, navController = navController)
+                        }
                     }
                 }
             }
@@ -1236,6 +1460,61 @@ fun BoxScope.QueueContent(
             // picks after your skip". It used to be a row of its own above the songs, which said
             // "Tuned to this session" over playlists and albums too, put the list's scroll one row
             // above the song playing, and was off screen whenever the sheet opened at that song.
+            val stopped = radioStopped?.takeIf { !isSearching && detachedQueue == null && it.queueId == qb.getCurrentQueue()?.id }
+            if (stopped != null) {
+                item(key = "radio-stopped", contentType = "radio-stopped") {
+                    // Its buttons lead away from the player: the sheets go down on the way, or the
+                    // page opened under them unseen.
+                    FailedNote(
+                        kind = stopped.kind,
+                        onSignIn = {
+                            navController.navigate("login")
+                            queueState?.collapseSoft()
+                            playerState.collapseSoft()
+                        },
+                        onRetry = stopped.retry,
+                        onProxy = {
+                            openProxySetting()
+                            queueState?.collapseSoft()
+                            playerState.collapseSoft()
+                        },
+                        margin = 8.dp,
+                    )
+                }
+            }
+
+            if (radioFromInterTune != null && !isSearching && detachedQueue == null && radioFromInterTune == qb.getCurrentQueue()?.id) {
+                item(key = "radio-from-intertune", contentType = "radio-from-intertune") {
+                    // As the adaptive queue's line below: a picture, then two short lines.
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 20.dp)
+                    ) {
+                        Icon(
+                            Icons.Rounded.Radio,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.secondary,
+                        )
+                        Spacer(Modifier.width(16.dp))
+                        Column {
+                            Text(
+                                text = stringResource(R.string.radio_from_intertune_title),
+                                style = MaterialTheme.typography.bodyLarge,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                            Text(
+                                text = stringResource(R.string.radio_from_intertune_body),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
+            }
+
             val note = adaptiveNote.takeIf { adaptiveSaying }
             if (hiddenTailCount > 0 || note != null) {
                 item(key = "adaptive-tail", contentType = "adaptive-tail") {
@@ -1276,6 +1555,29 @@ fun BoxScope.QueueContent(
                 }
             }
         }
+
+        if (heldSong != null && heldEdge != QueueHeld.Edge.NONE) {
+            QueueHeldRow(
+                song = heldSong,
+                edge = heldEdge,
+                isPlaying = isPlaying,
+                isNew = adaptiveSaying && heldSong.id in adaptivePicks,
+                thumbnailSize = thumbnailSize,
+                rowPadding = PaddingValues(
+                    start = contentPadding.calculateStartPadding(listDirection),
+                    end = contentPadding.calculateEndPadding(listDirection),
+                ),
+                // Where the queue puts the song when it opens on it, a few songs above it.
+                onShowPlaying = {
+                    coroutineScope.launch { lazySongsListState.scrollToWhenLaidOut(heldAt) }
+                    haptic.performHapticFeedback(HapticFeedbackType.ContextClick)
+                },
+                onMenu = { showSongMenu(heldSong) },
+                modifier = if (heldEdge == QueueHeld.Edge.TOP) Modifier.align(Alignment.TopCenter)
+                else Modifier.align(Alignment.BottomCenter).padding(bottom = heldRoom),
+            )
+        }
+        } // the list and the song held over it
         LazyColumnScrollbar(
             state = lazySongsListState,
         )
@@ -1355,6 +1657,8 @@ fun BoxScope.QueueContent(
         }
         Column(
             modifier = Modifier
+                // The selection pill floats over the bar by its height, glass or not.
+                .onSizeChanged { barHeight = with(density) { it.height.toDp() } }
                 .then(
                     if (paneBackdrop != null) {
                         // One pane of glass standing clear of the edges, as the dock does.
@@ -1385,110 +1689,95 @@ fun BoxScope.QueueContent(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.padding(24.dp, 12.dp)
             ) {
-                // handle selection mode
-                if (inSelectMode && !isSearching) {
-                    SelectHeader(
-                        navController = navController,
-                        selectedItems = selectedItems.mapNotNull { uidHash ->
-                            (detachedQueue?.getCurrentQueueShuffled() ?: mutableSongs).find { it.hashCode() == uidHash }
-                        },
-                        totalItemCount = (detachedQueue?.getCurrentQueueShuffled() ?: mutableSongs).size,
-                        onSelectAll = {
-                            selectedItems.clear()
-                            selectedItems.addAll(mutableSongs.map { it.hashCode() })
-                        },
-                        onDeselectAll = { selectedItems.clear() },
-                        menuState = menuState,
-                        onDismiss = onExitSelectionMode
-                    )
-                } else {
-                    // queue title and show multiqueue button
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
+                // queue title and show multiqueue button
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .border(1.dp, MaterialTheme.colorScheme.secondary, RoundedCornerShape(12.dp))
+                        .padding(2.dp)
+                        .weight(1f)
+                        .clickable(enabled = !landscape && !queueWindows.isEmpty()) {
+                            mqExpand = !mqExpand
+                            if (mqExpand) {
+                                exitDetachHead()
+                            }
+                            haptic.performHapticFeedback(HapticFeedbackType.ContextClick)
+                        }
+                ) {
+                    Text(
+                        text = (detachedQueue ?: mutableQueues.getOrNull(playingQueue))
+                            ?.let { shown -> QueueStart.shownTitle(shown.title) { shown.getCurrentQueueShuffled().firstOrNull()?.title } }
+                            ?: "",
+                        style = MaterialTheme.typography.titleMedium,
+                        maxLines = if (compact) 1 else Int.MAX_VALUE,
+                        overflow = TextOverflow.Ellipsis,
                         modifier = Modifier
-                            .border(1.dp, MaterialTheme.colorScheme.secondary, RoundedCornerShape(12.dp))
-                            .padding(2.dp)
                             .weight(1f)
-                            .clickable(enabled = !landscape && !queueWindows.isEmpty()) {
-                                mqExpand = !mqExpand
-                                if (mqExpand) {
-                                    exitDetachHead()
-                                }
-                                haptic.performHapticFeedback(HapticFeedbackType.ContextClick)
+                            .padding(horizontal = 8.dp)
+                    )
+                    val saveQueueDescription = stringResource(R.string.save_queue_as_playlist)
+                    val queueFallbackName = stringResource(R.string.queue_default_name)
+                    ResizableIconButton(
+                        icon = Icons.AutoMirrored.Rounded.PlaylistAdd,
+                        enabled = mutableSongs.isNotEmpty(),
+                        onClick = {
+                            val title = (detachedQueue ?: mutableQueues.getOrNull(playingQueue))
+                                ?.let { shown -> QueueStart.shownTitle(shown.title) { shown.getCurrentQueueShuffled().firstOrNull()?.title } }
+                            coroutineScope.launch(Dispatchers.IO) {
+                                val names = database.playlists(PlaylistFilter.LIBRARY, PlaylistSortType.NAME, true)
+                                    .first().map { it.playlist.name }
+                                val proposed = QueueToPlaylist.defaultName(title, names, queueFallbackName)
+                                withContext(Dispatchers.Main) { saveQueueName = proposed }
                             }
-                    ) {
-                        Text(
-                            text = detachedQueue?.title ?: mutableQueues.getOrNull(playingQueue)?.title ?: "",
-                            style = MaterialTheme.typography.titleMedium,
-                            maxLines = if (compact) 1 else Int.MAX_VALUE,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier
-                                .weight(1f)
-                                .padding(horizontal = 8.dp)
-                        )
-                        val saveQueueDescription = stringResource(R.string.save_queue_as_playlist)
-                        val queueFallbackName = stringResource(R.string.queue_default_name)
-                        ResizableIconButton(
-                            icon = Icons.AutoMirrored.Rounded.PlaylistAdd,
-                            enabled = mutableSongs.isNotEmpty(),
-                            onClick = {
-                                val title = detachedQueue?.title ?: mutableQueues.getOrNull(playingQueue)?.title
-                                coroutineScope.launch(Dispatchers.IO) {
-                                    val names = database.playlists(PlaylistFilter.LIBRARY, PlaylistSortType.NAME, true)
-                                        .first().map { it.playlist.name }
-                                    val proposed = QueueToPlaylist.defaultName(title, names, queueFallbackName)
-                                    withContext(Dispatchers.Main) { saveQueueName = proposed }
-                                }
-                                haptic.performHapticFeedback(HapticFeedbackType.ContextClick)
-                            },
-                            modifier = Modifier
-                                .padding(vertical = 6.dp, horizontal = 4.dp)
-                                .semantics { contentDescription = saveQueueDescription }
-                        )
-                        ResizableIconButton(
-                            icon = if (mqExpand) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
-                            enabled = !landscape && !queueWindows.isEmpty(),
-                            onClick = {
-                                mqExpand = !mqExpand
-                                if (mqExpand) {
-                                    exitDetachHead()
-                                }
-                                haptic.performHapticFeedback(HapticFeedbackType.ContextClick)
-                            },
-                            modifier = Modifier.padding(vertical = 6.dp)
-                        )
+                            haptic.performHapticFeedback(HapticFeedbackType.ContextClick)
+                        },
+                        modifier = Modifier
+                            .padding(vertical = 6.dp, horizontal = 4.dp)
+                            .semantics { contentDescription = saveQueueDescription }
+                    )
+                    ResizableIconButton(
+                        icon = if (mqExpand) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
+                        enabled = !landscape && !queueWindows.isEmpty(),
+                        onClick = {
+                            mqExpand = !mqExpand
+                            if (mqExpand) {
+                                exitDetachHead()
+                            }
+                            haptic.performHapticFeedback(HapticFeedbackType.ContextClick)
+                        },
+                        modifier = Modifier.padding(vertical = 6.dp)
+                    )
+                }
+
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                    horizontalAlignment = Alignment.End,
+                    modifier = Modifier.padding(horizontal = 8.dp)
+                ) {
+                    fun getQueueLengths(): List<Int> {
+                        return if (!detachedHead) {
+                            queueWindows.map { it.mediaItem.metadata?.duration ?: -1 }
+                        } else detachedQueue?.queue?.map { it.duration } ?: emptyList()
                     }
 
-                    Column(
-                        verticalArrangement = Arrangement.spacedBy(4.dp),
-                        horizontalAlignment = Alignment.End,
-                        modifier = Modifier.padding(horizontal = 8.dp)
-                    ) {
-                        fun getQueueLength(): Int {
-                            return if (!detachedHead) {
-                                queueWindows.sumOf { it.mediaItem.metadata!!.duration }
-                            } else detachedQueue?.queue?.sumOf { it.duration } ?: 0
+                    fun getQueuePositionStr(): String {
+                        return if (!detachedHead) {
+                            "${currentWindowIndex + 1} / ${queueWindows.size}"
+                        } else {
+                            detachedQueue?.let {
+                                "${it.getQueuePosShuffled() + 1} / ${it.getSize()}"
+                            } ?: "–/–"
                         }
-
-                        fun getQueuePositionStr(): String {
-                            return if (!detachedHead) {
-                                "${currentWindowIndex + 1} / ${queueWindows.size}"
-                            } else {
-                                detachedQueue?.let {
-                                    "${it.getQueuePosShuffled() + 1} / ${it.getSize()}"
-                                } ?: "–/–"
-                            }
-                        }
-                        Text(
-                            text = getQueuePositionStr(),
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-
-                        Text(
-                            text = makeTimeString(getQueueLength() * 1000L),
-                            style = MaterialTheme.typography.bodyMedium
-                        )
                     }
+                    Text(
+                        text = getQueuePositionStr(),
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+
+                    Text(
+                        text = queueLengthText(getQueueLengths()),
+                        style = MaterialTheme.typography.bodyMedium
+                    )
                 }
             }
 
@@ -1512,8 +1801,9 @@ fun BoxScope.QueueContent(
                                     .align(Alignment.Center)
                                     .named(shuffleName(shuffleModeEnabled)),
                                 color = iconButtonColor,
-                                enabled = !detachedHead,
+                                enabled = barWorks,
                                 onClick = {
+                                    playerConnection.loadQueueIfEmpty()
                                     playerConnection.triggerShuffle()
                                     haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
                                 }
@@ -1528,7 +1818,7 @@ fun BoxScope.QueueContent(
                                     .align(Alignment.Center)
                                     .named(stringResource(R.string.widget_previous)),
                                 color = iconButtonColor,
-                                enabled = !detachedHead && canSkipPrevious,
+                                enabled = barWorks && (canSkipPrevious || movesStoredQueue),
                                 onClick = {
                                     // Cold start: the saved queue is not in the player yet, and a
                                     // skip in an empty player goes nowhere. As the full player does.
@@ -1546,9 +1836,9 @@ fun BoxScope.QueueContent(
                                         .size(32.dp)
                                         .align(Alignment.Center)
                                         .named(seekBackName()),
-                                    enabled = !detachedHead,
+                                    enabled = barWorks,
                                     onClick = {
-                                        playerConnection.player.seekTo(playerConnection.player.currentPosition - seekIncrement.millisec)
+                                        playerConnection.loadQueueIfEmpty().let { it.seekTo(it.currentPosition - seekIncrement.millisec) }
                                     }
                                 )
                             }
@@ -1564,7 +1854,7 @@ fun BoxScope.QueueContent(
                                     .align(Alignment.Center)
                                     .named(playPauseName(isPlaying && playbackState != STATE_ENDED)),
                                 color = iconButtonColor,
-                                enabled = !detachedHead,
+                                enabled = barWorks,
                                 onClick = {
                                     if (playbackState == STATE_ENDED) {
                                         playerConnection.player.seekTo(0, 0)
@@ -1588,9 +1878,9 @@ fun BoxScope.QueueContent(
                                         .size(32.dp)
                                         .align(Alignment.Center)
                                         .named(seekForwardName()),
-                                    enabled = !detachedHead,
+                                    enabled = barWorks,
                                     onClick = {
-                                        playerConnection.player.seekTo(playerConnection.player.currentPosition + seekIncrement.millisec)
+                                        playerConnection.loadQueueIfEmpty().let { it.seekTo(it.currentPosition + seekIncrement.millisec) }
                                     }
                                 )
                             }
@@ -1604,7 +1894,7 @@ fun BoxScope.QueueContent(
                                     .align(Alignment.Center)
                                     .named(stringResource(R.string.widget_next)),
                                 color = iconButtonColor,
-                                enabled = !detachedHead && canSkipNext,
+                                enabled = barWorks && (canSkipNext || movesStoredQueue),
                                 onClick = {
                                     playerConnection.loadQueueIfEmpty().seekToNext()
                                     haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
@@ -1615,7 +1905,8 @@ fun BoxScope.QueueContent(
                         Box(modifier = Modifier.weight(1f)) {
                             ResizableIconButton(
                                 icon = when (repeatMode) {
-                                    REPEAT_MODE_OFF -> R.drawable.repeat_off
+                                    // Off is the repeat icon greyed out, as the notification draws it (his word, 5 Nov 2026).
+                                    REPEAT_MODE_OFF -> R.drawable.repeat_on
                                     REPEAT_MODE_ALL -> R.drawable.repeat_on
                                     REPEAT_MODE_ONE -> R.drawable.repeat_one
                                     else -> throw IllegalStateException()
@@ -1625,8 +1916,8 @@ fun BoxScope.QueueContent(
                                     .padding(4.dp)
                                     .align(Alignment.Center)
                                     .named(repeatName(repeatMode)),
-                                color = iconButtonColor,
-                                enabled = !detachedHead,
+                                color = if (repeatMode == REPEAT_MODE_OFF) iconButtonColor.copy(alpha = REPEAT_OFF_ALPHA) else iconButtonColor,
+                                enabled = barWorks,
                                 onClick = {
                                     playerConnection.player.toggleRepeatMode()
                                     haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
@@ -1641,6 +1932,41 @@ fun BoxScope.QueueContent(
         }
     }
 
+    // The pill a selection shows: the one the lists use (FloatingFooter around SelectHeader), not a row
+    // of the bar. The bar keeps the queue's title, its place and its length while songs are picked.
+    // Upright it floats over the bar; on its side at the foot of the songs, on their half of the
+    // screen; searching there is no bar, and it floats at the foot of the window. Remove from queue
+    // is a button of its own on it, beside the menu's item.
+    val selectionPill: @Composable () -> Unit = {
+        // Searching, it counts and selects the results, as the headers under the search field did.
+        val counted = if (isSearching) filteredSongs else (detachedQueue?.getCurrentQueueShuffled() ?: mutableSongs)
+        val selectable = if (isSearching) filteredSongs else mutableSongs
+        // The bar stands under the songs upright and not searching; its height holds the system bar.
+        val overBar = !landscape && !isSearching
+        Box(Modifier.fillMaxHeight().fillMaxWidth(if (landscape && !songsOnly) 0.5f else 1f)) {
+            FloatingFooter(
+                visible = inSelectMode,
+                insets = WindowInsets.safeDrawing.only(
+                    if (overBar) WindowInsetsSides.Horizontal else WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom
+                ),
+                lift = if (overBar) barHeight else 0.dp,
+            ) {
+                SelectHeader(
+                    navController = navController,
+                    selectedItems = selectedItems.mapNotNull { uidHash -> counted.find { it.hashCode() == uidHash } },
+                    totalItemCount = counted.size,
+                    onSelectAll = {
+                        selectedItems.clear()
+                        selectedItems.addAll(selectable.map { it.hashCode() })
+                    },
+                    onDeselectAll = { selectedItems.clear() },
+                    menuState = menuState,
+                    onDismiss = onExitSelectionMode,
+                    onRemoveFromQueue = removeSelected,
+                )
+            }
+        }
+    }
 
 // finally render ui
     if (landscape) {
@@ -1684,26 +2010,6 @@ fun BoxScope.QueueContent(
                     if (isSearching) {
                         Spacer(Modifier.windowInsetsPadding(InsetsSafeT))
                         searchBar()
-                        if (inSelectMode) {
-                            Row {
-                                SelectHeader(
-                                    navController = navController,
-                                    // This header only shows while searching, so it counts and
-                                    // selects the results, as the portrait one below does.
-                                    selectedItems = selectedItems.mapNotNull { uidHash ->
-                                        filteredSongs.find { it.hashCode() == uidHash }
-                                    },
-                                    totalItemCount = filteredSongs.size,
-                                    onSelectAll = {
-                                        selectedItems.clear()
-                                        selectedItems.addAll(filteredSongs.map { it.hashCode() })
-                                    },
-                                    onDeselectAll = { selectedItems.clear() },
-                                    menuState = menuState,
-                                    onDismiss = onExitSelectionMode
-                                )
-                            }
-                        }
                     } else {
                         queueHeader(Modifier.windowInsetsPadding(InsetsSafeSTE))
                         queueList(
@@ -1719,12 +2025,7 @@ fun BoxScope.QueueContent(
                 }
             }
             if (!isSearching && listUnderBar) {
-                val density = LocalDensity.current
-                Column(
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .onSizeChanged { barHeight = with(density) { it.height.toDp() } }
-                ) {
+                Column(modifier = Modifier.align(Alignment.BottomCenter)) {
                     bottomNav()
                 }
             }
@@ -1761,28 +2062,10 @@ fun BoxScope.QueueContent(
                 ) {
                     Log.v("QueueContent", "QC-2.4a")
                     // In a Column: AnimatedVisibility lays its children on top of each other, so
-                    // the selection header was drawn over the search field and its back arrow.
+                    // the spacer was drawn over the search field and its back arrow.
                     Column {
                         Spacer(Modifier.windowInsetsPadding(InsetsSafeT))
                         searchBar()
-                        if (inSelectMode) {
-                            Row {
-                                SelectHeader(
-                                    navController = navController,
-                                    selectedItems = selectedItems.mapNotNull { uidHash ->
-                                        filteredSongs.find { it.hashCode() == uidHash }
-                                    },
-                                    totalItemCount = filteredSongs.size,
-                                    onSelectAll = {
-                                        selectedItems.clear()
-                                        selectedItems.addAll(filteredSongs.map { it.hashCode() })
-                                    },
-                                    onDeselectAll = { selectedItems.clear() },
-                                    menuState = menuState,
-                                    onDismiss = onExitSelectionMode
-                                )
-                            }
-                        }
                     }
                 }
 
@@ -1819,16 +2102,14 @@ fun BoxScope.QueueContent(
             }
         }
         if (!isSearching && listUnderBar) {
-            val density = LocalDensity.current
-            Column(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .onSizeChanged { barHeight = with(density) { it.height.toDp() } }
-            ) {
+            Column(modifier = Modifier.align(Alignment.BottomCenter)) {
                 bottomNav()
             }
         }
     }
+
+    // Over everything else: it floats over the list and the bar.
+    selectionPill()
 }
 
 /**

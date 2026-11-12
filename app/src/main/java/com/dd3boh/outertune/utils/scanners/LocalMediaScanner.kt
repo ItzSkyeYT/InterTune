@@ -72,6 +72,7 @@ import java.io.IOException
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneOffset
+import com.dd3boh.outertune.utils.Toaster
 
 class LocalMediaScanner(val context: Context, scannerImpl: ScannerImpl) {
     private val TAG = LocalMediaScanner::class.simpleName.toString()
@@ -1218,12 +1219,12 @@ class LocalMediaScanner(val context: Context, scannerImpl: ScannerImpl) {
                             settings[AutomaticScannerKey] = false
                             runBlocking(Dispatchers.Main) {
                                 // TODO: string resource (but will anyone even notice this...)
-                                Toast.makeText(context, "FFmpeg extractors are missing", Toast.LENGTH_SHORT).show()
-                                Toast.makeText(
+                                Toaster.show(context, "FFmpeg extractors are missing", Toast.LENGTH_SHORT)
+                                Toaster.show(
                                     context,
                                     "Auto scanner has been disabled to prevent data conflicts. You will need to enable this in local media settings again if you want automatic scanning.",
                                     Toast.LENGTH_LONG
-                                ).show()
+                                )
                             }
                         }
                     }

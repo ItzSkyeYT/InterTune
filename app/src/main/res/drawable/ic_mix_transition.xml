@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Two waveforms crossing: one song going into the next. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24"
+    android:tint="?android:attr/colorControlNormal">
+    <path
+        android:pathData="M2,12c2.5,-6 5.5,-6 8,0s5.5,6 8,0 2.4,-3 4,-3"
+        android:strokeWidth="2"
+        android:strokeColor="@android:color/white"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+    <path
+        android:pathData="M2,12c2.5,6 5.5,6 8,0s5.5,-6 8,0 2.4,3 4,3"
+        android:strokeWidth="2"
+        android:strokeAlpha="0.6"
+        android:strokeColor="@android:color/white"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+</vector>

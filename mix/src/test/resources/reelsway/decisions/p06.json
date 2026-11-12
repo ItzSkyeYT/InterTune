@@ -1,0 +1,189 @@
+{
+ "n": "p06",
+ "a": "partyrockanthem",
+ "b": "dontyouworrychild",
+ "aBpm": 130.0,
+ "bBpm": 129.0,
+ "aT0": 0.01790336017772596,
+ "aPhase": 0,
+ "bT0": 0.049737108190095046,
+ "bPhase": 0,
+ "fit": {
+  "tempo": true,
+  "tempoOffPct": 0.78,
+  "octave": 1,
+  "entry": true,
+  "anyPlacement": false,
+  "voiceGate": true,
+  "best": {
+   "A": 94,
+   "D": 36,
+   "gridA": true,
+   "gridAInfo": {
+    "share": 0.85,
+    "medAbsLagMs": 4.0,
+    "spreadMs": 19.2,
+    "barAgreement": 0.8198757763975155,
+    "bars": [
+     78,
+     97
+    ]
+   },
+   "gridB": true,
+   "gridBInfo": {
+    "share": 1.0,
+    "medAbsLagMs": 0.0,
+    "spreadMs": 1.4,
+    "barAgreement": 0.9823008849557522,
+    "bars": [
+     36,
+     39
+    ]
+   },
+   "bothEarly": 4,
+   "bothLast": 0
+  },
+  "why": [
+   "voices not kept apart by any placement"
+  ]
+ },
+ "ratio": 1.0,
+ "stretch": false,
+ "octave": 1,
+ "entryBarB": 12,
+ "entryT": 22.37531850353893,
+ "aEndLine": 140,
+ "firstDownbeatB": 0,
+ "fullPhraseB": 12,
+ "aCandidates": [
+  {
+   "L": 74,
+   "t": 136.63328797556233,
+   "lift": 17.506101608276367,
+   "isLift": true,
+   "boxLow": -0.6845558166503913,
+   "thin": false,
+   "end": false,
+   "leftS": 121.84615384615387,
+   "score": 1.330371555915245,
+   "gridOk": true,
+   "gridInfo": {
+    "share": 0.65,
+    "medAbsLagMs": 6.0,
+    "spreadMs": 15.2,
+    "barAgreement": 0.8198757763975155,
+    "bars": [
+     58,
+     77
+    ]
+   }
+  },
+  {
+   "L": 86,
+   "t": 158.78713412940849,
+   "lift": 19.34386920928955,
+   "isLift": true,
+   "boxLow": -3.713885116577149,
+   "thin": false,
+   "end": false,
+   "leftS": 99.69230769230771,
+   "score": 2.343659610014695,
+   "gridOk": true,
+   "gridInfo": {
+    "share": 0.7,
+    "medAbsLagMs": 3.0,
+    "spreadMs": 19.2,
+    "barAgreement": 0.8198757763975155,
+    "bars": [
+     70,
+     89
+    ]
+   }
+  },
+  {
+   "L": 94,
+   "t": 173.55636489863926,
+   "lift": 18.830718994140625,
+   "isLift": true,
+   "boxLow": -11.943248558044434,
+   "thin": true,
+   "end": false,
+   "leftS": 84.92307692307693,
+   "score": 6.084602825458233,
+   "gridOk": true,
+   "gridInfo": {
+    "share": 0.85,
+    "medAbsLagMs": 4.0,
+    "spreadMs": 19.2,
+    "barAgreement": 0.8198757763975155,
+    "bars": [
+     78,
+     97
+    ]
+   }
+  },
+  {
+   "L": 124,
+   "t": 228.94098028325465,
+   "lift": 17.44329071044922,
+   "isLift": true,
+   "boxLow": -0.4524772644042976,
+   "thin": false,
+   "end": false,
+   "leftS": 29.538461538461547,
+   "score": 3.622361139150766,
+   "gridOk": true,
+   "gridInfo": {
+    "share": 0.65,
+    "medAbsLagMs": 4.0,
+    "spreadMs": 9.2,
+    "barAgreement": 0.8198757763975155,
+    "bars": [
+     108,
+     127
+    ]
+   }
+  },
+  {
+   "L": 140,
+   "t": 258.4794418217162,
+   "lift": 0.0,
+   "isLift": false,
+   "boxLow": 0.08472461700439382,
+   "thin": false,
+   "end": true,
+   "leftS": 0.0,
+   "score": 1.0,
+   "gridOk": true,
+   "gridInfo": {
+    "share": 1.0,
+    "medAbsLagMs": 2.0,
+    "spreadMs": 4.6,
+    "barAgreement": 0.8198757763975155,
+    "bars": [
+     124,
+     143
+    ]
+   }
+  }
+ ],
+ "bGridOk": true,
+ "bGridInfo": {
+  "share": 0.75,
+  "medAbsLagMs": 8.0,
+  "spreadMs": 3.2,
+  "barAgreement": 0.9823008849557522,
+  "bars": [
+   12,
+   15
+  ]
+ },
+ "tempoRatioIfMatched": 1.0077519379844961,
+ "move": "cut",
+ "exitBar": 94,
+ "exitT": 173.55636489863926,
+ "aSingsLast": false,
+ "bSingsStart": true,
+ "aFullBass": false,
+ "bFullBass": true
+}

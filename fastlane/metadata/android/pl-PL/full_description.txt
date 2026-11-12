@@ -1,0 +1,42 @@
+<p><i>InterTune</i> to fork projektu <a href="https://github.com">OuterTune</a>, który sam jest forkiem <a href="https://github.com">InnerTune</a>. Działa zarówno jako lokalny odtwarzacz multimediów, jak i klient YouTube Music.</p>
+
+<p><br><b>Funkcje:</b></p>
+<ul>
+<li>Klient YouTube Music z pobieraniem utworów offline, odtwarzaniem w tle, brakiem reklam i synchronizacją konta</li>
+<li>Odtwarzanie lokalnych plików audio (MP3, OGG, FLAC i inne)</li>
+<li>Własny ekstraktor tagów zamiast systemowego MediaStore, dzięki czemu tagi rozdzielone ukośnikiem (backslash) wyświetlają się poprawnie</li>
+<li>Odtwarzanie plików lokalnych i utworów z YouTube Music w jednej kolejce</li>
+<li>Przesyłanie obrazu i dźwięku na urządzenia Chromecast, odbiorniki FCast oraz telewizory z DLNA</li>
+<li>Karta offline z listą utworów zapisanych w pamięci podręcznej urządzenia, pozwalająca sprawdzić, co można odtworzyć bez połączenia z siecią</li>
+<li>Zintegrowany interfejs ekranu biblioteki</li>
+<li>Obsługa wielu kolejek odtwarzania</li>
+<li>Synchronizowane teksty piosenek, w tym tryb karaoke i wyświetlanie słowo po słowie (LRC, TTML)</li>
+<li>Tekst w alfabecie łacińskim (romaji, zachowane kanji) pod napisami japońskimi, koreańskimi, chińskimi, rosyjskimi i innymi (od Androida 10)</li>
+<li>10-pasmowy korektor: gotowe profile lub automatyczne dopasowanie do Twoich słuchawek (AutoEq)</li>
+<li>Normalizacja głośności, regulacja tempa i tonacji oraz inne efekty dźwiękowe</li>
+<li>Możliwość wyboru źródła sekcji „Szybki wybór”: YouTube Music, Twoja biblioteka lub Najlepsze rekomendacje (tworzone na podstawie historii odtwarzania)</li>
+<li>Funkcja „Co jest odtwarzane?” rozpoznaje utwory wokół Ciebie za pomocą Shazam i potrafi dodać je do playlisty</li>
+<li>Widżet na ekran główny, który dopasowuje się do swojego rozmiaru</li>
+<li>Dźwięk przestrzenny (Spatial audio) na dowolnych słuchawkach ze śledzeniem ruchów głowy na obsługiwanych modelach</li>
+<li>Obsługa Android Auto</li>
+</ul>
+
+<p><br><b>Z czym się łączy:</b></p>
+<ul>
+<li>YouTube Music: do wyszukiwania, odtwarzania, pobierania i synchronizacji. Logowanie jest opcjonalne.</li>
+<li>LRCLIB i KuGou: do pobierania tekstów odtwarzanych utworów. Każdą usługę można wyłączyć.</li>
+<li>Pomiary AutoEq na GitHubie: tylko podczas wyszukiwania profilu słuchawek w korektorze.</li>
+<li>Shazam: tylko podczas korzystania z funkcji rozpoznawania. Wysyłany jest cyfrowy odcisk dźwięku, godzina i strefa czasowa – nigdy samo nagranie. Okładka znalezionego utworu jest pobierana z adresu podanego przez Shazam.</li>
+<li>Last.fm: tylko po włączeniu scrobblowania. W przypadku braku konta, w celu znalezienia podobnych utworów wysyłany jest tytuł i wykonawca, a raz w miesiącu polubione lub odtworzone utwory. Po połączeniu konta odtwarzana muzyka jest na nim zapisywana wraz z albumem, czasem trwania i godziną uruchomienia. Logowanie odbywa się na stronie Last.fm.</li>
+<li>GitHub: tylko po włączeniu sprawdzania aktualizacji lub ręcznym kliknięciu. Aplikacja pobiera nową wersję i przekazuje ją do instalatora Androida, który zawsze pyta o zgodę. Wersje z F-Droida sprawdzają aktualizacje bezpośrednio przez F-Droid.</li>
+<li>Ankiety i ogłoszenia: tylko po ich włączeniu. Są pobierane z serwisu GitHub gist, a zdjęcia z podanego tam adresu. Otwarcie lub odpowiedź są zliczane w chmurze Umami Cloud bez zapisu konta czy identyfikatora urządzenia.</li>
+<li>Statystyki użycia: tylko po włączeniu. Maksymalnie raz dziennie informują chmurę Umami Cloud o uruchomieniu aplikacji za pomocą losowej nazwy zmienianej co miesiąc (zawiera informację o instalacji z F-Droida oraz wersjach aplikacji i Androida).</li>
+</ul>
+
+<p><br><b>Uwaga:</b></p>
+<ul>
+<li>Wymaga Androida 7.0 lub nowszego.</li>
+<li>Coś nie działa? Zgłoś błąd w aplikacji (Ustawienia -&gt; O info -&gt; Prześlij raport o błędzie) lub na <a href="https://github.com">GitHubie</a>.</li>
+</ul>
+
+<p><br>InterTune nie jest powiązane, sponsorowane ani wspierane przez Google lub YouTube.</p>

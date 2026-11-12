@@ -94,6 +94,7 @@ import com.dd3boh.outertune.ui.screens.walkthrough.Tour
 import com.dd3boh.outertune.ui.screens.walkthrough.tourTarget
 import androidx.compose.material.icons.rounded.VolunteerActivism
 import com.dd3boh.outertune.ui.dialog.SupportDialog
+import com.dd3boh.outertune.utils.Toaster
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -108,8 +109,12 @@ fun AboutScreen(
     var supporting by rememberSaveable { mutableStateOf(false) }
     if (supporting) SupportDialog(onDismiss = { supporting = false })
     if (reportingProblem) ProblemReportDialog(onDismiss = { reportingProblem = false })
+    // This device's card, under the version line: seven quick taps find it (VersionCard).
+    var cardOpen by rememberSaveable { mutableStateOf(false) }
+    if (cardOpen) VersionCardDialog(onDismiss = { cardOpen = false })
+    val versionTap = rememberVersionTap(onCard = { cardOpen = true })
 
-    val showDebugInfo = BuildConfig.DEBUG || BuildConfig.BUILD_TYPE == "userdebug"
+    val showDebugInfo = BuildConfig.PREVIEW_FEATURES || BuildConfig.BUILD_TYPE == "userdebug"
 
     ColumnWithContentPadding(
         modifier = Modifier.fillMaxHeight(),
@@ -154,7 +159,9 @@ fun AboutScreen(
             Text(
                 text = "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}) | ${BuildConfig.FLAVOR}",
                 style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.secondary
+                color = MaterialTheme.colorScheme.secondary,
+                // No ripple and nothing else that gives the card away before it is found.
+                modifier = Modifier.clickable(interactionSource = null, indication = null, onClick = versionTap),
             )
 
             Spacer(Modifier.width(4.dp))
@@ -198,7 +205,7 @@ fun AboutScreen(
             IconLabelButton(
                 text = stringResource(R.string.wiki),
                 icon = Icons.Outlined.Info,
-                onClick = { uriHandler.openUri("https://github.com/ItzSkyeYT/InterTune/wiki") },
+                onClick = { uriHandler.openUri(com.dd3boh.outertune.constants.WikiLinks.HOME) },
                 modifier = Modifier.padding(horizontal = 8.dp)
             )
         }
@@ -323,7 +330,7 @@ fun AboutScreen(
                             clipboardManager.nativeClipboard.setPrimaryClip(clipData)
                             // Android 13 and later say it was copied themselves; before, nothing did.
                             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
-                                Toast.makeText(context, R.string.copied, Toast.LENGTH_SHORT).show()
+                                Toaster.show(context, R.string.copied, Toast.LENGTH_SHORT)
                             }
                         }
                     )

@@ -33,7 +33,7 @@ class LyricsLinesTest {
 
     @Test
     fun `where the lines are is written only when a line's look changes`() {
-        val loop = source.substringAfter("LaunchedEffect(lyricsModel, lifecycleOwner) {", missingDelimiterValue = "")
+        val loop = source.substringAfter("LaunchedEffect(lyricsModel, lifecycleOwner, playerConnection) {", missingDelimiterValue = "")
             .substringBefore("\n    }\n")
         assertTrue("the loop could not be found", loop.isNotEmpty())
         assertTrue(loop.contains("if (moments.passed(at) != moments.passed(currentPos)) currentPos = at"))

@@ -512,11 +512,11 @@ object AutoBackup {
                 0
             }
             if (removed > 0) withContext(Dispatchers.Main) {
-                Toast.makeText(
+                Toaster.show(
                     appContext,
                     appContext.resources.getQuantityString(R.plurals.auto_backup_pruned, removed, removed),
                     Toast.LENGTH_SHORT,
-                ).show()
+                )
             }
         }
     }

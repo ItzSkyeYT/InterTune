@@ -46,27 +46,33 @@ fun ByteArray.toHex(): String = joinToString(separator = "") { eachByte -> "%02x
 
 fun sha1(str: String): String = MessageDigest.getInstance("SHA-1").digest(str.toByteArray()).toHex()
 
-fun parseCookieString(cookie: String): Map<String, String> =
-    cookie.split("; ")
-        .filter { it.isNotEmpty() }
-        .associate {
-            val (key, value) = it.split("=")
-            key to value
-        }
+/**
+ * A cookie's parts by name, or none at all when a part has no "=" (an attribute such as "Secure"
+ * pasted from a Set-Cookie header, or a cookie cut by a line break): the app never writes such a
+ * string, so it is no sign-in, as the sign-in page already took it (LoginScreenTest). It used to
+ * throw, and every screen that reads the cookie while drawing closed the app with it. A value
+ * holding "=" is kept whole.
+ */
+fun parseCookieString(cookie: String): Map<String, String> {
+    val parts = cookie.split("; ").filter { it.isNotEmpty() }.map { it.split("=", limit = 2) }
+    if (parts.any { it.size < 2 }) return emptyMap()
+    return parts.associate { (key, value) -> key to value }
+}
 
+/**
+ * A length as YouTube writes it, in seconds: "3:34", or "3.34" in the languages that put a dot
+ * there (Indonesian, Finnish and Danish, 5 Nov 2026), and "1:02:03" with hours. Only colons were
+ * read, and a radio's songs whose length cannot be read are left out, so in those languages a
+ * radio stopped after its first song (#83). Anything else, views or a year, is null.
+ */
 fun String.parseTime(): Int? {
-    try {
-        val parts = split(":").map { it.toInt() }
-        if (parts.size == 2) {
-            return parts[0] * 60 + parts[1]
-        }
-        if (parts.size == 3) {
-            return parts[0] * 3600 + parts[1] * 60 + parts[2]
-        }
-    } catch (e: Exception) {
-        return null
-    }
-    return null
+    val parts = trim().split(':', '.')
+    if (parts.size !in 2..3 || parts.any { part -> part.isEmpty() || !part.all { it.isDigit() } }) return null
+    // Minutes and seconds after the first part are always two digits and under 60.
+    if (parts.drop(1).any { it.length != 2 }) return null
+    val numbers = parts.map { it.toIntOrNull() ?: return null }
+    if (numbers.drop(1).any { it >= 60 }) return null
+    return numbers.fold(0) { total, part -> total * 60 + part }
 }
 
 fun isPrivateId(browseId: String): Boolean {

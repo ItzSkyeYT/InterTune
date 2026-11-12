@@ -8,12 +8,18 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 
+/**
+ * Fades the content out towards the edges given, each over its length. [topClear]: a band at the top
+ * where nothing shows at all, the fade starting under it, for a list that scrolls under the status bar.
+ */
 fun Modifier.fadingEdge(
     left: Dp? = null,
     top: Dp? = null,
     right: Dp? = null,
     bottom: Dp? = null,
+    topClear: Dp = 0.dp,
 ) = graphicsLayer(compositingStrategy = CompositingStrategy.Offscreen)
     .drawWithContent {
         drawContent()
@@ -24,8 +30,9 @@ fun Modifier.fadingEdge(
                         Color.Transparent,
                         Color.Black
                     ),
-                    startY = 0f,
-                    endY = top.toPx()
+                    // Clamped, so the band above the start stays clear.
+                    startY = topClear.toPx(),
+                    endY = (topClear + top).toPx()
                 ),
                 blendMode = BlendMode.DstIn
             )

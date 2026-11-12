@@ -7,8 +7,10 @@
 package com.dd3boh.outertune.models
 
 import androidx.datastore.preferences.core.Preferences
+import com.dd3boh.outertune.constants.BlockedArtistsKey
 import com.dd3boh.outertune.constants.HideExplicitKey
 import com.dd3boh.outertune.constants.HideVideoSongsKey
+import com.dd3boh.outertune.constants.Unreleased
 import com.zionhuang.innertube.models.AlbumItem
 import com.zionhuang.innertube.models.SongItem
 import com.zionhuang.innertube.models.YTItem
@@ -28,16 +30,27 @@ import kotlinx.coroutines.flow.StateFlow
  * autoplay adds to the queue. It does not apply to what the listener opened by name, an album or a
  * playlist, nor to the library and the rows built from it: a stored song does not keep YouTube's
  * marks, so there is nothing to tell an explicit one by.
+ *
+ * The blocked artists ([blocked], Unreleased.ARTIST_BLOCK) are hidden here too, with whatever
+ * they are on. Unlike the switches they also leave the library and the listener's playlists,
+ * and their songs are never played (ArtistBlock).
+ *
+ * The songs the listener chose not to play ([dontPlay], with the same flag) are hidden nowhere:
+ * search, Home and an artist's page still show them, to be picked. Only what a radio or autoplay
+ * adds leaves them out ([radio], [queue]), and the player passes over one it comes to (DontPlay).
  */
 data class ContentFilter(
     val explicit: Boolean = false,
     val videoSongs: Boolean = false,
+    val blocked: ArtistBlock = ArtistBlock.NONE,
+    val dontPlay: DontPlay = DontPlay.NONE,
 ) {
+    /** Nothing hidden from the pages. A radio may still leave a song out: see [dontPlay]. */
     val isOff: Boolean
-        get() = !explicit && !videoSongs
+        get() = !explicit && !videoSongs && blocked.isEmpty
 
-    /** Whether [item] is one the switches keep out. A song of unknown kind is kept. */
-    fun hides(item: YTItem): Boolean = when (item) {
+    /** Whether [item] is one the switches or a block keep out. A song of unknown kind is kept. */
+    fun hides(item: YTItem): Boolean = blocked.hides(item) || when (item) {
         is SongItem -> (explicit && item.explicit) || (videoSongs && item.isVideoSong)
         is AlbumItem -> explicit && item.explicit
         else -> false
@@ -45,20 +58,28 @@ data class ContentFilter(
 
     fun <T : YTItem> apply(items: List<T>): List<T> = if (isOff) items else items.filterNot(::hides)
 
+    /** Whether a radio or autoplay leaves [item] out: what is hidden, and a song not to play. */
+    fun leavesOut(item: SongItem): Boolean = hides(item) || dontPlay.covers(item)
+
     /**
-     * A radio's first page without what is hidden, but with the song at [start] even when it is
-     * one of them: the listener chose that one. Gives the songs and where that song now stands.
+     * A radio's first page without what is hidden or not to play, but with the song at [start]
+     * even when it is one of them: the listener chose that one. Gives the songs and where that
+     * song now stands.
      */
     fun radio(items: List<SongItem>, start: Int): Pair<List<SongItem>, Int> {
-        if (isOff) return items to start
+        if (isOff && dontPlay.isEmpty) return items to start
         val kept = ArrayList<SongItem>(items.size)
         var at = 0
         items.forEachIndexed { index, item ->
             if (index == start) at = kept.size
-            if (index == start || !hides(item)) kept += item
+            if (index == start || !leavesOut(item)) kept += item
         }
         return kept to at
     }
+
+    /** A radio's or autoplay's next page, its top-up included, without what is hidden or not to play. */
+    fun queue(items: List<SongItem>): List<SongItem> =
+        if (isOff && dontPlay.isEmpty) items else items.filterNot(::leavesOut)
 
     /** Home's rows without what is hidden; a row left empty goes. */
     fun home(page: HomePage): HomePage = if (isOff) page else
@@ -76,6 +97,9 @@ data class ContentFilter(
         fun of(preferences: Preferences) = ContentFilter(
             explicit = preferences[HideExplicitKey] ?: false,
             videoSongs = preferences[HideVideoSongsKey] ?: false,
+            // Not in a build without the feature, even from a restored backup: it would hide
+            // artists with no page to bring them back from.
+            blocked = if (Unreleased.ARTIST_BLOCK) ArtistBlock.read(preferences[BlockedArtistsKey]) else ArtistBlock.NONE,
         )
 
         private val state = MutableStateFlow(ContentFilter())

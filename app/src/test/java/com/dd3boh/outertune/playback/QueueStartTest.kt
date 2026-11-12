@@ -14,10 +14,12 @@ import com.dd3boh.outertune.playback.queues.Queue
 import com.zionhuang.innertube.models.BrowseEndpoint
 import java.io.IOException
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.yield
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -181,6 +183,10 @@ class QueueStartTest {
             queue.queue.addAll(queue.queuePos + 1, taken.songs)
         }
 
+        override fun putInByHand(queue: MultiQueueObject, ids: List<String>) {
+            asked += "by hand $ids in '${queue.title}' (run ${queue.runId})"
+        }
+
         /** The songs stored as related to a song, by its id, and those on YouTube's related page. */
         val stored = mutableMapOf<String, List<MediaMetadata>>()
         val relatedPage = mutableMapOf<String, List<MediaMetadata>>()
@@ -202,6 +208,24 @@ class QueueStartTest {
             asked += "related to ${seed.id}: YouTube's page" + (endpoint?.let { " from ${it.browseId}" } ?: "")
             return relatedPage[seed.id].orEmpty()
         }
+
+        /** The app's own picks for a radio, by the song's id (LocalRadio), and a wait a test can hold. */
+        val own = mutableMapOf<String, List<MediaMetadata>>()
+        var ownWait: CompletableDeferred<Unit>? = null
+        val ownAsked = CompletableDeferred<Unit>()
+
+        override suspend fun localRadio(seed: MediaMetadata): List<MediaMetadata> {
+            asked += "own picks for ${seed.id}"
+            ownAsked.complete(Unit)
+            ownWait?.await()
+            return own[seed.id].orEmpty()
+        }
+
+        override fun localRadioTitle(seed: MediaMetadata) = "${seed.id} · Radio"
+
+        override fun pickedByInterTune(queue: MultiQueueObject) {
+            asked += "picked by InterTune: '${queue.title}'"
+        }
     }
 
     private suspend fun QueueStart.play(
@@ -212,6 +236,8 @@ class QueueStartTest {
         shouldResume: Boolean = false,
         playWhenReady: Boolean = true,
         runId: Long = 7,
+        beforeStart: () -> Unit = {},
+        byHand: Boolean = false,
     ) = run(
         queue = queue,
         playWhenReady = playWhenReady,
@@ -222,6 +248,8 @@ class QueueStartTest {
         origin = 3,
         originSlot = 2,
         runId = runId,
+        beforeStart = beforeStart,
+        byHand = byHand,
     )
 
     private val started = "player: prepare, playWhenReady true"
@@ -613,6 +641,8 @@ class QueueStartTest {
                 started,
                 "related to A: stored",
                 "related to A: YouTube's page",
+                // The app's own picks, none here (and none in a build without the fallback).
+                "own picks for A",
                 "rename '$temp' to 'A Mix'",
                 "add 'A Mix' [A] at 0 replace then A",
                 "load 'A Mix' [A] at 0 $tags",
@@ -620,6 +650,113 @@ class QueueStartTest {
             ),
             service.asked,
         )
+    }
+
+    // A radio YouTube gave nothing, however it was asked (RadioLadder): it goes on from the app's
+    // own picks (LocalRadio), and the queue says so. Without any, it is the song alone, as before.
+
+    @Test
+    fun `a radio whose answer failed goes on from the app's own picks, and says so`() = runBlocking {
+        val service = Service()
+        service.own["A"] = listOf(song("B"), song("A"), song("C"), song("B"))
+        val radio = LateQueue(song("A"))
+        val failure = CompletableDeferred<Throwable?>()
+        val job = launch { failure.complete(runCatching { QueueStart(service).play(radio, isRadio = true) }.exceptionOrNull()) }
+        radio.asked.await()
+        radio.answer.completeExceptionally(IOException("HTTP 401"))
+        job.join()
+
+        // Nothing to report: the radio plays.
+        assertNull(failure.await())
+        val board = service.board()
+        assertEquals(
+            listOf(
+                "add '$temp' [A] at 0 replace",
+                "load '$temp' [A] at 0 resuming $tags",
+                "own picks for A",
+                "rename '$temp' to 'A · Radio'",
+            ),
+            board.take(4),
+        )
+        // The song itself and a song twice are left out, and the next page is asked from them.
+        assertTrue(board[4], board[4].startsWith("add 'A · Radio' [A, B, C] at 0 replace then "))
+        assertEquals(listOf("load 'A · Radio' [A, B, C] at 0 $tags", "picked by InterTune: 'A · Radio'"), board.drop(5))
+        // The song played on as it was.
+        assertEquals(listOf("A from the top"), service.heard)
+    }
+
+    @Test
+    fun `with no picks of its own, a radio whose answer failed is the song alone and the failure is reported, as before`() = runBlocking {
+        val service = Service()
+        val radio = LateQueue(song("A"))
+        val failure = CompletableDeferred<Throwable?>()
+        val job = launch { failure.complete(runCatching { QueueStart(service).play(radio, isRadio = true) }.exceptionOrNull()) }
+        radio.asked.await()
+        radio.answer.completeExceptionally(IOException("HTTP 401"))
+        job.join()
+
+        assertEquals("HTTP 401", failure.await()?.message)
+        assertEquals(listOf("add '$temp' [A] at 0 replace", "load '$temp' [A] at 0 resuming $tags", "own picks for A"), service.board())
+    }
+
+    @Test
+    fun `a radio of one with nothing related goes on from the app's own picks, under YouTube's title`() = runBlocking {
+        val service = Service()
+        service.own["A"] = listOf(song("D"), song("E"))
+        val radio = LateQueue(song("A"))
+        val job = launch { QueueStart(service).play(radio, isRadio = true) }
+        radio.asked.await()
+        radio.answer.complete(Queue.Status("A Mix", listOf(song("A")), 0))
+        job.join()
+
+        val board = service.board()
+        assertEquals(
+            listOf("related to A: stored", "related to A: YouTube's page", "own picks for A"),
+            board.filter { it.startsWith("related") || it.startsWith("own") },
+        )
+        assertTrue(board.toString(), board.any { it.startsWith("add 'A Mix' [A, D, E] at 0 replace then ") })
+        assertEquals("picked by InterTune: 'A Mix'", board.last())
+    }
+
+    @Test
+    fun `a list that is no radio never asks for the app's own picks`() = runBlocking {
+        val service = Service()
+        service.own["A"] = listOf(song("B"))
+        val list = LateQueue(song("A"))
+        val failure = CompletableDeferred<Throwable?>()
+        val job = launch { failure.complete(runCatching { QueueStart(service).play(list) }.exceptionOrNull()) }
+        list.asked.await()
+        list.answer.completeExceptionally(IOException("HTTP 401"))
+        job.join()
+
+        assertEquals("HTTP 401", failure.await()?.message)
+        assertTrue(service.asked.toString(), service.asked.none { it.startsWith("own picks") || it.startsWith("picked") })
+    }
+
+    @Test
+    fun `a tap made while the app's own picks were read takes the player, and the failed radio says nothing`() = runBlocking {
+        val service = Service().apply { ownWait = CompletableDeferred() }
+        service.own["A"] = listOf(song("B"))
+        val start = QueueStart(service)
+        val first = LateQueue(song("A"))
+        val failure = CompletableDeferred<Throwable?>()
+        val one = launch { failure.complete(runCatching { start.play(first, isRadio = true, runId = 7) }.exceptionOrNull()) }
+        first.asked.await()
+        first.answer.completeExceptionally(IOException("HTTP 401"))
+        service.ownAsked.await()
+
+        val second = LateQueue(song("X"))
+        val two = launch { start.play(second, runId = 8) }
+        second.asked.await()
+        val afterTap = service.asked.toList()
+        service.ownWait!!.complete(Unit)
+        one.join()
+
+        assertNull(failure.await())
+        assertEquals(afterTap, service.asked)
+        second.answer.complete(Queue.Status("X Mix", listOf(song("X"), song("Y")), 0))
+        two.join()
+        assertEquals(listOf("A from the top", "X from the top"), service.heard)
     }
 
     @Test
@@ -987,6 +1124,24 @@ class QueueStartTest {
         assertEquals(listOf("B Mix"), service.queues.map { it.title })
     }
 
+    @Test
+    fun `a start dropped for a newer tap says it started nothing, the newer one that it did`() = runBlocking {
+        // The caller links only a queue a tap started to its Mix playlist: the dropped one used to
+        // unlink the playlist that went on playing, turning Mix off under it.
+        val service = Service()
+        val first = LateQueue(song("A"))
+        val second = LateQueue(song("B"))
+        val start = QueueStart(service)
+        val one = async { start.play(first, runId = 7) }
+        first.asked.await()
+        val two = async { start.play(second, runId = 8) }
+        second.asked.await()
+        first.answer.complete(Queue.Status("A Mix", listOf(song("A"), song("A2")), 0))
+        assertFalse(one.await())
+        second.answer.complete(Queue.Status("B Mix", listOf(song("B"), song("B2")), 0))
+        assertTrue(two.await())
+    }
+
     // A song picked out of a list (issue #42). With shuffle on, the list used to play in its own
     // order from the song, and shuffle went off with it, or stayed showing on over that order when
     // the list refilled a queue of its own title. The board turns these asks into the order
@@ -1014,6 +1169,48 @@ class QueueStartTest {
         QueueStart(service).play(picked())
 
         assertEquals("add 'Playlist' [A, B, C, D, E] at 3 replace", service.board().first())
+    }
+
+    // What runs right before the player is told to start (Mix links the queue to its playlist there).
+
+    @Test
+    fun `a list is linked before its first song starts, never after`() = runBlocking {
+        // Linked after the start, a Mix playlist's first song played without Mix's stage, and its
+        // change into the second stayed plain.
+        val service = Service()
+        QueueStart(service).play(ListQueue(title = "Playlist", items = list), beforeStart = { service.asked += "link" })
+
+        assertEquals(listOf("add 'Playlist' [A, B, C, D, E] at 0 replace", "load 'Playlist' [A, B, C, D, E] at 0 $tags", "link", started), service.asked)
+    }
+
+    @Test
+    fun `a queue that starts early on its first song is linked before each start`() = runBlocking {
+        // First the queue of one, then the whole queue the player is given after it: each is the
+        // current queue as it starts, and each is linked (or unlinked) before it does.
+        val service = Service()
+        val radio = LateQueue(song("A"))
+        val job = launch { QueueStart(service).play(radio, isRadio = true, beforeStart = { service.asked += "link" }) }
+        radio.asked.await()
+        radio.answer.complete(Queue.Status("A Radio", listOf(song("A"), song("B"), song("C")), 0))
+        job.join()
+
+        val order = service.asked.filter { it == "link" || it.startsWith("player") }
+        assertEquals(listOf("link", started, "link", "player: prepare, playWhenReady true"), order)
+    }
+
+    @Test
+    fun `a start dropped for a newer tap is never linked`() = runBlocking {
+        val service = Service()
+        val start = QueueStart(service)
+        val first = LateQueue(preloadItem = null, songPicked = true)
+        val links = mutableListOf<String>()
+        val one = async { start.play(first, runId = 7, beforeStart = { links += "first" }) }
+        first.asked.await()
+        start.play(ListQueue(title = "Playlist", items = list), runId = 8, beforeStart = { links += "second" })
+        first.answer.complete(Queue.Status("Other list", listOf(song("P"), song("Q")), 1))
+
+        assertFalse(one.await())
+        assertEquals(listOf("second"), links)
     }
 
     @Test
@@ -1124,6 +1321,40 @@ class QueueStartTest {
         assertEquals(listOf("keep [X, Y] after D in 'Playlist'"), service.asked.filter { it.startsWith("keep") })
         assertEquals(1, service.waitingAsked)
         assertEquals("load 'Playlist' [A, B, C, D, X, Y, E] at 3 (origin 3, slot 2, run 8)", service.board().last())
+    }
+
+    // Songs put in with Play next or Add to queue while no queue was on the board play as a
+    // queue of their own. They are the listener's, every one of them: a song not to play among
+    // them plays (DontPlaySkip), and the second and later used to be passed over.
+
+    @Test
+    fun `songs put in by hand are noted so in the queue they make, in its run, before it loads`() = runBlocking {
+        val service = Service()
+        QueueStart(service).play(ListQueue(title = "A", items = listOf(song("A"), song("B"), song("C"))), byHand = true)
+
+        assertEquals(
+            listOf(
+                "add 'A' [A, B, C] at 0 replace",
+                "by hand [A, B, C] in 'A' (run 7)",
+                "load 'A' [A, B, C] at 0 $tags",
+                started,
+            ),
+            service.asked,
+        )
+    }
+
+    @Test
+    fun `any other start notes nothing by hand`() = runBlocking {
+        val service = Service()
+        QueueStart(service).play(ListQueue(title = "Playlist", items = list))
+        QueueStart(service).play(picked())
+        val radio = LateQueue(song("A"))
+        val job = launch { QueueStart(service).play(radio) }
+        radio.asked.await()
+        radio.answer.complete(Queue.Status("A Mix", listOf(song("A"), song("B")), 0))
+        job.join()
+
+        assertTrue(service.asked.toString(), service.asked.none { it.startsWith("by hand") })
     }
 
     private fun <T> List<T>.repeat(times: Int) = List(times) { this }.flatten()

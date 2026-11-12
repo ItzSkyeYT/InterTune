@@ -41,7 +41,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dd3boh.outertune.R
-import com.dd3boh.outertune.constants.PlaylistSongSortType
 import com.dd3boh.outertune.ui.component.button.ResizableIconButton
 import com.dd3boh.outertune.ui.utils.shrinkToFit
 
@@ -59,6 +58,8 @@ inline fun <reified T : Enum<T>> SortHeader(
     crossinline onSortDescendingChange: (Boolean) -> Unit,
     crossinline sortTypeText: (T) -> Int,
     modifier: Modifier = Modifier,
+    // The ways offered: a way still behind its flag is left out.
+    crossinline offered: (T) -> Boolean = { true },
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
 
@@ -94,7 +95,7 @@ inline fun <reified T : Enum<T>> SortHeader(
             onDismissRequest = { menuExpanded = false },
             modifier = Modifier.widthIn(min = 172.dp)
         ) {
-            enumValues<T>().forEach { type ->
+            enumValues<T>().filter { offered(it) }.forEach { type ->
                 DropdownMenuItem(
                     text = {
                         Text(
@@ -117,7 +118,8 @@ inline fun <reified T : Enum<T>> SortHeader(
             }
         }
 
-        if (sortType != PlaylistSongSortType.CUSTOM) {
+        // An order of your own has no way round: the one dragged (a playlist's songs, Library's playlists).
+        if (sortType.name != "CUSTOM") {
             val sortOrderName = stringResource(if (sortDescending) R.string.sort_order_descending else R.string.sort_order_ascending)
             ResizableIconButton(
                 icon = if (sortDescending) Icons.Rounded.ArrowDownward else Icons.Rounded.ArrowUpward,

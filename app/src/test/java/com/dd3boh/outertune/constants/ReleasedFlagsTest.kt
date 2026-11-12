@@ -15,8 +15,9 @@ import java.io.File
 /**
  * What a release has of Unreleased.kt.
  *
- * A flag that is `true` is on in every build. One that is `BuildConfig.DEBUG` is on in debug and
- * preview builds and off in a release. Which flags a release has on is a decision each time, and
+ * A flag that is `true` is on in every build. One that is `BuildConfig.PREVIEW_FEATURES` is on in the debug app,
+ * the Preview and the Tester app and off in a release (BuildConfig.DEBUG is not what it reads: the Tester app is
+ * not debuggable). Which flags a release has on is a decision each time, and
  * the list here is those decisions: a flag turned on by mistake, or by a merge, fails here with
  * its name, and so does one of these turned off again. To ship a flag, set it to true in
  * Unreleased.kt and add its name here. A new flag that is held back needs nothing here.
@@ -26,7 +27,7 @@ import java.io.File
  */
 class ReleasedFlagsTest {
 
-    /** On in every build, and so in a release. The second line went on for 0.11.5, the third on 14 Oct, the fourth for 0.12, the fifth for 0.12.1, the sixth for 0.12.5 (its last four picked on 26 Oct 2026). */
+    /** On in every build, and so in a release. The second line went on for 0.11.5, the third on 14 Oct, the fourth for 0.12, the fifth for 0.12.1, the sixth for 0.12.5 (its last four picked on 26 Oct 2026), the eighth for 0.13 (picked on 8 Nov 2026). */
     private val inEveryBuild = setOf(
         "ENGINE", "SHORT_SETUP", "LOGIN_RETURNS",
         "STAND_INS", "VISIONOS_IDENTITIES", "WEB_FALLBACK", "LANDSCAPE", "EXPLAIN_PICTURES", "LIBRARY_IMPORT",
@@ -34,6 +35,8 @@ class ReleasedFlagsTest {
         "LIVING_BACKGROUND", "CASTING", "ADAPTIVE_PASS", "EQUALIZER",
         "PREVIOUS_LOGS",
         "SABR_RUNG", "SHARE_PAGE", "SABR_AHEAD", "PLAY_NEXT_STAYS", "SETTINGS_SEARCH", "BATTERY_MODES",
+        "REPORT_RELAY", "REPORT_FILE",
+        "ARTIST_BLOCK", "SAVED_TWICE", "LIKED_SYNC", "ENDLESS_QUEUE", "RECOGNISE_OFFLINE", "ANIMATIONS_SWITCH",
     )
 
     private val sources = File("src/main/java/com/dd3boh/outertune")
@@ -46,6 +49,8 @@ class ReleasedFlagsTest {
     private fun code(file: File) = code(file.readText())
 
     /** Every flag with what it is set to, as written. */
+    private val DEBUG_ONLY = "BuildConfig.DEBUG && BuildConfig.BUILD_TYPE == \"debug\""
+
     private val flags: Map<String, String> =
         Regex("""^\s*val ([A-Z][A-Z0-9_]*) = (.+?)\s*$""", RegexOption.MULTILINE)
             .findAll(code(File(sources, "constants/Unreleased.kt")))
@@ -69,11 +74,33 @@ class ReleasedFlagsTest {
     }
 
     @Test
-    fun `every other flag is on in debug and preview builds only`() {
+    fun `every other flag is on in debug and preview builds only, or in debug builds only`() {
         // Not false, which would take a feature from the debug build too, and nothing worked out.
+        // Debug builds only keeps a feature from the previews testers get (AutoMix, 26 Oct 2026).
+        val held = setOf("BuildConfig.PREVIEW_FEATURES", DEBUG_ONLY)
         for ((flag, value) in flags - inEveryBuild) {
-            assertEquals("$flag is neither on in every build nor held back", "BuildConfig.DEBUG", value)
+            assertTrue(
+                "$flag is neither on in every build nor held back: $value" +
+                    (if (value == "BuildConfig.DEBUG") " (a held-back flag reads BuildConfig.PREVIEW_FEATURES: the Tester app is not debuggable, so DEBUG is off there)" else ""),
+                value in held,
+            )
         }
+    }
+
+    @Test
+    fun `no read of a held-back flag asks for BuildConfig DEBUG beside it, which the Tester app does not have`() {
+        // The Tester app is not debuggable (it is shrunk and optimized like a release), so BuildConfig.DEBUG is off in it: a test switch
+        // written `BuildConfig.DEBUG && Unreleased.X` would be gone for testers. It reads BuildConfig.PREVIEW_FEATURES. Only a flag
+        // that is for the debug app alone may keep DEBUG beside it.
+        val debugOnly = flags.filterValues { it == DEBUG_ONLY }.keys
+        val before = Regex("""BuildConfig\.DEBUG\s*&&\s*Unreleased\.([A-Z][A-Z0-9_]*)""")
+        val after = Regex("""Unreleased\.([A-Z][A-Z0-9_]*)\s*&&\s*BuildConfig\.DEBUG""")
+        val offenders = sources.walkTopDown().filter { it.extension == "kt" && it.name != "Unreleased.kt" }.flatMap { file ->
+            val text = code(file)
+            (before.findAll(text) + after.findAll(text)).map { it.groupValues[1] }.filter { it !in debugOnly }
+                .map { "${file.relativeTo(sources).path}: $it" }
+        }.toList()
+        assertTrue("read BuildConfig.PREVIEW_FEATURES instead of BuildConfig.DEBUG next to: $offenders", offenders.isEmpty())
     }
 
     @Test
@@ -96,8 +123,22 @@ class ReleasedFlagsTest {
     fun `the developer's switch for the web client is not a flag to ship`() {
         // Its doc comment says never in a release. Named here so that shipping it takes more
         // than adding a name to the list above.
-        assertEquals("BuildConfig.DEBUG", flags["WEB_CLIENT_FIRST"])
+        assertEquals("BuildConfig.PREVIEW_FEATURES", flags["WEB_CLIENT_FIRST"])
         assertFalse("WEB_CLIENT_FIRST" in inEveryBuild)
+    }
+
+    @Test
+    fun `Mix stays in debug builds, the mixer, its editor and Crossfade`() {
+        // Held back until it has been heard on a phone and the words have a yes. Named here so
+        // that shipping any of them takes more than adding a name to the list above. Debug builds
+        // only, out of the previews testers get, as AutoMix has been since 26 Oct 2026.
+        for (flag in listOf("AUTOMIX", "AUTOMIX_EDITOR", "CROSSFADE")) {
+            assertEquals(flag, DEBUG_ONLY, flags[flag])
+            assertFalse(flag, flag in inEveryBuild)
+        }
+        // Crossfade plays on the mixer's stage: a build with its row and without the stage would
+        // offer a switch that does nothing.
+        assertTrue("CROSSFADE" !in inEveryBuild || "AUTOMIX" in inEveryBuild)
     }
 
     // ---- what went on for 0.11.5 ----
@@ -249,15 +290,15 @@ class ReleasedFlagsTest {
         // "Stream over SABR only" and "Take every direct address for refused": rows of the
         // developer options, read in a debug or preview build only. A restored backup can bring a
         // switch that is on into a release, which has no row to turn it off with.
-        assertEquals("BuildConfig.DEBUG", flags["SABR"])
+        assertEquals("BuildConfig.PREVIEW_FEATURES", flags["SABR"])
         assertEquals(
             setOf("utils/YTPlayerUtils.kt", "playback/MusicService.kt", "playback/DownloadUtil.kt", "ui/screens/settings/fragments/DeveloperFrag.kt"),
             readers("SABR"),
         )
-        assertWritten("playback/MusicService.kt", "if (BuildConfig.DEBUG && Unreleased.SABR) {")
-        assertWritten("ui/screens/settings/fragments/DeveloperFrag.kt", "if (BuildConfig.DEBUG && Unreleased.SABR) {")
+        assertWritten("playback/MusicService.kt", "if (BuildConfig.PREVIEW_FEATURES && Unreleased.SABR) {")
+        assertWritten("ui/screens/settings/fragments/DeveloperFrag.kt", "if (BuildConfig.PREVIEW_FEATURES && Unreleased.SABR) {")
         for (path in listOf("playback/MusicService.kt", "playback/DownloadUtil.kt")) {
-            assertWritten(path, "val streamed = if (BuildConfig.DEBUG && Unreleased.SABR && YTPlayerUtils.sabrOnly) {")
+            assertWritten(path, "val streamed = if (BuildConfig.PREVIEW_FEATURES && Unreleased.SABR && YTPlayerUtils.sabrOnly) {")
         }
     }
 

@@ -1,0 +1,12 @@
+Version 0.11
+
+- Szybki wybór, który uczy się Twoich nawyków: Najlepsze rekomendacje z filtrami nastroju, wiersz Odkrywaj oraz możliwość wyboru kierunku sugestii.
+- Funkcja „Co jest odtwarzane?” rozpoznaje utwory w Twoim otoczeniu za pomocą Shazam.
+- Widżet na ekran główny.
+- Dźwięk przestrzenny ze śledzeniem ruchów głowy na obsługiwanych słuchawkach.
+- Historia podzielona na dni wraz z dokładną godziną każdego odtworzenia.
+- Obsługa telefonów z klawiaturą alfanumeryczną i małych ekranów.
+- Poprawki synchronizacji, pobierania, playlist oraz kopii zapasowych.
+
+Pełna lista zmian:
+https://github.com

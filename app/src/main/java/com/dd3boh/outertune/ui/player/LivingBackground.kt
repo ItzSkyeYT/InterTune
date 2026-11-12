@@ -11,7 +11,6 @@ import android.graphics.Bitmap
 import android.graphics.Paint
 import android.graphics.RectF
 import android.os.Build
-import android.provider.Settings
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
@@ -57,6 +56,7 @@ import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.extensions.isPowerSaver
 import com.dd3boh.outertune.playback.LevelTap
 import com.dd3boh.outertune.playback.MusicLevels
+import com.dd3boh.outertune.ui.utils.Animations
 import com.dd3boh.outertune.utils.coilCoroutine
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.withContext
@@ -75,7 +75,7 @@ import kotlin.math.min
  * Frames are asked for only while there is something to move: the player open, the app in view,
  * and music playing or the picture still settling after it stopped. A paused player is a still
  * picture and costs what the plain blurred cover costs. With battery saver on, or animations
- * turned off in the system, it does not move at all.
+ * off (Animations), it does not move at all.
  *
  * While it moves it is redrawn thirty times a second at most, whatever the screen can do
  * ([RedrawPace]). What a redraw costs is not this picture, which is small: it is the glass panels
@@ -420,14 +420,11 @@ private fun Modifier.drawnSmall(stretched: MutableState<Offset>, alpha: Float): 
 
 /**
  * Battery use on Saver, which counts the phone's battery saver as the switch under it says, or
- * animations turned off in the system; before Battery use, the phone's battery saver itself. The
+ * animations off, in Android's settings or by the Animations switch (Animations, read as it is
+ * composed, so a flip is seen at once); before Battery use, the phone's battery saver itself. The
  * phone's saver was read here directly in every build, so the picture stood still with nothing
  * anywhere to say why, and against the switch that tells the app to leave the phone's saver aside
  * (#49, 27 Oct 2026). Saver says so under the background row; animations off, under the sample.
  */
 private fun wantsStillness(context: Context, mode: BatteryMode): Boolean =
-    mode == BatteryMode.SAVER || (!Unreleased.BATTERY_MODES && context.isPowerSaver()) || context.animationsOff()
-
-/** Animations turned off in the system's accessibility or developer settings: Living blur stands still. */
-fun Context.animationsOff(): Boolean =
-    Settings.Global.getFloat(contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f
+    mode == BatteryMode.SAVER || (!Unreleased.BATTERY_MODES && context.isPowerSaver()) || Animations.off

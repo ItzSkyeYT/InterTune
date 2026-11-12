@@ -1,0 +1,13 @@
+Version 0.12.5
+
+- Widżet w trzech stylach z serduszkiem do polubień.
+- Wybór przycisków, które mają pozostać widoczne w odtwarzaczu.
+
+- Wyszukiwarka w Ustawieniach uwzględnia literówki i błędy.
+- Zużycie baterii: tryb Pełny, Zbalansowany lub Oszczędzanie.
+- Ścieżka sygnału: informacja, skąd pochodzi utwór i co zmienia jego dźwięk.
+- Funkcja „Utwór na tym telefonie” rozpoznaje, co jest odtwarzane w innych aplikacjach.
+- Zsynchronizowane teksty piosenek z dokładnym czasem dla każdego utworu.
+
+Pełna lista zmian:
+https://github.com

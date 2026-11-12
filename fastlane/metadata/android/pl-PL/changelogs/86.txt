@@ -1,0 +1,6 @@
+Version 0.10.8.5
+
+W aplikacji nic się nie zmieniło. To wydanie umożliwia zbudowanie projektu osobom, które nie posiadają prywatnych plików twórcy (dotychczas mógł to zrobić tylko główny programista). Brak pliku local.properties powodował błędy w BuildConfig i uniemożliwiał kompilację, a brak klucza podpisywania blokował budowanie na etapie pakowania.
+
+Pełna lista zmian:
+https://github.com

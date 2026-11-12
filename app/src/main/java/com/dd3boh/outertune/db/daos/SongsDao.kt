@@ -12,6 +12,7 @@ import com.dd3boh.outertune.constants.SongSortType
 import com.dd3boh.outertune.db.DownloadSql
 import com.dd3boh.outertune.db.FavouritesSql
 import com.dd3boh.outertune.db.LibrarySql
+import com.dd3boh.outertune.db.LocalFolderDates
 import com.dd3boh.outertune.db.LocalSongFile
 import com.dd3boh.outertune.db.LocalSql
 import com.dd3boh.outertune.db.entities.PlayCountEntity
@@ -52,7 +53,24 @@ interface SongsDao {
             JOIN song ON song.id = ranked.songId
             ORDER BY ranked.totalPlayTime DESC
         """
+
+        /**
+         * The songs the listener chose, which the AI filter never touches (AiFilter.chosenSongs):
+         * in the library, liked or downloaded, or in a playlist they made. A playlist they made is
+         * an editable one, on the phone or on their account, not one of somebody else's they saved.
+         */
+        const val CHOSEN_SONG_IDS = """
+            SELECT id FROM song WHERE inLibrary IS NOT NULL OR liked = 1 OR dateDownload IS NOT NULL
+            UNION
+            SELECT playlist_song_map.songId FROM playlist_song_map
+            JOIN playlist ON playlist.id = playlist_song_map.playlistId
+            WHERE playlist.isEditable = 1
+        """
     }
+
+    /** [CHOSEN_SONG_IDS], followed. Read only while the AI filter is on (App). */
+    @Query(CHOSEN_SONG_IDS)
+    fun chosenSongIds(): Flow<List<String>>
 
     // region Gets
     @Transaction
@@ -78,6 +96,10 @@ interface SongsDao {
             "WHERE song_artist_map.songId = :songId ORDER BY song_artist_map.position"
     )
     fun artistNamesOf(songId: String): List<String>
+
+    /** A song's place in an album, from 0, as the album's page listed it. Read once like [songRow]. */
+    @Query("SELECT `index` FROM song_album_map WHERE songId = :songId AND albumId = :albumId")
+    fun albumIndexOf(songId: String, albumId: String): Int?
 
     @Transaction
     @Query("SELECT * FROM song WHERE title LIKE '%' || :query || '%' AND (inLibrary IS NOT NULL OR dateDownload IS NOT NULL) LIMIT :previewSize")
@@ -268,13 +290,19 @@ interface SongsDao {
     @Query("SELECT count(*) FROM song WHERE isLocal = 1 and inLibrary IS NOT NULL AND localpath LIKE :path || '%'")
     fun localSongCountInPath(path: String): Flow<Int>
 
-    /** See LocalSql.SONGS_WITHOUT_TRACK_NUMBER and TrackTagReread. */
-    @Query(LocalSql.SONGS_WITHOUT_TRACK_NUMBER)
-    fun localSongsWithoutTrackNumber(afterId: String, limit: Int): List<LocalSongFile>
+    /** See LocalSql.SONGS_TO_REREAD and TrackTagReread. */
+    @Query(LocalSql.SONGS_TO_REREAD)
+    fun localSongsToReread(afterId: String, limit: Int): List<LocalSongFile>
 
     /** See LocalSql.SET_TRACK_TAGS. */
     @Query(LocalSql.SET_TRACK_TAGS)
     fun setTrackTags(id: String, track: Int?, disc: Int?)
+
+    /** The folders under [dir] that hold local songs, with their newest dates: see LocalSql.LOCAL_FOLDER_DATES. */
+    fun localFolderDates(dir: String): List<LocalFolderDates> = _localFolderDates(fixFilePath(dir))
+
+    @Query(LocalSql.LOCAL_FOLDER_DATES)
+    fun _localFolderDates(filter: String): List<LocalFolderDates>
 
     /**
      * Local songs sharing a file, for the scan's duplicate sweep, which deletes all but one. Local
@@ -401,6 +429,14 @@ interface SongsDao {
     /** See DownloadSql. */
     @Query(DownloadSql.CLEAR_SENTINELS)
     fun clearDownloadSentinels()
+
+    /** See DownloadSql. */
+    @Query(DownloadSql.SONGS_WITH_COVER)
+    fun songsWithCover(url: String): List<String>
+
+    /** See DownloadSql. */
+    @Query(DownloadSql.LIKED_SONG_IDS)
+    fun likedSongIds(): List<String>
     // endregion
 
     // region Downloaded Songs Sort

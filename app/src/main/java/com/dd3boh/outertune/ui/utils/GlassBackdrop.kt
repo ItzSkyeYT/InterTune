@@ -50,6 +50,12 @@ val LocalAppBackdrop = staticCompositionLocalOf<LayerBackdrop?> { null }
 val LocalAppBackdropAvailable = staticCompositionLocalOf { false }
 
 /**
+ * Liquid glass on where no glass can be drawn (below Android 13): the dock and the mini player
+ * float as plain panes, with the glass's shapes and margins (MainActivity's plainDock).
+ */
+val LocalPlainDock = staticCompositionLocalOf { false }
+
+/**
  * Resolved glass parameters, so every surface derives its numbers the same way instead of each
  * hard-coding its own.
  *

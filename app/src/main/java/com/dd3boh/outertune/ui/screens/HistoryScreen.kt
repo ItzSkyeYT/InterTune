@@ -290,7 +290,7 @@ fun HistoryScreen(
             }
 
             if (historySource == HistorySource.REMOTE && isLoggedIn) {
-                historyPage?.sections?.forEach { section ->
+                historyPage?.sections?.forEachIndexed { sectionIndex, section ->
                     stickyHeader {
                         NavigationTitle(
                             title = section.title,
@@ -303,7 +303,8 @@ fun HistoryScreen(
                     itemsInColumns(
                         items = section.songs,
                         columns = columns,
-                        key = { _, song -> song.id }
+                        // Keys are the whole list's: a song in two days would have had one key twice.
+                        key = { _, song -> "$sectionIndex:${song.id}" }
                     ) { index, song ->
                         val content: @Composable () -> Unit = {
                             YouTubeListItem(

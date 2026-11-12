@@ -9,6 +9,7 @@
 
 package com.dd3boh.outertune.ui.player
 
+import com.dd3boh.outertune.extensions.playSafe
 import com.dd3boh.outertune.LocalDatabase
 import com.dd3boh.outertune.constants.SignalKind
 import com.dd3boh.outertune.utils.ActivityLog
@@ -95,7 +96,13 @@ fun Thumbnail(
      * (portrait, tablet) leave this at zero; the landscape two-pane player does not, since the
      * artwork itself does not need the room, and passes its own queue clearance through here.
      */
-    lyricsBottomPadding: Dp = 0.dp
+    lyricsBottomPadding: Dp = 0.dp,
+    /**
+     * Where the player's error screen leads when YouTube wants a sign-in: the login page and the
+     * proxy setting. The player takes its sheet down on the way (BottomSheetPlayer).
+     */
+    onSignIn: () -> Unit = {},
+    onProxy: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val database = LocalDatabase.current
@@ -265,7 +272,11 @@ fun Thumbnail(
             error?.let { error ->
                 ThumbnailPlaybackError(
                     error = error,
-                    retry = playerConnection.player::prepare
+                    // Prepared and played: a stop on an error leaves the player paused, so prepare
+                    // alone would have loaded the song again and stayed silent.
+                    retry = playerConnection.player::playSafe,
+                    onSignIn = onSignIn,
+                    onProxy = onProxy,
                 )
             }
         }
@@ -279,4 +290,5 @@ fun Thumbnail(
  * size one) and still carry the colours and rough shapes, which is all it has to do for the moment
  * before the sharp version lands on top of it.
  */
-private const val ART_PREVIEW_PX = 128
+/** The small cover drawn first under the sharp one; a download keeps it for offline (DownloadUtil). */
+const val ART_PREVIEW_PX = 128

@@ -119,6 +119,7 @@ import com.dd3boh.outertune.recognition.RecognitionEngine
 import com.dd3boh.outertune.recognition.RecognitionViewModel
 import com.dd3boh.outertune.recognition.SheetRun
 import com.dd3boh.outertune.ui.component.AnimatedDots
+import com.dd3boh.outertune.ui.component.LocalPlayerSheet
 import com.dd3boh.outertune.ui.component.Elsewhere
 import com.dd3boh.outertune.ui.component.SwipeToQueueBox
 import com.dd3boh.outertune.ui.component.rememberRecognitionPhrase
@@ -151,6 +152,19 @@ import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material.icons.rounded.PhoneAndroid
 import com.dd3boh.outertune.recognition.PhoneAudio
+
+/**
+ * Whether the song [now] says was found takes the screen from the player, open over it on its queue
+ * or not: a song the screen's own Listen once has just found, which is what somebody is waiting
+ * for. Not the answer that was on show when the screen came up ([onShow], the same object), not
+ * another run's, and never in Keep listening, which goes on finding songs while the player is used.
+ */
+internal fun answerTakesTheScreen(
+    now: RecognitionEngine.State,
+    onShow: RecognitionEngine.State.Found?,
+    own: Boolean,
+    continuous: Boolean,
+): Boolean = now is RecognitionEngine.State.Found && now !== onShow && own && !continuous
 
 /**
  * Naming what is playing, as a screen rather than a sheet.
@@ -188,6 +202,7 @@ fun RecognitionScreen(
     val following by viewModel.following.collectAsState()
     val mixChoices by viewModel.mixChoices.collectAsState()
     val retryAt by viewModel.retryAt.collectAsState()
+    val keepingOffline by viewModel.keepingOffline.collectAsState()
 
     // Whose run the engine is on, asked as the playlist sheet asks: see SheetRun. A playlist's run
     // left going, its sheet left by navigating away rather than closed, used to show here as the
@@ -297,6 +312,18 @@ fun RecognitionScreen(
         }
     }
 
+    // The song the screen's Listen once found comes in front of the player, open over the screen on
+    // its queue or not (his note of 30 Oct 2026). Only as it comes in: the answer the screen came up
+    // with, after a rotation or coming back to it, leaves the player where it is.
+    val playerSheet = LocalPlayerSheet.current
+    var answerOnShow by remember { mutableStateOf(state as? RecognitionEngine.State.Found) }
+    LaunchedEffect(state) {
+        if (playerSheet != null && playerSheet.isExpanded && answerTakesTheScreen(state, answerOnShow, own, continuous)) {
+            playerSheet.collapseSoft()
+        }
+        (state as? RecognitionEngine.State.Found)?.let { answerOnShow = it }
+    }
+
     // Instead is from a playlist's run, which is stopped for the screen's own. Only from its own
     // button: every other start leaves a run already going alone, as the engine does.
     fun listen(keepGoing: Boolean, instead: Boolean = false) {
@@ -348,6 +375,9 @@ fun RecognitionScreen(
         AddToPlaylistDialog(
             navController = navController,
             songIds = listOf(song.id),
+            // A candidate is a search result, in the song table only if it was played or heard
+            // before, and the playlist's map needs it there (#62).
+            onPreAdd = { viewModel.prepareSong(song) },
             onDismiss = { addToPlaylistFor = null },
         )
     }
@@ -433,7 +463,10 @@ fun RecognitionScreen(
                         state is RecognitionEngine.State.Found,
                 // The big button always stops a run, whichever mode it is in.
                 onClick = { if (listening) viewModel.stop() else listen(keepListeningDefault) },
-                message = shazamWaitMessage(retryAt?.takeIf { listening && continuous }),
+                // With no connection what it hears is kept for later (RecogniseLater): that is said in
+                // place of Shazam not answering, which is not what is wrong.
+                message = if (listening && continuous && keepingOffline) stringResource(R.string.recognise_later_keeping)
+                else shazamWaitMessage(retryAt?.takeIf { listening && continuous }),
             )
         }
 
@@ -590,6 +623,20 @@ fun RecognitionScreen(
                     ),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.error,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                )
+            }
+        }
+
+        // No connection: not a failure, so not in the error's colour. The song comes later, into
+        // What you have heard, where the listen waits meanwhile.
+        if (state == RecognitionEngine.State.Kept) {
+            item(key = "kept") {
+                Text(
+                    text = stringResource(R.string.recognise_later_kept),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center,
                     modifier = Modifier.fillMaxWidth().padding(16.dp),
                 )
@@ -857,10 +904,13 @@ private fun ListenButton(
                 horizontalArrangement = Arrangement.Center,
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
             ) {
+                // Weighted without filling: a line that fills the row, as a message does in French or
+                // at a larger text size, left the dots no room and drew one of them above the text.
                 Text(
                     text = message ?: phrase,
                     style = MaterialTheme.typography.titleMedium,
                     textAlign = TextAlign.Center,
+                    modifier = Modifier.weight(1f, fill = false),
                 )
                 AnimatedDots(style = MaterialTheme.typography.titleMedium)
             }

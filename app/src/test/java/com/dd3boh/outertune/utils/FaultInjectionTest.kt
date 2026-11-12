@@ -52,11 +52,29 @@ class FaultInjectionTest {
     }
 
     @Test
+    fun `a song made gone is the first one fetched once the mode is on, and that one only, until the mode is set again`() {
+        assertFalse("not with the mode off", FaultInjection.callsGone("first"))
+        FaultInjection.set(FaultInjection.Mode.SONG_GONE)
+        assertTrue(FaultInjection.callsGone("first"))
+        assertFalse(FaultInjection.callsGone("second"))
+        assertTrue("and again, as a song that is gone is", FaultInjection.callsGone("first"))
+        FaultInjection.set(FaultInjection.Mode.SONG_GONE)
+        assertTrue("set again, the next one fetched", FaultInjection.callsGone("second"))
+        FaultInjection.set(FaultInjection.Mode.NONE)
+        assertFalse(FaultInjection.callsGone("second"))
+        // Asked by the player's resolver, never by a walk for a download or the cast server's own.
+        val resolve = source("playback/MusicService.kt").substringAfter("fun resolve(mediaId: String, position: Long, length: Long, ahead: Boolean = false)")
+        assertTrue(resolve.contains("if (FaultInjection.callsGone(mediaId)) Result.failure(YTPlayerUtils.SongUnavailable("))
+    }
+
+    @Test
     fun `with the switch off nothing can be set and nothing hangs`() {
         FaultInjection.enabled = false
         FaultInjection.set(FaultInjection.Mode.PLAYER_HANGS_VISIONOS)
         assertEquals(FaultInjection.Mode.NONE, FaultInjection.mode)
         assertFalse(FaultInjection.hangsPlayer("VISIONOS", isVisionosItself = true))
+        FaultInjection.set(FaultInjection.Mode.SONG_GONE)
+        assertFalse("no song is made gone", FaultInjection.callsGone("first"))
     }
 
     @Test

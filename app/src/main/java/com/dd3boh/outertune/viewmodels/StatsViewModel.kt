@@ -1,5 +1,6 @@
 package com.dd3boh.outertune.viewmodels
 
+import com.dd3boh.outertune.models.withoutBlocked
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -8,6 +9,7 @@ import com.dd3boh.outertune.db.MusicDatabase
 import com.dd3boh.outertune.db.entities.Album
 import com.dd3boh.outertune.db.entities.ArtistEntity
 import com.dd3boh.outertune.db.entities.Song
+import com.dd3boh.outertune.stats.FoundHere
 import com.dd3boh.outertune.stats.ListeningInsights
 import com.dd3boh.outertune.stats.ListeningStats
 import com.dd3boh.outertune.stats.StatsInput
@@ -21,6 +23,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.stateIn
@@ -49,13 +52,6 @@ data class PeriodInsights(
 internal fun albumPageWanted(album: Album): Boolean =
     !album.album.isLocal && (album.album.songCount == 0 || album.artists.isEmpty())
 
-/**
- * Whether a most played album whose page YouTube no longer has is deleted: only one with no songs,
- * the only kind this fetched before. One with songs, as LgAlbumRepair made them, keeps them
- * together until someone opens it, and AlbumViewModel decides then.
- */
-internal fun albumDeletedWhenGone(album: Album): Boolean = album.album.songCount == 0
-
 // redoing this whole feature later, plz ignore the slop code
 @OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
@@ -68,7 +64,7 @@ class StatsViewModel @Inject constructor(
 
     val mostPlayedSongs = statPeriod.flatMapLatest { period ->
         database.mostPlayedSongs(period.toTimeMillis())
-    }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+    }.withoutBlocked().stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
     // Counted from the play events over the period itself, as the songs above and the albums
     // below are, and not from the monthly play counts, which could only start at the first of a
@@ -79,12 +75,12 @@ class StatsViewModel @Inject constructor(
     // leave the row short, or empty, while more played YouTube artists sit outside that top 6.
     val mostPlayedArtists = statPeriod.flatMapLatest { period ->
         database.mostPlayedArtistsSince(period.toTimeMillis())
-    }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+    }.withoutBlocked().stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
 
     val mostPlayedAlbums = statPeriod.flatMapLatest { period ->
         database.mostPlayedAlbums(period.toTimeMillis())
-    }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+    }.withoutBlocked().stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
     // Touched only from the collector below, which runs on the main thread.
     private val insightsCache = HashMap<StatPeriod, PeriodInsights>()
@@ -103,6 +99,26 @@ class StatsViewModel @Inject constructor(
     val insights: StateFlow<PeriodInsights?> = statPeriod.mapLatest { period ->
         insightsCache[period] ?: readInsights(period)?.also { insightsCache[period] = it }
             ?: PeriodInsights(period, ListeningStats.EMPTY, emptyMap(), emptyMap())
+    }.stateIn(viewModelScope, SharingStarted.Lazily, null)
+
+    /**
+     * Found with InterTune (stats/FoundHere.kt): the songs the listener liked that InterTune played
+     * them first, since the live log began, whatever period is picked. Read once when the page
+     * opens, as the insights are, never observed. Null until read, and after a read that failed.
+     */
+    val found: StateFlow<FoundHere.Result?> = flow {
+        emit(
+            withContext(Dispatchers.IO) {
+                try {
+                    FoundHere.compute(database.statsFoundFirstListens(), database.statsBounds().firstLiveAt)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    reportException(e)
+                    null
+                }
+            }
+        )
     }.stateIn(viewModelScope, SharingStarted.Lazily, null)
 
     private suspend fun readInsights(period: StatPeriod): PeriodInsights? = withContext(Dispatchers.IO) {
@@ -190,8 +206,9 @@ class StatsViewModel @Inject constructor(
         // either is fetched again when its period is picked again, and no more often. The page is
         // written over the row as it is when written, not as read before the fetch, as in
         // AlbumViewModel: update writes the whole row, so a heart tapped meanwhile would be undone,
-        // and there are many more of these fetches now. A page YouTube no longer has deletes only
-        // what it deleted before (see albumDeletedWhenGone).
+        // and there are many more of these fetches now. A page that fails deletes nothing: a
+        // saved album has no songs until its page is written, and YouTube's answers cannot tell
+        // an album it removed from one it holds back (see AlbumViewModel).
         viewModelScope.launch {
             statPeriod.collect { period ->
                 database.mostPlayedAlbums(period.toTimeMillis()).first().filter(::albumPageWanted).forEach { album ->
@@ -201,11 +218,6 @@ class StatsViewModel @Inject constructor(
                         }
                     }.onFailure {
                         reportException(it)
-                        if (it.message?.contains("NOT_FOUND") == true && albumDeletedWhenGone(album)) {
-                            database.query {
-                                delete(album.album)
-                            }
-                        }
                     }
                 }
             }

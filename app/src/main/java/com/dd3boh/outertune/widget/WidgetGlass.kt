@@ -130,8 +130,11 @@ object WidgetGlass {
         return (w * k).toInt().coerceAtLeast(1) to (h * k).toInt().coerceAtLeast(1)
     }
 
-    /** A few panes: the two sizes a launcher asks for, for this song and the last. */
-    private val cache = LruCache<String, Bitmap>(6)
+    /** A few panes: the sizes of each widget on the home screen, for this song, the next and the last. */
+    private val cache = LruCache<String, Bitmap>(16)
+
+    /** A pane is drawn once, by whoever asks first (see [SingleFlight]): the composition, or a worker drawing it ahead of that. */
+    private val flight = SingleFlight<String, Bitmap>()
 
     /**
      * The pane [glass] of a Full cover widget [w] by [h] dp whose cover is [cover] under [scrim], or
@@ -140,7 +143,7 @@ object WidgetGlass {
     fun pane(cover: Bitmap, w: Int, h: Int, glass: GlassPane, scrim: WidgetScrim, density: Float, rtl: Boolean): Bitmap? =
         runCatching {
             val key = "${System.identityHashCode(cover)}:${cover.generationId}:$w:$h:$glass:$scrim:$density:$rtl"
-            cache.get(key) ?: draw(cover, w, h, glass, scrim, density, rtl).also { cache.put(key, it) }
+            flight.get(key, lookup = { cache.get(it) }, store = { k, v -> cache.put(k, v) }) { draw(cover, w, h, glass, scrim, density, rtl) }
         }.onFailure { Log.w(TAG, "Could not draw the glass", it) }.getOrNull()
 
     private fun draw(cover: Bitmap, w: Int, h: Int, glass: GlassPane, scrim: WidgetScrim, density: Float, rtl: Boolean): Bitmap {
@@ -283,13 +286,20 @@ object WidgetArt {
     /** The most one widget may send, all its bitmaps together. */
     const val BUDGET_BYTES = 1_000_000
 
+    /**
+     * The most a Shelf's look may send, its pictures of covers drawn ahead of time included: half of
+     * what a launcher allows a phone of 1080 by 2400 pixels ([launcherLimit]). A crate or a row of
+     * records is one picture drawn at the size it is shown, which a few covers sent on their own never were.
+     */
+    const val LOOK_BUDGET_BYTES = 7_776_000
+
     /** Whether the plan draws the now playing cover big enough to want the big file. */
     fun wantsBig(plan: WidgetPlan): Boolean = maxOf(plan.coverW, plan.coverH) > BIG_FROM_DP
 
     fun bytes(plan: WidgetPlan, density: Float): Int {
         val square = { px: Int -> px * px * 4 }
+        plan.look?.let { return lookBytes(plan, it, density) }
         var total = when {
-            plan.shape == WidgetShape.SHELF -> square(NOW_PX)
             plan.coverW <= 0 -> 0
             wantsBig(plan) -> square(BIG_PX)
             else -> square(NOW_PX)
@@ -301,5 +311,36 @@ object WidgetArt {
             total += 2 * pw * ph * 4
         }
         return total
+    }
+
+    /**
+     * What a launcher allows all the bitmaps of one widget together: one and a half screens of
+     * pixels at four bytes each (AppWidgetService turns away anything over it).
+     */
+    fun launcherLimit(screenWidthPx: Int, screenHeightPx: Int): Long = 6L * screenWidthPx * screenHeightPx
+
+    /**
+     * A Shelf's look: its pictures at the density they are drawn at (WidgetPictures), and its
+     * blurred background, for each of the two sizes a launcher asks for; Big cover's mosaic covers
+     * rounded at their files' size, and its pane of frosted glass. The covers a look draws inside its
+     * pictures are not sent on their own.
+     */
+    private fun lookBytes(plan: WidgetPlan, look: LookPlan, density: Float): Int {
+        val d = WidgetPictures.density(look, density)
+        var total = 0L
+        for (picture in listOfNotNull(look.heroPicture) + look.rowPictures) {
+            val (pw, ph) = WidgetPictures.pixels(picture, d)
+            total += 2L * pw * ph * 4
+        }
+        val (bw, bh) = WidgetPictures.backgroundPixels(WidgetPictures.BACKGROUND_MAX_PX * WidgetPictures.BACKGROUND_DP_PER_PX, WidgetPictures.BACKGROUND_MAX_PX * WidgetPictures.BACKGROUND_DP_PER_PX)
+        total += 2L * bw * bh * 4
+        if (plan.shape == WidgetShape.BIG_COVER) {
+            total += 2L * look.picks.size * PICK_PX * PICK_PX * 4
+            plan.glass?.let { g ->
+                val (pw, ph) = WidgetGlass.pixels(g.w, g.h, density)
+                total += 2L * pw * ph * 4
+            }
+        }
+        return total.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
     }
 }

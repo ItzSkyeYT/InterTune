@@ -50,7 +50,9 @@ import com.zionhuang.innertube.utils.Walked
 import com.zionhuang.innertube.utils.walkItems
 import com.zionhuang.innertube.utils.walkSongs
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.withContext
@@ -85,11 +87,19 @@ class SyncUtils @Inject constructor(
 ) {
     private val TAG = "SyncUtils"
 
+    /**
+     * What a job launched on [scope] throws, logged. likeSong and syncPlaylistDetached are launched
+     * there with nobody waiting for them, so an error in them had nowhere to go and ended the app:
+     * syncPlaylist's own read of the playlist, for one, throws once a restore has closed the
+     * database. That like or playlist is simply not synced now.
+     */
+    private val syncFailed = CoroutineExceptionHandler { _, e -> Log.e(TAG, "A sync job failed", e) }
+
     // A SupervisorJob: Sync now runs here as an async that nobody may be left to await, and its
     // failure has to stay with it. On a plain Job it would cancel this scope, and every later like
     // pushed to YouTube and every later sync started here would silently do nothing until the app
-    // restarts.
-    private val scope = CoroutineScope(SupervisorJob() + syncCoroutine)
+    // restarts. The async keeps its failure for whoever awaits it; syncFailed hears the launches'.
+    private val scope = CoroutineScope(SupervisorJob() + syncCoroutine + syncFailed)
 
     private val _isSyncingRemoteLikedSongs = MutableStateFlow(false)
     private val _isSyncingRemoteSongs = MutableStateFlow(false)
@@ -169,10 +179,39 @@ class SyncUtils @Inject constructor(
             syncRemoteArtists(bypassCd),
             syncRemotePlaylists(bypassCd),
         )
-        context.dataStore.edit { settings ->
-            settings[LastFullSyncKey] = LocalDateTime.now().toEpochSecond(ZoneOffset.UTC)
-        }
+        stamp(LastFullSyncKey)
         return SyncResult.combine(results)
+    }
+
+    /**
+     * Notes the time a sync ended under [key], for its cooldown. A phone with full storage cannot
+     * write it (IOException): thrown from a sync's finally it closed the app, and since the time
+     * was never noted, the sync was due again at the next opening, which closed again. Logged
+     * instead; the sync is then simply due again next time.
+     */
+    private suspend fun stamp(key: Preferences.Key<Long>) {
+        try {
+            context.dataStore.edit { settings ->
+                settings[key] = LocalDateTime.now().toEpochSecond(ZoneOffset.UTC)
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.w(TAG, "Could not note when ${key.name} ended", e)
+        }
+    }
+
+    /**
+     * A kind that threw: a write that failed (SQLiteFullException on a full phone, from the
+     * transactions and direct writes here, which the catch in MusicDatabase.query and .transaction
+     * does not reach) or a read. It ends that kind, logged, and not the app: each kind had a try
+     * and a finally only, and the sync at launch runs on a scope with nothing to catch it, so the
+     * app closed a few seconds after opening, at every opening while the phone stayed full
+     * (4 Nov 2026). The kinds after it still run.
+     */
+    private fun failed(kind: String, e: Exception): SyncResult {
+        Log.e(TAG, "$kind synchronization failed", e)
+        return SyncResult.FAILED
     }
 
     private fun checkEnabled(item: SyncContent): Boolean {
@@ -238,12 +277,15 @@ class SyncUtils @Inject constructor(
     suspend fun syncRemoteLikedSongs(bypass: Boolean = false): SyncResult = withContext(Dispatchers.IO) { likedSongs(bypass) }
 
     private suspend fun likedSongs(bypass: Boolean): SyncResult {
-        // REQUIRED: internet, no ongoing sync, category enabled, and someone signed in. The sign-in
+        // Already under way, by the sync at launch or a pull: said as that, not as nothing to sync.
+        if (_isSyncingRemoteLikedSongs.value) {
+            Log.i(TAG, "Liked songs synchronization already in progress")
+            return SyncResult.BUSY
+        }
+        // REQUIRED: internet, category enabled, and someone signed in. The sign-in
         // check used to live only in the optional block below, so a pull-to-refresh (bypass)
         // synced a signed-out session, whose empty answers read as "everything was removed".
-        if (_isSyncingRemoteLikedSongs.value || !checkEnabled(SyncContent.LIKED_SONGS) || !context.isInternetConnected() || !context.isUserLoggedIn()) {
-            if (_isSyncingRemoteLikedSongs.value)
-                Log.i(TAG, "Library songs synchronization already in progress")
+        if (!checkEnabled(SyncContent.LIKED_SONGS) || !context.isInternetConnected() || !context.isUserLoggedIn()) {
             return SyncResult.NOTHING
         }
         // OPTIONAL: auto sync and cooldown
@@ -324,13 +366,18 @@ class SyncUtils @Inject constructor(
                 }
 
                 // Unlike local songs in the database
+                val unliked = songsToUnlike.map { it.song.localToggleLike() }
                 runBlocking {
-                    songsToUnlike.forEach { song ->
+                    unliked.forEach { song ->
                         launch(Dispatchers.IO) {
-                            database.update(song.song.localToggleLike())
+                            database.update(song)
                         }
                     }
                 }
+                // A like taken back on YouTube is taken back here as the app's own heart does it:
+                // with "Remove the download with the like" on, the download the setting made goes
+                // too (LikedDownloads, issue #64). It never asked before.
+                downloadUtil.autoDownloadOnLike(unliked)
 
                 // Insert or like songs in the database, all as one transaction. This used to queue
                 // one async transaction per song and move straight on; downloadLikedSongs below
@@ -347,6 +394,10 @@ class SyncUtils @Inject constructor(
                         }
                     }
                 }
+                // Liked anew on YouTube: a download of the song the person removed earlier, or one
+                // that kept failing, is wanted again, and the catch up below takes it
+                // (LikedCatchUpMemory). A song liked all along keeps what it remembers.
+                downloadUtil.wantedAgain(toWrite.filter { (_, localSong) -> localSong?.song?.liked != true }.map { it.first.id })
 
                 // What LM held, for the next sync to compare against. Only a complete read is
                 // worth remembering: a song missing from a short one would drop out of the
@@ -363,16 +414,16 @@ class SyncUtils @Inject constructor(
                 result = if (walked.complete) SyncResult.SYNCED else SyncResult.FAILED
             }
 
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            result = failed("Liked songs", e)
         } finally {
             // First, and the stamp after it cannot be cancelled: the flag was reset last, after a
             // suspending write, so a sync cancelled by leaving its screen left the flag set,
             // and since the guard keeps a second sync out, that kind of sync never ran again.
             _isSyncingRemoteLikedSongs.value = false
-            withContext(NonCancellable) {
-                context.dataStore.edit { settings ->
-                    settings[LastLikeSongSyncKey] = LocalDateTime.now().toEpochSecond(ZoneOffset.UTC)
-                }
-            }
+            withContext(NonCancellable) { stamp(LastLikeSongSyncKey) }
             Log.i(TAG, "Liked songs synchronization ended")
         }
         return result
@@ -384,10 +435,13 @@ class SyncUtils @Inject constructor(
     suspend fun syncRemoteSongs(bypass: Boolean = false): SyncResult = withContext(Dispatchers.IO) { librarySongs(bypass) }
 
     private suspend fun librarySongs(bypass: Boolean): SyncResult {
-        // REQUIRED: internet, no ongoing sync, category enabled, and someone signed in
-        if (_isSyncingRemoteSongs.value || !checkEnabled(SyncContent.PRIVATE_SONGS) || !context.isInternetConnected() || !context.isUserLoggedIn()) {
-            if (_isSyncingRemoteSongs.value)
-                Log.i(TAG, "Library songs synchronization already in progress")
+        // Already under way, by the sync at launch or a pull: said as that, not as nothing to sync.
+        if (_isSyncingRemoteSongs.value) {
+            Log.i(TAG, "Library songs synchronization already in progress")
+            return SyncResult.BUSY
+        }
+        // REQUIRED: internet, category enabled, and someone signed in
+        if (!checkEnabled(SyncContent.PRIVATE_SONGS) || !context.isInternetConnected() || !context.isUserLoggedIn()) {
             return SyncResult.NOTHING
         }
         // OPTIONAL: auto sync and cooldown
@@ -445,16 +499,16 @@ class SyncUtils @Inject constructor(
                 jobs.joinAll()
             }
             result = if (remote.complete) SyncResult.SYNCED else SyncResult.FAILED
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            result = failed("Library songs", e)
         } finally {
             // First, and the stamp after it cannot be cancelled: the flag was reset last, after a
             // suspending write, so a sync cancelled by leaving its screen left the flag set,
             // and since the guard keeps a second sync out, that kind of sync never ran again.
             _isSyncingRemoteSongs.value = false
-            withContext(NonCancellable) {
-                context.dataStore.edit { settings ->
-                    settings[LastLibSongSyncKey] = LocalDateTime.now().toEpochSecond(ZoneOffset.UTC)
-                }
-            }
+            withContext(NonCancellable) { stamp(LastLibSongSyncKey) }
             Log.i(TAG, "Library songs synchronization ended")
         }
         return result
@@ -466,10 +520,13 @@ class SyncUtils @Inject constructor(
     suspend fun syncRemoteAlbums(bypass: Boolean = false): SyncResult = withContext(Dispatchers.IO) { albums(bypass) }
 
     private suspend fun albums(bypass: Boolean): SyncResult {
-        // REQUIRED: internet, no ongoing sync, category enabled, and someone signed in
-        if (_isSyncingRemoteAlbums.value || !checkEnabled(SyncContent.ALBUMS) || !context.isInternetConnected() || !context.isUserLoggedIn()) {
-            if (_isSyncingRemoteAlbums.value)
-                Log.i(TAG, "Library songs synchronization already in progress")
+        // Already under way, by the sync at launch or a pull: said as that, not as nothing to sync.
+        if (_isSyncingRemoteAlbums.value) {
+            Log.i(TAG, "Library albums synchronization already in progress")
+            return SyncResult.BUSY
+        }
+        // REQUIRED: internet, category enabled, and someone signed in
+        if (!checkEnabled(SyncContent.ALBUMS) || !context.isInternetConnected() || !context.isUserLoggedIn()) {
             return SyncResult.NOTHING
         }
         // OPTIONAL: auto sync and cooldown
@@ -509,33 +566,34 @@ class SyncUtils @Inject constructor(
                 }
             }
 
-            // Add or mark albums in local database
-            runBlocking {
-                remoteAlbums.forEach { remoteAlbum ->
-                    launch(Dispatchers.IO) {
-                        val localAlbum = database.album(remoteAlbum.id).firstOrNull()
-                        if (localAlbum == null) {
-                            database.insert(remoteAlbum)
-                            database.album(remoteAlbum.id).firstOrNull()?.let {
-                                database.update(it.album.localToggleLike())
-                            }
-                        } else if (localAlbum.album.bookmarkedAt == null) {
-                            database.update(localAlbum.album.localToggleLike())
-                        }
+            // Add or mark albums in local database, one after another in the order YouTube lists them
+            // (oldest first, see getRemoteData), each a millisecond after the one before, so Library >
+            // Albums by date added keeps YouTube's order. Marked in parallel, each took the time it
+            // happened to run, and a first sync shuffled the whole album library (27 Oct 2026).
+            val firstStamp = LocalDateTime.now().minusNanos(remoteAlbums.size * 1_000_000L)
+            remoteAlbums.forEachIndexed { index, remoteAlbum ->
+                val stamp = firstStamp.plusNanos(index * 1_000_000L)
+                val localAlbum = database.album(remoteAlbum.id).firstOrNull()
+                if (localAlbum == null) {
+                    database.insert(remoteAlbum)
+                    database.album(remoteAlbum.id).firstOrNull()?.let {
+                        database.update(it.album.copy(bookmarkedAt = stamp))
                     }
+                } else if (localAlbum.album.bookmarkedAt == null) {
+                    database.update(localAlbum.album.copy(bookmarkedAt = stamp))
                 }
             }
             result = if (remote.complete) SyncResult.SYNCED else SyncResult.FAILED
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            result = failed("Library albums", e)
         } finally {
             // First, and the stamp after it cannot be cancelled: the flag was reset last, after a
             // suspending write, so a sync cancelled by leaving its screen left the flag set,
             // and since the guard keeps a second sync out, that kind of sync never ran again.
             _isSyncingRemoteAlbums.value = false
-            withContext(NonCancellable) {
-                context.dataStore.edit { settings ->
-                    settings[LastAlbumSyncKey] = LocalDateTime.now().toEpochSecond(ZoneOffset.UTC)
-                }
-            }
+            withContext(NonCancellable) { stamp(LastAlbumSyncKey) }
             Log.i(TAG, "Library albums synchronization ended")
         }
         return result
@@ -547,10 +605,13 @@ class SyncUtils @Inject constructor(
     suspend fun syncRemoteArtists(bypass: Boolean = false): SyncResult = withContext(Dispatchers.IO) { artists(bypass) }
 
     private suspend fun artists(bypass: Boolean): SyncResult {
-        // REQUIRED: internet, no ongoing sync, category enabled, and someone signed in
-        if (_isSyncingRemoteArtists.value || !checkEnabled(SyncContent.ARTISTS) || !context.isInternetConnected() || !context.isUserLoggedIn()) {
-            if (_isSyncingRemoteArtists.value)
-                Log.i(TAG, "Library songs synchronization already in progress")
+        // Already under way, by the sync at launch or a pull: said as that, not as nothing to sync.
+        if (_isSyncingRemoteArtists.value) {
+            Log.i(TAG, "Library artists synchronization already in progress")
+            return SyncResult.BUSY
+        }
+        // REQUIRED: internet, category enabled, and someone signed in
+        if (!checkEnabled(SyncContent.ARTISTS) || !context.isInternetConnected() || !context.isUserLoggedIn()) {
             return SyncResult.NOTHING
         }
         // OPTIONAL: auto sync and cooldown
@@ -629,16 +690,16 @@ class SyncUtils @Inject constructor(
                 }
             }
             result = if (likedRemote.complete) SyncResult.SYNCED else SyncResult.FAILED
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            result = failed("Artist subscriptions", e)
         } finally {
             // First, and the stamp after it cannot be cancelled: the flag was reset last, after a
             // suspending write, so a sync cancelled by leaving its screen left the flag set,
             // and since the guard keeps a second sync out, that kind of sync never ran again.
             _isSyncingRemoteArtists.value = false
-            withContext(NonCancellable) {
-                context.dataStore.edit { settings ->
-                    settings[LastArtistSyncKey] = LocalDateTime.now().toEpochSecond(ZoneOffset.UTC)
-                }
-            }
+            withContext(NonCancellable) { stamp(LastArtistSyncKey) }
             Log.i(TAG, "Artist subscriptions synchronization ended")
         }
         return result
@@ -650,10 +711,13 @@ class SyncUtils @Inject constructor(
     suspend fun syncRemotePlaylists(bypass: Boolean = false): SyncResult = withContext(Dispatchers.IO) { playlists(bypass) }
 
     private suspend fun playlists(bypass: Boolean): SyncResult {
-        // REQUIRED: internet, no ongoing sync, category enabled, and someone signed in
-        if (_isSyncingRemotePlaylists.value || !checkEnabled(SyncContent.PLAYLISTS) || !context.isInternetConnected() || !context.isUserLoggedIn()) {
-            if (_isSyncingRemotePlaylists.value)
-                Log.i(TAG, "Library songs synchronization already in progress")
+        // Already under way, by the sync at launch or a pull: said as that, not as nothing to sync.
+        if (_isSyncingRemotePlaylists.value) {
+            Log.i(TAG, "Library playlists synchronization already in progress")
+            return SyncResult.BUSY
+        }
+        // REQUIRED: internet, category enabled, and someone signed in
+        if (!checkEnabled(SyncContent.PLAYLISTS) || !context.isInternetConnected() || !context.isUserLoggedIn()) {
             return SyncResult.NOTHING
         }
         // OPTIONAL: auto sync and cooldown
@@ -745,16 +809,16 @@ class SyncUtils @Inject constructor(
                 }
                 result = if (walked.complete) SyncResult.SYNCED else SyncResult.FAILED
             }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            result = failed("Library playlist", e)
         } finally {
             // First, and the stamp after it cannot be cancelled: the flag was reset last, after a
             // suspending write, so a sync cancelled by leaving its screen left the flag set,
             // and since the guard keeps a second sync out, that kind of sync never ran again.
             _isSyncingRemotePlaylists.value = false
-            withContext(NonCancellable) {
-                context.dataStore.edit { settings ->
-                    settings[LastPlaylistSyncKey] = LocalDateTime.now().toEpochSecond(ZoneOffset.UTC)
-                }
-            }
+            withContext(NonCancellable) { stamp(LastPlaylistSyncKey) }
             Log.i(TAG, "Library playlist synchronization ended")
         }
         return result
@@ -828,10 +892,13 @@ class SyncUtils @Inject constructor(
     suspend fun syncRecentActivity(bypass: Boolean = false): SyncResult = withContext(Dispatchers.IO) { recentActivity(bypass) }
 
     private suspend fun recentActivity(bypass: Boolean): SyncResult {
-        // REQUIRED: internet, no ongoing sync, category enabled, and someone signed in
-        if (_isSyncingRecentActivity.value || !checkEnabled(SyncContent.RECENT_ACTIVITY) || !context.isInternetConnected() || !context.isUserLoggedIn()) {
-            if (_isSyncingRecentActivity.value)
-                Log.i(TAG, "Recent activity synchronization already in progress")
+        // Already under way, by the sync at launch or a pull: said as that, not as nothing to sync.
+        if (_isSyncingRecentActivity.value) {
+            Log.i(TAG, "Recent activity synchronization already in progress")
+            return SyncResult.BUSY
+        }
+        // REQUIRED: internet, category enabled, and someone signed in
+        if (!checkEnabled(SyncContent.RECENT_ACTIVITY) || !context.isInternetConnected() || !context.isUserLoggedIn()) {
             return SyncResult.NOTHING
         }
         // OPTIONAL: auto sync and cooldown
@@ -858,16 +925,16 @@ class SyncUtils @Inject constructor(
                 }
                 result = SyncResult.SYNCED
             }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            result = failed("Recent activity", e)
         } finally {
             // First, and the stamp after it cannot be cancelled: the flag was reset last, after a
             // suspending write, so a sync cancelled by leaving its screen left the flag set,
             // and since the guard keeps a second sync out, that kind of sync never ran again.
             _isSyncingRecentActivity.value = false
-            withContext(NonCancellable) {
-                context.dataStore.edit { settings ->
-                    settings[LastRecentActivitySyncKey] = LocalDateTime.now().toEpochSecond(ZoneOffset.UTC)
-                }
-            }
+            withContext(NonCancellable) { stamp(LastRecentActivitySyncKey) }
             Log.i(TAG, "Recent activity synchronization ended")
         }
         return result
@@ -885,9 +952,15 @@ class SyncUtils @Inject constructor(
             listOf(libraryId to 0, uploadsId to 1).map { (browseId, tab) ->
                 async {
                     YouTube.library(browseId, tab).fold(
-                        onSuccess = { it.walkItems() },
+                        onSuccess = {
+                            YouTubeTrouble.answered(asAccount = true)
+                            it.walkItems()
+                        },
                         onFailure = {
                             Log.w(TAG, "Could not read $browseId: ${it.message?.let(ErrorText::withoutAddresses)}")
+                            // Asked as the account: a sign-in YouTube no longer accepts shows here
+                            // first, at Home's start, and Home says so (WhyStopped).
+                            YouTubeTrouble.failed(it)
                             Walked(emptyList<YTItem>(), complete = false)
                         }
                     )

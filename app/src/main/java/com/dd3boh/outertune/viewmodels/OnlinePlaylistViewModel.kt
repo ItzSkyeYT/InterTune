@@ -1,9 +1,13 @@
 package com.dd3boh.outertune.viewmodels
 
+import kotlinx.coroutines.flow.combine
+import com.dd3boh.outertune.models.blockedArtists
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.dd3boh.outertune.db.MusicDatabase
+import com.dd3boh.outertune.utils.WhyStopped
+import com.dd3boh.outertune.utils.YouTubeTrouble
 import com.dd3boh.outertune.utils.reportException
 import com.zionhuang.innertube.YouTube
 import com.zionhuang.innertube.models.PlaylistItem
@@ -70,12 +74,25 @@ class OnlinePlaylistViewModel @Inject constructor(
     private val playlistId = savedStateHandle.get<String>("playlistId")!!
 
     val playlist = MutableStateFlow<PlaylistItem?>(null)
-    val playlistSongs = MutableStateFlow<List<SongItem>>(emptyList())
+
+    /** The playlist's songs as YouTube sends them. */
+    private val songsAsSent = MutableStateFlow<List<SongItem>>(emptyList())
+
+    /** Its songs without a blocked artist's (ArtistBlock), followed. */
+    val playlistSongs = combine(songsAsSent, blockedArtists) { songs, block -> block.apply(songs) }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
     var continuation: String? = null
     val dbPlaylist = database.playlistByBrowseId(playlistId)
         .stateIn(viewModelScope, SharingStarted.Lazily, null)
 
     val isLoading = MutableStateFlow(false)
+
+    /**
+     * What the page's first request came to when it failed, null otherwise. The page showed its
+     * loading shimmer for good after a failure; now it says why when that is clear (WhyStopped),
+     * with Retry.
+     */
+    val failedKind = MutableStateFlow<WhyStopped.Kind?>(null)
 
     // The one in-flight continuation fetch, shared by loadMoreSongs and loadRemainingSongs: they
     // both read and write `continuation` and `playlistSongs`, so two running together raced to
@@ -84,15 +101,28 @@ class OnlinePlaylistViewModel @Inject constructor(
     private var loadJob: Job? = null
 
     init {
+        load()
+    }
+
+    /** Asks again after the first request failed: the page's Retry. */
+    fun retry() {
+        if (!isLoading.value && playlist.value == null) load()
+    }
+
+    private fun load() {
         viewModelScope.launch(Dispatchers.IO) {
             isLoading.value = true
+            failedKind.value = null
             YouTube.playlist(playlistId)
                 .onSuccess { playlistPage ->
+                    YouTubeTrouble.answered(asAccount = YouTube.useLoginForBrowse)
                     playlist.value = playlistPage.playlist
-                    playlistSongs.value = playlistPage.songs
+                    songsAsSent.value = playlistPage.songs
                     continuation = playlistPage.songsContinuation
                 }.onFailure {
                     reportException(it)
+                    YouTubeTrouble.failed(it)
+                    failedKind.value = WhyStopped.kindOf(it)
                 }
             isLoading.value = false
         }
@@ -108,7 +138,7 @@ class OnlinePlaylistViewModel @Inject constructor(
                 // through the header's button (see its comment in OnlinePlaylistScreen); a scroll
                 // reaching the bottom should not do that fetch on its own.
                 continuation = followContinuations(token, ::fetchContinuation, maxPages = 1) { songs ->
-                    playlistSongs.value = playlistSongs.value + songs
+                    songsAsSent.value = songsAsSent.value + songs
                 }
             } finally {
                 isLoading.value = false
@@ -122,7 +152,7 @@ class OnlinePlaylistViewModel @Inject constructor(
             isLoading.value = true
             try {
                 continuation = followContinuations(continuation, ::fetchContinuation) { songs ->
-                    playlistSongs.value = playlistSongs.value + songs
+                    songsAsSent.value = songsAsSent.value + songs
                 }
             } finally {
                 isLoading.value = false

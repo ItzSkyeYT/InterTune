@@ -94,9 +94,32 @@ data class PlayerResponse(
             val loudnessDb: Double?,
             val lastModified: Long?,
             val signatureCipher: String?,
+            /**
+             * What the stream's sound is, as a small protobuf map in base64url. For a video offered
+             * in several languages its "acont" is "original", "dubbed" or "dubbed-auto" and its
+             * "lang" the language; a stable volume stream has "drc" at "1". Read by the app's
+             * OriginalAudio. Absent from a song's streams.
+             */
+            val xtags: String? = null,
+            /** The language of the stream, for a video offered in several (#151). Null for a video in one. */
+            val audioTrack: AudioTrack? = null,
         ) {
             val isAudio: Boolean
                 get() = width == null
+
+            /**
+             * One of the languages a video's sound is offered in: the original, a dub its channel
+             * uploaded, or one YouTube made by machine. Every stream of that language carries it.
+             * [id] is the language and a number ("en-US.4", "it.10"), [displayName] its name in the
+             * language the answer was asked in, with "original" after it for the original, and
+             * [audioIsDefault] whether YouTube's own player would start in it.
+             */
+            @Serializable
+            data class AudioTrack(
+                val id: String? = null,
+                val displayName: String? = null,
+                val audioIsDefault: Boolean? = null,
+            )
         }
     }
 

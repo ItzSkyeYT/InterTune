@@ -85,8 +85,9 @@ fun RecapEntry(setupDone: Boolean, quiet: Boolean, onOpenPlaylist: (String) -> U
     val database = LocalDatabase.current
     val (shownYear, setShownYear) = rememberPreference(RecapPopUpShownKey, defaultValue = 0)
     val revealedEarly by rememberPreference(RecapRevealedEarlyKey, defaultValue = false)
-    // The developer options' "today is the reveal day" counts in a debug build only.
-    val early = revealedEarly && BuildConfig.DEBUG
+    // The developer options' "today is the reveal day" counts only in a build that has its row
+    // (PREVIEW_FEATURES, as DeveloperFrag): a backup can bring the switch into a release.
+    val early = revealedEarly && BuildConfig.PREVIEW_FEATURES
     val today = remember { LocalDate.now() }
     var open by rememberSaveable { mutableStateOf<Int?>(null) }
 
@@ -118,7 +119,7 @@ fun rememberRecapOnShow(): Int? {
     if (!Unreleased.RECAP) return null
     val database = LocalDatabase.current
     val revealedEarly by rememberPreference(RecapRevealedEarlyKey, defaultValue = false)
-    val year = remember(revealedEarly) { RecapCalendar.yearOnShow(LocalDate.now(), revealedEarly && BuildConfig.DEBUG) }
+    val year = remember(revealedEarly) { RecapCalendar.yearOnShow(LocalDate.now(), revealedEarly && BuildConfig.PREVIEW_FEATURES) }
     val enough by produceState(false, year) {
         value = year != null && runCatching { RecapReader.hasEnough(database, year) }.getOrDefault(false)
     }

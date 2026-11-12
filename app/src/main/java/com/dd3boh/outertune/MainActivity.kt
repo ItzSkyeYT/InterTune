@@ -16,6 +16,7 @@ import android.annotation.SuppressLint
 import android.app.NotificationManager
 import android.app.StatusBarManager
 import android.app.SearchManager
+import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.os.Build
 import android.appwidget.AppWidgetManager
@@ -27,6 +28,7 @@ import android.provider.MediaStore
 import android.util.Log
 import android.widget.Toast
 import androidx.media3.common.MediaItem
+import androidx.media3.session.LibraryResult
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.guava.await
 import androidx.activity.ComponentActivity
@@ -79,6 +81,7 @@ import androidx.datastore.preferences.core.edit
 import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.constants.UpdateCheckEnabledKey
 import com.dd3boh.outertune.constants.UsageCountEnabledKey
+import com.dd3boh.outertune.utils.FailureLog
 import com.dd3boh.outertune.utils.dataStore
 import androidx.compose.material3.Text
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
@@ -87,6 +90,7 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
 import com.dd3boh.outertune.constants.PlayOrigin
+import com.dd3boh.outertune.models.DontPlay
 import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.models.toMediaMetadata
 import com.dd3boh.outertune.playback.queues.YouTubeQueue
@@ -125,6 +129,7 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -145,6 +150,7 @@ import androidx.compose.ui.util.fastForEach
 import androidx.core.net.toUri
 import androidx.core.view.WindowCompat
 import androidx.navigation.NavBackStackEntry
+import androidx.navigation.NavController
 import androidx.navigation.NavHostController
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.compose.NavHost
@@ -166,6 +172,8 @@ import com.dd3boh.outertune.constants.DynamicThemeKey
 import com.dd3boh.outertune.constants.EnabledTabsKey
 import com.dd3boh.outertune.constants.HighContrastKey
 import com.dd3boh.outertune.constants.LibraryFilterKey
+import com.dd3boh.outertune.constants.LyricKaraokeEnable
+import com.dd3boh.outertune.constants.LyricsBlurKey
 import com.dd3boh.outertune.constants.MinMiniPlayerHeight
 import com.dd3boh.outertune.constants.MiniPlayerHeight
 import com.dd3boh.outertune.constants.NavigationBarAnimationSpec
@@ -190,15 +198,23 @@ import com.dd3boh.outertune.playback.MediaControllerViewModel
 import com.dd3boh.outertune.playback.MusicService
 import com.dd3boh.outertune.playback.PlayerConnection
 import com.dd3boh.outertune.search.SystemSearch
+import com.dd3boh.outertune.utils.YouTubeLink
+import com.dd3boh.outertune.ui.dialog.TogetherInviteDialog
+import com.dd3boh.outertune.ui.dialog.TogetherProposalDialog
+import com.dd3boh.outertune.ui.dialog.togetherAvailable
+import com.dd3boh.outertune.together.RoomCode
 import com.dd3boh.outertune.utils.urlEncode
 import com.dd3boh.outertune.ui.component.LocalHiddenByPlayer
 import com.dd3boh.outertune.ui.component.LocalPlayerSheet
+import com.dd3boh.outertune.ui.component.LyricsBlur
 import com.dd3boh.outertune.ui.component.rememberBottomSheetState
 import com.dd3boh.outertune.ui.component.shimmer.ShimmerTheme
 import com.dd3boh.outertune.ui.menu.BottomSheetMenu
 import com.dd3boh.outertune.ui.menu.MenuState
+import com.dd3boh.outertune.ui.menu.rememberDontPlay
 import com.dd3boh.outertune.ui.player.BottomSheetPlayer
 import com.dd3boh.outertune.ui.screens.settings.SettingJumpHost
+import com.dd3boh.outertune.ui.screens.settings.SettingsFollowTheTurn
 import com.dd3boh.outertune.ui.screens.walkthrough.Tour
 import com.dd3boh.outertune.ui.screens.walkthrough.tourTarget
 import com.dd3boh.outertune.ui.screens.walkthrough.TourOverlay
@@ -236,6 +252,7 @@ import com.dd3boh.outertune.ui.screens.Screens
 import com.dd3boh.outertune.ui.screens.search.SearchBarContainer
 import com.dd3boh.outertune.ui.theme.ColorSaver
 import com.dd3boh.outertune.ui.theme.DefaultThemeColor
+import com.dd3boh.outertune.ui.theme.PlayerTheme
 import com.dd3boh.outertune.ui.theme.OuterTuneTheme
 import com.dd3boh.outertune.ui.theme.extractThemeSource
 import com.dd3boh.outertune.ui.utils.appBarScrollBehavior
@@ -250,6 +267,7 @@ import com.dd3boh.outertune.ui.utils.dpadOverlay
 import com.dd3boh.outertune.ui.utils.dpadOverlayEscape
 import com.dd3boh.outertune.ui.utils.dpadTabBar
 import com.dd3boh.outertune.ui.utils.dpadBringIntoView
+import com.dd3boh.outertune.ui.utils.leaveSettings
 import com.dd3boh.outertune.ui.utils.resetHeightOffset
 import com.dd3boh.outertune.ui.utils.SameTextSize
 import com.dd3boh.outertune.ui.utils.shrinkToFit
@@ -259,6 +277,9 @@ import com.dd3boh.outertune.utils.installSource
 import com.dd3boh.outertune.utils.NetworkConnectivityObserver
 import com.dd3boh.outertune.utils.LoudnessRepair
 import com.dd3boh.outertune.utils.Scrobbler
+import com.dd3boh.outertune.utils.SavedStateSize
+import com.dd3boh.outertune.ui.navigation.KeptHistory
+import com.dd3boh.outertune.ui.navigation.LocalBackAnimations
 import com.dd3boh.outertune.utils.SyncUtils
 import com.dd3boh.outertune.utils.AutoBackup
 import com.dd3boh.outertune.utils.BackgroundCheckWorker
@@ -267,6 +288,14 @@ import com.dd3boh.outertune.utils.PollChecker
 import com.dd3boh.outertune.utils.UpdateChecker
 import com.dd3boh.outertune.utils.UpdateInstaller
 import com.dd3boh.outertune.utils.AutoBlocker
+import com.dd3boh.outertune.utils.AlbumAnswerPretend
+import com.dd3boh.outertune.utils.YouTubeRegion
+import com.dd3boh.outertune.utils.AutoBlockerReturn
+import com.dd3boh.outertune.utils.ReportTrail
+import com.dd3boh.outertune.utils.ReturnVerdict
+import com.dd3boh.outertune.utils.reminderOwed
+import com.dd3boh.outertune.constants.AutoBlockerBlockedByKey
+import com.dd3boh.outertune.constants.AutoBlockerReturnAtKey
 import com.dd3boh.outertune.ui.component.updateTrouble
 import com.dd3boh.outertune.utils.coilCoroutine
 import com.dd3boh.outertune.utils.lmScannerCoroutine
@@ -289,8 +318,10 @@ import com.dd3boh.outertune.constants.PlayerLiquidGlassKey
 import com.dd3boh.outertune.ui.utils.LocalAppBackdrop
 import com.dd3boh.outertune.ui.utils.ScreenRate
 import com.dd3boh.outertune.ui.utils.LocalGlassStill
+import com.dd3boh.outertune.ui.utils.Animations
 import com.dd3boh.outertune.ui.utils.stillGlass
 import com.dd3boh.outertune.ui.utils.LocalAppBackdropAvailable
+import com.dd3boh.outertune.ui.utils.LocalPlainDock
 import com.dd3boh.outertune.ui.utils.Landscape
 import com.dd3boh.outertune.ui.utils.LocalLandscape
 import androidx.compose.ui.platform.LocalWindowInfo
@@ -324,6 +355,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.dd3boh.outertune.utils.Toaster
 
 /**
  * How long a back takes when it is not being dragged.
@@ -509,9 +541,9 @@ class MainActivity : ComponentActivity() {
     val permissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
             if (isGranted) {
-//                Toast.makeText(this, "Granted", Toast.LENGTH_SHORT).show()
+//                Toaster.show(this, "Granted", Toast.LENGTH_SHORT)
             } else {
-                Toast.makeText(this, getString(R.string.scanner_missing_storage_perm), Toast.LENGTH_SHORT).show()
+                Toaster.show(this, getString(R.string.scanner_missing_storage_perm), Toast.LENGTH_SHORT)
             }
         }
 
@@ -542,6 +574,22 @@ class MainActivity : ComponentActivity() {
         if (intent.action == RecognitionShortcut.ACTION) pendingRecognition.asked = true
         if (intent.action == DownloadsShortcut.ACTION) pendingDownloads.asked = true
         handlePlayFromSearch(intent)
+        if (Unreleased.LYRICS_BLUR) setLyricsBlurTrial(intent)
+    }
+
+    /**
+     * The debug app's lyrics blur set from a command line (LyricsBlur.trial), for pictures of each
+     * strength with the lyrics left open: `am start -n <app>/.MainActivity --es lyricsblur medium`.
+     */
+    private fun setLyricsBlurTrial(intent: Intent) {
+        val trial = LyricsBlur.trial(intent.getStringExtra(LyricsBlur.TRIAL)) ?: return
+        Log.i(MAIN_TAG, "Lyrics blur trial: $trial")
+        lifecycleScope.launch {
+            dataStore.edit { settings ->
+                trial.strength?.let { settings[LyricsBlurKey] = it }
+                trial.wordByWord?.let { settings[LyricKaraokeEnable] = it }
+            }
+        }
     }
 
     private fun handlePlayFromSearch(intent: Intent) {
@@ -566,17 +614,28 @@ class MainActivity : ComponentActivity() {
             dispose()
             lifecycleScope.launch {
                 if (query.isNotEmpty()) {
+                    // How many the session found, or null when it could not be asked or answered
+                    // with an error: that was "No results found" too.
                     val found = try {
-                        browser.getSearchResult(query, 0, 1, null).await().value
+                        val result = browser.getSearchResult(query, 0, 1, null).await()
+                        if (result.resultCode == LibraryResult.RESULT_SUCCESS) result.value?.size ?: 0 else null
                     } catch (e: CancellationException) {
                         throw e
                     } catch (e: Exception) {
                         Log.w(MAIN_TAG, "Could not search for a play from search", e)
+                        FailureLog.record("Playing from a search", e)
                         null
                     }
-                    if (found.isNullOrEmpty()) {
-                        Toast.makeText(this@MainActivity, R.string.no_results_found, Toast.LENGTH_SHORT).show()
-                        return@launch
+                    when (playSearchOutcome(found)) {
+                        PlaySearch.FAILED -> {
+                            Toaster.show(this@MainActivity, R.string.play_search_failed, Toast.LENGTH_LONG)
+                            return@launch
+                        }
+                        PlaySearch.NOTHING -> {
+                            Toaster.show(this@MainActivity, R.string.no_results_found, Toast.LENGTH_SHORT)
+                            return@launch
+                        }
+                        PlaySearch.PLAY -> Unit
                     }
                 }
                 browser.setMediaItems(listOf(searchPlayRequest(query)))
@@ -593,14 +652,15 @@ class MainActivity : ComponentActivity() {
      */
     private fun playLikedWhenReady() {
         lifecycleScope.launch {
-            val connection = snapshotFlow { playerConnection }.filterNotNull().first()
+            // A live one, as for the widget's songs: see PlayerConnection.isAlive.
+            val connection = snapshotFlow { playerConnection?.takeIf { it.isAlive } }.filterNotNull().first()
             val prefs = dataStore.data.first()
             val songs = database.likedSongs(
                 prefs[SongSortTypeKey].toEnum(SongSortType.CREATE_DATE),
                 prefs[SongSortDescendingKey] ?: true,
             ).first()
             if (songs.isEmpty()) {
-                Toast.makeText(this@MainActivity, R.string.shortcut_no_liked_songs, Toast.LENGTH_SHORT).show()
+                Toaster.show(this@MainActivity, R.string.shortcut_no_liked_songs, Toast.LENGTH_SHORT)
                 return@launch
             }
             connection.playQueue(
@@ -620,6 +680,47 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         PhoneBatterySaver.read(this)
+        // A resume of the downloads that Android refused while the app was in the background (the
+        // scan ends with one) goes out now that it is in front. The class is asked, not the
+        // injected instance, which would be built at every launch (DownloadServiceSends).
+        if (DownloadUtil.resumeOwed) downloadUtil.resumeDownloadsOnStart()
+    }
+
+    // What Android keeps of the app when it is left: the navigation's history cut to its newest
+    // pages (#107, see KeptHistory), and in debug builds its size in the log when it is large.
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        KeptHistory.cut(outState)
+        if (BuildConfig.DEBUG) SavedStateSize.log(outState)
+    }
+
+    // The person has left: coming back is what a tap on Open Auto Blocker waits for.
+    override fun onStop() {
+        AutoBlockerReturn.left()
+        super.onStop()
+    }
+
+    /**
+     * InterTune is in front again. If the person tapped Open Auto Blocker and has been away since,
+     * within half an hour, the install they were blocked on starts again by itself, so Android's
+     * prompt comes at once (AutoBlockerReturn). The tap is forgotten as it is used: if Auto Blocker
+     * stops the install once more, the message is back and the next tap asks again.
+     *
+     * Called at every resume, so a resume with nothing asked for costs one look. The release is
+     * the one the checks found, or else the one they stored: the app may have been ended in
+     * Settings, and the checks are opt in. Android's own screen for "install unknown apps" is not
+     * opened by itself; the offer says what is missing, as it always did.
+     */
+    private suspend fun installAgainAfterAutoBlocker() {
+        val store = dataStore
+        if (store.current[AutoBlockerReturnAtKey] == null) return
+        val found = updateChecker.found()
+        val verdict = AutoBlockerReturn.take(store, System.currentTimeMillis(), AutoBlockerReturn.away)
+        Log.i(MAIN_TAG, "Back from Auto Blocker's page: $verdict")
+        if (verdict != ReturnVerdict.INSTALL_AGAIN || found == null) return
+        if (installSource() == InstallSource.F_DROID || !updateInstaller.canRequestInstall()) return
+        updateInstaller.acknowledge()
+        updateInstaller.installOrDownload(found.downloadUrl, found.sizeBytes)
     }
 
     override fun onDestroy() {
@@ -635,6 +736,7 @@ class MainActivity : ComponentActivity() {
             nm.cancel(MusicService.NOTIFICATION_ID)
         }
         lifecycle.removeObserver(controllerViewModel)
+        playerConnection?.dispose()
         playerConnection = null
         RecapSample.stop(this, recapSample)
         recapSample = null
@@ -642,10 +744,34 @@ class MainActivity : ComponentActivity() {
         super.onDestroy()
     }
 
+    /**
+     * Every picker the app opens goes through here: a file, a folder, a picture. Some devices have
+     * no app to pick with (a projector, a stripped-down Android 10), and asking for one crashed the
+     * app (#120, #121). It now says so, and the screen that asked takes it as cancelled.
+     */
+    @Suppress("OVERRIDE_DEPRECATION", "DEPRECATION")
+    override fun startActivityForResult(intent: Intent, requestCode: Int, options: Bundle?) {
+        try {
+            super.startActivityForResult(intent, requestCode, options)
+        } catch (e: ActivityNotFoundException) {
+            Log.w(MAIN_TAG, "Nothing on this device answers ${intent.action}", e)
+            Toaster.show(this, R.string.no_app_to_pick, Toast.LENGTH_LONG)
+            activityResultRegistry.dispatchResult(requestCode, RESULT_CANCELED, null)
+        }
+    }
+
     @SuppressLint("UnusedBoxWithConstraintsScope")
     @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Debug builds only: a file that makes this phone count as a Samsung, so Auto Blocker's
+        // message and way out can be seen on an emulator. Nothing in a release.
+        AutoBlocker.pretendFrom(this)
+        // Debug builds only, the same way: a file that makes YouTube count as seeing this connection
+        // in another country, so the note for Korea (#68) can be seen from anywhere.
+        YouTubeRegion.pretendFrom(this)
+        // And a file that makes album pages fail as YouTube's NOT_FOUND does, to see what they do then.
+        AlbumAnswerPretend.pretendFrom(this)
         // Not again after a rotation or a restored process: the shortcut was tapped once. Nor when
         // the task is reopened from recents, which starts it again with the shortcut's intent and
         // replayed the liked songs over whatever was playing (Android 11 and older, where Back
@@ -664,6 +790,9 @@ class MainActivity : ComponentActivity() {
         }
         lifecycle.addObserver(controllerViewModel)
         controllerViewModel.addControllerCallback(lifecycle) { controller, _ ->
+            // A controller comes again with every unlock: the connection made for the last one stops
+            // listening first, or each lock and unlock left one more listener rebuilding the queue.
+            playerConnection?.dispose()
             playerConnection = PlayerConnection(controllerViewModel, database)
         }
         // A play-from-search request, once: not after a rotation or a restored process, and not
@@ -678,7 +807,8 @@ class MainActivity : ComponentActivity() {
 
         activityLauncher = ActivityLauncherHelper(this)
 
-        setContent {
+        // The window's compositions keep the app's pace: none with animations off (Animations).
+        setContent(parent = Animations.recomposer(this)) {
             Log.v(MAIN_TAG, "RC-1")
             val coroutineScope = rememberCoroutineScope()
             val haptic = LocalHapticFeedback.current
@@ -706,6 +836,9 @@ class MainActivity : ComponentActivity() {
             // Saver holds the window to a slower frame rate (ScreenRate), undone at once when the mode changes.
             val lowFrameRate = BatteryUse.lowFrameRate(batteryMode)
             LaunchedEffect(lowFrameRate) { ScreenRate.apply(this@MainActivity, lowFrameRate) }
+            // The songs the listener chose not to play, followed once here for every row that lists a
+            // song (LocalDontPlay): each asks a set already in hand, no query per row.
+            val dontPlay = rememberDontPlay()
 
             val windowSizeClass = currentWindowAdaptiveInfo().windowSizeClass
             // The window, measured once for everything that is laid out differently when a phone
@@ -820,7 +953,7 @@ class MainActivity : ComponentActivity() {
                         this@MainActivity, database, downloads, coroutineScope, playerConnection,
                         snackbarHostState
                     )
-                    // Once, and quietly: the track numbers of local songs scanned before 0.12.5.
+                    // Once, and quietly: the track and disc numbers of local songs scanned before 0.12.5.
                     TrackTagReread.runOnce(this@MainActivity, database)
                 }
             }
@@ -831,6 +964,13 @@ class MainActivity : ComponentActivity() {
             }
             var themeColor by rememberSaveable(stateSaver = ColorSaver) {
                 mutableStateOf(DefaultThemeColor)
+            }
+            // The pages' colours: the song's, held while the open player covers them. A new theme makes
+            // everything under it again, the pages under the player too: one frame of about 0.7 s on the
+            // Pixel 5's debug app at each song change. The player takes the song's colours at once
+            // (PlayerTheme), the pages once the player is down again.
+            var pagesThemeColor by rememberSaveable(stateSaver = ColorSaver) {
+                mutableStateOf(themeColor)
             }
 
             // One observer for the activity, not one per recomposition of this scope. This scope
@@ -887,7 +1027,7 @@ class MainActivity : ComponentActivity() {
                 darkTheme = useDarkTheme,
                 pureBlack = pureBlack,
                 highContrastCompat = highContrastCompat,
-                themeColor = themeColor
+                themeColor = pagesThemeColor
             ) {
                 Log.v(MAIN_TAG, "RC-2.1")
 
@@ -925,6 +1065,7 @@ class MainActivity : ComponentActivity() {
                             frontSince = SystemClock.elapsedRealtime()
                             waitPutAway = false
                             updateInstaller.onShown()
+                            coroutineScope.launch { installAgainAfterAutoBlocker() }
                         } else if (event == Lifecycle.Event.ON_PAUSE) {
                             updateInstaller.onHidden()
                         }
@@ -1045,7 +1186,8 @@ class MainActivity : ComponentActivity() {
                             onPutAway = { waitPutAway = true },
                             onOpenAutoBlocker = {
                                 updateInstaller.acknowledge()
-                                AutoBlocker.open(this@MainActivity)
+                                // The install starts again by itself when they are back.
+                                AutoBlocker.openForUpdate(this@MainActivity)
                             },
                             onTryAgain = {
                                 updateInstaller.acknowledge()
@@ -1109,8 +1251,8 @@ class MainActivity : ComponentActivity() {
 
                 val liquidGlass by rememberPreference(PlayerLiquidGlassKey, defaultValue = false)
                 val glassIntensity by rememberPreference(PlayerGlassIntensityKey, defaultValue = 1f)
-                // TIRAMISU because lens() needs a RuntimeShader and the settings toggle is only
-                // offered at 33+. !useNavRail because playerAwareWindowInsets reserves left = 80dp
+                // TIRAMISU because lens() needs a RuntimeShader; below it the switch still gives the
+                // richer colours and the plain dock (plainDock). !useNavRail because playerAwareWindowInsets reserves left = 80dp
                 // on tablets, so nothing ever scrolls behind the rail and a glass rail would be a
                 // full offscreen pass refracting the flat surface fill. A phone on its side has
                 // the rail too, and still has the page scrolling behind its search pill and its
@@ -1118,6 +1260,10 @@ class MainActivity : ComponentActivity() {
                 val backdropAvailable = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
                         (!useNavRail || landscape.active)
                 val navGlass = liquidGlass && backdropAvailable
+                // Below Android 13 there is no glass to draw, but the floating dock is only a shape:
+                // with Liquid glass on there, the bar keeps the dock's shape and margins with a plain
+                // fill (Mesh Raj's ask of 7 Nov 2026, on a Galaxy M30s with Android 11).
+                val plainDock = liquidGlass && !navGlass && Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU && !useNavRail
                 // Saver keeps the glass where it is and draws it still: no layer is recorded for it
                 // and no panel blurs or bends one (BatteryUse.glassStill, LocalGlassStill).
                 val glassStill = BatteryUse.glassStill(batteryMode)
@@ -1125,6 +1271,12 @@ class MainActivity : ComponentActivity() {
 
                 val navController = rememberNavController()
                 val navBackStackEntry by navController.currentBackStackEntryAsState()
+                // The screens opened, for Report a problem's trail: by the route's pattern, never what fills it in.
+                DisposableEffect(navController) {
+                    val listener = NavController.OnDestinationChangedListener { _, destination, _ -> ReportTrail.thisRun.screen(destination.route) }
+                    navController.addOnDestinationChangedListener(listener)
+                    onDispose { navController.removeOnDestinationChangedListener(listener) }
+                }
 
                 /**
                  * Hoisted out of [SearchBarContainer] so the navigation bar can close the search
@@ -1157,6 +1309,13 @@ class MainActivity : ComponentActivity() {
                         collapsedBound = bottomInset + MiniPlayerHeight + getNavPadding(),
                         expandedBound = maxHeight,
                     )
+
+                    // The pages take the song's colours once the player is down (pagesThemeColor): at once
+                    // while it is, and after it settles when it was open, so nothing moves as they turn.
+                    LaunchedEffect(playerBottomSheetState) {
+                        snapshotFlow { themeColor to (playerBottomSheetState.isCollapsed || playerBottomSheetState.isDismissed) }
+                            .collect { (colour, down) -> if (down && pagesThemeColor != colour) pagesThemeColor = colour }
+                    }
 
                     // Keyed on the rail too: a turn no longer makes a new screen, so without it the
                     // pages kept the left edge they had upright and ran under the rail on their side.
@@ -1230,25 +1389,34 @@ class MainActivity : ComponentActivity() {
                         searchFromShortcut = false
                     }
 
+                    // A page opened from outside the app goes in front of whatever was left open: the
+                    // player, on its queue or not, and the search overlay are put away first, as a
+                    // tab's tap puts them away, or the page opens behind them. A song found on the
+                    // phone opened its results under the queue he had left open (his note of 30 Oct
+                    // 2026), and the recognition tile listened under it.
+                    fun putAwayForPage() {
+                        if (playerBottomSheetState.isExpanded) playerBottomSheetState.collapseSoft()
+                        searchActive = false
+                    }
+
                     // The recognition tile and widget: the recognition screen, listening, over
                     // whatever is open, once the first destination is there and setup is done.
                     LaunchedEffect(pendingRecognition.asked, oobeStatus) {
                         if (!pendingRecognition.asked || oobeStatus < OOBE_VERSION) return@LaunchedEffect
                         snapshotFlow { navBackStackEntry }.first { it != null }
                         pendingRecognition.asked = false
+                        putAwayForPage()
                         navController.navigate(RecognitionShortcut.ROUTE)
                     }
 
                     // A tap on a download notification: Downloaded songs, over whatever is open,
-                    // once the first destination is there and setup is done. The player and the
-                    // search overlay are put away first, as a tab's tap puts them away, or the page
-                    // would open behind them; and it is not opened a second time over itself.
+                    // once the first destination is there and setup is done. Put in front like any
+                    // page from outside, and not opened a second time over itself.
                     LaunchedEffect(pendingDownloads.asked, oobeStatus) {
                         if (!pendingDownloads.asked || oobeStatus < OOBE_VERSION) return@LaunchedEffect
                         snapshotFlow { navBackStackEntry }.first { it != null }
                         pendingDownloads.asked = false
-                        if (playerBottomSheetState.isExpanded) playerBottomSheetState.collapseSoft()
-                        searchActive = false
+                        putAwayForPage()
                         val entry = navController.currentBackStackEntry
                         val there = entry?.destination?.route == "auto_playlist/{playlistId}" &&
                                 entry?.arguments?.getString("playlistId") == DownloadsShortcut.PLAYLIST
@@ -1288,13 +1456,17 @@ class MainActivity : ComponentActivity() {
                         )
                     }
                     LaunchedEffect(playerConnection, widgetSongPending, pendingWidgetTap.intent) {
+                        // Only a connection whose service is still there: one left from before the
+                        // service stopped took the tap and played nothing. The tap waits for the
+                        // next connection instead, which restarts this effect.
+                        val live = playerConnection?.takeIf { it.isAlive }
                         if (widgetSongPending) {
-                            playFromWidget(intent, database, playerConnection, coroutineScope)
-                            if (playerConnection != null) widgetSongPending = false
+                            playFromWidget(intent, database, live, coroutineScope)
+                            if (live != null) widgetSongPending = false
                         }
                         pendingWidgetTap.intent?.let { pending ->
-                            playFromWidget(pending, database, playerConnection, coroutineScope)
-                            if (playerConnection != null) pendingWidgetTap.intent = null
+                            playFromWidget(pending, database, live, coroutineScope)
+                            if (live != null) pendingWidgetTap.intent = null
                         }
                     }
 
@@ -1324,20 +1496,34 @@ class MainActivity : ComponentActivity() {
                             )
                         )
                     }
+                    // A listening room's invite, opened from a link: asked before joining.
+                    var togetherInvite by remember { mutableStateOf<RoomCode?>(null) }
+                    togetherInvite?.let { code -> TogetherInviteDialog(code, playerConnection, onDone = { togetherInvite = null }) }
+                    // A guest's song proposed to this phone as the room's leader: asked wherever the app is.
+                    TogetherProposalDialog(playerConnection)
                     LaunchedEffect(pendingLaunchLink, pendingLink.link, playerConnection, oobeStatus) {
                         val link = pendingLaunchLink ?: pendingLink.link ?: return@LaunchedEffect
-                        val connection = playerConnection ?: return@LaunchedEffect
+                        // A live one, as for the widget's songs: see PlayerConnection.isAlive.
+                        val connection = playerConnection?.takeIf { it.isAlive } ?: return@LaunchedEffect
                         if (oobeStatus < OOBE_VERSION) return@LaunchedEffect
                         snapshotFlow { navBackStackEntry }.first { it != null }
                         if (pendingLaunchLink != null) pendingLaunchLink = null else pendingLink.link = null
+                        if (linkOpensPage(link)) putAwayForPage()
                         // A playlist of the library, tapped in the phone's own search (SystemSearch),
                         // has no YouTube page: it opens here.
                         val libraryPlaylist = SystemSearch.playlistOf(link)
                         val searchWords = SystemSearch.searchOf(link)
-                        if (libraryPlaylist != null) {
+                        val invite = if (togetherAvailable && link.startsWith("intertune://together/", ignoreCase = true)) RoomCode.parse(link) else null
+                        if (invite != null) {
+                            togetherInvite = invite
+                        } else if (libraryPlaylist != null) {
                             navController.navigate("local_playlist/$libraryPlaylist")
+                        } else if (SystemSearch.isHeard(link)) {
+                            // Songs named once the phone was back online (RecogniseLaterWorker).
+                            navController.navigate("recognition/history")
                         } else if (searchWords != null) {
-                            // Words handed over by the phone's search: InterTune's own search for them.
+                            // Words handed over by the phone's search, or by the song found on this
+                            // phone's notification: InterTune's own search for them.
                             navController.navigate("search/${searchWords.urlEncode()}")
                         } else {
                             youtubeNavigator(
@@ -1370,10 +1556,12 @@ class MainActivity : ComponentActivity() {
                         LocalSnackbarHostState provides snackbarHostState,
                         LocalAppBackdrop provides (if (navGlass) appBackdrop else null),
                         LocalAppBackdropAvailable provides backdropAvailable,
+                        LocalPlainDock provides plainDock,
                         LocalLandscape provides landscape,
                         LocalGlassIntensity provides glassIntensity,
                         LocalBatteryMode provides batteryMode,
                         LocalGlassStill provides glassStill,
+                        LocalDontPlay provides dontPlay,
                         dpadBringIntoView(),
                     ) {
                         /**
@@ -1615,7 +1803,7 @@ class MainActivity : ComponentActivity() {
                         // card is not ticked.
                         val showFromWelcome: (String, List<TourStop>) -> Unit = { card, stops ->
                             if (stops.isEmpty()) {
-                                Toast.makeText(this@MainActivity, R.string.welcome_back_not_here, Toast.LENGTH_LONG).show()
+                                Toaster.show(this@MainActivity, R.string.welcome_back_not_here, Toast.LENGTH_LONG)
                             } else {
                                 welcomeOpen = false
                                 tourFromWelcome = true
@@ -1650,7 +1838,7 @@ class MainActivity : ComponentActivity() {
                                 tourFromWelcome = false
                                 if (screensThere) navController.popBackStack(navController.graph.startDestinationId, inclusive = false)
                                 welcomeOpen = true
-                                Toast.makeText(this@MainActivity, R.string.welcome_back_not_here, Toast.LENGTH_LONG).show()
+                                Toaster.show(this@MainActivity, R.string.welcome_back_not_here, Toast.LENGTH_LONG)
                                 welcomeShow.notShown()
                             }
                         }
@@ -1670,7 +1858,7 @@ class MainActivity : ComponentActivity() {
                                             widgets.requestPinAppWidget(ComponentName(this@MainActivity, receiver), null, null)
                                             welcomeShow.looked(thing.id)
                                         } else {
-                                            Toast.makeText(this@MainActivity, R.string.welcome_back_no_widget_host, Toast.LENGTH_LONG).show()
+                                            Toaster.show(this@MainActivity, R.string.welcome_back_no_widget_host, Toast.LENGTH_LONG)
                                         }
                                     }
                                     when (thing.action) {
@@ -1756,6 +1944,37 @@ class MainActivity : ComponentActivity() {
                             // The playlist the year card saved, opened as a playlist of the library is (Playlist.navigationRoute).
                             onOpenPlaylist = { id -> navController.navigate("local_playlist/$id") },
                         )
+
+                        /*
+                         * A word for somebody whose update Auto Blocker stopped and who has now
+                         * updated (AutoBlockerReturn): the build that saw it stop an install noted
+                         * its own version, and this one is newer, so Auto Blocker can go back on.
+                         * Shown as a card at the top of Home, where the app's other words after an
+                         * update are, and not over whatever the person is doing.
+                         *
+                         * Latched up once it is owed, and the note on the phone is forgotten when
+                         * Home first draws the card: said once. It stays up until Open Auto
+                         * Blocker or Done, and a rotation does not lose it. Only where Auto Blocker
+                         * exists: a backup restored on another phone brings the note along.
+                         */
+                        val blockedBy by rememberNullablePreference(AutoBlockerBlockedByKey)
+                        var autoBlockerNoteUp by rememberSaveable { mutableStateOf(false) }
+                        LaunchedEffect(blockedBy) {
+                            if (reminderOwed(blockedBy, BuildConfig.VERSION_CODE) && AutoBlocker.likely()) {
+                                autoBlockerNoteUp = true
+                            }
+                        }
+                        // Remembered, as the welcome card's are: the graph of destinations is built
+                        // again whenever what it is given changes.
+                        val autoBlockerNoteShown = remember { { AutoBlockerReturn.clearNote(applicationContext) } }
+                        val autoBlockerNoteOpen = remember {
+                            {
+                                autoBlockerNoteUp = false
+                                AutoBlocker.open(this@MainActivity)
+                                Unit
+                            }
+                        }
+                        val autoBlockerNoteDone = remember { { autoBlockerNoteUp = false } }
 
                         // Behind the expanded player or the walkthrough, the screen is still composed, and
                         // the arrow keys would wander into controls nobody can see.
@@ -1876,9 +2095,15 @@ class MainActivity : ComponentActivity() {
                                         welcomeCard = { welcomeCard },
                                         onWelcomeSee = seeWelcome,
                                         onWelcomeDismiss = dismissWelcome,
+                                        autoBlockerNote = { autoBlockerNoteUp },
+                                        onAutoBlockerNoteShown = autoBlockerNoteShown,
+                                        onAutoBlockerNoteOpen = autoBlockerNoteOpen,
+                                        onAutoBlockerNoteDone = autoBlockerNoteDone,
                                         appScope = coroutineScope,
                                     )
                                 }
+                                // A screen of settings open upright goes into the two panes as the phone turns.
+                                SettingsFollowTheTurn(navController, tourState.running)
                             }
 
                             val navbar: @Composable() (() -> Unit) = @Composable {
@@ -1966,12 +2191,27 @@ class MainActivity : ComponentActivity() {
                                                     // callback runs on the node's own unclipped
                                                     // canvas, so it would paint a square patch.
                                                     .background(dockTint, dockShape)
+                                            } else if (plainDock) {
+                                                // The glass dock's shape and margins, with the bar's own
+                                                // fill and a shadow instead of the glass.
+                                                Modifier
+                                                    .windowInsetsPadding(
+                                                        windowsInsets.only(WindowInsetsSides.Horizontal)
+                                                            .add(cutoutInsets.only(WindowInsetsSides.Horizontal))
+                                                    )
+                                                    .padding(
+                                                        start = 12.dp,
+                                                        end = 12.dp,
+                                                        bottom = (bottomInset - 4.dp).coerceAtLeast(6.dp)
+                                                    )
+                                                    .shadow(6.dp, dockShape)
+                                                    .background(MaterialTheme.colorScheme.surfaceColorAtElevation(6.dp), dockShape)
                                             } else Modifier
                                         ),
-                                    containerColor = if (navGlass) Color.Transparent
+                                    containerColor = if (navGlass || plainDock) Color.Transparent
                                     else MaterialTheme.colorScheme.surfaceColorAtElevation(6.dp),
                                     contentColor = MaterialTheme.colorScheme.onSurface,
-                                    windowInsets = if (navGlass) WindowInsets(0, 0, 0, 0)
+                                    windowInsets = if (navGlass || plainDock) WindowInsets(0, 0, 0, 0)
                                     else NavigationBarDefaults.windowInsets
                                 ) {
                                     navigationItems.fastForEach { screen ->
@@ -2003,9 +2243,9 @@ class MainActivity : ComponentActivity() {
                                                     contentDescription = null
                                                 )
                                             },
-                                            label = {
-                                                if (!slimNav) TabLabel(stringResource(screen.titleId), tabNames)
-                                            },
+                                            // No label at all when slim: an empty one still kept its room and
+                                            // lifted the icon off the bar's middle (dvd, 27 Oct 2026).
+                                            label = if (slimNav) null else ({ TabLabel(stringResource(screen.titleId), tabNames) }),
                                             onClick = {
                                                 if (playerBottomSheetState.isExpanded) {
                                                     playerBottomSheetState.collapseSoft()
@@ -2107,9 +2347,9 @@ class MainActivity : ComponentActivity() {
                                                     contentDescription = null
                                                 )
                                             },
-                                            label = {
-                                                if (!slimNav) TabLabel(stringResource(screen.titleId), tabNames)
-                                            },
+                                            // No label at all when slim: an empty one still kept its room and
+                                            // lifted the icon off the bar's middle (dvd, 27 Oct 2026).
+                                            label = if (slimNav) null else ({ TabLabel(stringResource(screen.titleId), tabNames) }),
                                             onClick = {
                                                 if (playerBottomSheetState.isExpanded) {
                                                     playerBottomSheetState.collapseSoft()
@@ -2142,10 +2382,14 @@ class MainActivity : ComponentActivity() {
                             }
 
                             val bottomSheetMenu: @Composable() (() -> Unit) = @Composable {
-                                BottomSheetMenu(
-                                    state = LocalMenuState.current,
-                                    modifier = Modifier.align(Alignment.BottomCenter)
-                                )
+                                // In the song's colours, as the player is: a menu opened from the open player
+                                // after a song change matches it, while the pages wait (pagesThemeColor).
+                                PlayerTheme(useDarkTheme, pureBlack, highContrastCompat, { themeColor }) {
+                                    BottomSheetMenu(
+                                        state = LocalMenuState.current,
+                                        modifier = Modifier.align(Alignment.BottomCenter)
+                                    )
+                                }
                             }
 
                             // Over the page colour, like the app backdrop, so the blur has something between rows.
@@ -2174,6 +2418,10 @@ class MainActivity : ComponentActivity() {
                             Box(
                                 modifier = Modifier
                                     .fillMaxSize()
+                                    // Under the fully open player the pages cannot be seen, and the phone drew
+                                    // them again under each of the player's frames: not drawn then, decided
+                                    // as they are drawn, back as soon as the player moves.
+                                    .graphicsLayer { alpha = if (pagesHiddenByPlayer()) 0f else 1f }
                                     .then(
                                         // Not recorded while the glass is still (Saver): no panel reads it then.
                                         if (navGlass && !glassStill) {
@@ -2193,10 +2441,14 @@ class MainActivity : ComponentActivity() {
                                         .fillMaxSize()
                                         .then(if (navGlass && !glassStill) Modifier.layerBackdrop(navHostBackdrop).graphicsLayer() else Modifier)
                                 ) {
-                                    // Under the open player the pages cannot be seen, and what
-                                    // only moves for the eye holds still (PlayingIndicator).
-                                    CompositionLocalProvider(LocalHiddenByPlayer provides pagesHiddenByPlayer) {
-                                        navHost()
+                                    // The screens going away carry the page colour with them, with Back
+                                    // animations on (AppNavGraph, GitHub #134).
+                                    CompositionLocalProvider(LocalBackAnimations provides backAnimations) {
+                                        // Under the open player the pages cannot be seen, and what
+                                        // only moves for the eye holds still (PlayingIndicator).
+                                        CompositionLocalProvider(LocalHiddenByPlayer provides pagesHiddenByPlayer) {
+                                            navHost()
+                                        }
                                     }
                                 }
 
@@ -2223,10 +2475,13 @@ class MainActivity : ComponentActivity() {
                                 derivedStateOf { navBackStackEntry?.destination?.route == "setup_wizard" }
                             }
                             if (oobeStatus >= OOBE_VERSION && !onSetupWizard) {
-                                BottomSheetPlayer(
-                                    state = playerBottomSheetState,
-                                    navController = navController
-                                )
+                                // In the song's colours at once, while the pages wait (pagesThemeColor).
+                                PlayerTheme(useDarkTheme, pureBlack, highContrastCompat, { themeColor }) {
+                                    BottomSheetPlayer(
+                                        state = playerBottomSheetState,
+                                        navController = navController
+                                    )
+                                }
 
                                 if (!useNavRail) {
                                     navbar()
@@ -2379,6 +2634,14 @@ private fun TabLabel(text: String, names: SameTextSize) {
  * scroll position. Coming from a sub-page there is nothing worth restoring and restoring is
  * precisely what breaks it. So: restore when leaving a tab, jump cleanly when leaving anything
  * else. One rule, both issues.
+ *
+ * Settings is no tab's page, and is left first (#135, "the only way to truly exit settings is to
+ * press those arrows"). What a tab parks comes back when the tab is tapped again, and Settings
+ * parked with it came back too: Settings over Library, then Home, and the next tap on Library
+ * put Settings over it again; Settings over Home, then Library and Home, and Home was Settings.
+ * A tap on a tab is a way out of it, so it is popped, with whatever was opened from it, as the
+ * arrow at its top pops it, before anything is parked. If the tab then showing is the one
+ * tapped, that is all there is to do.
  */
 private fun navigateToNavTab(
     navController: NavHostController,
@@ -2386,8 +2649,11 @@ private fun navigateToNavTab(
     navigationItems: List<Screens>,
     current: NavBackStackEntry?,
 ) {
+    val left = navController.leaveSettings()
+    val here = if (left) navController.currentBackStackEntry else current
+    if (left && here?.destination?.hierarchy?.any { it.route == route } == true) return
     val leavingATab = navigationItems.any { scr ->
-        current?.destination?.hierarchy?.any { it.route == scr.route } == true
+        here?.destination?.hierarchy?.any { it.route == scr.route } == true
     }
     navController.navigate(route) {
         popUpTo(navController.graph.startDestinationId) { saveState = true }
@@ -2423,6 +2689,22 @@ internal fun launchLink(action: String?, data: String?, text: String?, fromRecen
     if (fromRecents || action == WidgetCommands.ACTION_PLAY_SONG) null else data ?: text
 
 /**
+ * Whether a link handed to the app opens something the player, left open, would hide: a page of
+ * results (the song found on this phone's notification, the phone's own search), a library
+ * playlist, What you have heard (the notification of songs named once the phone was back online),
+ * a YouTube page, or a song's album or menu. Only a song to play at once is left to the player,
+ * which shows it whether it is open or not.
+ */
+internal fun linkOpensPage(link: String): Boolean {
+    if (SystemSearch.playlistOf(link) != null || SystemSearch.searchOf(link) != null || SystemSearch.isHeard(link)) return true
+    return when (val parsed = YouTubeLink.parse(link)) {
+        null -> false
+        is YouTubeLink.Video -> !parsed.playNow
+        else -> true
+    }
+}
+
+/**
  * What to open for an intent handed to onNewIntent: taken the way [launchLink] takes it, with no
  * recents check, because onNewIntent is only ever handed an intent that is arriving now.
  */
@@ -2431,11 +2713,24 @@ internal fun newIntentLink(action: String?, data: String?, text: String?): Strin
 
 /**
  * The words of a play-from-search intent, empty when it names nothing ("play some music"), or
- * null when the intent is not one. One that carries data came in through a YouTube link filter,
- * which names the action as well, and is left to the link handling.
+ * null when the intent is not one. One that carries data is no request for words, and is left to
+ * the link handling (the YouTube link filters used to name the action as well).
  */
 internal fun searchToPlay(action: String?, hasData: Boolean, query: String?): String? =
     if (action == MediaStore.INTENT_ACTION_MEDIA_PLAY_FROM_SEARCH && !hasData) query?.trim().orEmpty() else null
+
+/** What a "play X" search came to: something to play, an answer with nothing in it, or no answer at all. */
+internal enum class PlaySearch { PLAY, NOTHING, FAILED }
+
+/**
+ * [found] songs, or null for a search the media session could not make (it failed, answered with
+ * an error, or was gone). Only an answer with nothing in it is "No results found".
+ */
+internal fun playSearchOutcome(found: Int?): PlaySearch = when {
+    found == null -> PlaySearch.FAILED
+    found == 0 -> PlaySearch.NOTHING
+    else -> PlaySearch.PLAY
+}
 
 /**
  * A search as the media session takes one: no id, and the words in the request metadata. This is
@@ -2474,6 +2769,13 @@ val LocalPollChecker = staticCompositionLocalOf<PollChecker> { error("No PollChe
 val LocalActiveCount = staticCompositionLocalOf<ActiveCount> { error("No ActiveCount provided") }
 val LocalNetworkConnected = staticCompositionLocalOf<Boolean> { error("No Network Status provided") }
 val LocalSnackbarHostState = staticCompositionLocalOf<SnackbarHostState> { error("No SnackbarHostState provided") }
+
+/**
+ * The songs the listener chose not to play (DontPlay, Unreleased.ARTIST_BLOCK), for the rows of
+ * every list: a song so set is shown switched off wherever it is listed (DontPlayAlpha), and none
+ * outside the activity's content, or in a build without the feature.
+ */
+val LocalDontPlay = compositionLocalOf { DontPlay.NONE }
 
 /**
  * Battery use in force (BatteryUse), for what is drawn: the playing bars, the player's background

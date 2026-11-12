@@ -1,7 +1,10 @@
 package com.dd3boh.outertune.ui.utils
 
+import android.annotation.SuppressLint
 import androidx.navigation.NavController
+import androidx.navigation.NavGraph
 import com.dd3boh.outertune.ui.screens.Screens
+import com.dd3boh.outertune.ui.screens.walkthrough.Tour
 
 val NavController.canNavigateUp: Boolean
     get() = currentBackStackEntry?.destination?.parent?.route != null
@@ -32,3 +35,42 @@ internal const val SETUP_ROUTE = "setup_wizard"
  * has no bar and no player until setup is finished, and nothing to finish it by.
  */
 internal fun longBackStopsAt(route: String?, tabs: Set<String>) = route in tabs || route == SETUP_ROUTE
+
+/**
+ * Whether [route] is the list of settings or one of its screens. Not "settings_tour", which is no
+ * screen to stay on: it goes to the list and to the screen the closer look starts at, and pops
+ * itself once it is there.
+ */
+internal fun isSettingsRoute(route: String?): Boolean =
+    route == Tour.ROUTE_SETTINGS || route?.startsWith(Tour.ROUTE_SETTINGS + "/") == true
+
+/**
+ * How many pages of a history, [routes] from the oldest, go when Settings is left: the lowest
+ * screen of Settings in it and every page above, since what was opened from there (an artist
+ * from the player, the sign-in page) is not a page of the tab it was over. None if Settings is
+ * not in it. Never the first page: the history is not emptied.
+ */
+internal fun pagesLeftWithSettings(routes: List<String?>): Int {
+    val lowest = routes.indexOfFirst { isSettingsRoute(it) }
+    return if (lowest < 0) 0 else routes.size - lowest.coerceAtLeast(1)
+}
+
+/**
+ * Leaves Settings: pops its lowest screen in the history and what is above it ([pagesLeftWithSettings]),
+ * none of them parked. Whether there was any.
+ *
+ * What the tab bar parks (popUpTo with saveState) comes back when its tab is tapped again, so
+ * Settings that was in the history when another tab was tapped came back over the tab (#135).
+ * It is left here first, the way the arrow at the top of it leaves it, and what is parked is the
+ * tab's own.
+ */
+// The pages under the current one can only be read from the navigation library's own list, which it marks
+// as for its library group; nothing public gives them. The library's version is pinned, and an update that
+// took the list away would fail the build, not the app.
+@SuppressLint("RestrictedApi")
+fun NavController.leaveSettings(): Boolean {
+    val pages = currentBackStack.value.filter { it.destination !is NavGraph }.map { it.destination.route }
+    var left = 0
+    repeat(pagesLeftWithSettings(pages)) { if (popBackStack()) left++ }
+    return left > 0
+}

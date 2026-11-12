@@ -591,15 +591,24 @@ class LevelAnalyser(private val sampleRate: Int, private val onFrame: (endsAtSam
  *
  * Times are the player's own (microseconds, as the audio output counts them) and only ever grow
  * between two [clear]s.
+ *
+ * With [growsTo] above [capacity] it makes room rather than lose levels nobody has heard yet: AutoMix
+ * lets the decoder run up to forty seconds ahead of the output while it holds the end of a song,
+ * and the levels of all of it arrive at once. Room is made only for levels later than the last
+ * one asked for, which in ordinary playback never happens, and [clear] gives it back.
  */
-class LevelTimeline(private val capacity: Int = 512) {
-    private val times = LongArray(capacity)
-    private val values = FloatArray(capacity * MusicLevels.VALUES)
+class LevelTimeline(capacity: Int = CAPACITY, private val growsTo: Int = capacity) {
+    private val initialCapacity = capacity
+    private var capacity = capacity
+    private var times = LongArray(capacity)
+    private var values = FloatArray(capacity * MusicLevels.VALUES)
     private var next = 0
     private var held = 0
+    private var lastAskedUs = Long.MIN_VALUE
 
     @Synchronized
     fun add(timeUs: Long, levels: FloatArray) {
+        if (held == capacity && capacity < growsTo && lastAskedUs != Long.MIN_VALUE && times[next] >= lastAskedUs) grow()
         times[next] = timeUs
         // levels with no word on how much is going on count as all there, and with none on the
         // song's shape as building nothing
@@ -615,6 +624,28 @@ class LevelTimeline(private val capacity: Int = 512) {
     fun clear() {
         next = 0
         held = 0
+        lastAskedUs = Long.MIN_VALUE
+        if (capacity != initialCapacity) {
+            capacity = initialCapacity
+            times = LongArray(capacity)
+            values = FloatArray(capacity * MusicLevels.VALUES)
+        }
+    }
+
+    /** Twice the room, the levels kept in order, oldest first. */
+    private fun grow() {
+        val bigger = minOf(capacity * 2, growsTo)
+        val newTimes = LongArray(bigger)
+        val newValues = FloatArray(bigger * MusicLevels.VALUES)
+        for (k in 0 until held) {
+            val at = (next + k) % capacity
+            newTimes[k] = times[at]
+            System.arraycopy(values, at * MusicLevels.VALUES, newValues, k * MusicLevels.VALUES, MusicLevels.VALUES)
+        }
+        times = newTimes
+        values = newValues
+        next = held
+        capacity = bigger
     }
 
     /**
@@ -624,6 +655,7 @@ class LevelTimeline(private val capacity: Int = 512) {
      */
     @Synchronized
     fun read(timeUs: Long, into: FloatArray, staleUs: Long = 250_000): Boolean {
+        lastAskedUs = timeUs
         for (back in 1..held) {
             val at = (next - back + capacity) % capacity
             if (times[at] <= timeUs) {
@@ -633,5 +665,13 @@ class LevelTimeline(private val capacity: Int = 512) {
             }
         }
         return false
+    }
+
+    companion object {
+        /** About ten seconds of levels, twenty milliseconds apart. */
+        const val CAPACITY = 512
+
+        /** About eighty seconds: an end held by AutoMix and what is heard before it. */
+        const val AHEAD_CAPACITY = 4096
     }
 }

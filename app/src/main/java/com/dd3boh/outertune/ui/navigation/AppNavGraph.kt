@@ -9,14 +9,24 @@
 
 package com.dd3boh.outertune.ui.navigation
 
+import com.dd3boh.outertune.ui.screens.settings.BlockedArtistsSettings
 import com.dd3boh.outertune.recognition.RecognitionShortcut
 import android.provider.Settings
 import androidx.compose.animation.AnimatedContentScope
+import androidx.compose.animation.EnterExitState
+import androidx.compose.animation.core.Transition
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
 import androidx.navigation.NamedNavArgument
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavGraphBuilder
@@ -27,7 +37,9 @@ import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.ui.component.TopBarGlassDestination
+import com.dd3boh.outertune.savedtwice.SavedTwicePlace
 import com.dd3boh.outertune.ui.screens.AccountScreen
+import com.dd3boh.outertune.ui.screens.SavedTwiceScreen
 import com.dd3boh.outertune.ui.screens.AlbumScreen
 import com.dd3boh.outertune.ui.screens.BrowseScreen
 import com.dd3boh.outertune.ui.screens.HistoryScreen
@@ -56,9 +68,12 @@ import com.dd3boh.outertune.ui.screens.library.LibraryScreen
 import com.dd3boh.outertune.ui.screens.library.LibrarySongsScreen
 import com.dd3boh.outertune.ui.screens.playlist.AutoPlaylistScreen
 import com.dd3boh.outertune.ui.screens.playlist.LocalPlaylistScreen
+import com.dd3boh.outertune.ui.screens.mix.MIX_EDITOR_ROUTE
+import com.dd3boh.outertune.ui.screens.mix.MixEditorScreen
 import com.dd3boh.outertune.ui.screens.playlist.OnlinePlaylistScreen
 import com.dd3boh.outertune.ui.screens.search.OnlineSearchResult
 import com.dd3boh.outertune.ui.screens.search.SearchBarContainer
+import com.dd3boh.outertune.ui.screens.search.SearchFilters
 import com.dd3boh.outertune.ui.screens.settings.AboutScreen
 import com.dd3boh.outertune.ui.screens.settings.AccountSyncSettings
 import com.dd3boh.outertune.ui.screens.settings.AdvancedSettings
@@ -74,6 +89,7 @@ import com.dd3boh.outertune.ui.screens.settings.LyricsSettings
 import com.dd3boh.outertune.ui.screens.settings.EqualizerSettings
 import com.dd3boh.outertune.ui.screens.settings.PlayerSettings
 import com.dd3boh.outertune.ui.screens.settings.PrivacySettings
+import com.dd3boh.outertune.ui.screens.settings.ListenTogetherSettings
 import com.dd3boh.outertune.ui.screens.settings.RecognitionSettings
 import com.dd3boh.outertune.ui.screens.settings.RecommendationsDataSettings
 import com.dd3boh.outertune.ui.screens.settings.RecommendationsDoingSettings
@@ -83,10 +99,13 @@ import com.dd3boh.outertune.ui.screens.settings.BackupSettings
 import com.dd3boh.outertune.ui.screens.settings.BatterySettings
 import com.dd3boh.outertune.ui.screens.settings.StorageSettings
 import com.dd3boh.outertune.ui.screens.settings.UpdateSettings
+import com.dd3boh.outertune.ui.screens.settings.WidgetsSettings
 import com.dd3boh.outertune.ui.screens.walkthrough.SETTINGS_CLOSER_LOOK
 import com.dd3boh.outertune.ui.screens.walkthrough.Tour
 import com.dd3boh.outertune.ui.screens.walkthrough.TourState
 import com.dd3boh.outertune.ui.screens.walkthrough.TourTargets
+import com.dd3boh.outertune.ui.screens.mix.MixRoutes
+import com.dd3boh.outertune.ui.screens.mix.MixingSettings
 import com.dd3boh.outertune.ui.screens.walkthrough.WelcomeCard
 import com.dd3boh.outertune.ui.screens.walkthrough.tourAll
 import kotlinx.coroutines.CoroutineScope
@@ -113,6 +132,11 @@ fun NavGraphBuilder.appDestinations(
     welcomeCard: () -> WelcomeCard?,
     onWelcomeSee: () -> Unit,
     onWelcomeDismiss: () -> Unit,
+    /** Whether Home shows the word about Auto Blocker (HomeScreen), and what its buttons do. */
+    autoBlockerNote: () -> Boolean,
+    onAutoBlockerNoteShown: () -> Unit,
+    onAutoBlockerNoteOpen: () -> Unit,
+    onAutoBlockerNoteDone: () -> Unit,
     /** Outlives every destination, for work a destination starts and then pops itself before. */
     appScope: CoroutineScope,
 ) {
@@ -122,6 +146,10 @@ fun NavGraphBuilder.appDestinations(
                 welcomeCard = welcomeCard(),
                 onWelcomeSee = onWelcomeSee,
                 onWelcomeDismiss = onWelcomeDismiss,
+                autoBlockerNote = autoBlockerNote(),
+                onAutoBlockerNoteShown = onAutoBlockerNoteShown,
+                onAutoBlockerNoteOpen = onAutoBlockerNoteOpen,
+                onAutoBlockerNoteDone = onAutoBlockerNoteDone,
             )
         }
         screen(Screens.Songs.route, floating = false) {
@@ -186,7 +214,9 @@ fun NavGraphBuilder.appDestinations(
             SearchBarContainer(navController, scrollBehavior, searchActive()) { onSearchActiveChange(it) }
         }
         screen(
-            route = "search/{query}",
+            // filter: the chip the page starts on, by name (SearchFilters), for a search edited on
+            // a page of results; none for All.
+            route = SearchFilters.ROUTE,
             floating = false,
             arguments = listOf(
                 // nullable because androidx.navigation reserves the
@@ -199,7 +229,12 @@ fun NavGraphBuilder.appDestinations(
                 navArgument("query") {
                     type = NavType.StringType
                     nullable = true
-                }
+                },
+                navArgument("filter") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                },
             )
         ) {
             OnlineSearchResult(navController)
@@ -298,6 +333,22 @@ fun NavGraphBuilder.appDestinations(
         ) {
             AutoPlaylistScreen(navController, scrollBehavior)
         }
+        if (Unreleased.SAVED_TWICE) {
+            screen(
+                route = "${SavedTwicePlace.ROUTE}/{place}?playlist={playlist}",
+                arguments = listOf(
+                    navArgument("place") {
+                        type = NavType.StringType
+                    },
+                    navArgument("playlist") {
+                        type = NavType.StringType
+                        nullable = true
+                    },
+                )
+            ) {
+                SavedTwiceScreen(navController, appScope)
+            }
+        }
         screen(
             route = "youtube_browse/{browseId}?params={params}",
             arguments = listOf(
@@ -392,11 +443,21 @@ fun NavGraphBuilder.appDestinations(
         screen("settings/appearance") {
             LookAndFeelSettings(navController, scrollBehavior)
         }
+        if (Unreleased.WIDGETS_PAGE) {
+            screen("settings/widgets") {
+                WidgetsSettings(navController, scrollBehavior)
+            }
+        }
         screen("settings/library") {
             LibrarySettings(navController, scrollBehavior)
         }
         screen("settings/library/lyrics") {
             LyricsSettings(navController, scrollBehavior)
+        }
+        if (Unreleased.ARTIST_BLOCK) {
+            screen("settings/library/blocked_artists") {
+                BlockedArtistsSettings(navController, scrollBehavior)
+            }
         }
         screen("settings/account_sync") {
             AccountSyncSettings(navController, scrollBehavior)
@@ -407,6 +468,21 @@ fun NavGraphBuilder.appDestinations(
         if (Unreleased.EQUALIZER) {
             screen("settings/player/equalizer") {
                 EqualizerSettings(navController, scrollBehavior)
+            }
+        }
+        // Mix: Settings > Mixing, and the editor of the change from one song into the next.
+        if (Unreleased.AUTOMIX_EDITOR) {
+            screen(MixRoutes.SETTINGS) {
+                MixingSettings(navController, scrollBehavior)
+            }
+            screen(
+                route = MIX_EDITOR_ROUTE,
+                arguments = listOf(
+                    navArgument("from") { type = NavType.StringType },
+                    navArgument("to") { type = NavType.StringType },
+                ),
+            ) {
+                MixEditorScreen(navController)
             }
         }
         screen("settings/storage") {
@@ -434,6 +510,9 @@ fun NavGraphBuilder.appDestinations(
         }
         screen("settings/privacy") {
             PrivacySettings(navController, scrollBehavior)
+        }
+        screen("settings/together") {
+            ListenTogetherSettings(navController, scrollBehavior)
         }
         screen("settings/recommendations") {
             RecommendationsSettings(navController, scrollBehavior)
@@ -475,6 +554,44 @@ fun NavGraphBuilder.appDestinations(
 }
 
 /**
+ * Whether Back animations (Look and feel) are on. The owner of the nav host tells the destinations,
+ * having read the preference once for all of them: each reading it for itself was a blocking read
+ * on every visit (the reason TopBarGlassDestination does not ask for the glass intensity).
+ */
+val LocalBackAnimations = compositionLocalOf { true }
+
+/**
+ * Whether a screen carries the page colour with it: while it is the one going away, and Back
+ * animations are on (GitHub #134).
+ *
+ * A screen has no fill of its own, only the page colour behind the whole nav host. The back
+ * transitions slide the screen being left off in one piece, over the one under it, so wherever it
+ * had no row or text the screen under showed through it, rows between rows.
+ *
+ * Only the screen going away has the fill. One coming in fades in whole and keeps the look it has,
+ * and with Back animations off the move is a cross fade of two screens, which this must not turn
+ * into a different one. A screen pushed under another is going away too, but it is under the one
+ * coming in and fades over the same page colour, so the fill changes nothing seen there.
+ */
+internal fun fillsWhileLeaving(backAnimations: Boolean, state: EnterExitState): Boolean =
+    backAnimations && state == EnterExitState.PostExit
+
+/**
+ * The page colour behind a screen going away ([fillsWhileLeaving]), drawn under the screen itself
+ * and so under its glass top bar too, which draws over the screen as ever. The state is read where
+ * it is drawn, so that going away makes a screen draw again and not compose again. The colour is
+ * the one the app's own background is made of (MainActivity), so it is black on the black theme.
+ */
+@Composable
+private fun Modifier.pageFillWhileLeaving(transition: Transition<EnterExitState>): Modifier {
+    val backAnimations = LocalBackAnimations.current
+    val page = rememberUpdatedState(MaterialTheme.colorScheme.surface)
+    return drawBehind {
+        if (fillsWhileLeaving(backAnimations, transition.targetState)) drawRect(page.value)
+    }
+}
+
+/**
  * A destination, wrapped so its floating top bar can be glass: the screen gets a backdrop of its
  * own and the bar is drawn outside it. See TopBarGlassDestination. [floating] is false for the
  * destinations with nothing floating over them (no top bar, no floating button), which skip the
@@ -486,7 +603,9 @@ private fun NavGraphBuilder.screen(
     floating: Boolean = true,
     content: @Composable AnimatedContentScope.(NavBackStackEntry) -> Unit,
 ) = composable(route = route, arguments = arguments) { entry ->
-    TopBarGlassDestination(floating) { content(entry) }
+    Box(Modifier.fillMaxSize().pageFillWhileLeaving(transition)) {
+        TopBarGlassDestination(floating) { content(entry) }
+    }
     // For the tour, which asks whether a screen is drawn before it decides that a setting it
     // meant to point at there is not on this install. After the content, so that every row that
     // marks itself has done so by the time the screen says it is up.

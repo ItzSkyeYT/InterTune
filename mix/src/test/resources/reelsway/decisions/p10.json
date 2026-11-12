@@ -1,0 +1,112 @@
+{
+ "n": "p10",
+ "a": "iloveit",
+ "b": "clarity",
+ "aBpm": 126.0,
+ "bBpm": 128.0,
+ "aT0": 0.26457381698760807,
+ "aPhase": 0,
+ "bT0": 0.02128859857482192,
+ "bPhase": 0,
+ "fit": {
+  "tempo": true,
+  "tempoOffPct": -1.56,
+  "octave": 1,
+  "entry": true,
+  "anyPlacement": true,
+  "voiceGate": true,
+  "best": {
+   "A": 80,
+   "D": 45,
+   "gridA": true,
+   "gridAInfo": {
+    "share": 0.95,
+    "medAbsLagMs": 0.0,
+    "spreadMs": 2.6,
+    "barAgreement": 1.0,
+    "bars": [
+     64,
+     83
+    ]
+   },
+   "gridB": true,
+   "gridBInfo": {
+    "share": 1.0,
+    "medAbsLagMs": 0.0,
+    "spreadMs": 0.0,
+    "barAgreement": 0.7032967032967034,
+    "bars": [
+     45,
+     48
+    ]
+   },
+   "bothEarly": 1,
+   "bothLast": 0
+  }
+ },
+ "move": "reels",
+ "exitBar": 80,
+ "exitT": 152.64552619794,
+ "boxStartBarA": 72,
+ "boxStartT": 137.40743095984476,
+ "dropBar": 45,
+ "dropSure": false,
+ "dropT": 84.39628859857483,
+ "entryBarB": 37,
+ "entryT": 69.39628859857483,
+ "leadOffsetBars": 0,
+ "shape": "beat",
+ "swap": true,
+ "swapBoxBar": 5,
+ "ratio": 0.984375,
+ "stretch": true,
+ "echo": true,
+ "octave": 1,
+ "aEndLine": 80,
+ "dLow": -0.16114330291748047,
+ "dLevel": -0.3287034034729004,
+ "aCandidates": [
+  {
+   "L": 68,
+   "t": 129.78838334079714,
+   "lift": 9.810327529907227,
+   "isLift": true,
+   "boxLow": -7.599506759643553,
+   "thin": false,
+   "end": false,
+   "leftS": 22.85714285714286,
+   "score": 2.381153311048235,
+   "bothSungEarly": 3,
+   "bothSungLast": 0
+  },
+  {
+   "L": 80,
+   "t": 152.64552619794,
+   "lift": 0.0,
+   "isLift": false,
+   "boxLow": -0.44794025421142436,
+   "thin": false,
+   "end": true,
+   "leftS": 0.0,
+   "score": 0.5,
+   "bothSungEarly": 1,
+   "bothSungLast": 0,
+   "bothSung": 1
+  }
+ ],
+ "bCandidates": [],
+ "voices": {
+  "aSungBoxBars": [
+   2,
+   4,
+   5,
+   8
+  ],
+  "bSungBoxBars": [
+   1,
+   3,
+   5
+  ],
+  "rule7": false
+ }
+}

@@ -1,7 +1,19 @@
 package com.dd3boh.outertune.ui.screens.playlist
 
+import com.dd3boh.outertune.mix.edit.SongPair
+import com.dd3boh.outertune.mix.pill.PairPlanner
+import com.dd3boh.outertune.ui.screens.mix.MixPillLine
+import com.dd3boh.outertune.ui.screens.mix.MixRow
+import com.dd3boh.outertune.ui.screens.mix.pillSong
+import com.dd3boh.outertune.ui.screens.mix.rememberMixBlocker
+import com.dd3boh.outertune.ui.screens.mix.rememberMixOn
+import com.dd3boh.outertune.ui.screens.mix.rememberMixPlanner
+import com.dd3boh.outertune.ui.screens.mix.rememberSavedTransitions
 import com.dd3boh.outertune.ui.component.ScreenBackHandler
 import android.util.Log
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -66,11 +78,14 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
@@ -136,9 +151,13 @@ import com.dd3boh.outertune.ui.component.button.IconButton
 import com.dd3boh.outertune.ui.component.items.PlaylistThumbnail
 import com.dd3boh.outertune.ui.component.items.SongListItem
 import com.dd3boh.outertune.ui.dialog.DefaultDialog
+import com.dd3boh.outertune.ui.dialog.PlaylistCoverEditor
+import com.dd3boh.outertune.ui.dialog.PlaylistCoverSheet
 import com.dd3boh.outertune.ui.dialog.TextFieldDialog
 import com.dd3boh.outertune.ui.player.named
 import com.dd3boh.outertune.ui.utils.getNSongsString
+import com.dd3boh.outertune.utils.PlaylistCovers
+import com.dd3boh.outertune.utils.getDownloadState
 import com.dd3boh.outertune.utils.makeTimeString
 import com.dd3boh.outertune.utils.mayPushToYouTube
 import com.dd3boh.outertune.utils.rememberEnumPreference
@@ -161,6 +180,11 @@ import com.dd3boh.outertune.ui.utils.LocalLandscape
 import com.dd3boh.outertune.ui.utils.paneInsets
 import com.dd3boh.outertune.ui.utils.rememberHeaderBeside
 import com.dd3boh.outertune.ui.utils.rememberHeaderPaneWidth
+import com.dd3boh.outertune.constants.Unreleased
+import com.dd3boh.outertune.savedtwice.SavedTwicePlace
+import com.dd3boh.outertune.savedtwice.playlistCopies
+import com.dd3boh.outertune.ui.screens.SavedTwiceButton
+import com.dd3boh.outertune.ui.screens.rememberSavedTwiceCount
 
 @OptIn(ExperimentalMaterial3Api::class, FlowPreview::class)
 @Composable
@@ -207,6 +231,12 @@ fun LocalPlaylistScreen(
     var locked by rememberPreference(PlaylistEditLockKey, defaultValue = false)
     val swipeEnabled by rememberPreference(SwipeToQueueKey, true)
     val syncMode by rememberEnumPreference(key = YtmSyncModeKey, defaultValue = SyncMode.RW)
+    // Mix: the playlist's switch, its saved changes and what keeps every change plain, read only
+    // with the flag, where the pills can show.
+    val mixOn = Unreleased.AUTOMIX_EDITOR && rememberMixOn(viewModel.playlistId)
+    val savedMixes = if (Unreleased.AUTOMIX_EDITOR && mixOn) rememberSavedTransitions() else emptyMap()
+    val mixBlocker = if (Unreleased.AUTOMIX_EDITOR && mixOn) rememberMixBlocker() else null
+    val mixPlanner = if (Unreleased.AUTOMIX_EDITOR && mixOn) rememberMixPlanner(mutableSongs.map { it.song.pillSong() }) else null
 
     var inSelectMode by rememberSaveable { mutableStateOf(false) }
     val selection = rememberSaveable(
@@ -255,6 +285,15 @@ fun LocalPlaylistScreen(
     val editable: Boolean =
         playlistWithSongs.first?.playlist?.isLocal == true || (playlistWithSongs.first?.playlist?.isEditable == true && syncMode == SyncMode.RW)
 
+    // Songs in the playlist more than once, for the button beside Play and Shuffle (issue #47).
+    // Only where the playlist can be changed: a copy cannot be taken out of one that cannot.
+    val savedTwice = if (Unreleased.SAVED_TWICE) {
+        rememberSavedTwiceCount(editable, playlistWithSongs.second) {
+            if (editable) playlistCopies(playlistWithSongs.second) else emptyList()
+        }
+    } else 0
+    val onSavedTwice = { navController.navigate(SavedTwicePlace.Playlist(viewModel.playlistId).route) }
+
     // Rebuilt from the playlist whenever it changes, during a search as well. A search used to be
     // filtered only when its text changed, so its rows kept the positions they were drawn with: a
     // song removed from the results stayed listed, and the next removal from them moved whichever
@@ -273,6 +312,18 @@ fun LocalPlaylistScreen(
         mutableStateOf(false)
     }
 
+    // The choice of the cover is only for a playlist of one's own, and only with the flag on
+    // (PlaylistCovers.canChoose). Where it is not, Edit playlist keeps its pencil and the cover in
+    // the header is a picture and nothing more.
+    val coverChoosable = currentPlaylist != null && PlaylistCovers.canChoose(currentPlaylist.playlist.browseId)
+    var showCoverSheet by remember { mutableStateOf(false) }
+    val onChangeCover: (() -> Unit)? = if (coverChoosable) ({ showCoverSheet = true }) else null
+    // Here and not in the sheet, so that a photo picked still reaches the playlist when the sheet
+    // has gone, or the activity was made again while the picker was up.
+    val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        if (uri != null) viewModel.coverPhoto(uri)
+    }
+
     if (showRecognition && currentPlaylist != null) {
         RecognitionSheet(
             playlist = currentPlaylist,
@@ -281,9 +332,26 @@ fun LocalPlaylistScreen(
     }
 
     if (showEditDialog) {
-        playlistWithSongs.first?.playlist?.let { playlistEntity ->
+        playlistWithSongs.first?.let { editing ->
+            val playlistEntity = editing.playlist
             TextFieldDialog(
-                icon = { Icon(imageVector = Icons.Rounded.Edit, contentDescription = null) },
+                icon = {
+                    if (onChangeCover != null) {
+                        // The keyboard goes down first, so that the sheet does not come up behind it.
+                        val focus = LocalFocusManager.current
+                        val keyboard = LocalSoftwareKeyboardController.current
+                        PlaylistCoverEditor(
+                            playlist = editing,
+                            onChange = {
+                                keyboard?.hide()
+                                focus.clearFocus()
+                                onChangeCover()
+                            }
+                        )
+                    } else {
+                        Icon(imageVector = Icons.Rounded.Edit, contentDescription = null)
+                    }
+                },
                 title = { Text(text = stringResource(R.string.edit_playlist)) },
                 onDismiss = { showEditDialog = false },
                 initialTextFieldValue = TextFieldValue(playlistEntity.name, TextRange(playlistEntity.name.length)),
@@ -298,6 +366,20 @@ fun LocalPlaylistScreen(
                         }
                     }
                 }
+            )
+        }
+    }
+
+    // After the edit dialog, so that it comes up over it when opened from there.
+    if (showCoverSheet && coverChoosable) {
+        playlistWithSongs.first?.let { editing ->
+            PlaylistCoverSheet(
+                playlist = editing,
+                songs = playlistWithSongs.second,
+                onAutomatic = viewModel::coverAutomatic,
+                onPhoto = { photoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+                onSong = viewModel::coverSong,
+                onDismiss = { showCoverSheet = false },
             )
         }
     }
@@ -365,8 +447,13 @@ fun LocalPlaylistScreen(
                 TextButton(
                     onClick = {
                         showDeletePlaylistDialog = false
+                        val files = context.filesDir
                         database.query {
-                            playlistWithSongs.first?.let { delete(it.playlist) }
+                            playlistWithSongs.first?.let {
+                                delete(it.playlist)
+                                // The photo kept for its cover goes with it.
+                                PlaylistCovers.forget(files, it.playlist.id)
+                            }
                         }
 
                         // Signed out or in "Read only" this removes the copy here and nothing
@@ -437,8 +524,17 @@ fun LocalPlaylistScreen(
                 } else {
                     emptyList()
                 }
-                database.transaction {
-                    move(viewModel.playlistId, from, to)
+                // With a blocked artist's rows left out (ArtistBlock), a place on screen is not
+                // a position in the playlist: the dragged row goes beside the row it now follows.
+                val positions = if (from == to) {
+                    null
+                } else if (viewModel.hidesRows.value) {
+                    moveAround(mutableSongs.map { it.map.position }, to)
+                } else {
+                    from to to
+                }
+                if (positions != null) database.transaction {
+                    move(viewModel.playlistId, positions.first, positions.second)
                 }
                 if (youTubeMoves.isNotEmpty()) {
                     viewModel.viewModelScope.launch(Dispatchers.IO) {
@@ -488,7 +584,9 @@ fun LocalPlaylistScreen(
                             onShowEditDialog = { showEditDialog = true },
                             onShowRemoveDownloadDialog = { showRemoveDownloadDialog = true },
                             snackbarHostState = snackbarHostState,
+                            onChangeCover = onChangeCover,
                             modifier = Modifier,
+                            navController = navController,
                         )
                     }
 
@@ -616,7 +714,11 @@ fun LocalPlaylistScreen(
                                 onShowEditDialog = { showEditDialog = true },
                                 onShowRemoveDownloadDialog = { showRemoveDownloadDialog = true },
                                 snackbarHostState = snackbarHostState,
-                                modifier = Modifier // .animateItem()
+                                savedTwice = savedTwice,
+                                onSavedTwice = onSavedTwice,
+                                onChangeCover = onChangeCover,
+                                modifier = Modifier, // .animateItem()
+                                navController = navController,
                             )
                         }
                     }
@@ -666,6 +768,10 @@ fun LocalPlaylistScreen(
 
             // songs
             val thumbnailSize = (ListThumbnailSize.value * density.density).roundToInt()
+            // Mix's line between two songs names a pair that really plays: only with the switch
+            // on, in the playlist's own order, and not over search results or a selection.
+            val showPills = Unreleased.AUTOMIX_EDITOR && mixOn && sortType == PlaylistSongSortType.CUSTOM &&
+                !isSearching && !inSelectMode && !addMode
             itemsIndexed(
                 items = mutableSongs,
                 key = { _, song -> song.map.id },
@@ -676,45 +782,67 @@ fun LocalPlaylistScreen(
                     key = song.map.id,
                     enabled = editable
                 ) {
-                    SongListItem(
-                        song = song.song,
-                        thumbnailSize = thumbnailSize,
-                        playlistSong = song,
-                        playlist =  playlistWithSongs.first,
-                        navController = navController,
-                        snackbarHostState = snackbarHostState,
+                    // The item lays its content over itself, so a column: Mix's line sits under
+                    // the row and moves with it.
+                    Column {
+                        SongListItem(
+                            song = song.song,
+                            thumbnailSize = thumbnailSize,
+                            playlistSong = song,
+                            playlist =  playlistWithSongs.first,
+                            navController = navController,
+                            snackbarHostState = snackbarHostState,
 
-                        isActive = song.song.id == mediaMetadata?.id,
-                        isPlaying = isPlaying,
-                        swipeEnabled = swipeEnabled,
-                        onSelectedChange = {
-                            inSelectMode = true
-                            if (it) {
-                                selection.add(song.song.id)
-                            } else {
-                                selection.remove(song.song.id)
-                            }
-                        },
-                        inSelectMode = inSelectMode,
-                        isSelected = selection.contains(song.song.id),
+                            isActive = song.song.id == mediaMetadata?.id,
+                            isPlaying = isPlaying,
+                            swipeEnabled = swipeEnabled,
+                            // A row is picked by its own place in the playlist, not by its song: a song
+                            // in the playlist twice is two rows, and picking one picked both, and
+                            // Remove from playlist took every copy.
+                            onSelectedChange = {
+                                inSelectMode = true
+                                if (it) {
+                                    selection.add(song.map.id.toString())
+                                } else {
+                                    selection.remove(song.map.id.toString())
+                                }
+                            },
+                            inSelectMode = inSelectMode,
+                            isSelected = selection.contains(song.map.id.toString()),
 
-                        onPlay = {
-                            playerConnection.playQueue(
-                                ListQueue(
-                                    title =  playlistWithSongs.first!!.playlist.name,
-                                    items = mutableSongs.map { it.song.toMediaMetadata() },
-                                    startIndex = index,
-                                    playlistId =  playlistWithSongs.first?.playlist?.browseId,
-                                    songPicked = true,
-                                ),
-                                origin = PlayOrigin.PLAYLIST,
+                            onPlay = {
+                                playerConnection.playQueue(
+                                    ListQueue(
+                                        title =  playlistWithSongs.first!!.playlist.name,
+                                        items = mutableSongs.map { it.song.toMediaMetadata() },
+                                        startIndex = index,
+                                        playlistId =  playlistWithSongs.first?.playlist?.browseId,
+                                        mixPlaylistId = playlistWithSongs.first?.id?.takeIf { Unreleased.AUTOMIX_EDITOR },
+                                        songPicked = true,
+                                    ),
+                                    origin = PlayOrigin.PLAYLIST,
+                                )
+                            },
+                            dragHandleModifier = if (sortType == PlaylistSongSortType.CUSTOM && !locked && !isSearching && editable) Modifier.draggableHandle() else null,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(MaterialTheme.colorScheme.background),
+                        )
+                        val next = mutableSongs.getOrNull(index + 1)
+                        if (showPills && next != null) {
+                            MixPillLine(
+                                from = song.song.pillSong(),
+                                to = next.song.pillSong(),
+                                fromTitle = song.song.title,
+                                toTitle = next.song.title,
+                                saved = savedMixes[SongPair(song.song.id, next.song.id)],
+                                blocker = mixBlocker,
+                                planner = mixPlanner ?: PairPlanner.NOT_YET,
+                                navController = navController,
+                                modifier = Modifier.background(MaterialTheme.colorScheme.background),
                             )
-                        },
-                        dragHandleModifier = if (sortType == PlaylistSongSortType.CUSTOM && !locked && !isSearching && editable) Modifier.draggableHandle() else null,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(MaterialTheme.colorScheme.background),
-                    )
+                        }
+                    }
                 }
             }
         }
@@ -732,7 +860,11 @@ fun LocalPlaylistScreen(
                             onShowEditDialog = { showEditDialog = true },
                             onShowRemoveDownloadDialog = { showRemoveDownloadDialog = true },
                             snackbarHostState = snackbarHostState,
+                            savedTwice = savedTwice,
+                            onSavedTwice = onSavedTwice,
+                            onChangeCover = onChangeCover,
                             modifier = Modifier,
+                            navController = navController,
                         )
                     }
                 },
@@ -806,12 +938,12 @@ fun LocalPlaylistScreen(
             SelectHeader(
                 navController = navController,
                 selectedItems = selection.mapNotNull { id ->
-                    playlistWithSongs.second.find { it.song.id == id }?.song
+                    playlistWithSongs.second.find { it.map.id.toString() == id }?.song
                 }.map { it.toMediaMetadata() },
                 totalItemCount = shownSongs.size,
                 onSelectAll = {
                     selection.clear()
-                    selection.addAll(shownSongs.map { it.song.id })
+                    selection.addAll(shownSongs.map { it.map.id.toString() })
                 },
                 onDeselectAll = { selection.clear() },
                 menuState = menuState,
@@ -822,7 +954,7 @@ fun LocalPlaylistScreen(
                         // the ones after it. Descending position order means each removal only
                         // shifts rows we have already handled, so the captured positions stay valid.
                         val doomed = playlistWithSongs.second
-                            .filter { it.song.id in selection }
+                            .filter { it.map.id.toString() in selection }
                             .sortedByDescending { it.map.position }
 
                         database.transaction {
@@ -843,6 +975,9 @@ fun LocalPlaylistScreen(
                                 }
                             }
                         }
+                        // The rows picked are gone: the bar stayed up saying "0/1 selected" (Pixel 5,
+                        // 5 Nov 2026), as the Songs tab's did after Remove all from library.
+                        onExitSelectionMode()
                     }
                 }
             )
@@ -866,6 +1001,12 @@ fun LocalPlaylistHeader(
     onShowRemoveDownloadDialog: () -> Unit,
     snackbarHostState: SnackbarHostState,
     modifier: Modifier,
+    /** Songs in the playlist more than once: the Saved twice button shows while above nought. */
+    savedTwice: Int = 0,
+    onSavedTwice: () -> Unit = {},
+    /** Opens the choice of the cover when a tap on it should (PlaylistCovers.canChoose), else null and the cover is a picture. */
+    onChangeCover: (() -> Unit)? = null,
+    navController: NavController? = null,
 ) {
     Log.v("LocalPlaylistScreen", "P_H_RC-1")
     val playerConnection = LocalPlayerConnection.current ?: return
@@ -884,13 +1025,20 @@ fun LocalPlaylistHeader(
         mutableIntStateOf(Download.STATE_STOPPED)
     }
 
-//    LaunchedEffect(songs) {
-//        val songs = songs.filterNot { it.song.song.isLocal }
-//        if (songs.isEmpty()) return@LaunchedEffect
-//        downloadUtil.downloads.collect { downloads ->
-//            downloadState = getDownloadState(songs.map { downloads[it.song.id] })
-//        }
-//    }
+    // Worked out again, as PlaylistMenu does. Upstream commented this out in a refactor
+    // (25d504fe1), and the button below was then always Download: never the pin that removes the
+    // playlist's downloads, never the spinner that cancels them, and a tap over a downloaded
+    // playlist did nothing.
+    LaunchedEffect(songs) {
+        val songs = songs.filterNot { it.song.song.isLocal }
+        if (songs.isEmpty()) {
+            downloadState = Download.STATE_STOPPED
+            return@LaunchedEffect
+        }
+        downloadUtil.downloads.collect { downloads ->
+            downloadState = getDownloadState(songs.map { downloads[it.song.id] })
+        }
+    }
 
     // Beside its list (Landscape.kt) the header has half the page, and on most phones that is
     // less than the cover and the row of buttons take together. The cover gives way there and
@@ -913,14 +1061,26 @@ fun LocalPlaylistHeader(
             verticalArrangement = Arrangement.spacedBy(12.dp),
             itemVerticalAlignment = Alignment.CenterVertically
         ) {
-            PlaylistThumbnail(
-                playlist = playlist.playlist,
-                thumbnails = playlist.thumbnails,
-                size = coverSize,
-                shape = RoundedCornerShape(AlbumCornerRadius),
-                iconPadding = coverSize / 16,
-                iconTint = LocalContentColor.current.copy(alpha = 0.8f),
-            )
+            val cover: @Composable () -> Unit = {
+                PlaylistThumbnail(
+                    playlist = playlist.playlist,
+                    thumbnails = playlist.thumbnails,
+                    size = coverSize,
+                    shape = RoundedCornerShape(AlbumCornerRadius),
+                    iconPadding = coverSize / 16,
+                    iconTint = LocalContentColor.current.copy(alpha = 0.8f),
+                )
+            }
+            if (onChangeCover != null) {
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(AlbumCornerRadius))
+                        .clickable(onClick = onChangeCover)
+                        .named(stringResource(R.string.playlist_cover_change))
+                ) { cover() }
+            } else {
+                cover()
+            }
 
             Column(
                 verticalArrangement = Arrangement.Center,
@@ -1047,13 +1207,17 @@ fun LocalPlaylistHeader(
             }
         }
 
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             Button(
                 onClick = {
                     playerConnection.playQueue(
                         ListQueue(
                             title = playlist.playlist.name,
-                            items = songs.map { it.song.toMediaMetadata() }.toList()
+                            items = songs.map { it.song.toMediaMetadata() }.toList(),
+                            mixPlaylistId = playlist.id.takeIf { Unreleased.AUTOMIX_EDITOR },
                         ),
                         origin = PlayOrigin.PLAYLIST,
                     )
@@ -1077,6 +1241,7 @@ fun LocalPlaylistHeader(
                             title = playlist.playlist.name,
                             items = songs.map { it.song.toMediaMetadata() },
                             startShuffled = true,
+                            mixPlaylistId = playlist.id.takeIf { Unreleased.AUTOMIX_EDITOR },
                         ),
                         origin = PlayOrigin.PLAYLIST,
                     )
@@ -1092,6 +1257,14 @@ fun LocalPlaylistHeader(
                 Spacer(Modifier.size(ButtonDefaults.IconSpacing))
                 Text(stringResource(R.string.shuffle))
             }
+
+            if (savedTwice > 0) {
+                SavedTwiceButton(savedTwice, onClick = onSavedTwice)
+            }
+        }
+
+        if (Unreleased.AUTOMIX_EDITOR && navController != null) {
+            MixRow(playlistId = playlist.id, songCount = songs.size)
         }
     }
 }
@@ -1126,6 +1299,26 @@ fun playlistSearchResults(songs: List<PlaylistSong>, query: String): List<Playli
  * is then put back in front of it. A song with no set-video id, such as one added here and not yet
  * synced back, cannot be named to YouTube, so then nothing is sent at all.
  */
+/**
+ * The positions a drag moves a row between when a blocked artist's rows are left out of the list
+ * on screen (ArtistBlock), so that a place on screen is not a position in the playlist.
+ *
+ * [positions] are the rows' positions, in the order on screen after the drag, the dragged row now
+ * at [to]. It goes just after the row now before it, or, at the top, just before the one after it,
+ * and the rows left out keep their places among the others. Null when nothing moves.
+ */
+fun moveAround(positions: List<Int>, to: Int): Pair<Int, Int>? {
+    if (to !in positions.indices || positions.size < 2) return null
+    val moved = positions[to]
+    val target = if (to > 0) {
+        val before = positions[to - 1]
+        if (before > moved) before else before + 1
+    } else {
+        positions[1]
+    }
+    return if (target == moved) null else moved to target
+}
+
 fun youTubeMovesAfterDrag(setVideoIds: List<String?>, from: Int, to: Int): List<Pair<String, String>> {
     if (from == to || from !in setVideoIds.indices || to !in setVideoIds.indices) return emptyList()
     val moved = setVideoIds[to] ?: return emptyList()

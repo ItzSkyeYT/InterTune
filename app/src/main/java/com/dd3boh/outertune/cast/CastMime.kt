@@ -63,6 +63,8 @@ object CastMime {
         "audio/x-aiff" to "aiff",
         "audio/amr" to "amr",
         "audio/x-ms-wma" to "wma",
+        // Raw audio, made on the phone for a renderer that takes nothing else (PcmCastSong).
+        "audio/l16" to "pcm",
     )
 
     /**

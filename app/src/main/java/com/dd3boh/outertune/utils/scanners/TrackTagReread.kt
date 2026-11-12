@@ -25,25 +25,30 @@ import com.kyant.taglib.TagLib
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.update
 import java.io.File
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.coroutines.cancellation.CancellationException
 
 /**
  * Reads the track and disc tags again, once, for the local songs that were scanned without a
- * track number.
+ * track number or without a disc number.
  *
- * Up to 0.12.1 a tag that also holds the count, "4/12", gave no number (issue #39), and the
- * MediaStore scanner stored none on Android 10 and older. A scan never reads a file it already
- * knows again unless a full rescan is asked for, so those songs would have kept no number. This
- * runs in the background after launch, shows nothing, and once it has been through them it never
- * runs again.
+ * Up to 0.12.1 a tag that also holds the count, "4/12" or a disc's "1/2", gave no number (issue
+ * #39), and the MediaStore scanner stored none on Android 10 and older. A scan never reads a file
+ * it already knows again unless a full rescan is asked for, so those songs would have kept no
+ * number. This runs in the background after launch, shows nothing, and once it has been through
+ * them it never runs again. 0.12.5's pass looked for the songs with no track number only, and
+ * left the discs of the others empty: this one, under a key and a mark of its own, looks at both.
  *
- * Light: only songs with no track number, a page of them per query, one file at a time, and only
- * the tags (no audio properties, no pictures). Safe if interrupted: a song's numbers are saved as
- * soon as its file is read, and the id of the song about to be read is written down first, so the
- * next launch carries on after it. A file that takes the app down while it is read is passed over
- * then, instead of taking it down at every launch.
+ * Light: only songs missing a number, a page of them per query, one file at a time, and only the
+ * tags (no audio properties, no pictures). A song is written to only when its file gives a number
+ * it does not have. Safe if interrupted: a song's numbers are saved as soon as its file is read,
+ * and the id of the song about to be read is written down first, so the next launch carries on
+ * after it. A file that takes the app down while it is read is passed over then, instead of
+ * taking it down at every launch.
  */
 object TrackTagReread {
     private const val TAG = "TrackTagReread"
@@ -55,7 +60,18 @@ object TrackTagReread {
     private const val START_AFTER_MS = 5_000L
 
     /** Holds the id of the song the pass began to read last. In noBackupFilesDir: it is this phone's. */
-    private const val MARK_FILE = "track-tag-reread"
+    private const val MARK_FILE = "track-tag-reread-2"
+
+    /** 0.12.5's mark, left behind by a pass that stopped part way. This pass covers what it had left. */
+    private const val OLD_MARK_FILE = "track-tag-reread"
+
+    private val changed = MutableStateFlow(0)
+
+    /**
+     * Goes up each time a pass has given songs new numbers: a folder open on screen reads its songs
+     * again (LibraryFoldersViewModel), or it kept the old order until it was left.
+     */
+    val changes: StateFlow<Int> = changed
 
     /** Where the pass is, kept across launches. */
     interface Marks {
@@ -67,13 +83,14 @@ object TrackTagReread {
     }
 
     /**
-     * Runs the pass, or what is left of it, and returns how many songs got a track number.
+     * Runs the pass, or what is left of it, and returns how many songs got a new track or disc
+     * number.
      *
      * [canRead] is false while the files cannot be read (local media off, no permission to read
      * them): nothing is read then, and the pass waits for a launch where they can be, unless no
-     * song needs it, which ends it at once. [page] gives the songs with no track number after an
-     * id, in id order. [read] gives a file's (track, disc), or null when it cannot be read. [save]
-     * stores what was found.
+     * song needs it, which ends it at once. [page] gives the songs missing a number after an id, in
+     * id order, with the numbers they have. [read] gives a file's (track, disc), or null when it
+     * cannot be read. [save] stores the numbers that are new, null for one that is not.
      */
     suspend fun run(
         marks: Marks,
@@ -89,7 +106,7 @@ object TrackTagReread {
             if (page(after, 1).isEmpty()) marks.setDone()
             return 0
         }
-        var numbered = 0
+        var renumbered = 0
         while (true) {
             val songs = page(after, PAGE)
             if (songs.isEmpty()) break
@@ -98,14 +115,18 @@ object TrackTagReread {
                 marks.setAt(song.id)
                 after = song.id
                 val (track, disc) = read(song.localPath) ?: continue
-                if (track == null && disc == null) continue
-                save(song.id, track, disc)
-                if (track != null) numbered++
+                // Most songs with no disc number have no disc tag either: nothing is written for
+                // them, so the library is not rewritten song by song.
+                val newTrack = track?.takeIf { it != song.trackNumber }
+                val newDisc = disc?.takeIf { it != song.discNumber }
+                if (newTrack == null && newDisc == null) continue
+                save(song.id, newTrack, newDisc)
+                renumbered++
             }
             delay(pauseMs)
         }
         marks.setDone()
-        return numbered
+        return renumbered
     }
 
     /** One pass at a time, whatever starts it. */
@@ -117,21 +138,25 @@ object TrackTagReread {
         try {
             val marks = marks(context)
             if (marks.done()) return
+            File(context.noBackupFilesDir, OLD_MARK_FILE).delete()
             delay(START_AFTER_MS)
             // A scan writes the same rows. The next launch, then.
             if (scannerState.value > 0) return
             val canRead = context.dataStore.get(LocalLibraryEnableKey, true) &&
                     context.checkSelfPermission(MEDIA_PERMISSION_LEVEL) == PackageManager.PERMISSION_GRANTED
-            val numbered = run(
+            val renumbered = run(
                 marks = marks,
                 canRead = canRead,
-                page = { after, limit -> database.localSongsWithoutTrackNumber(after, limit) },
+                page = { after, limit -> database.localSongsToReread(after, limit) },
                 read = ::readTags,
                 save = { id, track, disc -> database.setTrackTags(id, track, disc) },
             )
-            // The Folders tab builds its folders from this cache, and would show the old numbers.
-            if (numbered > 0) clearDtCache()
-            if (marks.done()) Log.i(TAG, "Done: $numbered local songs got their track number")
+            if (renumbered > 0) {
+                // The Folders tab builds its folders from this cache, and would show the old numbers.
+                clearDtCache()
+                changed.update { it + 1 }
+            }
+            if (marks.done()) Log.i(TAG, "Done: $renumbered local songs got a new track or disc number")
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {

@@ -40,6 +40,6 @@ class PlaylistHeaderTest {
         for (words in listOf("R.plurals.list_queued_here", "R.plurals.list_queued_other", "R.plurals.list_queued_new")) {
             assertTrue("AutoPlaylistScreen does not say $words", words in text)
         }
-        assertTrue("AutoPlaylistScreen does not show what it did", "Toast.makeText(" in text)
+        assertTrue("AutoPlaylistScreen does not show what it did", "Toaster.show(" in text)
     }
 }

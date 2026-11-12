@@ -46,6 +46,7 @@ object CastAddress {
         "fcast" to CastProtocol.FCAST,
         "dlna" to CastProtocol.DLNA,
         "chromecast" to CastProtocol.CHROMECAST,
+        "airplay" to CastProtocol.AIRPLAY,
     )
 
     private val schemes = listOf("fcast://" to CastProtocol.FCAST, "chromecast://" to CastProtocol.CHROMECAST)
@@ -74,6 +75,8 @@ object CastAddress {
         return when (protocol) {
             CastProtocol.DLNA -> null
             CastProtocol.CHROMECAST -> hostAndPort(value, Chromecast.PORT)?.let { (host, port) -> chromecast(host, port) }
+            // Only with the flag: without it the word is not an address this build can use.
+            CastProtocol.AIRPLAY -> if (Unreleased.CAST_AIRPLAY) hostAndPort(value, AirPlay.PORT)?.let { (host, port) -> AirPlayDevices.typed(host, port) } else null
             else -> {
                 val (host, port) = hostAndPort(value, FCast.PORT) ?: return null
                 // FCast never listens on the Cast port, so an address typed with it means a Chromecast.
@@ -117,9 +120,12 @@ object CastDevices {
         fcast: Collection<CastDevice>,
         dlna: Collection<CastDevice>,
         chromecast: Collection<CastDevice> = emptyList(),
+        airplay: Collection<CastDevice> = emptyList(),
     ): List<CastDevice> {
         val betterHosts = (fcast + chromecast).map { it.host.lowercase() }.toSet()
-        return (fcast + chromecast + dlna.filter { it.host.lowercase() !in betterHosts })
+        // An AirPlay speaker is listed beside the same speaker's DLNA entry: either may be the one
+        // that plays, and the line under each name says which way in it is.
+        return (fcast + chromecast + airplay + dlna.filter { it.host.lowercase() !in betterHosts })
             .distinctBy { it.protocol to it.id }
             .sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.name })
     }
@@ -182,6 +188,7 @@ class CastDiscovery(
     /** Found by NSD, keyed by service name, one map for each service type. */
     private val fcast = LinkedHashMap<String, CastDevice>()
     private val chromecast = LinkedHashMap<String, CastDevice>()
+    private val airplay = LinkedHashMap<String, CastDevice>()
     private val dlna = LinkedHashMap<String, CastDevice>()
     private val lock = Any()
     private val nsdListeners = mutableListOf<NsdManager.DiscoveryListener>()
@@ -202,7 +209,9 @@ class CastDiscovery(
         if (!Unreleased.CASTING) return
         synchronized(lock) {
             if (nsdListeners.isNotEmpty()) return
-            for ((protocol, type) in listOf(CastProtocol.FCAST to FCast.SERVICE_TYPE, CastProtocol.CHROMECAST to Chromecast.SERVICE_TYPE)) {
+            val types = listOf(CastProtocol.FCAST to FCast.SERVICE_TYPE, CastProtocol.CHROMECAST to Chromecast.SERVICE_TYPE) +
+                if (Unreleased.CAST_AIRPLAY) listOf(CastProtocol.AIRPLAY to AirPlay.SERVICE_TYPE) else emptyList()
+            for ((protocol, type) in types) {
                 val listener = discoveryListener(protocol)
                 nsdListeners += listener
                 runCatching { nsd.discoverServices(type, NsdManager.PROTOCOL_DNS_SD, listener) }
@@ -293,10 +302,14 @@ class CastDiscovery(
         // A receiver both the search and the sweep found is listed once, as the search found it.
         val searched = fcast.values
         val sweptOnly = swept.values.filter { s -> searched.none { it.host.equals(s.host, ignoreCase = true) && it.port == s.port } }
-        _devices.update { CastDevices.merge(searched + sweptOnly, dlna.values, chromecast.values) }
+        _devices.update { CastDevices.merge(searched + sweptOnly, dlna.values, chromecast.values, airplay.values) }
     }
 
-    private fun found(protocol: CastProtocol) = if (protocol == CastProtocol.CHROMECAST) chromecast else fcast
+    private fun found(protocol: CastProtocol) = when (protocol) {
+        CastProtocol.CHROMECAST -> chromecast
+        CastProtocol.AIRPLAY -> airplay
+        else -> fcast
+    }
 
     private fun discoveryListener(protocol: CastProtocol) = object : NsdManager.DiscoveryListener {
         override fun onDiscoveryStarted(serviceType: String) = Unit
@@ -341,6 +354,7 @@ class CastDiscovery(
                     if (host != null && info.port > 0) {
                         val device = when (protocol) {
                             CastProtocol.CHROMECAST -> CastDevices.chromecast(info.serviceName, host, info.port, info.attributes)
+                            CastProtocol.AIRPLAY -> AirPlayDevices.of(info.serviceName, host, info.port, info.attributes)
                             else -> CastDevices.fcast(info.serviceName, host, info.port, info.attributes)
                         }
                         synchronized(lock) {

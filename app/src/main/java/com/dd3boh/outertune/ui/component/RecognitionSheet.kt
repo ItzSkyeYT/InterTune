@@ -28,6 +28,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.CloudOff
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.MicOff
 import androidx.compose.material3.Button
@@ -82,6 +83,7 @@ import com.dd3boh.outertune.recognition.SheetRun
 import com.zionhuang.innertube.models.SongItem
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.graphics.vector.ImageVector
 
 /**
  * Listen to what is playing nearby, then show what it was.
@@ -106,6 +108,7 @@ fun RecognitionSheet(
     val startedAt by viewModel.startedAt.collectAsState()
     val nowPlaying by viewModel.nowPlaying.collectAsState()
     val retryAt by viewModel.retryAt.collectAsState()
+    val keepingOffline by viewModel.keepingOffline.collectAsState()
 
     // Whose run the engine is on. Any run going used to be joined, whatever it was for, so the
     // What's playing? screen's showed here as this playlist's: see SheetRun. Asked again whenever a
@@ -235,9 +238,11 @@ fun RecognitionSheet(
                         level = s.level,
                         identifying = s.identifying,
                         elapsed = elapsed,
-                        // Shazam not answering, said in place of the jokes, which would otherwise
-                        // carry on as if all were well.
-                        message = shazamWaitMessage(retryAt?.takeIf { continuous }),
+                        // Shazam not answering, or no connection with what it hears kept for later
+                        // (RecogniseLater), said in place of the jokes, which would otherwise carry
+                        // on as if all were well.
+                        message = if (continuous && keepingOffline) stringResource(R.string.recognise_later_keeping)
+                        else shazamWaitMessage(retryAt?.takeIf { continuous }),
                     )
                     Spacer24()
                     OutlinedButton(onClick = { viewModel.stop(); onDismiss() }) {
@@ -277,6 +282,13 @@ fun RecognitionSheet(
                         else R.string.recognition_failed
                     ),
                     onRetry = { start() },
+                )
+
+                // No connection, and what it heard kept to be named once there is one.
+                RecognitionEngine.State.Kept -> Problem(
+                    text = stringResource(R.string.recognise_later_kept),
+                    onRetry = { start() },
+                    icon = Icons.Rounded.CloudOff,
                 )
             }
 
@@ -478,11 +490,13 @@ private fun Listening(
         verticalAlignment = Alignment.Bottom,
         modifier = Modifier.padding(top = 4.dp)
     ) {
+        // Weighted without filling, as the screen's: the dots keep their room beside a long line.
         Text(
             text = phrase,
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
+            modifier = Modifier.weight(1f, fill = false),
         )
         AnimatedDots(color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
@@ -622,7 +636,7 @@ internal fun Elsewhere(run: SheetRun.Other, listenHere: String, note: String?, o
 }
 
 @Composable
-private fun Problem(text: String, onRetry: () -> Unit) {
+private fun Problem(text: String, onRetry: () -> Unit, icon: ImageVector = Icons.Rounded.MicOff) {
     Box(
         contentAlignment = Alignment.Center,
         modifier = Modifier
@@ -632,7 +646,7 @@ private fun Problem(text: String, onRetry: () -> Unit) {
             .background(MaterialTheme.colorScheme.surfaceVariant),
     ) {
         Icon(
-            imageVector = Icons.Rounded.MicOff,
+            imageVector = icon,
             contentDescription = null,
             modifier = Modifier.size(40.dp),
             tint = MaterialTheme.colorScheme.onSurfaceVariant,

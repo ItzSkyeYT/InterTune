@@ -105,6 +105,30 @@ class ProblemLogTest {
     }
 
     @Test
+    fun `a lyrics video that could not be made is the fault, with the step, the code and the encoder it names`() {
+        // As LyricsVideo writes it (Log.i at the start, the export's warning, then once at the error level with its trace).
+        // Before 10 Nov 2026 it was a warning under tags the report left out, and a report said "Nothing that looks like a fault".
+        val video = listOf(
+            "11-11 00:34:10.100 I/LyricsVideo( 9001): Making a 11.0 s video of aaaaaaaaaaa: H.264 encoders c2.mtk.avc.encoder (hardware), c2.android.avc.encoder (software), constant rate held",
+            "11-11 00:34:12.300 W/LyricsVideo( 9001): Export to picture.mp4 failed: ERROR_CODE_ENCODING_FORMAT_UNSUPPORTED, video encoder c2.mtk.avc.encoder",
+            "11-11 00:34:12.310 E/LyricsVideo( 9001): The lyrics video could not be made: picture, ERROR_CODE_ENCODING_FORMAT_UNSUPPORTED, video encoder c2.mtk.avc.encoder",
+            "11-11 00:34:12.310 E/LyricsVideo( 9001): com.dd3boh.outertune.lyrics.LyricsVideo\$Failed: The picture step failed: ERROR_CODE_ENCODING_FORMAT_UNSUPPORTED",
+            "11-11 00:34:12.310 E/LyricsVideo( 9001): \tat com.dd3boh.outertune.lyrics.LyricsVideo.make(LyricsVideo.kt:200)",
+            "11-11 00:34:12.311 E/LyricsVideo( 9001): Caused by: androidx.media3.transformer.ExportException: Codec exception",
+        )
+        val excerpt = ProblemLog.excerpt(song + video + after)
+        assertTrue("a fault is found", excerpt.faultAt != null)
+        val shown = words(excerpt)
+        assertTrue(shown.any { it.contains("could not be made: picture, ERROR_CODE_ENCODING_FORMAT_UNSUPPORTED, video encoder c2.mtk.avc.encoder") })
+        // what the phone has, and the line before it, from the lines of information
+        assertTrue(shown.any { it.contains("H.264 encoders c2.mtk.avc.encoder (hardware)") })
+        assertTrue(shown.any { it.contains("Export to picture.mp4 failed") })
+        // the sample report of a failing phone says so at the top, not "Nothing that looks like a fault"
+        val report = ProblemLog.report(excerpt, build = "0.12.9", device = "Xiaomi", installedFrom = "updater")
+        assertTrue(report, report.contains("The last fault and what led up to it:"))
+    }
+
+    @Test
     fun `of two faults the later one is the one shown`() {
         val later = listOf(
             "10-13 18:50:00.000 D/MusicService( 6711): PLAYING: song id = bbbbbbbbbbb",
@@ -215,6 +239,36 @@ class ProblemLogTest {
     }
 
     @Test
+    fun `a report without the steps keeps the fault's own first lines for the link, not a trace's last frames (#90)`() {
+        // 0.12.9 on a Pixel 11, 6 Nov 2026: the end of the log was the trace's last frames and the
+        // player's warning that repeats it, and the line that named the fault was cut away.
+        val trace = listOf(
+            "11-06 12:59:12.403 E/MediaCodecAudioRenderer( 6711): Audio sink error",
+            "11-06 12:59:12.403 E/MediaCodecAudioRenderer( 6711):   K2.r: AudioTrack write failed: -32",
+        ) + List(12) { "11-06 12:59:12.403 E/MediaCodecAudioRenderer( 6711):       at M2.B.h$it(SourceFile:91)" }
+        val repeated = listOf(
+            "11-06 12:59:12.408 W/ExoPlayerImplInternal( 6711): Recoverable renderer error",
+            "11-06 12:59:12.408 W/ExoPlayerImplInternal( 6711):   K2.p: MediaCodecAudioRenderer error, index=1, format_supported=YES",
+        ) + List(12) { "11-06 12:59:12.408 W/ExoPlayerImplInternal( 6711):       at K2.U.j$it(SourceFile:1570)" }
+        val stops = List(8) { "11-06 13:0$it:47 STOPPED: paused by the headphones or the speaker went away (screen on, in the foreground)" }
+        val report = ProblemLog.report(
+            ProblemLog.excerpt(song + trace + repeated), build = "0.12.9 (101, core release)", device = "Google Pixel 11, Android 17 (API 37)",
+            installedFrom = "Obtainium", stops = stops,
+            phoneNow = "mobile data, metered, about 15 Mbps down and 15 Mbps up, no VPN, Data Saver off; battery saver on, Battery use Saver",
+        )
+        val cut = ProblemLog.fittedForLink(report, 3600, 5000)
+        assertTrue(ProblemLog.linkLength(cut) <= 3600)
+        assertTrue(cut.startsWith("InterTune 0.12.9 (101, core release)\nGoogle Pixel 11"))
+        assertTrue(">>> here" in cut)
+        assertTrue("Audio sink error" in cut)
+        assertTrue("the line that names the fault", "K2.r: AudioTrack write failed: -32" in cut)
+        // With no fault the end is kept, as before.
+        val quiet = ProblemLog.report(ProblemLog.excerpt(song + after), build = "b", device = "d", installedFrom = "F-Droid")
+        assertEquals(quiet, ProblemLog.fitted(quiet, quiet.length))
+        assertTrue(ProblemLog.fitted(quiet, 300).trimEnd().endsWith("Min threshold: 0.3 (duration 155s)"))
+    }
+
+    @Test
     fun `escaping counts three for a space, a colon or a letter outside ASCII, one for the rest`() {
         assertEquals(3, ProblemLog.linkLength("abc"))
         assertEquals(9, ProblemLog.linkLength("a b:c"))
@@ -226,7 +280,37 @@ class ProblemLogTest {
     fun `the form's link is built with the log fitted to what is left of it`() {
         val dialog = java.io.File("src/main/java/com/dd3boh/outertune/ui/component/ProblemReportDialog.kt").readText()
         assertTrue("ProblemLog.fittedForLink(text.orEmpty(), room, FORM_LOG_LIMIT)" in dialog)
-        assertTrue("private const val FORM_LINK_LIMIT = 6000" in dialog)
+    }
+
+    @Test
+    fun `the form's link still opens for someone signed out of GitHub`() {
+        // GitHub's sign-in page escapes the link again: 4,851 opened on 27 Oct 2026, 5,081 did not.
+        val dialog = java.io.File("src/main/java/com/dd3boh/outertune/ui/component/ProblemReportDialog.kt").readText()
+        val limit = Regex("""(?:private|internal) const val FORM_LINK_LIMIT = (\d+)""").find(dialog)!!.groupValues[1].toInt()
+        assertTrue("$limit", limit <= 4800)
+    }
+
+    @Test
+    fun `a crash for the issue's link keeps its top, cut at a line's end`() {
+        val trace = "InterTune 0.13 (98, core debug)\nGoogle Pixel 5, Android 14 (API 34)\n\n" +
+            "java.lang.IllegalStateException: invalid beforeContentPadding\n" +
+            (1..300).joinToString("\n") { "\tat androidx.compose.foundation.lazy.LazyListKt.LazyList(LazyList.kt:$it)" }
+        val cut = ProblemLog.startForLink(trace, 4000)
+        assertTrue(ProblemLog.linkLength(cut) <= 4000)
+        assertTrue("the error is kept", "IllegalStateException: invalid beforeContentPadding" in cut)
+        assertTrue("cut at a line's end", trace.startsWith(cut) && trace[cut.length] == '\n')
+        assertEquals("short enough, left as it is", "a\nb", ProblemLog.startForLink("a\nb", 100))
+        assertEquals("", ProblemLog.startForLink("abc", 0))
+        // One line longer than the room is cut inside it, never past it, a letter outside ASCII whole.
+        val long = "é".repeat(50)
+        assertEquals("é".repeat(16), ProblemLog.startForLink(long, 100))
+    }
+
+    @Test
+    fun `the crash page's link is cut for someone signed out too`() {
+        val crash = java.io.File("src/main/java/com/dd3boh/outertune/ui/component/CrashReportDialog.kt").readText()
+        assertTrue("FORM_LINK_LIMIT - base.toString().length" in crash)
+        assertTrue("ProblemLog.startForLink(text.take(ISSUE_BODY_LIMIT), room)" in crash)
     }
 
     @Test
@@ -246,5 +330,59 @@ class ProblemLogTest {
         )
         // What is not a file on the phone is left alone.
         assertEquals("W/LocalMediaScanner: 3/4 read", ProblemLog.scrub("W/LocalMediaScanner: 3/4 read"))
+    }
+    /**
+     * 7 Nov 2026: Report a problem opened from the player's error screen carries the player's error, the
+     * client the song came from and what each client answered, in the heading every cut keeps, and the
+     * error in full at the end.
+     */
+    @Test
+    fun `the player's error sits in the heading a cut keeps, and in full at the end`() {
+        val log = (1..400).joinToString("\n") { "11-07 17:${(it / 60).toString().padStart(2, '0')}:${(it % 60).toString().padStart(2, '0')}.000 I/MusicService: line $it of what led up to it" }
+        val report = "InterTune 0.12.9 (101, core release)\nsamsung SM-S938B, Android 17 (API 37)\nInstalled from: Google Play\n\n$log"
+        val lines = listOf("Player error: Source error (3003): None of the available extractors could read the stream.", "stream client: VISIONOS", "stream chain: VISIONOS OK, HEAD 200")
+        val with = ProblemLog.withPlayerError(report, lines, "K2.p: Source error\n  at K2.U.t(SourceFile:17)")
+        val head = with.substringBefore("\n\n")
+        for (line in lines) assertTrue(line, line in head)
+        assertTrue(head.startsWith("InterTune 0.12.9 (101, core release)"))
+        assertTrue(with.endsWith("The player's error in full:\nK2.p: Source error\n  at K2.U.t(SourceFile:17)"))
+        val cut = ProblemLog.fitted(with, 1500)
+        for (line in lines) assertTrue("kept by a cut: $line", line in cut)
+        // Without the error in full, nothing is added at the end.
+        assertTrue(ProblemLog.withPlayerError(report, lines, null).endsWith("line 400 of what led up to it"))
+    }
+
+    @Test
+    fun `the player's error screen opens Report a problem with the error`() {
+        val screen = java.io.File("src/main/java/com/dd3boh/outertune/ui/player/ThumbnailPlaybackError.kt").readText()
+        assertTrue("ProblemReportDialog(onDismiss = { reporting = false }, playerError = playerErrorReport(error, song))" in screen)
+        assertTrue("R.string.player_error_report" in screen)
+        val dialog = java.io.File("src/main/java/com/dd3boh/outertune/ui/component/ProblemReportDialog.kt").readText()
+        assertTrue("ProblemLog.withPlayerError(it, playerError!!.lines, playerError.full)" in dialog)
+        assertTrue("(if (withPlayer) playerError?.title else null) ?: ReportRelay.title(found)" in dialog)
+        // That error's report only: no earlier runs to pick from.
+        assertTrue("if (all != null && all.size > 1 && playerError == null) {" in dialog)
+    }
+    /**
+     * #97 (7 Nov 2026) was sent right after the app was opened again: the run picked, this one, had
+     * nothing in it, and the fault was in the run before. The newest run in which something went
+     * wrong now comes first, is picked, and is marked.
+     */
+    @Test
+    fun `the newest run with a problem comes first and is marked`() {
+        val runs = listOf("now" to false, "18:30" to false, "16:19" to true, "16:02" to true)
+        val (ordered, marked) = com.dd3boh.outertune.ui.component.latestProblemFirst(runs) { it.second }
+        assertEquals(listOf("16:19", "now", "18:30", "16:02"), ordered.map { it.first })
+        assertEquals(0, marked)
+        // This run with the problem stays where it is, first.
+        val (same, markedNow) = com.dd3boh.outertune.ui.component.latestProblemFirst(listOf("now" to true, "18:30" to true)) { it.second }
+        assertEquals(listOf("now", "18:30"), same.map { it.first })
+        assertEquals(0, markedNow)
+        // None with a problem: the order as it was, nothing marked.
+        val (asWas, none) = com.dd3boh.outertune.ui.component.latestProblemFirst(listOf("now" to false, "18:30" to false)) { it.second }
+        assertEquals(listOf("now", "18:30"), asWas.map { it.first })
+        assertEquals(-1, none)
+        val dialog = java.io.File("src/main/java/com/dd3boh/outertune/ui/component/ProblemReportDialog.kt").readText()
+        assertTrue("color = MaterialTheme.colorScheme.error" in dialog.substringAfter("if (choice.latestProblem) {"))
     }
 }

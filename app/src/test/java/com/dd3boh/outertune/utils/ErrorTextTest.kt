@@ -7,6 +7,7 @@
 package com.dd3boh.outertune.utils
 
 import androidx.media3.common.PlaybackException
+import androidx.media3.exoplayer.source.UnrecognizedInputFormatException
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertSame
@@ -349,7 +350,6 @@ class ErrorTextTest {
         // These play and read what is on the phone. No connection is made, so no address is named.
         val onThePhone = setOf(
             "playback/LevelTap.kt",
-            "utils/scanners/FFmpegScanner.kt",
             "utils/scanners/LocalMediaScanner.kt",
             "utils/scanners/TagLibScanner.kt",
         )
@@ -438,7 +438,7 @@ class ErrorTextTest {
      * resources) names no address and is left as it is.
      */
     private val shownFailures = listOf(
-        "playback/MusicService.kt" to "Toast.makeText(",
+        "playback/MusicService.kt" to "Toaster.show(",
         "utils/UpdateInstaller.kt" to "State.Failed(",
         "recognition/RecognitionEngine.kt" to "State.Failed(",
         "ui/screens/LastFmLoginScreen.kt" to "error = ",
@@ -508,5 +508,20 @@ class ErrorTextTest {
             }
         }
         return text.lastIndex
+    }
+    /**
+     * A Discord report of 7 Nov 2026: most of a playlist failed with "Source error (3003): None of
+     * the available extractors ... could read the stream", shown as the player's own words. What
+     * came back was not audio; the screen says so plainly.
+     */
+    @Test
+    fun `a reply that is not audio is told apart from the rest`() {
+        assertTrue(ErrorText.isNotAudio(PlaybackException("Source error", IOException("x"), PlaybackException.ERROR_CODE_PARSING_CONTAINER_UNSUPPORTED)))
+        val unread = UnrecognizedInputFormatException("None of the available extractors could read the stream.", android.net.Uri.EMPTY, emptyList())
+        assertTrue(ErrorText.isNotAudio(PlaybackException("Source error", unread, PlaybackException.ERROR_CODE_IO_UNSPECIFIED)))
+        assertFalse(ErrorText.isNotAudio(PlaybackException("Source error", IOException("x"), PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS)))
+        assertFalse(ErrorText.isNotAudio(PlaybackException("Source error", IOException("x"), PlaybackException.ERROR_CODE_PARSING_CONTAINER_MALFORMED)))
+        val screen = File("src/main/java/com/dd3boh/outertune/ui/player/ThumbnailPlaybackError.kt").readText()
+        assertTrue("ErrorText.isNotAudio(error)" in screen && "R.string.err_not_audio" in screen)
     }
 }

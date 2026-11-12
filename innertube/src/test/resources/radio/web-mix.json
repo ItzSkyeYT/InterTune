@@ -1,0 +1,318 @@
+{
+ "responseContext": {
+  "visitorData": "CgtUZXN0VmlzaXRvcg%3D%3D"
+ },
+ "contents": {
+  "twoColumnWatchNextResults": {
+   "playlist": {
+    "playlist": {
+     "title": "Mix - Bye, Summer (바이, 썸머)",
+     "playlistId": "RDAlNEtjBX1wU",
+     "isInfinite": true,
+     "contents": [
+      {
+       "playlistPanelVideoRenderer": {
+        "title": {
+         "simpleText": "Bye, Summer (바이, 썸머)"
+        },
+        "lengthText": {
+         "simpleText": "3:39"
+        },
+        "longBylineText": {
+         "runs": [
+          {
+           "text": "이지금 [IU Official]",
+           "navigationEndpoint": {
+            "browseEndpoint": {
+             "browseId": "UC3SyT4_WLHzN7JmHQwKQZww"
+            }
+           }
+          }
+         ]
+        },
+        "shortBylineText": {
+         "runs": [
+          {
+           "text": "이지금 [IU Official]",
+           "navigationEndpoint": {
+            "browseEndpoint": {
+             "browseId": "UC3SyT4_WLHzN7JmHQwKQZww"
+            }
+           }
+          }
+         ]
+        },
+        "videoId": "AlNEtjBX1wU",
+        "selected": true,
+        "thumbnail": {
+         "thumbnails": [
+          {
+           "url": "https://i.ytimg.com/vi/AlNEtjBX1wU/hqdefault.jpg",
+           "width": 246,
+           "height": 138
+          },
+          {
+           "url": "https://i.ytimg.com/vi/AlNEtjBX1wU/hqdefault.jpg",
+           "width": 336,
+           "height": 188
+          }
+         ]
+        }
+       }
+      },
+      {
+       "playlistPanelVideoRenderer": {
+        "title": {
+         "simpleText": "Dear my crazy soulmate"
+        },
+        "lengthText": {
+         "simpleText": "2:36"
+        },
+        "longBylineText": {
+         "runs": [
+          {
+           "text": "이지금 [IU Official]",
+           "navigationEndpoint": {
+            "browseEndpoint": {
+             "browseId": "UC3SyT4_WLHzN7JmHQwKQZww"
+            }
+           }
+          }
+         ]
+        },
+        "shortBylineText": {
+         "runs": [
+          {
+           "text": "이지금 [IU Official]",
+           "navigationEndpoint": {
+            "browseEndpoint": {
+             "browseId": "UC3SyT4_WLHzN7JmHQwKQZww"
+            }
+           }
+          }
+         ]
+        },
+        "videoId": "IHIt9S2DWcQ",
+        "selected": false,
+        "thumbnail": {
+         "thumbnails": [
+          {
+           "url": "https://i.ytimg.com/vi/IHIt9S2DWcQ/hqdefault.jpg",
+           "width": 246,
+           "height": 138
+          },
+          {
+           "url": "https://i.ytimg.com/vi/IHIt9S2DWcQ/hqdefault.jpg",
+           "width": 336,
+           "height": 188
+          }
+         ]
+        }
+       }
+      },
+      {
+       "playlistPanelVideoRenderer": {
+        "title": {
+         "simpleText": "eight(Prod.&Feat. SUGA of BTS) (에잇(Prod.&Feat. SUGA of BTS))"
+        },
+        "lengthText": {
+         "simpleText": "2:48"
+        },
+        "longBylineText": {
+         "runs": [
+          {
+           "text": "이지금 [IU Official]",
+           "navigationEndpoint": {
+            "browseEndpoint": {
+             "browseId": "UC3SyT4_WLHzN7JmHQwKQZww"
+            }
+           }
+          }
+         ]
+        },
+        "shortBylineText": {
+         "runs": [
+          {
+           "text": "이지금 [IU Official]",
+           "navigationEndpoint": {
+            "browseEndpoint": {
+             "browseId": "UC3SyT4_WLHzN7JmHQwKQZww"
+            }
+           }
+          }
+         ]
+        },
+        "videoId": "5_IYVichXbA",
+        "selected": false,
+        "thumbnail": {
+         "thumbnails": [
+          {
+           "url": "https://i.ytimg.com/vi/5_IYVichXbA/hqdefault.jpg",
+           "width": 246,
+           "height": 138
+          },
+          {
+           "url": "https://i.ytimg.com/vi/5_IYVichXbA/hqdefault.jpg",
+           "width": 336,
+           "height": 188
+          }
+         ]
+        }
+       }
+      },
+      {
+       "playlistPanelVideoRenderer": {
+        "title": {
+         "simpleText": "태연 - 기억을 걷는 시간"
+        },
+        "lengthText": {
+         "simpleText": "3:55"
+        },
+        "longBylineText": {
+         "runs": [
+          {
+           "text": "Coach fried potato",
+           "navigationEndpoint": {
+            "browseEndpoint": {
+             "browseId": "UCnrgYHAHIpK0JGDBYyV5UbA"
+            }
+           }
+          }
+         ]
+        },
+        "shortBylineText": {
+         "runs": [
+          {
+           "text": "Coach fried potato",
+           "navigationEndpoint": {
+            "browseEndpoint": {
+             "browseId": "UCnrgYHAHIpK0JGDBYyV5UbA"
+            }
+           }
+          }
+         ]
+        },
+        "videoId": "tRB5OCnlPR4",
+        "selected": false,
+        "thumbnail": {
+         "thumbnails": [
+          {
+           "url": "https://i.ytimg.com/vi/tRB5OCnlPR4/hqdefault.jpg",
+           "width": 246,
+           "height": 138
+          },
+          {
+           "url": "https://i.ytimg.com/vi/tRB5OCnlPR4/hqdefault.jpg",
+           "width": 336,
+           "height": 188
+          }
+         ]
+        }
+       }
+      },
+      {
+       "playlistPanelVideoRenderer": {
+        "title": {
+         "simpleText": "eight(Prod.&Feat. SUGA of BTS) (에잇(Prod.&Feat. SUGA of BTS))"
+        },
+        "longBylineText": {
+         "runs": [
+          {
+           "text": "이지금 [IU Official]",
+           "navigationEndpoint": {
+            "browseEndpoint": {
+             "browseId": "UC3SyT4_WLHzN7JmHQwKQZww"
+            }
+           }
+          }
+         ]
+        },
+        "shortBylineText": {
+         "runs": [
+          {
+           "text": "이지금 [IU Official]",
+           "navigationEndpoint": {
+            "browseEndpoint": {
+             "browseId": "UC3SyT4_WLHzN7JmHQwKQZww"
+            }
+           }
+          }
+         ]
+        },
+        "videoId": "liveStream01",
+        "selected": false,
+        "thumbnail": {
+         "thumbnails": [
+          {
+           "url": "https://i.ytimg.com/vi/5_IYVichXbA/hqdefault.jpg",
+           "width": 246,
+           "height": 138
+          },
+          {
+           "url": "https://i.ytimg.com/vi/5_IYVichXbA/hqdefault.jpg",
+           "width": 336,
+           "height": 188
+          }
+         ]
+        }
+       }
+      },
+      {
+       "playlistPanelVideoRenderer": {
+        "title": {
+         "simpleText": "태연 - 기억을 걷는 시간"
+        },
+        "lengthText": {
+         "simpleText": "3:55"
+        },
+        "longBylineText": {
+         "runs": [
+          {
+           "text": "Coach fried potato",
+           "navigationEndpoint": {
+            "browseEndpoint": {
+             "browseId": "UCnrgYHAHIpK0JGDBYyV5UbA"
+            }
+           }
+          }
+         ]
+        },
+        "shortBylineText": {
+         "runs": [
+          {
+           "text": "Coach fried potato",
+           "navigationEndpoint": {
+            "browseEndpoint": {
+             "browseId": "UCnrgYHAHIpK0JGDBYyV5UbA"
+            }
+           }
+          }
+         ]
+        },
+        "videoId": "unplayable1",
+        "selected": false,
+        "thumbnail": {
+         "thumbnails": [
+          {
+           "url": "https://i.ytimg.com/vi/tRB5OCnlPR4/hqdefault.jpg",
+           "width": 246,
+           "height": 138
+          },
+          {
+           "url": "https://i.ytimg.com/vi/tRB5OCnlPR4/hqdefault.jpg",
+           "width": 336,
+           "height": 188
+          }
+         ]
+        },
+        "unplayableText": {
+         "simpleText": "Video unavailable"
+        }
+       }
+      }
+     ]
+    }
+   }
+  }
+ }
+}

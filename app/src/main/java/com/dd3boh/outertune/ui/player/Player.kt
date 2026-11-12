@@ -9,6 +9,8 @@
 
 package com.dd3boh.outertune.ui.player
 
+import com.dd3boh.outertune.ui.dialog.TogetherSheet
+import androidx.compose.material.icons.rounded.Group
 import com.dd3boh.outertune.playback.PlayerConnection
 import com.dd3boh.outertune.playback.BatteryUse
 import com.dd3boh.outertune.LocalBatteryMode
@@ -19,6 +21,7 @@ import com.dd3boh.outertune.utils.ShareLinks
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.rememberUpdatedState
 import com.dd3boh.outertune.ui.utils.LocalAppBackdrop
+import com.dd3boh.outertune.ui.utils.LocalPlainDock
 import com.dd3boh.outertune.ui.utils.LocalGlassStill
 import com.dd3boh.outertune.ui.utils.stillGlass
 import com.dd3boh.outertune.ui.utils.LocalLandscape
@@ -44,6 +47,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import com.dd3boh.outertune.ui.component.rememberSleepTimerState
+import com.dd3boh.outertune.ui.component.openProxySetting
 import androidx.compose.material3.Icon
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -132,6 +136,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -178,6 +183,7 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.layout
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -244,10 +250,12 @@ import com.dd3boh.outertune.extensions.supportsWideScreen
 import com.dd3boh.outertune.extensions.tabMode
 import com.dd3boh.outertune.extensions.toggleRepeatMode
 import com.dd3boh.outertune.models.MediaMetadata
+import com.dd3boh.outertune.playback.SavedQueueShown
 import com.dd3boh.outertune.ui.component.BottomSheet
 import com.dd3boh.outertune.ui.component.BottomSheetState
 import com.dd3boh.outertune.ui.component.LocalQueueSheet
 import com.dd3boh.outertune.ui.component.button.ResizableIconButton
+import com.dd3boh.outertune.ui.component.dismissedAnchor
 import com.dd3boh.outertune.ui.component.rememberBottomSheetState
 import com.dd3boh.outertune.ui.menu.PlayerMenu
 import com.dd3boh.outertune.ui.theme.extractGradientColors
@@ -262,6 +270,9 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
 import kotlin.math.max
+
+/** The repeat button off: the repeat icon at this strength, as the media notification draws it (his word, 5 Nov 2026). */
+internal const val REPEAT_OFF_ALPHA = 0.4f
 
 @SuppressLint("UnusedBoxWithConstraintsScope")
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class, ExperimentalLayoutApi::class)
@@ -279,6 +290,21 @@ fun BottomSheetPlayer(
     val menuState = LocalMenuState.current
     val context = LocalContext.current
     val database = LocalDatabase.current
+
+    // The error screen's ways out of YouTube wanting a sign-in lead away from the player: the sheet
+    // goes down on the way, or the page opens under it unseen (as the queue's notes do).
+    val leaveForSignIn = remember(navController, state) {
+        {
+            navController.navigate("login")
+            state.collapseSoft()
+        }
+    }
+    val leaveForProxy = remember(state) {
+        {
+            openProxySetting()
+            state.collapseSoft()
+        }
+    }
 
     // Focus follows the sheet for the keys: opened from the mini player, it lands on play and
     // pause; closed again, it goes back to the mini player's title. Left alone it vanished with
@@ -513,9 +539,28 @@ fun BottomSheetPlayer(
 
     LaunchedEffect(qbInit, playerConnection.service.queueBoard.masterQueues.toList()) {
         Log.d(TAG, "Queues changed. qbInit = $qbInit")
-        if (qbInit && !playerConnection.service.queueBoard.masterQueues.isEmpty() && state.isDismissed) {
+        // Down, or on its way down: a queue that comes while the rule below is taking the sheet
+        // down (a song from the widget or a link, played as the app opens) brings it back up.
+        if (qbInit && !playerConnection.service.queueBoard.masterQueues.isEmpty() && (state.isDismissed || state.anchor == dismissedAnchor)) {
             Log.d(TAG, "Triggering sheet collapseSoft")
             state.collapseSoft()
+        }
+    }
+
+    // And down again when it is up over nothing to play. Android brings a closed app's screen back
+    // with the sheet where it was left, and with Persistent queue off no queue comes back with it:
+    // the mini player then sat there with Play, Next and Previous doing nothing, until it was
+    // swiped away (a tester, 10 Nov 2026; SavedQueueShown).
+    val sheetOverNothing = SavedQueueShown.sheetOverNothing(
+        queuesRead = qbInit,
+        queues = playerConnection.service.queueBoard.masterQueues.size,
+        songShown = mediaMetadata != null,
+        sheetUp = state.anchor != dismissedAnchor,
+    )
+    LaunchedEffect(sheetOverNothing) {
+        if (sheetOverNothing) {
+            Log.d(TAG, "The sheet is up over nothing to play: dismissed")
+            state.dismiss()
         }
     }
 
@@ -882,7 +927,7 @@ fun BottomSheetPlayer(
         // Only when the app backdrop exists, though, not whenever the setting is on: the rail
         // layout and anything below API 33 have none, the mini player then draws no panel of its
         // own, and a transparent sheet left its title lying over the list underneath.
-        collapsedBackgroundColor = if (liquidGlass && LocalAppBackdrop.current != null) Color.Transparent
+        collapsedBackgroundColor = if ((liquidGlass && LocalAppBackdrop.current != null) || LocalPlainDock.current) Color.Transparent
         else MaterialTheme.colorScheme.surfaceColorAtElevation(6.dp),
         // performFling only dismisses when this is non-null and falls back to collapse() when it
         // is not, so withholding the callback is what actually prevents the dismiss. BottomSheet
@@ -949,6 +994,13 @@ fun BottomSheetPlayer(
                 SleepTimerDialog(playerConnection) { showSleepTimerDialog = false }
             }
 
+            // A listening room's button, only while one is on. In both styles it comes right before
+            // the menu, so that the menu stays last (his word of 17 Oct 2026). It opens the room.
+            val room by playerConnection.service.together.collectAsState()
+            val inRoom = room != null
+            var showRoom by rememberSaveable { mutableStateOf(false) }
+            if (showRoom) TogetherSheet(onDismiss = { showRoom = false })
+
             // Glass for the connected buttons whenever the player has it, grouped controls or not:
             // they are separate buttons either way.
             val buttonBackdrop = if (liquidGlass) playerBackdrop else null
@@ -979,7 +1031,7 @@ fun BottomSheetPlayer(
             }
 
             // Classic: circles beside the title. Tertiary on the timer while it runs, and a
-            // tap then cancels it, as the menu's entry does. With the queue on a button it comes
+            // tap then opens its sheet, as the menu's entry does. With the queue on a button it comes
             // first, so like and the menu stay where they always were at the end of the row.
             val queueCircle: @Composable () -> Unit = {
                 PlayerCircleButton(
@@ -996,10 +1048,7 @@ fun BottomSheetPlayer(
                     contentDescription = stringResource(R.string.sleep_timer),
                     container = if (sleepTimerOn) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.primary,
                     content = if (sleepTimerOn) MaterialTheme.colorScheme.onTertiary else MaterialTheme.colorScheme.onPrimary,
-                    onClick = {
-                        if (sleepTimerOn) playerConnection.service.sleepTimer.clear()
-                        else showSleepTimerDialog = true
-                    }
+                    onClick = { showSleepTimerDialog = true }
                 )
             }
             val likeCircle: @Composable () -> Unit = {
@@ -1009,6 +1058,15 @@ fun BottomSheetPlayer(
                     container = MaterialTheme.colorScheme.primary,
                     content = MaterialTheme.colorScheme.onPrimary,
                     onClick = playerConnection::toggleLike
+                )
+            }
+            val roomCircle: @Composable () -> Unit = {
+                PlayerCircleButton(
+                    painter = rememberVectorPainter(Icons.Rounded.Group),
+                    contentDescription = stringResource(R.string.together_in_room),
+                    container = MaterialTheme.colorScheme.primary,
+                    content = MaterialTheme.colorScheme.onPrimary,
+                    onClick = { showRoom = true }
                 )
             }
             val menuCircle: @Composable () -> Unit = {
@@ -1031,6 +1089,7 @@ fun BottomSheetPlayer(
             val shareCircle: @Composable () -> Unit = {
                 PlayerCircleButton(
                     painter = rememberVectorPainter(Icons.Rounded.Share),
+                    nudge = SHARE_NUDGE,
                     contentDescription = stringResource(R.string.share),
                     container = MaterialTheme.colorScheme.primary,
                     content = MaterialTheme.colorScheme.onPrimary,
@@ -1073,6 +1132,10 @@ fun BottomSheetPlayer(
                     pinCircle(pin)
                     Spacer(modifier = Modifier.width(7.dp))
                 }
+                if (inRoom) {
+                    roomCircle()
+                    Spacer(modifier = Modifier.width(7.dp))
+                }
                 menuCircle()
             }
 
@@ -1089,15 +1152,17 @@ fun BottomSheetPlayer(
                     verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterVertically),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    // The queue first and the menu last with the pins between, half on each side.
+                    // The queue first and the menu last with the pins between, half on each side; a
+                    // listening room's circle, while one is on, right before the menu.
                     val pinned = classicPins(queueCircle = true)
-                    val count = pinned.size + 2
+                    val count = pinned.size + 2 + (if (inRoom) 1 else 0)
                     val onLeft = (count + 1) / 2
                     for (i in 0 until count) {
                         if ((i < onLeft) != left) continue
-                        when (i) {
-                            0 -> queueCircle()
-                            count - 1 -> menuCircle()
+                        when {
+                            i == 0 -> queueCircle()
+                            i == count - 1 -> menuCircle()
+                            inRoom && i == count - 2 -> roomCircle()
                             else -> pinCircle(pinned[i - 1])
                         }
                     }
@@ -1113,6 +1178,7 @@ fun BottomSheetPlayer(
                 when (pin) {
                     PlayerPin.SHARE -> PlayerActionSegment(
                         painter = rememberVectorPainter(Icons.Rounded.Share),
+                        nudge = SHARE_NUDGE,
                         contentDescription = stringResource(R.string.share),
                         shape = shape,
                         container = MaterialTheme.colorScheme.secondaryContainer,
@@ -1137,10 +1203,7 @@ fun BottomSheetPlayer(
                         shape = shape,
                         container = if (sleepTimerOn) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.secondaryContainer,
                         content = if (sleepTimerOn) MaterialTheme.colorScheme.onTertiary else MaterialTheme.colorScheme.onSecondaryContainer,
-                        onClick = {
-                            if (sleepTimerOn) playerConnection.service.sleepTimer.clear()
-                            else showSleepTimerDialog = true
-                        },
+                        onClick = { showSleepTimerDialog = true },
                         backdrop = buttonBackdrop,
                         glassIntensity = glassIntensity,
                     )
@@ -1203,17 +1266,17 @@ fun BottomSheetPlayer(
             // Lyrics, the sleep timer and the menu under the transport controls, filled while the
             // thing they control is on. The timer shows what is left, so a running timer is visible
             // without opening anything, and a tap on it cancels, as the menu's entry does. With the
-            // queue on a button it joins the group in front of lyrics, the other button that opens
-            // a view, and the three stay exactly where they sit with it off. A small player always
-            // has it, so there it is simply one of four, all centred together.
+            // queue on a button it is the first of the row, in front of lyrics, the other button
+            // that opens a view, and the whole row is centred with it in (#142). A small player
+            // always has it, so there it is simply one of four, all centred together.
             val quickActions: @Composable () -> Unit = {
                 val inactive = onBackgroundColor.copy(alpha = 0.12f)
                 val rowPins = pins[PinPlace.CONNECTED_ROW].orEmpty().filter { it != PlayerPin.SHARE || canShareSong }
                 val actionWidth = if (compactPlayer) {
                     compactQuickActionWidth(
                         rowWidth = windowWidth() - hPadding * 2,
-                        // The queue, the pins and the menu.
-                        count = rowPins.size + 2,
+                        // The queue, the pins, the room while one is on, and the menu.
+                        count = rowPins.size + 2 + (if (inRoom) 1 else 0),
                         gap = ConnectedButtonGap,
                         preferred = QuickActionWidth,
                     )
@@ -1232,16 +1295,15 @@ fun BottomSheetPlayer(
                         onClick = openQueue,
                     )
                 }
-                CentredRowWithLeading(
+                CentredRow(
                     gap = ConnectedButtonGap,
                     gutter = hPadding,
-                    leading = if (queueLayout.queueButton && !compactPlayer) queueSegment else null,
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = hPadding)
                         .padding(top = 16.dp)
                 ) {
-                    if (compactPlayer) queueSegment()
+                    if (queueLayout.queueButton) queueSegment()
                     rowPins.forEachIndexed { i, pin ->
                         val shape = connectedShape(first = i == 0 && !queueLayout.queueButton, last = false)
                         val liked = currentSong?.song?.liked == true
@@ -1269,13 +1331,11 @@ fun BottomSheetPlayer(
                                 label = if (sleepTimerOn && sleepTimerLeft > 0) makeTimeString(sleepTimerLeft) else null,
                                 backdrop = buttonBackdrop,
                                 glassIntensity = glassIntensity,
-                                onClick = {
-                                    if (sleepTimerOn) playerConnection.service.sleepTimer.clear()
-                                    else showSleepTimerDialog = true
-                                },
+                                onClick = { showSleepTimerDialog = true },
                             )
                             PlayerPin.SHARE -> PlayerActionSegment(
                                 painter = rememberVectorPainter(Icons.Rounded.Share),
+                                nudge = SHARE_NUDGE,
                                 contentDescription = stringResource(R.string.share),
                                 shape = shape,
                                 container = inactive,
@@ -1300,10 +1360,24 @@ fun BottomSheetPlayer(
                             )
                         }
                     }
+                    if (inRoom) {
+                        PlayerActionSegment(
+                            painter = rememberVectorPainter(Icons.Rounded.Group),
+                            contentDescription = stringResource(R.string.together_in_room),
+                            shape = connectedShape(first = rowPins.isEmpty() && !queueLayout.queueButton, last = false),
+                            container = MaterialTheme.colorScheme.primary,
+                            filled = true,
+                            content = MaterialTheme.colorScheme.onPrimary,
+                            width = actionWidth,
+                            backdrop = buttonBackdrop,
+                            glassIntensity = glassIntensity,
+                            onClick = { showRoom = true },
+                        )
+                    }
                     PlayerActionSegment(
                         painter = rememberVectorPainter(Icons.Rounded.MoreVert),
                         contentDescription = stringResource(R.string.options),
-                        shape = connectedShape(first = rowPins.isEmpty() && !queueLayout.queueButton, last = true),
+                        shape = connectedShape(first = rowPins.isEmpty() && !inRoom && !queueLayout.queueButton, last = true),
                         container = inactive,
                         filled = false,
                         content = onBackgroundColor,
@@ -1470,9 +1544,8 @@ fun BottomSheetPlayer(
                         },
                         gutter = hPadding,
                         color = onBackgroundColor,
+                        below = controlSizes.gapAboveTransport,
                     )
-
-                    Spacer(Modifier.height(controlSizes.gapAboveTransport))
 
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -1624,7 +1697,8 @@ fun BottomSheetPlayer(
                         Box(modifier = Modifier.weight(1f)) {
                             ResizableIconButton(
                                 icon = when (repeatMode) {
-                                    REPEAT_MODE_OFF -> R.drawable.repeat_off
+                                    // Off is the repeat icon greyed out, as the notification draws it (his word, 5 Nov 2026).
+                                    REPEAT_MODE_OFF -> R.drawable.repeat_on
                                     REPEAT_MODE_ALL -> R.drawable.repeat_on
                                     REPEAT_MODE_ONE -> R.drawable.repeat_one
                                     else -> throw IllegalStateException()
@@ -1634,7 +1708,7 @@ fun BottomSheetPlayer(
                                     .padding(4.dp)
                                     .align(Alignment.Center)
                                     .named(repeatName(repeatMode)),
-                                color = onBackgroundColor,
+                                color = if (repeatMode == REPEAT_MODE_OFF) onBackgroundColor.copy(alpha = REPEAT_OFF_ALPHA) else onBackgroundColor,
                                 enabled = playerConnection.player.currentMediaItem != null,
                                 onClick = {
                                     playerConnection.player.toggleRepeatMode()
@@ -1702,7 +1776,9 @@ fun BottomSheetPlayer(
                                     .animateContentSize(),
                                 showLyricsOnClick = true,
                                 customMediaMetadata = mediaMetadata,
-                                lyricsBottomPadding = queueClearance
+                                lyricsBottomPadding = queueClearance,
+                                onSignIn = leaveForSignIn,
+                                onProxy = leaveForProxy,
                             )
                         } else {
                             SwipeableArtwork(
@@ -1720,7 +1796,9 @@ fun BottomSheetPlayer(
                                         .animateContentSize(),
                                     showLyricsOnClick = true,
                                     customMediaMetadata = it,
-                                    lyricsBottomPadding = queueClearance
+                                    lyricsBottomPadding = queueClearance,
+                                    onSignIn = leaveForSignIn,
+                                    onProxy = leaveForProxy,
                                 )
                             }
                         }
@@ -1822,7 +1900,9 @@ fun BottomSheetPlayer(
                                     .animateContentSize(),
                                 sliderPositionProvider = { sliderPosition },
                                 showLyricsOnClick = true,
-                                customMediaMetadata = mediaMetadata
+                                customMediaMetadata = mediaMetadata,
+                                onSignIn = leaveForSignIn,
+                                onProxy = leaveForProxy,
                             )
                         } else {
                             SwipeableArtwork(
@@ -1840,7 +1920,9 @@ fun BottomSheetPlayer(
                                         .animateContentSize(),
                                     sliderPositionProvider = { sliderPosition },
                                     showLyricsOnClick = true,
-                                    customMediaMetadata = it
+                                    customMediaMetadata = it,
+                                    onSignIn = leaveForSignIn,
+                                    onProxy = leaveForProxy,
                                 )
                             }
                         }
@@ -2152,68 +2234,42 @@ private fun connectedShape(first: Boolean, last: Boolean): RoundedCornerShape {
     )
 }
 
-/** How close to the edge of the gutter a leading button may come before the row moves over. */
-private val LeadingEdgeMargin = 8.dp
-
 /**
- * A row of [buttons] centred in its width, placed exactly as a Row centred and spaced [gap] apart
- * would place them, with [leading], when there is one, just before the first of them at the same
- * gap.
+ * A row of buttons centred in its width as a whole, placed exactly as a Row centred and spaced [gap]
+ * apart would place them, so it has as much space before its first button as after its last.
  *
- * The leading button is left out of the centring on purpose. It is how the queue button joins the
- * row under the controls without moving lyrics, the sleep timer or the menu, which people press
- * from memory: those three sit exactly where they do with the queue button off, and it takes the
- * space in front of lyrics. It may reach into the [gutter] beside the row, up to
- * [LeadingEdgeMargin] from its edge. Only a phone too narrow even for that, with the timer's time
- * showing, moves the whole row over, and then by no more than it needs.
+ * The queue button, when it is on, is the first of them like any other: leaving it out of the
+ * centring put the others in the middle and the whole row to the left of it (#142). A row wider
+ * than its space reaches into the [gutter] beside it, evenly on both sides and no nearer than
+ * [QuickRowEdgeMargin] to the edge of the screen, and past that its icon-only buttons give up a
+ * little width each, down to what an icon needs, see [fitQuickActionWidths]. Nothing is shifted to
+ * one side.
  */
 @Composable
-private fun CentredRowWithLeading(
+private fun CentredRow(
     gap: Dp,
     gutter: Dp,
-    leading: (@Composable () -> Unit)?,
     modifier: Modifier = Modifier,
     buttons: @Composable () -> Unit,
 ) {
-    Layout(
-        contents = listOf<@Composable () -> Unit>(leading ?: {}, buttons),
-        modifier = modifier,
-    ) { (leadingMeasurables, buttonMeasurables), constraints ->
+    Layout(content = buttons, modifier = modifier) { measurables, constraints ->
         val loose = constraints.copy(minWidth = 0, minHeight = 0)
-        val placeables = buttonMeasurables.map { it.measure(loose) }
-        val lead = leadingMeasurables.firstOrNull()?.measure(loose)
+        val placeables = measurables.map { it.measure(loose) }
+        val natural = IntArray(placeables.size) { placeables[it].width }
         val gapPx = gap.roundToPx()
-        val sizes = IntArray(placeables.size) { placeables[it].width }
         val width = if (constraints.hasBoundedWidth) constraints.maxWidth
-        else sizes.sum() + gapPx * (sizes.size - 1).coerceAtLeast(0)
-        val height = constraints.constrainHeight((placeables + listOfNotNull(lead)).maxOfOrNull { it.height } ?: 0)
+        else natural.sum() + gapPx * (natural.size - 1).coerceAtLeast(0)
 
-        // The very arrangement the Row used, so the buttons land on the same pixels as before.
-        val positions = IntArray(placeables.size)
-        with(Arrangement.spacedBy(gap, Alignment.CenterHorizontally)) {
-            arrange(width, sizes, layoutDirection, positions)
+        // Only a row too wide for its room measures again, and only the buttons that give way.
+        val widths = fitQuickActionWidths(natural, gapPx, quickRowRoom(width, gutter), QuickActionIconOnlyWidth.roundToPx())
+        val fitted = measurables.mapIndexed { i, measurable ->
+            if (widths[i] == natural[i]) placeables[i] else measurable.measure(loose.copy(minWidth = widths[i], maxWidth = widths[i]))
         }
-
-        // Start is on the left in a left-to-right layout and on the right otherwise, and the
-        // arrangement has already mirrored the buttons, so the leading one goes on whichever side
-        // of the first button reads as before it.
-        val reach = (gutter - LeadingEdgeMargin).coerceAtLeast(0.dp).roundToPx()
-        var shift = 0
-        var leadX = 0
-        if (lead != null && placeables.isNotEmpty()) {
-            if (layoutDirection == LayoutDirection.Ltr) {
-                leadX = positions[0] - gapPx - lead.width
-                if (leadX < -reach) shift = -reach - leadX
-            } else {
-                leadX = positions[0] + sizes[0] + gapPx
-                val over = leadX + lead.width - (width + reach)
-                if (over > 0) shift = -over
-            }
-        }
+        val positions = quickRowPositions(IntArray(fitted.size) { fitted[it].width }, gap, width, layoutDirection)
+        val height = constraints.constrainHeight(fitted.maxOfOrNull { it.height } ?: 0)
 
         layout(width, height) {
-            placeables.forEachIndexed { index, placeable -> placeable.place(positions[index] + shift, 0) }
-            lead?.place(leadX + shift, 0)
+            fitted.forEachIndexed { index, placeable -> placeable.place(positions[index], 0) }
         }
     }
 }
@@ -2292,9 +2348,27 @@ private fun SeekBar(
     onKey: (KeyEvent) -> Boolean,
     gutter: Dp,
     color: Color,
+    /** The room under the times, down to the buttons: part of the strip a drag is taken on. */
+    below: Dp,
 ) {
     val shown = sliderPosition() ?: position()
     val seekInteraction = remember { MutableInteractionSource() }
+    // The bar's own height, under which a drag must go across to be the bar's.
+    var barBottom by remember { mutableIntStateOf(0) }
+    // The bar, its times and the room under them take a drag (SeekDrag.kt): the bar alone was 48 dp
+    // to catch. Half the bar thumb's 4 dp width, inside the side padding, is where the track starts.
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .seekDrag(
+                duration,
+                trackInset = gutter + 2.dp,
+                rtl = LocalLayoutDirection.current == LayoutDirection.Rtl,
+                barBottom = { barBottom.toFloat() },
+                onSlide = onSlide,
+                onSlideDone = onSlideDone,
+            )
+    ) {
     Slider(
         value = shown.toFloat(),
         valueRange = 0f..(if (duration == C.TIME_UNSET) 0f else duration.toFloat()),
@@ -2319,6 +2393,7 @@ private fun SeekBar(
         },
         modifier = Modifier
             .padding(horizontal = gutter)
+            .onSizeChanged { barBottom = it.height }
             .onPreviewKeyEvent(onKey)
     )
 
@@ -2345,6 +2420,9 @@ private fun SeekBar(
             overflow = TextOverflow.Ellipsis,
         )
     }
+
+    Spacer(Modifier.height(below))
+    }
 }
 
 /**
@@ -2361,6 +2439,12 @@ internal fun rememberTabMode(): Boolean {
 }
 
 /** The classic player button: a 36dp circle, sitting a little low to line up with the title. */
+/**
+ * Share's glyph is centred by its box, but two of its three dots are on the right, so in a round
+ * button it looks pushed right: on the S25U on 27 Oct 2026 its ink sat 1.6 dp right of the middle.
+ */
+private val SHARE_NUDGE = (-1).dp
+
 @Composable
 private fun PlayerCircleButton(
     painter: Painter,
@@ -2368,6 +2452,7 @@ private fun PlayerCircleButton(
     container: Color,
     content: Color,
     onClick: () -> Unit,
+    nudge: Dp = 0.dp,
 ) {
     Box(
         contentAlignment = Alignment.Center,
@@ -2382,7 +2467,7 @@ private fun PlayerCircleButton(
             painter = painter,
             contentDescription = contentDescription,
             tint = content,
-            modifier = Modifier.size(24.dp)
+            modifier = Modifier.offset(x = nudge).size(24.dp)
         )
     }
 }
@@ -2402,6 +2487,8 @@ private fun PlayerActionSegment(
     glassIntensity: Float = 1f,
     /** Whether [container] is a real fill (on, or a primary action) rather than the idle wash. */
     filled: Boolean = true,
+    /** Moves the icon sideways, for a glyph whose weight is off its middle ([SHARE_NUDGE]). */
+    nudge: Dp = 0.dp,
 ) {
     Row(
         horizontalArrangement = Arrangement.Center,
@@ -2441,7 +2528,7 @@ private fun PlayerActionSegment(
             painter = painter,
             contentDescription = contentDescription,
             tint = content,
-            modifier = Modifier.size(22.dp)
+            modifier = Modifier.offset(x = nudge).size(22.dp)
         )
         if (label != null) {
             Spacer(Modifier.width(6.dp))

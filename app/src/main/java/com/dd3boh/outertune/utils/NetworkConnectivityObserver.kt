@@ -8,6 +8,7 @@
 
 package com.dd3boh.outertune.utils
 
+import android.util.Log
 import android.content.Context
 import android.net.ConnectivityManager
 import android.net.Network
@@ -21,8 +22,10 @@ class NetworkConnectivityObserver(
     /** Told when the network in use changes to another one, as the throttle is. */
     private val onNetworkChanged: () -> Unit = {},
 ) {
+    // The application's own: a realme phone on Android 11 took the activity's for the package
+    // "android" and refused the callback below, which crashed the app as it opened (#123).
     private val connectivityManager =
-        context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        context.applicationContext.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
 
     private val _networkStatus = Channel<Boolean>(Channel.CONFLATED)
     val networkStatus = _networkStatus.receiveAsFlow()
@@ -30,9 +33,17 @@ class NetworkConnectivityObserver(
     /** Guarded by itself: the callbacks arrive on a platform thread, the set is read from ours. */
     private val availableNetworks = mutableSetOf<Network>()
 
+    /** Whether the trail last heard that there was no network: only a return after that is "network back". */
+    @Volatile
+    private var toldOffline = false
+
     private val networkCallback = object : ConnectivityManager.NetworkCallback() {
         override fun onAvailable(network: Network) {
             synchronized(availableNetworks) { availableNetworks.add(network) }
+            if (toldOffline) {
+                toldOffline = false
+                ReportTrail.thisRun.network(ReportTrail.Network.BACK)
+            }
             _networkStatus.trySend(true)
         }
 
@@ -45,6 +56,10 @@ class NetworkConnectivityObserver(
             val remaining = synchronized(availableNetworks) {
                 availableNetworks.remove(network)
                 availableNetworks.size
+            }
+            if (remaining == 0 && !toldOffline) {
+                toldOffline = true
+                ReportTrail.thisRun.network(ReportTrail.Network.LOST)
             }
             _networkStatus.trySend(remaining > 0)
         }
@@ -68,7 +83,11 @@ class NetworkConnectivityObserver(
             // immediately re-trips; under-clearing costs the user their music.
             Throttle.onNetworkChanged()
             NetworkPace.forget()
+            YouTubeTrouble.networkChanged()
+            // What YouTube refused a radio on this network it may well answer on that one.
+            com.dd3boh.outertune.playback.RadioAnswers.forget()
             runCatching { onNetworkChanged() }
+            runCatching { ReportTrail.thisRun.networkChangedTo(PhoneState.networkKind(connectivityManager.getNetworkCapabilities(network))) }
         }
     }
 
@@ -80,7 +99,10 @@ class NetworkConnectivityObserver(
         val request = NetworkRequest.Builder()
             .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
             .build()
-        connectivityManager.registerNetworkCallback(request, networkCallback)
+        // A phone that refuses it (#123: "Package android does not belong to" its uid) leaves the
+        // app with the network as it was at the start rather than not opening at all.
+        runCatching { connectivityManager.registerNetworkCallback(request, networkCallback) }
+            .onFailure { Log.w("NetworkObserver", "This phone refused the network callback; the network is taken as it is now", it) }
         runCatching { connectivityManager.registerDefaultNetworkCallback(defaultCallback) }
     }
 
@@ -91,7 +113,7 @@ class NetworkConnectivityObserver(
 
     fun unregister() {
         runCatching { connectivityManager.unregisterNetworkCallback(defaultCallback) }
-        connectivityManager.unregisterNetworkCallback(networkCallback)
+        runCatching { connectivityManager.unregisterNetworkCallback(networkCallback) }
         // Ends the collection too, which would otherwise wait on this channel for good.
         _networkStatus.close()
     }

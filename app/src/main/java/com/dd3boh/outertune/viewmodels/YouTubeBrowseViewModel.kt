@@ -1,5 +1,6 @@
 package com.dd3boh.outertune.viewmodels
 
+import com.dd3boh.outertune.models.ContentFilter
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -23,7 +24,11 @@ class YouTubeBrowseViewModel @Inject constructor(
     init {
         viewModelScope.launch {
             YouTube.browse(browseId, params).onSuccess {
-                result.value = it
+                // Without a blocked artist's songs, albums and face (ArtistBlock); a shelf left empty goes.
+                val block = ContentFilter.current.blocked
+                result.value = if (block.isEmpty) it else it.copy(
+                    items = it.items.map { shelf -> shelf.copy(items = block.apply(shelf.items)) }.filter { shelf -> shelf.items.isNotEmpty() }
+                )
             }.onFailure {
                 reportException(it)
             }

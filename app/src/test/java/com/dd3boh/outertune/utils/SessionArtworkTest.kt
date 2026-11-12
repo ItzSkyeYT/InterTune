@@ -239,4 +239,21 @@ class SessionArtworkTest {
         assertEquals(1, sampleSize(120, 120, 900))
         assertEquals(1, sampleSize(0, 0, 900))
     }
+
+    @Test
+    fun `a cover larger than the system keeps is brought down to it once, and a smaller one is left as it is`() {
+        // the system scales anything larger at every hand-out (#108): done once here instead
+        assertEquals(880 to 495, systemCoverSize(1920, 1080, 880))
+        assertEquals(495 to 880, systemCoverSize(1080, 1920, 880))
+        assertEquals(880 to 880, systemCoverSize(1760, 1760, 880))
+        assertEquals(880 to 10, systemCoverSize(881, 10, 880))
+        assertEquals("never under one pixel", 880 to 1, systemCoverSize(5000, 2, 880))
+        assertEquals(null, systemCoverSize(880, 880, 880))
+        assertEquals("never blown up", null, systemCoverSize(544, 544, 880))
+        assertEquals(null, systemCoverSize(0, 0, 880))
+        for ((w, h) in listOf(1919 to 1081, 3001 to 2999, 4000 to 4000, 1281 to 721)) {
+            val (fw, fh) = systemCoverSize(w, h, 880)!!
+            assertTrue("$w x $h became $fw x $fh", fw <= 880 && fh <= 880 && maxOf(fw, fh) == 880)
+        }
+    }
 }

@@ -1,0 +1,34 @@
+Version 0.10.9
+
+Poprawki. Brak nowych funkcji do nauki, nic nie zostało przeniesione.
+
+=== Polubione utwory ===
+• Polubienia przestały samoczynnie znikać. Jeśli YouTube zwracał pustą lub niepełną listę, InterTune uznawał to za fakt i cicho usuwał polubienie dla brakujących utworów. Pusta odpowiedź jest teraz ignorowana, a utwór traci polubienie dopiero po trzech dniach nieobecności.
+• Pobieranie polubionych utworów zlicza te pozycje, które zostały ukończone, a nie rozpoczęte, a anulowanie nie usuwa już utworów spoza danej partii.
+
+=== Odtwarzanie ===
+• Utwór, którego nie udało się załadować, nie blokuje już kolejki – odtwarzacz automatycznie przechodzi do następnej piosenki.
+• Utwory z ograniczeniem wiekowym są odpowiednio oznaczane, zamiast odtwarzać 30-sekundową miniaturę lub wyłączać się bez wyjaśnienia.
+• Przyciski powiadomień wyświetlają się poprawnie na telefonach Samsung. Opcje polubienia, losowania i powtarzania nie pojawiały się w One UI.
+• Zapytanie, które nie zwraca odpowiedzi, kończy się teraz błędem, zamiast zawieszać otwarty odtwarzacz.
+
+=== Szybki wybór ===
+• 30-sekundowe zapowiedzi utworów nie są już wyświetlane.
+• Maksymalnie dwa utwory od jednego wykonawcy, dzięki czemu jeden gatunek muzyczny nie zdominuje całego wiersza.
+• Radio nie uruchamia się już od utworów, które zostały jedynie wyświetlone użytkownikowi.
+
+=== Interfejs ===
+• Wskaźnik odświeżania zatrzymuje się od razu, gdy wybrany wiersz jest gotowy, a nie kilka sekund później.
+• Klawiatura pozostaje otwarta podczas pisania. Wcześniej nowe sugestie zmieniające listę były błędnie interpretowane przez aplikację jako przewijanie ekranu.
+• Pasek nawigacji zmniejsza się, gdy okno jest zbyt krótkie, dzięki czemu pozostaje użyteczny w trybie podzielonego ekranu.
+• Przycisk wyjaśniający działanie danej opcji jest wystarczająco duży, by łatwo w niego trafić.
+
+=== Kopie zapasowe ===
+• Dodano opcje zapisu co 6 godzin, dzień, tydzień, miesiąc, 6 miesięcy lub rok, zamiast dotychczasowych opcji dziennych lub tygodniowych.
+• Tworzenie kopii zapasowej wyświetla wskaźnik ładowania i działa w tle, zamiast zawieszać aplikację bez żadnego komunikatu.
+
+=== Jakość dźwięku ===
+• Zwiększenie jakości dźwięku w ustawieniach powoduje ponowne pobranie utworów zapisanych w pamięci podręcznej w niższej jakości. Pobrane pliki pozostają nienaruszone.
+
+Pełna lista zmian:
+https://github.com

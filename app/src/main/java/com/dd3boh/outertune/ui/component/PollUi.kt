@@ -6,6 +6,7 @@
 
 package com.dd3boh.outertune.ui.component
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.BorderStroke
@@ -50,6 +51,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -79,8 +82,8 @@ import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.window.DialogWindowProvider
 import androidx.core.view.WindowCompat
 import com.dd3boh.outertune.R
-import com.dd3boh.outertune.constants.Polls
 import com.dd3boh.outertune.utils.PollChecker
+import com.dd3boh.outertune.utils.PollFollowUps
 
 /**
  * The line at the top of Home that says a question is waiting.
@@ -171,6 +174,10 @@ fun PollBanner(
  *
  * Nothing here is compulsory. Closing without answering leaves the poll unanswered rather than
  * marking it dealt with, so it can still be found later from settings.
+ *
+ * An option may have a follow-up question (PollFollowUps). Each picked option that has one asks it
+ * next, in the order of the options, with Next to go on and Back to return, then one Send for the
+ * whole answer. A poll without follow-ups is the one question and its Send, as it always was.
  */
 @Composable
 fun PollDialog(
@@ -183,9 +190,27 @@ fun PollDialog(
     var selected by rememberSaveable(poll.id) { mutableStateOf(listOf<String>()) }
     // The words for an "Other" choice, kept like the choices.
     var otherText by rememberSaveable(poll.id) { mutableStateOf("") }
-    val writing = otherChosen(poll, selected)
-    val canSend = canSend(poll, selected, otherText)
-    val send = { onSubmit(selected, otherText.trim().takeIf { writing && it.isNotEmpty() }) }
+    // The follow-ups' picks as "<optionId>/<followUpOptionId>", and the words of their Other by option.
+    var deeper by rememberSaveable(poll.id) { mutableStateOf(listOf<String>()) }
+    var deeperText by rememberSaveable(poll.id) { mutableStateOf(mapOf<String, String>()) }
+    // The question on screen: 0 is the first, then one for each picked option that has a follow-up.
+    var step by rememberSaveable(poll.id) { mutableIntStateOf(0) }
+    val steps = PollFollowUps.steps(poll, selected)
+    val at = step.coerceIn(0, steps.size)
+    val owner = steps.getOrNull(at - 1)
+    val followUp = owner?.then
+    val picks = owner?.let { PollFollowUps.picksIn(it, deeper) }.orEmpty()
+    val ownWords = owner?.let { deeperText[it.id] }.orEmpty()
+    val last = at == steps.size
+
+    val words = PollFollowUps.words(poll, selected, otherText, deeper, deeperText)
+    val writing = words != null || if (followUp == null) otherChosen(poll, selected)
+        else followUp.options.any { it.other && it.id in picks }
+    val canSend = if (followUp == null) canSend(poll, selected, otherText) else PollFollowUps.canGoOn(followUp, picks, ownWords)
+    val send = { onSubmit(PollFollowUps.answerIds(poll, selected, deeper), words) }
+    val goOn = if (last) send else { { step = at + 1 } }
+    val back: (() -> Unit)? = if (at > 0) { { step = at - 1 } } else null
+    val room = { box: String? -> PollFollowUps.room(poll, selected, otherText, deeper, deeperText, box) }
 
     val onToggle: (PollChecker.Option) -> Unit = { option ->
         selected = when {
@@ -195,6 +220,10 @@ fun PollDialog(
             else -> selected + option.id
         }
     }
+    val onToggleDeeper: (PollChecker.Option) -> Unit = { option ->
+        if (owner != null) deeper = PollFollowUps.toggle(owner, option, deeper)
+    }
+    val onDeeperText: (String) -> Unit = { text -> if (owner != null) deeperText = deeperText + (owner.id to text) }
 
     Dialog(
         onDismissRequest = onClose,
@@ -204,6 +233,9 @@ fun PollDialog(
     ) {
         // The poll fills the screen, so with the keyboard up it has to shrink rather than slide.
         DialogAboveKeyboard(always = true)
+        // Back on a follow-up returns to the question before it; on the first, it closes, as before.
+        // Here inside, because the dialog's window hears the back key, not the screen under it.
+        BackHandler(enabled = at > 0) { step = at - 1 }
         // Edge to edge, the status bar's icons are the poll's to set: dark on a light page.
         val view = LocalView.current
         val lightPage = MaterialTheme.colorScheme.surface.luminance() > 0.5f
@@ -235,69 +267,87 @@ fun PollDialog(
                 Column(Modifier.fillMaxSize()) {
                     PollTopBar(onClose)
 
-                    if (wide) {
-                        Row(
-                            modifier = Modifier
-                                .weight(1f)
-                                .fillMaxWidth()
-                                .padding(horizontal = 24.dp),
-                            horizontalArrangement = Arrangement.spacedBy(32.dp),
-                        ) {
-                            Column(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .verticalScroll(rememberScrollState())
-                            ) {
-                                PollQuestion(poll, heroHeight = 260.dp)
-                                Spacer(Modifier.height(24.dp))
+                    // Keyed by the step, so each question opens at its top with its own scroll.
+                    key(at) {
+                        val question: @Composable (androidx.compose.ui.unit.Dp) -> Unit = { hero ->
+                            if (owner == null || followUp == null) PollQuestion(poll, heroHeight = hero)
+                            else FollowUpQuestion(owner, followUp)
+                        }
+                        val options: @Composable () -> Unit = {
+                            if (owner == null || followUp == null) {
+                                PollOptions(poll.options, poll.multiple, selected, onToggle, otherText, room(null)) { otherText = it }
+                            } else {
+                                PollOptions(followUp.options, followUp.multiple, picks, onToggleDeeper, ownWords, room(owner.id), onDeeperText)
                             }
-                            Column(
+                        }
+                        if (wide) {
+                            Row(
                                 modifier = Modifier
                                     .weight(1f)
-                                    .fillMaxHeight()
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 24.dp),
+                                horizontalArrangement = Arrangement.spacedBy(32.dp),
                             ) {
                                 Column(
                                     modifier = Modifier
                                         .weight(1f)
                                         .verticalScroll(rememberScrollState())
                                 ) {
-                                    PollOptions(poll, selected, onToggle, otherText) { otherText = it }
+                                    question(260.dp)
+                                    Spacer(Modifier.height(24.dp))
                                 }
+                                Column(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .fillMaxHeight()
+                                ) {
+                                    Column(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .verticalScroll(rememberScrollState())
+                                    ) {
+                                        options()
+                                    }
+                                    PollFooter(
+                                        enabled = canSend,
+                                        writing = writing,
+                                        next = !last,
+                                        onSubmit = goOn,
+                                        onClose = onClose,
+                                        onBack = back,
+                                    )
+                                }
+                            }
+                        } else {
+                            Column(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .verticalScroll(rememberScrollState())
+                                    .widthIn(max = 720.dp)
+                                    .align(Alignment.CenterHorizontally)
+                                    .padding(horizontal = 24.dp)
+                            ) {
+                                question(200.dp)
+                                Spacer(Modifier.height(24.dp))
+                                options()
+                                Spacer(Modifier.height(16.dp))
+                            }
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .widthIn(max = 720.dp)
+                                    .align(Alignment.CenterHorizontally)
+                                    .padding(horizontal = 24.dp)
+                            ) {
                                 PollFooter(
                                     enabled = canSend,
                                     writing = writing,
-                                    onSubmit = send,
+                                    next = !last,
+                                    onSubmit = goOn,
                                     onClose = onClose,
+                                    onBack = back,
                                 )
                             }
-                        }
-                    } else {
-                        Column(
-                            modifier = Modifier
-                                .weight(1f)
-                                .verticalScroll(rememberScrollState())
-                                .widthIn(max = 720.dp)
-                                .align(Alignment.CenterHorizontally)
-                                .padding(horizontal = 24.dp)
-                        ) {
-                            PollQuestion(poll, heroHeight = 200.dp)
-                            Spacer(Modifier.height(24.dp))
-                            PollOptions(poll, selected, onToggle, otherText) { otherText = it }
-                            Spacer(Modifier.height(16.dp))
-                        }
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .widthIn(max = 720.dp)
-                                .align(Alignment.CenterHorizontally)
-                                .padding(horizontal = 24.dp)
-                        ) {
-                            PollFooter(
-                                enabled = canSend,
-                                writing = writing,
-                                onSubmit = send,
-                                onClose = onClose,
-                            )
                         }
                     }
                 }
@@ -351,19 +401,42 @@ private fun PollQuestion(poll: PollChecker.Poll, heroHeight: androidx.compose.ui
     }
 }
 
+/** A follow-up, under the answer it follows, so the second question reads as part of the first. */
+@Composable
+private fun FollowUpQuestion(owner: PollChecker.Option, followUp: PollChecker.FollowUp) {
+    Text(
+        text = owner.label,
+        style = MaterialTheme.typography.labelLarge,
+        color = MaterialTheme.colorScheme.primary,
+    )
+    Spacer(Modifier.height(6.dp))
+    Text(
+        text = followUp.question,
+        style = MaterialTheme.typography.headlineSmall,
+        fontWeight = FontWeight.Bold,
+    )
+    followUp.body?.let {
+        Spacer(Modifier.height(10.dp))
+        FormattedBody(it)
+    }
+}
+
 @Composable
 private fun PollOptions(
-    poll: PollChecker.Poll,
+    options: List<PollChecker.Option>,
+    multiple: Boolean,
     selected: List<String>,
     onToggle: (PollChecker.Option) -> Unit,
     otherText: String,
+    /** How long the words may be: all of an answer's room, unless another box of it holds some. */
+    room: Int,
     onOtherText: (String) -> Unit,
 ) {
-    poll.options.forEach { option ->
+    options.forEach { option ->
         PollOption(
             option = option,
             selected = option.id in selected,
-            multiple = poll.multiple,
+            multiple = multiple,
             onClick = { onToggle(option) },
         )
         // An "Other" choice opens a box for the person's own words, right under it, with the
@@ -379,9 +452,9 @@ private fun PollOptions(
             Spacer(Modifier.height(8.dp))
             OutlinedTextField(
                 value = otherText,
-                onValueChange = { onOtherText(it.take(Polls.MAX_TEXT_CHARS)) },
+                onValueChange = { onOtherText(it.take(room)) },
                 placeholder = { Text(option.placeholder ?: stringResource(R.string.poll_other_hint)) },
-                supportingText = { Text("${otherText.length} / ${Polls.MAX_TEXT_CHARS}") },
+                supportingText = { Text("${otherText.length} / $room") },
                 minLines = 2,
                 maxLines = 5,
                 shape = RoundedCornerShape(16.dp),
@@ -406,8 +479,12 @@ internal fun canSend(poll: PollChecker.Poll, selected: List<String>, otherText: 
 private fun PollFooter(
     enabled: Boolean,
     writing: Boolean,
+    /** A follow-up comes after this question: the button goes on to it rather than sending. */
+    next: Boolean,
     onSubmit: () -> Unit,
     onClose: () -> Unit,
+    /** On a follow-up: back to the question before it, in place of Not now. */
+    onBack: (() -> Unit)?,
 ) {
     Column(Modifier.padding(top = 8.dp, bottom = 8.dp)) {
         // Outside the scrolling area on purpose. This is the claim the whole feature rests on, and
@@ -448,15 +525,15 @@ private fun PollFooter(
                 .height(52.dp),
         ) {
             Text(
-                text = stringResource(R.string.poll_send),
+                text = stringResource(if (next) R.string.action_next else R.string.poll_send),
                 style = MaterialTheme.typography.titleSmall,
             )
         }
         TextButton(
-            onClick = onClose,
+            onClick = onBack ?: onClose,
             modifier = Modifier.fillMaxWidth(),
         ) {
-            Text(stringResource(R.string.poll_not_now))
+            Text(stringResource(if (onBack != null) R.string.action_back else R.string.poll_not_now))
         }
     }
 }

@@ -31,6 +31,13 @@ internal class DownloadRun : DownloadManager.Listener {
     /** The songs of this run that have ended, landed or failed. */
     private val ended = ConcurrentHashMap.newKeySet<String>()
 
+    /**
+     * Of [ended], the ones that failed. The app removes a failed download at once to free the bytes
+     * it had (DownloadUtil's listener), and a failed song stays ended through that removal: the
+     * count went back by one for each failure otherwise.
+     */
+    private val failed = ConcurrentHashMap.newKeySet<String>()
+
     val endedCount: Int get() = ended.size
 
     override fun onDownloadChanged(downloadManager: DownloadManager, download: Download, finalException: Exception?) {
@@ -48,16 +55,27 @@ internal class DownloadRun : DownloadManager.Listener {
      * after the change: once none is, the run is over, and the next song starts a new one.
      *
      * A song queued again after it ended, or removed, no longer counts as ended: it is either to
-     * come again or gone from the run.
+     * come again or gone from the run. Except a failed one being removed, which is the app freeing
+     * what it had: see [failed].
      */
     fun changed(id: String, state: Int, anyLeft: Boolean) {
-        if (state == Download.STATE_COMPLETED || state == Download.STATE_FAILED) ended += id else ended -= id
-        if (!anyLeft) ended.clear()
+        when {
+            state == Download.STATE_COMPLETED -> { ended += id; failed -= id }
+            state == Download.STATE_FAILED -> { ended += id; failed += id }
+            state == Download.STATE_REMOVING && id in failed -> Unit
+            else -> { ended -= id; failed -= id }
+        }
+        if (!anyLeft) clear()
     }
 
     fun removed(id: String, anyLeft: Boolean) {
-        ended -= id
-        if (!anyLeft) ended.clear()
+        if (id !in failed) ended -= id
+        if (!anyLeft) clear()
+    }
+
+    private fun clear() {
+        ended.clear()
+        failed.clear()
     }
 
     /** One of media3's current downloads, as the bar reads it. */

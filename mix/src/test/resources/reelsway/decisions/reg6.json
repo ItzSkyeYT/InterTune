@@ -1,0 +1,116 @@
+{
+ "n": "6",
+ "a": "amidreaming",
+ "b": "starboy",
+ "aBpm": 90.0,
+ "bBpm": 93.0,
+ "aT0": 0.1714583333333444,
+ "aPhase": 0,
+ "bT0": 0.2690029325513275,
+ "bPhase": 0,
+ "fit": {
+  "tempo": true,
+  "tempoOffPct": -3.23,
+  "octave": 1,
+  "entry": true,
+  "anyPlacement": true,
+  "voiceGate": true,
+  "best": {
+   "A": 96,
+   "D": 2,
+   "gridA": true,
+   "gridAInfo": {
+    "share": 0.65,
+    "medAbsLagMs": 8.0,
+    "spreadMs": 28.0,
+    "barAgreement": 0.6791044776119403,
+    "bars": [
+     80,
+     99
+    ]
+   },
+   "gridB": true,
+   "gridBInfo": {
+    "share": 1.0,
+    "medAbsLagMs": 4.0,
+    "spreadMs": 1.4,
+    "barAgreement": 0.9560439560439561,
+    "bars": [
+     2,
+     5
+    ]
+   },
+   "bothEarly": 0,
+   "bothLast": 0
+  }
+ },
+ "move": "reels",
+ "exitBar": 96,
+ "exitT": 256.17145833333336,
+ "boxStartBarA": 88,
+ "boxStartT": 234.838125,
+ "dropBar": 2,
+ "dropSure": true,
+ "dropT": 5.430293255131972,
+ "entryBarB": 0,
+ "entryT": 0.2690029325513275,
+ "leadOffsetBars": 6,
+ "shape": "build",
+ "swap": false,
+ "swapBoxBar": null,
+ "ratio": 0.967741935483871,
+ "stretch": true,
+ "echo": true,
+ "octave": 1,
+ "aEndLine": 96,
+ "dLow": 34.615455627441406,
+ "dLevel": 18.915854930877686,
+ "aCandidates": [
+  {
+   "L": 64,
+   "t": 170.838125,
+   "lift": 17.368328094482422,
+   "isLift": true,
+   "boxLow": -5.702268981933592,
+   "thin": false,
+   "end": false,
+   "leftS": 85.33333333333337,
+   "score": 2.7087486902872713,
+   "bothSungEarly": 0,
+   "bothSungLast": 0
+  },
+  {
+   "L": 96,
+   "t": 256.17145833333336,
+   "lift": 0.0,
+   "isLift": false,
+   "boxLow": -11.295168304443358,
+   "thin": true,
+   "end": true,
+   "leftS": 0.0,
+   "score": 4.0,
+   "bothSungEarly": 0,
+   "bothSungLast": 0,
+   "bothSung": 0
+  }
+ ],
+ "bCandidates": [
+  {
+   "bar": 2,
+   "rise": 27.432018280029297,
+   "before": -27.38773536682129,
+   "sustain": 0.010003089904785156
+  }
+ ],
+ "voices": {
+  "aSungBoxBars": [
+   2,
+   4,
+   6,
+   7,
+   8
+  ],
+  "bSungBoxBars": [],
+  "rule7": true
+ }
+}
