@@ -827,7 +827,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="audio_normalization_description">Even out the volume between songs, so one is not suddenly much louder than the last.</string>
     <string name="skip_silence_description">Skip silent gaps at the start and end of a track.</string>
     <string name="stop_music_on_task_clear_description">Stop the music when you swipe the app away from your recent apps.</string>
-    <string name="enable_dynamic_theme_description">Take the app\'s colours from your wallpaper.</string>
+    <string name="enable_dynamic_theme_description">Take the app\'s colours from the cover of the song that is playing. Off, or with nothing playing, it uses your phone\'s own colours (Android 12 and newer).</string>
     <string name="pure_black_description">Use true black instead of dark grey. On an OLED screen this also saves a little battery.</string>
     <string name="min_playback_duration_short">How much of a song has to play to count as a play. History shows every song heard for 2 seconds or more, counted or not.</string>
     <string name="throttle_banner_title">YouTube has paused this connection</string>
@@ -2013,8 +2013,6 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="stats_nothing_played">Nothing was played in this period.</string>
     <string name="sort_order_ascending">Ascending order</string>
     <string name="sort_order_descending">Descending order</string>
-    <string name="folder_order_a_to_z">Folders from A to Z</string>
-    <string name="folder_order_z_to_a">Folders from Z to A</string>
     <string name="home_play_at_random">Play something at random</string>
     <string name="view_as_list">Shown as a list</string>
     <string name="view_as_grid">Shown as a grid</string>
@@ -2255,8 +2253,8 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="battery_use_saver">Saver</string>
     <string name="battery_use_full_description">Everything as you set it.</string>
     <string name="battery_use_balanced_description">Your library syncs every two hours instead of every half hour, and the playing bars move more calmly.</string>
-    <string name="battery_use_saver_description">Sound effects off, a black theme, fewer frames a second and Low quality on mobile data. Syncs and downloads wait for Wi-Fi.</string>
-    <string name="battery_use_explain">How much InterTune does while you listen. \"Balanced\" syncs your library less often and calms the playing bars. \"Saver\" also turns sound effects off, shows a black theme at fewer frames a second and streams at Low quality on mobile data.</string>
+    <string name="battery_use_saver_description">Sound effects off except the equalizer, a black theme, fewer frames a second and, on Auto, Low quality on mobile data. Syncs and downloads wait for Wi-Fi.</string>
+    <string name="battery_use_explain">How much InterTune does while you listen. \"Balanced\" syncs your library less often and calms the playing bars. \"Saver\" also turns sound effects off except the equalizer, shows a black theme at fewer frames a second and, with Audio quality on Auto, streams at Low quality on mobile data.</string>
     <string name="battery_saver_holds_note">Set by \"Battery use\" while it is on \"Saver\".</string>
     <string name="battery_saver_quality_note">Low on mobile data while \"Battery use\" is on \"Saver\".</string>
     <string name="battery_saver_background_note">%1$s while \"Battery use\" is on \"Saver\".</string>
@@ -2789,4 +2787,10 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="sleep_notif_line_fade_after" translatable="false">Fades out %1$d&#160;s, after %2$s</string>
     <string name="sleep_notif_line_after" translatable="false">After %1$s</string>
     <string name="sleep_notif_stop" translatable="false">Stop</string>
+    <!-- Said under the queue after songs were taken out of it by hand, with Undo beside it (QueueUndo): the song's title, or how many. Held from translators. -->
+    <string name="queue_removed_one" translatable="false">Removed %1$s</string>
+    <plurals name="queue_removed_songs" translatable="false">
+        <item quantity="one">Removed %1$d song</item>
+        <item quantity="other">Removed %1$d songs</item>
+    </plurals>
 </resources>

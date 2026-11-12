@@ -442,7 +442,7 @@
     <string name="audio_normalization_description">Égalise le volume entre les morceaux, pour qu\'aucun ne soit soudain bien plus fort que le précédent.</string>
     <string name="skip_silence_description">Passer les blancs au début et à la fin d\'un morceau.</string>
     <string name="stop_music_on_task_clear_description">Arrêter la musique quand vous balayez l\'application hors des applications récentes.</string>
-    <string name="enable_dynamic_theme_description">Reprendre les couleurs de l\'application depuis votre fond d\'écran.</string>
+    <string name="enable_dynamic_theme_description">Reprendre les couleurs de l\'application depuis la pochette du titre en cours de lecture. Désactivé, ou sans lecture, elle utilise les couleurs de votre téléphone (Android 12 ou plus récent).</string>
     <string name="pure_black_description">Utiliser du vrai noir au lieu du gris foncé. Sur un écran OLED, cela économise aussi un peu de batterie.</string>
     <string name="min_playback_duration_short">La part d\'un titre qui doit être lue pour compter comme une lecture. La page Historique affiche chaque titre écouté au moins 2 secondes, que la lecture compte ou non.</string>
     <string name="throttle_banner_title">YouTube a suspendu cette connexion</string>
@@ -1622,8 +1622,6 @@
     <string name="stats_nothing_played">Rien n\'a été joué sur cette période.</string>
     <string name="sort_order_ascending">Ordre croissant</string>
     <string name="sort_order_descending">Ordre décroissant</string>
-    <string name="folder_order_a_to_z">Dossiers de A à Z</string>
-    <string name="folder_order_z_to_a">Dossiers de Z à A</string>
     <string name="home_play_at_random">Lancer quelque chose au hasard</string>
     <string name="view_as_list">Affiché en liste</string>
     <string name="view_as_grid">Affiché en grille</string>
@@ -2046,8 +2044,8 @@
     <string name="battery_use_saver">Économie</string>
     <string name="battery_use_full_description">Tout comme vous l\'avez réglé.</string>
     <string name="battery_use_balanced_description">La bibliothèque se synchronise toutes les deux heures au lieu de toutes les demi-heures, et les barres de lecture bougent plus calmement.</string>
-    <string name="battery_use_saver_description">Effets sonores coupés, thème noir, moins d\'images par seconde et qualité Faible sur les données mobiles. Synchronisation et téléchargements attendent le Wi-Fi.</string>
-    <string name="battery_use_explain">Ce que fait InterTune pendant que vous écoutez. « Équilibrée » synchronise la bibliothèque moins souvent et calme les barres de lecture. « Économie » coupe aussi les effets sonores, affiche un thème noir avec moins d\'images par seconde et diffuse en qualité Faible sur les données mobiles.</string>
+    <string name="battery_use_saver_description">Effets sonores coupés sauf l\'égaliseur, thème noir, moins d\'images par seconde et, si la qualité audio est Automatique, qualité Faible sur les données mobiles. Synchronisation et téléchargements attendent le Wi-Fi.</string>
+    <string name="battery_use_explain">Ce que fait InterTune pendant que vous écoutez. « Équilibrée » synchronise la bibliothèque moins souvent et calme les barres de lecture. « Économie » coupe aussi les effets sonores sauf l\'égaliseur, affiche un thème noir avec moins d\'images par seconde et, quand la qualité audio est sur Automatique, diffuse en qualité Faible sur les données mobiles.</string>
     <string name="battery_saver_holds_note">Réglé par « Utilisation de la batterie » tant qu\'elle est sur « Économie ».</string>
     <string name="battery_saver_quality_note">Faible sur les données mobiles tant que « Utilisation de la batterie » est sur « Économie ».</string>
     <string name="battery_saver_background_note">%1$s tant que « Utilisation de la batterie » est sur « Économie ».</string>
@@ -2585,4 +2583,10 @@
         <item>To</item>
         <item>Po</item>
     </string-array>
+    <string name="queue_removed_one">%1$s retiré</string>
+    <plurals name="queue_removed_songs">
+        <item quantity="one">%1$d titre retiré</item>
+        <item quantity="many">%1$d titres retirés</item>
+        <item quantity="other">%1$d titres retirés</item>
+    </plurals>
 </resources>

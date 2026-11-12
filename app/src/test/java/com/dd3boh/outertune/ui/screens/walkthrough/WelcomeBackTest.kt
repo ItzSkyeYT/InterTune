@@ -35,7 +35,8 @@ class WelcomeBackTest {
     private val v0121 = 96          // 0.12.1, fixes only: it took the number after 0.12's
     private val v0125 = 97          // the first build 0.12.5 can be
     private val v0129 = 101         // 0.12.9, fixes only
-    private val v013 = 102          // the first build 0.13 can be
+    private val v01210 = 102        // 0.12.10, fixes only: it took the number 0.13 was to have
+    private val v013 = 103          // the first build 0.13 can be
 
     private fun ids(things: List<NewThing>) = things.map { it.id }
 
@@ -437,15 +438,20 @@ class WelcomeBackTest {
     }
 
     @Test
-    fun `0_13's things wait for 0_13, and somebody on 0_12_9 is shown them all`() {
-        // The 0.13 line is still built as 0.12.9: it must not claim them before its version commit.
+    fun `0_13's things wait for 0_13, and somebody on 0_12_9 or 0_12_10 is shown them all`() {
+        // The 0.13 line is still built as 0.12.10: it must not claim them before its version commit.
         assertTrue(newThingsFor(v0125, buildVersionCode = v0129).none { it.release == "0.13" })
+        assertTrue(newThingsFor(v0125, buildVersionCode = v01210).none { it.release == "0.13" })
         val things = newThingsFor(v0129, buildVersionCode = v013)
         assertEquals(listOf("block_artist", "dont_play", "saved_twice", "sleep_timer_more", "liked_sync", "album_goes_on", "recognise_offline", "animations"), ids(things))
+        // 0.12.10, fixes only, took 102: whoever had a tour on it is owed the same eight.
+        assertEquals(ids(things), ids(newThingsFor(v01210, buildVersionCode = v013)))
         assertEquals("0.13", releaseAt(v013))
+        assertEquals("0.12.8", releaseAt(v01210))
         // The card on Home counts the four that have somewhere to show; the four that live in the
         // player, menus and lists outside Settings are read on the page.
         assertEquals(WelcomeCard(count = 4, since = "0.12.8"), welcomeCardFor(seenVersionCode = v0129, buildVersionCode = v013, enabled = true))
+        assertEquals(WelcomeCard(count = 4, since = "0.12.8"), welcomeCardFor(seenVersionCode = v01210, buildVersionCode = v013, enabled = true))
     }
 
     @Test

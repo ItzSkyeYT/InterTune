@@ -1167,7 +1167,21 @@ class MusicService : MediaLibraryService(),
         .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
         .build()
 
-    private var isAudioEffectSessionOpened = false
+    /**
+     * What the phone's equalizer apps have been told of the player's audio session: announced at
+     * every play, never closed at a pause, closed when the service ends (EffectsSession, #133).
+     * Main thread.
+     */
+    private val effectsSession = EffectsSession { open, sessionId ->
+        Log.i(TAG, "EFFECTS: audio session $sessionId ${if (open) "announced to" else "closed for"} the phone's equalizer apps")
+        sendBroadcast(
+            Intent(if (open) AudioEffect.ACTION_OPEN_AUDIO_EFFECT_CONTROL_SESSION else AudioEffect.ACTION_CLOSE_AUDIO_EFFECT_CONTROL_SESSION).apply {
+                putExtra(AudioEffect.EXTRA_AUDIO_SESSION, sessionId)
+                putExtra(AudioEffect.EXTRA_PACKAGE_NAME, packageName)
+                if (open) putExtra(AudioEffect.EXTRA_CONTENT_TYPE, AudioEffect.CONTENT_TYPE_MUSIC)
+            }
+        )
+    }
 
     var consecutivePlaybackErr = 0
 
@@ -1822,6 +1836,9 @@ class MusicService : MediaLibraryService(),
                         // setting appears to do nothing for anyone who turned offload on, with
                         // no way to tell why, so spatial audio takes it off itself.
                         applyOffload()
+                        // The upmix and other apps' effects exclude each other: asked here, now
+                        // that a stop of the player no longer closes the session by itself.
+                        syncEffectsSession()
                         if (exoPlayer.currentMediaItem != null) {
                             val at = exoPlayer.currentPosition
                             val wasPlaying = exoPlayer.playWhenReady
@@ -1893,7 +1910,7 @@ class MusicService : MediaLibraryService(),
                     .collectLatest(scope) { YTPlayerUtils.askWebClientFirst = it }
             }
             // A test tool like the switches below: never read in a release.
-            if (BuildConfig.DEBUG && Unreleased.SABR) {
+            if (BuildConfig.PREVIEW_FEATURES && Unreleased.SABR) {
                 dataStore.data.map { it[SabrOnlyKey] ?: false }
                     .distinctUntilChanged()
                     .collectLatest(scope) { YTPlayerUtils.sabrOnly = it }
@@ -1917,12 +1934,12 @@ class MusicService : MediaLibraryService(),
             // read only where the developer options have their row, in a debug or preview build,
             // whatever the two flags say. A restored backup can bring a switch that is on into a
             // release, which has no row to turn it off with.
-            if (BuildConfig.DEBUG && Unreleased.WEB_FALLBACK) {
+            if (BuildConfig.PREVIEW_FEATURES && Unreleased.WEB_FALLBACK) {
                 dataStore.data.map { it[VisionosRefusedKey] ?: false }
                     .distinctUntilChanged()
                     .collectLatest(scope) { YTPlayerUtils.takeVisionosForRefused(it) }
             }
-            if (BuildConfig.DEBUG && Unreleased.VISIONOS_IDENTITIES) {
+            if (BuildConfig.PREVIEW_FEATURES && Unreleased.VISIONOS_IDENTITIES) {
                 dataStore.data.map { it[OwnVisionosRefusedKey] ?: false }
                     .distinctUntilChanged()
                     .collectLatest(scope) { YTPlayerUtils.takeVisionosForRefused(it, onlyAsSaidHere = true) }
@@ -3131,7 +3148,17 @@ class MusicService : MediaLibraryService(),
         }
     }
 
-    private fun openAudioEffectSession() {
+    /**
+     * Brings what the phone's equalizer apps know of the player's audio session in line with the
+     * phone's own player, by [EffectsSession]'s rule: announced each time music starts to play,
+     * and kept whatever the player does then. [playing] is that player loading or playing and
+     * meant to play. Called on the main thread when the player's state, its session id or the
+     * upmix changes.
+     */
+    private fun syncEffectsSession(
+        playing: Boolean = exoPlayer.playWhenReady &&
+            (exoPlayer.playbackState == Player.STATE_BUFFERING || exoPlayer.playbackState == Player.STATE_READY),
+    ) {
         // Not while the upmix is on. Android disables spatialisation for any track that has
         // effects attached to its session, and this broadcast is the invitation for the system
         // equaliser, and on this phone One UI's own processing, to attach. With it sent, six
@@ -3141,28 +3168,16 @@ class MusicService : MediaLibraryService(),
         //
         // So the two are mutually exclusive by the platform's rules, not by choice here: the
         // system equaliser, or a spatialiser that will actually render. Turning the upmix on
-        // picks the second.
-        if (spatialUpmixProcessor.enabled) return
-        if (isAudioEffectSessionOpened) return
-        isAudioEffectSessionOpened = true
-        sendBroadcast(
-            Intent(AudioEffect.ACTION_OPEN_AUDIO_EFFECT_CONTROL_SESSION).apply {
-                putExtra(AudioEffect.EXTRA_AUDIO_SESSION, exoPlayer.audioSessionId)
-                putExtra(AudioEffect.EXTRA_PACKAGE_NAME, packageName)
-                putExtra(AudioEffect.EXTRA_CONTENT_TYPE, AudioEffect.CONTENT_TYPE_MUSIC)
-            }
-        )
+        // picks the second. Nor while casting: the phone's own player then makes no sound.
+        effectsSession.update(exoPlayer.audioSessionId, playing, barred = isCasting || spatialUpmixProcessor.enabled)
     }
 
-    private fun closeAudioEffectSession() {
-        if (!isAudioEffectSessionOpened) return
-        isAudioEffectSessionOpened = false
-        sendBroadcast(
-            Intent(AudioEffect.ACTION_CLOSE_AUDIO_EFFECT_CONTROL_SESSION).apply {
-                putExtra(AudioEffect.EXTRA_AUDIO_SESSION, exoPlayer.audioSessionId)
-                putExtra(AudioEffect.EXTRA_PACKAGE_NAME, packageName)
-            }
-        )
+    /**
+     * media3 1.8.0 makes the session id on another thread, a moment after the player is built:
+     * music that started before it was made is announced here, under the id the sound has.
+     */
+    override fun onAudioSessionIdChanged(audioSessionId: Int) {
+        syncEffectsSession()
     }
 
     /**
@@ -3593,7 +3608,7 @@ class MusicService : MediaLibraryService(),
 
             // The developer's "Stream over SABR only": the same answer over SABR instead of its
             // direct address, the walk otherwise as it always is (playback/sabr/SabrOver).
-            val streamed = if (BuildConfig.DEBUG && Unreleased.SABR && YTPlayerUtils.sabrOnly) {
+            val streamed = if (BuildConfig.PREVIEW_FEATURES && Unreleased.SABR && YTPlayerUtils.sabrOnly) {
                 // From the answer for the upload played, paced by the song the player asked for.
                 SabrOver.over(played.from, playbackData, since = resolveBegan, clockId = mediaId) ?: playbackData
             } else {
@@ -3737,7 +3752,7 @@ class MusicService : MediaLibraryService(),
         checkpointJob?.cancel()
         // The play in progress on the phone is closed by its own stats when the player is emptied
         // below, as a stop: nothing has to be told to the play book here.
-        closeAudioEffectSession()
+        effectsSession.close()
         headTracking.stop(glideHome = false)
         proximityVolume.stop()
         routed.routeTo(remote)
@@ -5846,11 +5861,10 @@ class MusicService : MediaLibraryService(),
             // Music is coming out of the speaker again, so whatever stopped it is history.
             if (player.playbackState == Player.STATE_READY) stoppedByError = false
             if (!isCasting) plays.playbackState(player.currentMediaItem?.mediaId, player.playbackState)
-            if (isBufferingOrReady && player.playWhenReady && !isCasting) {
-                openAudioEffectSession()
-            } else {
-                closeAudioEffectSession()
-            }
+            // Announced to the phone's equalizer apps at each play, and not taken back at a
+            // pause, the end of the queue or a stop: their effects would leave with it and come
+            // back a moment into the music at the next play (#133). See EffectsSession.
+            syncEffectsSession(isBufferingOrReady && player.playWhenReady)
             // The proximity scan is decided here rather than in onIsPlayingChanged, which fires on
             // every seek and skip and not on a pause while buffering. Never while casting: this
             // player is then the receiver's, and the phone makes no sound to turn down.
@@ -6482,23 +6496,64 @@ class MusicService : MediaLibraryService(),
     /**
      * Started by a media button with nothing in the player (issue #98). Android then waits for
      * startForeground: 5 or 10 s before Android 12, so the plain notification goes up at once, and
-     * media3's own replaces it as the song loads. From Android 12 there are 30 s, and media3 may
-     * come into the foreground from the background only while Android is still waiting for this
-     * start: held at once, the foreground was gone again by the time the queue was in (media3
-     * takes the plain notification away for an empty player), and media3 could not come back
-     * (Pixel 5, a resumption held 40 s, 7 Nov 2026). So there it is held only by [mediaButtonGuard],
-     * near the end of the 30 s, or given and left at once when there is nothing to play.
+     * media3's own replaces it as the song loads. From Android 12 media3 may come into the
+     * foreground from the background only while Android is still waiting for this start: held at
+     * once, the foreground was gone again by the time the queue was in (media3 takes the plain
+     * notification away for an empty player), and media3 could not come back (Pixel 5, a
+     * resumption held 40 s, 7 Nov 2026). So there it is held only by [mediaButtonGuard], before
+     * Android's time is up (10 s on Android 12, 30 s from 13: [MediaButtonStart.limitMs]), or
+     * given and left at once when there is nothing to play.
+     *
+     * With a song in the player media3 plays and shows at once, so nothing is held: the guard
+     * alone looks again, after a play press, in case the song did not start.
      */
-    private fun holdForegroundForMediaButton() {
-        // Already seen to, or a song in the player, which media3 plays and shows at once.
-        if (mediaButtonPending || foregroundNow() || (::player.isInitialized && player.mediaItemCount > 0)) return
+    private fun holdForegroundForMediaButton(key: Int?) {
+        // Already seen to.
+        if (mediaButtonPending || foregroundNow()) return
+        val hasSong = ::player.isInitialized && player.mediaItemCount > 0
+        // A song in the player, which media3 plays and shows at once: looked at again only after a play press.
+        if (!MediaButtonStart.looksAgain(hasSong, key, Build.VERSION.SDK_INT)) return
         if (FaultInjection.resumeFault(this)?.noHold == true) {
             Log.w(TAG, "Started by a media button: left to media3 alone (fault injection)")
             return
         }
         mediaButtonPending = true
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) holdForeground()
-        mediaButtonHandler.postDelayed(mediaButtonGuard, MediaButtonStart.guardMs(Build.VERSION.SDK_INT))
+        // Nothing holds the foreground now, whatever an earlier press left here.
+        holdingForMediaButton = false
+        mediaButtonHandler.removeCallbacks(mediaButtonLetGo)
+        val held = !hasSong && Build.VERSION.SDK_INT < Build.VERSION_CODES.S && holdForeground()
+        mediaButtonHandler.postDelayed(mediaButtonGuard, MediaButtonStart.guardMs(Build.VERSION.SDK_INT, held))
+    }
+
+    /**
+     * Android brought the service back by itself, with no intent, after the app's process died.
+     * If it died while Android still waited for the notification of a media button's start,
+     * Android waits again, on the new process, which knows nothing of the press and has nothing
+     * coming that media3 would show: the app was closed a second time, with no caller in its
+     * trace (issue #137). So what may be owed is met at once and taken away, under an id of its
+     * own, which leaves a notification the old process left behind alone. From Android 12 the
+     * call may be refused from the background, owed or not: Android drops its demand before it
+     * decides (ActiveServices.setServiceForegroundInnerLocked), so asking is enough.
+     */
+    private fun settleAfterRestart() {
+        if (mediaButtonPending || foregroundNow()) return
+        if (FaultInjection.resumeFault(this)?.noHold == true) {
+            Log.w(TAG, "Brought back by Android with no intent: left alone (fault injection)")
+            return
+        }
+        try {
+            ServiceCompat.startForeground(
+                this,
+                RESTART_NOTIFICATION_ID,
+                MediaButtonStart.placeholder(this, CHANNEL_ID),
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK,
+            )
+            ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
+            Log.i(TAG, "Brought back by Android with no intent: in the foreground for an instant, which meets its demand if it had one")
+        } catch (e: Exception) {
+            // Asking is enough: Android drops its demand before it decides whether to refuse.
+            Log.i(TAG, "Brought back by Android with no intent: the foreground asked for and refused (${e.javaClass.simpleName}), which meets its demand all the same")
+        }
     }
 
     /** The plain notification, under media3's notification id, in the foreground. */
@@ -6517,11 +6572,14 @@ class MusicService : MediaLibraryService(),
         false
     }
 
-    /** Whether the service is in the foreground now, media3's notification or the plain one. */
+    /**
+     * Whether the service is in the foreground now, media3's notification or the plain one. Before
+     * Android 10 only media3 can say, of its own notification.
+     */
     private fun foregroundNow(): Boolean =
-        Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && foregroundServiceType != 0
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) foregroundServiceType != 0 else isPlaybackOngoing
 
-    /** Near the end of Android's time for a media button's start: see [holdForegroundForMediaButton]. */
+    /** Before the end of Android's time for a media button's start: see [holdForegroundForMediaButton]. */
     private val mediaButtonGuard = object : Runnable {
         override fun run() {
             if (!mediaButtonPending || destroyed) return
@@ -6529,28 +6587,44 @@ class MusicService : MediaLibraryService(),
             when {
                 // media3's notification is up: nothing more to do.
                 !holdingForMediaButton && foregroundNow() -> mediaButtonPending = false
-                // The song is in and media3's notification on its way: Android's time is kept.
+                // The song is in and media3's notification on its way, or the song did not start:
+                // Android's time is kept either way.
                 hasSong -> {
                     mediaButtonPending = false
                     if (!holdingForMediaButton && !foregroundNow()) holdForeground()
+                    if (holdingForMediaButton) mediaButtonHandler.postDelayed(mediaButtonLetGo, MediaButtonStart.LET_GO_MS)
                 }
                 // Held since the press (before Android 12) while the queue is still being read.
                 holdingForMediaButton && resumptionRunning -> mediaButtonHandler.postDelayed(this, 10_000)
-                else -> giveUpMediaButtonStart("nothing to play ${MediaButtonStart.guardMs(Build.VERSION.SDK_INT) / 1000} s after the press")
+                else -> giveUpMediaButtonStart("nothing to play in time")
             }
         }
     }
 
     /**
+     * The plain notification does not outstay a song that never started: a minute after the guard
+     * left it up, with media3 still not in the foreground itself and nothing playing, it goes and
+     * the service leaves the foreground. media3 shows its own again at the next change.
+     */
+    private val mediaButtonLetGo = Runnable {
+        if (destroyed || !holdingForMediaButton) return@Runnable
+        holdingForMediaButton = false
+        if (isPlaybackOngoing || activePlayer.isPlaying || !foregroundNow()) return@Runnable
+        Log.i(TAG, "Media button start: the song did not start, so the plain notification goes")
+        ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
+    }
+
+    /**
      * Nothing comes of a media button's start: no saved queue after all, it could not be read, or
      * it is not in yet near the end of Android's time. Android's demand for the foreground is met
-     * and left at once, and the service stops; a player with a song keeps media3's notification.
+     * and left at once, and the service stops; a player with a song keeps media3's notification
+     * and the guard, which still looks at it.
      */
     private fun giveUpMediaButtonStart(why: String) {
         if (!mediaButtonPending || destroyed) return
+        if (::player.isInitialized && player.mediaItemCount > 0) return
         mediaButtonPending = false
         mediaButtonHandler.removeCallbacks(mediaButtonGuard)
-        if (::player.isInitialized && player.mediaItemCount > 0) return
         Log.i(TAG, "Media button start: $why, so the service stops")
         if (!holdingForMediaButton && !foregroundNow()) holdForeground()
         holdingForMediaButton = false
@@ -6643,8 +6717,11 @@ class MusicService : MediaLibraryService(),
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (BuildConfig.BUILD_TYPE == "debug" && Unreleased.AUTOMIX_EDITOR) intent?.getStringExtra("mixtrial")?.let { mixTrial(it) }
         // media3's media button receiver starts the service with startForegroundService, whether
-        // it was running or not (MediaButtonStart).
-        if (intent?.action == Intent.ACTION_MEDIA_BUTTON) holdForegroundForMediaButton()
+        // it was running or not, and so do the widget and the play button of media3's own
+        // notification (MediaButtonStart). No intent at all is Android bringing the service back
+        // after the app's process died, with what the old process still owed it.
+        if (intent == null) settleAfterRestart()
+        else if (intent.action == Intent.ACTION_MEDIA_BUTTON) holdForegroundForMediaButton(MediaButtonStart.keyOf(intent))
         return super.onStartCommand(intent, flags, startId)
     }
 
@@ -6760,6 +6837,9 @@ class MusicService : MediaLibraryService(),
         installedNowPlayingProvider = null
         deInitQueue()
 
+        // The one place the phone's equalizer apps are told to let go of the session for good:
+        // a pause or a stop no longer does it (#133), so the stop below would leave it announced.
+        effectsSession.close()
         mediaSession.player.stop()
         mediaSession.release()
         mediaSession.player.release()
@@ -6967,6 +7047,9 @@ class MusicService : MediaLibraryService(),
         const val CHANNEL_ID = "music_channel_01"
         const val CHANNEL_NAME = "fgs_workaround"
         const val NOTIFICATION_ID = 888
+
+        /** The id of the notification that settles what a restarted service may owe Android, shown and taken away at once. */
+        const val RESTART_NOTIFICATION_ID = 889
         const val ERROR_CODE_NO_STREAM = 1000001
         const val CHUNK_LENGTH = 512 * 1024L
 

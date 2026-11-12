@@ -14,7 +14,7 @@ import java.io.File
 
 /**
  * Everything the AI filter does in a build hangs on one flag, Unreleased.AI_FILTER, read without a
- * second condition: no BuildConfig.DEBUG beside it, no network, nothing of a debug build. So the
+ * second condition: no BuildConfig.PREVIEW_FEATURES beside it, no network, nothing of a debug build. So the
  * flag is the one switch between "debug and preview builds only" and "in a release", and shipping
  * it is what ReleasedFlagsTest says for any flag: set it to true and add its name there. With the
  * flag off a release has nothing of it, whatever a restored backup stored. Read from the source, as
@@ -41,7 +41,7 @@ class AiFilterFlagTest {
     fun `the flag is held back or shipped, nothing in between`() {
         val unreleased = code(File(sources, "constants/Unreleased.kt").readText())
         val value = Regex("""^\s*val AI_FILTER = (.+?)\s*$""", RegexOption.MULTILINE).find(unreleased)?.groupValues?.get(1)
-        assertTrue("AI_FILTER is $value", value == "BuildConfig.DEBUG" || value == "true")
+        assertTrue("AI_FILTER is $value", value == "BuildConfig.PREVIEW_FEATURES" || value == "true")
     }
 
     @Test

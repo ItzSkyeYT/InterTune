@@ -52,8 +52,8 @@ android {
         applicationId = "dev.skye.intertune"
         minSdk = 24
         targetSdk = 36
-        versionCode = 101
-        versionName = "0.12.9"
+        versionCode = 102
+        versionName = "0.12.10"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         // Obfuscated, not encrypted, and the difference matters. Anything the app can read, so
@@ -143,14 +143,20 @@ android {
             // The app's own screens in a car (AutoCarService, AutoSettingsService) exist only where
             // Unreleased.AUTO_REWORK is on: a car that finds them draws the app from them, held back or not.
             manifestPlaceholders["carScreens"] = "false"
-            // The widget's settings: a dialog. Where Unreleased.WIDGET_ON_WALLPAPER is on (every debuggable
-            // build), a full window over the wallpaper; a dialog there lets the home screen show through.
+            // The widget's settings: a dialog. Where Unreleased.WIDGET_ON_WALLPAPER is on (every build with
+            // the preview features), a full window over the wallpaper; a dialog there lets the home screen show through.
             manifestPlaceholders["widgetConfigTheme"] = "@style/Theme.InterTune.WidgetConfig"
+            // What is held back in Unreleased.kt is off. BuildConfig.PREVIEW_FEATURES, and not BuildConfig.DEBUG, is
+            // what a held-back flag reads: DEBUG says the build is debuggable, which the Tester app no longer is.
+            buildConfigField("boolean", "PREVIEW_FEATURES", "false")
         }
         debug {
             applicationIdSuffix = ".debug"
             manifestPlaceholders["carScreens"] = "true"
             manifestPlaceholders["widgetConfigTheme"] = "@style/Theme.InterTune.WidgetConfig.Wallpaper"
+            // The builds that show what is held back (Unreleased.kt): this one, the preview and the beta type. Each type
+            // says it itself, so that none depends on what initWith copies from another.
+            buildConfigField("boolean", "PREVIEW_FEATURES", "true")
         }
 
         // A debug build that installs beside the release and the debug build, for trying a
@@ -174,6 +180,7 @@ android {
 //            isDebuggable = true
             isProfileable = true
             matchingFallbacks += listOf("release")
+            buildConfigField("boolean", "PREVIEW_FEATURES", "false")
         }
     }
 

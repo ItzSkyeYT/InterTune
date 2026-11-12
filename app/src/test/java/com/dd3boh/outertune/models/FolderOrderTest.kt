@@ -7,6 +7,8 @@
 package com.dd3boh.outertune.models
 
 import com.dd3boh.outertune.constants.FolderSongSortType
+import com.dd3boh.outertune.constants.FolderSortType
+import com.dd3boh.outertune.db.LocalFolderDates
 import com.dd3boh.outertune.db.entities.Song
 import com.dd3boh.outertune.db.entities.SongEntity
 import org.junit.Assert.assertEquals
@@ -15,12 +17,15 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
 import java.time.LocalDateTime
+import java.time.ZoneOffset
 
 /**
  * Issue #39, second report: in the Folders tab the folders kept no order whatever the sort, and
  * a folder played from its menu came in the order the library holds its songs. Then they followed
  * the songs' sort and arrow, and its reporter asked for folders by name with an arrow of their own
- * (8 Nov 2026): sorted by track number with the arrow down, the albums went from Z.
+ * (8 Nov 2026): sorted by track number with the arrow down, the albums went from Z. That left the
+ * date orders, which 0.12.6 to 0.12.9 gave folders, with nothing to sort (a tester, 11 Nov 2026:
+ * "date added ... in folders doesnt work"): folders now have an order of their own, name or a date.
  */
 class FolderOrderTest {
 
@@ -152,6 +157,88 @@ class FolderOrderTest {
         assertEquals(listOf("Alpha/First", "Alpha2", "Beta/Second"), names(FolderOrder.sorted(top.subdirs, descending = false)))
     }
 
+    private fun day(day: Int) = LocalDateTime.of(2026, 10, day, 12, 0).toInstant(ZoneOffset.UTC).toEpochMilli()
+
+    private val dateRows = listOf(
+        LocalFolderDates("$music/Old/", added = day(1), modified = day(20), released = null, year = 1999),
+        LocalFolderDates("$music/New/CD 1/", added = day(3), modified = day(2), released = day(5), year = 2026),
+        LocalFolderDates("$music/New/CD 2/", added = day(9), modified = null, released = null, year = null),
+        LocalFolderDates("$music/Middle/", added = day(5), modified = day(10), released = null, year = 2010),
+    )
+
+    @Test
+    fun `a folder's date is the newest among the songs in it and in the folders under it`() {
+        val added = FolderOrder.newestDates(dateRows, FolderSortType.CREATE_DATE)
+        assertEquals(day(9), added["$music/New"])
+        assertEquals(day(3), added["$music/New/CD 1"])
+        assertEquals(day(9), added[music])
+        val released = FolderOrder.newestDates(dateRows, FolderSortType.RELEASE_DATE)
+        // A year with no full date counts from its first day, as it does for songs.
+        assertEquals(LocalDateTime.of(1999, 1, 1, 0, 0).toInstant(ZoneOffset.UTC).toEpochMilli(), released["$music/Old"])
+        assertEquals(day(5), released["$music/New"])
+        // A name has no date.
+        assertEquals(emptyMap<String, Long>(), FolderOrder.newestDates(dateRows, FolderSortType.NAME))
+    }
+
+    @Test
+    fun `the date orders put folders by the newest date of their songs, the arrow honoured`() {
+        val top = tree(music, "Old/a.mp3", "New/CD 1/a.mp3", "New/CD 2/a.mp3", "Middle/a.mp3", "Undated/a.mp3")
+        val added = FolderOrder.newestDates(dateRows, FolderSortType.CREATE_DATE)
+        // Oldest first with the arrow up; a folder with no date first, as a song with none is.
+        assertEquals(
+            listOf("Undated", "Old", "Middle", "New"),
+            names(FolderOrder.sorted(top.subdirs, descending = false, sortType = FolderSortType.CREATE_DATE, dates = added)),
+        )
+        assertEquals(
+            listOf("New", "Middle", "Old", "Undated"),
+            names(FolderOrder.sorted(top.subdirs, descending = true, sortType = FolderSortType.CREATE_DATE, dates = added)),
+        )
+        val modified = FolderOrder.newestDates(dateRows, FolderSortType.MODIFIED_DATE)
+        assertEquals(
+            listOf("Old", "Middle", "New", "Undated"),
+            names(FolderOrder.sorted(top.subdirs, descending = true, sortType = FolderSortType.MODIFIED_DATE, dates = modified)),
+        )
+        val released = FolderOrder.newestDates(dateRows, FolderSortType.RELEASE_DATE)
+        assertEquals(
+            listOf("New", "Middle", "Old", "Undated"),
+            names(FolderOrder.sorted(top.subdirs, descending = true, sortType = FolderSortType.RELEASE_DATE, dates = released)),
+        )
+    }
+
+    @Test
+    fun `each order the folders offer gives an order of its own, and the name one is where they start`() {
+        // Three folders whose names, newest additions, newest file dates and newest releases all run differently.
+        val top = tree(music, "Blue/a.mp3", "Night/a.mp3", "Quiet/a.mp3")
+        val rows = listOf(
+            LocalFolderDates("$music/Blue/", added = day(5), modified = day(25), released = day(9), year = null),
+            LocalFolderDates("$music/Night/", added = day(8), modified = day(20), released = day(3), year = null),
+            LocalFolderDates("$music/Quiet/", added = day(2), modified = day(22), released = day(12), year = null),
+        )
+        assertEquals(setOf(FolderSortType.NAME, FolderSortType.CREATE_DATE, FolderSortType.MODIFIED_DATE, FolderSortType.RELEASE_DATE), FolderSortType.entries.toSet())
+        val expected = mapOf(
+            FolderSortType.NAME to listOf("Blue", "Night", "Quiet"),
+            FolderSortType.CREATE_DATE to listOf("Quiet", "Blue", "Night"),
+            FolderSortType.MODIFIED_DATE to listOf("Night", "Quiet", "Blue"),
+            FolderSortType.RELEASE_DATE to listOf("Night", "Blue", "Quiet"),
+        )
+        for (sort in FolderSortType.entries) {
+            val dates = FolderOrder.newestDates(rows, sort)
+            assertEquals("$sort", expected.getValue(sort), names(FolderOrder.sorted(top.subdirs, descending = false, sortType = sort, dates = dates)))
+            assertEquals("$sort turned round", expected.getValue(sort).reversed(), names(FolderOrder.sorted(top.subdirs, descending = true, sortType = sort, dates = dates)))
+            // Whatever order the library hands the folders over in.
+            assertEquals("$sort, handed over backwards", expected.getValue(sort), names(FolderOrder.sorted(top.subdirs.reversed(), descending = false, sortType = sort, dates = dates)))
+        }
+    }
+
+    @Test
+    fun `folders with the same date go by name, whichever way the arrow points`() {
+        val top = tree(music, "B/a.mp3", "A/a.mp3", "C/a.mp3")
+        val same = mapOf("$music/A" to 5L, "$music/B" to 5L, "$music/C" to 5L)
+        for (descending in listOf(false, true)) {
+            assertEquals(listOf("A", "B", "C"), names(FolderOrder.sorted(top.subdirs, descending, FolderSortType.CREATE_DATE, same)))
+        }
+    }
+
     private val artist = "$music/Artist"
 
     /**
@@ -167,8 +254,13 @@ class FolderOrderTest {
         song("$artist/First album/CD 1/1 First.mp3", track = 1, disc = 1, added = 1),
     )
 
-    private fun played(sort: FolderSongSortType, songsDescending: Boolean, foldersDescending: Boolean) =
-        FolderOrder.playOrder("$artist/", artistSongs, sort, songsDescending, foldersDescending)
+    private fun played(
+        sort: FolderSongSortType,
+        songsDescending: Boolean,
+        foldersDescending: Boolean,
+        foldersSort: FolderSortType = FolderSortType.NAME,
+        dates: Map<String, Long> = emptyMap(),
+    ) = FolderOrder.playOrder("$artist/", artistSongs, sort, songsDescending, foldersDescending, foldersSort, dates)
 
     @Test
     fun `a folder played whole goes its own songs first, then folder by folder by name, each folder's songs in their sort`() {
@@ -190,7 +282,29 @@ class FolderOrderTest {
     }
 
     @Test
-    fun `whatever the songs are sorted by and whichever way, the folders keep to their name and their own arrow`() {
+    fun `a folder played whole follows the folders' date order too`() {
+        fun titles(songs: List<Song>) = songs.map { it.song.title }
+        val rows = listOf(
+            LocalFolderDates("$artist/", added = day(9), modified = null, released = null, year = null),
+            LocalFolderDates("$artist/First album/CD 1/", added = day(2), modified = null, released = null, year = null),
+            LocalFolderDates("$artist/First album/CD 2/", added = day(3), modified = null, released = null, year = null),
+            LocalFolderDates("$artist/Second album/", added = day(21), modified = null, released = null, year = null),
+        )
+        val dates = FolderOrder.newestDates(rows, FolderSortType.CREATE_DATE)
+        // Newest first: the second album (added last), then the first album, whose CD 2 came after its CD 1.
+        assertEquals(
+            listOf("Single", "1 Ay", "2 Bee", "1 Opener two", "1 First", "2 Second"),
+            titles(played(FolderSongSortType.TRACK_NUMBER, false, foldersDescending = true, foldersSort = FolderSortType.CREATE_DATE, dates = dates)),
+        )
+        // Oldest first: the first album's CD 1, its CD 2, then the second album.
+        assertEquals(
+            listOf("Single", "1 First", "2 Second", "1 Opener two", "1 Ay", "2 Bee"),
+            titles(played(FolderSongSortType.TRACK_NUMBER, false, foldersDescending = false, foldersSort = FolderSortType.CREATE_DATE, dates = dates)),
+        )
+    }
+
+    @Test
+    fun `whatever the songs are sorted by and whichever way, the folders keep to their own order and arrow`() {
         val aToZ = listOf(artist, "$artist/First album/CD 1", "$artist/First album/CD 2", "$artist/Second album")
         for (sort in FolderSongSortType.entries) for (songsDescending in listOf(false, true)) for (foldersDescending in listOf(false, true)) {
             val case = "$sort, songs descending $songsDescending, folders descending $foldersDescending"
@@ -211,61 +325,79 @@ class FolderOrderTest {
     private fun source(path: String) = File(sources, path).readText()
 
     @Test
-    fun `the Folders tab lists its folders by their own arrow and its songs by theirs, and plays a folder in that order`() {
+    fun `the Folders tab lists its folders by their own order and its songs by theirs, and plays a folder in that order`() {
         val screen = source("ui/screens/library/FolderScreen.kt")
         assertTrue(screen.contains("FolderSongOrder.sorted(block.library(currDir.files), sortType, sortDescending)"))
-        assertTrue(screen.contains("LaunchedEffect(folderSortDescending, currDir, flatSubfolders) {"))
-        assertTrue(screen.contains("addAll(FolderOrder.sorted(folders, folderSortDescending))"))
+        assertTrue(screen.contains("LaunchedEffect(folderSortType, folderSortDescending, currDir, flatSubfolders) {"))
+        assertTrue(screen.contains("val dates = if (FolderOrder.byDate(folderSortType)) viewModel.folderDates(folderSortType) else emptyMap()"))
+        assertTrue(screen.contains("addAll(FolderOrder.sorted(folders, folderSortDescending, folderSortType, dates))"))
         assertTrue(screen.contains("items = shownFolders,"))
         val menu = source("ui/menu/FolderMenu.kt")
-        assertTrue(menu.contains("FolderOrder.playOrder(dir, dbSongs, sortType, sortDescending, folderSortDescending)"))
+        assertTrue(menu.contains("FolderOrder.playOrder(dir, dbSongs, sortType, sortDescending, folderSortDescending, folderSortType, dates)"))
+        assertTrue(menu.contains("val dates = if (FolderOrder.byDate(folderSortType)) FolderOrder.newestDates(database.localFolderDates(dir), folderSortType) else emptyMap()"))
     }
 
     @Test
-    fun `the folders' arrow is kept in a preference of its own, A to Z until it is turned`() {
+    fun `the folders' order and arrow are kept in preferences of their own, A to Z until they are changed`() {
         val keys = source("constants/PreferenceKeys.kt")
         assertTrue(keys.contains("val FolderSortDescendingKey = booleanPreferencesKey(\"folderSortDescending\")"))
+        assertTrue(keys.contains("val FolderSortTypeKey = stringPreferencesKey(\"folderSortType\")"))
         assertEquals(1, Regex("\"folderSortDescending\"").findAll(keys).count())
-        // The screen and the menu read it alike, or a folder would play in another order than it shows.
-        val read = "val (folderSortDescending) = rememberPreference(FolderSortDescendingKey, false)"
-        assertTrue(source("ui/menu/FolderMenu.kt").contains(read))
+        assertEquals(1, Regex("\"folderSortType\"").findAll(keys).count())
+        // The screen and the menu read them alike, or a folder would play in another order than it shows.
+        val menu = source("ui/menu/FolderMenu.kt")
+        assertTrue(menu.contains("val (folderSortType) = rememberEnumPreference(FolderSortTypeKey, FolderSortType.NAME)"))
+        assertTrue(menu.contains("val (folderSortDescending) = rememberPreference(FolderSortDescendingKey, false)"))
         val screen = source("ui/screens/library/FolderScreen.kt")
+        assertTrue(screen.contains("val (folderSortType, onFolderSortTypeChange) = rememberEnumPreference(FolderSortTypeKey, FolderSortType.NAME)"))
         assertTrue(screen.contains("val (folderSortDescending, onFolderSortDescendingChange) = rememberPreference(FolderSortDescendingKey, false)"))
-        // A tap writes it, turned round.
-        assertTrue(screen.contains("FolderOrderArrow(folderSortDescending, onFolderSortDescendingChange)"))
-        assertTrue(screen.contains("onClick = { onDescendingChange(!descending) }"))
-        // Nothing reads the songs' arrow for the folders any more.
+        // A choice writes it, and the arrow writes the turned-round value (SortHeader does both).
+        assertTrue(screen.contains("onSortTypeChange = onFolderSortTypeChange,"))
+        assertTrue(screen.contains("onSortDescendingChange = onFolderSortDescendingChange,"))
+        // Nothing reads the songs' choice for the folders.
         assertFalse(screen.contains("FolderOrder.sorted(folders, sortType"))
     }
 
     @Test
-    fun `the folders' arrow sits after the songs' sort, which is left as it was, and before the song count`() {
+    fun `the folders' choice sits after the songs', with a folder in front, and before the song count`() {
         val screen = source("ui/screens/library/FolderScreen.kt")
-        val header = screen.indexOf("SortHeader(")
-        val arrow = screen.indexOf("FolderOrderArrow(folderSortDescending")
+        val songs = screen.indexOf("SortHeader(\n                                        sortType = sortType,")
+        val folders = screen.indexOf("SortHeader(\n                                        sortType = folderSortType,")
         val count = screen.indexOf("pluralStringResource(R.plurals.n_song, subDirSongCount, subDirSongCount)")
-        assertTrue(header in 1 until arrow)
-        assertTrue(arrow < count)
-        val songsSort = screen.substring(header, arrow)
+        assertTrue(songs in 1 until folders)
+        assertTrue(folders < count)
+        // The songs' choice is left as it was.
+        val songsSort = screen.substring(songs, folders)
         for (argument in listOf("sortType = sortType,", "sortDescending = sortDescending,", "onSortTypeChange = onSortTypeChange,", "onSortDescendingChange = onSortDescendingChange,")) {
             assertTrue(argument, songsSort.contains(argument))
         }
-        // Only where there are folders to turn round, and not over search results, which have none.
-        assertTrue(Regex("""if \(!isSearching && currDir\.subdirs\.isNotEmpty\(\)\) \{\s*FolderOrderArrow\(""").containsMatchIn(screen))
+        // Each choice only where there is something for it to sort: the songs' where the folder has
+        // songs of its own (or over search results, which they now sort), the folders' where it has
+        // folders and the rows are not search results. Over a list of folders alone the songs' sort
+        // had nothing to sort, and looked broken.
+        assertTrue(screen.contains("val showSongSort = isSearching || currDir.files.isNotEmpty()"))
+        assertTrue(screen.contains("val showFolderSort = !isSearching && currDir.subdirs.isNotEmpty()"))
+        assertTrue(Regex("""if \(showSongSort\) \{\s*SortHeader\(""").containsMatchIn(screen))
+        assertTrue(Regex("""if \(showFolderSort\) \{\s*Icon\(\s*Icons\.Rounded\.Folder,""").containsMatchIn(screen))
     }
 
     @Test
-    fun `the folders' arrow says which way they go, in English and in French`() {
+    fun `the folders offer a name and the three dates, each with words, and no order that means nothing for a folder`() {
         val screen = source("ui/screens/library/FolderScreen.kt")
-        assertTrue(screen.contains("stringResource(if (descending) R.string.folder_order_z_to_a else R.string.folder_order_a_to_z)"))
-        assertTrue(screen.contains(".semantics { contentDescription = name }"))
+        val folders = screen.substring(screen.indexOf("sortType = folderSortType,"))
+        for ((type, words) in listOf(
+            "NAME" to "sort_by_name", "CREATE_DATE" to "sort_by_create_date",
+            "MODIFIED_DATE" to "sort_by_date_modified", "RELEASE_DATE" to "sort_by_date_released",
+        )) {
+            assertTrue(type, folders.contains("FolderSortType.$type -> R.string.$words"))
+        }
+        // The songs' own (artist, play count, track number) are not offered to folders.
+        val enum = source("constants/Settings.kt")
+        assertTrue(enum.contains("enum class FolderSortType {\n    NAME, CREATE_DATE, MODIFIED_DATE, RELEASE_DATE\n}"))
+        // The arrow's two sentences went with the arrow: "Folders from A to Z" is wrong for a date.
         val english = File("src/main/res/values/strings-ot.xml").readText()
         val french = File("src/main/res/values-fr/strings-ot.xml").readText()
-        for ((file, said) in listOf(
-            english to listOf("folder_order_a_to_z" to "Folders from A to Z", "folder_order_z_to_a" to "Folders from Z to A"),
-            french to listOf("folder_order_a_to_z" to "Dossiers de A à Z", "folder_order_z_to_a" to "Dossiers de Z à A"),
-        )) {
-            for ((name, words) in said) assertTrue("$name: $words", file.contains("<string name=\"$name\">$words</string>"))
-        }
+        assertFalse(english.contains("folder_order_a_to_z") || english.contains("folder_order_z_to_a"))
+        assertFalse(french.contains("folder_order_a_to_z") || french.contains("folder_order_z_to_a"))
     }
 }

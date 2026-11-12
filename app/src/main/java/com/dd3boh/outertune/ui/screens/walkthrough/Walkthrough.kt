@@ -150,10 +150,11 @@ private const val V0_12_7 = 99
 private const val V0_12_8 = 100
 
 /**
- * The first build 0.13 can ship as: 0.12.9, fixes only, took 101. Raise it if another fix release
- * comes between, or somebody who had a tour on that one would be shown none of what 0.13 brings.
+ * The first build 0.13 can ship as: 0.12.9 and 0.12.10, fixes only, took 101 and 102. Raise it if
+ * another fix release comes between, or somebody who had a tour on that one would be shown none of
+ * what 0.13 brings.
  */
-private const val V0_13 = 102
+private const val V0_13 = 103
 
 /**
  * A walk round Settings: its four groups, one bubble each.

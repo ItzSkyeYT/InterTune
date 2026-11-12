@@ -50,7 +50,7 @@ object BuiltInKeys {
      */
     fun verify(context: Context) {
         // InterTune's own debug and preview builds, not a fork's: theirs carry their own app id.
-        genuine = (BuildConfig.DEBUG && context.packageName.startsWith(OWN_PACKAGE)) || runCatching { signingCerts(context) }
+        genuine = (BuildConfig.PREVIEW_FEATURES && context.packageName.startsWith(OWN_PACKAGE)) || runCatching { signingCerts(context) }
             .onFailure { Log.w(TAG, "Could not read the app's signature", it) }
             .getOrDefault(emptySet())
             .any { it in RELEASE_CERTS }
