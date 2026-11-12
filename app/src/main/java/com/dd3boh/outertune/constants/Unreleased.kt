@@ -1019,9 +1019,10 @@ object Unreleased {
      * when the view follows the song again (LyricsBlur). Never for lyrics with no times, nor with
      * "Follow the song" off.
      *
-     * A trial to look at, in pictures first: off until it is chosen in the developer options
-     * ("DEBUG: Lyrics blur": Soft, Medium or Strong), and it has no text of its own. Without the
-     * flag the choice is never read and the lines are drawn as they were.
+     * A trial to look at, in pictures first: off until it is turned on in the developer options
+     * ("DEBUG: Lyrics blur", which starts on Medium, the strength he chose from the first pictures;
+     * Soft and Strong are in the row under it), and it has no text of its own. Without the flag the choice
+     * is never read and the lines are drawn as they were.
      *
      * Debug builds only, kept out of the previews that testers get.
      */

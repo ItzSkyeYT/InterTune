@@ -202,8 +202,7 @@ fun Lyrics(
     val showLatin by rememberPreference(LyricLatinKey, false)
     // Progressive blur, the debug app's trial (LyricsBlur): how strong, or null for the lines as they are.
     val blurStored by rememberPreference(LyricsBlurKey, "")
-    val blurHow = LyricsBlur.how
-    val blur = if (Unreleased.LYRICS_BLUR && LyricsBlur.canDraw(blurHow)) LyricsBlur.strengthOf(blurStored) else null
+    val blur = if (Unreleased.LYRICS_BLUR) LyricsBlur.strengthOf(blurStored) else null
 
     val mediaMetadata by playerConnection.mediaMetadata.collectAsState()
 
@@ -923,7 +922,7 @@ fun Lyrics(
                                 modifier = if (lineBlur == null) {
                                     Modifier.alpha(lineAlpha)
                                 } else {
-                                    Modifier.lyricsLineBlur(blurHow, { lineBlur.value }, lineAlpha, lineColor) { laidOut.value }
+                                    Modifier.lyricsLineBlur({ lineBlur.value }, lineAlpha, lineColor) { laidOut.value }
                                 }
                             )
                         }

@@ -858,18 +858,29 @@ private fun AutomixStyleRow() {
 private val AUTOMIX_STYLES = listOf("", "GAPLESS", "BLEND", "SMOOTH", "BEAT", "CUT")
 
 /**
- * Debug builds only: progressive blur on the lyrics and how strong it is (LyricsBlur), off until
- * one is chosen. A trial to look at, not a setting, so its words are not translated.
+ * Debug builds only: progressive blur on the lyrics (LyricsBlur). Its switch starts on Medium, the
+ * strength he chose from the first pictures, and while it is on a row under it says how strong,
+ * to try the two others. A trial to look at, not a setting, so its words are not translated.
  */
 @Composable
 private fun LyricsBlurRow() {
-    val (strength, onStrengthChange) = rememberPreference(key = LyricsBlurKey, defaultValue = "")
-    ListPreference(
+    val (stored, onStoredChange) = rememberPreference(key = LyricsBlurKey, defaultValue = "")
+    val strength = LyricsBlur.strengthOf(stored)
+    SwitchPreference(
         title = { Text("DEBUG: Lyrics blur") },
+        description = "The line being sung stays sharp, the lines around it go out of focus.",
         icon = { Icon(Icons.Rounded.Science, null) },
-        selectedValue = LyricsBlur.strengthOf(strength)?.name.orEmpty(),
-        values = listOf("") + LyricsBlur.Strength.entries.map { it.name },
-        valueText = { if (it.isEmpty()) "Off" else it.lowercase().replaceFirstChar { c -> c.uppercase() } },
-        onValueSelected = onStrengthChange,
+        checked = strength != null,
+        onCheckedChange = { on -> onStoredChange(LyricsBlur.switched(on)) },
     )
+    if (strength != null) {
+        ListPreference(
+            title = { Text("DEBUG: Lyrics blur, how strong") },
+            icon = { Icon(Icons.Rounded.Science, null) },
+            selectedValue = strength,
+            values = LyricsBlur.Strength.entries,
+            valueText = { it.name.lowercase().replaceFirstChar { c -> c.uppercase() } },
+            onValueSelected = { onStoredChange(it.name) },
+        )
+    }
 }

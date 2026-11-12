@@ -6,24 +6,18 @@
 
 package com.dd3boh.outertune.ui.component
 
-import android.os.Build
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.AnimationVector1D
 import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.BlendMode
-import androidx.compose.ui.graphics.BlurEffect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
-import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.TextLayoutResult
@@ -39,9 +33,14 @@ import kotlin.math.roundToInt
  * lines are picked, every line is sharp, and lyrics with no times, or with "Follow the song" off,
  * are never blurred, since there the view rests on no line.
  *
- * A trial of the debug app (Unreleased.LYRICS_BLUR), chosen in the developer options or from a
- * command line ([trial]). Two ways to draw it are kept side by side while it is one, so that one can
- * be measured against the other on a phone ([How]).
+ * A trial of the debug app (Unreleased.LYRICS_BLUR), turned on in the developer options, where it
+ * starts on [START], or from a command line ([trial]).
+ *
+ * A line out of focus is drawn as its own soft shadow with the text itself left as good as clear
+ * ([lyricsLineBlur]). Android keeps each blurred letter the way it keeps a sharp one, so a blurred
+ * line costs what a line costs, also while the list scrolls, and nothing in it needs Android 12.
+ * The other way that was tried, a blur on each line's layer (RenderEffect), made the phone blur
+ * every line anew at each frame that draws the list; it was taken out on 12 Nov 2026.
  */
 object LyricsBlur {
 
@@ -56,36 +55,20 @@ object LyricsBlur {
 
         /**
          * The blur radius of a line [steps] lines from the one being sung, for lyrics [fontPx] tall.
-         * In whole pixels: at rest a line is then drawn once ([How.GLYPHS]), and a song goes through
-         * a handful of radii, not one for every frame.
+         * In whole pixels: at rest a line is then drawn once, and a song goes through a handful of
+         * radii, whose letters Android keeps, not one for every frame.
          */
         fun radius(steps: Int, fontPx: Float): Float = (minOf(steps * perStep, most) * fontPx).roundToInt().toFloat()
     }
 
-    /** The two ways a line is drawn out of focus. */
-    enum class How {
-        /**
-         * The text's own soft shadow with the text left out. Android keeps each blurred letter the
-         * way it keeps a sharp one, so a blurred line costs what a line costs, also while the list
-         * scrolls, and nothing in it needs Android 12.
-         */
-        GLYPHS,
-
-        /**
-         * A blur on the line's layer (RenderEffect), Android 12 and newer: the phone blurs every
-         * line anew at each frame that draws the list.
-         */
-        LAYER,
-    }
-
-    /** Which way it is drawn. In memory only, as the trial sets it: back to the first at the next start. */
-    var how by mutableStateOf(How.GLYPHS)
-
-    /** Whether this phone can draw it [how] it is asked; where it cannot, the lines are drawn as they were. */
-    fun canDraw(how: How = this.how): Boolean = how == How.GLYPHS || Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+    /** The strength the switch starts on when it is turned on: the one he chose from the first pictures. */
+    val START = Strength.MEDIUM
 
     /** The strength stored under LyricsBlurKey, or null for the lines as they are. */
     fun strengthOf(stored: String?): Strength? = Strength.entries.firstOrNull { it.name == stored }
+
+    /** What the switch stores: [START] when it is turned on, nothing chosen when it is turned off. */
+    fun switched(on: Boolean): String = if (on) START.name else ""
 
     /**
      * Which sung line each row of the lyrics belongs to, [translated] saying which rows are a
@@ -108,32 +91,30 @@ object LyricsBlur {
         return abs(line - sung)
     }
 
-    /** The debug app's start extra that sets the trial: `--es lyricsblur medium,glyphs,lines`. */
+    /** The debug app's start extra that sets the trial: `--es lyricsblur medium,lines`. */
     const val TRIAL = "lyricsblur"
 
     /** What a trial asks for; null where it says nothing of it. [strength] as it is stored, "" for off. */
-    data class Trial(val strength: String?, val how: How?, val wordByWord: Boolean?)
+    data class Trial(val strength: String?, val wordByWord: Boolean?)
 
     /**
      * The trial in [words], apart by commas, in any order and case: off, soft, medium or strong;
-     * glyphs or layer; words or lines, for the lyrics lit word by word or line by line, which is
-     * the other thing a picture of it varies. Null where no trial was asked for.
+     * words or lines, for the lyrics lit word by word or line by line, which is the other thing a
+     * picture of it varies. A word it does not know is passed over. Null where no trial was asked for.
      */
     fun trial(words: String?): Trial? {
         if (words == null) return null
         var strength: String? = null
-        var how: How? = null
         var wordByWord: Boolean? = null
         for (word in words.split(',').map { it.trim().uppercase() }) {
             when {
                 word == "OFF" -> strength = ""
                 Strength.entries.any { it.name == word } -> strength = word
-                How.entries.any { it.name == word } -> how = How.valueOf(word)
                 word == "WORDS" -> wordByWord = true
                 word == "LINES" -> wordByWord = false
             }
         }
-        return Trial(strength, how, wordByWord)
+        return Trial(strength, wordByWord)
     }
 
     /** A line comes into focus in this long, as it starts being sung or a finger starts scrolling. */
@@ -147,9 +128,16 @@ object LyricsBlur {
 
     /**
      * A shadow is never fully opaque: Android takes an opaque shadow colour to mean "as see-through
-     * as the text", and the text is drawn clear.
+     * as the text", and the text is drawn as good as clear.
      */
     const val MOST_INK = 0.996f
+
+    /**
+     * The ink left in the text whose shadow is the line out of focus: one step in 255, which no eye
+     * sees. Not none: a text with no ink at all may be passed over by Android as nothing to draw,
+     * its shadow with it.
+     */
+    const val TEXT_INK = 1f / 255f
 }
 
 /**
@@ -173,54 +161,46 @@ internal fun rememberLineBlur(target: Float): Animatable<Float, AnimationVector1
  * With no radius the line is drawn exactly as it was without this: its text behind `alpha`.
  */
 internal fun Modifier.lyricsLineBlur(
-    how: LyricsBlur.How,
     radius: () -> Float,
     alpha: Float,
     color: Color,
     layout: () -> TextLayoutResult?,
-): Modifier = when (how) {
-    LyricsBlur.How.LAYER -> graphicsLayer {
-        this.alpha = alpha
-        val r = radius()
-        // Decal: the blur runs out past the line's own box instead of smearing its edge inwards.
-        renderEffect = if (r >= 0.5f && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) BlurEffect(r, r, TileMode.Decal) else null
-    }
-
-    LyricsBlur.How.GLYPHS -> graphicsLayer {
-        // Out of focus the dimming is in the ink itself: a see-through layer is cut at the line's
-        // box, and the blur has to run out past it.
-        this.alpha = if (radius() < LyricsBlur.SHARP) alpha else 1f
-    }.drawWithContent {
-        val r = radius()
-        val laidOut = layout()
-        if (r < LyricsBlur.SHARP || laidOut == null) drawContent() else drawOutOfFocus(laidOut, color, alpha, r)
-    }
+): Modifier = graphicsLayer {
+    // Out of focus the dimming is in the ink itself: a see-through layer is cut at the line's
+    // box, and the blur has to run out past it.
+    this.alpha = if (radius() < LyricsBlur.SHARP) alpha else 1f
+}.drawWithContent {
+    val r = radius()
+    val laidOut = layout()
+    if (r < LyricsBlur.SHARP || laidOut == null) drawContent() else drawOutOfFocus(laidOut, color, alpha, r)
 }
 
 /**
- * [laidOut] drawn out of focus by [radius]: as its own shadow with the text itself left clear.
- * Between two whole radii it is the two drawn over each other, each at its share and added up, so
- * a line on its way from one to the next never dips; under one pixel the lower of the two is the
- * sharp text.
+ * [laidOut] drawn out of focus by [radius]: as its own shadow with the text itself left as good
+ * as clear ([LyricsBlur.TEXT_INK]). Between two whole radii it is the two drawn over each other,
+ * each at its share and added up, so a line on its way from one to the next never dips; under one
+ * pixel the lower of the two is the sharp text.
  */
 private fun DrawScope.drawOutOfFocus(laidOut: TextLayoutResult, color: Color, alpha: Float, radius: Float) {
     val low = floor(radius)
     val upper = radius - low
     val ink = color.alpha * alpha
-    var drawn = false
-    for ((blur, share) in listOf(low to 1f - upper, low + 1f to upper)) {
-        if (share < 0.004f) continue
-        val blend = if (drawn) BlendMode.Plus else BlendMode.SrcOver
-        if (blur == 0f) {
-            drawText(textLayoutResult = laidOut, color = color.copy(alpha = ink * share), shadow = Shadow.None, blendMode = blend)
-        } else {
-            drawText(
-                textLayoutResult = laidOut,
-                color = Color.Transparent,
-                shadow = Shadow(color.copy(alpha = (ink * share).coerceAtMost(LyricsBlur.MOST_INK)), Offset.Zero, blur),
-                blendMode = blend,
-            )
-        }
-        drawn = true
+    val first = drawShare(laidOut, color, ink * (1f - upper), low, BlendMode.SrcOver)
+    drawShare(laidOut, color, ink * upper, low + 1f, if (first) BlendMode.Plus else BlendMode.SrcOver)
+}
+
+/** One of the two: [laidOut] at [ink], out of focus by the whole radius [blur]. False when it is too faint to draw. */
+private fun DrawScope.drawShare(laidOut: TextLayoutResult, color: Color, ink: Float, blur: Float, blend: BlendMode): Boolean {
+    if (ink < 0.004f) return false
+    if (blur == 0f) {
+        drawText(textLayoutResult = laidOut, color = color.copy(alpha = ink), shadow = Shadow.None, blendMode = blend)
+    } else {
+        drawText(
+            textLayoutResult = laidOut,
+            color = color.copy(alpha = LyricsBlur.TEXT_INK),
+            shadow = Shadow(color.copy(alpha = ink.coerceAtMost(LyricsBlur.MOST_INK)), Offset.Zero, blur),
+            blendMode = blend,
+        )
     }
+    return true
 }

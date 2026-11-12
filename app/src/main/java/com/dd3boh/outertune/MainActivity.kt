@@ -580,7 +580,6 @@ class MainActivity : ComponentActivity() {
     private fun setLyricsBlurTrial(intent: Intent) {
         val trial = LyricsBlur.trial(intent.getStringExtra(LyricsBlur.TRIAL)) ?: return
         Log.i(MAIN_TAG, "Lyrics blur trial: $trial")
-        trial.how?.let { LyricsBlur.how = it }
         lifecycleScope.launch {
             dataStore.edit { settings ->
                 trial.strength?.let { settings[LyricsBlurKey] = it }
