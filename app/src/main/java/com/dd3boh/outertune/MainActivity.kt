@@ -171,6 +171,8 @@ import com.dd3boh.outertune.constants.DynamicThemeKey
 import com.dd3boh.outertune.constants.EnabledTabsKey
 import com.dd3boh.outertune.constants.HighContrastKey
 import com.dd3boh.outertune.constants.LibraryFilterKey
+import com.dd3boh.outertune.constants.LyricKaraokeEnable
+import com.dd3boh.outertune.constants.LyricsBlurKey
 import com.dd3boh.outertune.constants.MinMiniPlayerHeight
 import com.dd3boh.outertune.constants.MiniPlayerHeight
 import com.dd3boh.outertune.constants.NavigationBarAnimationSpec
@@ -203,6 +205,7 @@ import com.dd3boh.outertune.together.RoomCode
 import com.dd3boh.outertune.utils.urlEncode
 import com.dd3boh.outertune.ui.component.LocalHiddenByPlayer
 import com.dd3boh.outertune.ui.component.LocalPlayerSheet
+import com.dd3boh.outertune.ui.component.LyricsBlur
 import com.dd3boh.outertune.ui.component.rememberBottomSheetState
 import com.dd3boh.outertune.ui.component.shimmer.ShimmerTheme
 import com.dd3boh.outertune.ui.menu.BottomSheetMenu
@@ -567,6 +570,22 @@ class MainActivity : ComponentActivity() {
         if (intent.action == RecognitionShortcut.ACTION) pendingRecognition.asked = true
         if (intent.action == DownloadsShortcut.ACTION) pendingDownloads.asked = true
         handlePlayFromSearch(intent)
+        if (Unreleased.LYRICS_BLUR) setLyricsBlurTrial(intent)
+    }
+
+    /**
+     * The debug app's lyrics blur set from a command line (LyricsBlur.trial), for pictures of each
+     * strength with the lyrics left open: `am start -n <app>/.MainActivity --es lyricsblur medium`.
+     */
+    private fun setLyricsBlurTrial(intent: Intent) {
+        val trial = LyricsBlur.trial(intent.getStringExtra(LyricsBlur.TRIAL)) ?: return
+        Log.i(MAIN_TAG, "Lyrics blur trial: $trial")
+        lifecycleScope.launch {
+            dataStore.edit { settings ->
+                trial.strength?.let { settings[LyricsBlurKey] = it }
+                trial.wordByWord?.let { settings[LyricKaraokeEnable] = it }
+            }
+        }
     }
 
     private fun handlePlayFromSearch(intent: Intent) {

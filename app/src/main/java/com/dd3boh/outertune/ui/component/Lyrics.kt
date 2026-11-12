@@ -114,6 +114,7 @@ import com.dd3boh.outertune.constants.LyricFontSizeKey
 import com.dd3boh.outertune.constants.LyricKaraokeEnable
 import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.constants.LyricLatinKey
+import com.dd3boh.outertune.constants.LyricsBlurKey
 import com.dd3boh.outertune.constants.LyricUpdateSpeed
 import com.dd3boh.outertune.constants.LyricsPosition
 import com.dd3boh.outertune.constants.LyricsTextPositionKey
@@ -151,6 +152,8 @@ import java.io.File
 import kotlin.time.Duration.Companion.seconds
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.withFrameNanos
+import androidx.compose.ui.node.Ref
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.unit.Density
 import androidx.media3.common.Player
@@ -197,6 +200,9 @@ fun Lyrics(
     val lyricsUpdateSpeed by rememberEnumPreference(LyricUpdateSpeed, Speed.MEDIUM)
     var lyricRefreshRate = lyricsUpdateSpeed.toLrcRefreshMillis()
     val showLatin by rememberPreference(LyricLatinKey, false)
+    // Progressive blur, the debug app's trial (LyricsBlur): how strong, or null for the lines as they are.
+    val blurStored by rememberPreference(LyricsBlurKey, "")
+    val blur = if (Unreleased.LYRICS_BLUR) LyricsBlur.strengthOf(blurStored) else null
 
     val mediaMetadata by playerConnection.mediaMetadata.collectAsState()
 
@@ -506,6 +512,11 @@ fun Lyrics(
     val lazyListState = rememberLazyListState()
     val scope = rememberCoroutineScope()
 
+    // The blur is there only while the view follows the song: a scroll by hand clears it at its
+    // first move, until the view goes back to the song's line, and so does picking lines.
+    val blurFollows by remember { derivedStateOf { lastPreviewTime == 0L && !keep.picking } }
+    val blurSteps by remember { derivedStateOf { LyricsBlur.steps(lines.map { it.isTranslated }) } }
+
     /** Opens the timing bar on [song], where its lyrics are now, when it is the song playing. */
     fun startTiming(song: String) {
         // The live song, not the one the lyrics menu was opened on, which it keeps. Tapped after
@@ -706,6 +717,7 @@ fun Lyrics(
                 }
             } else if (lyricsModel != uninitializedLyric) {
                 val maxW = maxWidth - 48.dp
+                val blurFontPx = with(density) { lyricsFontSize.sp.toPx() }
                 itemsIndexed(
                     items = lines,
                     contentType = { _, _ -> LYRICS_LINE },
@@ -734,6 +746,15 @@ fun Lyrics(
                     val joinsAbove = isPicked && !isSynced && (index - 1) in picked
                     val joinsBelow = isPicked && !isSynced && (index + 1) in picked
                     val seeks = isSynced && lyricsClickable
+                    // How far out of focus the line is (LyricsBlur): by its steps from the line
+                    // being sung while the view follows the song, and not at all otherwise.
+                    val lineBlur = if (blur == null) null else rememberLineBlur(
+                        if (isSynced && lyricsAutoScroll && blurFollows) {
+                            blur.radius(LyricsBlur.distance(blurSteps, index, displayedCurrentLineIndex), blurFontPx)
+                        } else {
+                            0f
+                        }
+                    )
                     Column(
                         horizontalAlignment = when (lyricsTextPosition) {
                             LyricsPosition.LEFT -> Alignment.Start
@@ -873,28 +894,36 @@ fun Lyrics(
                             val isConsumed = doneWith
                             val isHighlighted =
                                 ((index == displayedCurrentLineIndex || (index == displayedCurrentLineIndex + 1 && item.isTranslated)))
+                            val lineColor = if (isConsumed && !isHighlighted) prevTextColor else textColor
+                            val lineAlpha = if (picking) {
+                                // The picked lines stand out from the rest, whichever is being sung.
+                                if (isPicked) 1f else 0.45f
+                            } else if (!isSynced || isHighlighted) {
+                                1f
+                            } else if (isConsumed) {
+                                0.6f
+                            } else {
+                                0.5f
+                            }
+                            // The text as it was laid out, which a line out of focus is drawn from (LyricsBlur).
+                            val laidOut = remember { Ref<TextLayoutResult>() }
                             Text(
                                 text = remember(item.text, itemLatin, latinSize) { withLatin(item.text, itemLatin, latinSize) },
                                 fontSize = lyricFontSizeAdjusted.sp,
-                                color = if (isConsumed && !isHighlighted) prevTextColor else textColor,
+                                color = lineColor,
                                 textAlign = when (lyricsTextPosition) {
                                     LyricsPosition.LEFT -> TextAlign.Left
                                     LyricsPosition.CENTER -> TextAlign.Center
                                     LyricsPosition.RIGHT -> TextAlign.Right
                                 },
                                 fontWeight = FontWeight.Bold,
-                                modifier = Modifier.alpha(
-                                    if (picking) {
-                                        // The picked lines stand out from the rest, whichever is being sung.
-                                        if (isPicked) 1f else 0.45f
-                                    } else if (!isSynced || isHighlighted) {
-                                        1f
-                                    } else if (isConsumed) {
-                                        0.6f
-                                    } else {
-                                        0.5f
-                                    }
-                                )
+                                onTextLayout = { result -> laidOut.value = result },
+                                // Without the blur's trial, the line behind its dimming, as ever.
+                                modifier = if (lineBlur == null) {
+                                    Modifier.alpha(lineAlpha)
+                                } else {
+                                    Modifier.lyricsLineBlur({ lineBlur.value }, lineAlpha, lineColor) { laidOut.value }
+                                }
                             )
                         }
                     }
