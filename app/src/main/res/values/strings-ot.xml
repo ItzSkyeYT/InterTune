@@ -2688,6 +2688,15 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="new_animations_body" translatable="false">A switch in Look and feel turns the app\'s animations off: screens change at once and backgrounds stand still. Easier on older phones.</string>
     <string name="new_animations_way" translatable="false">How the app looks and moves is set in here.</string>
     <string name="new_animations_here" translatable="false">Android\'s own Remove animations turns them off here too, and greys this switch out.</string>
+    <string name="new_stats_plays_title" translatable="false">Stats counts your plays</string>
+    <string name="new_stats_plays_body" translatable="false">Your most played songs, artists and albums now show how many times you played them, the most played first. Open Stats from Home.</string>
+    <string name="new_queue_swipe_title" translatable="false">Swipe a song out of the queue</string>
+    <string name="new_queue_swipe_body" translatable="false">Swipe a song sideways and let go to take it out of the queue. Undo in the bar that comes up brings it back, and Remove on a selection can be undone too.</string>
+    <string name="new_downloads_move_title" translatable="false">Your downloads follow the folder you choose</string>
+    <string name="new_downloads_move_body" translatable="false">Choosing a download folder now offers to move the songs you already downloaded, with a notification while they move. If the folder can\'t be opened, the app says so.</string>
+    <string name="new_downloads_move_here" translatable="false">Choose the folder here. Songs you downloaded before can move there with it.</string>
+    <string name="new_original_audio_title" translatable="false">Podcasts and videos in their own language</string>
+    <string name="new_original_audio_body" translatable="false">When YouTube dubs a podcast or a video into other languages, InterTune now plays the language it was made in.</string>
     <!-- What's new in 0.12.8 (Walkthrough.kt, V0_12_8): held from translators until his go. -->
     <string name="new_report_send_title" translatable="false">Send a report to InterTune</string>
     <string name="new_report_send_body" translatable="false">Report a problem can now send the report to InterTune itself, no GitHub account needed. Or share it as a file to post on Discord.</string>
