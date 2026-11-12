@@ -7,7 +7,7 @@
 package com.dd3boh.outertune.db
 
 /**
- * What the Stats page reads from the listen log for its insights, and its Most played artists row,
+ * What the Stats page reads from the listen log for its insights, and its three Most played lists,
  * kept as constants so the DAOs and StatsSqlTest run the same text, the way [RecommendationSql] is.
  *
  * The insights' reads are plain reads, run once for each period the listener picks and never
@@ -102,6 +102,43 @@ object StatsSql {
     """
 
     /**
+     * Most played songs, the list above the artists, each with its plays in the period. The
+     * ranking is SongsDao.MOST_PLAYED_SONGS's, by the time played, which Home's Keep listening, the
+     * widget and the car read: the same songs in the same order (StatsSqlTest holds the two
+     * together), with the count the inner query makes in the pass that adds up the time.
+     */
+    const val MOST_PLAYED_SONGS = """
+        SELECT song.*, ranked.plays AS plays
+        FROM (
+            SELECT songId, SUM(playTime) AS totalPlayTime, COUNT(*) AS plays
+            FROM event
+            WHERE timestamp > :fromTimeStamp
+            GROUP BY songId
+            ORDER BY totalPlayTime DESC
+            LIMIT :limit
+        ) ranked
+        JOIN song ON song.id = ranked.songId
+        ORDER BY ranked.totalPlayTime DESC
+    """
+
+    /**
+     * Most played albums, the last row, each with the plays of its songs in the period. The
+     * ranking is AlbumsDao.mostPlayedAlbums's, by the time played, which Home reads too. Every row
+     * grouped here is one play of one of the album's songs, so the count is of rows; the download
+     * count is that query's own, kept as it is.
+     */
+    const val MOST_PLAYED_ALBUMS = """
+        SELECT album.*, count(song.dateDownload) downloadCount, COUNT(*) AS plays
+        FROM album
+            JOIN song ON album.id = song.albumId
+            JOIN event ON song.id = event.songId
+        WHERE event.timestamp > :fromTimeStamp
+        GROUP BY album.id
+        ORDER BY SUM(event.playTime) DESC
+        LIMIT :limit
+    """
+
+    /**
      * Most played artists, the row below the songs: the artists credited on the songs played
      * since :fromTimeStamp, by plays and then by time played. Unlike the reads above it is a Room
      * flow over the play events, the table the songs and albums lists beside it read, dated the
@@ -122,9 +159,13 @@ object StatsSql {
      * in the database and looked each one up in the events, tens of thousands of lookups to find
      * a week's few hundred plays. The + in the GROUP BY reads the events in table order rather than
      * through the songId index, as in [SONGS_BEFORE].
+     *
+     * The plays and the time it ranks by come out with each artist, for the page to write under
+     * the name: they were added up already, and only dropped after the sort.
      */
     const val MOST_PLAYED_ARTISTS = """
-        SELECT artist.*, played.songCount AS songCount, played.downloadCount AS downloadCount
+        SELECT artist.*, played.songCount AS songCount, played.downloadCount AS downloadCount,
+            played.plays AS plays, played.playTime AS playTime
         FROM (
             SELECT sam.artistId,
                 SUM(e.plays) AS plays,

@@ -110,6 +110,8 @@ fun ArtistGridItem(
         }
     },
     fillMaxWidth: Boolean = false,
+    /** Under the count of songs, a line each: the plays and the time of a most played artist (StatsScreen). */
+    lines: List<String> = emptyList(),
 ) = GridItem(
     title = artist.artist.name,
     subtitle = getNSongsString(artist.songCount, artist.downloadCount),
@@ -125,6 +127,7 @@ fun ArtistGridItem(
         )
     },
     fillMaxWidth = fillMaxWidth,
+    lines = lines,
     modifier = modifier
 )
 
