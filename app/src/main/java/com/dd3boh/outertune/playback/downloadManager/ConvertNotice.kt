@@ -35,8 +35,7 @@ internal class ConvertNotice(
     private var fellBack = 0
 
     init {
-        // The service makes the channel with the first download of a run; an export may come before one.
-        NotificationUtil.createNotificationChannel(context, ExoDownloadService.CHANNEL_ID, R.string.action_download, 0, NotificationUtil.IMPORTANCE_LOW)
+        makeChannel(context)
     }
 
     /** Song number [index], counting from 0, is being converted. */
@@ -76,16 +75,25 @@ internal class ConvertNotice(
         }
     }
 
-    @SuppressLint("MissingPermission")
     private fun post(id: Int, notification: android.app.Notification) {
-        // Refused on Android 13 and later without the permission: no notice, and no reason to fail a conversion.
-        runCatching { manager.notify(id, notification) }
+        post(manager, id, notification)
     }
 
     companion object {
-        /** Its own ids: 1 is the downloads' and 2000 on are their failures'. */
+        /** Its own ids: 1 is the downloads' and 2000 on are their failures'. MoveNotice shares the ongoing one. */
         const val ONGOING_ID = 3
         const val FALLBACK_ID = 4
+
+        /** The service makes the channel with the first download of a run; an export or a move may come before one. */
+        fun makeChannel(context: Context) {
+            NotificationUtil.createNotificationChannel(context, ExoDownloadService.CHANNEL_ID, R.string.action_download, 0, NotificationUtil.IMPORTANCE_LOW)
+        }
+
+        @SuppressLint("MissingPermission")
+        fun post(manager: NotificationManagerCompat, id: Int, notification: android.app.Notification) {
+            // Refused on Android 13 and later without the permission: no notice, and no reason to fail a conversion or a move.
+            runCatching { manager.notify(id, notification) }
+        }
 
         /** The format as a person says it. */
         fun label(format: DownloadFormat): String = when (format) {

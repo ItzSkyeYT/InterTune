@@ -78,21 +78,22 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBarDefaults
-import androidx.compose.material3.SwipeToDismissBox
-import androidx.compose.material3.SwipeToDismissBoxValue
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
-import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.referentialEqualityPolicy
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
@@ -136,6 +137,7 @@ import androidx.media3.common.Player.STATE_ENDED
 import androidx.media3.common.Timeline
 import androidx.navigation.NavController
 import com.dd3boh.outertune.LocalMenuState
+import com.dd3boh.outertune.LocalSnackbarHostState
 import com.dd3boh.outertune.LocalPlayerAwareWindowInsets
 import com.dd3boh.outertune.LocalPlayerConnection
 import com.dd3boh.outertune.R
@@ -162,6 +164,7 @@ import com.dd3boh.outertune.db.entities.PlaylistSongMap
 import com.dd3boh.outertune.extensions.metadata
 import com.dd3boh.outertune.extensions.move
 import com.dd3boh.outertune.extensions.supportsWideScreen
+import com.dd3boh.outertune.extensions.toMediaItem
 import com.dd3boh.outertune.extensions.toggleRepeatMode
 import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.models.MultiQueueObject
@@ -179,6 +182,7 @@ import com.dd3boh.outertune.ui.component.openProxySetting
 import com.dd3boh.outertune.playback.QueueStart
 import com.dd3boh.outertune.ui.component.FloatingFooter
 import com.dd3boh.outertune.ui.component.SelectHeader
+import com.dd3boh.outertune.ui.component.SwipeToRemoveBox
 import com.dd3boh.outertune.ui.component.button.IconButton
 import com.dd3boh.outertune.ui.component.button.ResizableIconButton
 import com.dd3boh.outertune.ui.component.items.MediaMetadataListItem
@@ -479,12 +483,13 @@ fun BoxScope.QueueContent(
     var detachedQueue by remember { mutableStateOf<MultiQueueObject?>(fallBackQueue) }
 
     /**
-     * The queue the fallback seeded us with, captured once alongside the remembers above.
+     * The queue the fallback seeded us with, captured alongside the remembers above, and again
+     * when the board comes to hold another object for it (the effect under exitDetachHead's).
      *
      * Used to tell "we are detached because nothing had loaded yet" apart from "the user picked a
      * queue to preview". Only the first is safe to clear automatically.
      */
-    val fallbackSeed = remember { fallBackQueue }
+    var fallbackSeed by remember { mutableStateOf(fallBackQueue, referentialEqualityPolicy()) }
     // The queue the player will play, shown before play after a restart. The player holds nothing
     // yet, so these rows are the queue board's own: they can be dragged, and a move goes to the
     // board alone, which saves it. A queue picked from the list to look at is not this one.
@@ -543,6 +548,47 @@ fun BoxScope.QueueContent(
             if (remainingQueues < 1) onTerminate()
         }
     }
+    // Undo for songs taken out by hand: a swipe, the pill's button and the menu's entry (the owner's pick of 11 Nov
+    // 2026, after testers hit Remove from queue by mistake). A small message says for a few seconds what went,
+    // and Undo puts the songs back where they were, in order, into the queue they came out of: the queue board
+    // first, which saves, then the player when it holds the queue, or the saved queue alone before play, as a
+    // removal does. What is playing, and where it is, are not asked about: the player moves its own place along
+    // as songs come in above it, and the queue keeps its place on the song it was on.
+    val snackbarHostState = LocalSnackbarHostState.current
+    val undoLabel = stringResource(R.string.undo)
+    val putBackTaken: (Long, List<QueueUndo.Taken<MediaMetadata>>) -> Unit = put@{ queueId, taken ->
+        val queue = qb.getCurrentQueue()?.takeIf { it.id == queueId } ?: return@put
+        val loaded = playerConnection.player.mediaItemCount > 0
+        for (at in QueueUndo.insertions(taken, queue.getSize())) {
+            val held = qb.putBack(queue, at.place, at.song)
+            if (loaded) playerConnection.player.addMediaItem(at.place, held.toMediaItem())
+            mutableSongs.add(at.place.coerceIn(0, mutableSongs.size), held)
+        }
+        if (!loaded) playerConnection.storedQueueEdited()
+        haptic.performHapticFeedback(HapticFeedbackType.Confirm)
+    }
+    val offerUndo: (Long?, List<QueueUndo.Taken<MediaMetadata>>) -> Unit = offer@{ queueId, taken ->
+        if (queueId == null || taken.isEmpty()) return@offer
+        // Not for a queue that went with its last songs (dropIfEmptied): there is nothing to put them back into.
+        qb.getCurrentQueue()?.takeIf { it.id == queueId && it.getSize() > 0 } ?: return@offer
+        val message = if (taken.size == 1) {
+            context.getString(R.string.queue_removed_one, taken[0].song.title)
+        } else {
+            context.resources.getQuantityString(R.plurals.queue_removed_songs, taken.size, taken.size)
+        }
+        coroutineScope.launch {
+            // A second removal while the bar shows replaces it: only the last can be undone.
+            snackbarHostState.currentSnackbarData?.dismiss()
+            val result = snackbarHostState.showSnackbar(
+                message = message,
+                actionLabel = undoLabel,
+                duration = SnackbarDuration.Long,
+            )
+            if (result == SnackbarResult.ActionPerformed) putBackTaken(queueId, taken)
+        }
+    }
+    // Undo ends here
+
     // The songs picked, taken out of the queue in one go, each as a swipe takes one: the last place
     // first, so the places still to go keep their songs. Offered where the rows are the queue being
     // listened to: unlocked, and the one playing or the one that will play before play after a
@@ -556,6 +602,8 @@ fun BoxScope.QueueContent(
             val picked = selectedItems.toSet()
             val places = mutableSongs.indices.filter { mutableSongs[it].hashCode() in picked }.sortedDescending()
             val loaded = playerConnection.player.mediaItemCount > 0
+            val queueId = qb.getCurrentQueue()?.id
+            val taken = ArrayList<QueueUndo.Taken<MediaMetadata>>()
             for (place in places) {
                 val song = mutableSongs.getOrNull(place) ?: continue
                 if (qb.removeCurrentQueueSong(place)) {
@@ -563,11 +611,13 @@ fun BoxScope.QueueContent(
                     ActivityLog.note(context, database, song.id, SignalKind.REMOVED_FROM_QUEUE)
                     if (loaded) playerConnection.player.removeMediaItem(place)
                     mutableSongs.removeAt(place)
+                    taken += QueueUndo.Taken(place, song)
                 }
             }
             dropIfEmptied()
             if (!loaded) playerConnection.storedQueueEdited()
             haptic.performHapticFeedback(HapticFeedbackType.Confirm)
+            offerUndo(queueId, taken)
             onExitSelectionMode()
         }
     }
@@ -714,6 +764,30 @@ fun BoxScope.QueueContent(
     LaunchedEffect(queueWindows.isEmpty()) {
         if (queueWindows.isNotEmpty() && detachedHead && detachedQueue === fallbackSeed) {
             exitDetachHead()
+        }
+    }
+
+    /**
+     * The saved queue shown before play is the board's own object, and stays the board's.
+     *
+     * The board is built again from the database, with new objects, whenever the music service
+     * is: with nothing loaded the service ends when the app is left and a new one starts when the
+     * app comes back (and after a scan, or for a new Max queues). A sheet left open across that
+     * went on showing the object it was seeded with, while Remove from queue, a swipe and a drag
+     * all go to the board's current queue. So the picked songs left the saved queue, the rows came
+     * straight back from the old object and the bar still counted them: "the remove from queue
+     * doesn't work" (a tester's video, 10 Nov 2026), and the next try took out whichever songs
+     * stood at those places by then. The old object is swapped for the board's as soon as they
+     * differ. A selection is of the old rows and goes with them, as when the player's list changes.
+     *
+     * Only the seed: a queue picked from the list to look at is not the board's current one.
+     */
+    val seedReplacedBy = fallBackQueue?.takeIf { detachedHead && detachedQueue === fallbackSeed && it !== fallbackSeed }
+    SideEffect {
+        if (seedReplacedBy != null) {
+            fallbackSeed = seedReplacedBy
+            detachedQueue = seedReplacedBy
+            onExitSelectionMode()
         }
     }
 
@@ -1236,63 +1310,39 @@ fun BoxScope.QueueContent(
                 } else {
                     displayIndex
                 }
-                // The swipe state keeps the confirmValueChange from the row's first composition
-                // (Material3 remembers it with no inputs), so an index captured there goes stale.
-                // Removing a song shifts every later one down without changing its key, and a second
-                // swipe then removed the song after the one swiped. The lambda reads this instead.
+                // Read when the swipe asks to remove the row, not when it was composed: an index kept
+                // from then goes stale. Removing a song shifts every later one down without changing
+                // its key, and a second swipe then removed the song after the one swiped.
                 val currentIndex by rememberUpdatedState(index)
                 ReorderableItem(
                     state = reorderableState,
                     key = QueueRows.key(window)
                 ) {
-                    val dismissState = rememberSwipeToDismissBoxState(
-                        positionalThreshold = { totalDistance ->
-                            totalDistance
-                        },
-                        confirmValueChange = { dismissValue ->
-                            // Read once, so the removal and the log below agree on the row.
-                            val swipedIndex = currentIndex
-                            // A row whose song has already left the queue (a search result stays on
-                            // screen until the results refresh) has no place of its own any more,
-                            // and a swipe on it must not take another song with it.
-                            if (dismissValue != SwipeToDismissBoxValue.Settled && mutableSongs.getOrNull(swipedIndex) != window) {
-                                return@rememberSwipeToDismissBoxState false
-                            }
-                            when (dismissValue) {
-                                SwipeToDismissBoxValue.StartToEnd -> {
-                                    if (qb.removeCurrentQueueSong(swipedIndex)) {
-                                        mutableSongs.getOrNull(swipedIndex)?.let { playerConnection.service.noteRemovedByHand(it) }
-                                        mutableSongs.getOrNull(swipedIndex)?.id?.let { ActivityLog.note(context, database, it, SignalKind.REMOVED_FROM_QUEUE) }
-                                        val loaded = playerConnection.player.mediaItemCount > 0
-                                        if (loaded) playerConnection.player.removeMediaItem(swipedIndex)
-                                        mutableSongs.removeAt(swipedIndex)
-                                        dropIfEmptied()
-                                        if (!loaded) playerConnection.storedQueueEdited()
-                                    }
-                                    haptic.performHapticFeedback(HapticFeedbackType.Confirm)
-                                    return@rememberSwipeToDismissBoxState true
-                                }
-
-                                SwipeToDismissBoxValue.EndToStart -> {
-                                    if (qb.removeCurrentQueueSong(swipedIndex)) {
-                                        mutableSongs.getOrNull(swipedIndex)?.let { playerConnection.service.noteRemovedByHand(it) }
-                                        mutableSongs.getOrNull(swipedIndex)?.id?.let { ActivityLog.note(context, database, it, SignalKind.REMOVED_FROM_QUEUE) }
-                                        val loaded = playerConnection.player.mediaItemCount > 0
-                                        if (loaded) playerConnection.player.removeMediaItem(swipedIndex)
-                                        mutableSongs.removeAt(swipedIndex)
-                                        dropIfEmptied()
-                                        if (!loaded) playerConnection.storedQueueEdited()
-                                    }
-                                    haptic.performHapticFeedback(HapticFeedbackType.Confirm)
-                                    return@rememberSwipeToDismissBoxState true
-                                }
-
-                                SwipeToDismissBoxValue.Settled -> {
-                                    return@rememberSwipeToDismissBoxState false
-                                }
-                            }
+                    // Asked once the finger has let go of the row far enough along and clearly sideways,
+                    // and the row has slid out (SwipeToRemoveBox), the same either way. False leaves the
+                    // song where it is, and the row slides back.
+                    val removeSwiped: () -> Boolean = swipe@{
+                        // Read once, so the removal and the log below agree on the row.
+                        val swipedIndex = currentIndex
+                        // A row whose song has already left the queue (a search result stays on
+                        // screen until the results refresh) has no place of its own any more,
+                        // and a swipe on it must not take another song with it.
+                        if (mutableSongs.getOrNull(swipedIndex) != window) return@swipe false
+                        val queueId = qb.getCurrentQueue()?.id
+                        val removed = qb.removeCurrentQueueSong(swipedIndex)
+                        if (removed) {
+                            mutableSongs.getOrNull(swipedIndex)?.let { playerConnection.service.noteRemovedByHand(it) }
+                            mutableSongs.getOrNull(swipedIndex)?.id?.let { ActivityLog.note(context, database, it, SignalKind.REMOVED_FROM_QUEUE) }
+                            val loaded = playerConnection.player.mediaItemCount > 0
+                            if (loaded) playerConnection.player.removeMediaItem(swipedIndex)
+                            mutableSongs.removeAt(swipedIndex)
+                            dropIfEmptied()
+                            if (!loaded) playerConnection.storedQueueEdited()
+                            haptic.performHapticFeedback(HapticFeedbackType.Confirm)
+                            offerUndo(queueId, listOf(QueueUndo.Taken(swipedIndex, window)))
                         }
-                    )
+                        removed
+                    }
 
                     val onCheckedChange: (Boolean) -> Unit = {
                         haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
@@ -1384,9 +1434,8 @@ fun BoxScope.QueueContent(
                         // Before play after a restart too (movesStoredQueue), as Remove from queue is: the songs
                         // leave the saved queue alone, the player holding nothing yet.
                         if (!lockQueue && !inSelectMode && (!detachedHead || movesStoredQueue)) {
-                            SwipeToDismissBox(
-                                state = dismissState,
-                                backgroundContent = {},
+                            SwipeToRemoveBox(
+                                onRemove = removeSwiped,
                                 content = { content() }
                             )
                         } else {

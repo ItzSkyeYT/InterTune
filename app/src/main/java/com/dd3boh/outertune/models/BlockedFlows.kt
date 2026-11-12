@@ -28,6 +28,13 @@ val dontPlaySongs: Flow<DontPlay>
 fun <T : LocalItem> Flow<List<T>>.withoutBlocked(): Flow<List<T>> =
     combine(blockedArtists) { items, block -> block.library(items) }
 
+/**
+ * Rows that carry a song, an album or an artist beside something else, as a most played song
+ * carries its plays (PlayedSong): without the blocked artists' ones, the same way.
+ */
+fun <R> Flow<List<R>>.withoutBlocked(item: (R) -> LocalItem): Flow<List<R>> =
+    combine(blockedArtists) { rows, block -> if (block.isEmpty) rows else rows.filterNot { block.hides(item(it)) } }
+
 /** A playlist's rows without the blocked artists' songs, the same way. */
 @JvmName("playlistRowsWithoutBlocked")
 fun Flow<List<PlaylistSong>>.withoutBlocked(): Flow<List<PlaylistSong>> =

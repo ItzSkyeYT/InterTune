@@ -2451,12 +2451,24 @@ object YTPlayerUtils {
         // of the song is the same encoding. See RouteWish.
         sameStream: Pair<Int, Long>? = null,
     ): PlayerResponse.StreamingData.Format? {
-        val audioFormats = playerResponse.streamingData?.adaptiveFormats
+        val offered = playerResponse.streamingData?.adaptiveFormats
             ?.filter { it.isAudio && (preferredMime == null || it.mimeType.startsWith(preferredMime)) }
-        if (audioFormats.isNullOrEmpty()) return null
-        if (sameStream != null) {
-            audioFormats.firstOrNull { it.itag == sameStream.first && it.contentLength == sameStream.second }?.let { return it }
+        if (offered.isNullOrEmpty()) return null
+        // For a video offered in several languages, which one plays and why (#151). Said in every
+        // build: it is what a report of the wrong language is read by. Nothing for a song.
+        fun say(taken: PlayerResponse.StreamingData.Format?, kept: Boolean = false) {
+            OriginalAudio.said(offered, taken, kept)?.let { Log.i(TAG, "[${playerResponse.videoDetails?.videoId}] $it") }
         }
+        if (sameStream != null) {
+            // Whatever its language: the rest of a song begun in a dub is that dub, never two in one copy.
+            offered.firstOrNull { it.itag == sameStream.first && it.contentLength == sameStream.second }?.let {
+                say(it, kept = true)
+                return it
+            }
+        }
+        // The streams in the language the video was made in. AudioPick keeps to them by itself;
+        // here so that the trace below lists what the quality is chosen among.
+        val audioFormats = OriginalAudio.of(offered)
         if (TRACE_FORMATS) {
             android.util.Log.d(
                 "YTPlayerUtils",
@@ -2476,6 +2488,7 @@ object YTPlayerUtils {
                     "quality=$audioQuality took=${it?.itag}@${it?.bitrate} metered=${connectivityManager.isActiveNetworkMetered}",
                 )
             }
+            say(it)
         }
     }
 

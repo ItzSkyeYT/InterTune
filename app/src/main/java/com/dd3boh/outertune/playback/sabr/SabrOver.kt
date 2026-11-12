@@ -24,6 +24,7 @@ import com.metrolist.innertubex.sabr.sabrRequestOrigin
 import com.metrolist.innertubex.sabr.toSabrBootstrap
 import com.zionhuang.innertube.PlayerAnswers
 import com.zionhuang.innertube.YouTube
+import com.zionhuang.innertube.models.response.PlayerResponse
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.okhttp.OkHttp
 import kotlinx.serialization.json.Json
@@ -174,6 +175,23 @@ object SabrOver {
     }
 
     /**
+     * The stream the walk chose ([chosen], in our model) as InnerTubeX read it from the same
+     * answer: the same itag and upload, and of a video offered in several languages the same
+     * language (#151). Each language comes under the same itags, the first listed a dub, and with
+     * no upload time to tell them apart the first of the itag was taken, whatever it spoke. The
+     * stream it hands back is what InnerTubeX then names to YouTube, by its xtags and its audio
+     * track's id. Null when the answer has no such stream: never another language in its place.
+     */
+    internal fun sameFormat(
+        formats: List<SabrPlayerResponse.StreamingData.Format>,
+        chosen: PlayerResponse.StreamingData.Format,
+    ): SabrPlayerResponse.StreamingData.Format? {
+        val language = chosen.audioTrack?.id
+        val offered = formats.filter { it.itag == chosen.itag && (language == null || it.audioTrack?.id == language) }
+        return offered.firstOrNull { it.lastModified == chosen.lastModified?.toString() } ?: offered.firstOrNull()
+    }
+
+    /**
      * [data] with its address replaced by a sabr: address for the same format, made from [answer]
      * and asked for as the client that got it, or null when it cannot be streamed over SABR (said
      * in the log). Paced by where the player is in [clockId], the song the player asked for, or by
@@ -211,11 +229,11 @@ object SabrOver {
             return null
         }
         val theirs = json.decodeFromString(SabrPlayerResponse.serializer(), answer.text)
-        val formats = theirs.streamingData?.adaptiveFormats.orEmpty()
-        val format = formats.firstOrNull { it.itag == data.format.itag && it.lastModified == data.format.lastModified?.toString() }
-            ?: formats.firstOrNull { it.itag == data.format.itag }
+        val format = sameFormat(theirs.streamingData?.adaptiveFormats.orEmpty(), data.format)
+        // The language of a video offered in several, for the log: " in en-US.4".
+        val language = data.format.audioTrack?.id?.let { " in $it" }.orEmpty()
         if (format == null) {
-            Log.w(TAG, "[$videoId] the VISIONOS answer has no itag ${data.format.itag}")
+            Log.w(TAG, "[$videoId] the VISIONOS answer has no itag ${data.format.itag}$language")
             return null
         }
         val lastModified = format.lastModified?.toLongOrNull() ?: 0
@@ -309,7 +327,7 @@ object SabrOver {
                 )
             )
             // The client's own name between the brackets, as the walk's lines have it.
-            Log.i(TAG, "[$videoId] [${answer.client.clientName}] SABR start made: itag ${format.itag}, $length bytes, ${durationMs / 1000} s")
+            Log.i(TAG, "[$videoId] [${answer.client.clientName}] SABR start made: itag ${format.itag}$language, $length bytes, ${durationMs / 1000} s")
             data.copy(streamUrl = address, streamExpiresInSeconds = left.toInt())
         }
     }.onFailure { Log.w(TAG, "[${answer.videoId}] could not start SABR", it) }.getOrNull()

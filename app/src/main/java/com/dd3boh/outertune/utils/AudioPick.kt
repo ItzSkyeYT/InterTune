@@ -32,6 +32,10 @@ import com.zionhuang.innertube.models.response.PlayerResponse
  * where the middle of all seven would be AAC 140 at about 130 kbps. With fewer Opus streams, the
  * middle of them all as the higher tiers rank them, but never one worth less than the one Low
  * takes. Of two streams it takes the one Low takes, and of one, that one.
+ *
+ * A video offered in several languages comes as these same streams once for each language, and
+ * every tier chooses among the ones in the language it was made in ([OriginalAudio], #151). The
+ * largest of them all was a dub.
  */
 internal object AudioPick {
     const val OPUS_WORTH = 1.5
@@ -51,10 +55,14 @@ internal object AudioPick {
         formats: List<PlayerResponse.StreamingData.Format>,
         quality: AudioQuality,
         metered: Boolean,
-    ): PlayerResponse.StreamingData.Format? = when {
-        quality == AudioQuality.LOW -> smallest(formats)
-        quality == AudioQuality.AUTO && metered -> middle(formats)
-        else -> formats.maxWithOrNull(byWorth)
+    ): PlayerResponse.StreamingData.Format? {
+        // Here, so that nothing can choose a stream without it.
+        val original = OriginalAudio.of(formats)
+        return when {
+            quality == AudioQuality.LOW -> smallest(original)
+            quality == AudioQuality.AUTO && metered -> middle(original)
+            else -> original.maxWithOrNull(byWorth)
+        }
     }
 
     private fun smallest(formats: List<PlayerResponse.StreamingData.Format>) =

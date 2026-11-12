@@ -216,15 +216,18 @@ fun AlbumMenu(
                 }
             )
         }
-        GridMenuItem(
-            icon = R.drawable.artist,
-            title = R.string.view_artist
-        ) {
-            if (album.artists.size == 1) {
-                navController.navigate("artist/${album.artists[0].id}")
-                onDismiss()
-            } else {
-                showSelectArtistDialog = true
+        // An album of local files with no artist tag has no artist: left out, as for a song (#150).
+        if (album.artists.isNotEmpty()) {
+            GridMenuItem(
+                icon = R.drawable.artist,
+                title = R.string.view_artist
+            ) {
+                if (album.artists.size == 1) {
+                    navController.navigate("artist/${album.artists[0].id}")
+                    onDismiss()
+                } else {
+                    showSelectArtistDialog = true
+                }
             }
         }
         GridMenuItem(

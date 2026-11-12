@@ -152,7 +152,9 @@ class AdaptiveWiringTest {
         assertTrue("queueBoard.getCurrentQueue()?.let { addToQueue(it, " in body(service, "fun enqueueEnd("))
         assertTrue("noteByHand(q, songs.map { it.id })" in body(service, "fun addToQueue("))
         val sheet = code("ui/player/Queue.kt")
-        assertEquals("both swipes", 2, Regex("""playerConnection\.service\.noteRemovedByHand\(it\)""").findAll(sheet).count())
+        // The swipe is one function for both sides (SwipeToRemoveBox), and the picked songs go one by one the same way.
+        assertEquals("the swipe", 1, Regex("""playerConnection\.service\.noteRemovedByHand\(it\)""").findAll(sheet).count())
+        assertEquals("the picked songs", 1, Regex("""playerConnection\.service\.noteRemovedByHand\(song\)""").findAll(sheet).count())
         assertTrue("playerConnection.service.noteMovedByHand(it)" in sheet)
     }
 

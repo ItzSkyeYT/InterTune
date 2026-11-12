@@ -91,7 +91,7 @@ class QueueSelectionRemoveTest {
             "mutableSongs.removeAt(place)",
             "onExitSelectionMode()",
         )) assertTrue(step, step in body)
-        val swipe = queue.substringAfter("SwipeToDismissBoxValue.StartToEnd ->").substringBefore("SwipeToDismissBoxValue.EndToStart ->")
+        val swipe = queue.substringAfter("val removeSwiped: () -> Boolean = swipe@{").substringBefore("val onCheckedChange")
         assertTrue("the swipe still takes one the same way", "qb.removeCurrentQueueSong(swipedIndex)" in swipe && "player.removeMediaItem(swipedIndex)" in swipe)
     }
 

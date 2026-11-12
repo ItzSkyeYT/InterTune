@@ -2,6 +2,7 @@ package com.dd3boh.outertune.db.daos
 
 import com.dd3boh.outertune.db.LibrarySql
 import com.dd3boh.outertune.db.RecommendationSql
+import com.dd3boh.outertune.db.StatsSql
 import androidx.room.Dao
 import androidx.room.Delete
 import androidx.room.Insert
@@ -20,6 +21,7 @@ import com.dd3boh.outertune.db.entities.AlbumArtistMap
 import com.dd3boh.outertune.db.entities.AlbumEntity
 import com.dd3boh.outertune.db.entities.AlbumWithSongs
 import com.dd3boh.outertune.db.entities.ArtistEntity
+import com.dd3boh.outertune.db.entities.PlayedAlbum
 import com.dd3boh.outertune.db.entities.Song
 import com.dd3boh.outertune.db.entities.SongAlbumMap
 import com.dd3boh.outertune.extensions.reversed
@@ -120,6 +122,11 @@ interface AlbumsDao : ArtistsDao {
         LIMIT :limit OFFSET :offset;
     """)
     fun mostPlayedAlbums(fromTimeStamp: Long, limit: Int = 6, offset: Int = 0): Flow<List<Album>>
+
+    /** The Stats page's row, each album with the plays of its songs in the period: see [StatsSql.MOST_PLAYED_ALBUMS]. */
+    @Transaction
+    @Query(StatsSql.MOST_PLAYED_ALBUMS)
+    fun statsMostPlayedAlbums(fromTimeStamp: Long, limit: Int = 6): Flow<List<PlayedAlbum>>
 
     @Transaction
     @Query("""

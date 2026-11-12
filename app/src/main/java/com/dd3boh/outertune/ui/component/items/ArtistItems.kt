@@ -110,9 +110,13 @@ fun ArtistGridItem(
         }
     },
     fillMaxWidth: Boolean = false,
+    /** Under the subtitle, a line each: the time listened to a most played artist (StatsScreen). */
+    lines: List<String> = emptyList(),
+    /** In place of the count of songs: a most played artist's plays (StatsScreen). */
+    subtitle: String? = null,
 ) = GridItem(
     title = artist.artist.name,
-    subtitle = getNSongsString(artist.songCount, artist.downloadCount),
+    subtitle = subtitle ?: getNSongsString(artist.songCount, artist.downloadCount),
     badges = badges,
     thumbnailContent = {
         AsyncImage(
@@ -125,6 +129,7 @@ fun ArtistGridItem(
         )
     },
     fillMaxWidth = fillMaxWidth,
+    lines = lines,
     modifier = modifier
 )
 
