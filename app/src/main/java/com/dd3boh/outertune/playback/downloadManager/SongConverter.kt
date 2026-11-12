@@ -70,7 +70,9 @@ internal class SongConverter(
         require(plan.format.encoder != DownloadFormat.Encoder.NONE) { "Original is not converted" }
         if (!workDir.isDirectory && !workDir.mkdirs()) throw IOException("no place to convert in: $workDir")
         val target = File.createTempFile("convert-", PART, workDir)
-        val began = System.nanoTime()
+        // The clock that goes on while the phone sleeps and while Android holds the app's work back: a conversion
+        // that waited says so in its time.
+        val began = android.os.SystemClock.elapsedRealtimeNanos()
         var encoder: FileEncoder? = null
         // A conversion takes a core for as long as the song lasts: never at the expense of what plays. Lowered
         // here, where nothing suspends, so the thread that encodes is the one lowered and the one put back.
@@ -80,10 +82,17 @@ internal class SongConverter(
             var frames = 0L
             var rate = 0
             var channels = 0
+            // The time between two pieces is milliseconds. Seconds of it is the work standing still: Android holds
+            // it back while the person is in another app, and a phone asleep does nothing. Added up, for the log.
+            var stoodNs = 0L
+            var lastPiece = began
             decoder.open(song, 0).use { audio ->
                 while (true) {
                     if (cancelled()) throw CancellationException("the conversion was stopped")
                     val piece = audio.next() ?: break
+                    val now = android.os.SystemClock.elapsedRealtimeNanos()
+                    stoodNs += stoodStill(now - lastPiece)
+                    lastPiece = now
                     if (piece.frames <= 0) continue
                     val current = encoder
                     if (current == null) {
@@ -104,10 +113,10 @@ internal class SongConverter(
             }
             made.finish()
             val kbps = (made as? Mp3FileEncoder)?.effectiveKbps ?: plan.kbps
-            val seconds = (System.nanoTime() - began) / 1e9
+            val seconds = (android.os.SystemClock.elapsedRealtimeNanos() - began) / 1e9
             log(
                 "Converted to ${plan.format}${kbps?.let { " at $it kbps" } ?: ""}: ${decodedUs / 1000} ms of audio at $rate Hz, " +
-                    "$channels channels, ${target.length()} bytes, in ${String.format(Locale.ROOT, "%.1f", seconds)} s",
+                    "$channels channels, ${target.length()} bytes, in ${String.format(Locale.ROOT, "%.1f", seconds)} s" + stoodLine(stoodNs),
             )
             Converted(target, plan.format.extension!!, kbps, decodedUs / 1000)
         } catch (e: Throwable) {
@@ -143,6 +152,16 @@ internal class SongConverter(
 
         /** Six hours: no conversion lasts so long, and one that is running keeps touching its file. */
         const val STALE_MS = 6L * 60 * 60 * 1000
+
+        /** A wait for the next piece of a song longer than this is not the decoder's: the work stood still. */
+        const val STOOD_STILL_NS = 3_000_000_000L
+
+        /** What a wait of [gapNs] between two pieces counts for as standing still: all of it past [STOOD_STILL_NS], else nothing. */
+        fun stoodStill(gapNs: Long): Long = if (gapNs > STOOD_STILL_NS) gapNs else 0L
+
+        /** The end of the log's line for a conversion that stood still for [stoodNs] in all, or nothing when it never did. */
+        fun stoodLine(stoodNs: Long): String =
+            if (stoodNs <= 0L) "" else ", ${String.format(Locale.ROOT, "%.0f", stoodNs / 1e9)} s of them standing still"
 
         private val ONE_AT_A_TIME = Any()
     }

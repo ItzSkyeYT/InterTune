@@ -84,6 +84,18 @@ class SongConverterTest {
 
     private fun converter(decoder: PcmDecoder, work: File = File(folder.root, "convert")) = SongConverter(work, decoder)
 
+    @Test
+    fun `the log's line says how long a conversion stood still, and nothing when it never did`() {
+        assertEquals("a piece that came in half a second is the decoder's own time", 0L, SongConverter.stoodStill(500_000_000L))
+        assertEquals("one that took a minute and a half is not", 90_000_000_000L, SongConverter.stoodStill(90_000_000_000L))
+        assertEquals("", SongConverter.stoodLine(0L))
+        assertEquals(", 96 s of them standing still", SongConverter.stoodLine(96_000_000_000L))
+        val lines = mutableListOf<String>()
+        SongConverter(File(folder.root, "convert"), FakeDecoder(1.0)) { lines += it }
+            .convert(song, tags, ConvertPlan.Encode(DownloadFormat.WAV, null), 1_000_000L).close()
+        assertTrue("a conversion that ran through says how long it took and no more: $lines", lines.single().matches(Regex("""Converted to WAV: 1000 ms of audio .* in \d+\.\d s""")))
+    }
+
     private fun left(work: File) = work.listFiles()?.toList().orEmpty()
 
     @Test

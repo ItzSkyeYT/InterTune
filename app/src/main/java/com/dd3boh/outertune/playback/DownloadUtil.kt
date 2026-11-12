@@ -1696,6 +1696,8 @@ class DownloadUtil @Inject constructor(
                         // The song is kept once: a copy in the song cache, from playing it before,
                         // goes once the download cache holds the song whole (KeptOnce).
                         dropSongCacheCopyOnceDownloaded(download.request.id)
+                        // Said in the log: a download that landed left no line at all (landedLine).
+                        Log.i(TAG, landedLine(download.request.id, download.contentLength, download.startTimeMs, download.updateTimeMs))
                     }
                     // For Report a problem's trail: that one failed, never which.
                     if (download.state == Download.STATE_FAILED) ReportTrail.thisRun.downloadFailed()
@@ -1997,3 +1999,15 @@ internal fun downloadAddress(streamUrl: String, contentLength: Long?): String =
 internal fun recordedLength(cache: androidx.media3.datasource.cache.Cache, mediaId: String): Long =
     runCatching { androidx.media3.datasource.cache.ContentMetadata.getContentLength(cache.getContentMetadata(mediaId)) }
         .getOrDefault(androidx.media3.common.C.LENGTH_UNSET.toLong())
+
+/**
+ * The log's line for a download whose bytes have all landed: how much, and how long after it was asked
+ * for, by media3's own times. A download that landed left no line at all, and a report of slow downloads
+ * (a tester, 12 Nov 2026) could not say whether the bytes were slow or the conversion that follows them
+ * (SongConverter says its own time). Plain values in, so it is tested without a download.
+ */
+internal fun landedLine(id: String, bytes: Long, askedAtMs: Long, landedAtMs: Long): String {
+    val size = if (bytes > 0) String.format(java.util.Locale.ROOT, "%.2f MB", bytes / 1e6) else "its size not known"
+    val seconds = String.format(java.util.Locale.ROOT, "%.1f", (landedAtMs - askedAtMs).coerceAtLeast(0L) / 1000.0)
+    return "Download of $id landed: $size, $seconds s after it was asked for"
+}
