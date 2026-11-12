@@ -71,7 +71,7 @@ class VisionosTestTest {
     fun `the developer options ask which build it is before they show the row`() {
         val options = code("ui/screens/settings/fragments/DeveloperFrag.kt")
         val row = Regex(
-            """if \(VisionosTest\.offered\(testBuild = BuildConfig\.DEBUG, identities = Unreleased\.VISIONOS_IDENTITIES, fallback = Unreleased\.WEB_FALLBACK\)\) \{""" +
+            """if \(VisionosTest\.offered\(testBuild = BuildConfig\.PREVIEW_FEATURES, identities = Unreleased\.VISIONOS_IDENTITIES, fallback = Unreleased\.WEB_FALLBACK\)\) \{""" +
                 """\s+ListPreference\(\s+title = \{ Text\(stringResource\(R\.string\.visionos_test\)\) \}"""
         )
         assertTrue("the row is not behind VisionosTest.offered", row.containsMatchIn(options))
@@ -84,7 +84,7 @@ class VisionosTestTest {
         // A release that read them would pretend VISIONOS is blocked with no row to stop it.
         val player = code("playback/MusicService.kt")
         for ((key, flag) in listOf("VisionosRefusedKey" to "WEB_FALLBACK", "OwnVisionosRefusedKey" to "VISIONOS_IDENTITIES")) {
-            val read = Regex("""if \(BuildConfig\.DEBUG && Unreleased\.$flag\) \{\s+dataStore\.data\.map \{ it\[$key] \?: false }""")
+            val read = Regex("""if \(BuildConfig\.PREVIEW_FEATURES && Unreleased\.$flag\) \{\s+dataStore\.data\.map \{ it\[$key] \?: false }""")
             assertTrue("$key is read whatever the build", read.containsMatchIn(player))
             assertEquals("$key is read in one place", 1, Regex("""\[$key]""").findAll(player).count())
         }

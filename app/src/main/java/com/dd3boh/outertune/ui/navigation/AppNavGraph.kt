@@ -13,11 +13,20 @@ import com.dd3boh.outertune.ui.screens.settings.BlockedArtistsSettings
 import com.dd3boh.outertune.recognition.RecognitionShortcut
 import android.provider.Settings
 import androidx.compose.animation.AnimatedContentScope
+import androidx.compose.animation.EnterExitState
+import androidx.compose.animation.core.Transition
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
 import androidx.navigation.NamedNavArgument
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavGraphBuilder
@@ -545,6 +554,44 @@ fun NavGraphBuilder.appDestinations(
 }
 
 /**
+ * Whether Back animations (Look and feel) are on. The owner of the nav host tells the destinations,
+ * having read the preference once for all of them: each reading it for itself was a blocking read
+ * on every visit (the reason TopBarGlassDestination does not ask for the glass intensity).
+ */
+val LocalBackAnimations = compositionLocalOf { true }
+
+/**
+ * Whether a screen carries the page colour with it: while it is the one going away, and Back
+ * animations are on (GitHub #134).
+ *
+ * A screen has no fill of its own, only the page colour behind the whole nav host. The back
+ * transitions slide the screen being left off in one piece, over the one under it, so wherever it
+ * had no row or text the screen under showed through it, rows between rows.
+ *
+ * Only the screen going away has the fill. One coming in fades in whole and keeps the look it has,
+ * and with Back animations off the move is a cross fade of two screens, which this must not turn
+ * into a different one. A screen pushed under another is going away too, but it is under the one
+ * coming in and fades over the same page colour, so the fill changes nothing seen there.
+ */
+internal fun fillsWhileLeaving(backAnimations: Boolean, state: EnterExitState): Boolean =
+    backAnimations && state == EnterExitState.PostExit
+
+/**
+ * The page colour behind a screen going away ([fillsWhileLeaving]), drawn under the screen itself
+ * and so under its glass top bar too, which draws over the screen as ever. The state is read where
+ * it is drawn, so that going away makes a screen draw again and not compose again. The colour is
+ * the one the app's own background is made of (MainActivity), so it is black on the black theme.
+ */
+@Composable
+private fun Modifier.pageFillWhileLeaving(transition: Transition<EnterExitState>): Modifier {
+    val backAnimations = LocalBackAnimations.current
+    val page = rememberUpdatedState(MaterialTheme.colorScheme.surface)
+    return drawBehind {
+        if (fillsWhileLeaving(backAnimations, transition.targetState)) drawRect(page.value)
+    }
+}
+
+/**
  * A destination, wrapped so its floating top bar can be glass: the screen gets a backdrop of its
  * own and the bar is drawn outside it. See TopBarGlassDestination. [floating] is false for the
  * destinations with nothing floating over them (no top bar, no floating button), which skip the
@@ -556,7 +603,9 @@ private fun NavGraphBuilder.screen(
     floating: Boolean = true,
     content: @Composable AnimatedContentScope.(NavBackStackEntry) -> Unit,
 ) = composable(route = route, arguments = arguments) { entry ->
-    TopBarGlassDestination(floating) { content(entry) }
+    Box(Modifier.fillMaxSize().pageFillWhileLeaving(transition)) {
+        TopBarGlassDestination(floating) { content(entry) }
+    }
     // For the tour, which asks whether a screen is drawn before it decides that a setting it
     // meant to point at there is not on this install. After the content, so that every row that
     // marks itself has done so by the time the screen says it is up.

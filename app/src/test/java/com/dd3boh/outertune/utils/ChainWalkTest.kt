@@ -165,6 +165,8 @@ class ChainWalkTest {
          * none unless a test says so, so that every other walk ends as it always did.
          */
         private val sabrFrom: Set<String> = emptySet(),
+        /** False: SabrOver makes no start, as while YouTube has turned down the song's last two (SabrStarts.restsUntil). */
+        private val sabrGives: Boolean = true,
     ) : YTPlayerUtils.Wire {
         /** The answers kept for a start over SABR, this walk's and any a test put there before it. */
         val answers = PlayerAnswers()
@@ -178,6 +180,7 @@ class ChainWalkTest {
 
         override fun overSabr(answer: PlayerAnswers.Answer, data: YTPlayerUtils.PlaybackData, clockId: String, forDownload: Boolean): YTPlayerUtils.PlaybackData? {
             sabrAsked += SabrAsked(answer, data, clockId, forDownload)
+            if (!sabrGives) return null
             return data.copy(streamUrl = "sabr://${answer.videoId}?itag=${data.format.itag}&lmt=0")
         }
         /** Every n step started, by the client its host names. */
@@ -2542,7 +2545,7 @@ class ChainWalkTest {
     // ---- SABR, the last rung ----
 
     /** Every direct address refused, as on the day they stop: each client's check gets 403. */
-    private fun refusedEverywhere(vararg instead: Pair<String, List<Any>>, sabrFrom: Set<String> = setOf("VISIONOS")) = Script(
+    private fun refusedEverywhere(vararg instead: Pair<String, List<Any>>, sabrFrom: Set<String> = setOf("VISIONOS"), sabrGives: Boolean = true) = Script(
         says = mapOf(
             "ANDROID_VR" to listOf(refused(bot)),
             "VISIONOS" to listOf(playable("VISIONOS", loudness = 5.0, seconds = "200")),
@@ -2551,6 +2554,7 @@ class ChainWalkTest {
         ) + instead,
         heads = mapOf("VISIONOS" to 403, "VISIONOS_104" to 403, "VISIONOS_SAFARI" to 403, "IOS" to 403),
         sabrFrom = sabrFrom,
+        sabrGives = sabrGives,
     )
 
     @Test
@@ -2563,6 +2567,23 @@ class ChainWalkTest {
         assertEquals("paced by the song played", "TESTVIDEO01", asked.clockId)
         assertFalse(asked.forDownload)
         assertTrue(YTPlayerUtils.lastStreamTrail.orEmpty(), YTPlayerUtils.lastStreamTrail.orEmpty().endsWith("VISIONOS SABR OK"))
+    }
+
+    @Test
+    fun `a song YouTube turned down over SABR twice in a row is given no third start, and the walk ends in its own words`() {
+        // Issue #138: SabrOver makes no start while the song rests (SabrRefusedTwiceTest). The walk
+        // used to come back to this rung at every load and every quiet retry, sixteen times a song.
+        val script = refusedEverywhere(sabrGives = false)
+        val failure = walk(script).exceptionOrNull()
+        assertEquals("the rung asked for the answer it had, and was given nothing", 1, script.sabrAsked.size)
+        assertEquals("the walk's own error, as without SABR", "YouTube refused the stream (HTTP 403)", failure?.message)
+        assertTrue("YouTube's word, not a want of an answer: $failure", failure is PlaybackException && !StreamOrder.networkDidNotAnswer(failure))
+        // As the loader hands it to the player, which then stops or skips: no quiet retry walks here again.
+        val stopped = androidx.media3.exoplayer.ExoPlaybackException.createForSource(
+            androidx.media3.exoplayer.upstream.Loader.UnexpectedLoaderException(failure!!),
+            PlaybackException.ERROR_CODE_IO_UNSPECIFIED,
+        )
+        assertEquals(Recovery.Kind.FINAL, Recovery.kind(stopped))
     }
 
     @Test

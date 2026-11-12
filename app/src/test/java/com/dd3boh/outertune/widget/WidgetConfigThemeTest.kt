@@ -39,7 +39,7 @@ class WidgetConfigThemeTest {
     fun `the flag is on exactly where the build type gives the full window`() {
         val flag = File("src/main/java/com/dd3boh/outertune/constants/Unreleased.kt").readLines()
             .first { "val WIDGET_ON_WALLPAPER" in it }
-        assertEquals("val WIDGET_ON_WALLPAPER = BuildConfig.DEBUG", flag.trim())
+        assertEquals("val WIDGET_ON_WALLPAPER = BuildConfig.PREVIEW_FEATURES", flag.trim())
         assertTrue("isDebuggable" !in buildType("debug") && "isDebuggable" !in buildType("release"))
     }
 
