@@ -106,6 +106,12 @@ object StatsSql {
      * ranking is SongsDao.MOST_PLAYED_SONGS's, by the time played, which Home's Keep listening, the
      * widget and the car read: the same songs in the same order (StatsSqlTest holds the two
      * together), with the count the inner query makes in the pass that adds up the time.
+     *
+     * The + in the GROUP BY is the one of [SONGS_BEFORE] and of the artists below: the events are
+     * read in table order and grouped in a temporary tree. Without it SQLite walks the songId
+     * index over every event there is, whatever the period, fetching the table a row at a time:
+     * over 150,000 events in a library of 46,800 songs, a week took 129 ms that way and 6 ms this
+     * way, all time 142 ms and 65 ms, on a desktop (experiments/features/stats-more/cost).
      */
     const val MOST_PLAYED_SONGS = """
         SELECT song.*, ranked.plays AS plays
@@ -113,7 +119,7 @@ object StatsSql {
             SELECT songId, SUM(playTime) AS totalPlayTime, COUNT(*) AS plays
             FROM event
             WHERE timestamp > :fromTimeStamp
-            GROUP BY songId
+            GROUP BY +songId
             ORDER BY totalPlayTime DESC
             LIMIT :limit
         ) ranked
