@@ -527,8 +527,12 @@ enum class SongSortType {
     CREATE_DATE, MODIFIED_DATE, RELEASE_DATE, NAME, ARTIST, PLAY_COUNT
 }
 
+/**
+ * What the folders in the Folders tab go by, apart from what their songs go by (FolderSongSortType):
+ * only what means something for a folder. A date is the newest among the songs under it.
+ */
 enum class FolderSortType {
-    NAME, // TODO: support CREATE_DATE, MODIFIED_DATE
+    NAME, CREATE_DATE, MODIFIED_DATE, RELEASE_DATE
 }
 
 enum class FolderSongSortType {

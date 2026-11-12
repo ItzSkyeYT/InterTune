@@ -1170,7 +1170,21 @@ class MusicService : MediaLibraryService(),
         .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
         .build()
 
-    private var isAudioEffectSessionOpened = false
+    /**
+     * What the phone's equalizer apps have been told of the player's audio session: announced at
+     * every play, never closed at a pause, closed when the service ends (EffectsSession, #133).
+     * Main thread.
+     */
+    private val effectsSession = EffectsSession { open, sessionId ->
+        Log.i(TAG, "EFFECTS: audio session $sessionId ${if (open) "announced to" else "closed for"} the phone's equalizer apps")
+        sendBroadcast(
+            Intent(if (open) AudioEffect.ACTION_OPEN_AUDIO_EFFECT_CONTROL_SESSION else AudioEffect.ACTION_CLOSE_AUDIO_EFFECT_CONTROL_SESSION).apply {
+                putExtra(AudioEffect.EXTRA_AUDIO_SESSION, sessionId)
+                putExtra(AudioEffect.EXTRA_PACKAGE_NAME, packageName)
+                if (open) putExtra(AudioEffect.EXTRA_CONTENT_TYPE, AudioEffect.CONTENT_TYPE_MUSIC)
+            }
+        )
+    }
 
     var consecutivePlaybackErr = 0
 
@@ -1829,6 +1843,9 @@ class MusicService : MediaLibraryService(),
                         // setting appears to do nothing for anyone who turned offload on, with
                         // no way to tell why, so spatial audio takes it off itself.
                         applyOffload()
+                        // The upmix and other apps' effects exclude each other: asked here, now
+                        // that a stop of the player no longer closes the session by itself.
+                        syncEffectsSession()
                         if (exoPlayer.currentMediaItem != null) {
                             val at = exoPlayer.currentPosition
                             val wasPlaying = exoPlayer.playWhenReady
@@ -3139,7 +3156,17 @@ class MusicService : MediaLibraryService(),
         }
     }
 
-    private fun openAudioEffectSession() {
+    /**
+     * Brings what the phone's equalizer apps know of the player's audio session in line with the
+     * phone's own player, by [EffectsSession]'s rule: announced each time music starts to play,
+     * and kept whatever the player does then. [playing] is that player loading or playing and
+     * meant to play. Called on the main thread when the player's state, its session id or the
+     * upmix changes.
+     */
+    private fun syncEffectsSession(
+        playing: Boolean = exoPlayer.playWhenReady &&
+            (exoPlayer.playbackState == Player.STATE_BUFFERING || exoPlayer.playbackState == Player.STATE_READY),
+    ) {
         // Not while the upmix is on. Android disables spatialisation for any track that has
         // effects attached to its session, and this broadcast is the invitation for the system
         // equaliser, and on this phone One UI's own processing, to attach. With it sent, six
@@ -3149,28 +3176,16 @@ class MusicService : MediaLibraryService(),
         //
         // So the two are mutually exclusive by the platform's rules, not by choice here: the
         // system equaliser, or a spatialiser that will actually render. Turning the upmix on
-        // picks the second.
-        if (spatialUpmixProcessor.enabled) return
-        if (isAudioEffectSessionOpened) return
-        isAudioEffectSessionOpened = true
-        sendBroadcast(
-            Intent(AudioEffect.ACTION_OPEN_AUDIO_EFFECT_CONTROL_SESSION).apply {
-                putExtra(AudioEffect.EXTRA_AUDIO_SESSION, exoPlayer.audioSessionId)
-                putExtra(AudioEffect.EXTRA_PACKAGE_NAME, packageName)
-                putExtra(AudioEffect.EXTRA_CONTENT_TYPE, AudioEffect.CONTENT_TYPE_MUSIC)
-            }
-        )
+        // picks the second. Nor while casting: the phone's own player then makes no sound.
+        effectsSession.update(exoPlayer.audioSessionId, playing, barred = isCasting || spatialUpmixProcessor.enabled)
     }
 
-    private fun closeAudioEffectSession() {
-        if (!isAudioEffectSessionOpened) return
-        isAudioEffectSessionOpened = false
-        sendBroadcast(
-            Intent(AudioEffect.ACTION_CLOSE_AUDIO_EFFECT_CONTROL_SESSION).apply {
-                putExtra(AudioEffect.EXTRA_AUDIO_SESSION, exoPlayer.audioSessionId)
-                putExtra(AudioEffect.EXTRA_PACKAGE_NAME, packageName)
-            }
-        )
+    /**
+     * media3 1.8.0 makes the session id on another thread, a moment after the player is built:
+     * music that started before it was made is announced here, under the id the sound has.
+     */
+    override fun onAudioSessionIdChanged(audioSessionId: Int) {
+        syncEffectsSession()
     }
 
     /**
@@ -3757,7 +3772,7 @@ class MusicService : MediaLibraryService(),
         checkpointJob?.cancel()
         // The play in progress on the phone is closed by its own stats when the player is emptied
         // below, as a stop: nothing has to be told to the play book here.
-        closeAudioEffectSession()
+        effectsSession.close()
         headTracking.stop(glideHome = false)
         proximityVolume.stop()
         routed.routeTo(remote)
@@ -5874,11 +5889,10 @@ class MusicService : MediaLibraryService(),
             // Music is coming out of the speaker again, so whatever stopped it is history.
             if (player.playbackState == Player.STATE_READY) stoppedByError = false
             if (!isCasting) plays.playbackState(player.currentMediaItem?.mediaId, player.playbackState)
-            if (isBufferingOrReady && player.playWhenReady && !isCasting) {
-                openAudioEffectSession()
-            } else {
-                closeAudioEffectSession()
-            }
+            // Announced to the phone's equalizer apps at each play, and not taken back at a
+            // pause, the end of the queue or a stop: their effects would leave with it and come
+            // back a moment into the music at the next play (#133). See EffectsSession.
+            syncEffectsSession(isBufferingOrReady && player.playWhenReady)
             // The proximity scan is decided here rather than in onIsPlayingChanged, which fires on
             // every seek and skip and not on a pause while buffering. Never while casting: this
             // player is then the receiver's, and the phone makes no sound to turn down.
@@ -6851,6 +6865,9 @@ class MusicService : MediaLibraryService(),
         installedNowPlayingProvider = null
         deInitQueue()
 
+        // The one place the phone's equalizer apps are told to let go of the session for good:
+        // a pause or a stop no longer does it (#133), so the stop below would leave it announced.
+        effectsSession.close()
         mediaSession.player.stop()
         mediaSession.release()
         mediaSession.player.release()
