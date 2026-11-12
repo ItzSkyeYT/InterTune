@@ -112,6 +112,25 @@ class LyricsWordsTest {
     }
 
     @Test
+    fun `B, a held word never swells into the word beside it`() {
+        // A long word with an ordinary space on each side, as seen on the emulator: 200 pixels wide, 13 of space.
+        val long = LyricsWords.swollen(1f, 200f, 13f, 13f)
+        assertTrue("it still swells: $long", long > 1.01f)
+        // Grown from its middle, each side moves out by half of what it gains: under a third of the space.
+        assertTrue("it keeps most of the space: $long", 200f * (long - 1f) / 2f <= 13f * LyricsWords.SWELL_ROOM + 0.001f)
+        // A short word has the room for all of it, and so has any word with the line's end on both sides.
+        assertEquals(1f + LyricsWords.SWELL, LyricsWords.swollen(1f, 40f, 13f, 13f), 0.0001f)
+        assertEquals(1f + LyricsWords.SWELL, LyricsWords.swollen(1f, 200f, 120f, 120f), 0.0001f)
+        // The tighter side decides, and with no space at all (syllables of one word) it only glows.
+        assertEquals(long, LyricsWords.swollen(1f, 200f, 13f, 120f), 0.0001f)
+        assertEquals(1f, LyricsWords.swollen(1f, 200f, 0f, 13f), 0f)
+        // Half full, half of it; not held, or nothing to draw, as it stands.
+        assertEquals(1f + (long - 1f) / 2f, LyricsWords.swollen(0.5f, 200f, 13f, 13f), 0.0001f)
+        assertEquals(1f, LyricsWords.swollen(0f, 200f, 13f, 13f), 0f)
+        assertEquals(1f, LyricsWords.swollen(1f, 0f, 13f, 13f), 0f)
+    }
+
+    @Test
     fun `C, a word nods once when it is sung and then rests`() {
         val p = piece(1_000, 3_000)
         assertEquals(0f, LyricsWords.nod(p, 1_000), 0f)

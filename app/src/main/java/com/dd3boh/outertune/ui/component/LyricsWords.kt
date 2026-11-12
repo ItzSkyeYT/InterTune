@@ -116,8 +116,15 @@ internal object LyricsWords {
     /** B: a word sung for at least this long is held: it swells and glows while it is. */
     const val HELD_MS = 1100L
 
-    /** B: how much larger a held word is at its fullest. */
+    /** B: how much larger a held word is at its fullest, where it has the room. */
     const val SWELL = 0.07f
+
+    /**
+     * B: the share of the room between a held word and the word beside it that its swell may
+     * take. Seen on the emulator on 12 Nov 2026: a long word swollen by all of [SWELL] closed the
+     * space before it, and read as one word with its neighbour.
+     */
+    const val SWELL_ROOM = 0.3f
 
     /** B: a held word's glow, its reach as a share of the font size and its ink at its fullest. */
     const val GLOW_EM = 0.4f
@@ -199,6 +206,17 @@ internal object LyricsWords {
     fun swell(piece: Piece, atMs: Long): Float {
         if (!held(piece) || atMs <= piece.startMs || atMs >= piece.endMs) return 0f
         return sin(PI * (atMs - piece.startMs) / (piece.endMs - piece.startMs)).toFloat().coerceIn(0f, 1f)
+    }
+
+    /**
+     * B: the size a held word is drawn at, 1 for as it stands, when its swell is [swell] full: up
+     * to [SWELL] larger, grown from its middle, and never by more on a side than [SWELL_ROOM] of
+     * the space to the word there ([spaceBefore], [spaceAfter], in the pixels [width] is in).
+     */
+    fun swollen(swell: Float, width: Float, spaceBefore: Float, spaceAfter: Float): Float {
+        if (swell <= 0f || width <= 0f) return 1f
+        val room = 2f * SWELL_ROOM * min(spaceBefore, spaceAfter).coerceAtLeast(0f) / width
+        return 1f + min(SWELL, room) * swell.coerceAtMost(1f)
     }
 
     /**
@@ -464,9 +482,11 @@ private class WordsDrawing(private val pieces: List<LyricsWords.Piece>, private 
             val left = min(box.clipLeft, all[last].clipLeft)
             val right = max(box.clipRight, all[last].clipRight)
             val centre = Offset((box.left + box.right) / 2f, (box.top + box.bottom) / 2f)
+            // The space to the words beside it: the clip's edges stand half way to them.
+            val size = LyricsWords.swollen(swell, box.right - box.left, 2f * (box.left - box.clipLeft), 2f * (box.clipRight - box.right))
             withTransform({
                 if (dy != 0f) translate(0f, dy)
-                if (swell > 0f) scale(1f + LyricsWords.SWELL * swell, 1f + LyricsWords.SWELL * swell, centre)
+                if (size != 1f) scale(size, size, centre)
             }) {
                 if (swell > 0f) aloneOf(box.piece, layout)?.let { word ->
                     // Its glow: the word's own shadow, the word itself left as good as clear (as LyricsBlur draws).
