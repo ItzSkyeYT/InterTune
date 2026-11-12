@@ -52,6 +52,19 @@ class RecapCalendarTest {
     }
 
     @Test
+    fun `the banner stands on Home from the reveal day to the end of January, opened or not`() {
+        assertFalse(RecapCalendar.onHome(d(2026, 12, 1)))
+        assertTrue(RecapCalendar.onHome(d(2026, 12, 2)))
+        assertTrue(RecapCalendar.onHome(d(2027, 1, 31)))
+        // Then only Settings has it, until the next year's day.
+        assertFalse(RecapCalendar.onHome(d(2027, 2, 1)))
+        assertFalse(RecapCalendar.onHome(d(2027, 12, 1)))
+        assertTrue(RecapCalendar.onHome(d(2027, 12, 2)))
+        // The developer's early reveal puts it there at once.
+        assertTrue(RecapCalendar.onHome(d(2026, 10, 23), revealedEarly = true))
+    }
+
+    @Test
     fun `an early reveal owes the pop-up until it has been shown`() {
         assertTrue(RecapCalendar.popUpOwed(d(2026, 10, 23), shownYear = 0, revealedEarly = true))
         assertFalse(RecapCalendar.popUpOwed(d(2026, 10, 23), shownYear = 2026, revealedEarly = true))

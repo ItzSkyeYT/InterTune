@@ -127,6 +127,20 @@ fun rememberRecapOnShow(): Int? {
 }
 
 /**
+ * The year whose Recap the banner at the top of Home opens, or null: [rememberRecapOnShow]'s, in
+ * its season only (RecapCalendar.onHome). Settings keeps its banner the whole year.
+ */
+@Composable
+fun rememberRecapOnHome(): Int? {
+    val year = rememberRecapOnShow()
+    val revealedEarly by rememberPreference(RecapRevealedEarlyKey, defaultValue = false)
+    val inSeason = remember(year, revealedEarly) {
+        year != null && RecapCalendar.onHome(LocalDate.now(), revealedEarly && BuildConfig.PREVIEW_FEATURES)
+    }
+    return year.takeIf { inSeason }
+}
+
+/**
  * The Recap in a window of its own over the whole screen, edge to edge: the story's dark runs
  * under the status bar and the navigation bar, whose icons are drawn light on it. Back closes it.
  * However it is closed, its sound is told first (RecapSound.close): the listener's music carries

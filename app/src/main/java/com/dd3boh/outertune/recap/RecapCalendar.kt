@@ -12,8 +12,8 @@ import java.time.MonthDay
 /**
  * When the Recap shows. Once a year, from one reveal day, it opens by itself over the app, as a
  * full-screen pop-up that can be closed, and only once. From then on a banner at the top of
- * Settings opens it whenever wanted, until the next year's comes. Plain dates, no clock: the
- * caller says what today is.
+ * Settings opens it whenever wanted, until the next year's comes, and the same banner stands at
+ * the top of Home for the pop-up's weeks. Plain dates, no clock: the caller says what today is.
  */
 object RecapCalendar {
     /** The first year there is a Recap of. */
@@ -52,6 +52,16 @@ object RecapCalendar {
     fun popUpOwed(today: LocalDate, shownYear: Int, revealedEarly: Boolean = false): Boolean {
         val year = yearOnShow(today, revealedEarly) ?: return false
         if (shownYear >= year) return false
+        return revealedEarly || !today.isAfter(POP_UP_UNTIL.atYear(year + 1))
+    }
+
+    /**
+     * Whether the banner also stands at the top of Home on [today]: from the reveal day until
+     * [POP_UP_UNTIL] of the next year, opened or not. A year-long banner on Home would go stale;
+     * the one in Settings stays the whole year.
+     */
+    fun onHome(today: LocalDate, revealedEarly: Boolean = false): Boolean {
+        val year = yearOnShow(today, revealedEarly) ?: return false
         return revealedEarly || !today.isAfter(POP_UP_UNTIL.atYear(year + 1))
     }
 }

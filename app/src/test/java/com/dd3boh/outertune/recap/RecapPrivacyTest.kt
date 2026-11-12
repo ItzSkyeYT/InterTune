@@ -108,8 +108,9 @@ class RecapPrivacyTest {
         val developer = code(File(sources, "ui/screens/settings/fragments/DeveloperFrag.kt"))
         assertTrue("if (BuildConfig.PREVIEW_FEATURES && Unreleased.RECAP) {" in developer.lines().map { it.trim() })
         val entry = code(File(sources, "ui/screens/recap/RecapEntry.kt"))
-        // "Today is the reveal day" counts where its row is and nowhere else, for the pop-up and for the banner.
-        assertEquals(2, Regex("""revealedEarly && BuildConfig\.PREVIEW_FEATURES""").findAll(entry).count())
+        // "Today is the reveal day" counts where its row is and nowhere else, for the pop-up, for the
+        // banner in Settings and for its season on Home.
+        assertEquals(3, Regex("""revealedEarly && BuildConfig\.PREVIEW_FEATURES""").findAll(entry).count())
         assertFalse("BuildConfig.DEBUG" in entry)
     }
 }
