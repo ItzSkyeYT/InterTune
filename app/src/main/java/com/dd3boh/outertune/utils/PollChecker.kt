@@ -361,7 +361,8 @@ class PollChecker @Inject constructor(
      * request is one uncounted view, not a count that repeats.
      */
     suspend fun viewed(id: String, text: String, isAnnouncement: Boolean) = withContext(Dispatchers.IO) {
-        if (!firstOpening(id) || !Polls.isConfigured || standIn() != null) return@withContext
+        val first = firstOpening(id)
+        if (!first || !Polls.isConfigured || standIn() != null) return@withContext
         send(
             Polls.UMAMI_VIEW_EVENT,
             JSONObject()
