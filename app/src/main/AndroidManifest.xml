@@ -456,6 +456,16 @@
         </service>
 
         <!--
+            What the app is while it converts downloaded songs to another format (ConvertHold): the
+            download service has stopped by then, and Android stops the work of an app with nothing
+            in the foreground once the person has left it. Started and stopped by the app alone.
+        -->
+        <service
+            android:name=".playback.downloadManager.ConvertHoldService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
+
+        <!--
             The job media3's PlatformScheduler hands to Android when downloads have to wait (for
             Wi-Fi, for charging, for storage): ExoDownloadService.getScheduler builds one in its
             onCreate, and JobScheduler refuses a job whose service is not declared here, which

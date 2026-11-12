@@ -143,7 +143,10 @@ fun LibraryScreen(
     val canDrag = customOrder && !orderLocked
     val (showLikedAndDownloadedPlaylist) = rememberPreference(ShowLikedAndDownloadedPlaylist, true)
 
-    val allItems by viewModel.allItems.collectAsState()
+    // Null until the albums, artists and playlists have all been read (#144): nothing is listed
+    // before that, and the page is not called empty before it is known to be.
+    val readItems by viewModel.allItems.collectAsState()
+    val allItems = readItems.orEmpty()
 
     val isSyncingRemotePlaylists by viewModel.isSyncingRemotePlaylists.collectAsState()
     val isSyncingRemoteAlbums by viewModel.isSyncingRemoteAlbums.collectAsState()
@@ -574,7 +577,7 @@ fun LibraryScreen(
                             }
 
                             allItems.let { allItems ->
-                                if (allItems.isEmpty() && !showLikedAndDownloadedPlaylist) {
+                                if (readItems != null && allItems.isEmpty() && !showLikedAndDownloadedPlaylist) {
                                     item {
                                         EmptyPlaceholder(
                                             icon = Icons.AutoMirrored.Rounded.List,
@@ -707,7 +710,7 @@ fun LibraryScreen(
                             }
 
                             allItems.let { allItems ->
-                                if (allItems.isEmpty() && !showLikedAndDownloadedPlaylist) {
+                                if (readItems != null && allItems.isEmpty() && !showLikedAndDownloadedPlaylist) {
                                     item {
                                         EmptyPlaceholder(
                                             icon = Icons.AutoMirrored.Rounded.List,

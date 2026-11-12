@@ -469,12 +469,18 @@ class LibraryViewModel @Inject constructor(
     val isSyncingRemoteArtists = syncUtils.isSyncingRemoteArtists
     val isSyncingRemotePlaylists = syncUtils.isSyncingRemotePlaylists
 
-    var artists = database.artistsBookmarkedAsc().withoutBlocked().stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
-    var albums = database.albumsLikedAsc().withoutBlocked().stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
-    var playlists = database.playlistInLibraryAsc().stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+    // Each is null until it has been read, not an empty list: three reads of the database that
+    // end at three different moments, and "not read yet" must not be taken for "none" (#144).
+    private val artists = database.artistsBookmarkedAsc().withoutBlocked().stateIn(viewModelScope, SharingStarted.Lazily, null)
+    private val albums = database.albumsLikedAsc().withoutBlocked().stateIn(viewModelScope, SharingStarted.Lazily, null)
+    private val playlists = database.playlistInLibraryAsc().stateIn(viewModelScope, SharingStarted.Lazily, null)
 
     private data class Listing(val sortType: LibrarySortType, val descending: Boolean, val order: List<String>?)
 
+    /**
+     * Everything the Library page lists, in its order, or null while any of its three lists is
+     * still being read: the page gets its rows in one piece ([libraryListing]).
+     */
     val allItems = context.dataStore.data
         .map {
             val sortType = it[LibrarySortTypeKey].toEnum(LibrarySortType.CREATE_DATE).let { sort ->
@@ -490,35 +496,10 @@ class LibraryViewModel @Inject constructor(
         .distinctUntilChanged()
         .flatMapLatest { (sortType, descending, order) ->
             combine(artists, albums, playlists) { artists, albums, playlists ->
-                // Once each, by what it is: the screen used to take out repeats by their hash,
-                // which reads every field of every item on each pass, and would drop one of two
-                // different items that happened to hash alike.
-                val items = (artists + albums + playlists).distinctBy(::libraryKey)
-                // Custom order: oldest first, then in the order kept, with no way round.
-                if (order != null) return@combine PlaylistOrder.apply(items.sortedBy { addedAt(it) }, order) { libraryKey(it).toString() }
-                items.sortedBy { item ->
-                    when (sortType) {
-                        LibrarySortType.NAME -> when (item) {
-                            is Album -> item.album.title.lowercase()
-                            is Artist -> item.artist.name.lowercase()
-                            is Playlist -> item.playlist.name.lowercase()
-                            else -> ""
-                        }
-
-                        else -> addedAt(item)
-                    }
-                }.let { if (descending) it.reversed() else it }
+                libraryListing(artists, albums, playlists, sortType, descending, order)
             }
         }
-        .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
-
-    /** When an item came into the library, as Date added sorts them. */
-    private fun addedAt(item: Any): String = when (item) {
-        is Album -> item.album.bookmarkedAt
-        is Artist -> item.artist.bookmarkedAt
-        is Playlist -> item.playlist.bookmarkedAt
-        else -> LocalDateTime.now()
-    }.toString()
+        .stateIn(viewModelScope, SharingStarted.Lazily, null)
 
     /** The library's order after a drag on this page: every album, artist and playlist, as shown. */
     fun saveCustomOrder(keys: List<String>) {
@@ -554,6 +535,55 @@ class ArtistSongsViewModel @Inject constructor(
         .withoutBlocked()
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 }
+
+/**
+ * The Library page's list of everything: its artists, albums and playlists as one list, in the
+ * order asked for ([order] is the one kept for Custom order, null for the others). Null while
+ * any of the three has not been read; an empty list is read, and counts.
+ *
+ * #144: each list used to start empty, so the page was handed the list read first alone (the
+ * playlists, on the phone it was reported from), then two of them, then all three, sorted
+ * together anew each time. A tile drawn from the first list was pushed down and sideways by
+ * those of the next ones a few frames later, whenever the three reads did not end within one
+ * frame. All three or nothing: the whole list is ready no later than it was, it always waited
+ * for the slowest of the three.
+ */
+internal fun libraryListing(
+    artists: List<Artist>?,
+    albums: List<Album>?,
+    playlists: List<Playlist>?,
+    sortType: LibrarySortType,
+    descending: Boolean,
+    order: List<String>?,
+): List<Any>? {
+    if (artists == null || albums == null || playlists == null) return null
+    // Once each, by what it is: the screen used to take out repeats by their hash,
+    // which reads every field of every item on each pass, and would drop one of two
+    // different items that happened to hash alike.
+    val items = (artists + albums + playlists).distinctBy(::libraryKey)
+    // Custom order: oldest first, then in the order kept, with no way round.
+    if (order != null) return PlaylistOrder.apply(items.sortedBy { addedAt(it) }, order) { libraryKey(it).toString() }
+    return items.sortedBy { item ->
+        when (sortType) {
+            LibrarySortType.NAME -> when (item) {
+                is Album -> item.album.title.lowercase()
+                is Artist -> item.artist.name.lowercase()
+                is Playlist -> item.playlist.name.lowercase()
+                else -> ""
+            }
+
+            else -> addedAt(item)
+        }
+    }.let { if (descending) it.reversed() else it }
+}
+
+/** When an item came into the library, as Date added sorts them. */
+private fun addedAt(item: Any): String = when (item) {
+    is Album -> item.album.bookmarkedAt
+    is Artist -> item.artist.bookmarkedAt
+    is Playlist -> item.playlist.bookmarkedAt
+    else -> LocalDateTime.now()
+}.toString()
 
 /**
  * What an item of Library's list of everything is known by, the same for as long as it is the
