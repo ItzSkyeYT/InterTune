@@ -82,7 +82,42 @@ class SongConverterTest {
         }
     }
 
-    private fun converter(decoder: PcmDecoder, work: File = File(folder.root, "convert")) = SongConverter(work, decoder)
+    private fun converter(decoder: PcmDecoder, work: File = File(folder.root, "convert"), hold: ConvertHold? = null) = SongConverter(work, decoder, hold)
+
+    /** A hold that writes down when the app is held and let go, and lets go as soon as it may. */
+    private fun hold(events: MutableList<String>) =
+        ConvertHold(start = { events += "held for $it"; true }, stop = { events += "let go" }, later = { _, block -> block() })
+
+    @Test
+    fun `the app is held from before a song is decoded until its conversion is over`() {
+        val events = mutableListOf<String>()
+        converter(FakeDecoder(1.0, onClose = { events += "decoded" }), hold = hold(events))
+            .convert(song, tags, ConvertPlan.Encode(DownloadFormat.MP3, 128), 1_000_000L).close()
+        assertEquals(listOf("held for MP3", "decoded", "let go"), events)
+    }
+
+    @Test
+    fun `the log's line says how long a conversion stood still, and nothing when it never did`() {
+        assertEquals("a piece that came in half a second is the decoder's own time", 0L, SongConverter.stoodStill(500_000_000L))
+        assertEquals("one that took a minute and a half is not", 90_000_000_000L, SongConverter.stoodStill(90_000_000_000L))
+        assertEquals("", SongConverter.stoodLine(0L))
+        assertEquals(", 96 s of them standing still", SongConverter.stoodLine(96_000_000_000L))
+        val lines = mutableListOf<String>()
+        SongConverter(File(folder.root, "convert"), FakeDecoder(1.0)) { lines += it }
+            .convert(song, tags, ConvertPlan.Encode(DownloadFormat.WAV, null), 1_000_000L).close()
+        assertTrue("a conversion that ran through says how long it took and no more: $lines", lines.single().matches(Regex("""Converted to WAV: 1000 ms of audio .* in \d+\.\d s""")))
+    }
+
+    @Test
+    fun `a conversion that fails gives the hold back`() {
+        val events = mutableListOf<String>()
+        val failed = runCatching {
+            converter(FakeDecoder(3.0, failAt = 20, onClose = { events += "decoded" }), hold = hold(events))
+                .convert(song, tags, ConvertPlan.Encode(DownloadFormat.FLAC, null), 3_000_000L)
+        }
+        assertTrue(failed.exceptionOrNull() is IOException)
+        assertEquals(listOf("held for FLAC", "decoded", "let go"), events)
+    }
 
     private fun left(work: File) = work.listFiles()?.toList().orEmpty()
 

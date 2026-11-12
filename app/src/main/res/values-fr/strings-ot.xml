@@ -2589,4 +2589,22 @@
         <item quantity="many">%1$d titres retirés</item>
         <item quantity="other">%1$d titres retirés</item>
     </plurals>
+    <string name="dl_folder_cannot_open">InterTune ne peut plus ouvrir ce dossier. Les nouveaux téléchargements restent dans l\'application tant que vous ne l\'avez pas choisi à nouveau.</string>
+    <string name="dl_folder_cannot_open_notice">Dossier inaccessible : les téléchargements restent dans l\'application.</string>
+    <string name="dl_move_here_title">Déplacer vos téléchargements ici ?</string>
+    <plurals name="dl_move_here_text">
+        <item quantity="one">%d titre est encore dans l\'application. Le déplacer dans ce dossier maintenant ?</item>
+        <item quantity="many">%d titres sont encore dans l\'application. Les déplacer dans ce dossier maintenant ?</item>
+        <item quantity="other">%d titres sont encore dans l\'application. Les déplacer dans ce dossier maintenant ?</item>
+    </plurals>
+    <string name="dl_move_here_move">Déplacer</string>
+    <string name="dl_move_here_not_now">Plus tard</string>
+    <string name="dl_move_notice_title">Déplacement des téléchargements</string>
+    <string name="dl_move_notice_text">%1$d sur %2$d</string>
+    <string name="dl_move_notice_done">Téléchargements déplacés dans votre dossier</string>
+    <plurals name="dl_move_notice_failed">
+        <item quantity="one">%d titre n\'a pas pu être déplacé et reste dans l\'application</item>
+        <item quantity="many">%d titres n\'ont pas pu être déplacés et restent dans l\'application</item>
+        <item quantity="other">%d titres n\'ont pas pu être déplacés et restent dans l\'application</item>
+    </plurals>
 </resources>

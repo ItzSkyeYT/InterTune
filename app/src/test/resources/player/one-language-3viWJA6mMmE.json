@@ -1,0 +1,50 @@
+{
+ "_fixture": "VISIONOS /player answer for 3viWJA6mMmE (a podcast clip in one language: no audioTrack on any format, each stream also offered with stable volume, isDrc), asked signed out on 12 Nov 2026 with hl=en. Addresses reduced to their shape; session, tracking and SABR fields removed (experiments/bugs/issue-151/trim_fixture.py).",
+ "responseContext": {},
+ "playabilityStatus": {
+  "status": "OK"
+ },
+ "streamingData": {
+  "expiresInSeconds": "21540",
+  "adaptiveFormats": [
+   {"itag":160,"url":"https://redacted.googlevideo.com/videoplayback?itag=160&mime=video%2Fmp4&clen=1423414&dur=558.491&lmt=1794432090416502","mimeType":"video/mp4; codecs=\"avc1.4D400C\"","bitrate":48237,"width":256,"height":144,"initRange":{"start":"0","end":"737"},"indexRange":{"start":"738","end":"1969"},"lastModified":"1794432090416502","contentLength":"1423414","quality":"tiny","fps":30,"qualityLabel":"144p","projectionType":"RECTANGULAR","averageBitrate":20389,"approxDurationMs":"558491","qualityOrdinal":"QUALITY_ORDINAL_144P"},
+   {"itag":278,"url":"https://redacted.googlevideo.com/videoplayback?itag=278&mime=video%2Fwebm&clen=3704589&dur=558.491&lmt=1794435689354910","mimeType":"video/webm; codecs=\"vp9\"","bitrate":75395,"width":256,"height":144,"initRange":{"start":"0","end":"218"},"indexRange":{"start":"219","end":"1909"},"lastModified":"1794435689354910","contentLength":"3704589","quality":"tiny","fps":30,"qualityLabel":"144p","projectionType":"RECTANGULAR","averageBitrate":53065,"colorInfo":{"primaries":"COLOR_PRIMARIES_BT709","transferCharacteristics":"COLOR_TRANSFER_CHARACTERISTICS_BT709","matrixCoefficients":"COLOR_MATRIX_COEFFICIENTS_BT709"},"approxDurationMs":"558491","qualityOrdinal":"QUALITY_ORDINAL_144P"},
+   {"itag":139,"url":"https://redacted.googlevideo.com/videoplayback?itag=139&mime=audio%2Fmp4&clen=3407130&dur=558.625&lmt=1794431868587892","mimeType":"audio/mp4; codecs=\"mp4a.40.5\"","bitrate":50096,"initRange":{"start":"0","end":"731"},"indexRange":{"start":"732","end":"1435"},"lastModified":"1794431868587892","contentLength":"3407130","quality":"tiny","projectionType":"RECTANGULAR","averageBitrate":48793,"audioQuality":"AUDIO_QUALITY_LOW","approxDurationMs":"558625","audioSampleRate":"22050","audioChannels":2,"loudnessDb":-2.0599995,"trackAbsoluteLoudnessLkfs":-16.06,"qualityOrdinal":"QUALITY_ORDINAL_UNKNOWN"},
+   {"itag":139,"url":"https://redacted.googlevideo.com/videoplayback?itag=139&xtags=drc%3D1&mime=audio%2Fmp4&clen=3407130&dur=558.625&lmt=1794426693254162","mimeType":"audio/mp4; codecs=\"mp4a.40.5\"","bitrate":50104,"initRange":{"start":"0","end":"731"},"indexRange":{"start":"732","end":"1435"},"lastModified":"1794426693254162","contentLength":"3407130","quality":"tiny","xtags":"CggKA2RyYxIBMQ","projectionType":"RECTANGULAR","averageBitrate":48793,"audioQuality":"AUDIO_QUALITY_LOW","approxDurationMs":"558625","audioSampleRate":"22050","audioChannels":2,"loudnessDb":-1.5500002,"isDrc":true,"trackAbsoluteLoudnessLkfs":-15.55,"qualityOrdinal":"QUALITY_ORDINAL_UNKNOWN"},
+   {"itag":140,"url":"https://redacted.googlevideo.com/videoplayback?itag=140&mime=audio%2Fmp4&clen=9040742&dur=558.579&lmt=1794432053556085","mimeType":"audio/mp4; codecs=\"mp4a.40.2\"","bitrate":130673,"initRange":{"start":"0","end":"722"},"indexRange":{"start":"723","end":"1426"},"lastModified":"1794432053556085","contentLength":"9040742","quality":"tiny","projectionType":"RECTANGULAR","averageBitrate":129482,"highReplication":true,"audioQuality":"AUDIO_QUALITY_MEDIUM","approxDurationMs":"558579","audioSampleRate":"44100","audioChannels":2,"loudnessDb":-2.0599995,"trackAbsoluteLoudnessLkfs":-16.06,"qualityOrdinal":"QUALITY_ORDINAL_UNKNOWN"},
+   {"itag":140,"url":"https://redacted.googlevideo.com/videoplayback?itag=140&xtags=drc%3D1&mime=audio%2Fmp4&clen=9040742&dur=558.579&lmt=1794426695682324","mimeType":"audio/mp4; codecs=\"mp4a.40.2\"","bitrate":130670,"initRange":{"start":"0","end":"722"},"indexRange":{"start":"723","end":"1426"},"lastModified":"1794426695682324","contentLength":"9040742","quality":"tiny","xtags":"CggKA2RyYxIBMQ","projectionType":"RECTANGULAR","averageBitrate":129482,"highReplication":true,"audioQuality":"AUDIO_QUALITY_MEDIUM","approxDurationMs":"558579","audioSampleRate":"44100","audioChannels":2,"loudnessDb":-1.5500002,"isDrc":true,"trackAbsoluteLoudnessLkfs":-15.55,"qualityOrdinal":"QUALITY_ORDINAL_UNKNOWN"},
+   {"itag":249,"url":"https://redacted.googlevideo.com/videoplayback?itag=249&mime=audio%2Fwebm&clen=3243276&dur=558.541&lmt=1794426573196440","mimeType":"audio/webm; codecs=\"opus\"","bitrate":55572,"initRange":{"start":"0","end":"258"},"indexRange":{"start":"259","end":"1206"},"lastModified":"1794426573196440","contentLength":"3243276","quality":"tiny","projectionType":"RECTANGULAR","averageBitrate":46453,"audioQuality":"AUDIO_QUALITY_LOW","approxDurationMs":"558541","audioSampleRate":"48000","audioChannels":2,"loudnessDb":-2.0599995,"trackAbsoluteLoudnessLkfs":-16.06,"qualityOrdinal":"QUALITY_ORDINAL_UNKNOWN"},
+   {"itag":249,"url":"https://redacted.googlevideo.com/videoplayback?itag=249&xtags=drc%3D1&mime=audio%2Fwebm&clen=3260271&dur=558.541&lmt=1794432131378272","mimeType":"audio/webm; codecs=\"opus\"","bitrate":55692,"initRange":{"start":"0","end":"258"},"indexRange":{"start":"259","end":"1206"},"lastModified":"1794432131378272","contentLength":"3260271","quality":"tiny","xtags":"CggKA2RyYxIBMQ","projectionType":"RECTANGULAR","averageBitrate":46696,"audioQuality":"AUDIO_QUALITY_LOW","approxDurationMs":"558541","audioSampleRate":"48000","audioChannels":2,"loudnessDb":-1.5500002,"isDrc":true,"trackAbsoluteLoudnessLkfs":-15.55,"qualityOrdinal":"QUALITY_ORDINAL_UNKNOWN"},
+   {"itag":250,"url":"https://redacted.googlevideo.com/videoplayback?itag=250&mime=audio%2Fwebm&clen=5251389&dur=558.541&lmt=1794426572969203","mimeType":"audio/webm; codecs=\"opus\"","bitrate":89807,"initRange":{"start":"0","end":"258"},"indexRange":{"start":"259","end":"1207"},"lastModified":"1794426572969203","contentLength":"5251389","quality":"tiny","projectionType":"RECTANGULAR","averageBitrate":75215,"audioQuality":"AUDIO_QUALITY_LOW","approxDurationMs":"558541","audioSampleRate":"48000","audioChannels":2,"loudnessDb":-2.0599995,"trackAbsoluteLoudnessLkfs":-16.06,"qualityOrdinal":"QUALITY_ORDINAL_UNKNOWN"},
+   {"itag":250,"url":"https://redacted.googlevideo.com/videoplayback?itag=250&xtags=drc%3D1&mime=audio%2Fwebm&clen=5593422&dur=558.541&lmt=1794432131463917","mimeType":"audio/webm; codecs=\"opus\"","bitrate":91060,"initRange":{"start":"0","end":"258"},"indexRange":{"start":"259","end":"1207"},"lastModified":"1794432131463917","contentLength":"5593422","quality":"tiny","xtags":"CggKA2RyYxIBMQ","projectionType":"RECTANGULAR","averageBitrate":80114,"audioQuality":"AUDIO_QUALITY_LOW","approxDurationMs":"558541","audioSampleRate":"48000","audioChannels":2,"loudnessDb":-1.5500002,"isDrc":true,"trackAbsoluteLoudnessLkfs":-15.55,"qualityOrdinal":"QUALITY_ORDINAL_UNKNOWN"},
+   {"itag":251,"url":"https://redacted.googlevideo.com/videoplayback?itag=251&mime=audio%2Fwebm&clen=9009260&dur=558.541&lmt=1794426591690121","mimeType":"audio/webm; codecs=\"opus\"","bitrate":151532,"initRange":{"start":"0","end":"258"},"indexRange":{"start":"259","end":"1207"},"lastModified":"1794426591690121","contentLength":"9009260","quality":"tiny","projectionType":"RECTANGULAR","averageBitrate":129039,"audioQuality":"AUDIO_QUALITY_MEDIUM","approxDurationMs":"558541","audioSampleRate":"48000","audioChannels":2,"loudnessDb":-2.0599995,"trackAbsoluteLoudnessLkfs":-16.06,"qualityOrdinal":"QUALITY_ORDINAL_UNKNOWN"},
+   {"itag":251,"url":"https://redacted.googlevideo.com/videoplayback?itag=251&xtags=drc%3D1&mime=audio%2Fwebm&clen=9603413&dur=558.541&lmt=1794432132345480","mimeType":"audio/webm; codecs=\"opus\"","bitrate":154818,"initRange":{"start":"0","end":"258"},"indexRange":{"start":"259","end":"1207"},"lastModified":"1794432132345480","contentLength":"9603413","quality":"tiny","xtags":"CggKA2RyYxIBMQ","projectionType":"RECTANGULAR","averageBitrate":137549,"audioQuality":"AUDIO_QUALITY_MEDIUM","approxDurationMs":"558541","audioSampleRate":"48000","audioChannels":2,"loudnessDb":-1.5500002,"isDrc":true,"trackAbsoluteLoudnessLkfs":-15.55,"qualityOrdinal":"QUALITY_ORDINAL_UNKNOWN"}
+  ],
+  "serverAbrStreamingUrl": "https://redacted.googlevideo.com/videoplayback?sabr=1"
+ },
+ "videoDetails": {
+  "videoId": "3viWJA6mMmE",
+  "title": "Trump's role in Russia-Ukraine war | Lex Fridman Podcast",
+  "lengthSeconds": "559",
+  "channelId": "UCJIfeSCssxSC_Dhc5s7woww",
+  "viewCount": "33277",
+  "author": "Lex Clips",
+  "thumbnail": {
+   "thumbnails": [
+    {
+     "url": "https://i.ytimg.com/vi/3viWJA6mMmE/mqdefault.jpg",
+     "width": 320,
+     "height": 180
+    }
+   ]
+  }
+ },
+ "playerConfig": {
+  "audioConfig": {
+   "perceptualLoudnessDb": -16.06,
+   "enablePerFormatLoudness": true,
+   "trackAbsoluteLoudnessLkfs": -16.06,
+   "loudnessTargetLkfs": -14
+  }
+ }
+}

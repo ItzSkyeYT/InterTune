@@ -171,6 +171,8 @@ import com.dd3boh.outertune.constants.DynamicThemeKey
 import com.dd3boh.outertune.constants.EnabledTabsKey
 import com.dd3boh.outertune.constants.HighContrastKey
 import com.dd3boh.outertune.constants.LibraryFilterKey
+import com.dd3boh.outertune.constants.LyricKaraokeEnable
+import com.dd3boh.outertune.constants.LyricsBlurKey
 import com.dd3boh.outertune.constants.MinMiniPlayerHeight
 import com.dd3boh.outertune.constants.MiniPlayerHeight
 import com.dd3boh.outertune.constants.NavigationBarAnimationSpec
@@ -203,6 +205,7 @@ import com.dd3boh.outertune.together.RoomCode
 import com.dd3boh.outertune.utils.urlEncode
 import com.dd3boh.outertune.ui.component.LocalHiddenByPlayer
 import com.dd3boh.outertune.ui.component.LocalPlayerSheet
+import com.dd3boh.outertune.ui.component.LyricsBlur
 import com.dd3boh.outertune.ui.component.rememberBottomSheetState
 import com.dd3boh.outertune.ui.component.shimmer.ShimmerTheme
 import com.dd3boh.outertune.ui.menu.BottomSheetMenu
@@ -261,6 +264,7 @@ import com.dd3boh.outertune.ui.utils.dpadOverlay
 import com.dd3boh.outertune.ui.utils.dpadOverlayEscape
 import com.dd3boh.outertune.ui.utils.dpadTabBar
 import com.dd3boh.outertune.ui.utils.dpadBringIntoView
+import com.dd3boh.outertune.ui.utils.closeTabPages
 import com.dd3boh.outertune.ui.utils.leaveSettings
 import com.dd3boh.outertune.ui.utils.resetHeightOffset
 import com.dd3boh.outertune.ui.utils.SameTextSize
@@ -567,6 +571,22 @@ class MainActivity : ComponentActivity() {
         if (intent.action == RecognitionShortcut.ACTION) pendingRecognition.asked = true
         if (intent.action == DownloadsShortcut.ACTION) pendingDownloads.asked = true
         handlePlayFromSearch(intent)
+        if (Unreleased.LYRICS_BLUR) setLyricsBlurTrial(intent)
+    }
+
+    /**
+     * The debug app's lyrics blur set from a command line (LyricsBlur.trial), for pictures of each
+     * strength with the lyrics left open: `am start -n <app>/.MainActivity --es lyricsblur medium`.
+     */
+    private fun setLyricsBlurTrial(intent: Intent) {
+        val trial = LyricsBlur.trial(intent.getStringExtra(LyricsBlur.TRIAL)) ?: return
+        Log.i(MAIN_TAG, "Lyrics blur trial: $trial")
+        lifecycleScope.launch {
+            dataStore.edit { settings ->
+                trial.strength?.let { settings[LyricsBlurKey] = it }
+                trial.wordByWord?.let { settings[LyricKaraokeEnable] = it }
+            }
+        }
     }
 
     private fun handlePlayFromSearch(intent: Intent) {
@@ -2584,19 +2604,25 @@ private fun TabLabel(text: String, names: SameTextSize) {
  *
  * The only subtlety is [restoreState]. The nav graph is flat, so every route is a sibling and
  * there are no per-tab back stacks; `popUpTo(start) { saveState = true }` saves whatever was
- * above the start destination, and `restoreState = true` puts it back.
+ * above the start destination, and `restoreState = true` puts it back. That is how a tab keeps
+ * the page it holds, and where it was scrolled to, while another tab is shown.
  *
- * That is what upstream #959 was: from a playlist, tapping Library saved the stack and then
+ * That is also what upstream #959 was: from a playlist, tapping Library saved the stack and then
  * immediately restored it, landing you back in the playlist. "Nothing happens."
  *
  * The fix there was a branch that called [NavHostController.navigateUp] whenever the current
  * destination was not itself a tab. That escapes the sub-page, but it ignores *which* tab was
  * tapped, so from History tapping Songs walked back to Home instead — upstream #1168.
  *
- * Restoring is only ever wanted when hopping between tab roots, where it preserves each tab's
- * scroll position. Coming from a sub-page there is nothing worth restoring and restoring is
- * precisely what breaks it. So: restore when leaving a tab, jump cleanly when leaving anything
- * else. One rule, both issues.
+ * The rule after that was to restore only when leaving a tab's own page. It got out of the
+ * playlist, but by making Library a second time over the parked one: the playlist was only
+ * hidden, and was back at the next change of tab (#143, "pressing the same tab should
+ * permanently close it"). A tab come to from another tab's page was made again too, and the
+ * page it held came back some other day.
+ *
+ * So the tab that holds the page showing is not navigated to at all: its pages are popped, as
+ * Back pops them, and none is parked ([closeTabPages]). Any other tab is navigated to and always
+ * restored, with the page it holds.
  *
  * Settings is no tab's page, and is left first (#135, "the only way to truly exit settings is to
  * press those arrows"). What a tab parks comes back when the tab is tapped again, and Settings
@@ -2612,16 +2638,15 @@ private fun navigateToNavTab(
     navigationItems: List<Screens>,
     current: NavBackStackEntry?,
 ) {
-    val left = navController.leaveSettings()
+    val leftSettings = navController.leaveSettings()
+    val closed = navController.closeTabPages(route, navigationItems.mapTo(HashSet()) { it.route })
+    val left = leftSettings || closed
     val here = if (left) navController.currentBackStackEntry else current
     if (left && here?.destination?.hierarchy?.any { it.route == route } == true) return
-    val leavingATab = navigationItems.any { scr ->
-        here?.destination?.hierarchy?.any { it.route == scr.route } == true
-    }
     navController.navigate(route) {
         popUpTo(navController.graph.startDestinationId) { saveState = true }
         launchSingleTop = true
-        restoreState = leavingATab
+        restoreState = true
     }
 }
 

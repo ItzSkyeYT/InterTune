@@ -18,6 +18,9 @@ import java.io.IOException
 import java.io.InputStream
 import java.io.OutputStream
 import java.util.concurrent.ConcurrentHashMap
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import com.dd3boh.outertune.utils.Toaster
 
 class DownloadDirectoryManagerOt(private var context: Context, private var dir: Uri, extraDirs: List<Uri>) {
@@ -58,6 +61,15 @@ class DownloadDirectoryManagerOt(private var context: Context, private var dir: 
     var unreadableExtraDirs: List<Uri> = emptyList()
         private set
 
+    /**
+     * Whether the main folder is not set, open, or saved but not opened (DownloadFolderState), as
+     * the last doInit found it, so again after each change of folder (DownloadUtil.cd). The Storage
+     * page shows it on the folder's row, and the move after a download says it once. Before the
+     * init below, which sets it.
+     */
+    private val _folderState = MutableStateFlow(DownloadFolderState.NOT_SET)
+    val folderState: StateFlow<DownloadFolderState> = _folderState.asStateFlow()
+
     init {
         doInit(context, dir, extraDirs)
     }
@@ -92,6 +104,7 @@ class DownloadDirectoryManagerOt(private var context: Context, private var dir: 
             allDirs = newAllDirs.toList()
             unreadableExtraDirs = unreadable
             Log.i(TAG, "Download manager initialized successfully. ${allDirs.size}")
+            _folderState.value = DownloadFolderState.of(pathSaved = dir.toString().isNotBlank(), opened = true)
         } catch (e: Exception) {
             if (mainDir == null) {
                 Log.w(TAG, "Failed to initiate download manager: No directory provided")
@@ -104,9 +117,11 @@ class DownloadDirectoryManagerOt(private var context: Context, private var dir: 
             mainDir = null
             allDirs = mutableListOf()
             unreadableExtraDirs = emptyList()
-//            reportException(e)
-//            Toaster.show(context, "Failed to initiate download manager: " + e.message, Toast.LENGTH_LONG)
-            // TODO: snackbar for failed uri or not set up?
+            // Said, not only logged: a folder saved that does not open kept every download inside
+            // the app without a word (his phone, 11 Nov 2026). The Storage page reads this on the
+            // folder's row, with the way to choose it again, and the move after a download says
+            // it once (DownloadUtil).
+            _folderState.value = DownloadFolderState.of(pathSaved = dir.toString().isNotBlank(), opened = false)
         }
     }
 

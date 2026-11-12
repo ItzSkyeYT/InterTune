@@ -260,6 +260,12 @@ val LyricClickable = booleanPreferencesKey("lyricClickable")
 val LyricAutoScrollKey = booleanPreferencesKey("lyricAutoScroll")
 val LyricKaraokeEnable = booleanPreferencesKey("lyricKaraokeEnable")
 val LyricUpdateSpeed = stringPreferencesKey("lyricUpdateSpeed")
+/**
+ * The debug app's trial of progressive blur on the lyrics (Unreleased.LYRICS_BLUR): how strong, by
+ * its name in LyricsBlur.Strength, or absent for the lines as they are. Read only with the flag on,
+ * so a backup from a debug build blurs nothing in a release.
+ */
+val LyricsBlurKey = stringPreferencesKey("lyricsBlur")
 
 /**
  * Show in Latin letters: a line in Japanese, Korean, Chinese, Cyrillic, Greek or an Indian script
