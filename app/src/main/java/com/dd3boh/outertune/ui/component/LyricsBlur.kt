@@ -39,8 +39,10 @@ import kotlin.math.roundToInt
  * A line out of focus is drawn as its own soft shadow with the text itself left as good as clear
  * ([lyricsLineBlur]). Android keeps each blurred letter the way it keeps a sharp one, so a blurred
  * line costs what a line costs, also while the list scrolls, and nothing in it needs Android 12.
- * The other way that was tried, a blur on each line's layer (RenderEffect), made the phone blur
- * every line anew at each frame that draws the list; it was taken out on 12 Nov 2026.
+ * The other way that was tried, a blur on each line's layer (RenderEffect), drew the same picture
+ * (on the emulator the two were never more than 4 levels of 255 apart) but made the phone blur
+ * every line anew at each frame that draws the list, and needed Android 12; it was taken out on
+ * 12 Nov 2026.
  */
 object LyricsBlur {
 
@@ -134,8 +136,10 @@ object LyricsBlur {
 
     /**
      * The ink left in the text whose shadow is the line out of focus: one step in 255, which no eye
-     * sees. Not none: a text with no ink at all may be passed over by Android as nothing to draw,
-     * its shadow with it.
+     * sees. A guard, not a need that was seen: a paint with no ink at all is one Skia may draw
+     * nothing for, and the shadow hangs on that same draw. Android 17 does draw it (the emulator,
+     * 12 Nov 2026: the build of the day before, with the text fully clear, gave the same picture);
+     * older Androids were not looked at.
      */
     const val TEXT_INK = 1f / 255f
 }
