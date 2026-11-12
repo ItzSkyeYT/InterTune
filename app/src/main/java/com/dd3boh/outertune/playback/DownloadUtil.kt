@@ -65,12 +65,14 @@ import com.dd3boh.outertune.playback.downloadManager.ConvertNotice
 import com.dd3boh.outertune.playback.downloadManager.ConvertPlan
 import com.dd3boh.outertune.playback.downloadManager.DocumentCastSong
 import com.dd3boh.outertune.playback.downloadManager.DownloadDirectoryManagerOt
+import com.dd3boh.outertune.playback.downloadManager.DownloadFolderState
 import com.dd3boh.outertune.playback.downloadManager.DownloadFormats
 import com.dd3boh.outertune.playback.downloadManager.ExportItem
 import com.dd3boh.outertune.playback.downloadManager.ExportResult
 import com.dd3boh.outertune.playback.downloadManager.ExportSkip
 import com.dd3boh.outertune.playback.downloadManager.ExportSources
 import com.dd3boh.outertune.playback.downloadManager.FileRemoval
+import com.dd3boh.outertune.playback.downloadManager.MoveNotice
 import com.dd3boh.outertune.playback.downloadManager.SkipReason
 import com.dd3boh.outertune.playback.downloadManager.SourceCodec
 import com.dd3boh.outertune.playback.downloadManager.SourceProbe
@@ -1126,13 +1128,17 @@ class DownloadUtil @Inject constructor(
 
     /**
      * Moves the downloads kept inside the app into the download folder: all of them when asked
-     * from Settings (Migrate), or [only] these songs, just downloaded, without a word ([quiet]).
+     * from Settings (Migrate, or the move offered once a folder is chosen), with a notification
+     * that says how far it is and how it ended (MoveNotice), or [only] these songs, just
+     * downloaded, without a word ([quiet]).
      */
     suspend fun migrateDownloads(quiet: Boolean = false, only: Set<String>? = null) = scanLock.withLock {
         isProcessingDownloads.value = true
 
         var runs = 0
         var notice: ConvertNotice? = null
+        var moveNotice: MoveNotice? = null
+        var movedCount = 0
         try {
             // What media3 holds, read from its index. A second DownloadManager over it, as this
             // used to make for the same list, started a thread of its own that was never let go.
@@ -1150,14 +1156,23 @@ class DownloadUtil @Inject constructor(
                 notice = ConvertNotice(context, format, toMigrate.size)
                 converter.sweep()
             }
+            // The move asked for in Settings (Migrate, or the move offered once a folder is
+            // chosen) shows how far it is in a notification, and how it ended; the quiet move
+            // after a download does not. Where no notification can be seen, the toast below stays.
+            if (!quiet && toMigrate.isNotEmpty() && MoveNotice.canShow(context)) {
+                moveNotice = MoveNotice(context, toMigrate.size)
+            }
             var position = 0
             toMigrate.forEach { s ->
+                moveNotice?.starting(runs)
                 if (runs++ % 10 == 0) {
                     Log.d(TAG, "Migrating download: $runs/${toMigrate.size}")
-                    if (runs % 20 == 0 && !quiet) {
-                        withContext(Dispatchers.Main) {
-                            Toaster.show(context, "$runs/${toMigrate.size}", LENGTH_SHORT)
-                        }
+                }
+                // One way of telling: the toast only where the notification cannot show. It sat
+                // inside the block above, where the count is 1, 11, 21..., and so never came.
+                if (MoveNotice.toastDue(runs, quiet, noticeShown = moveNotice != null)) {
+                    withContext(Dispatchers.Main) {
+                        Toaster.show(context, "$runs/${toMigrate.size}", LENGTH_SHORT)
                     }
                 }
                 // Copied from the cache's files as the new file is written: read whole into memory
@@ -1197,7 +1212,7 @@ class DownloadUtil @Inject constructor(
                     },
                 )
                 when (moved) {
-                    FolderMove.MOVED -> Unit
+                    FolderMove.MOVED -> movedCount++
                     FolderMove.NOT_WRITTEN -> Log.w(TAG, "Could not migrate ${s.key}, its download stays in the app")
                     FolderMove.NO_PATH -> Log.w(TAG, "The folder's file of ${s.key} has no path on the phone, its download stays in the app as well")
                     FolderMove.NOT_RECORDED -> Log.w(TAG, "Could not record the folder's file of ${s.key}, its download stays in the app as well")
@@ -1211,6 +1226,9 @@ class DownloadUtil @Inject constructor(
             reportException(e)
         } finally {
             notice?.finish()
+            // Done, or how many stay inside the app: a song with nothing in the cache to copy, one
+            // the folder refused, or the rest of a move that failed halfway.
+            moveNotice?.finish(movedCount)
             isProcessingDownloads.value = false
         }
     }
@@ -1433,6 +1451,42 @@ class DownloadUtil @Inject constructor(
             context.dataStore.get(DownloadPathKey, "").toUri(),
             uriListFromString(context.dataStore.get(DownloadExtraPathKey, ""))
         )
+    }
+
+    /**
+     * How many downloads are still inside the app, counted as the scan counts them: the finished
+     * entries of media3's index (a move into the folder takes a song's entry out). Reads the
+     * index's database: off the main thread.
+     */
+    fun downloadsInsideApp(): Int {
+        var count = 0
+        runCatching {
+            downloadManager.downloadIndex.getDownloads().use { cursor ->
+                while (cursor.moveToNext()) {
+                    val download = cursor.download
+                    if (completedDownloadTime(download.state, download.updateTimeMs) != null) count++
+                }
+            }
+        }.onFailure { Log.w(TAG, "Could not count the downloads inside the app", it) }
+        return count
+    }
+
+    /** Whether this start of the app has said already that the download folder does not open. */
+    private val folderNoticeGiven = java.util.concurrent.atomic.AtomicBoolean(false)
+
+    /**
+     * A download finished while the folder saved in Settings does not open (DownloadFolderState):
+     * it stays inside the app, and the move after it would fail without a word, as it did on his
+     * phone for days (11 Nov 2026). Said once a start, the way the wait for Wi-Fi is said; the
+     * Storage page has the way to choose the folder again.
+     */
+    private fun notifyIfFolderCannotOpen() {
+        if (localMgr.folderState.value != DownloadFolderState.CANNOT_OPEN) return
+        if (!folderNoticeGiven.compareAndSet(false, true)) return
+        Log.i(TAG, "The download folder does not open, the download stays inside the app: said once")
+        CoroutineScope(Dispatchers.Main.immediate).launch {
+            Toaster.show(context, R.string.dl_folder_cannot_open_notice, Toast.LENGTH_LONG)
+        }
     }
 
     /**
@@ -1686,6 +1740,7 @@ class DownloadUtil @Inject constructor(
                     val just = finishedSinceMove.toSet()
                     finishedSinceMove.clear()
                     if (context.dataStore.get(DownloadPathKey, "").isEmpty()) return
+                    notifyIfFolderCannotOpen()
                     CoroutineScope(Dispatchers.IO).launch { migrateDownloads(quiet = true, only = just) }
                 }
 

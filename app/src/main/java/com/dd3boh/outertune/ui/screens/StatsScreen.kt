@@ -38,6 +38,7 @@ import com.dd3boh.outertune.constants.StatPeriod
 import com.dd3boh.outertune.constants.SwipeToQueueKey
 import com.dd3boh.outertune.models.toMediaMetadata
 import com.dd3boh.outertune.playback.queues.ListQueue
+import com.dd3boh.outertune.stats.ListeningInsights
 import com.dd3boh.outertune.ui.component.ChipsRow
 import com.dd3boh.outertune.ui.component.EmptyPlaceholder
 import com.dd3boh.outertune.ui.component.FloatingTopBar
@@ -82,6 +83,8 @@ fun StatsScreen(
 
     val coroutineScope = rememberCoroutineScope()
     val lazyListState = rememberLazyListState()
+    // The numbers of the three lists are written as the cards above write theirs.
+    val format = rememberStatsFormat()
 
     val mostPlayedSongTitle = stringResource(R.string.most_played_songs)
     val statsTitle = stringResource(R.string.stats)
@@ -163,8 +166,10 @@ fun StatsScreen(
         itemsInColumns(
             items = mostPlayedSongs,
             columns = columns,
-            key = { _, song -> song.id }
-        ) { index, song ->
+            key = { _, played -> played.song.id }
+        ) { index, played ->
+            val song = played.song
+            val plays = playsText(played.plays, format)
             SongListItem(
                 song = song,
                 navController = navController,
@@ -181,7 +186,7 @@ fun StatsScreen(
                     playerConnection.playQueue(
                         ListQueue(
                             title = mostPlayedSongTitle,
-                            items = mostPlayedSongs.map { it.toMediaMetadata() },
+                            items = mostPlayedSongs.map { it.song.toMediaMetadata() },
                             // The song tapped, not the top of the list.
                             startIndex = index,
                             songPicked = true,
@@ -189,6 +194,10 @@ fun StatsScreen(
                         origin = PlayOrigin.STATS,
                     )
                 },
+                // Its plays in the period, which rank the list, in the line under the title in place
+                // of the length: "Artist • 12 plays" (his pick of 12 Nov 2026, the look C of
+                // experiments/features/stats-more/sheet.png).
+                caption = plays,
                 modifier = Modifier
                     .fillMaxWidth()
                     .animateItem()
@@ -207,10 +216,18 @@ fun StatsScreen(
                 ) {
                     items(
                         items = mostPlayedArtists,
-                        key = { it.id }
-                    ) { artist ->
+                        key = { it.artist.id }
+                    ) { played ->
+                        val artist = played.artist
+                        val plays = playsText(played.plays, format)
+                        // Under a minute the time would read "0 min", and is left out.
+                        val time = format.duration(played.playTime).takeIf { played.playTime >= ListeningInsights.MINUTE_MS }
                         ArtistGridItem(
                             artist = artist,
+                            // The plays that rank the row in place of the count of songs, and the
+                            // time listened under them: a tile is too narrow for the two side by side.
+                            subtitle = plays,
+                            lines = listOfNotNull(time),
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .combinedClickable(
@@ -246,10 +263,12 @@ fun StatsScreen(
                 ) {
                     items(
                         items = mostPlayedAlbums,
-                        key = { it.id }
-                    ) { album ->
+                        key = { it.album.id }
+                    ) { played ->
+                        val album = played.album
                         AlbumGridItem(
                             album = album,
+                            lines = listOf(playsText(played.plays, format)),
                             isActive = album.id == mediaMetadata?.album?.id,
                             isPlaying = isPlaying,
                             coroutineScope = coroutineScope,
@@ -297,3 +316,8 @@ fun StatsScreen(
 
     FloatingTopBar(title = stringResource(R.string.stats), navController = navController)
 }
+
+/** "12 plays", the count in the phone's own digits and grouping, as the cards above write one. */
+@Composable
+private fun playsText(plays: Int, format: StatsFormat): String =
+    pluralStringResource(R.plurals.stats_plays, plays, format.count(plays))

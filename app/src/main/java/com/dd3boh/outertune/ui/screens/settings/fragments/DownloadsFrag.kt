@@ -35,6 +35,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -47,6 +48,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
@@ -85,6 +87,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import androidx.compose.material.icons.rounded.Favorite
 import com.dd3boh.outertune.constants.LikedAutoDownloadKey
 import com.dd3boh.outertune.constants.LikedDownloadSyncKey
@@ -92,6 +95,7 @@ import com.dd3boh.outertune.constants.Unreleased
 import androidx.compose.material.icons.rounded.HeartBroken
 import com.dd3boh.outertune.constants.LikedAutodownloadMode
 import com.dd3boh.outertune.playback.DownloadUtil
+import com.dd3boh.outertune.playback.downloadManager.DownloadFolderState
 import com.dd3boh.outertune.playback.downloadManager.DownloadFormats
 import com.dd3boh.outertune.ui.component.EnumListPreference
 import com.dd3boh.outertune.utils.rememberEnumPreference
@@ -142,6 +146,12 @@ fun ColumnScope.DownloadsFrag() {
     }
     var showClearConfirmDialog by remember {
         mutableStateOf(false)
+    }
+    // Where the folder stands as the download manager last opened it, so it follows a change of folder.
+    val folderState by downloadUtil.localMgr.folderState.collectAsState()
+    // The downloads still inside the app once a folder is chosen and opens: the question to move them is up while above 0.
+    var moveHereCount by rememberSaveable {
+        mutableIntStateOf(0)
     }
 
     // advanced
@@ -306,6 +316,19 @@ fun ColumnScope.DownloadsFrag() {
         icon = { Icon(Icons.Rounded.Folder, null) },
         description = if (downloadPath != "") uriListFromString(downloadPath).firstOrNull()
             ?.let { absoluteFilePathFromUri(context, it) } ?: downloadPath else null,
+        // A folder saved that does not open says so here, under it, in the page's error colour,
+        // with the way out: the row opens the folder dialog, where it is chosen again (his phone,
+        // 11 Nov 2026, a folder whose permission was gone and every download kept in the app).
+        content = if (downloadPath != "" && folderState == DownloadFolderState.CANNOT_OPEN) {
+            {
+                Text(
+                    text = stringResource(R.string.dl_folder_cannot_open),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.padding(top = 2.dp)
+                )
+            }
+        } else null,
         onClick = {
             showDlPathDialog = true
         },
@@ -513,6 +536,13 @@ fun ColumnScope.DownloadsFrag() {
                 coroutineScope.launch {
                     delay(1000)
                     downloadUtil.cd()
+                    // The folder chosen opens and downloads are still inside the app: asked once,
+                    // here, whether to move them. Choosing a folder used to leave them where they
+                    // were, and the move was a row under Advanced nobody connected with it.
+                    val inside = withContext(Dispatchers.IO) { downloadUtil.downloadsInsideApp() }
+                    if (downloadUtil.localMgr.folderState.value == DownloadFolderState.OPEN && inside > 0) {
+                        moveHereCount = inside
+                    }
                 }
             },
             onReset = {
@@ -532,7 +562,9 @@ fun ColumnScope.DownloadsFrag() {
             val dirPickerLauncher = rememberLauncherForActivityResult(
                 ActivityResultContracts.OpenDocumentTree()
             ) { uri ->
-                if (tempFilePath.toString() == uri.toString()) return@rememberLauncherForActivityResult
+                // The same folder chosen again still takes its permission: a folder saved whose
+                // permission is gone (a restored backup) is put right by choosing it again, as the
+                // folder's row says.
                 if (uri?.path != null) {
                     // Take persistable URI permission
                     val contentResolver = context.contentResolver
@@ -828,6 +860,35 @@ fun ColumnScope.DownloadsFrag() {
                     }
                 ) {
                     Text(text = stringResource(android.R.string.ok))
+                }
+            }
+        )
+    }
+
+    if (moveHereCount > 0) {
+        DefaultDialog(
+            onDismiss = { moveHereCount = 0 },
+            title = { Text(stringResource(R.string.dl_move_here_title)) },
+            content = {
+                Text(
+                    text = pluralStringResource(R.plurals.dl_move_here_text, moveHereCount, moveHereCount),
+                    style = MaterialTheme.typography.bodyLarge,
+                    modifier = Modifier.padding(horizontal = 18.dp)
+                )
+            },
+            buttons = {
+                TextButton(onClick = { moveHereCount = 0 }) {
+                    Text(text = stringResource(R.string.dl_move_here_not_now))
+                }
+
+                TextButton(
+                    onClick = {
+                        moveHereCount = 0
+                        // The move Migrate makes, on its own scope.
+                        downloadUtil.startMigrate()
+                    }
+                ) {
+                    Text(text = stringResource(R.string.dl_move_here_move))
                 }
             }
         )

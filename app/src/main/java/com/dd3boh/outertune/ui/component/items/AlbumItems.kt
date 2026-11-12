@@ -118,6 +118,8 @@ fun AlbumGridItem(
     isActive: Boolean = false,
     isPlaying: Boolean = false,
     fillMaxWidth: Boolean = false,
+    /** Under the artists, a line each: the plays of a most played album (StatsScreen). */
+    lines: List<String> = emptyList(),
 ) = GridItem(
     title = album.album.title,
     subtitle = album.artists.joinToString { it.name },
@@ -154,5 +156,6 @@ fun AlbumGridItem(
         )
     },
     fillMaxWidth = fillMaxWidth,
+    lines = lines,
     modifier = modifier
 )

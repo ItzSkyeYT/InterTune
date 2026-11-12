@@ -6,6 +6,7 @@
 
 package com.dd3boh.outertune.db
 
+import com.dd3boh.outertune.db.daos.SongsDao
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -232,6 +233,123 @@ class StatsSqlTest {
         event("long", t, playTime = 5 * minute)
         event("short", t, playTime = minute)
         assertEquals(listOf("UCpatient", "UChasty"), mostPlayedArtists(0))
+    }
+
+    @Test
+    fun `under each most played artist, their plays and the time listened in the period`() {
+        val day = 24 * 60 * minute
+        song("solo", "UCmain")
+        song("together", "UCmain", "UCfeatured")
+        song("other", "UCother")
+        repeat(3) { event("solo", t - day, playTime = 4 * minute) }
+        event("solo", t - 30 * day, playTime = 4 * minute)
+        repeat(2) { event("together", t - 2 * day, playTime = 3 * minute + 30_000) }
+        event("other", t - day, playTime = 50_000)
+
+        fun numbers(from: Long) = query(StatsSql.MOST_PLAYED_ARTISTS, from, 6) { rs ->
+            listOf(rs.getString("id"), rs.getLong("plays"), rs.getLong("playTime"))
+        }
+        // The week: main has the three plays of the one song and the two of the other, featured
+        // the two of the song they share, each with the whole time of those plays.
+        assertEquals(
+            listOf(
+                listOf("UCmain", 5L, 19 * minute),
+                listOf("UCfeatured", 2L, 7 * minute),
+                listOf("UCother", 1L, 50_000L),
+            ),
+            numbers(t - 7 * day),
+        )
+        // All of it: last month's play counts too.
+        assertEquals(listOf("UCmain", 6L, 23 * minute), numbers(0).first())
+    }
+
+    private fun mostPlayedSongs(from: Long, limit: Long = 6): List<Pair<String, Long>> =
+        query(StatsSql.MOST_PLAYED_SONGS, from, limit) { it.getString("id") to it.getLong("plays") }
+
+    /** SongsDao.MOST_PLAYED_SONGS, which Home, the widget and the car read, from its top. */
+    private fun sharedMostPlayedSongs(from: Long, limit: Long = 6): List<String> =
+        query(SongsDao.MOST_PLAYED_SONGS, from, limit, 0) { it.getString("id") }
+
+    @Test
+    fun `the most played songs are the ones played most, each with its plays`() {
+        val day = 24 * 60 * minute
+        for (id in listOf("long", "short", "old favourite", "once")) song(id, "UCartist")
+        // A long song played twice is listened to for longer than a short one played three times:
+        // the short one is the more played (his word of 12 Nov 2026, "most played at the top, with
+        // the amount of plays"). The same plays go to the one listened to for longer.
+        repeat(2) { event("long", t - day, playTime = 7 * minute) }
+        repeat(3) { event("short", t - 2 * day, playTime = 2 * minute) }
+        repeat(9) { event("old favourite", t - 60 * day, playTime = 3 * minute) }
+        event("old favourite", t - day, playTime = 3 * minute)
+        event("once", t - 3 * day, playTime = minute)
+
+        assertEquals(listOf("short" to 3L, "long" to 2L, "old favourite" to 1L, "once" to 1L), mostPlayedSongs(t - 7 * day))
+        assertEquals(listOf("old favourite" to 10L, "short" to 3L, "long" to 2L, "once" to 1L), mostPlayedSongs(0))
+        assertEquals(listOf("old favourite" to 10L, "short" to 3L), mostPlayedSongs(0, limit = 2))
+        // Home's Keep listening, the widget and the car read their own list, still by the time.
+        assertEquals(listOf("long", "short", "old favourite", "once"), sharedMostPlayedSongs(t - 7 * day))
+    }
+
+    @Test
+    fun `the Stats page ranks every period's songs by plays, then by the time listened`() {
+        val day = 24 * 60 * minute
+        // Twenty songs, each listened to for a different time in each period: one play in the
+        // week, and up to three more, nine days apart, before it.
+        val plays = mutableMapOf<String, MutableList<Pair<Long, Long>>>()
+        repeat(20) { i ->
+            song("s$i", "UCartist")
+            repeat(1 + i % 4) { n ->
+                val at = t - (n * 9 + 1) * day
+                val time = (i * 7 % 20 + 1) * minute + i * 1000
+                event("s$i", at, playTime = time)
+                plays.getOrPut("s$i") { mutableListOf() } += at to time
+            }
+        }
+        for (from in listOf(0L, t - 30 * day, t - 7 * day)) {
+            val expected = plays
+                .mapValues { (_, all) -> all.filter { it.first > from } }
+                .filterValues { it.isNotEmpty() }
+                .entries
+                .sortedWith(compareByDescending<Map.Entry<String, List<Pair<Long, Long>>>> { it.value.size }
+                    .thenByDescending { entry -> entry.value.sumOf { it.second } })
+                .map { it.key to it.value.size.toLong() }
+            assertEquals(expected.take(6), mostPlayedSongs(from))
+            assertEquals(expected.take(3), mostPlayedSongs(from, limit = 3))
+        }
+        assertEquals(6, mostPlayedSongs(0).size)
+    }
+
+    private fun album(id: String, vararg songs: String) {
+        exec("INSERT INTO album(id, title, songCount, duration, lastUpdateTime) VALUES ('$id', '$id', ${songs.size}, 600, 0)")
+        songs.forEach { exec("UPDATE song SET albumId = '$id' WHERE id = '$it'") }
+    }
+
+    @Test
+    fun `under each most played album, the plays of its songs in the period`() {
+        val day = 24 * 60 * minute
+        for (id in listOf("a1", "a2", "b1", "single", "c1")) song(id, "UCartist")
+        album("A", "a1", "a2")
+        album("B", "b1")
+        album("C", "c1")
+        exec("UPDATE song SET dateDownload = $t WHERE id = 'a2'")
+        repeat(2) { event("a1", t - day, playTime = 3 * minute) }
+        event("a2", t - 2 * day, playTime = 3 * minute)
+        event("a2", t - 40 * day, playTime = 3 * minute)
+        event("b1", t - day, playTime = 10 * minute)
+        repeat(5) { event("single", t - day) }
+        repeat(4) { event("c1", t - 40 * day, playTime = 5 * minute) }
+
+        fun albums(from: Long) = query(StatsSql.MOST_PLAYED_ALBUMS, from, 6) { it.getString("id") to it.getLong("plays") }
+        // By the plays, so A's three lead B's one long play; a song with no album is in none, and
+        // C, not played in the week, is not listed. The same plays go to the one listened to for
+        // longer: C's 20 minutes ahead of A's 12.
+        assertEquals(listOf("A" to 3L, "B" to 1L), albums(t - 7 * day))
+        assertEquals(listOf("C" to 4L, "A" to 4L, "B" to 1L), albums(0))
+        // The download count beside it is the shared query's, untouched.
+        assertEquals(
+            listOf(1L, 0L),
+            query(StatsSql.MOST_PLAYED_ALBUMS, t - 7 * day, 6) { it.getLong("downloadCount") },
+        )
     }
 
     /** A local artist's id, the shape ArtistEntity.generateArtistId() writes. */

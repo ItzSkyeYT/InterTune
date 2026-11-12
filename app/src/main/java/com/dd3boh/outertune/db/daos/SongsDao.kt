@@ -15,7 +15,9 @@ import com.dd3boh.outertune.db.LibrarySql
 import com.dd3boh.outertune.db.LocalFolderDates
 import com.dd3boh.outertune.db.LocalSongFile
 import com.dd3boh.outertune.db.LocalSql
+import com.dd3boh.outertune.db.StatsSql
 import com.dd3boh.outertune.db.entities.PlayCountEntity
+import com.dd3boh.outertune.db.entities.PlayedSong
 import com.dd3boh.outertune.db.entities.SimilarSong
 import com.dd3boh.outertune.db.entities.Song
 import com.dd3boh.outertune.db.entities.SongEntity
@@ -132,6 +134,11 @@ interface SongsDao {
     @Transaction
     @Query(MOST_PLAYED_SONGS)
     fun mostPlayedSongs(fromTimeStamp: Long, limit: Int = 6, offset: Int = 0): Flow<List<Song>>
+
+    /** The Stats page's list, each song with its plays in the period: see [StatsSql.MOST_PLAYED_SONGS]. */
+    @Transaction
+    @Query(StatsSql.MOST_PLAYED_SONGS)
+    fun statsMostPlayedSongs(fromTimeStamp: Long, limit: Int = 6): Flow<List<PlayedSong>>
 
     @Query("SELECT sum(count) from playCount WHERE song = :songId")
     fun getLifetimePlayCount(songId: String?): Int

@@ -12,6 +12,7 @@ import com.dd3boh.outertune.db.entities.ArtistEntity
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.File
 
 class StatsViewModelTest {
     private val greatestHits = Album(
@@ -34,6 +35,21 @@ class StatsViewModelTest {
     fun `one with no artist is fetched, so Stats lists it with one`() {
         // Made from songs, as LgAlbumRepair makes most of them.
         assertTrue(albumPageWanted(greatestHits.copy(artists = emptyList())))
+    }
+
+    @Test
+    fun `each most played list is read once, with its numbers in it`() {
+        // The plays, and an artist's time, come out of the read that ranks the list (StatsSql): a
+        // second read for them would cost the page a pass over the play events for each list, and
+        // could show a row beside a number of another moment.
+        val vm = File("src/main/java/com/dd3boh/outertune/viewmodels/StatsViewModel.kt").readText()
+        for (read in listOf("statsMostPlayedSongs(", "statsMostPlayedArtists(", "statsMostPlayedAlbums(")) {
+            assertTrue("$read feeds a list", Regex("""statPeriod\.flatMapLatest \{ period ->\s+database\.""" + Regex.escape(read)).containsMatchIn(vm))
+        }
+        assertFalse("the shared lists, which have no numbers, are back", Regex("""database\.mostPlayed(Songs|Albums)\(""").containsMatchIn(vm))
+        val screen = File("src/main/java/com/dd3boh/outertune/ui/screens/StatsScreen.kt").readText()
+        assertTrue(screen.contains("playsText(played.plays, format)"))
+        assertTrue(screen.contains("format.duration(played.playTime)"))
     }
 
     @Test

@@ -74,3 +74,37 @@ fun NavController.leaveSettings(): Boolean {
     repeat(pagesLeftWithSettings(pages)) { if (popBackStack()) left++ }
     return left > 0
 }
+
+/**
+ * The tab that holds the page showing: the highest of [tabs] in a history, [routes] from the
+ * oldest. On an artist opened from Library it is Library, and on Library itself. Null if no tab
+ * is in the history.
+ */
+internal fun tabHolding(routes: List<String?>, tabs: Set<String>): String? = routes.lastOrNull { it in tabs }
+
+/**
+ * How many pages of a history, [routes] from the oldest, a tab holds: those above the highest of
+ * [tabs] in it, an artist opened from Library and the album opened from that artist. Above the
+ * first page if no tab is in it: the history is not emptied.
+ */
+internal fun pagesOverTab(routes: List<String?>, tabs: Set<String>): Int =
+    (routes.size - 1 - routes.indexOfLast { it in tabs }.coerceAtLeast(0)).coerceAtLeast(0)
+
+/**
+ * Closes what the tab at [tab] holds, if it is the one that holds the page showing
+ * ([tabHolding]): pops the pages over it ([pagesOverTab]) the way Back pops them, none of them
+ * parked, down to the tab's own page where it was left. Whether there was any.
+ *
+ * A tap on the tab from one of its pages used to make the tab a second time and park the first
+ * with its pages (popUpTo with saveState), which only hid them: at the next change of tab and
+ * back they were there again (#143, "pressing the same tab should permanently close it").
+ */
+// The history is read as leaveSettings reads it, and after it: a pop is in the list at once.
+@SuppressLint("RestrictedApi")
+fun NavController.closeTabPages(tab: String, tabs: Set<String>): Boolean {
+    val pages = currentBackStack.value.filter { it.destination !is NavGraph }.map { it.destination.route }
+    if (tabHolding(pages, tabs) != tab) return false
+    var left = 0
+    repeat(pagesOverTab(pages, tabs)) { if (popBackStack()) left++ }
+    return left > 0
+}
