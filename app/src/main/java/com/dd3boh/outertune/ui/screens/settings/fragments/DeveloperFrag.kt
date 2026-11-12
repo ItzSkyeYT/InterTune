@@ -66,6 +66,7 @@ import com.dd3boh.outertune.constants.AudioGaplessOffloadKey
 import com.dd3boh.outertune.constants.AudioOffloadKey
 import com.dd3boh.outertune.constants.AutomixStyleKey
 import com.dd3boh.outertune.constants.LyricsBlurKey
+import com.dd3boh.outertune.constants.LyricsWordsLookKey
 import com.dd3boh.outertune.constants.OobeStatusKey
 import com.dd3boh.outertune.constants.PauseListenHistoryKey
 import com.dd3boh.outertune.constants.PauseRemoteListenHistoryKey
@@ -82,6 +83,7 @@ import com.dd3boh.outertune.playback.HistoryAddressCheck
 import com.dd3boh.outertune.playback.RadioAnswers
 import com.dd3boh.outertune.ui.component.ListPreference
 import com.dd3boh.outertune.ui.component.LyricsBlur
+import com.dd3boh.outertune.ui.component.LyricsWordsLook
 import com.dd3boh.outertune.ui.component.PreferenceEntry
 import com.dd3boh.outertune.ui.component.SwitchPreference
 import com.dd3boh.outertune.ui.screens.OptInCatchUp
@@ -275,6 +277,9 @@ fun ColumnScope.DeveloperFrag(navController: NavController) {
         }
         if (BuildConfig.DEBUG && Unreleased.LYRICS_BLUR) {
             LyricsBlurRow()
+        }
+        if (BuildConfig.DEBUG && Unreleased.LYRICS_WORDS_LOOKS) {
+            LyricsWordsLookRow()
         }
 
         PreferenceEntry(
@@ -856,6 +861,24 @@ private fun AutomixStyleRow() {
 
 /** The planner's own choice, then each style by its name in com.dd3boh.outertune.mix.Style. */
 private val AUTOMIX_STYLES = listOf("", "GAPLESS", "BLEND", "SMOOTH", "BEAT", "CUT")
+
+/**
+ * Debug builds only: the looks of the line sung word by word that are being compared
+ * (LyricsWordsLook), or the app's own way. They show with word by word on in the lyrics settings,
+ * on lyrics that have word times. Looks to judge, not a setting, so its words are not translated.
+ */
+@Composable
+private fun LyricsWordsLookRow() {
+    val (stored, onStoredChange) = rememberPreference(key = LyricsWordsLookKey, defaultValue = "")
+    ListPreference(
+        title = { Text("DEBUG: Word by word look") },
+        icon = { Icon(Icons.Rounded.Science, null) },
+        selectedValue = LyricsWordsLook.of(stored)?.name.orEmpty(),
+        values = listOf("") + LyricsWordsLook.entries.map { it.name },
+        valueText = { LyricsWordsLook.of(it)?.label ?: "Today's" },
+        onValueSelected = onStoredChange,
+    )
+}
 
 /**
  * Debug builds only: progressive blur on the lyrics (LyricsBlur). Its switch starts on Medium, the

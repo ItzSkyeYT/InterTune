@@ -173,6 +173,7 @@ import com.dd3boh.outertune.constants.HighContrastKey
 import com.dd3boh.outertune.constants.LibraryFilterKey
 import com.dd3boh.outertune.constants.LyricKaraokeEnable
 import com.dd3boh.outertune.constants.LyricsBlurKey
+import com.dd3boh.outertune.constants.LyricsWordsLookKey
 import com.dd3boh.outertune.constants.MinMiniPlayerHeight
 import com.dd3boh.outertune.constants.MiniPlayerHeight
 import com.dd3boh.outertune.constants.NavigationBarAnimationSpec
@@ -206,6 +207,7 @@ import com.dd3boh.outertune.utils.urlEncode
 import com.dd3boh.outertune.ui.component.LocalHiddenByPlayer
 import com.dd3boh.outertune.ui.component.LocalPlayerSheet
 import com.dd3boh.outertune.ui.component.LyricsBlur
+import com.dd3boh.outertune.ui.component.LyricsWordsLook
 import com.dd3boh.outertune.ui.component.rememberBottomSheetState
 import com.dd3boh.outertune.ui.component.shimmer.ShimmerTheme
 import com.dd3boh.outertune.ui.menu.BottomSheetMenu
@@ -571,6 +573,23 @@ class MainActivity : ComponentActivity() {
         if (intent.action == DownloadsShortcut.ACTION) pendingDownloads.asked = true
         handlePlayFromSearch(intent)
         if (Unreleased.LYRICS_BLUR) setLyricsBlurTrial(intent)
+        if (Unreleased.LYRICS_WORDS_LOOKS) setLyricsWordsTrial(intent)
+    }
+
+    /**
+     * The debug app's look of the line sung word by word set from a command line
+     * (LyricsWordsLook.trial), for pictures and recordings of each with the lyrics left open:
+     * `am start -n <app>/.MainActivity --es lyricswords b,words`.
+     */
+    private fun setLyricsWordsTrial(intent: Intent) {
+        val trial = LyricsWordsLook.trial(intent.getStringExtra(LyricsWordsLook.TRIAL)) ?: return
+        Log.i(MAIN_TAG, "Lyrics words trial: $trial")
+        lifecycleScope.launch {
+            dataStore.edit { settings ->
+                trial.look?.let { settings[LyricsWordsLookKey] = it }
+                trial.wordByWord?.let { settings[LyricKaraokeEnable] = it }
+            }
+        }
     }
 
     /**
