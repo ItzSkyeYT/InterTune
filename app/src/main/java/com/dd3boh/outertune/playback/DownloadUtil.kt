@@ -171,7 +171,11 @@ class DownloadUtil @Inject constructor(
      * Converts downloads to the format chosen, in the app's own files until a file is whole (SongConverter): not in the
      * cache, which Android empties when the phone is short of space, in the middle of a conversion if it comes to that.
      */
-    private val converter by lazy { SongConverter(File(context.filesDir, "convert"), MediaCodecPcmDecoder()) { Log.i(TAG, it) } }
+    private val converter by lazy {
+        // The app stays up for as long as it converts (ConvertHold): the download service has stopped by then.
+        val hold = com.dd3boh.outertune.playback.downloadManager.ConvertHoldService.hold(context) { Log.i(TAG, it) }
+        SongConverter(File(context.filesDir, "convert"), MediaCodecPcmDecoder(), hold) { Log.i(TAG, it) }
+    }
 
     /** The quality a download asks for now: the Download quality, or Audio quality for Same as playback (see [qualityForDownload]). */
     private fun qualityNow(): AudioQuality = qualityForDownload(downloadQuality, audioQuality)

@@ -54,6 +54,8 @@ internal class Converted(
 internal class SongConverter(
     private val workDir: File,
     private val decoder: PcmDecoder,
+    /** Keeps the app up for as long as a song is converted, so that Android does not stop it halfway: see [ConvertHold]. */
+    private val hold: ConvertHold? = null,
     private val log: (String) -> Unit = {},
 ) {
     /**
@@ -68,6 +70,21 @@ internal class SongConverter(
         cancelled: () -> Boolean = { false },
     ): Converted = synchronized(ONE_AT_A_TIME) {
         require(plan.format.encoder != DownloadFormat.Encoder.NONE) { "Original is not converted" }
+        hold?.begin(ConvertNotice.label(plan.format))
+        try {
+            encode(song, tags, plan, expectedUs, cancelled)
+        } finally {
+            hold?.end()
+        }
+    }
+
+    private fun encode(
+        song: CastSong,
+        tags: SongTags,
+        plan: ConvertPlan.Encode,
+        expectedUs: Long,
+        cancelled: () -> Boolean,
+    ): Converted {
         if (!workDir.isDirectory && !workDir.mkdirs()) throw IOException("no place to convert in: $workDir")
         val target = File.createTempFile("convert-", PART, workDir)
         // The clock that goes on while the phone sleeps and while Android holds the app's work back: a conversion
@@ -118,7 +135,7 @@ internal class SongConverter(
                 "Converted to ${plan.format}${kbps?.let { " at $it kbps" } ?: ""}: ${decodedUs / 1000} ms of audio at $rate Hz, " +
                     "$channels channels, ${target.length()} bytes, in ${String.format(Locale.ROOT, "%.1f", seconds)} s" + stoodLine(stoodNs),
             )
-            Converted(target, plan.format.extension!!, kbps, decodedUs / 1000)
+            return Converted(target, plan.format.extension!!, kbps, decodedUs / 1000)
         } catch (e: Throwable) {
             runCatching { encoder?.close() }
             target.delete()
