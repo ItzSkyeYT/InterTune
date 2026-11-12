@@ -62,9 +62,12 @@ class StatsViewModel @Inject constructor(
 
     val statPeriod = MutableStateFlow(StatPeriod.`1_WEEK`)
 
+    // The three lists carry their numbers with them (PlayedSong, PlayedArtist, PlayedAlbum): the
+    // plays, and for an artist the time, come out of the read that ranks each list, so a row and
+    // its number can never be of two different moments, and nothing is read twice.
     val mostPlayedSongs = statPeriod.flatMapLatest { period ->
-        database.mostPlayedSongs(period.toTimeMillis())
-    }.withoutBlocked().stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+        database.statsMostPlayedSongs(period.toTimeMillis())
+    }.withoutBlocked { it.song }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
     // Counted from the play events over the period itself, as the songs above and the albums
     // below are, and not from the monthly play counts, which could only start at the first of a
@@ -74,13 +77,13 @@ class StatsViewModel @Inject constructor(
     // LIMIT: filtering here, after the row is already cut to 6, would drop local artists and
     // leave the row short, or empty, while more played YouTube artists sit outside that top 6.
     val mostPlayedArtists = statPeriod.flatMapLatest { period ->
-        database.mostPlayedArtistsSince(period.toTimeMillis())
-    }.withoutBlocked().stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+        database.statsMostPlayedArtists(period.toTimeMillis())
+    }.withoutBlocked { it.artist }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
 
     val mostPlayedAlbums = statPeriod.flatMapLatest { period ->
-        database.mostPlayedAlbums(period.toTimeMillis())
-    }.withoutBlocked().stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+        database.statsMostPlayedAlbums(period.toTimeMillis())
+    }.withoutBlocked { it.album }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
     // Touched only from the collector below, which runs on the main thread.
     private val insightsCache = HashMap<StatPeriod, PeriodInsights>()
@@ -179,8 +182,8 @@ class StatsViewModel @Inject constructor(
         // model is created.
         viewModelScope.launch {
             statPeriod.collect { period ->
-                database.mostPlayedArtistsSince(period.toTimeMillis()).first()
-                    .map { it.artist }
+                database.statsMostPlayedArtists(period.toTimeMillis()).first()
+                    .map { it.artist.artist }
                     .filter {
                         it.isYouTubeArtist && (it.thumbnailUrl == null || Duration.between(it.lastUpdateTime, LocalDateTime.now()) > Duration.ofDays(10))
                     }
@@ -211,7 +214,7 @@ class StatsViewModel @Inject constructor(
         // an album it removed from one it holds back (see AlbumViewModel).
         viewModelScope.launch {
             statPeriod.collect { period ->
-                database.mostPlayedAlbums(period.toTimeMillis()).first().filter(::albumPageWanted).forEach { album ->
+                database.statsMostPlayedAlbums(period.toTimeMillis()).first().map { it.album }.filter(::albumPageWanted).forEach { album ->
                     YouTube.album(album.id).onSuccess { albumPage ->
                         database.transaction {
                             albumById(album.id)?.let { current -> update(current, albumPage) }
