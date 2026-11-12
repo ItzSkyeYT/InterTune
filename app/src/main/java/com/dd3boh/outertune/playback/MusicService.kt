@@ -2884,7 +2884,7 @@ class MusicService : MediaLibraryService(),
     suspend fun volumeFor(songId: String, isLocal: Boolean): Float {
         val loudness = withContext(Dispatchers.IO) { database.readOrNull { formatRow(songId) }?.loudnessDb }
         val level = Normalization.factor(loudness, isLocal, dataStore.get(AudioNormalizationKey, true))
-        return min(level * BatteryUse.volume(playerVolume.value, batteryMode), 1f)
+        return (level * heardVolume).coerceAtMost(1f)
     }
 
     /**
