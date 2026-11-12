@@ -228,6 +228,11 @@ class BatteryUseWiringTest {
         val rate = source("ui/utils/ScreenRate.kt")
         assertTrue("BatteryUse.saverScreenMode(" in rate)
         assertTrue("REQUESTED_FRAME_RATE_CATEGORY_LOW" in rate)
+        // #156 (option b, for his pick): a touch raises the rate again in Saver, so scrolling is
+        // smooth; the slowest mode is pinned only below Android 15, where nothing else can lower it.
+        assertTrue("setFrameRateBoostOnTouchEnabled(true)" in rate)
+        assertFalse("setFrameRateBoostOnTouchEnabled(!low)" in rate)
+        assertTrue("the pin below Android 15 only", Regex("""SDK_INT < Build\.VERSION_CODES\.VANILLA_ICE_CREAM[^\n]*\n[^\n]*saverScreenMode|low && display != null && Build\.VERSION\.SDK_INT < Build\.VERSION_CODES\.VANILLA_ICE_CREAM""").containsMatchIn(rate))
     }
 
     @Test
