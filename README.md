@@ -168,7 +168,7 @@ Every change in detail, and why this fork exists: [docs/FEATURES.md](https://git
 What's being worked on, roughly in order. `[x]` is done, `[~]` is built and being tested, `[ ]` is still to do. Nothing here has a date, and plans can change. Ideas are welcome in #feature-requests on [Discord](https://discord.gg/68jmqhMjXk) or as a [GitHub issue](https://github.com/ItzSkyeYT/InterTune/issues/new/choose).
 
 <details>
-<summary><b>Next: 0.13</b> · 6 of 39 done, 26 to test</summary>
+<summary><b>Next: 0.13</b> · 6 of 41 done, 28 to test</summary>
 
 `[~]` Listen together: one person plays, friends follow the same song in real time\
 `[x]` AirPlay speakers in the cast list\
@@ -177,11 +177,13 @@ What's being worked on, roughly in order. `[x]` is done, `[~]` is built and bein
 `[~]` InterTune's own screen on Chromecasts, with Google Home's Next button working\
 `[~]` Don't play this song: radios, autoplay and Shuffle never bring it back ([#78](https://github.com/ItzSkyeYT/InterTune/issues/78))\
 `[~]` Pick several songs in the queue and remove them at once\
+`[~]` Swipe a song out of the queue, and Undo brings it back ([#141](https://github.com/ItzSkyeYT/InterTune/issues/141))\
 `[~]` Android Auto's search finds songs on YouTube Music, not only in your library ([#112](https://github.com/ItzSkyeYT/InterTune/issues/112))\
 `[~]` Block an artist\
 `[~]` Your playlists in your own order, dragged where you want them\
 `[~]` What's playing works offline and names the song once you're back online ([#48](https://github.com/ItzSkyeYT/InterTune/issues/48))\
 `[~]` Albums carry on into a radio when they end\
+`[~]` A sleep timer with more ways to stop: at a clock time, or at the end of the song, the album or the queue\
 `[~]` Pick a playlist's cover\
 `[~]` Downloads other apps can use: .m4a or .opus files with the title, artist and cover\
 `[~]` Downloads at a quality of their own, apart from the streaming quality\
