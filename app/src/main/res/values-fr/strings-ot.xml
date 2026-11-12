@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
     <string name="auto_playlist">Playlist Automatique</string>
     <string name="recent_activity">Activité récente</string>
     <string name="song_added_to_queue_end">\"%s\" ajouté à la fin de la file d\'attente</string>
@@ -2627,7 +2627,7 @@
     <string name="recap_this_year_here">Tout ici vient de cette année, calculé sur ce téléphone.</string>
     <string name="recap_minutes_kick_since">Depuis le %1$s, vous avez écouté</string>
     <string name="recap_minutes_kick_year">En %1$s, vous avez écouté</string>
-    <plurals name="recap_minutes_unit">
+    <plurals name="recap_minutes_unit" tools:ignore="ImpliedQuantity">
         <item quantity="one">minute</item>
         <item quantity="many">minutes</item>
         <item quantity="other">minutes</item>
@@ -2649,7 +2649,7 @@
     <string name="recap_hour_line">Plus de musique entre %1$s et %2$s qu\'à toute autre heure : %3$s minutes. Votre titre de cette heure-là : %4$s.</string>
     <string name="recap_late_nights">Et %1$s nuits sont allées au-delà de minuit. Le dernier titre a commencé à %2$s.</string>
     <string name="recap_streak_kick">Votre plus longue série</string>
-    <plurals name="recap_streak_unit">
+    <plurals name="recap_streak_unit" tools:ignore="ImpliedQuantity">
         <item quantity="one">jour d\'affilée</item>
         <item quantity="many">jours d\'affilée</item>
         <item quantity="other">jours d\'affilée</item>
@@ -2727,7 +2727,7 @@
     <string name="recap_line_best_day">%1$s lectures le %2$s, son plus grand jour.</string>
     <string name="recap_line_first">Écouté pour la première fois le %1$s.</string>
     <string name="recap_number_one_kick">Votre titre numéro un</string>
-    <plurals name="recap_plays_unit">
+    <plurals name="recap_plays_unit" tools:ignore="ImpliedQuantity">
         <item quantity="one">lecture</item>
         <item quantity="many">lectures</item>
         <item quantity="other">lectures</item>
