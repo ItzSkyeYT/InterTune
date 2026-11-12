@@ -2430,6 +2430,15 @@
     <string name="new_animations_body">Un bouton dans Apparence coupe les animations de l\'app\u00A0: les écrans changent d\'un coup et les fonds restent immobiles. Plus doux pour les anciens téléphones.</string>
     <string name="new_animations_way">L\'apparence de l\'app et ses mouvements se règlent ici.</string>
     <string name="new_animations_here">L\'option Supprimer les animations d\'Android les coupe aussi ici, et grise ce bouton.</string>
+    <string name="new_stats_plays_title">Les statistiques comptent vos lectures</string>
+    <string name="new_stats_plays_body">Vos titres, artistes et albums les plus joués montrent maintenant combien de fois vous les avez joués, le plus joué en premier. Ouvrez Statistiques depuis l\'accueil.</string>
+    <string name="new_queue_swipe_title">Retirer un titre de la file d\'un geste</string>
+    <string name="new_queue_swipe_body">Faites glisser un titre sur le côté et lâchez pour le retirer de la file d\'attente. Annuler, dans la barre qui apparaît, le remet, et Retirer sur une sélection s\'annule aussi.</string>
+    <string name="new_downloads_move_title">Vos téléchargements suivent le dossier choisi</string>
+    <string name="new_downloads_move_body">Choisir un dossier de téléchargement propose maintenant d\'y déplacer les titres déjà téléchargés, avec une notification pendant le déplacement. Si le dossier ne s\'ouvre pas, l\'application le dit.</string>
+    <string name="new_downloads_move_here">Choisissez le dossier ici. Les titres déjà téléchargés peuvent y être déplacés avec lui.</string>
+    <string name="new_original_audio_title">Podcasts et vidéos dans leur langue d\'origine</string>
+    <string name="new_original_audio_body">Quand YouTube double un podcast ou une vidéo dans d\'autres langues, InterTune joue maintenant la langue d\'origine.</string>
     <!-- Nouveautés de 0.12.8 (Walkthrough.kt, V0_12_8). -->
     <string name="new_report_send_title">Envoyer un rapport à InterTune</string>
     <string name="new_report_send_body">Signaler un problème peut maintenant envoyer le rapport à InterTune, sans compte GitHub. Ou le partager en fichier pour le poster sur Discord.</string>
