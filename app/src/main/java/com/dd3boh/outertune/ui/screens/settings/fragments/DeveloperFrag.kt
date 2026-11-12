@@ -65,6 +65,7 @@ import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.AudioGaplessOffloadKey
 import com.dd3boh.outertune.constants.AudioOffloadKey
 import com.dd3boh.outertune.constants.AutomixStyleKey
+import com.dd3boh.outertune.constants.LyricsBlurKey
 import com.dd3boh.outertune.constants.OobeStatusKey
 import com.dd3boh.outertune.constants.PauseListenHistoryKey
 import com.dd3boh.outertune.constants.PauseRemoteListenHistoryKey
@@ -82,6 +83,7 @@ import com.dd3boh.outertune.constants.EveryDirectRefusedKey
 import com.dd3boh.outertune.playback.HistoryAddressCheck
 import com.dd3boh.outertune.playback.RadioAnswers
 import com.dd3boh.outertune.ui.component.ListPreference
+import com.dd3boh.outertune.ui.component.LyricsBlur
 import com.dd3boh.outertune.ui.component.PreferenceEntry
 import com.dd3boh.outertune.ui.component.SwitchPreference
 import com.dd3boh.outertune.ui.screens.OptInCatchUp
@@ -311,6 +313,9 @@ fun ColumnScope.DeveloperFrag(navController: NavController) {
 
         if (BuildConfig.DEBUG && Unreleased.AUTOMIX) {
             AutomixStyleRow()
+        }
+        if (BuildConfig.DEBUG && Unreleased.LYRICS_BLUR) {
+            LyricsBlurRow()
         }
 
         PreferenceEntry(
@@ -926,3 +931,31 @@ private fun AutomixStyleRow() {
 
 /** The planner's own choice, then each style by its name in com.dd3boh.outertune.mix.Style. */
 private val AUTOMIX_STYLES = listOf("", "GAPLESS", "BLEND", "SMOOTH", "BEAT", "CUT")
+
+/**
+ * Debug builds only: progressive blur on the lyrics (LyricsBlur). Its switch starts on Medium, the
+ * strength he chose from the first pictures, and while it is on a row under it says how strong,
+ * to try the two others. A trial to look at, not a setting, so its words are not translated.
+ */
+@Composable
+private fun LyricsBlurRow() {
+    val (stored, onStoredChange) = rememberPreference(key = LyricsBlurKey, defaultValue = "")
+    val strength = LyricsBlur.strengthOf(stored)
+    SwitchPreference(
+        title = { Text("DEBUG: Lyrics blur") },
+        description = "The line being sung stays sharp, the lines around it go out of focus.",
+        icon = { Icon(Icons.Rounded.Science, null) },
+        checked = strength != null,
+        onCheckedChange = { on -> onStoredChange(LyricsBlur.switched(on)) },
+    )
+    if (strength != null) {
+        ListPreference(
+            title = { Text("DEBUG: Lyrics blur, how strong") },
+            icon = { Icon(Icons.Rounded.Science, null) },
+            selectedValue = strength,
+            values = LyricsBlur.Strength.entries,
+            valueText = { it.name.lowercase().replaceFirstChar { c -> c.uppercase() } },
+            onValueSelected = { onStoredChange(it.name) },
+        )
+    }
+}
