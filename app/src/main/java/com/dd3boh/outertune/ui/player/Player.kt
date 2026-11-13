@@ -2224,22 +2224,26 @@ private fun CentredRow(
 ) {
     Layout(content = buttons, modifier = modifier) { measurables, constraints ->
         val loose = constraints.copy(minWidth = 0, minHeight = 0)
-        val placeables = measurables.map { it.measure(loose) }
-        val natural = IntArray(placeables.size) { placeables[it].width }
+        // Each button is measured once, at the width it is drawn at. Measuring one twice in a pass
+        // closes the app, and that is what a row too wide for its room did, in the landscape player
+        // or a window shared with another app: the buttons that give way were measured again (#157,
+        // #158, #162). The width a button takes of itself is its intrinsic width, which may be asked
+        // any number of times, and no wider than the row.
+        val natural = IntArray(measurables.size) { measurables[it].maxIntrinsicWidth(loose.maxHeight).coerceAtMost(loose.maxWidth) }
         val gapPx = gap.roundToPx()
         val width = if (constraints.hasBoundedWidth) constraints.maxWidth
         else natural.sum() + gapPx * (natural.size - 1).coerceAtLeast(0)
 
-        // Only a row too wide for its room measures again, and only the buttons that give way.
+        // Only a row too wide for its room gives other widths, and only to the buttons that give way.
         val widths = fitQuickActionWidths(natural, gapPx, quickRowRoom(width, gutter), QuickActionIconOnlyWidth.roundToPx())
-        val fitted = measurables.mapIndexed { i, measurable ->
-            if (widths[i] == natural[i]) placeables[i] else measurable.measure(loose.copy(minWidth = widths[i], maxWidth = widths[i]))
+        val placeables = measurables.mapIndexed { i, measurable ->
+            measurable.measure(if (widths[i] == natural[i]) loose else loose.copy(minWidth = widths[i], maxWidth = widths[i]))
         }
-        val positions = quickRowPositions(IntArray(fitted.size) { fitted[it].width }, gap, width, layoutDirection)
-        val height = constraints.constrainHeight(fitted.maxOfOrNull { it.height } ?: 0)
+        val positions = quickRowPositions(IntArray(placeables.size) { placeables[it].width }, gap, width, layoutDirection)
+        val height = constraints.constrainHeight(placeables.maxOfOrNull { it.height } ?: 0)
 
         layout(width, height) {
-            fitted.forEachIndexed { index, placeable -> placeable.place(positions[index], 0) }
+            placeables.forEachIndexed { index, placeable -> placeable.place(positions[index], 0) }
         }
     }
 }
