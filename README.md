@@ -19,7 +19,7 @@
 [![licence](https://img.shields.io/badge/licence-GPL--3.0-ed5564?labelColor=1b1f24)](https://github.com/ItzSkyeYT/InterTune/tree/visionos-fix/LICENSE)
 [![keep android open](https://img.shields.io/badge/keep%20android-open-c62828?labelColor=1b1f24)](https://keepandroidopen.org/)
 
-[Website](https://intertune.app) · [Download](#download) · [Features](#features) · [Good to know](#good-to-know) · [Roadmap](#roadmap) · [Wiki](https://github.com/ItzSkyeYT/InterTune/wiki) · [Discord](https://discord.gg/68jmqhMjXk) · [Donors](#donors)
+[Website](https://intertune.app) · [Download](#download) · [Features](#features) · [Good to know](#good-to-know) · [Roadmap](#roadmap) · [Wiki](https://github.com/ItzSkyeYT/InterTune/wiki) · [Discord](https://discord.gg/68jmqhMjXk) · [Contributors](#contributors) · [Donors](#donors)
 
 </div>
 
@@ -259,6 +259,14 @@ JDK 21 and an Android SDK with `platforms;android-36`, `ndk;29.0.13113456` and `
 
 Thank you so much, everyone, for your support in this growing project!
 
+## Contributors
+
+<p align="center">People whose code is in InterTune. Thank you for building it with me!</p>
+
+<p align="center"><a href="https://github.com/3SSF"><img src="https://github.com/3SSF.png?size=128" width="64" height="64" alt="3SSF"></a><br><b><a href="https://github.com/3SSF">3SSF</a></b><br><sub>The first code from outside: a music note on local songs with no cover (<a href="https://github.com/ItzSkyeYT/InterTune/pull/161">#161</a>) · November 2026</sub></p>
+
+<p align="center"><b>Want to help?</b> <a href="CONTRIBUTING.md">CONTRIBUTING.md</a> says how to build it, and the <a href="https://discord.gg/68jmqhMjXk">Discord server</a> is the place to ask for a first task.</p>
+
 ## Donors
 
 <p align="center">InterTune is free and has no ads. These people gave something back anyway, and that keeps the project going. It means a lot, <b>thank you!</b></p>
@@ -313,7 +321,6 @@ InterTune stands on a lot of other people's work.
 |---|---|
 | [rii2609](https://github.com/rii2609) | The idea for Liquid glass |
 | [cchery2512](https://github.com/cchery2512) | Reporting the M3U import bugs |
-| [3SSF](https://github.com/3SSF) | The first code merged from outside: local songs with no cover show a music note instead of the logo ([#161](https://github.com/ItzSkyeYT/InterTune/pull/161)) |
 | Everyone who [reports issues](https://github.com/ItzSkyeYT/InterTune/issues) | Finding what needs fixing |
 | Everyone translating on [Weblate](https://hosted.weblate.org/engage/intertune/) | InterTune in your language |
 
