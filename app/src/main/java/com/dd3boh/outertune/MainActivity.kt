@@ -1280,6 +1280,10 @@ class MainActivity : ComponentActivity() {
                  * like the tap did nothing.
                  */
                 var searchActive by rememberSaveable { mutableStateOf(false) }
+                // A tap on the tab that is showing clears what was typed in the search bar over it, as
+                // closing the search there does; a tap on another tab keeps it (#166, after #143's rule:
+                // the same tab closes, another keeps). Counted, so each tap asks once.
+                var searchCleared by rememberSaveable { mutableIntStateOf(0) }
 
                 BoxWithConstraints(
                     modifier = Modifier
@@ -2244,6 +2248,7 @@ class MainActivity : ComponentActivity() {
                                                 }
 
                                                 if (navBackStackEntry?.destination?.hierarchy?.any { it.route == screen.route } == true) {
+                                                    searchCleared++
                                                     if (!searchActive) {
                                                         navBackStackEntry?.savedStateHandle?.set(
                                                             "scrollToTop",
@@ -2347,6 +2352,7 @@ class MainActivity : ComponentActivity() {
                                                 }
 
                                                 if (navBackStackEntry?.destination?.hierarchy?.any { it.route == screen.route } == true) {
+                                                    searchCleared++
                                                     if (!searchActive) {
                                                         navBackStackEntry?.savedStateHandle?.set(
                                                             "scrollToTop",
@@ -2440,7 +2446,7 @@ class MainActivity : ComponentActivity() {
                                 CompositionLocalProvider(
                                     LocalSearchBarGlass provides if (navGlass) GlassSpec(navHostBackdrop, glassIntensity.coerceIn(0f, 1f), still = glassStill) else null
                                 ) {
-                                    SearchBarContainer(navController, scrollBehavior, searchActive) { searchActive = it }
+                                    SearchBarContainer(navController, scrollBehavior, searchActive, onActiveChange = { searchActive = it }, clearQuery = searchCleared)
                                 }
                             }
 
