@@ -1,4 +1,3 @@
-# InterTune has no funding links.
-#
-# This file exists only to stop the upstream one being inherited: it pointed at
-# OuterTune's maintainer, which is not where money for this fork should go.
+# GitHub's Sponsor button. Donations go to InterTune's own Ko-fi (8 Nov 2026), never to upstream's
+# maintainer, which is where the inherited file used to point.
+ko_fi: intertune
