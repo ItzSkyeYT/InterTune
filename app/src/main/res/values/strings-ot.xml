@@ -2837,4 +2837,27 @@ while also allowing users to translate our app as well. New, specific strings to
         <item quantity="one">%d song could not be moved and stays inside the app</item>
         <item quantity="other">%d songs could not be moved and stay inside the app</item>
     </plurals>
+    <!-- Downloading songs, simpler (DownloadsSimpleLook): the words of the simpler page he chose, C (experiments/features/downloads-simple). The Storage page in plain words, the one row for where downloads go, the choice of two, and what Download says of where a song goes. Held from translators; the words of the ways not chosen go with the switch. -->
+    <string name="dl_simple_size_folder" translatable="false">In your folder: %s</string>
+    <string name="dl_simple_clear_confirm" translatable="false">Remove the downloads kept inside the app? Songs in your folder stay.</string>
+    <string name="dl_simple_nothing_to_move" translatable="false">Nothing to move: no downloads are inside the app.</string>
+    <string name="dl_simple_rescan_description" translatable="false">Do this after you add, move or delete files in your download folders yourself.</string>
+    <string name="dl_simple_where_title" translatable="false">Where downloads go</string>
+    <string name="dl_simple_where_inside" translatable="false">Inside the app</string>
+    <plurals name="dl_simple_still_inside" translatable="false">
+        <item quantity="one">%d song is still inside the app.</item>
+        <item quantity="other">%d songs are still inside the app.</item>
+    </plurals>
+    <string name="dl_simple_choose_again" translatable="false">Choose it again</string>
+    <string name="dl_simple_inside_line" translatable="false">Only InterTune can play them.</string>
+    <string name="dl_simple_in_folder" translatable="false">In a folder</string>
+    <string name="dl_simple_in_folder_line" translatable="false">Ordinary files, for other apps too. Pick an empty folder: InterTune may change or delete files in it.</string>
+    <plurals name="dl_simple_saved_to" translatable="false">
+        <item quantity="one">%1$d song saved to %2$s</item>
+        <item quantity="other">%1$d songs saved to %2$s</item>
+    </plurals>
+    <plurals name="dl_simple_saved_inside" translatable="false">
+        <item quantity="one">%d song downloaded, kept inside the app</item>
+        <item quantity="other">%d songs downloaded, kept inside the app</item>
+    </plurals>
 </resources>

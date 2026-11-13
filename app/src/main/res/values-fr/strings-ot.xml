@@ -2622,4 +2622,29 @@
         <item quantity="many">%d titres n\'ont pas pu être déplacés et restent dans l\'application</item>
         <item quantity="other">%d titres n\'ont pas pu être déplacés et restent dans l\'application</item>
     </plurals>
+    <string name="dl_simple_size_folder">Dans votre dossier : %s</string>
+    <string name="dl_simple_clear_confirm">Supprimer les téléchargements gardés dans l\'application ? Les titres de votre dossier restent.</string>
+    <string name="dl_simple_nothing_to_move">Rien à déplacer : aucun téléchargement dans l\'application.</string>
+    <string name="dl_simple_rescan_description">À faire après avoir ajouté, déplacé ou supprimé vous-même des fichiers dans vos dossiers de téléchargement.</string>
+    <string name="dl_simple_where_title">Où vont les téléchargements</string>
+    <string name="dl_simple_where_inside">Dans l\'application</string>
+    <plurals name="dl_simple_still_inside">
+        <item quantity="one">%d titre est encore dans l\'application.</item>
+        <item quantity="many">%d titres sont encore dans l\'application.</item>
+        <item quantity="other">%d titres sont encore dans l\'application.</item>
+    </plurals>
+    <string name="dl_simple_choose_again">Le choisir à nouveau</string>
+    <string name="dl_simple_inside_line">Seul InterTune peut les lire.</string>
+    <string name="dl_simple_in_folder">Dans un dossier</string>
+    <string name="dl_simple_in_folder_line">Des fichiers ordinaires, pour d\'autres applications aussi. Choisissez un dossier vide : InterTune peut y modifier ou supprimer des fichiers.</string>
+    <plurals name="dl_simple_saved_to">
+        <item quantity="one">%1$d titre enregistré dans %2$s</item>
+        <item quantity="many">%1$d titres enregistrés dans %2$s</item>
+        <item quantity="other">%1$d titres enregistrés dans %2$s</item>
+    </plurals>
+    <plurals name="dl_simple_saved_inside">
+        <item quantity="one">%d titre téléchargé, gardé dans l\'application</item>
+        <item quantity="many">%d titres téléchargés, gardés dans l\'application</item>
+        <item quantity="other">%d titres téléchargés, gardés dans l\'application</item>
+    </plurals>
 </resources>
