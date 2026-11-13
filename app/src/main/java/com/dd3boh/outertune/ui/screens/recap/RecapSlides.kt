@@ -1312,11 +1312,23 @@ internal fun ThanksSlide(s: SlideScope, onAgain: () -> Unit, onDone: () -> Unit)
     val r = s.shown.recap
     val first = s.shown.song(r.firstSong.songId)?.title.orEmpty()
     val density = LocalDensity.current
+    val measurer = rememberTextMeasurer()
+    val title = stringResource(R.string.recap_thanks_title)
     SlideColumn { room ->
         Grow(room)
+        // The design's 84 sp, on one line: a little smaller where the words and the gap Words puts
+        // between them are wider than the slide. Wrapped on a 393 dp phone, "Thank you" took two
+        // lines and pushed the signed words down onto the squiggle under "Mel" (notes of 25 Oct 2026).
+        val big = RecapType.h1.copy(fontSize = 84.sp, lineHeight = 0.92.em, shadow = Shadow(RecapInk.Ink, Offset(with(density) { 5.dp.toPx() }, with(density) { 6.dp.toPx() }), 0f))
+        val roomPx = with(density) { room.width.toPx() }
+        val wide = remember(title, roomPx, density) {
+            val words = title.split(' ').filter { it.isNotEmpty() }
+            val gap = with(density) { (big.fontSize * 0.24f).toPx() }
+            words.sumOf { measurer.measure(it, big, maxLines = 1, softWrap = false).size.width } + gap * (words.size - 1).coerceAtLeast(0)
+        }
         Words(
-            stringResource(R.string.recap_thanks_title), s, at = 1f, step = 0.35f,
-            style = RecapType.h1.copy(fontSize = 84.sp, lineHeight = 0.92.em, shadow = Shadow(RecapInk.Ink, Offset(with(density) { 5.dp.toPx() }, with(density) { 6.dp.toPx() }), 0f)),
+            title, s, at = 1f, step = 0.35f,
+            style = if (wide <= roomPx) big else big.copy(fontSize = big.fontSize * (roomPx / wide * 0.98f)),
             colour = RecapInk.Cream,
         )
         // The thank-you words, signed, in the design's box.
