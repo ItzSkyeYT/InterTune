@@ -184,6 +184,7 @@ import com.dd3boh.outertune.ui.component.FloatingFooter
 import com.dd3boh.outertune.ui.component.SelectHeader
 import com.dd3boh.outertune.ui.component.SwipeToRemoveBox
 import com.dd3boh.outertune.ui.component.button.IconButton
+import com.dd3boh.outertune.ui.component.LongPressLabel
 import com.dd3boh.outertune.ui.component.button.ResizableIconButton
 import com.dd3boh.outertune.ui.component.items.MediaMetadataListItem
 import com.dd3boh.outertune.ui.dialog.TextFieldDialog
@@ -1793,21 +1794,24 @@ fun BoxScope.QueueContent(
                             .padding(horizontal = PlayerHorizontalPadding)
                     ) {
                         Box(modifier = Modifier.weight(1f)) {
-                            ResizableIconButton(
-                                if (shuffleModeEnabled) R.drawable.shuffle_on else R.drawable.shuffle_off,
-                                modifier = Modifier
-                                    .size(32.dp)
-                                    .padding(4.dp)
-                                    .align(Alignment.Center)
-                                    .named(shuffleName(shuffleModeEnabled)),
-                                color = iconButtonColor,
-                                enabled = barWorks,
-                                onClick = {
-                                    playerConnection.loadQueueIfEmpty()
-                                    playerConnection.triggerShuffle()
-                                    haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
-                                }
-                            )
+                            // Shuffle and repeat say what they are on a long press, their state too ("Repeat
+                            // off"), by the name screen readers hear (Niko, 11 Nov 2026).
+                            LongPressLabel(shuffleName(shuffleModeEnabled), Modifier.align(Alignment.Center)) {
+                                ResizableIconButton(
+                                    if (shuffleModeEnabled) R.drawable.shuffle_on else R.drawable.shuffle_off,
+                                    modifier = Modifier
+                                        .size(32.dp)
+                                        .padding(4.dp)
+                                        .named(shuffleName(shuffleModeEnabled)),
+                                    color = iconButtonColor,
+                                    enabled = barWorks,
+                                    onClick = {
+                                        playerConnection.loadQueueIfEmpty()
+                                        playerConnection.triggerShuffle()
+                                        haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
+                                    }
+                                )
+                            }
                         }
 
                         Box(modifier = Modifier.weight(1f)) {
@@ -1903,26 +1907,27 @@ fun BoxScope.QueueContent(
                         }
 
                         Box(modifier = Modifier.weight(1f)) {
-                            ResizableIconButton(
-                                icon = when (repeatMode) {
-                                    // Off is the repeat icon greyed out, as the notification draws it (his word, 5 Nov 2026).
-                                    REPEAT_MODE_OFF -> R.drawable.repeat_on
-                                    REPEAT_MODE_ALL -> R.drawable.repeat_on
-                                    REPEAT_MODE_ONE -> R.drawable.repeat_one
-                                    else -> throw IllegalStateException()
-                                },
-                                modifier = Modifier
-                                    .size(32.dp)
-                                    .padding(4.dp)
-                                    .align(Alignment.Center)
-                                    .named(repeatName(repeatMode)),
-                                color = if (repeatMode == REPEAT_MODE_OFF) iconButtonColor.copy(alpha = REPEAT_OFF_ALPHA) else iconButtonColor,
-                                enabled = barWorks,
-                                onClick = {
-                                    playerConnection.player.toggleRepeatMode()
-                                    haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
-                                }
-                            )
+                            LongPressLabel(repeatName(repeatMode), Modifier.align(Alignment.Center)) {
+                                ResizableIconButton(
+                                    icon = when (repeatMode) {
+                                        // Off is the repeat icon greyed out, as the notification draws it (his word, 5 Nov 2026).
+                                        REPEAT_MODE_OFF -> R.drawable.repeat_on
+                                        REPEAT_MODE_ALL -> R.drawable.repeat_on
+                                        REPEAT_MODE_ONE -> R.drawable.repeat_one
+                                        else -> throw IllegalStateException()
+                                    },
+                                    modifier = Modifier
+                                        .size(32.dp)
+                                        .padding(4.dp)
+                                        .named(repeatName(repeatMode)),
+                                    color = if (repeatMode == REPEAT_MODE_OFF) iconButtonColor.copy(alpha = REPEAT_OFF_ALPHA) else iconButtonColor,
+                                    enabled = barWorks,
+                                    onClick = {
+                                        playerConnection.player.toggleRepeatMode()
+                                        haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
+                                    }
+                                )
+                            }
                         }
                     }
                 }

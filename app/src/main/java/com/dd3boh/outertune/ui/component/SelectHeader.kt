@@ -63,63 +63,72 @@ fun RowScope.SelectHeader(
                 .weight(1f, false)
         )
 
-        // option menu
-        IconButton(
-            onClick = {
-                menuState.show {
-                    SelectionMediaMetadataMenu(
-                        navController = navController,
-                        selection = selectedItems,
-                        onDismiss = menuState::dismiss,
-                        clearAction = onDeselectAll,
-                        onRemoveFromHistory = onRemoveFromHistory,
-                        onRemoveFromPlaylist = onRemoveFromPlaylist,
-                        onRemoveFromQueue = onRemoveFromQueue,
-                    )
+        // option menu. Each button of the pill says what it does on a long press (LongPressLabel), by
+        // the same name screen readers hear.
+        LongPressLabel(stringResource(R.string.options)) {
+            IconButton(
+                onClick = {
+                    menuState.show {
+                        SelectionMediaMetadataMenu(
+                            navController = navController,
+                            selection = selectedItems,
+                            onDismiss = menuState::dismiss,
+                            clearAction = onDeselectAll,
+                            onRemoveFromHistory = onRemoveFromHistory,
+                            onRemoveFromPlaylist = onRemoveFromPlaylist,
+                            onRemoveFromQueue = onRemoveFromQueue,
+                        )
+                    }
                 }
+            ) {
+                Icon(
+                    Icons.Rounded.MoreVert,
+                    contentDescription = stringResource(R.string.options),
+                    tint = LocalContentColor.current
+                )
             }
-        ) {
-            Icon(
-                Icons.Rounded.MoreVert,
-                contentDescription = stringResource(R.string.options),
-                tint = LocalContentColor.current
-            )
         }
 
         // select/deselect all
         val allSelected = selectedItems.size < totalItemCount
 
-        IconButton(
-            onClick = if (allSelected) onSelectAll else onDeselectAll
-        ) {
-            Icon(
-                imageVector = if (allSelected) Icons.Rounded.SelectAll else Icons.Rounded.Deselect,
-                // What a tap does: allSelected is true while some are still left out.
-                contentDescription = stringResource(if (allSelected) R.string.select_all else R.string.deselect_all),
-                tint = LocalContentColor.current
-            )
+        LongPressLabel(stringResource(if (allSelected) R.string.select_all else R.string.deselect_all)) {
+            IconButton(
+                onClick = if (allSelected) onSelectAll else onDeselectAll
+            ) {
+                Icon(
+                    imageVector = if (allSelected) Icons.Rounded.SelectAll else Icons.Rounded.Deselect,
+                    // What a tap does: allSelected is true while some are still left out.
+                    contentDescription = stringResource(if (allSelected) R.string.select_all else R.string.deselect_all),
+                    tint = LocalContentColor.current
+                )
+            }
         }
 
         // close selection mode
-        IconButton(
-            onClick = onDismiss,
-        ) {
-            Icon(
-                Icons.Rounded.Close,
-                contentDescription = stringResource(R.string.cancel_selection)
-            )
+        LongPressLabel(stringResource(R.string.cancel_selection)) {
+            IconButton(
+                onClick = onDismiss,
+            ) {
+                Icon(
+                    Icons.Rounded.Close,
+                    contentDescription = stringResource(R.string.cancel_selection)
+                )
+            }
         }
 
         // The pill's trailing action, only where a list gives one: the queue's.
         if (onRemoveFromQueue != null) {
-            IconButton(
-                onClick = onRemoveFromQueue,
-                enabled = selectedItems.isNotEmpty(),
-            ) {
-                Icon(
-                    Icons.Rounded.PlaylistRemove,
-                    contentDescription = stringResource(R.string.remove_from_queue),
-                )
+            LongPressLabel(stringResource(R.string.remove_from_queue)) {
+                IconButton(
+                    onClick = onRemoveFromQueue,
+                    enabled = selectedItems.isNotEmpty(),
+                ) {
+                    Icon(
+                        Icons.Rounded.PlaylistRemove,
+                        contentDescription = stringResource(R.string.remove_from_queue),
+                    )
+                }
             }
         }
     }
