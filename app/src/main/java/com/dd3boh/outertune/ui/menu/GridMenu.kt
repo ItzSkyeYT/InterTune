@@ -68,6 +68,7 @@ import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import androidx.media3.exoplayer.offline.Download
 import com.dd3boh.outertune.R
+import com.dd3boh.outertune.playback.downloadManager.DownloadsSimpleLook
 import com.dd3boh.outertune.constants.MenuHiddenEntriesKey
 import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.utils.editOrSay
@@ -381,7 +382,8 @@ fun LazyGridScope.DownloadGridMenu(
                         strokeWidth = 2.dp
                     )
                 },
-                title = R.string.downloading,
+                // What a tap does, in the simpler ways compared in the debug app (DownloadsSimpleLook): the wheel says it downloads.
+                title = if (DownloadsSimpleLook.last.plainWords) R.string.cancel_download else R.string.downloading,
                 onClick = onRemoveDownload
             )
         }
@@ -419,7 +421,8 @@ fun LazyGridScope.DownloadGridMenu(
                         strokeWidth = 2.dp
                     )
                 },
-                title = R.string.downloading,
+                // What a tap does, in the simpler ways compared in the debug app (DownloadsSimpleLook): the wheel says it downloads.
+                title = if (DownloadsSimpleLook.last.plainWords) R.string.cancel_download else R.string.downloading,
                 onClick = onRemoveDownload
             )
         }
