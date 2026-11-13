@@ -19,7 +19,7 @@
 [![licence](https://img.shields.io/badge/licence-GPL--3.0-ed5564?labelColor=1b1f24)](https://github.com/ItzSkyeYT/InterTune/tree/visionos-fix/LICENSE)
 [![keep android open](https://img.shields.io/badge/keep%20android-open-c62828?labelColor=1b1f24)](https://keepandroidopen.org/)
 
-[Website](https://intertune.app) · [Download](#download) · [Features](#features) · [Good to know](#good-to-know) · [Roadmap](#roadmap) · [Wiki](https://github.com/ItzSkyeYT/InterTune/wiki) · [Discord](https://discord.gg/68jmqhMjXk) · [Donors](#donors)
+[Website](https://intertune.app) · [Download](#download) · [Features](#features) · [Good to know](#good-to-know) · [Roadmap](#roadmap) · [Wiki](https://github.com/ItzSkyeYT/InterTune/wiki) · [Discord](https://discord.gg/68jmqhMjXk) · [Contributors](#contributors) · [Donors](#donors)
 
 </div>
 
@@ -168,38 +168,64 @@ Every change in detail, and why this fork exists: [docs/FEATURES.md](https://git
 What's being worked on, roughly in order. `[x]` is done, `[~]` is built and being tested, `[ ]` is still to do. Nothing here has a date, and plans can change. Ideas are welcome in #feature-requests on [Discord](https://discord.gg/68jmqhMjXk) or as a [GitHub issue](https://github.com/ItzSkyeYT/InterTune/issues/new/choose).
 
 <details>
-<summary><b>Next: 0.13</b> · 7 of 23 done, 8 to test</summary>
+<summary><b>Next: 0.13</b> · 6 of 41 done, 28 to test</summary>
 
-`[ ]` Listen together: one person plays, friends follow the same song in real time *(in progress)*\
-`[ ]` Your year in InterTune, a recap *(in progress)*\
-`[~]` What's playing works offline and names the song once you're back online ([#48](https://github.com/ItzSkyeYT/InterTune/issues/48))\
-`[x]` Report a problem without a GitHub account, and follow it on GitHub from a link *(in 0.12.8)*\
-`[x]` Find songs you saved twice, in Liked or your library ([#47](https://github.com/ItzSkyeYT/InterTune/issues/47))\
-`[x]` A Widgets page in Settings: each widget on your home screen, how it looks and its main choices\
-`[x]` An Animations switch, for older and smaller phones\
-`[x]` Backups leave your sign-ins out unless you tick them, and you choose what goes in *(in 0.12.8)*\
+`[~]` Listen together: one person plays, friends follow the same song in real time\
+`[x]` AirPlay speakers in the cast list\
+`[~]` The equalizer and volume levelling on AirPlay speakers too, and Signal path shows the speaker you cast to\
 `[~]` Casting to speakers that only take uncompressed audio, like a Zeppelin Wireless\
-`[~]` AirPlay speakers in the cast list\
-`[x]` A radio keeps going when YouTube Music refuses it: other ways to ask, then picks from your own listening\
-`[ ]` Premium accounts get the 256 kbps stream\
+`[~]` InterTune's own screen on Chromecasts, with Google Home's Next button working\
+`[~]` Don't play this song: radios, autoplay and Shuffle never bring it back ([#78](https://github.com/ItzSkyeYT/InterTune/issues/78))\
+`[~]` Pick several songs in the queue and remove them at once\
+`[~]` Swipe a song out of the queue, and Undo brings it back ([#141](https://github.com/ItzSkyeYT/InterTune/issues/141))\
+`[~]` Android Auto's search finds songs on YouTube Music, not only in your library ([#112](https://github.com/ItzSkyeYT/InterTune/issues/112))\
+`[~]` Block an artist\
+`[~]` Your playlists in your own order, dragged where you want them\
+`[~]` What's playing works offline and names the song once you're back online ([#48](https://github.com/ItzSkyeYT/InterTune/issues/48))\
+`[~]` Albums carry on into a radio when they end\
+`[~]` A sleep timer with more ways to stop: at a clock time, or at the end of the song, the album or the queue\
+`[~]` Pick a playlist's cover\
+`[~]` Downloads other apps can use: .m4a or .opus files with the title, artist and cover\
+`[~]` Downloads at a quality of their own, apart from the streaming quality\
+`[~]` Downloads as MP3, M4A, FLAC or WAV, at a bitrate that follows what YouTube sent, and Export to folder\
+`[~]` Liked songs kept in sync with your downloads: unliking removes a download the app made itself ([#64](https://github.com/ItzSkyeYT/InterTune/issues/64))\
+`[~]` The volume past 100% turns the music up without distorting it ([#93](https://github.com/ItzSkyeYT/InterTune/issues/93))\
+`[~]` On mobile data, Auto quality takes a middle stream instead of the smallest ([#88](https://github.com/ItzSkyeYT/InterTune/issues/88))\
+`[~]` A floating dock without the glass on Android 11 and 12\
+`[~]` Tempo in 1% steps between 90% and 110%\
+`[~]` The playing song stays in view at the top or bottom of a long queue ([#81](https://github.com/ItzSkyeYT/InterTune/issues/81))\
 `[~]` Spatial audio for surround recordings, and Strength, Room and Ambience controls\
 `[~]` Choose which lyrics sources are used, and in what order\
 `[~]` Similar artists in the Favourite artists mix\
-`[ ]` Downloads in their own quality, with tags and a cover so other players can use them *(in progress)*\
-`[~]` Liked songs kept in sync with your downloads: unliking removes a download the app made itself ([#64](https://github.com/ItzSkyeYT/InterTune/issues/64))\
-`[ ]` Choose what's in the three-dot menus\
-`[x]` Lyrics videos that light each word as it is sung\
+`[x]` Find songs you saved twice, in Liked or your library ([#47](https://github.com/ItzSkyeYT/InterTune/issues/47))\
+`[x]` A Widgets page in Settings: each widget on your home screen, how it looks and its main choices\
+`[x]` An Animations switch, for older and smaller phones\
+`[x]` A radio keeps going when YouTube Music refuses it: other ways to ask, then picks from your own listening\
+`[x]` Stats shows how many of the songs you liked InterTune found for you, and where\
+`[ ]` Your year in InterTune, a recap *(in progress)*\
+`[ ]` Premium accounts get the 256 kbps stream\
+`[~]` Choose what's in the three-dot menus\
+`[ ]` Lyrics videos\
+`[ ]` Better word by word lyrics\
+`[~]` Albums and artists in your own order too\
 `[ ]` Tablets: settings in two panes, and the player as a side pane *(in progress)*\
 `[ ]` A look made for foldable and flip phones *(in progress)*\
-`[ ]` Match your library from another service by logging in to it\
-`[~]` A filter for AI-made songs (the poll in #general said yes)
+`[ ]` Match your library from another service by logging in to it
 
 </details>
 
 <details>
 <summary><b>Later</b></summary>
 
-`[ ]` Mix: songs in a playlist blend into each other like a DJ set, with an editor to shape each change *(in progress)*
+`[ ]` Mix: songs in a playlist blend into each other like a DJ set, with an editor to shape each change *(in progress)*\
+`[~]` A filter for AI-made songs (the poll in #general said yes)\
+`[ ]` Share a playlist you made with a link that opens it in InterTune\
+`[ ]` Your library in sync with YouTube Music both ways, changes made offline sent when you're back\
+`[ ]` Copy your library to another YouTube account\
+`[ ]` AirPlay 2 speakers\
+`[ ]` A web player, to listen from a computer's browser\
+`[ ]` A Wear OS app: a remote for your phone, and music on the watch itself *(in progress)*\
+`[ ]` What you're playing on your Discord profile *(being looked at)*
 
 </details>
 
@@ -233,22 +259,38 @@ JDK 21 and an Android SDK with `platforms;android-36`, `ndk;29.0.13113456` and `
 
 Thank you so much, everyone, for your support in this growing project!
 
+## Contributors
+
+<p align="center">People whose code is in InterTune. Thank you for building it with me!</p>
+
+<p align="center"><a href="https://github.com/3SSF"><img src="https://github.com/3SSF.png?size=128" width="64" height="64" alt="3SSF"></a><br><b><a href="https://github.com/3SSF">3SSF</a></b><br><sub>The first code from outside: a music note on local songs with no cover (<a href="https://github.com/ItzSkyeYT/InterTune/pull/161">#161</a>) · November 2026</sub></p>
+
+<p align="center"><b>Want to help?</b> <a href="CONTRIBUTING.md">CONTRIBUTING.md</a> says how to build it, and the <a href="https://discord.gg/68jmqhMjXk">Discord server</a> is the place to ask for a first task.</p>
+
 ## Donors
 
 <p align="center">InterTune is free and has no ads. These people gave something back anyway, and that keeps the project going. It means a lot, <b>thank you!</b></p>
 
-<div align="center">
-<table>
-  <tr>
-    <td valign="middle"><img src="https://raw.githubusercontent.com/ItzSkyeYT/InterTune/visionos-fix/assets/donors/dnr.png" width="42" height="42" alt="Dismorphism"></td>
-    <td valign="middle"><b>Dismorphism</b><br><sub>The very first donation</sub><br><sub>October 2026</sub></td>
-  </tr>
-</table>
-</div>
+<p align="center"><img src="https://raw.githubusercontent.com/ItzSkyeYT/InterTune/visionos-fix/assets/donors/dnr.png" width="64" height="64" alt="Dismorphism"><br><b>Dismorphism</b><br><sub>The very first donation · October 2026</sub></p>
+
+<p align="center"><img src="https://raw.githubusercontent.com/ItzSkyeYT/InterTune/visionos-fix/assets/donors/tidie.png" width="64" height="64" alt="Ti-Die"><br><b>Ti-Die</b><br><sub>The first on Ko-fi · November 2026</sub></p>
+
+<p align="center"><img src="https://raw.githubusercontent.com/ItzSkyeYT/InterTune/visionos-fix/assets/donors/frances.png" width="64" height="64" alt="frances"><br><b>frances</b><br><sub>Gave on Ko-fi · November 2026</sub></p>
+
+<p align="center"><img src="https://raw.githubusercontent.com/ItzSkyeYT/InterTune/visionos-fix/assets/donors/geogos.png" width="64" height="64" alt="Geogos"><br><b>Geogos</b><br><sub>The first on PayPal · November 2026</sub></p>
+
+<p align="center"><sub>Some donors chose not to be named here. Thank you to them too.</sub></p>
+
+<!-- The app's About > Support InterTune and the site read the donors' names from this table (utils/Donors.kt, tools/site/build.py):
+     one cell a donor, the name in bold first. A new donor goes in both here and above.
+<table><tr><td><b>Dismorphism</b></td><td><b>Ti-Die</b></td><td><b>frances</b></td><td><b>Geogos</b></td></tr></table>
+-->
 
 <br>
 
-<p align="center"><b>Want your name here?</b> Send me a direct message on the <a href="https://discord.gg/68jmqhMjXk">Discord server</a>!</p>
+<p align="center"><a href="https://ko-fi.com/intertune"><img src="https://ko-fi.com/img/githubbutton_sm.svg" alt="Support InterTune on Ko-fi"></a></p>
+
+<p align="center"><b>Want your name here?</b> Give on <a href="https://ko-fi.com/intertune">Ko-fi</a> and say so in your message, or tell me on the <a href="https://discord.gg/68jmqhMjXk">Discord server</a>! Prefer crypto? Message me on Discord.</p>
 
 ## Special thanks
 
