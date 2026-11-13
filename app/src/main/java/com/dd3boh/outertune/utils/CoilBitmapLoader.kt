@@ -113,7 +113,7 @@ class CoilBitmapLoader @Inject constructor(
             val squareLeft = ((x - squareLength) / 2)
             val squareTop = ((y - squareLength) / 2)
 
-            val drawable: Drawable? = ContextCompat.getDrawable(context, R.drawable.placeholder_icon)
+            val drawable: Drawable? = ContextCompat.getDrawable(context, R.drawable.music_note)
             val bitmap = Bitmap.createBitmap(x, y, Bitmap.Config.ARGB_8888)
             val canvas = Canvas(bitmap)
 
