@@ -1027,4 +1027,20 @@ object Unreleased {
      * Debug builds only, kept out of the previews that testers get.
      */
     val LYRICS_BLUR = BuildConfig.DEBUG && BuildConfig.BUILD_TYPE == "debug"
+
+    /**
+     * Downloading songs, simpler (12 Nov 2026, his words after 360 downloads never reached the
+     * folder he chose: "make the songs downloading more accessible and simple"). Three ways the
+     * Downloaded songs card of Settings > Storage and the Download action could be were drawn
+     * beside today's (experiments/features/downloads-simple/), and he chose C the same evening:
+     * one row says where downloads go and how many, choosing is two plain choices with the
+     * phone's folder picker at once and the move asked right after, and Download says where the
+     * songs went (DownloadsSimpleLook.C). Its texts (dl_simple_*) are held from translators,
+     * French beside them. With this off the page and the action are what they were. Still to do:
+     * take out A and B with what only they draw.
+     *
+     * Held back as the line's held features are: the debug app, the Preview and the Tester app
+     * have it; a release only on his word.
+     */
+    val DOWNLOADS_SIMPLE = BuildConfig.PREVIEW_FEATURES
 }

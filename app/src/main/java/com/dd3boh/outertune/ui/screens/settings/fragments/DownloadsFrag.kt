@@ -97,6 +97,9 @@ import com.dd3boh.outertune.constants.LikedAutodownloadMode
 import com.dd3boh.outertune.playback.DownloadUtil
 import com.dd3boh.outertune.playback.downloadManager.DownloadFolderState
 import com.dd3boh.outertune.playback.downloadManager.DownloadFormats
+import com.dd3boh.outertune.playback.downloadManager.DownloadsSimpleLook
+import com.dd3boh.outertune.playback.hasLanded
+import com.dd3boh.outertune.utils.Toaster
 import com.dd3boh.outertune.ui.component.EnumListPreference
 import com.dd3boh.outertune.utils.rememberEnumPreference
 import com.dd3boh.outertune.ui.screens.walkthrough.Tour
@@ -122,6 +125,8 @@ fun ColumnScope.DownloadsFrag() {
     // Downloads card at all and any setting in it looked missing.
     val downloadCache = LocalPlayerConnection.current?.service?.downloadCache
     val downloadUtil = LocalDownloadUtil.current
+    // The page as it is, or the simpler page he chose, C, where it is on (DownloadsSimpleLook).
+    val look = remember { DownloadsSimpleLook.of(context) }
 
     val (downloadPath, onDownloadPathChange) = rememberPreference(DownloadPathKey, "")
     val (downloadOnWifiOnly, onDownloadOnWifiOnlyChange) = rememberPreference(DownloadOnWifiOnlyKey, defaultValue = false)
@@ -153,6 +158,14 @@ fun ColumnScope.DownloadsFrag() {
     var moveHereCount by rememberSaveable {
         mutableIntStateOf(0)
     }
+    // The simpler ways: the move asked for from the page puts the question a chosen folder asks,
+    // with the count, or says so when nothing is inside the app.
+    val askToMove: () -> Unit = {
+        coroutineScope.launch {
+            val inside = withContext(Dispatchers.IO) { downloadUtil.downloadsInsideApp() }
+            if (inside > 0) moveHereCount = inside else Toaster.show(context, R.string.dl_simple_nothing_to_move)
+        }
+    }
 
     // advanced
     val (dlPathExtra, onDlPathExtraChange) = rememberPreference(DownloadExtraPathKey, "")
@@ -165,6 +178,39 @@ fun ColumnScope.DownloadsFrag() {
     }
     var showPathsDialog by rememberSaveable {
         mutableStateOf(false)
+    }
+
+    // The simpler page: every download and, of them, the ones still inside the app, counted
+    // again when the folder changes, a move ends or a download lands, for the one row that says
+    // where they are.
+    val allDownloads by downloadUtil.downloads.collectAsState()
+    val landed = remember(allDownloads) { allDownloads.count { hasLanded(it.value) } }
+    var insideCount by remember { mutableIntStateOf(-1) }
+    if (look.oneRow) {
+        LaunchedEffect(folderState, isLoading, landed) {
+            insideCount = withContext(Dispatchers.IO) { downloadUtil.downloadsInsideApp() }
+        }
+    }
+    // The simpler page: the choice of two in place of the folder dialog, and the phone's picker it
+    // opens at once. The folder picked is saved as the dialog's OK saves it, with the question after.
+    var showWhereChoice by rememberSaveable { mutableStateOf(false) }
+    var whereChoiceRefused by remember { mutableStateOf(false) }
+    val pickFolderAtOnce = rememberFolderPicker { uri ->
+        if (uriListFromString(scanPaths).any { FolderNesting.isSameOrInside(uri.toString(), it.toString()) }) {
+            // Part of a scan folder: said under the choices, which open again.
+            whereChoiceRefused = true
+            showWhereChoice = true
+        } else {
+            onDownloadPathChange(stringFromUriList(listOf(uri)))
+            coroutineScope.launch {
+                delay(1000)
+                downloadUtil.cd()
+                val inside = withContext(Dispatchers.IO) { downloadUtil.downloadsInsideApp() }
+                if (downloadUtil.localMgr.folderState.value == DownloadFolderState.OPEN && inside > 0) {
+                    moveHereCount = inside
+                }
+            }
+        }
     }
 
     LaunchedEffect(downloadCache) {
@@ -309,30 +355,47 @@ fun ColumnScope.DownloadsFrag() {
         }
     )
 
-    PreferenceEntry(
-        modifier = Modifier.tourTarget(Tour.SETTING_DOWNLOAD_FOLDER).settingRow(R.string.dl_main_path_title),
-        title = { Text(stringResource(R.string.dl_main_path_title)) },
-        // An icon like the rows around it: without one the row sat flush left, out of line with them.
-        icon = { Icon(Icons.Rounded.Folder, null) },
-        description = if (downloadPath != "") uriListFromString(downloadPath).firstOrNull()
-            ?.let { absoluteFilePathFromUri(context, it) } ?: downloadPath else null,
-        // A folder saved that does not open says so here, under it, in the page's error colour,
-        // with the way out: the row opens the folder dialog, where it is chosen again (his phone,
-        // 11 Nov 2026, a folder whose permission was gone and every download kept in the app).
-        content = if (downloadPath != "" && folderState == DownloadFolderState.CANNOT_OPEN) {
-            {
-                Text(
-                    text = stringResource(R.string.dl_folder_cannot_open),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.padding(top = 2.dp)
-                )
-            }
-        } else null,
-        onClick = {
-            showDlPathDialog = true
-        },
-    )
+    // The folder as the page writes it, null when none is saved.
+    val folderPath = if (downloadPath != "") uriListFromString(downloadPath).firstOrNull()
+        ?.let { absoluteFilePathFromUri(context, it) } ?: downloadPath else null
+    if (!look.oneRow) {
+        PreferenceEntry(
+            modifier = Modifier.tourTarget(Tour.SETTING_DOWNLOAD_FOLDER).settingRow(R.string.dl_main_path_title),
+            title = { Text(stringResource(R.string.dl_main_path_title)) },
+            // An icon like the rows around it: without one the row sat flush left, out of line with them.
+            icon = { Icon(Icons.Rounded.Folder, null) },
+            description = folderPath,
+            // A folder saved that does not open says so here, under it, in the page's error colour,
+            // with the way out: the row opens the folder dialog, where it is chosen again (his phone,
+            // 11 Nov 2026, a folder whose permission was gone and every download kept in the app).
+            content = if (downloadPath != "" && folderState == DownloadFolderState.CANNOT_OPEN) {
+                {
+                    Text(
+                        text = stringResource(R.string.dl_folder_cannot_open),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.padding(top = 2.dp)
+                    )
+                }
+            } else null,
+            onClick = {
+                showDlPathDialog = true
+            },
+        )
+    } else {
+        // The simpler page: one row that says where downloads are now and how many, with the move on
+        // it while songs are still inside the app. A tap opens the choice of two.
+        WhereDownloadsGoRow(
+            folder = folderPath,
+            state = folderState,
+            downloads = landed,
+            inside = insideCount,
+            insideSize = formatFileSize(context, downloadCacheSize),
+            moving = isLoading,
+            onClick = { showWhereChoice = true },
+            onMove = askToMove,
+        )
+    }
 
     // The file a song in the folder is saved as, under the folder (Unreleased.DOWNLOAD_FORMATS): Original, which
     // is what the download is, or a conversion to MP3, M4A (AAC), FLAC or WAV done on the phone after the download.
@@ -379,11 +442,14 @@ fun ColumnScope.DownloadsFrag() {
         }
     }
 
-    Text(
-        text = stringResource(R.string.dl_size_used_cache, formatFileSize(context, downloadCacheSize)),
-        style = MaterialTheme.typography.bodyMedium,
-        modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
-    )
+    // Not on the simpler page, whose one row above says it.
+    if (!look.oneRow) {
+        Text(
+            text = stringResource(R.string.dl_size_used_cache, formatFileSize(context, downloadCacheSize)),
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
+        )
+    }
 
     if (downloadMainPathSize == -2L && downloadExtraPathSize == -2L) {
         PreferenceEntry(
@@ -403,7 +469,7 @@ fun ColumnScope.DownloadsFrag() {
         ) {
             Text(
                 text = stringResource(
-                    R.string.dl_size_used_main,
+                    if (look.plainWords) R.string.dl_simple_size_folder else R.string.dl_size_used_main,
                     formatFileSize(context, downloadMainPathSize.coerceIn(0, Long.MAX_VALUE))
                 ),
                 style = MaterialTheme.typography.bodyMedium,
@@ -461,7 +527,7 @@ fun ColumnScope.DownloadsFrag() {
         PreferenceEntry(
             modifier = Modifier.settingRow(R.string.dl_rescan_title),
             title = { Text(stringResource(R.string.dl_rescan_title)) },
-            description = stringResource(R.string.dl_rescan_description),
+            description = stringResource(if (look.plainWords) R.string.dl_simple_rescan_description else R.string.dl_rescan_description),
             icon = {
                 if (isLoading) {
                     CircularProgressIndicator(
@@ -479,26 +545,29 @@ fun ColumnScope.DownloadsFrag() {
             isEnabled = !isLoading && !(downloadPath.isEmpty() && dlPathExtra.isEmpty())
         )
 
-        PreferenceEntry(
-            modifier = Modifier.settingRow(R.string.dl_migrate_title),
-            title = { Text(stringResource(R.string.dl_migrate_title)) },
-            description = stringResource(R.string.dl_migrate_description),
-            icon = {
-                if (isLoading) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(28.dp),
-                        color = MaterialTheme.colorScheme.secondary,
-                        trackColor = MaterialTheme.colorScheme.surfaceVariant,
-                    )
-                } else {
-                    Icon(Icons.Rounded.Downloading, null)
-                }
-            },
-            onClick = {
-                showMigrationDialog = true
-            },
-            isEnabled = !isLoading && !downloadPath.isEmpty()
-        )
+        // Not on the simpler page, whose one row above offers the move: it is not offered twice.
+        if (!look.oneRow) {
+            PreferenceEntry(
+                modifier = Modifier.settingRow(R.string.dl_migrate_title),
+                title = { Text(stringResource(R.string.dl_migrate_title)) },
+                description = stringResource(R.string.dl_migrate_description),
+                icon = {
+                    if (isLoading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(28.dp),
+                            color = MaterialTheme.colorScheme.secondary,
+                            trackColor = MaterialTheme.colorScheme.surfaceVariant,
+                        )
+                    } else {
+                        Icon(Icons.Rounded.Downloading, null)
+                    }
+                },
+                onClick = {
+                    showMigrationDialog = true
+                },
+                isEnabled = !isLoading && !downloadPath.isEmpty()
+            )
+        }
     }
 
 
@@ -632,12 +701,41 @@ fun ColumnScope.DownloadsFrag() {
         }
     }
 
+    // The simpler way C: the choice of two that stands in for the folder dialog above.
+    if (showWhereChoice) {
+        WhereDownloadsGoDialog(
+            inFolder = downloadPath != "",
+            refused = whereChoiceRefused,
+            onInside = {
+                showWhereChoice = false
+                whereChoiceRefused = false
+                // The folder dialog's Reset then OK: no folder saved, and the download manager told.
+                if (downloadPath != "") {
+                    onDownloadPathChange("")
+                    coroutineScope.launch {
+                        delay(1000)
+                        downloadUtil.cd()
+                    }
+                }
+            },
+            onFolder = {
+                showWhereChoice = false
+                whereChoiceRefused = false
+                pickFolderAtOnce()
+            },
+            onDismiss = {
+                showWhereChoice = false
+                whereChoiceRefused = false
+            },
+        )
+    }
+
     if (showClearConfirmDialog) {
         DefaultDialog(
             onDismiss = { showClearConfirmDialog = false },
             content = {
                 Text(
-                    text = stringResource(R.string.clear_downloads_confirm),
+                    text = stringResource(if (look.plainWords) R.string.dl_simple_clear_confirm else R.string.clear_downloads_confirm),
                     style = MaterialTheme.typography.bodyLarge,
                     modifier = Modifier.padding(horizontal = 18.dp)
                 )

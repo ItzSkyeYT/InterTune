@@ -188,7 +188,8 @@ class DownloadFormatsWiringTest {
         assertTrue("the rows are not behind the flag", start > 0)
         assertTrue("under the folder row", start > folder)
         assertTrue("before the sizes", start < frag.indexOf("R.string.dl_size_used_cache"))
-        val rows = frag.substring(start).substringAfter("{").substringBefore("Text(\n        text = stringResource(R.string.dl_size_used_cache")
+        // Up to the sizes line, wherever it is indented (the simpler looks put it in an else).
+        val rows = frag.substring(start).substringAfter("{").substringBefore("stringResource(R.string.dl_size_used_cache")
         assertTrue("rememberEnumPreference(DownloadFormatKey, DownloadFormat.ORIGINAL)" in rows)
         assertTrue("Modifier.settingRow(R.string.download_format)" in rows)
         assertTrue("MeaningLine(stringResource(R.string.download_format_description))" in rows)

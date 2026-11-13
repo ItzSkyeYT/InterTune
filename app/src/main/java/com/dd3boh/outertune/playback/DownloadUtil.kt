@@ -67,6 +67,7 @@ import com.dd3boh.outertune.playback.downloadManager.DocumentCastSong
 import com.dd3boh.outertune.playback.downloadManager.DownloadDirectoryManagerOt
 import com.dd3boh.outertune.playback.downloadManager.DownloadFolderState
 import com.dd3boh.outertune.playback.downloadManager.DownloadFormats
+import com.dd3boh.outertune.playback.downloadManager.DownloadSays
 import com.dd3boh.outertune.playback.downloadManager.ExportItem
 import com.dd3boh.outertune.playback.downloadManager.ExportResult
 import com.dd3boh.outertune.playback.downloadManager.ExportSkip
@@ -490,20 +491,31 @@ class DownloadUtil @Inject constructor(
     fun download(songs: List<MediaMetadata>) {
         wantedAgain(songs.map { it.id })
         if (songs.any { downloads.value[it.id] == null }) notifyIfWaitingForWifi()
+        rememberAskedByHand(songs.map { it.id })
         songs.forEach { song -> downloadSong(song.id, song.title) }
     }
 
     fun download(song: MediaMetadata) {
         wantedAgain(listOf(song.id))
         if (downloads.value[song.id] == null) notifyIfWaitingForWifi()
+        rememberAskedByHand(listOf(song.id))
         downloadSong(song.id, song.title)
     }
 
     fun download(song: SongEntity) {
         wantedAgain(listOf(song.id))
         if (downloads.value[song.id] == null) notifyIfWaitingForWifi()
+        rememberAskedByHand(listOf(song.id))
         downloadSong(song.id, song.title)
     }
+
+    /**
+     * The simpler page (DownloadsSimpleLook.C): where the songs asked for by hand went, said once
+     * they are there. Nothing where the page is today's.
+     */
+    private val says = DownloadSays(context)
+
+    private fun rememberAskedByHand(ids: List<String>) = says.asked(ids)
 
     /**
      * Where what the liked catch up remembers is read and changed: one thing at a time, in the
@@ -1739,9 +1751,16 @@ class DownloadUtil @Inject constructor(
                     if (finishedSinceMove.isEmpty()) return
                     val just = finishedSinceMove.toSet()
                     finishedSinceMove.clear()
-                    if (context.dataStore.get(DownloadPathKey, "").isEmpty()) return
+                    if (context.dataStore.get(DownloadPathKey, "").isEmpty()) {
+                        says.whenDone(just) { false }
+                        return
+                    }
                     notifyIfFolderCannotOpen()
-                    CoroutineScope(Dispatchers.IO).launch { migrateDownloads(quiet = true, only = just) }
+                    CoroutineScope(Dispatchers.IO).launch {
+                        migrateDownloads(quiet = true, only = just)
+                        // Once the songs are where they stay (DownloadsSimpleLook): how many are in the folder.
+                        says.whenDone(just) { localMgr.getFilePathIfExists(it) != null }
+                    }
                 }
 
                 override fun onDownloadChanged(
