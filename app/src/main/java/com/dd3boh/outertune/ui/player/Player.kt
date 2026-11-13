@@ -717,6 +717,14 @@ private fun PlayerSheet(
         }
     }
 
+    // A text field left with the focus under the player kept its cursor's round handle drawn over
+    // the player, the handle being a little window of its own (Ti-Die, #167). As soon as the player
+    // comes up the focus leaves it; with the keys, the effect above moves it to play and pause.
+    LaunchedEffect(state) {
+        snapshotFlow { state.progress > 0f }
+            .collect { up -> if (up && inputModeManager.inputMode != InputMode.Keyboard) focusManager.clearFocus() }
+    }
+
     // Nothing may move while the queue is on screen. The service does the re-planning on a
     // background thread and has no idea what is visible, so the screen tells it.
     //
