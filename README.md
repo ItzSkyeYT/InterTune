@@ -313,6 +313,7 @@ InterTune stands on a lot of other people's work.
 |---|---|
 | [rii2609](https://github.com/rii2609) | The idea for Liquid glass |
 | [cchery2512](https://github.com/cchery2512) | Reporting the M3U import bugs |
+| [3SSF](https://github.com/3SSF) | The first code merged from outside: local songs with no cover show a music note instead of the logo ([#161](https://github.com/ItzSkyeYT/InterTune/pull/161)) |
 | Everyone who [reports issues](https://github.com/ItzSkyeYT/InterTune/issues) | Finding what needs fixing |
 | Everyone translating on [Weblate](https://hosted.weblate.org/engage/intertune/) | InterTune in your language |
 
