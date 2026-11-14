@@ -1539,39 +1539,39 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="recommendations_ask_copy_goes">The copy you loaded goes too.</string>
     <string name="recommendations_ask_cannot_undo">This cannot be undone.</string>
     <string name="recommendations_load_confirm">Choose a file</string>
-    <string name="recommendations_summary_not_source">Best recommendations is not your Quick picks source, so none of its cards are counted here. You can choose it in Settings, under Library and content, Quick picks source.</string>
+    <string name="recommendations_summary_not_source">\"Best recommendations\" isn\'t your \"Quick picks source\", so there\'s nothing to count here. You can pick it under Library and content.</string>
     <plurals name="recommendations_summary_not_source_waiting">
-        <item quantity="one">Best recommendations is no longer your Quick picks source. The %1$d card it showed you before is judged a day after you saw it, and counted here then. You can choose it again in Settings, under Library and content, Quick picks source.</item>
-        <item quantity="other">Best recommendations is no longer your Quick picks source. The %1$d cards it showed you before are judged a day after you saw them, and counted here then. You can choose it again in Settings, under Library and content, Quick picks source.</item>
+        <item quantity="one">\"Best recommendations\" isn\'t your \"Quick picks source\" anymore. The %1$d card it showed you before is counted here within a day.</item>
+        <item quantity="other">\"Best recommendations\" isn\'t your \"Quick picks source\" anymore. The %1$d cards it showed you before are counted here within a day.</item>
     </plurals>
-    <string name="recommendations_summary_not_source_waiting_single">Best recommendations is no longer your Quick picks source. The card it showed you before is judged a day after you saw it, and counted here then. You can choose it again in Settings, under Library and content, Quick picks source.</string>
+    <string name="recommendations_summary_not_source_waiting_single">\"Best recommendations\" isn\'t your \"Quick picks source\" anymore. The card it showed you before is counted here within a day.</string>
     <plurals name="recommendations_summary_not_source_paused">
-        <item quantity="one">Best recommendations is no longer your Quick picks source. The %1$d card it showed you before is judged once Learn from listening is back on, and counted here then. You can choose it again in Settings, under Library and content, Quick picks source.</item>
-        <item quantity="other">Best recommendations is no longer your Quick picks source. The %1$d cards it showed you before are judged once Learn from listening is back on, and counted here then. You can choose it again in Settings, under Library and content, Quick picks source.</item>
+        <item quantity="one">\"Best recommendations\" isn\'t your \"Quick picks source\" anymore. The %1$d card it showed you before counts once \"Learn from listening\" is back on.</item>
+        <item quantity="other">\"Best recommendations\" isn\'t your \"Quick picks source\" anymore. The %1$d cards it showed you before count once \"Learn from listening\" is back on.</item>
     </plurals>
-    <string name="recommendations_summary_not_source_paused_single">Best recommendations is no longer your Quick picks source. The card it showed you before is judged once Learn from listening is back on, and counted here then. You can choose it again in Settings, under Library and content, Quick picks source.</string>
-    <string name="recommendations_summary_rows_below">How its rows did is still shown under Rows that held what you played next.</string>
-    <string name="recommendations_summary_waiting">Nothing to show yet. Best recommendations\' cards are judged a day after you see them, so this fills in as you listen.</string>
-    <string name="recommendations_summary_not_learning">Learn from listening is off, so Best recommendations is not learning now: no card is judged while it is off, and no new ones are noted. You can turn it back on in Settings, under Recommendations.</string>
-    <string name="recommendations_summary_learning_off">Learn from listening is off, so it is not learning now and no new cards are judged. You can turn it back on in Settings, under Recommendations.</string>
+    <string name="recommendations_summary_not_source_paused_single">\"Best recommendations\" isn\'t your \"Quick picks source\" anymore. The card it showed you before counts once \"Learn from listening\" is back on.</string>
+    <string name="recommendations_summary_rows_below">Its rows still show below, under \"Rows that held what you played next\".</string>
+    <string name="recommendations_summary_waiting">Nothing to show yet. This fills in as you listen.</string>
+    <string name="recommendations_summary_not_learning">\"Learn from listening\" is off, so there\'s nothing to count. You can turn it back on in Recommendations.</string>
+    <string name="recommendations_summary_learning_off">\"Learn from listening\" is off, so new cards aren\'t counted. You can turn it back on in Recommendations.</string>
     <plurals name="recommendations_summary_played">
         <item quantity="one">You played %1$d of the %2$d card Best recommendations showed you, about %3$s in 100.</item>
         <item quantity="other">You played %1$d of the %2$d cards Best recommendations showed you, about %3$s in 100.</item>
     </plurals>
     <string name="recommendations_summary_played_single">You played the one card Best recommendations showed you.</string>
-    <string name="recommendations_summary_not_played_single">You did not play the one card Best recommendations showed you.</string>
+    <string name="recommendations_summary_not_played_single">You didn\'t play the one card Best recommendations showed you.</string>
     <plurals name="recommendations_summary_waiting_more">
-        <item quantity="one">It showed you %1$d more card that is not judged yet. A card you did not tap is judged a day after you saw it.</item>
-        <item quantity="other">%1$d more cards it showed you are not judged yet. A card you did not tap is judged a day after you saw it.</item>
+        <item quantity="one">%1$d more card it showed you is counted within a day.</item>
+        <item quantity="other">%1$d more cards it showed you are counted within a day.</item>
     </plurals>
-    <string name="recommendations_summary_waiting_more_single">One more card it showed you is not judged yet. A card you did not tap is judged a day after you saw it.</string>
+    <string name="recommendations_summary_waiting_more_single">One more card it showed you is counted within a day.</string>
     <string name="recommendations_summary_scale">Higher is better. Most cards get passed over, so small numbers are normal.</string>
     <string name="recommendations_summary_up">Going up: %1$s in 100 over the last two weeks, from %2$s in 100 the two weeks before.</string>
     <string name="recommendations_summary_down">Going down: %1$s in 100 over the last two weeks, from %2$s in 100 the two weeks before.</string>
     <string name="recommendations_summary_no_change">No clear change: %1$s in 100 over the last two weeks, %2$s in 100 the two weeks before.</string>
     <string name="recommendations_summary_too_early">Too early to tell which way it is going.</string>
     <string name="recommendations_summary_too_early_choice">Too early to tell which way it is going since you changed what Quick picks leans toward.</string>
-    <string name="recommendations_summary_from_before">These are from when Best recommendations was your Quick picks source.</string>
+    <string name="recommendations_summary_from_before">These are from when \"Best recommendations\" was your \"Quick picks source\".</string>
     <string name="recommendations_wins_meaning">Played means you heard at least half a minute and nearly half the song, or liked it. A quick tap and skip does not count. Only cards already judged are counted, and higher is better.</string>
     <string name="similar_mix_meaning">How the similar songs are shared between the two sources. The one you play more from gets more, up to four in five.</string>
     <string name="recommendations_held_meaning">Of the songs you chose yourself in the day after each refresh, counting cards you tapped, how many were already in the row. Higher is better, and low is normal.</string>
@@ -1650,8 +1650,8 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="widget_content_list">A list</string>
     <string name="widget_config_which_list">Which list</string>
     <string name="widget_list_recent">Recently played</string>
-    <string name="widget_config_preview_hint">This widget at its size now. Resize it on the home screen for more or fewer rows.</string>
-    <string name="widget_config_preview_hint_guess">Shown at a usual size. Once it is on the home screen, resize it for more or fewer rows.</string>
+    <string name="widget_config_preview_hint">This is its size now. Resize it on your home screen for more or fewer rows.</string>
+    <string name="widget_config_preview_hint_guess">Shown at a usual size. Resize it on your home screen for more or fewer rows.</string>
     <string name="widget_config_done">Done</string>
     <string name="widget_config_reset">Reset</string>
     <string name="widget_config_rows">How many rows</string>
@@ -1701,7 +1701,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="exclusions_info">Long-press a card in \"Quick picks\" for \"Not this song\", \"Less of this artist\" or \"Never this artist\". This only affects recommendations, never search, your library or playlists. Lift one here to undo it.</string>
     <string name="rest_songs_i_skip_info">Skip a favourite early and it sits out of \"Best recommendations\" for a week. You can bring it back early from \"Exclusions\".</string>
     <string name="recommendations_doing_info">Worked out on this phone from your listening, and nothing leaves it unless you save a copy under \"Your data\". Give it a few weeks before trusting the numbers.</string>
-    <string name="recommendations_summary_info">\"Seen\" means a card showed on screen. \"Played\" means you heard a good part of the song or liked it. The newest cards are counted a day later.</string>
+    <string name="recommendations_summary_info">\"Seen\": the card was on screen. \"Played\": you heard a good part of it, or liked it. New cards count a day later.</string>
     <string name="learn_from_listening_info">\"Best recommendations\" learns from what you play and skip. Turn it off and it stops learning, while History and Stats keep going. It all stays on this phone.</string>
     <string name="shadow_comparison_info">A hidden row is built in the background and checked a day later against what you actually played. It\'s only there to measure how well things work.</string>
     <string name="recommendations_brier_info">Each card guesses how likely you are to play it. The lines below group the cards by that guess.</string>
