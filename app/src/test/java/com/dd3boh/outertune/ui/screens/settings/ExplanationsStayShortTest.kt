@@ -105,7 +105,6 @@ class ExplanationsStayShortTest {
          * as the others' are, their words and sentences are not.
          */
         val SAY_WHAT_IS_SENT = setOf(
-            "usage_count_enabled_description",
             "usage_count_opt_in_body",
             "lastfm_opt_in_body",
         )
