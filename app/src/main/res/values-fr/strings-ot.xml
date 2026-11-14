@@ -105,7 +105,7 @@
     <string name="sync_progress_success">Synchronisation terminée</string>
     <string name="tab_arrangement_home_required">L\'onglet Accueil est obligatoire.</string>
     <string name="scanner_manual_btn">Déclencher la synchronisation manuelle</string>
-    <string name="scanner_missing_storage_perm">Le scanner local a besoin de l\'autorisation de stockage.</string>
+    <string name="scanner_missing_storage_perm">Le scanner de médias locaux a besoin d\'autorisations d\'accès au stockage pour fonctionner</string>
     <string name="scanner_scan_fail">Échec de l\'analyse</string>
     <string name="scanner_ytm_link_fail">La tâche de liaison des artistes YouTube a échoué</string>
     <string name="scanner_ytm_link_success">Le travail de création de liens vers les artistes YouTube est terminé</string>
@@ -282,7 +282,7 @@
     <string name="action_done">Terminé</string>
     <string name="download_on_wifi_only_description">Attend une connexion Wi-Fi avant de télécharger. Les téléchargements lancés en données mobiles sont mis en attente et démarrent tout seuls dès que le Wi-Fi revient</string>
     <string name="download_on_wifi_only_title">Télécharger en Wi-Fi uniquement</string>
-    <string name="download_waiting_for_wifi">En attente. Le téléchargement démarrera avec le Wi-Fi.</string>
+    <string name="download_waiting_for_wifi">En file d\'attente. Le téléchargement s\'effectuera dès qu\'une connexion Wi-Fi sera disponible.</string>
     <plurals name="download_progress_songs">
         <item quantity="one">%1$d sur %2$d titre</item>
         <item quantity="many">%1$d sur %2$d titres</item>
