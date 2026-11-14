@@ -125,7 +125,8 @@ class OpenLinksTest {
         assertEquals(setOf("intertune.app"), page.all("host"))
         assertEquals(setOf("/s", "/s/"), page.all("path"))
         // A song's page, /s/v/<id> (the version after 0.12.6): that prefix and no wider, so /sitemap.xml stays the browser's.
-        assertEquals(setOf("/s/v/"), page.all("pathPrefix"))
+        // And a listening room's invite, /together/<code>.
+        assertEquals(setOf("/s/v/", "/together/"), page.all("pathPrefix"))
         for (attribute in listOf("pathPattern", "pathAdvancedPattern", "pathSuffix")) assertTrue(attribute, page.all(attribute).isEmpty())
     }
 
