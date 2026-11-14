@@ -439,7 +439,6 @@ fun ColumnScope.SwipeGesturesFrag() {
     SwitchPreference(
         modifier = Modifier.settingRow(R.string.swipe_to_skip_title),
         title = { Text(stringResource(R.string.swipe_to_skip_title)) },
-        description = stringResource(R.string.swipe_to_skip_description),
         icon = { Icon(Icons.Rounded.Swipe, null) },
         checked = swipeToSkip,
         onCheckedChange = onSwipeToSkipChange

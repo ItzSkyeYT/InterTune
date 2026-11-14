@@ -190,7 +190,6 @@ fun ColumnScope.LyricSourceFrag() {
     SwitchPreference(
         modifier = Modifier.tourTarget(Tour.SETTING_LYRICS_PREFER_LOCAL).settingRow(R.string.lyrics_prefer_local),
         title = { Text(stringResource(R.string.lyrics_prefer_local)) },
-        description = stringResource(R.string.lyrics_prefer_local_description),
         icon = { Icon(Icons.Rounded.ContentCut, null) },
         checked = preferLocalLyric,
         onCheckedChange = onPreferLocalLyric

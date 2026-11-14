@@ -189,7 +189,6 @@ fun ColumnScope.SearchHistoryFrag() {
     SwitchPreference(
         modifier = Modifier.settingRow(R.string.pause_search_history),
         title = { Text(stringResource(R.string.pause_search_history)) },
-        description = stringResource(R.string.pause_search_history_description),
         icon = { Icon(Icons.AutoMirrored.Rounded.ManageSearch, null) },
         checked = pauseSearchHistory,
         onCheckedChange = onPauseSearchHistoryChange
@@ -197,7 +196,6 @@ fun ColumnScope.SearchHistoryFrag() {
     PreferenceEntry(
         modifier = Modifier.settingRow(R.string.clear_search_history),
         title = { Text(stringResource(R.string.clear_search_history)) },
-        description = stringResource(R.string.clear_search_history_description),
         icon = { Icon(Icons.Rounded.ClearAll, null) },
         onClick = { showClearSearchHistoryDialog = true }
     )

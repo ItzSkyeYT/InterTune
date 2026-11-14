@@ -78,7 +78,6 @@ fun AdvancedSettings(
             SwitchPreference(
                 modifier = Modifier.settingRow(R.string.dev_settings_title),
                 title = { Text(stringResource(R.string.dev_settings_title)) },
-                description = stringResource(R.string.dev_settings_description),
                 icon = { Icon(Icons.Rounded.DeveloperMode, null) },
                 checked = devSettings,
                 onCheckedChange = onDevSettingsChange
