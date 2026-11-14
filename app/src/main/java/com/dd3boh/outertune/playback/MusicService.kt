@@ -3383,7 +3383,7 @@ class MusicService : MediaLibraryService(),
             }
 
             val isDownload =
-                downloadCache.isCached(mediaId, position, if (length >= 0) length else 1)
+                downloadCache.holdsFrom(mediaId, position, if (length >= 0) length else 1)
             // A song moved into the download folder after the queue was made: the queue's copy of
             // the song has no path, nor has a row read before the move recorded its file, and its
             // copy in the app is gone. The folder is asked whatever they say; it used to be asked
@@ -3395,7 +3395,7 @@ class MusicService : MediaLibraryService(),
                     return ResolvedSong.Downloaded(it)
                 }
             }
-            val isCache = playerCache.isCached(mediaId, position, CHUNK_LENGTH)
+            val isCache = playerCache.holdsFrom(mediaId, position, CHUNK_LENGTH)
             // A copy fetched at a lower setting is fetched again, once, at the higher one. Only
             // upwards: re-fetching to make something worse would spend data to lose quality, and
             // the bytes are already here. Downloads are left alone whatever the setting says,
