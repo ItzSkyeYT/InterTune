@@ -160,11 +160,13 @@ sealed interface TogetherMessage {
  * says it best, since half its round trip is the most it can be off by.
  */
 class ClockGap {
+    /** The gap now: the middle of the last [KEPT] answers taken, so that one lopsided trip moves it little. */
     var offsetMs = 0L
         private set
     var bestRoundTripMs = Long.MAX_VALUE
         private set
     val known: Boolean get() = bestRoundTripMs != Long.MAX_VALUE
+    private val taken = ArrayDeque<Long>()
 
     /** A pong for a ping sent at [askedAtMs], answered at [hostMs], back at [nowMs]. */
     fun heard(askedAtMs: Long, hostMs: Long, nowMs: Long) {
@@ -172,7 +174,10 @@ class ClockGap {
         // The first answer is always taken: "none yet" plus the slack would overflow.
         if (roundTrip !in 0..10_000 || (known && roundTrip > bestRoundTripMs + SLACK_MS)) return
         if (roundTrip <= bestRoundTripMs) bestRoundTripMs = roundTrip
-        offsetMs = hostMs - (askedAtMs + nowMs) / 2
+        taken.addLast(hostMs - (askedAtMs + nowMs) / 2)
+        if (taken.size > KEPT) taken.removeFirst()
+        val sorted = taken.sorted()
+        offsetMs = sorted[sorted.size / 2]
     }
 
     /** The host's clock now, by this phone's. */
@@ -180,6 +185,8 @@ class ClockGap {
 
     companion object {
         private const val SLACK_MS = 50L
+        /** Answers kept for the middle: five, the first ten of them a second apart. */
+        private const val KEPT = 5
     }
 }
 
@@ -299,61 +306,134 @@ data class TogetherTuning(val toleranceMs: Long, val maxNudge: Double, val delay
 }
 
 /**
- * Leaves the speed alone once a follower is in step (his word of 17 Oct 2026: "once it gets a
- * solid lock on the song sync, it stops over adjusting and only starts adjusting once the song
- * really starts drifting").
+ * Where the host is now, from its last few words rather than from the last one. Each state is a
+ * reading of the host's player (its position wobbles by tens of ms, a word comes late by whatever
+ * the relays took), and the guest that aimed at each new one in turn sped up and slowed down
+ * every two seconds for nothing: on 26 Oct 2026 through public relays its speed was a different
+ * one at every look, 0.96 to 1.03, a flush of the audio chain each time. Playing at one speed,
+ * every state says the same line, "position minus the host's clock"; the middle of the last
+ * [KEPT] of them is that line, and one odd word barely moves it. A word with an older clock than
+ * the newest is a late one and is ignored. A change of song, of play or pause, of speed, or a
+ * jump past [JUMP_MS] is the host's doing, and starts the line again.
+ */
+class HostLine {
+    private val lines = ArrayDeque<Double>()
+    private var newest: TogetherMessage.State? = null
+
+    /** Takes [state]; false when it is older than the newest one and was ignored. */
+    fun hear(state: TogetherMessage.State): Boolean {
+        val last = newest
+        if (last != null && state.atMs < last.atMs) return false
+        val line = intercept(state)
+        val changed = last == null || last.songId != state.songId || last.playing != state.playing ||
+            last.speed != state.speed || (lines.isNotEmpty() && abs(line - middle()) > JUMP_MS)
+        if (changed) lines.clear()
+        lines.addLast(line)
+        if (lines.size > KEPT) lines.removeFirst()
+        newest = state
+        return true
+    }
+
+    fun clear() {
+        lines.clear()
+        newest = null
+    }
+
+    /** Where the host is at its clock [hostNowMs], by [state] (the newest heard) and those before it. */
+    fun target(state: TogetherMessage.State, hostNowMs: Long): Long =
+        if (!state.playing || lines.isEmpty() || state !== newest) Follow.target(state, hostNowMs)
+        else (middle() + hostNowMs * state.speed).toLong()
+
+    private fun intercept(state: TogetherMessage.State) = state.positionMs - state.atMs * state.speed
+
+    /** The mean of what lies between the lowest and the highest, once there are three or more. */
+    private fun middle(): Double {
+        val sorted = lines.sorted()
+        return if (sorted.size >= 3) sorted.subList(1, sorted.size - 1).average() else sorted.average()
+    }
+
+    companion object {
+        const val KEPT = 7
+        const val JUMP_MS = 300.0
+    }
+}
+
+/**
+ * Decides when a follower corrects, and keeps corrections rare (his word of 14 Nov 2026: "the song
+ * progress syncing between clients is too aggressive"). Every change of speed drains and flushes
+ * the audio chain (DefaultAudioSink.setupAudioProcessors), which resets the gain, the equalizer
+ * and the spatial stages and cuts the stretcher's buffer: a click each time. So:
  *
- * The readings wobble by tens of ms on their own (the clock gap from pings, the leader's word
- * every two seconds), so a follower that corrected every look past [Follow.IN_STEP_MS] kept
- * speeding up and slowing down for nothing. In step for [LOCK_LOOKS] looks running, it locks: it
- * plays at the leader's speed and lets readings within [toleranceMs] pass. Only a gap past that
- * for [UNLOCK_LOOKS] looks running unlocks it, and it corrects until it is in step and locks
- * again. A gap past [Follow.DRIFT_MS] is a jump at once, locked or not: the leader seeked.
- *
- * Nor does the lock leave a steady lag be (his find of 17 Oct 2026 on two phones: locked, a guest
- * sat a little behind for good, inside the tolerance). The middle of the last [LAG_LOOKS] readings
- * past [Follow.IN_STEP_MS] unlocks it as well. A wobble round zero leaves that middle near zero,
- * and a burst of a few readings cannot move it; a lag that stays does.
+ *  - It acts on the middle of the last [LOOKS] readings, never on one. A reading is the host's
+ *    word and the guest's player, and each wobbles.
+ *  - In step within [toleranceMs], it plays at the host's speed and does nothing.
+ *  - Past it, it sets one speed that closes the gap in about [CLOSE_MS], held for exactly the
+ *    time that takes, then back to the host's speed: two changes, never a chase. The readings
+ *    are taken again from nothing after it, [AFTER_MS] later.
+ *  - Past [SEEK_MS], two looks running, it jumps, and not again within [SEEK_AGAIN_MS] unless
+ *    the gap is past [FAR_MS]; until then it nudges.
  */
 class SyncLock(
     var toleranceMs: Long = DEFAULT_TOLERANCE_MS,
     var maxNudge: Double = Follow.MAX_NUDGE,
 ) {
+    /** In step: the speed is the host's and the readings are inside the tolerance. */
     var locked = false
         private set
-    private var inStep = 0
-    private var off = 0
-    /** The last readings, signed, oldest first: [LAG_LOOKS] of them at most. */
     private val recent = ArrayDeque<Long>()
+    private var correctUntil = 0L
+    private var correctSpeed = 1.0
+    private var holdOffUntil = 0L
+    private var farLooks = 0
+    private var lastSeekAt = -SEEK_AGAIN_MS
 
-    fun decide(targetMs: Long, localMs: Long, hostSpeed: Double): Follow {
+    fun decide(targetMs: Long, localMs: Long, hostSpeed: Double, nowMs: Long = System.currentTimeMillis()): Follow {
         val drift = targetMs - localMs
-        val gap = abs(drift)
-        if (gap > Follow.DRIFT_MS) {
-            reset()
-            return Follow.Seek(targetMs)
+        // Far off: a jump, once the look after says so as well.
+        if (abs(drift) > SEEK_MS) {
+            farLooks++
+            val again = nowMs - lastSeekAt < SEEK_AGAIN_MS && abs(drift) <= FAR_MS
+            if (farLooks >= 2 && !again) return Follow.Seek(targetMs)
+        } else {
+            farLooks = 0
+        }
+        // Mid-correction: the speed is held for the time it takes, whatever the readings say.
+        if (correctUntil != 0L) {
+            if (nowMs < correctUntil) return Follow.Nudge(correctSpeed)
+            correctUntil = 0L
+            recent.clear()
+            holdOffUntil = nowMs + AFTER_MS
+            return Follow.Steady(hostSpeed)
         }
         recent.addLast(drift)
-        if (recent.size > LAG_LOOKS) recent.removeFirst()
-        if (locked) {
-            off = if (gap > toleranceMs) off + 1 else 0
-            val lagging = recent.size == LAG_LOOKS && abs(middle(recent)) > Follow.IN_STEP_MS
-            if (off < UNLOCK_LOOKS && !lagging) return Follow.Steady(hostSpeed)
-            locked = false
-            off = 0
-            recent.clear()
+        if (recent.size > LOOKS) recent.removeFirst()
+        if (nowMs < holdOffUntil || recent.size < MIN_LOOKS) return Follow.Steady(hostSpeed)
+        val estimate = middle(recent)
+        if (abs(estimate) <= toleranceMs && abs(drift) <= SEEK_MS) {
+            locked = true
+            return Follow.Steady(hostSpeed)
         }
-        inStep = if (gap <= Follow.IN_STEP_MS) inStep + 1 else 0
-        if (inStep >= LOCK_LOOKS) locked = true
-        return Follow.decide(targetMs, localMs, hostSpeed, maxNudge)
+        locked = false
+        val rate = (estimate / CLOSE_MS).coerceIn(-maxNudge, maxNudge)
+        val duration = (abs(estimate) / abs(rate)).toLong().coerceAtLeast(MIN_HOLD_MS)
+        correctUntil = nowMs + duration
+        correctSpeed = hostSpeed * (1 + rate)
+        return Follow.Nudge(correctSpeed)
     }
 
-    /** After a jump, another song or another leader: the lock is earned again. */
+    /** After another song, another leader or a pause: the lock is earned again. */
     fun reset() {
         locked = false
-        inStep = 0
-        off = 0
         recent.clear()
+        correctUntil = 0L
+        holdOffUntil = 0L
+        farLooks = 0
+    }
+
+    /** After a jump of this phone's own at [nowMs]. */
+    fun sought(nowMs: Long = System.currentTimeMillis()) {
+        reset()
+        lastSeekAt = nowMs
     }
 
     /** The middle of [readings]: of two middles, their mean. */
@@ -364,12 +444,20 @@ class SyncLock(
     }
 
     companion object {
-        /** Two seconds in step, at a look every quarter of a second. */
-        const val LOCK_LOOKS = 8
-        /** And a second past the tolerance before it corrects again. */
-        const val UNLOCK_LOOKS = 4
-        /** Four seconds of readings for a steady lag: longer than any burst, short enough to hear little of it. */
-        const val LAG_LOOKS = 16
+        /** Two seconds of readings, a look every quarter of a second. */
+        const val LOOKS = 8
+        /** Before this many it does not act: a second and a half. */
+        const val MIN_LOOKS = 6
+        /** The gap is closed in about this long, if the cap on the speed allows. */
+        const val CLOSE_MS = 3_000.0
+        const val MIN_HOLD_MS = 1_000L
+        /** After a correction: time for the song to show where it landed before the readings count. */
+        const val AFTER_MS = 3_000L
+        /** Past this a jump, a nudge of 5% taking 12 s to close it. */
+        const val SEEK_MS = 600L
+        const val SEEK_AGAIN_MS = 5_000L
+        const val FAR_MS = 5_000L
+        /** About what two phones in one room cannot tell apart. */
         const val DEFAULT_TOLERANCE_MS = 60L
         /** Above [Follow.IN_STEP_MS], or it would lock and unlock on the same readings. */
         const val MIN_TOLERANCE_MS = 30L
