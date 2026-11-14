@@ -297,4 +297,11 @@
     <string name="use_login_for_browse_desc">Це може вплинути на те, який вміст ви бачите, і, наприклад, показує лише платні альбоми, якщо ви ввійшли в обліковий запис Premium</string>
     <string name="use_login_for_browse">Використовуйте логін для перегляду вмісту</string>
     <string name="action_login">Увійти</string>
+    <string name="favorite_artists">Улюблені виконавці</string>
+    <string name="crash_report_title">Збій InterTune минулого разу</string>
+    <string name="crash_report_text">Перепрошуємо. Помилка нижче залишилась на цьому телефоні і нічого не було нікуди надіслано. Повідомлення про помилку допомагає полагодити її на вашому девайсі.</string>
+    <string name="crash_report_github">Повідомити про помилку на GitHub</string>
+    <string name="crash_report_copy">Копіювати</string>
+    <string name="crash_report_dismiss">Відхилити</string>
+    <string name="crash_report_copied">Помилку скопійовано</string>
 </resources>
