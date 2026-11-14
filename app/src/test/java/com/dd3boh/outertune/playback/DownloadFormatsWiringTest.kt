@@ -18,7 +18,7 @@ import java.io.File
  * the other wiring tests are, since a flag is a constant of the build and MediaCodec cannot run
  * here: where the format is read, that a song is converted into a temporary file and put in the
  * folder only when whole (and saved as Original when the conversion fails), that the rows are
- * offered only with the flag, and that the texts are held with their French beside them. What the
+ * offered only with the flag, and that the texts are open to translators with their French beside them. What the
  * formats and Auto's bitrate are is DownloadFormatsTest; the files are FileEncodersTest.
  */
 class DownloadFormatsWiringTest {
@@ -346,13 +346,13 @@ class DownloadFormatsWiringTest {
     )
 
     @Test
-    fun `the texts are held from translators, with their French beside them`() {
+    fun `the texts are open to translators, with their French beside them`() {
         for (name in held) {
             assertNotNull("$name is not in the English file", tag(english, name))
-            assertTrue("$name is not held (translatable=\"false\")", "translatable=\"false\"" in tag(english, name)!!)
+            assertFalse("$name is still held (translatable=\"false\")", "translatable=\"false\"" in tag(english, name)!!)
             assertNotNull("$name has no French", text(french, name))
         }
-        assertTrue(Regex("""<plurals name="convert_fallback_text" translatable="false">""").containsMatchIn(english))
+        assertTrue(Regex("""<plurals name="convert_fallback_text">""").containsMatchIn(english))
         assertTrue(french.contains("""<plurals name="convert_fallback_text">"""))
         // The search words are open to translators, as every search word is.
         assertFalse("translatable=\"false\"" in tag(english, "search_words_download_format")!!)
@@ -360,14 +360,14 @@ class DownloadFormatsWiringTest {
     }
 
     @Test
-    fun `the export texts are held from translators, with their French beside them`() {
+    fun `the export texts are open to translators, with their French beside them`() {
         for (name in exportTexts) {
             assertNotNull("$name is not in the English file", tag(english, name))
-            assertTrue("$name is not held", "translatable=\"false\"" in tag(english, name)!!)
+            assertFalse("$name is still held", "translatable=\"false\"" in tag(english, name)!!)
             assertNotNull("$name has no French", text(french, name))
         }
         for (name in exportPlurals) {
-            assertTrue("$name is not held", Regex("""<plurals name="$name" translatable="false">""").containsMatchIn(english))
+            assertTrue("$name is still held", Regex("""<plurals name="$name">""").containsMatchIn(english))
             assertTrue("$name has no French", french.contains("""<plurals name="$name">"""))
         }
         assertEquals("Export to folder", text(english, "export_to_folder"))

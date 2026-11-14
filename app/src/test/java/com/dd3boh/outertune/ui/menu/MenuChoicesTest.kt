@@ -100,14 +100,14 @@ class MenuChoicesTest {
     }
 
     @Test
-    fun `its words are held from translators, with French beside them`() {
+    fun `its words are open to translators, with French beside them`() {
         val en = res("values/strings-ot.xml")
         val fr = res("values-fr/strings-ot.xml")
         for (name in listOf("menu_hidden", "menu_hidden_hint", "menu_edit_done", "menu_edit_hide", "menu_edit_show", "menu_edit_start", "menu_choices_title", "menu_choices_description", "menu_choices_show_all")) {
-            assertTrue(name, "<string name=\"$name\" translatable=\"false\">" in en)
+            assertTrue(name, "<string name=\"$name\">" in en)
             assertTrue(name, "<string name=\"$name\">" in fr)
         }
-        assertTrue("<plurals name=\"menu_hidden_count\" translatable=\"false\">" in en)
+        assertTrue("<plurals name=\"menu_hidden_count\">" in en)
         // the search's words are open to translators, as every search_words_ text is (SettingsSearchTest)
         assertTrue("<string name=\"search_words_menus\">" in en && "<string name=\"search_words_menus\">" in fr)
         assertTrue("<plurals name=\"menu_hidden_count\">" in fr)

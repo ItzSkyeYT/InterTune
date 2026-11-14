@@ -68,7 +68,6 @@
     <string name="player_liquid_glass_description">Floating glass panels for the navigation bar, mini player and controls, with richer colours behind the player.</string>
     <string name="player_liquid_glass_description_legacy">Richer artwork colours behind the now playing screen. The floating glass panels need Android 13 or newer</string>
     <string name="sleep_timer_fade">Fade out before stopping</string>
-    <string name="sleep_timer_fade_description">Lowers the volume gently as the timer ends, instead of cutting off.</string>
     <string name="sleep_timer_fade_duration">Fade length</string>
     <string name="sleep_timer_fade_duration_description">How long the fade out lasts before the sleep timer stops playback</string>
     <string name="sleep_timer_fade_duration_value">%1$d seconds</string>
@@ -108,19 +107,15 @@
     <string name="image_cache_max_size">Maximum artwork cache size</string>
     <string name="max_queues_description">How many queues to keep. The oldest goes when you pass this.</string>
     <string name="enable_proxy_description">Send YouTube Music requests and streams through another server first. Pictures, lyrics and the other services the app uses still connect directly. Leave this off unless you know you need it.</string>
-    <string name="show_liked_and_downloaded_playlist_description">Show Liked songs and Downloaded songs as playlists in your library.</string>
 
     <!-- Descriptions for rows whose titles alone did not say what they do -->
     <string name="pause_listen_history_description">Stop adding songs to your history. Nothing already in it is removed.</string>
     <string name="pause_remote_listen_history_description">Stop telling YouTube Music what you play. Your history in the app carries on.</string>
     <string name="clear_listen_history_description">Delete everything the app has recorded about what you have played.</string>
-    <string name="pause_search_history_description">Stop saving what you search for.</string>
-    <string name="clear_search_history_description">Delete every search the app has saved.</string>
     <string name="sync_params_description">\"Read write\" lets the app change your YouTube Music likes, library and playlists. \"Overwrite\" removes from this phone anything that isn\'t in your account.</string>
     <string name="enable_lrclib_description">Look for lyrics on LRCLIB, a free community lyrics database.</string>
     <string name="enable_kugou_description">Look for lyrics on KuGou. Its collection is large, and strongest for Chinese music.</string>
     <string name="audio_normalization_description">Evens out the volume so no song is suddenly much louder.</string>
-    <string name="skip_silence_description">Skip silent gaps at the start and end of a track.</string>
     <string name="stop_music_on_task_clear_description">Stop the music when you swipe the app away from your recent apps.</string>
     <string name="enable_dynamic_theme_description">Take the app\'s colours from your wallpaper.</string>
     <string name="pure_black_description">True black instead of dark grey. On OLED screens it saves a little battery.</string>

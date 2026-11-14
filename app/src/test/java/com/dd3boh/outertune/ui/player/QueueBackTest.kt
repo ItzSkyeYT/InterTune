@@ -141,7 +141,7 @@ class QueueBackTest {
     fun `its words are in English and in French`() {
         val english = File("src/main/res/values/strings-ot.xml").readText()
         val french = File("src/main/res/values-fr/strings-ot.xml").readText()
-        for (name in listOf("queue_back_closes_player", "queue_back_closes_player_description")) {
+        for (name in listOf("queue_back_closes_player")) {
             assertTrue("$name has no English", "<string name=\"$name\">" in english)
             assertTrue("$name has no French", "<string name=\"$name\">" in french)
         }

@@ -242,11 +242,11 @@ class WidgetsSettingsTest {
     @Test
     fun `the words are the ones that were drawn, in English and in French`() {
         for ((name, en, fr) in words) {
-            assertTrue("$name in English", "<string name=\"$name\" translatable=\"false\">$en</string>" in english)
+            assertTrue("$name in English", "<string name=\"$name\">$en</string>" in english)
             assertTrue("$name in French", "<string name=\"$name\">$fr</string>" in french)
         }
         // A size in cells is figures and a sign, the same in every language.
-        assertTrue("<string name=\"widgets_cells\" translatable=\"false\">%1\$d × %2\$d</string>" in english)
+        assertTrue("<string name=\"widgets_cells\">%1\$d × %2\$d</string>" in english)
         assertFalse("name=\"widgets_cells\"" in french)
     }
 
