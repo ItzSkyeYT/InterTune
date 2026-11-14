@@ -111,10 +111,9 @@ class ExplanationsStayShortTest {
         )
 
         /**
-         * Four sentences, and left as it is: the picture over the stage sliders stands in for
-         * this "i" in every build. It is only what the row falls back to without the picture
-         * (StageSliderRow in PlayerFrag).
+         * Texts left long because nothing shows them. Empty since 14 Nov 2026: stage_width_explain,
+         * the fallback for the picture over the stage sliders, was cut to two sentences with the rest.
          */
-        val NOT_SHOWN = setOf("stage_width_explain")
+        val NOT_SHOWN = emptySet<String>()
     }
 }

@@ -57,7 +57,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="spatial_audio_off">Off</string>
     <string name="spatial_audio_headphones">Headphones</string>
     <string name="spatial_audio_surround">Surround upmix</string>
-    <string name="spatial_audio_explain">\"Headphones\" does this in the app, so it works on any phone. \"Surround upmix\" asks your phone to do it, which only helps if your phone supports it.</string>
+    <string name="spatial_audio_explain">\"Headphones\" works on any phone. \"Surround upmix\" leaves it to your phone, and only some phones can do it.</string>
     <string name="spatial_strength" translatable="false">Strength</string>
     <string name="spatial_strength_value" translatable="false">%1$d%% of the effect</string>
     <string name="spatial_room" translatable="false">Room</string>
@@ -95,28 +95,28 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="spatial_bass_description" translatable="false">Low notes skip the effect and keep their weight.</string>
     <string name="stage_width">Stage width</string>
     <string name="stage_width_value">Speakers at %1$d degrees either side</string>
-    <string name="stage_width_explain">How far apart the two virtual speakers are. 30 degrees is what stereo is mixed for.\n\nWider separates the instruments more. Too wide leaves a gap in the middle.</string>
+    <string name="stage_width_explain">How far apart the two virtual speakers sit, with 30° sounding like normal stereo. Wider spreads the instruments out, and too wide leaves a hole in the middle.</string>
     <string name="head_tracking">Head tracking</string>
     <string name="head_tracking_description">The music stays where it is when you turn your head.</string>
     <string name="head_tracking_report_prompt">Your headphones have head tracking and this still says they do not? Tell me about it.</string>
     <string name="link_wiki">Wiki</string>
     <string name="link_report">Report it</string>
     <string name="head_tracking_none">No head tracker on this phone.</string>
-    <string name="head_tracking_explain">The music stays where it is when you turn your head.\n\nNeeds headphones that report which way they are facing, and a phone that passes it on. Most phones do not.</string>
+    <string name="head_tracking_explain">The music stays put when you turn your head. You need headphones that track your head, and most phones don\'t pass that on.</string>
     <string name="head_tracking_response">Tracking response</string>
     <string name="head_tracking_response_description">How quickly the sound reacts when you turn your head.</string>
     <string name="head_tracking_response_smooth">Smooth</string>
     <string name="head_tracking_response_balanced">Balanced</string>
     <string name="head_tracking_response_quick">Quick</string>
     <string name="head_tracking_response_instant">Instant</string>
-    <string name="head_tracking_response_explain">\"Smooth\" never overshoots but feels slightly behind. \"Quick\" and \"Instant\" feel immediate but can overshoot when you stop turning. \"Balanced\" sits between the two.</string>
+    <string name="head_tracking_response_explain">\"Smooth\" never overshoots but lags a little. \"Quick\" and \"Instant\" feel immediate but can overshoot when you stop. \"Balanced\" is in between.</string>
     <string name="proximity_volume">Quieter as you walk away</string>
     <string name="proximity_volume_description">Treats your phone as where the music is coming from.</string>
-    <string name="proximity_volume_explain">Walk away from your phone and the music slowly gets a little quieter, as if the phone were the speaker. It never mutes.\n\nNeeds Bluetooth headphones and Android\'s Nearby devices permission: distance is judged from their signal strength.</string>
+    <string name="proximity_volume_explain">Walk away from your phone and the music gets a little quieter, as if the phone were the speaker. It never goes silent.\n\nNeeds Bluetooth headphones and the Nearby devices permission, to tell the distance from their signal.</string>
     <string name="proximity_probe">Bluetooth signal log</string>
     <string name="proximity_probe_stop">Stop logging</string>
     <string name="proximity_probe_description">Check how well distance can be measured where you are.</string>
-    <string name="proximity_probe_explain">A 100 second test to check this works where you are. It reads each step out loud, so you can put the phone down and follow along.\n\nIf turning on the spot moves the signal as much as walking away does, distance cannot be measured here.</string>
+    <string name="proximity_probe_explain">A short test to see if this works where you are. It talks you through each step, so you can put the phone down and follow along.</string>
     <string name="proximity_probe_step">%1$s  (%2$d s left, %3$d readings)</string>
     <string name="proximity_step_still">Sit still, phone beside you.</string>
     <string name="proximity_step_turn">Stay where you are and turn slowly on the spot.</string>
@@ -126,7 +126,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="proximity_step_done">Finished. You can pick the phone up.</string>
     <string name="head_tracking_3d">Follow tilting too</string>
     <string name="head_tracking_3d_description">Looking up, down or sideways moves the sound as well.</string>
-    <string name="head_tracking_3d_explain">Looking up and down moves the sound too, not just turning.\n\nUses a bit more battery. The music stops for a moment each time you change this.</string>
+    <string name="head_tracking_3d_explain">Looking up and down moves the sound too, not just turning. It uses a bit more battery, and the music pauses for a moment when you change this.</string>
     <string name="head_tracking_recentre">Recentre</string>
     <string name="head_tracking_calibrate">Calibrate</string>
     <string name="head_tracking_calibrate_never">Not calibrated. Tap, then look straight ahead and keep still.</string>
@@ -135,13 +135,13 @@ while also allowing users to translate our app as well. New, specific strings to
         <item quantity="other">Keep still and look straight ahead. %1$d seconds left.</item>
     </plurals>
     <string name="head_tracking_calibrate_done">Correcting %1$.2f degrees per second of drift.</string>
-    <string name="head_tracking_calibrate_explain">Your headphones slowly lose track of which way is forward, so the music drifts to one side.\n\nSit still and look straight ahead for 30 seconds. It measures your drift and corrects it from then on.</string>
+    <string name="head_tracking_calibrate_explain">Headphones slowly lose track of where \"forward\" is, so the music drifts to one side. Sit still and look straight ahead for 30 seconds to fix it.</string>
     <string name="head_tracking_lead">Tracking lead</string>
-    <string name="head_tracking_lead_full_explain">How far ahead the sound aims, in milliseconds. It should match the delay to your ears, which depends on your Bluetooth codec.\n\nPlay something, turn your head, and drag until the sound stays put.</string>
+    <string name="head_tracking_lead_full_explain">How far ahead the sound aims, to make up for your headphones\' delay. Play something, turn your head and drag until the sound stays put.</string>
     <string name="head_tracking_lead_value">Aiming %1$d ms ahead</string>
     <string name="high_precision_audio">32-bit audio processing</string>
     <string name="high_precision_audio_description">Process volume and effects in 32-bit instead of 16-bit.</string>
-    <string name="high_precision_audio_explain">Volume normalisation changes every sample, and in 16-bit the result is rounded afterwards. 32-bit avoids that rounding. It costs some battery and the difference is small, so this is a preference.</string>
+    <string name="high_precision_audio_explain">Keeps a little more detail when songs\' loudness is evened out. It uses a bit more battery and the difference is small, so it\'s up to you.</string>
     <string name="import_engine_data">Load a copy</string>
     <string name="import_engine_data_description">Replaces what it has learned with a copy you saved, on this phone or another.</string>
     <string name="engine_data_export_done">Saved.</string>
@@ -165,7 +165,7 @@ while also allowing users to translate our app as well. New, specific strings to
     -->
     <string name="adaptive_queue">Keep radios up to date</string>
     <string name="adaptive_radio_description">Songs further down a radio change as you skip, finish and like.</string>
-    <string name="adaptive_queue_explain">Skip, finish or like a song and the rest of a radio follows: songs that stop fitting make way for new picks like the ones you kept. The next few songs stay put, and nothing moves while you look at the queue. Playlists and albums never change.</string>
+    <string name="adaptive_queue_explain">Skip, finish or like songs and the rest of a radio adjusts to match. The next few songs stay put, and playlists and albums never change.</string>
     <plurals name="adaptive_note_after_skip">
         <item quantity="one">%1$d new pick after your skip</item>
         <item quantity="other">%1$d new picks after your skip</item>
@@ -342,7 +342,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="media_control_buttons">Media control buttons</string>
     <string name="android_auto_missing">Not showing in your car?</string>
     <string name="android_auto_missing_body">Android Auto only lists apps that Google Play installed, so it hides InterTune. To bring it in: open Android Auto\'s settings on your phone and tap the Version line ten times. Then open Developer settings from the menu at the top and turn on Unknown sources.</string>
-    <string name="media_control_buttons_explain">Your phone shows two buttons next to previous, play and next: in the notification, on the lock screen and in the media panel. Tap two, in the order you want them.</string>
+    <string name="media_control_buttons_explain">Two extra buttons next to previous, play and next, in the notification and on the lock screen. Tap the two you want, in order.</string>
     <string name="media_control_repeat">Repeat</string>
     <string name="loudness_repair">Fix song volumes</string>
     <string name="loudness_repair_none">Looks up the right volume for songs that are missing it, so nothing suddenly blares out louder than the rest. All your songs already have it.</string>
@@ -375,7 +375,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="grp_polls">Questions and news</string>
     <string name="polls_enabled">Ask me the occasional question</string>
     <string name="polls_enabled_description">A short question on Home now and then, about what to build. Off by default.</string>
-    <string name="polls_enabled_info">Now and then InterTune downloads a short list of questions from GitHub and shows one at the top of Home. Answering sends the question, your choice and the app version; opening one for the first time sends its title and the app version. Never your account, your device or your library.</string>
+    <string name="polls_enabled_info">Now and then InterTune fetches a short question from GitHub and shows it on Home. Answering sends the question, your answer and the app version, and opening it sends its title and the app version. Never your account, device or library.</string>
     <string name="polls_none">No question right now</string>
     <string name="polls_one_waiting">There is a question waiting</string>
     <string name="news_one_waiting">There is news waiting</string>
@@ -401,7 +401,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="polls_opt_in_no">No thanks</string>
     <string name="news_enabled">News from InterTune</string>
     <string name="news_enabled_description">An announcement on Home now and then, like a new feature. Off by default.</string>
-    <string name="news_enabled_info">Now and then InterTune downloads a short list of announcements from GitHub and shows the newest at the top of Home. Opening one for the first time sends its title and the app version, to count readers. Never your account, your device or your library.</string>
+    <string name="news_enabled_info">Now and then InterTune fetches news from GitHub and shows it on Home. Opening one sends its title and the app version, to count readers. Never your account, device or library.</string>
     <string name="news_opt_in_title">Get news from InterTune?</string>
     <string name="news_opt_in_body">Now and then InterTune can show a short announcement at the top of Home, like a new feature or its Discord server. The first time you open one is counted anonymously. You can turn this off in Settings at any time.</string>
     <string name="news_opt_in_yes">Yes, show me</string>
@@ -461,7 +461,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <!-- Deliberately not called a crossfade: the two songs never play at the same time. -->
     <string name="transition_fade">Fade between tracks</string>
     <string name="transition_fade_description">Each song fades out, then the next one fades in. They do not overlap.</string>
-    <string name="transition_fade_explain">Each song fades out at its end and the next one fades in; they never overlap, so this is not a crossfade. Songs from the same album are not faded, and a song you choose yourself starts at full volume.</string>
+    <string name="transition_fade_explain">Each song fades out and the next fades in, without overlapping. Songs from the same album and songs you pick yourself aren\'t faded.</string>
     <string name="transition_fade_length">Fade length</string>
     <plurals name="transition_fade_length_value">
         <item quantity="one">%1$d second</item>
@@ -470,7 +470,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <!-- AutoMix, held back behind Unreleased.AUTOMIX: its words wait for a yes before translators. -->
     <string name="automix">AutoMix</string>
     <string name="automix_description">Blends each song into the next, like a DJ set.</string>
-    <string name="automix_explain">When a song ends by itself, the next one comes in under it, on the beat when both have a steady one. Songs you skip to, and songs from the same album, change as before.</string>
+    <string name="automix_explain">When a song ends, the next one comes in under it, on the beat when it can. Songs you skip to and songs from the same album change as usual.</string>
     <string name="transition_fade_automix_on">Not used while AutoMix is on.</string>
     <!-- Crossfade, held back behind Unreleased.CROSSFADE and from translators until the words are agreed. -->
     <string name="crossfade" translatable="false">Crossfade</string>
@@ -837,7 +837,7 @@ while also allowing users to translate our app as well. New, specific strings to
     </plurals>
     <string name="share_audio_focus">Let other apps play at the same time</string>
     <string name="share_audio_focus_description">Play music over another app\'s sound instead of stopping it.</string>
-    <string name="share_audio_focus_explain">With this on, InterTune and another app play at once.\n\nInterTune also stops lowering itself for navigation and alarms. Calls mute it either way.</string>
+    <string name="share_audio_focus_explain">InterTune keeps playing alongside other apps, and doesn\'t turn itself down for navigation or alarms. Calls still mute it.</string>
     <string name="resume_on_bluetooth">Resume when Bluetooth connects</string>
     <string name="resume_on_bluetooth_description">Music that stopped when your headphones, car or speaker disconnected plays again if Bluetooth audio connects within 30 minutes. Music you paused stays paused.</string>
     <string name="sleep_timer_notif_end_of_song">The music stops at the end of this song</string>
@@ -1065,11 +1065,11 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="walkthrough_settings_title">All of it is a setting</string>
     <string name="recognise_settings_description">What happens when you ask InterTune to name what is playing.</string>
     <string name="recognise_keep_listening_desc">The big button keeps going until you stop it, instead of naming one song and finishing. The cards on the screen pick for one run.</string>
-    <string name="recognise_keep_listening_explain">\"Keep listening\" carries on after the first song, adding each new one it hears, even with the screen off. It uses the microphone and the network the whole time, so it costs battery.</string>
+    <string name="recognise_keep_listening_explain">\"Keep listening\" doesn\'t stop after the first song and adds each new one it hears, even with the screen off. It uses the mic and data the whole time, so it costs battery.</string>
     <string name="recognise_pause_title">Pause my music while listening</string>
     <string name="recognise_pause_desc">Only when the sound is coming from the phone itself.</string>
     <string name="recognise_clear_history_desc">Forget the songs recognised so far.</string>
-    <string name="recognise_clear_history_explain">Empties \"What you have heard\" (the last 200 recognised songs) and this session\'s list, and stops any listening in progress. Nothing on it was in your library or history unless you saved it as a playlist.</string>
+    <string name="recognise_clear_history_explain">Clears \"What you have heard\" and stops any listening. Songs you saved as a playlist stay.</string>
     <string name="recognise_play">Play</string>
     <string name="recognise_save_as_playlist">Save as playlist</string>
     <!-- %1$s is the playlist's name. -->
@@ -1112,7 +1112,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="recognise_listen_seconds">How long to listen</string>
     <string name="recognise_seconds">%1$d seconds</string>
     <string name="recognise_auto_add">Add matches to the playlist</string>
-    <string name="recognise_auto_add_explain">While listening from a playlist, a song it is sure about is added without asking. Turn this off to be shown what it heard and choose yourself. Songs it is unsure about are never added either way.</string>
+    <string name="recognise_auto_add_explain">When listening from a playlist, songs it\'s sure about are added without asking. Turn this off to check each one first. Songs it\'s unsure about are never added.</string>
     <string name="recognise_auto_add_desc">Only while keeping listening, and only for confident matches</string>
     <string name="recognise_keep_awake">Keep the screen on while listening</string>
     <string name="recognise_keep_awake_desc">Listening continues with the screen off either way</string>
@@ -1136,7 +1136,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="recognition_service_none">Nothing added yet</string>
     <string name="discover_something_new">Discover something new</string>
     <string name="discover_row_description">A row under Quick picks of songs you have never played</string>
-    <string name="discover_row_info">Songs you have never played, picked the way \"Best recommendations\" picks them, from what you listen to. A song you skipped after a few seconds counts as played. Pull to refresh for other songs.</string>
+    <string name="discover_row_info">Songs you\'ve never played, picked from what you listen to. Pull down to get others.</string>
     <string name="recognition_service_none_heard">Nothing recognised yet</string>
     <string name="recognition_service_stop">Stop</string>
     <plurals name="recognition_service_added">
@@ -1247,7 +1247,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="spatial_audio_status_platform_off">The phone has its own spatial audio, switched off.</string>
     <string name="spatial_audio_status_platform_on">The phone has its own spatial audio, switched on.</string>
     <string name="spatial_audio_status_unreadable">Could not read: %1$s</string>
-    <string name="spatial_audio_status_explain">It says first whether InterTune can track your head on this phone, then whether the phone has spatial audio of its own. The phone\'s own is what \"Surround upmix\" relies on. Head tracking does not need it.</string>
+    <string name="spatial_audio_status_explain">First, whether InterTune can follow your head on this phone. Then, whether the phone has spatial audio of its own: \"Surround upmix\" needs it.</string>
     <string name="spatial_audio_needs_13">Needs Android 13 or later.</string>
     <string name="recommendations">Recommendations</string>
     <string name="queue_learn_off">Don\'t learn from this</string>
@@ -1692,27 +1692,27 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="widget_look_records">Records</string>
 
 <!-- Recommendations: the little "i" beside an item, and what it opens -->
-    <string name="tidy_home_rows_info">No Home row shows a song an earlier row already has, and versions of one song (live, remastered, video) count as the same. Nothing fills a gap, so a row can come up short. Off, your exclusions only filter the \"Best recommendations\" row.</string>
-    <string name="rank_with_listening_info">Puts the \"Quick picks\" row in an order that suits you: songs you play often, played lately or liked tend to come first. Nothing is added or removed. It leaves the row alone when \"Best recommendations\" or \"Try both\" fills it.</string>
-    <string name="recommendations_engine_title_info">The row is twenty cards: songs related to what you play, songs you keep coming back to, more from your artists, old favourites gone quiet, and a few new to you. These settings apply while \"Quick picks source\" is \"Best recommendations\" or \"Try both\". Pull down on Home to see a change.</string>
-    <string name="similar_source_info">Where \"Best recommendations\" and \"Discover something new\" find songs like the ones you play. With \"Both\" or \"Last.fm only\", the title and artist of songs you play or have liked go to Last.fm, nothing else and no account. \"YouTube only\" sends Last.fm nothing.</string>
-    <string name="new_songs_only_info">The whole row goes to songs you have not heard past about halfway; one you skipped early still counts as new. \"Adventurousness\" and \"Familiarity\" stop mattering while it is on. The row can come up short, and \"Quick picks\" then shows another source.</string>
-    <string name="show_reasons_info">Each card says the main reason it is there: a song it goes with, an artist you play, a like, or that it is new to you. A wildcard is a card picked at random to keep the row fresh.</string>
-    <string name="exclusions_info">Long-press a card in \"Quick picks\" for \"Not this song\", \"Less of this artist\" (for a month) or \"Never this artist\". They only filter the recommendation rows, never search, your library or playlists. This page lists what is in force, and \"Lift\" removes one.</string>
-    <string name="rest_songs_i_skip_info">Skip a song you like or play often before its halfway point, and it stays out of the \"Best recommendations\" row for a week. A skip in the first thirty seconds does not count. You can lift a rest early on the \"Exclusions\" page.</string>
-    <string name="recommendations_doing_info">Worked out on this phone from your own listening, and nothing leaves it unless you save a copy under \"Your data\". Give it a few weeks before you read much into the numbers.</string>
-    <string name="recommendations_summary_info">\"Seen\" means a card was on screen for half a second, or you tapped it. \"Played\" means you heard a good part of that song, or liked it. A card you did not tap is judged a day later, so the newest are not counted yet.</string>
-    <string name="learn_from_listening_info">\"Best recommendations\" learns from what you play and skip among the cards it shows you. Off, it stops learning; History and Stats carry on as before. It all happens on this phone.</string>
-    <string name="shadow_comparison_info">The unseen row is built when Home opens and is never shown. A day later it is checked against what you went on to play; it teaches \"Best recommendations\" nothing. Off, the unseen line on this page stops filling in.</string>
-    <string name="recommendations_brier_info">Every card it shows carries its guess at how likely you are to play it. The lines under the first group the cards by the chance it gave them.</string>
-    <string name="recommendations_reset_weights_info">It goes back to how it started, as if it had learned nothing. Your listens, exclusions and settings are kept, and \"Rebuild what it learned\" brings the learning back. It asks first.</string>
-    <string name="forget_today_info">Every play started since midnight stops teaching, and what it learned is worked out again without them. It asks first, saying how many listens. A song that began before midnight belongs to yesterday and stays.</string>
-    <string name="engine_developer_info">The engine\'s constants, each with its default: a number overrides one, an empty field restores it. They change the \"Best recommendations\" row only, not what it learns. Pull down on Home to see a change.</string>
-    <string name="export_engine_data_info">Saves what it has learned as a file of numbers, where you choose. No song titles, artists or play counts, and nothing about your account or phone; the only date in it is when the file was saved. Nothing is uploaded.</string>
-    <string name="recommendations_learned_title_info">Everything below is kept in the app on this phone and never uploaded. A backup includes it. Under \"Privacy and history\", \"Pause listen history\" stops it being written and \"Clear listen history\" deletes it.</string>
-    <string name="recommendations_where_from_info">Each place counts the times you started playing from there; the songs that play on after are not counted again. A song you chose yourself teaches it more than one that just played on, and a search counts most. \"Not recorded\" means the app did not note where it began.</string>
-    <string name="recommendations_recent_title_info">The last thirty listens it learns from, newest first. Each line says how the play ended, how much of the song you heard and where it was started from. \"Not learned from\" means you told it to forget that listen, or it played from a queue set to \"Don\'t learn from this\".</string>
-    <string name="context_chips_info">The first chip is your usual row. The others lean it until you change back: \"Discover\" toward songs new to you, \"Favourites\" toward songs you liked, \"Focus\", \"Chill\" and \"Party\" toward what you play while each is on. The last chip works on its own, with any of them.</string>
+    <string name="tidy_home_rows_info">A song shows once on Home, not in two rows, and versions of a song (live, remix, video) count as one. Rows can come up a bit short.</string>
+    <string name="rank_with_listening_info">Puts \"Quick picks\" in an order that suits you: songs you play often, lately or liked come first. Nothing is added or removed.</string>
+    <string name="recommendations_engine_title_info">Songs like what you play, favourites old and new, more from your artists and a few surprises. Pull down on Home to see a change.</string>
+    <string name="similar_source_info">Where to look for songs like yours. With \"Both\" or \"Last.fm only\", the title and artist of songs you play or like go to Last.fm, with no account. \"YouTube only\" sends Last.fm nothing.</string>
+    <string name="new_songs_only_info">Fills the whole row with songs you haven\'t really heard yet. The row can come up short, and then \"Quick picks\" uses another source.</string>
+    <string name="show_reasons_info">Each card says why it\'s there: a song it goes with, an artist you play, a like, or that it\'s new to you. A wildcard is picked at random to keep things fresh.</string>
+    <string name="exclusions_info">Long-press a card in \"Quick picks\" to hide a song, or an artist for a month or for good. This only affects recommendations, never search, your library or playlists. Lift one here to undo it.</string>
+    <string name="rest_songs_i_skip_info">Skip a favourite early and it sits out of \"Best recommendations\" for a week. You can bring it back early from \"Exclusions\".</string>
+    <string name="recommendations_doing_info">Worked out on this phone from your listening, and nothing leaves it unless you save a copy. Give it a few weeks before trusting the numbers.</string>
+    <string name="recommendations_summary_info">\"Seen\" means a card showed on screen. \"Played\" means you heard a good part of the song or liked it. The newest cards are counted a day later.</string>
+    <string name="learn_from_listening_info">\"Best recommendations\" learns from what you play and skip. Turn it off and it stops learning, while History and Stats keep going. It all stays on this phone.</string>
+    <string name="shadow_comparison_info">A hidden row is built in the background and checked a day later against what you actually played. It\'s only there to measure how well things work.</string>
+    <string name="recommendations_brier_info">Each card guesses how likely you are to play it. The lines below group the cards by that guess.</string>
+    <string name="recommendations_reset_weights_info">Starts learning over, as if from scratch. Your listens, exclusions and settings stay, and \"Rebuild what it learned\" can bring it back. It asks first.</string>
+    <string name="forget_today_info">Today\'s plays stop counting toward what it learns. It asks first and says how many.</string>
+    <string name="engine_developer_info">The engine\'s numbers, each with its default. Type a value to change one, clear it to reset. Pull down on Home to see the effect.</string>
+    <string name="export_engine_data_info">Saves what it learned as a file of numbers, wherever you choose. It has no titles, artists, play counts or account details, only the date it was saved, and nothing is uploaded.</string>
+    <string name="recommendations_learned_title_info">This stays in the app on this phone and is never uploaded, though backups include it. \"Pause listen history\" stops it and \"Clear listen history\" deletes it, both under \"Privacy and history\".</string>
+    <string name="recommendations_where_from_info">How often you started playing from each place. A song you picked yourself counts more than one that just played on, and a search counts most. \"Not recorded\" means the app didn\'t note where.</string>
+    <string name="recommendations_recent_title_info">The last listens it learned from, newest first: how each ended, how much you heard and where it started. \"Not learned from\" means you asked it to forget that one, or its queue was set not to teach it.</string>
+    <string name="context_chips_info">The first chip is your usual row. The others steer it until you switch back: \"Discover\" to new songs, \"Favourites\" to ones you liked, \"Focus\", \"Chill\" and \"Party\" to what you play in that mood. The last chip works with any of them.</string>
     <string name="context_chips">Quick picks chips</string>
     <string name="explain_what_this_does">What %1$s does</string>
     <string name="explain_close">Close</string>
@@ -1970,7 +1970,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="quick_picks_lean_set_aside_chip">The %1$s chip on Home takes over while it is on.</string>
     <string name="quick_picks_lean_set_aside_new_only">New songs only takes over while it is on.</string>
     <string name="quick_picks_lean_new_only_strict">With New songs only on, Best recommendations picks only songs you have never even started, as long as there are enough.</string>
-    <string name="quick_picks_lean_info">\"Auto\" is the usual mix, from what \"Best recommendations\" has learned. Each other choice gives one kind of song most of its cards. \"Songs that fit what I am playing now\" also rebuilds \"Quick picks\" once you have listened to a few songs from elsewhere.</string>
+    <string name="quick_picks_lean_info">\"Auto\" is the usual mix, and the other choices give most of the row to one kind of song. \"Songs that fit what I am playing now\" also updates as you listen.</string>
     <string name="quick_picks_leaning_new">Leaning toward songs you have never heard</string>
     <string name="quick_picks_leaning_artist">Leaning toward artists you keep coming back to</string>
     <string name="quick_picks_leaning_forgotten">Leaning toward things you loved and forgot about</string>
@@ -2129,7 +2129,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="ai_filter_recommendations" translatable="false">Hide from recommendations</string>
     <string name="ai_filter_everywhere" translatable="false">Block everywhere</string>
     <string name="ai_filter_note" translatable="false">Uses a hand-made list of AI artists: CevvalKoala\'s YouTube blocklist and a few known AI acts. It can be wrong, so long-press an artist to mark it AI or not.</string>
-    <string name="ai_filter_explain" translatable="false">\"Hide from recommendations\" keeps AI songs out of Home, \"Quick picks\", radios and autoplay. \"Block everywhere\" also hides them in search and skips any that reach the queue. Songs in your library and playlists you made are never touched.</string>
+    <string name="ai_filter_explain" translatable="false">\"Hide from recommendations\" keeps AI songs off Home, radios and autoplay. \"Block everywhere\" also hides them in search and skips them in the queue. Your library and your own playlists are never touched.</string>
     <string name="ai_filter_mark_ai" translatable="false">Mark as AI</string>
     <string name="ai_filter_not_ai" translatable="false">Not AI</string>
     <plurals name="ai_filter_hidden" translatable="false">
@@ -2162,7 +2162,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <!-- The sleep timer on a schedule, under the sleep timer's fade in Player and audio (SleepScheduleFrag, ScheduledSleep). -->
     <string name="sleep_schedule">Sleep timer on a schedule</string>
     <string name="sleep_schedule_description">Every day from %1$s, the sleep timer starts by itself for %2$s.</string>
-    <string name="sleep_schedule_explain">It starts at that time if music is playing, or when music starts in the 3 hours after. Only once a day: a sleep timer you set yourself counts as that day\'s, and after the timer, music you put on again plays on.</string>
+    <string name="sleep_schedule_explain">Starts at that time if music is playing, or when music starts in the few hours after. Once a day at most, and a timer you set yourself counts as that day\'s.</string>
     <string name="sleep_schedule_start">Starts at</string>
     <string name="sleep_schedule_length">Timer length</string>
     <string name="time_of_day_type">Type the time</string>
@@ -2254,7 +2254,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="battery_use_full_description">Everything as you set it.</string>
     <string name="battery_use_balanced_description">Your library syncs every two hours instead of every half hour, and the playing bars move more calmly.</string>
     <string name="battery_use_saver_description">Sound effects off except the equalizer, a black theme, fewer frames a second and, on Auto, Low quality on mobile data. Syncs and downloads wait for Wi-Fi.</string>
-    <string name="battery_use_explain">How much InterTune does while you listen. \"Balanced\" syncs your library less often and calms the playing bars. \"Saver\" also turns sound effects off except the equalizer, shows a black theme at fewer frames a second and, with Audio quality on Auto, streams at Low quality on mobile data.</string>
+    <string name="battery_use_explain">\"Balanced\" syncs your library less often and calms the animations. \"Saver\" also turns off sound effects except the equalizer, uses a black theme and, with Auto quality, streams at Low on mobile data.</string>
     <string name="battery_saver_holds_note">Set by \"Battery use\" while it is on \"Saver\".</string>
     <string name="battery_saver_quality_note">Low on mobile data while \"Battery use\" is on \"Saver\".</string>
     <string name="battery_saver_background_note">%1$s while \"Battery use\" is on \"Saver\".</string>
@@ -2727,10 +2727,10 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="together_name_setting">Your name in rooms</string>
     <string name="together_tolerance">Allowed gap</string>
     <string name="together_tolerance_value">%1$d ms</string>
-    <string name="together_tolerance_explain">Once in step, the phones are left alone until they drift further apart than this. Lower keeps them closer, higher corrects less often.</string>
+    <string name="together_tolerance_explain">How far the phones can drift apart before they\'re nudged back. Lower keeps them tighter, higher corrects less often.</string>
     <string name="together_catch_up_speed">Catch-up speed</string>
     <string name="together_catch_up_value">Up to %1$d%% faster or slower</string>
-    <string name="together_catch_up_explain">How much a phone speeds up or slows down to get back in step. Higher is quicker, but easier to hear.</string>
+    <string name="together_catch_up_explain">How much a phone speeds up or slows down to catch up. Higher is quicker but easier to hear.</string>
     <string name="together_delay">Sound delay on this phone</string>
     <string name="together_delay_value">%1$d ms</string>
     <string name="together_delay_explain">Bluetooth headphones and speakers play late. Set how late, and this phone makes up for it in rooms.</string>
