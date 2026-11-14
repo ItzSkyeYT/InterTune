@@ -304,6 +304,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="tab_arrangement_disable_tip">--- Drag below here to disable ---</string>
     <string name="tab_arrangement_home_required">The Home tab is required.</string>
     <string name="tablet_ui_title">Force tablet UI</string>
+    <string name="tablet_ui_title_description">Enable a landscape interface that is optimized for larger screens regardless of the current screen size</string>
     <string name="filter_arrangement">Arrange filters</string>
 
 <!-- Content settings -->
@@ -450,6 +451,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="audio_offload">Enable offload</string>
     <string name="audio_offload_description">Can save battery, but may cause playback glitches on some phones.</string>
     <string name="keep_alive_title">Prevent system killing app</string>
+    <string name="keep_alive_description">Use a persistent foreground service to prevent InterTune from being closed in the background</string>
     <string name="persistent_queue_desc_ot">Restore previous open queue(s) when the app starts</string>
     <string name="min_playback_duration">Minimum playback duration</string>
     <string name="min_playback_duration_description">How much of a song has to play to count as a play, for play counts, the most played and your YouTube history. History still lists everything you hear.</string>
@@ -485,6 +487,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="lyrics_multiline_title">Read multiline lyrics</string>
     <string name="lyrics_multiline_description">Treat all the lines between sync points as one lyric text</string>
     <string name="lyrics_prefer_local">Prefer local lyric files</string>
+    <string name="lyrics_prefer_local_description">Prioritize resolving local lyric files before using all cloud providers. Turn this off to prioritize cloud providers</string>
     <string name="lyrics_settings_title">Lyrics</string>
     <string name="lyrics_synced_clickable">Clickable lyrics</string>
     <string name="lyrics_trim_title">Remove spaces around lyrics</string>
@@ -584,6 +587,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="player_glass_preview_needs_13">A live preview of the glass needs Android 13 or later</string>
     <string name="player_glass_preview_side_navigation">A live preview of the glass is not available with the side navigation</string>
     <string name="sleep_timer_fade">Fade out before stopping</string>
+    <string name="sleep_timer_fade_description">Ease the volume down as the sleep timer runs out, instead of cutting off abruptly</string>
     <string name="sleep_timer_fade_duration">Fade length</string>
     <string name="sleep_timer_fade_duration_description">How long the fade out lasts before the sleep timer stops playback</string>
     <string name="sleep_timer_fade_duration_value">%1$d seconds</string>
@@ -643,8 +647,10 @@ while also allowing users to translate our app as well. New, specific strings to
 
 <!-- Experimental settings -->
     <string name="dev_settings_title">Enable developer settings</string>
+    <string name="dev_settings_description">Reveals additional advanced settings intended for development use</string>
 
     <string name="swipe_to_skip_title">Swipe horizontally to change song</string>
+    <string name="swipe_to_skip_description">Enable swiping horizontally in the player to switch songs</string>
 
     <string name="max_queues_title">Maximum number of queues</string>
 
@@ -795,11 +801,14 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="image_cache_max_size">Maximum artwork cache size</string>
     <string name="max_queues_description">How many queues to keep. The oldest goes when you pass this.</string>
     <string name="enable_proxy_description">Sends everything the app fetches through another server, pictures and lyrics included. Leave it off unless you know you need it.</string>
+    <string name="show_liked_and_downloaded_playlist_description">Show Liked songs and Downloaded songs as playlists in your library.</string>
 
     <!-- Descriptions for rows whose titles alone did not say what they do -->
     <string name="pause_listen_history_description">Stop adding songs to your history. Nothing already in it is removed.</string>
     <string name="pause_remote_listen_history_description">Stop telling YouTube Music what you play. Your history in the app carries on.</string>
     <string name="clear_listen_history_description">Delete everything the app has recorded about what you have played.</string>
+    <string name="pause_search_history_description">Stop saving what you search for.</string>
+    <string name="clear_search_history_description">Delete every search the app has saved.</string>
     <string name="sync_params_description">\"Read write\" lets the app change your YouTube Music likes, library and playlists. \"Overwrite\" removes from this phone anything that isn\'t in your account.</string>
     <string name="enable_lrclib_description">Look for lyrics on LRCLIB, a free community lyrics database.</string>
     <string name="enable_kugou_description">Look for lyrics on KuGou. Its collection is large, and strongest for Chinese music.</string>
@@ -816,6 +825,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="lyrics_source_kugou">KuGou</string>
     <string name="lyrics_source_move">Move %1$s</string>
     <string name="audio_normalization_description">Evens out the volume so no song is suddenly much louder.</string>
+    <string name="skip_silence_description">Skip silent gaps at the start and end of a track.</string>
     <string name="stop_music_on_task_clear_description">Stop the music when you swipe the app away from your recent apps.</string>
     <string name="enable_dynamic_theme_description">Take the app\'s colours from the cover of the song that is playing. Off, or with nothing playing, it uses your phone\'s own colours (Android 12 and newer).</string>
     <string name="pure_black_description">True black instead of dark grey. On OLED screens it saves a little battery.</string>
@@ -826,6 +836,7 @@ while also allowing users to translate our app as well. New, specific strings to
         <item quantity="other">Recommendations, downloads and sync are on hold for about %1$d minutes. Songs you tap still try to play.</item>
     </plurals>
     <string name="share_audio_focus">Let other apps play at the same time</string>
+    <string name="share_audio_focus_description">Play music over another app\'s sound instead of stopping it.</string>
     <string name="share_audio_focus_explain">InterTune keeps playing alongside other apps, and doesn\'t turn itself down for navigation or alarms. Calls still mute it.</string>
     <string name="resume_on_bluetooth">Resume when Bluetooth connects</string>
     <string name="resume_on_bluetooth_description">Music that stopped when Bluetooth disconnected plays again if it reconnects soon after. Music you paused stays paused.</string>
@@ -2181,6 +2192,10 @@ while also allowing users to translate our app as well. New, specific strings to
         <item quantity="one">%1$d line, %2$s</item>
         <item quantity="other">%1$d lines, %2$s</item>
     </plurals>
+    <plurals name="lyrics_pick_most_video">
+        <item quantity="one">A picture takes %1$d line, a video a minute of the song</item>
+        <item quantity="other">A picture takes up to %1$d lines, a video a minute of the song</item>
+    </plurals>
     <!-- %1$d is the most lines a picture takes, %2$d the most minutes of the song a video takes. -->
     <plurals name="lyrics_pick_most_video_minutes">
         <item quantity="one">A picture takes %1$d line, a video %2$d minutes of the song</item>
@@ -2215,6 +2230,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="update_wait_show_window">Show Android\'s window again</string>
     <string name="update_wait_stop">Stop</string>
     <string name="queue_back_closes_player">Back from the queue closes the player</string>
+    <string name="queue_back_closes_player_description">Back from the queue takes you straight to the screen under the player. The player then opens on the queue if that is where you left it.</string>
     <string name="lyrics_auto_scroll">Follow the song</string>
     <string name="lyrics_auto_scroll_description">The lyrics scroll to the line being sung. Off, they stay where you leave them.</string>
     <!-- Lyrics timing, in the menu of synced lyrics, and its bar (LyricsTimingBar). %1$s is a number of seconds such as 0.4. -->

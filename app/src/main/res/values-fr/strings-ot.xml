@@ -79,9 +79,11 @@
     <string name="slim_navbar_description">Supprimer les étiquettes de texte pour réduire la hauteur de la barre de navigation</string>
     <string name="show_liked_and_downloaded_playlist">Afficher les playlists des titres appréciés et téléchargés dans la bibliothèque</string>
     <string name="keep_alive_title">Empêcher le système de tuer l\'application</string>
+    <string name="lyrics_prefer_local_description">Donnez la priorité à la résolution des fichiers de paroles locaux avant d\'utiliser tous les fournisseurs de cloud. Désactivez cette option pour donner la priorité aux fournisseurs de cloud</string>
     <string name="persistent_queue_desc_ot">Restaurer les précédentes files d\'attente ouvertes au démarrage de l\'application</string>
     <string name="lyrics_multiline_title">Lire les paroles sur plusieurs lignes</string>
     <string name="m3u_import_playlist">Importer une playlist (m3u)</string>
+    <string name="keep_alive_description">Utilisez un service de premier plan persistant pour empêcher la fermeture d\'InterTune en arrière-plan</string>
     <string name="lyrics_multiline_description">Traitez toutes les lignes entre les points de synchronisation comme un seul texte lyrique</string>
     <string name="lyrics_trim_title">Supprimer les espaces autour des paroles</string>
     <string name="local_library_enable_description">La désactivation masquera la bibliothèque locale de l\'application</string>
@@ -98,6 +100,7 @@
     <string name="scanner_type_taglib">Utiliser l’extracteur de métadonnées intégré TagLib</string>
     <string name="scanner_type_ffmpeg_ext">Utilisez l\'extracteur de métadonnées FFmpeg. Veuillez utiliser uniquement la version complète de l\'application. La version « Core » pourrait entraîner des problèmes de suivi des titres.</string>
     <string name="scanner_strict_file_name_title">Noms de fichiers stricts</string>
+    <string name="dev_settings_description">Révèle des paramètres avancés supplémentaires destinés à une utilisation en développement</string>
     <string name="sync_progress_active">Synchronisation avec le compte YouTube…</string>
     <string name="sync_progress_success">Synchronisation terminée</string>
     <string name="tab_arrangement_home_required">L\'onglet Accueil est obligatoire.</string>
@@ -144,6 +147,7 @@
     <string name="queues_title">Files d\'attente</string>
     <string name="pause_remote_listen_history">Partager l\'historique d\'écoute avec YouTube Music</string>
     <string name="swipe_to_skip_title">Balayer horizontalement pour changer de titre</string>
+    <string name="swipe_to_skip_description">Activer le balayage horizontal dans le lecteur pour changer de titre</string>
     <string name="filter_arrangement">Organiser les filtres</string>
     <string name="restart_to_apply_changes">Redémarrez l\'application afin que les modifications prennent effet</string>
     <string name="android_auto">Android Auto</string>
@@ -174,6 +178,7 @@
     <string name="speed_fast">Rapide</string>
     <string name="lyrics_karaoke_description">Chaque mot s\'allume quand il est chanté, si les paroles sont minutées mot par mot.</string>
     <string name="m3u_ytm_lookup">Rechercher sur YouTube Music des titres non trouvées dans la base de données de l\'application</string>
+    <string name="tablet_ui_title_description">Activer une interface paysage optimisée pour les écrans plus grands, quelle que soit la taille actuelle de l\'écran</string>
     <string name="attribution_title">Attribution</string>
     <string name="high_contrast">Compatibilité avec le mode contraste élevé</string>
     <string name="high_contrast_description">Activez pour corriger certains défauts d\'affichage quand le mode contraste élevé d\'Android est actif</string>
@@ -320,6 +325,7 @@
     <string name="player_liquid_glass_description">Des panneaux de verre flottants pour la barre de navigation, le mini lecteur et les commandes, avec des couleurs plus riches derrière le lecteur.</string>
     <string name="player_liquid_glass_description_legacy">Des couleurs de pochette plus riches derrière l\'écran de lecture, et les onglets et le mini-lecteur flottent comme un dock. Le verre lui-même nécessite Android 13 ou plus récent</string>
     <string name="sleep_timer_fade">Fondu avant l\'arrêt</string>
+    <string name="sleep_timer_fade_description">Baisse doucement le volume à la fin de la minuterie de sommeil, au lieu de couper net</string>
     <string name="sleep_timer_fade_duration">Durée du fondu</string>
     <string name="sleep_timer_fade_duration_description">Durée du fondu avant que la minuterie de sommeil arrête la lecture</string>
     <string name="sleep_timer_fade_duration_value">%1$d secondes</string>
@@ -427,9 +433,12 @@
     <string name="image_cache_max_size">Taille maximale du cache des pochettes</string>
     <string name="max_queues_description">Combien de files garder. La plus ancienne part au-delà.</string>
     <string name="enable_proxy_description">Fait passer tout ce que l\'application récupère par un autre serveur, images et paroles comprises. Laissez désactivé sauf si vous en avez besoin.</string>
+    <string name="show_liked_and_downloaded_playlist_description">Afficher Titres aimés et Titres téléchargés comme des playlists dans votre bibliothèque.</string>
     <string name="pause_listen_history_description">Ne plus ajouter de morceaux à votre historique. Rien de ce qui s\'y trouve déjà n\'est supprimé.</string>
     <string name="pause_remote_listen_history_description">Ne plus dire à YouTube Music ce que vous écoutez. L\'historique de l\'application continue.</string>
     <string name="clear_listen_history_description">Supprimer tout ce que l\'application a enregistré sur ce que vous avez écouté.</string>
+    <string name="pause_search_history_description">Ne plus enregistrer ce que vous recherchez.</string>
+    <string name="clear_search_history_description">Supprimer toutes les recherches enregistrées par l\'application.</string>
     <string name="sync_params_description">« Lecture / Écriture » permet à l\'application de modifier vos j\'aime, votre bibliothèque et vos playlists YouTube Music. « Remplacer le contenu local » retire de ce téléphone ce qui n\'est pas dans votre compte.</string>
     <string name="enable_lrclib_description">Chercher les paroles sur LRCLIB, une base de paroles communautaire et gratuite.</string>
     <string name="enable_kugou_description">Chercher les paroles sur KuGou. Son catalogue est vaste et particulièrement riche en musique chinoise.</string>
@@ -445,6 +454,7 @@
     <string name="lyrics_source_kugou">KuGou</string>
     <string name="lyrics_source_move">Déplacer %1$s</string>
     <string name="audio_normalization_description">Égalise le volume pour qu\'aucun titre ne soit soudain beaucoup plus fort.</string>
+    <string name="skip_silence_description">Passer les blancs au début et à la fin d\'un morceau.</string>
     <string name="stop_music_on_task_clear_description">Arrêter la musique quand vous balayez l\'application hors des applications récentes.</string>
     <string name="enable_dynamic_theme_description">Reprendre les couleurs de l\'application depuis la pochette du titre en cours de lecture. Désactivé, ou sans lecture, elle utilise les couleurs de votre téléphone (Android 12 ou plus récent).</string>
     <string name="pure_black_description">Du vrai noir au lieu du gris foncé. Sur écran OLED, cela économise un peu de batterie.</string>
@@ -650,6 +660,7 @@
         <item quantity="other">Les recommandations, les téléchargements et la synchronisation sont en pause pendant environ %1$d minutes. Toucher un titre tente quand même de le lire.</item>
     </plurals>
     <string name="share_audio_focus">Laisser d\'autres applications jouer en même temps</string>
+    <string name="share_audio_focus_description">Lire la musique par-dessus le son d\'une autre application au lieu de l\'arrêter.</string>
     <string name="share_audio_focus_explain">InterTune continue de jouer en même temps que les autres applications, et ne baisse plus pour la navigation ou les alarmes. Les appels le coupent toujours.</string>
     <string name="resume_on_bluetooth">Reprendre à la connexion Bluetooth</string>
     <string name="resume_on_bluetooth_description">La musique coupée par une déconnexion Bluetooth reprend si l\'appareil se reconnecte peu après. Celle que vous mettez en pause reste en pause.</string>
@@ -1964,6 +1975,11 @@
         <item quantity="many">%1$d lignes, %2$s</item>
         <item quantity="other">%1$d lignes, %2$s</item>
     </plurals>
+    <plurals name="lyrics_pick_most_video">
+        <item quantity="one">Une image prend %1$d ligne, une vidéo une minute de la chanson</item>
+        <item quantity="many">Une image prend %1$d lignes au plus, une vidéo une minute de la chanson</item>
+        <item quantity="other">Une image prend %1$d lignes au plus, une vidéo une minute de la chanson</item>
+    </plurals>
     <plurals name="lyrics_pick_most_video_minutes">
         <item quantity="one">Une image prend %1$d ligne, une vidéo %2$d minutes de la chanson</item>
         <item quantity="many">Une image prend %1$d lignes au plus, une vidéo %2$d minutes de la chanson</item>
@@ -2024,6 +2040,7 @@
     <string name="update_wait_show_window">Rouvrir la fenêtre d\'Android</string>
     <string name="update_wait_stop">Arrêter</string>
     <string name="queue_back_closes_player">Le retour depuis la file d\'attente ferme le lecteur</string>
+    <string name="queue_back_closes_player_description">Le retour depuis la file d\'attente ramène directement à l\'écran sous le lecteur. Le lecteur se rouvre ensuite sur la file d\'attente si c\'est là que vous l\'avez laissé.</string>
     <string name="lyrics_auto_scroll">Suivre la chanson</string>
     <string name="lyrics_auto_scroll_description">Les paroles défilent jusqu\'à la ligne chantée. Désactivé, elles restent là où vous les laissez.</string>
     <!-- Lyrics timing, in the menu of synced lyrics, and its bar (LyricsTimingBar). %1$s is a number of seconds such as 0.4. -->
