@@ -2661,4 +2661,7 @@
         <item quantity="many">%d titres téléchargés, gardés dans l\'application</item>
         <item quantity="other">%d titres téléchargés, gardés dans l\'application</item>
     </plurals>
+    <string name="open_file_location" translatable="false">Ouvrir l\'emplacement</string>
+    <string name="open_file_location_failed" translatable="false">Impossible d\'ouvrir le dossier</string>
+    <string name="no_artist_found" translatable="false">Aucun artiste trouvé</string>
 </resources>

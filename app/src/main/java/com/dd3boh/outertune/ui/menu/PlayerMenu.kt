@@ -36,6 +36,7 @@ import androidx.compose.material.icons.rounded.LibraryAdd
 import androidx.compose.material.icons.rounded.LibraryAddCheck
 import androidx.compose.material.icons.rounded.Lyrics
 import androidx.compose.material.icons.rounded.FilterCenterFocus
+import androidx.compose.material.icons.rounded.FolderOpen
 import androidx.compose.material.icons.rounded.Radio
 import androidx.compose.material.icons.rounded.RemoveCircleOutline
 import androidx.compose.material.icons.rounded.Share
@@ -344,6 +345,13 @@ fun PlayerMenu(
                     showSelectArtistDialog = true
                 }
             }
+        } else {
+            // No artist to go to: the entry stays, greyed out, and says so (#150).
+            GridMenuItem(
+                icon = R.drawable.artist,
+                title = R.string.no_artist_found,
+                enabled = false
+            ) {}
         }
         if (mediaMetadata.album != null && !mediaMetadata.isLocal) {
             GridMenuItem(
@@ -363,6 +371,15 @@ fun PlayerMenu(
             ) {
                 ActivityLog.note(context, database, mediaMetadata.id, SignalKind.SHARE)
                 shareLink(ShareLinks.song(mediaMetadata.id, mediaMetadata.title, mediaMetadata.artists.map { it.name }, mediaMetadata.duration, mediaMetadata.album != null), onDismiss)
+            }
+        // A local file's folder, in the file manager (#150).
+        if (mediaMetadata.isLocal && !mediaMetadata.localPath.isNullOrBlank())
+            GridMenuItem(
+                icon = Icons.Rounded.FolderOpen,
+                title = R.string.open_file_location
+            ) {
+                OpenFileLocation.open(context, mediaMetadata.localPath)
+                onDismiss()
             }
         GridMenuItem(
             icon = Icons.Rounded.Lyrics,
