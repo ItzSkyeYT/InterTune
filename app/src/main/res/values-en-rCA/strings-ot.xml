@@ -48,11 +48,11 @@
     <string name="liked_autodownload_running">Downloading %1$d of %2$d. Tap to stop.</string>
     <string name="liked_autodownload_stopped">Stopped. %1$d downloaded, the rest were cancelled.</string>
     <string name="loudness_repair">Fix song volumes</string>
-    <string name="loudness_repair_available">Looks up the right volume for songs that are missing it, so nothing suddenly blares out louder than the rest. %1$d songs still need it. Tap to start.</string>
+    <string name="loudness_repair_available">Finds the right volume for songs missing it, so none blares out louder. %1$d songs still need it. Tap to start.</string>
     <string name="loudness_repair_blocked">Stopped after several failures in a row, which usually means YouTube wants a break. Fixed %1$d. Try again in a little while.</string>
     <string name="loudness_repair_done">Done. Fixed %1$d songs, they now play at the same volume as everything else.</string>
     <string name="loudness_repair_done_partial">Fixed %1$d songs. %2$d have no volume information on YouTube and were left alone.</string>
-    <string name="loudness_repair_none">Looks up the right volume for songs that are missing it, so nothing suddenly blares out louder than the rest. All your songs already have it.</string>
+    <string name="loudness_repair_none">All your songs already have the right volume.</string>
     <string name="loudness_repair_offline">Needs an internet connection to look up song volumes.</string>
     <string name="loudness_repair_running">Checking song %1$d of %2$d, fixed %3$d so far. Tap to stop.</string>
     <string name="loudness_repair_stopped">Stopped. Fixed %1$d songs, the rest are still to do. Tap to carry on.</string>
@@ -124,7 +124,7 @@
     <string name="stop_music_on_task_clear_description">Stop the music when you swipe the app away from your recent apps.</string>
     <string name="enable_dynamic_theme_description">Take the app\'s colours from your wallpaper.</string>
     <string name="pure_black_description">True black instead of dark grey. On OLED screens it saves a little battery.</string>
-    <string name="min_playback_duration_short">How much of a song has to play to count as a play. History shows every song heard for 2 seconds or more, counted or not.</string>
+    <string name="min_playback_duration_short">How much of a song has to play to count as a play. History still lists everything you hear.</string>
     <string name="throttle_banner_title">YouTube has paused this connection</string>
     <plurals name="throttle_banner_body">
         <item quantity="one">Recommendations, downloads and sync are on hold for about a minute. Songs you tap still try to play.</item>

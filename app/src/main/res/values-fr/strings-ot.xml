@@ -218,7 +218,7 @@
     <string name="dl_main_path_part_of_scan">Ce dossier fait partie d\'un dossier d\'analyse, il ne peut donc pas être le dossier de téléchargement</string>
     <string name="oobe_ad_free_exp_description">Profitez d\'une lecture de musique ininterrompue</string>
     <string name="dl_oobe_tooltip">Les titres sont téléchargés dans le stockage privé de l\'application. Pour télécharger dans un dossier accessible, choisissez-en un ici ; vous pourrez le changer plus tard dans les Paramètres.</string>
-    <string name="oobe_ytm_logon_subtitle">Connectez-vous à votre compte YouTube Music pour synchroniser et accéder à votre contenu privé. Cette option est facultative.</string>
+    <string name="oobe_ytm_logon_subtitle">Connectez-vous pour retrouver vos playlists, vos titres aimés et vos recommandations. C\'est facultatif.</string>
     <string name="dl_rescan_description">À faire si vous avez modifié vous-même des fichiers dans vos dossiers de téléchargement.</string>
     <string name="dl_migrate_confirm">Cette action migrera tous les téléchargements internes vers « %s », et elle est irréversible. Souhaitez-vous continuer ?</string>
     <string name="dl_migrate_title">Migrer les téléchargements vers un stockage externe…</string>
@@ -270,7 +270,7 @@
     <string name="audio_decoder_system_with_ffmpeg">Donner la priorité aux décodeurs système</string>
     <string name="max_queues_title">Nombre maximal de files d\'attente</string>
     <string name="oobe_welcome_tip">Pour une expérience optimale, nous vous recommandons d\'effectuer une configuration rapide pour personnaliser les paramètres clés tels que le thème, le compte YouTube, les médias locaux et les téléchargements.</string>
-    <string name="oobe_cache_subtitle">Choisissez la taille du cache des titres. Cela peut contribuer à réduire les problèmes de lecture liés à Internet ou à l\'API YouTube.</string>
+    <string name="oobe_cache_subtitle">Choisissez l\'espace réservé aux titres. Un cache plus grand aide quand la connexion est mauvaise.</string>
     <string name="action_logout_tooltip">Pour vous déconnecter complètement, veuillez vous déconnecter de votre compte YouTube sur le portail Web avant d\'utiliser ce bouton de déconnexion.</string>
     <string name="auto_scanner_tooltip">Pour les médias locaux, cette opération ne recharge pas les métadonnées des titres existants. Utilisez l\'analyse manuelle en cochant la case « Réanalyser » si vous souhaitez également actualiser les métadonnées.</string>
     <string name="scanner_auto_end">L\'actualisation des médias locaux et des téléchargements de titres est terminée !</string>
@@ -303,11 +303,11 @@
     <string name="liked_autodownload_running">Téléchargement de %1$d sur %2$d. Appuyez pour arrêter.</string>
     <string name="liked_autodownload_stopped">Arrêté. %1$d téléchargés, le reste a été annulé.</string>
     <string name="loudness_repair">Corriger le volume des titres</string>
-    <string name="loudness_repair_available">Recherche le bon volume pour les titres qui n\'en ont pas, pour qu\'aucun ne se mette soudain à hurler plus fort que les autres. %1$d titres en ont encore besoin. Appuyez pour démarrer.</string>
+    <string name="loudness_repair_available">Trouve le bon volume des titres qui n\'en ont pas, pour qu\'aucun ne sonne soudain plus fort. %1$d titres en ont encore besoin. Appuyez pour démarrer.</string>
     <string name="loudness_repair_blocked">Arrêté après plusieurs échecs d\'affilée, ce qui veut souvent dire que YouTube a besoin d\'une pause. %1$d corrigés. Réessayez dans un moment.</string>
     <string name="loudness_repair_done">Terminé. %1$d titres corrigés, ils se lisent maintenant au même volume que les autres.</string>
     <string name="loudness_repair_done_partial">%1$d titres corrigés. %2$d n\'ont aucune information de volume sur YouTube et ont été laissés tels quels.</string>
-    <string name="loudness_repair_none">Recherche le bon volume pour les titres qui n\'en ont pas, pour qu\'aucun ne se mette soudain à hurler plus fort que les autres. Tous vos titres l\'ont déjà.</string>
+    <string name="loudness_repair_none">Tous vos titres ont déjà le bon volume.</string>
     <string name="loudness_repair_offline">Une connexion Internet est nécessaire pour rechercher le volume des titres.</string>
     <string name="loudness_repair_running">Vérification du titre %1$d sur %2$d, %3$d corrigés jusqu\'ici. Appuyez pour arrêter.</string>
     <string name="loudness_repair_stopped">Arrêté. %1$d titres corrigés, il reste les autres. Appuyez pour continuer.</string>
@@ -444,7 +444,7 @@
     <string name="stop_music_on_task_clear_description">Arrêter la musique quand vous balayez l\'application hors des applications récentes.</string>
     <string name="enable_dynamic_theme_description">Reprendre les couleurs de l\'application depuis la pochette du titre en cours de lecture. Désactivé, ou sans lecture, elle utilise les couleurs de votre téléphone (Android 12 ou plus récent).</string>
     <string name="pure_black_description">Du vrai noir au lieu du gris foncé. Sur écran OLED, cela économise un peu de batterie.</string>
-    <string name="min_playback_duration_short">La part d\'un titre qui doit être lue pour compter comme une lecture. La page Historique affiche chaque titre écouté au moins 2 secondes, que la lecture compte ou non.</string>
+    <string name="min_playback_duration_short">La part d\'un titre à écouter pour qu\'il compte comme lu. L\'historique liste quand même tout ce que vous écoutez.</string>
     <string name="throttle_banner_title">YouTube a suspendu cette connexion</string>
     <!-- General -->
     <string name="back">Retour</string>

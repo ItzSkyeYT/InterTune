@@ -345,8 +345,8 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="media_control_buttons_explain">Two extra buttons next to previous, play and next, in the notification and on the lock screen. Tap the two you want, in order.</string>
     <string name="media_control_repeat">Repeat</string>
     <string name="loudness_repair">Fix song volumes</string>
-    <string name="loudness_repair_none">Looks up the right volume for songs that are missing it, so nothing suddenly blares out louder than the rest. All your songs already have it.</string>
-    <string name="loudness_repair_available">Looks up the right volume for songs that are missing it, so nothing suddenly blares out louder than the rest. %1$d songs still need it. Tap to start.</string>
+    <string name="loudness_repair_none">All your songs already have the right volume.</string>
+    <string name="loudness_repair_available">Finds the right volume for songs missing it, so none blares out louder. %1$d songs still need it. Tap to start.</string>
     <string name="loudness_repair_running">Checking song %1$d of %2$d, fixed %3$d so far. Tap to stop.</string>
     <string name="loudness_repair_done">Done. Fixed %1$d songs, they now play at the same volume as everything else.</string>
     <string name="loudness_repair_done_partial">Fixed %1$d songs. %2$d have no volume information on YouTube and were left alone.</string>
@@ -681,14 +681,14 @@ while also allowing users to translate our app as well. New, specific strings to
 
     <!-- Account setup page -->
     <string name="oobe_ytm_logon_title">Account</string>
-    <string name="oobe_ytm_logon_subtitle">Sign in to your YouTube Music account to sync and access private account content. This is optional.</string>
+    <string name="oobe_ytm_logon_subtitle">Sign in to bring your playlists, likes and recommendations. It\'s optional.</string>
 
     <!-- Local media setup -->
     <string name="oobe_local_media_title">Local media</string>
     <string name="oobe_local_media_subtitle">Choose folders that contain your music. We\'ll scan them for songs to import.</string>
 
     <!-- Downloads -->
-    <string name="oobe_cache_subtitle">Choose a song cache size. This can help reduce internet or YouTube API playback issues</string>
+    <string name="oobe_cache_subtitle">Pick how much space to keep for songs. A bigger cache helps when the connection is poor.</string>
     <string name="oobe_downloads_title">Song downloads</string>
     <string name="oobe_downloads_subtitle">Choose a folder where downloaded songs will be saved.</string>
 
@@ -829,7 +829,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="stop_music_on_task_clear_description">Stop the music when you swipe the app away from your recent apps.</string>
     <string name="enable_dynamic_theme_description">Take the app\'s colours from the cover of the song that is playing. Off, or with nothing playing, it uses your phone\'s own colours (Android 12 and newer).</string>
     <string name="pure_black_description">True black instead of dark grey. On OLED screens it saves a little battery.</string>
-    <string name="min_playback_duration_short">How much of a song has to play to count as a play. History shows every song heard for 2 seconds or more, counted or not.</string>
+    <string name="min_playback_duration_short">How much of a song has to play to count as a play. History still lists everything you hear.</string>
     <string name="throttle_banner_title">YouTube has paused this connection</string>
     <plurals name="throttle_banner_body">
         <item quantity="one">Recommendations, downloads and sync are on hold for about a minute. Songs you tap still try to play.</item>
