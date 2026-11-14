@@ -388,7 +388,7 @@ class PollChecker @Inject constructor(
 
             client.newCall(
                 Request.Builder()
-                    .url("${Polls.UMAMI_URL}/api/send")
+                    .url("${Polls.COUNT_URL}/api/send")
                     // Umami drops requests with no proper User-Agent, and it also derives its own
                     // visitor figure from a hash of this and the address. A fixed string is used on
                     // purpose: nothing here varies by device, so nothing here identifies a device.
@@ -403,12 +403,12 @@ class PollChecker @Inject constructor(
                 if (!response.isSuccessful) {
                     Log.w(
                         TAG,
-                        "Umami refused $name: HTTP ${response.code} ${
+                        "The counter refused $name: HTTP ${response.code} ${
                             response.body?.string()?.take(200)
                         }"
                     )
                 } else {
-                    Log.i(TAG, "$name accepted by Umami")
+                    Log.i(TAG, "$name accepted by the counter")
                 }
                 response.isSuccessful
             }

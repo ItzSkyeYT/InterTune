@@ -35,7 +35,7 @@ import kotlinx.coroutines.launch
  */
 @Composable
 fun ColumnScope.UsageCountFrag() {
-    // Same reasoning as the questions section: a build with no Umami endpoint cannot count
+    // Same reasoning as the questions section: a build with no counter address cannot count
     // anything, and offering the switch would be asking somebody to agree to something that then
     // never happens. The endpoint is the same one, so the same check answers for both.
     if (!Polls.isConfigured) {

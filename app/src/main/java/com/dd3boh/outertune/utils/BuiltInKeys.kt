@@ -16,7 +16,7 @@ import java.security.MessageDigest
 
 /**
  * The credentials this app carries for the maintainer's own services: the Last.fm API account, and
- * the gist and Umami site the polls use. Everything that reads one goes through here.
+ * the gist the polls use and the counter they report to. Everything that reads one goes through here.
  *
  * They are in the public source (services.properties), because a reproducible F-Droid build has to
  * be able to produce the APK that was published, and they were only ever lightly hidden in that APK
@@ -70,7 +70,7 @@ object BuiltInKeys {
     val lastFmApiKey: String get() = revealIfGenuine(BuildConfig.LASTFM_API_KEY)
     val lastFmApiSecret: String get() = revealIfGenuine(BuildConfig.LASTFM_API_SECRET)
     val pollsUrl: String get() = revealIfGenuine(BuildConfig.POLLS_URL)
-    val umamiUrl: String get() = revealIfGenuine(BuildConfig.POLLS_UMAMI_URL)
+    val countUrl: String get() = revealIfGenuine(BuildConfig.POLLS_COUNT_URL)
     val umamiWebsiteId: String get() = revealIfGenuine(BuildConfig.POLLS_UMAMI_WEBSITE_ID)
 
     private fun revealIfGenuine(masked: IntArray): String = if (genuine) reveal(masked) else ""

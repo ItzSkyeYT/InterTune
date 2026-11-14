@@ -100,8 +100,8 @@ android {
         )
         buildConfigField(
             "int[]",
-            "POLLS_UMAMI_URL",
-            obfuscated(service("polls.umamiUrl"))
+            "POLLS_COUNT_URL",
+            obfuscated(service("polls.countUrl"))
         )
         buildConfigField(
             "int[]",

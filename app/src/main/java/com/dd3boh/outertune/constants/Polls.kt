@@ -18,9 +18,8 @@ import com.dd3boh.outertune.utils.BuiltInKeys
  * that machine, so the app never learns anything about where the polls were written. It also means
  * polls keep serving from GitHub's CDN when that machine is off.
  *
- * Answers are WRITTEN to Umami, which has to be reachable to accept them. That hostname must
- * therefore resolve to something in front of the real server, a tunnel or a proxy, never to a home
- * connection.
+ * Answers are WRITTEN to InterTune's own counter, which has to be reachable to accept them. Never point
+ * it at a home connection.
  */
 object Polls {
     /**
@@ -32,19 +31,11 @@ object Polls {
     val POLLS_URL: String get() = BuiltInKeys.pollsUrl
 
     /**
-     * Umami base, no trailing slash.
-     *
-     * Umami Cloud, which sidesteps the problem this comment used to warn about: nothing here
-     * resolves to the maintainer's own machine, so the address in the apk gives nobody anything.
-     * If this ever moves to a self-hosted instance it must point at a tunnel, never a home
-     * connection.
-     *
-     * Note the region. Umami Cloud's dashboard lives at cloud.umami.is for every account, but the
-     * ingest endpoint is regional, and an EU account only accepts events at eu.umami.is. Posting
-     * to cloud.umami.is does not fail loudly, it fails to connect at all, so taking the dashboard
-     * address at face value would have meant answers silently going nowhere forever.
+     * InterTune's own counter, no trailing slash: a Cloudflare worker (intertune-count) that takes
+     * Umami's message shape at /api/send. The count moved there on 14 Nov 2026, when Umami Cloud's
+     * free plan ran out. Nothing here resolves to the maintainer's own machine.
      */
-    val UMAMI_URL: String get() = BuiltInKeys.umamiUrl
+    val COUNT_URL: String get() = BuiltInKeys.countUrl
 
     /** Umami website id that poll answers are recorded against. */
     val UMAMI_WEBSITE_ID: String get() = BuiltInKeys.umamiWebsiteId
@@ -75,5 +66,5 @@ object Polls {
      * BuiltInKeys). Nothing runs until then, so a clone does not post its answers into these polls.
      */
     val isConfigured: Boolean
-        get() = POLLS_URL.isNotEmpty() && UMAMI_URL.isNotEmpty() && UMAMI_WEBSITE_ID.isNotEmpty()
+        get() = POLLS_URL.isNotEmpty() && COUNT_URL.isNotEmpty() && UMAMI_WEBSITE_ID.isNotEmpty()
 }

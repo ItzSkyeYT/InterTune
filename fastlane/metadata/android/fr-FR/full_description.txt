@@ -29,8 +29,8 @@
 <li>Shazam, uniquement pendant l'écoute. Seule une empreinte audio, l'heure et le fuseau horaire sont transmis (jamais l'enregistrement). La pochette est chargée depuis l'adresse fournie par Shazam.</li>
 <li>Last.fm, uniquement en cas d'activation. Pour trouver des titres similaires, le titre et l'artiste des morceaux lus sont transmis, ainsi qu'une fois ceux des morceaux aimés ou écoutés le mois dernier, sans compte requis. Si vous connectez un compte Last.fm, les écoutes y sont également enregistrées (album, durée et heure de début) via la page d'authentification officielle de Last.fm.</li>
 <li>GitHub, uniquement si la vérification des mises à jour est activée ou demandée manuellement. L'application peut télécharger une nouvelle version et la transmettre à l'installateur Android (qui demande toujours confirmation). Les installations provenant d'F-Droid utilisent le système de mise à jour d'F-Droid.</li>
-<li>Sondages et annonces, uniquement en cas d'activation. Ils sont chargés depuis un Gist GitHub et les images associées proviennent de l'adresse indiquée. L'ouverture ou la réponse est comptabilisée sur Umami Cloud, sans compte ni identifiant d'appareil.</li>
-<li>Statistiques d'utilisation, uniquement en cas d'activation. Au maximum une fois par jour, l'application transmet à Umami Cloud un nom aléatoire renouvelé chaque mois, l'origine de l'installation (F-Droid ou non) ainsi que les versions de l'application et d'Android.</li>
+<li>Sondages et annonces, uniquement en cas d'activation. Ils sont chargés depuis un Gist GitHub et les images associées proviennent de l'adresse indiquée. L'ouverture ou la réponse est comptabilisée sur le compteur d'InterTune, une petite fonction sur Cloudflare, sans compte ni identifiant d'appareil.</li>
+<li>Statistiques d'utilisation, uniquement en cas d'activation. Au maximum une fois par jour, l'application transmet au compteur d'InterTune un nom aléatoire renouvelé chaque mois, l'origine de l'installation (F-Droid ou non) ainsi que les versions de l'application et d'Android.</li>
 </ul>
 <p>
 <b>Remarques :</b></p>
