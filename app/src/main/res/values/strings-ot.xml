@@ -57,7 +57,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="spatial_audio_off">Off</string>
     <string name="spatial_audio_headphones">Headphones</string>
     <string name="spatial_audio_surround">Surround upmix</string>
-    <string name="spatial_audio_explain">\"Headphones\" does this in the app, so it works on any phone. \"Surround upmix\" asks your phone to do it, which only helps if your phone supports it.</string>
+    <string name="spatial_audio_explain">\"Headphones\" works on any phone. \"Surround upmix\" leaves it to your phone, and only some phones can do it.</string>
     <string name="spatial_strength" translatable="false">Strength</string>
     <string name="spatial_strength_value" translatable="false">%1$d%% of the effect</string>
     <string name="spatial_room" translatable="false">Room</string>
@@ -95,28 +95,28 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="spatial_bass_description" translatable="false">Low notes skip the effect and keep their weight.</string>
     <string name="stage_width">Stage width</string>
     <string name="stage_width_value">Speakers at %1$d degrees either side</string>
-    <string name="stage_width_explain">How far apart the two virtual speakers are. 30 degrees is what stereo is mixed for.\n\nWider separates the instruments more. Too wide leaves a gap in the middle.</string>
+    <string name="stage_width_explain">How far apart the two virtual speakers sit, with 30° sounding like normal stereo. Wider spreads the instruments out, and too wide leaves a hole in the middle.</string>
     <string name="head_tracking">Head tracking</string>
     <string name="head_tracking_description">The music stays where it is when you turn your head.</string>
     <string name="head_tracking_report_prompt">Your headphones have head tracking and this still says they do not? Tell me about it.</string>
     <string name="link_wiki">Wiki</string>
     <string name="link_report">Report it</string>
     <string name="head_tracking_none">No head tracker on this phone.</string>
-    <string name="head_tracking_explain">The music stays where it is when you turn your head.\n\nNeeds headphones that report which way they are facing, and a phone that passes it on. Most phones do not.</string>
+    <string name="head_tracking_explain">The music stays put when you turn your head. You need headphones that track your head, and most phones don\'t pass that on.</string>
     <string name="head_tracking_response">Tracking response</string>
     <string name="head_tracking_response_description">How quickly the sound reacts when you turn your head.</string>
     <string name="head_tracking_response_smooth">Smooth</string>
     <string name="head_tracking_response_balanced">Balanced</string>
     <string name="head_tracking_response_quick">Quick</string>
     <string name="head_tracking_response_instant">Instant</string>
-    <string name="head_tracking_response_explain">\"Smooth\" never overshoots but feels slightly behind. \"Quick\" and \"Instant\" feel immediate but can overshoot when you stop turning. \"Balanced\" sits between the two.</string>
+    <string name="head_tracking_response_explain">\"Smooth\" never overshoots but lags a little. \"Quick\" and \"Instant\" feel immediate but can overshoot when you stop. \"Balanced\" is in between.</string>
     <string name="proximity_volume">Quieter as you walk away</string>
     <string name="proximity_volume_description">Treats your phone as where the music is coming from.</string>
-    <string name="proximity_volume_explain">Walk away from your phone and the music slowly gets a little quieter, as if the phone were the speaker. It never mutes.\n\nNeeds Bluetooth headphones and Android\'s Nearby devices permission: distance is judged from their signal strength.</string>
+    <string name="proximity_volume_explain">Walk away from your phone and the music gets a little quieter, as if the phone were the speaker. It never goes silent.\n\nNeeds Bluetooth headphones and the Nearby devices permission, to tell the distance from their signal.</string>
     <string name="proximity_probe">Bluetooth signal log</string>
     <string name="proximity_probe_stop">Stop logging</string>
     <string name="proximity_probe_description">Check how well distance can be measured where you are.</string>
-    <string name="proximity_probe_explain">A 100 second test to check this works where you are. It reads each step out loud, so you can put the phone down and follow along.\n\nIf turning on the spot moves the signal as much as walking away does, distance cannot be measured here.</string>
+    <string name="proximity_probe_explain">A short test to see if this works where you are. It talks you through each step, so you can put the phone down and follow along.</string>
     <string name="proximity_probe_step">%1$s  (%2$d s left, %3$d readings)</string>
     <string name="proximity_step_still">Sit still, phone beside you.</string>
     <string name="proximity_step_turn">Stay where you are and turn slowly on the spot.</string>
@@ -126,7 +126,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="proximity_step_done">Finished. You can pick the phone up.</string>
     <string name="head_tracking_3d">Follow tilting too</string>
     <string name="head_tracking_3d_description">Looking up, down or sideways moves the sound as well.</string>
-    <string name="head_tracking_3d_explain">Looking up and down moves the sound too, not just turning.\n\nUses a bit more battery. The music stops for a moment each time you change this.</string>
+    <string name="head_tracking_3d_explain">Looking up and down moves the sound too, not just turning. It uses a bit more battery, and the music pauses for a moment when you change this.</string>
     <string name="head_tracking_recentre">Recentre</string>
     <string name="head_tracking_calibrate">Calibrate</string>
     <string name="head_tracking_calibrate_never">Not calibrated. Tap, then look straight ahead and keep still.</string>
@@ -135,15 +135,15 @@ while also allowing users to translate our app as well. New, specific strings to
         <item quantity="other">Keep still and look straight ahead. %1$d seconds left.</item>
     </plurals>
     <string name="head_tracking_calibrate_done">Correcting %1$.2f degrees per second of drift.</string>
-    <string name="head_tracking_calibrate_explain">Your headphones slowly lose track of which way is forward, so the music drifts to one side.\n\nSit still and look straight ahead for 30 seconds. It measures your drift and corrects it from then on.</string>
+    <string name="head_tracking_calibrate_explain">Headphones slowly lose track of where \"forward\" is, so the music drifts to one side. Sit still and look straight ahead for 30 seconds to fix it.</string>
     <string name="head_tracking_lead">Tracking lead</string>
-    <string name="head_tracking_lead_full_explain">How far ahead the sound aims, in milliseconds. It should match the delay to your ears, which depends on your Bluetooth codec.\n\nPlay something, turn your head, and drag until the sound stays put.</string>
+    <string name="head_tracking_lead_full_explain">How far ahead the sound aims, to make up for your headphones\' delay. Play something, turn your head and drag until the sound stays put.</string>
     <string name="head_tracking_lead_value">Aiming %1$d ms ahead</string>
     <string name="high_precision_audio">32-bit audio processing</string>
     <string name="high_precision_audio_description">Process volume and effects in 32-bit instead of 16-bit.</string>
-    <string name="high_precision_audio_explain">Volume normalisation changes every sample, and in 16-bit the result is rounded afterwards. 32-bit avoids that rounding. It costs some battery and the difference is small, so this is a preference.</string>
+    <string name="high_precision_audio_explain">Keeps a little more detail when songs\' loudness is evened out. It uses a bit more battery and the difference is small, so it\'s up to you.</string>
     <string name="import_engine_data">Load a copy</string>
-    <string name="import_engine_data_description">Replaces what it has learned with a copy you saved, on this phone or another.</string>
+    <string name="import_engine_data_description">Replaces what it learned with a copy you saved, from this phone or another.</string>
     <string name="engine_data_export_done">Saved.</string>
     <string name="engine_data_import_done">Loaded.</string>
     <string name="engine_data_failed">That did not work. Check the file and try again.</string>
@@ -165,7 +165,7 @@ while also allowing users to translate our app as well. New, specific strings to
     -->
     <string name="adaptive_queue">Keep radios up to date</string>
     <string name="adaptive_radio_description">Songs further down a radio change as you skip, finish and like.</string>
-    <string name="adaptive_queue_explain">Skip, finish or like a song and the rest of a radio follows: songs that stop fitting make way for new picks like the ones you kept. The next few songs stay put, and nothing moves while you look at the queue. Playlists and albums never change.</string>
+    <string name="adaptive_queue_explain">Skip, finish or like songs and the rest of a radio adjusts to match. The next few songs stay put, and playlists and albums never change.</string>
     <plurals name="adaptive_note_after_skip">
         <item quantity="one">%1$d new pick after your skip</item>
         <item quantity="other">%1$d new picks after your skip</item>
@@ -190,7 +190,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="adaptive_pick_mark">New pick</string>
     <!-- End of Keep radios up to date, 0.12. -->
     <string name="playback_auth_mode">Use my account to play</string>
-    <string name="playback_auth_mode_description">Whether InterTune may ask YouTube for songs as your account. YouTube refuses some songs to anonymous requests.</string>
+    <string name="playback_auth_mode_description">Whether InterTune can ask YouTube for songs as your account. Some songs need it.</string>
     <string name="playback_auth_never">Never</string>
     <string name="playback_auth_when_refused">Only when a song is refused</string>
     <string name="playback_auth_always">Always</string>
@@ -200,6 +200,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="err_sign_in_wanted">YouTube wants a sign-in to play from this network. VPNs and shared connections are often refused.</string>
     <string name="gone_song_skipped">Skipped a song not available on YouTube: “%1$s”</string>
     <string name="err_copy_details">Copy error details</string>
+    <string name="player_error_report">Report</string>
 
 <!-- Sort menu -->
     <string name="sort_by_date_modified">Date modified</string>
@@ -211,7 +212,7 @@ while also allowing users to translate our app as well. New, specific strings to
 <!-- Dialog -->
     <string name="bits_per_sample">Bits per sample</string>
     <string name="create_sync_playlist">Sync Playlist</string>
-    <string name="create_sync_playlist_description">Note: This allows for syncing with YouTube Music. This is NOT changeable later. You cannot add local songs to synced playlists.</string>
+    <string name="create_sync_playlist_description">Syncs with YouTube Music. You can\'t change this later, and local songs can\'t be added.</string>
     <string name="create_sync_playlist_failed">Could not create the playlist on YouTube Music. Try again online.</string>
     <string name="disc_number">Disc number</string>
     <string name="extra_details">Extra details</string>
@@ -277,14 +278,14 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="attribution_title">Attribution</string>
 
 <!-- Appearance settings -->
-    <string name="high_contrast" translatable="false">High contrast mode compatibility</string>
-    <string name="high_contrast_description" translatable="false">Enable to fix some visual issues when Android\'s high contrast mode is enabled</string>
+    <string name="high_contrast">High contrast mode compatibility</string>
+    <string name="high_contrast_description">Enable to fix some visual issues when Android\'s high contrast mode is enabled</string>
     <string name="player_background_blur">Blur</string>
     <string name="player_background_default">Follow theme</string>
     <string name="player_background_gradient">Gradient</string>
     <string name="player_background_living">Living blur</string>
     <string name="player_living_strength">Living blur strength</string>
-    <string name="player_living_strength_description">How much the background and the glow round the cover move with the music. At 0 it only drifts.</string>
+    <string name="player_living_strength_description">How much the background and the glow move with the music.</string>
     <string name="player_living_smoothing">Living blur smoothing</string>
     <string name="player_living_colours">Living blur colours</string>
     <string name="player_living_colours_main">Three of the cover\'s colours: one each for the bass, the voice and the highs</string>
@@ -294,7 +295,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="player_living_sample_play">Play a song to tune by</string>
     <string name="player_living_sample_queue">Tuning Living blur</string>
     <string name="player_living_sample_nothing">There is no song of yours to play yet. Play one, then come back.</string>
-    <string name="player_living_smoothing_description">How softly it follows the music. Low jumps with every hit, high swells and lingers.</string>
+    <string name="player_living_smoothing_description">How softly it follows the music. Low jumps with every beat, high swells and lingers.</string>
     <string name="player_background_style">Player background style</string>
     <string name="show_liked_and_downloaded_playlist">Show playlists for liked and downloaded songs in library</string>
     <string name="slim_navbar_title">Slim navbar</string>
@@ -309,7 +310,7 @@ while also allowing users to translate our app as well. New, specific strings to
 <!-- Content settings -->
     <string name="like_autodownload">Automatically download your liked songs</string>
     <string name="action_logout_tooltip">To fully log out, please sign out of your YouTube account in the web portal before using this logout button</string>
-    <string name="token_adv_login_description">Advanced: enter or update your login token here instead of signing in through the web page. Anyone who has this token can use your YouTube account, so never share it. A token the app cannot read is not accepted.</string>
+    <string name="token_adv_login_description">For advanced use: paste a login token instead of signing in on the web page. Anyone with this token can use your YouTube account, so never share it.</string>
     <string name="token_hidden">Tap to show token</string>
     <string name="token_shown">Tap again to copy or edit</string>
     <string name="sync_conflict_add_only">Keep all local content, add new remote content</string>
@@ -329,23 +330,23 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="audio_gapless_offload" translatable="false">Gapless offload</string>
     <string name="audio_gapless_offload_description" translatable="false">Allow gapless offload if supported by the device and audio format. Some devices advertise support (Ex. Google Pixel 9 series), but the feature is good as useless in ExoPlayer because playback breaks after playing one song. When troubleshooting issues with offload, we suggest turning gapless offload off</string>
     <string name="swipe_to_dismiss_player">Swipe the mini player away</string>
-    <string name="swipe_to_dismiss_player_description">Swiping the mini player downwards closes it and stops the music. Turn this off and it stays put instead, so the song keeps playing and you cannot close it by accident.</string>
+    <string name="swipe_to_dismiss_player_description">Swipe the mini player down to close it and stop the music. Off, it stays put so you can\'t close it by accident.</string>
     <string name="grouped_player_controls">Group the player buttons</string>
-    <string name="grouped_player_controls_description">Puts shuffle, skip, play and repeat together inside one glass bar. Turn it off to have the buttons sit on their own over the artwork. Needs Liquid glass to be on.</string>
+    <string name="grouped_player_controls_description">Puts the playback buttons together in one glass bar. Needs Liquid glass.</string>
     <string name="player_buttons_style">Player buttons</string>
-    <string name="player_buttons_style_description">Connected puts share and like together by the title, with lyrics, the sleep timer and the menu in a row under the controls.</string>
+    <string name="player_buttons_style_description">Connected puts share and like by the title, and lyrics, the sleep timer and the menu in a row under the controls.</string>
     <string name="player_buttons_classic">Classic</string>
     <string name="player_buttons_connected">Connected</string>
     <string name="queue_button">Queue button</string>
-    <string name="queue_button_description">Opens the queue from a button next to the other player buttons, instead of pulling it up from the bottom of the player.</string>
+    <string name="queue_button_description">Opens the queue from a button instead of pulling it up.</string>
     <string name="media_control_buttons">Media control buttons</string>
     <string name="android_auto_missing">Not showing in your car?</string>
     <string name="android_auto_missing_body">Android Auto only lists apps that Google Play installed, so it hides InterTune. To bring it in: open Android Auto\'s settings on your phone and tap the Version line ten times. Then open Developer settings from the menu at the top and turn on Unknown sources.</string>
-    <string name="media_control_buttons_explain">Your phone shows two buttons next to previous, play and next: in the notification, on the lock screen and in the media panel. Tap two, in the order you want them.</string>
+    <string name="media_control_buttons_explain">Two extra buttons next to previous, play and next, in the notification and on the lock screen. Tap the two you want, in order.</string>
     <string name="media_control_repeat">Repeat</string>
     <string name="loudness_repair">Fix song volumes</string>
-    <string name="loudness_repair_none">Looks up the right volume for songs that are missing it, so nothing suddenly blares out louder than the rest. All your songs already have it.</string>
-    <string name="loudness_repair_available">Looks up the right volume for songs that are missing it, so nothing suddenly blares out louder than the rest. %1$d songs still need it. Tap to start.</string>
+    <string name="loudness_repair_none">All your songs already have the right volume.</string>
+    <string name="loudness_repair_available">Finds the right volume for songs missing it, so none blares out louder. %1$d songs still need it. Tap to start.</string>
     <string name="loudness_repair_running">Checking song %1$d of %2$d, fixed %3$d so far. Tap to stop.</string>
     <string name="loudness_repair_done">Done. Fixed %1$d songs, they now play at the same volume as everything else.</string>
     <string name="loudness_repair_done_partial">Fixed %1$d songs. %2$d have no volume information on YouTube and were left alone.</string>
@@ -358,8 +359,8 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="quick_picks_source_engine">Best recommendations (experimental)</string>
     <string name="quick_picks_source_compare">Try both (experimental)</string>
     <string name="quick_picks_source_off">Off</string>
-    <string name="quick_picks_source_description">Where the \"Quick picks\" row gets its songs. \"YouTube Music\" uses the shelf YouTube makes for your account, \"Your library\" uses songs related to what you play, and \"Best recommendations\" builds the row from how you listen. \"Try both\" alternates \"Best recommendations\" with another source.</string>
-    <string name="oobe_update_auto_description">Fetch it in the background so it is ready when you want it. Android still asks you to confirm.</string>
+    <string name="quick_picks_source_description">Where \"Quick picks\" gets its songs. \"YouTube Music\" uses YouTube\'s picks for you, \"Your library\" songs related to what you play, \"Best recommendations\" learns from how you listen, and \"Try both\" mixes it with another source.</string>
+    <string name="oobe_update_auto_description">Download it in the background so it\'s ready. Android still asks you first.</string>
     <string name="oobe_polls_answered">You can change this any time in Settings, under Questions and news.</string>
     <string name="oobe_usage_count_answered">You can change this any time in Settings, under Anonymous count.</string>
     <string name="poll_title">A question from InterTune</string>
@@ -373,8 +374,8 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="poll_anonymous_notice">Your answer is anonymous. All that is sent is which question this was, what you picked, and the app version. No account, no device details, nothing about your library.</string>
     <string name="grp_polls">Questions and news</string>
     <string name="polls_enabled">Ask me the occasional question</string>
-    <string name="polls_enabled_description">A short question on Home now and then, about what to build. Off by default.</string>
-    <string name="polls_enabled_info">Now and then InterTune downloads a short list of questions from GitHub and shows one at the top of Home. Answering sends the question, your choice and the app version; opening one for the first time sends its title and the app version. Never your account, your device or your library.</string>
+    <string name="polls_enabled_description">A short question on Home now and then, about what to build next.</string>
+    <string name="polls_enabled_info">Now and then InterTune fetches a short question from GitHub and shows it on Home. Answering sends the question, your answer and the app version, and opening it sends its title and the app version. Never your account, device or library.</string>
     <string name="polls_none">No question right now</string>
     <string name="polls_one_waiting">There is a question waiting</string>
     <string name="news_one_waiting">There is news waiting</string>
@@ -388,34 +389,34 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="announcement_done">Got it</string>
     <string name="announcement_picture">Picture %1$d of %2$d. Tap to see it whole.</string>
     <string name="announcement_picture_failed">This picture could not be loaded.</string>
-    <string name="polls_forget_description">Clears the record of what you have answered, dismissed and read, so past questions and news can come back.</string>
+    <string name="polls_forget_description">Forgets what you\'ve answered, dismissed and read, so past questions and news can come back.</string>
     <string name="catch_up_title">A few quick questions</string>
     <string name="catch_up_body">These settings need your say-so, and this install has never been asked.</string>
     <string name="catch_up_done">Done</string>
     <!-- Under the questions of that screen once every one has its answer. %1$s is its button, catch_up_done. -->
     <string name="catch_up_all_answered">That is all. Tap \"%1$s\" to finish.</string>
     <string name="polls_opt_in_title">Ask you the occasional question?</string>
-    <string name="polls_opt_in_body">Now and then InterTune can show a short question at the top of Home, about what to build or change. Answers, and the first time you open one, are counted anonymously. You can turn this off in Settings at any time.</string>
+    <string name="polls_opt_in_body">Now and then InterTune can ask a short question on Home about what to build next. Answers and first opens are counted anonymously, and you can turn this off in Settings any time.</string>
     <string name="polls_opt_in_yes">Yes, ask me</string>
     <string name="polls_opt_in_no">No thanks</string>
     <string name="news_enabled">News from InterTune</string>
-    <string name="news_enabled_description">An announcement on Home now and then, like a new feature. Off by default.</string>
-    <string name="news_enabled_info">Now and then InterTune downloads a short list of announcements from GitHub and shows the newest at the top of Home. Opening one for the first time sends its title and the app version, to count readers. Never your account, your device or your library.</string>
+    <string name="news_enabled_description">An announcement on Home now and then, like a new feature.</string>
+    <string name="news_enabled_info">Now and then InterTune fetches news from GitHub and shows it on Home. Opening one sends its title and the app version, to count readers. Never your account, device or library.</string>
     <string name="news_opt_in_title">Get news from InterTune?</string>
-    <string name="news_opt_in_body">Now and then InterTune can show a short announcement at the top of Home, like a new feature or its Discord server. The first time you open one is counted anonymously. You can turn this off in Settings at any time.</string>
+    <string name="news_opt_in_body">Now and then InterTune can show a short announcement on Home, like a new feature. Opening one is counted anonymously, and you can turn this off in Settings any time.</string>
     <string name="news_opt_in_yes">Yes, show me</string>
     <string name="oobe_news_answered">You can change this any time in Settings, under Questions and news.</string>
     <string name="grp_usage_count">Anonymous count</string>
     <string name="usage_count_enabled">Count this install once a day</string>
-    <string name="usage_count_enabled_description">Sends one short message a day: a random name that is replaced with an unrelated one every month, whether you installed from F-Droid or somewhere else, and the app and Android versions. Never what you play, never an account, never anything tied to your device. Off by default. F-Droid publishes no download figures to anyone, so this is the only way to know how many people use InterTune.</string>
+    <string name="usage_count_enabled_description">One short message a day: a random name that changes every month, whether you installed from F-Droid, and the app and Android versions. Never what you play, your account or anything tied to your device. F-Droid gives out no download figures, so this is the only way to know how many people use InterTune.</string>
     <string name="usage_count_forget">Forget my current name</string>
-    <string name="usage_count_forget_description">Drops the random name this install is counted under. The next count starts a new one, unconnected to the old.</string>
+    <string name="usage_count_forget_description">Drops the random name this install is counted under. The next count uses a new one.</string>
     <string name="usage_count_opt_in_title">Count this install?</string>
-    <string name="usage_count_opt_in_body">Once a day InterTune can send one short message saying it is still in use: a random name that changes every month, whether you installed from F-Droid or somewhere else, and the app and Android versions. Never what you play, never an account, never anything tied to your device. It is the only way to know how many people use InterTune, because F-Droid gives developers no download figures at all. You can turn it off whenever you like.</string>
+    <string name="usage_count_opt_in_body">Once a day InterTune can send a short message saying it\'s still in use: a random name that changes every month, whether you installed from F-Droid, and the app and Android versions. Never what you play, your account or anything tied to your device. F-Droid gives no download figures, so this is the only way to know how many people use InterTune. You can turn it off any time.</string>
     <string name="usage_count_opt_in_yes">Yes, count me</string>
     <string name="grp_updates">Updates</string>
     <string name="update_available_title">Available</string>
-    <string name="update_available_description">Opens the release page so you can read what changed and download it yourself. Useful if the in-app install will not work on this device.</string>
+    <string name="update_available_description">Opens the release page to read what changed and download it yourself.</string>
     <string name="update_install">Download and install</string>
     <string name="update_prompt_title">InterTune %1$s is available</string>
     <string name="update_prompt_ready">Already downloaded and ready to install.</string>
@@ -425,12 +426,12 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="update_prompt_later">Remind me later</string>
     <string name="update_prompt_install">Install</string>
     <string name="update_prompt_fdroid">Update in F-Droid</string>
-    <string name="update_fdroid_note">This copy came from F-Droid, so updates come from there. F-Droid builds each release itself, so a new version can take a little while to appear.</string>
+    <string name="update_fdroid_note">This copy came from F-Droid, so updates come from there. F-Droid builds each release itself, so a new one can take a little while.</string>
     <string name="update_fdroid_source">Updates come from F-Droid</string>
     <string name="update_check_description_fdroid">Checks GitHub so you know when a release exists. Your copy came from F-Droid, so that is where it gets installed from, and F-Droid may not have built it yet.</string>
     <string name="update_auto">Download updates automatically</string>
-    <string name="update_auto_description">Fetches the new version in the background so it is ready the moment you want it. It still cannot install on its own: Android always asks you to confirm, so you will still see the install prompt either way.</string>
-    <string name="update_install_description">Downloads the new version and asks Android to install it. The first time, Android will ask you to allow InterTune to install apps. It never installs anything without you confirming.</string>
+    <string name="update_auto_description">Downloads new versions in the background so they\'re ready. Android still asks you before installing.</string>
+    <string name="update_install_description">Downloads the new version and asks Android to install it. Nothing is installed without your OK.</string>
     <string name="update_downloading">Downloading, %1$d%%. Tap to stop.</string>
     <string name="update_downloading_indeterminate">Downloading. Tap to stop.</string>
     <string name="update_awaiting_confirmation">Ready. Android will ask you to confirm the install.</string>
@@ -445,32 +446,38 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="update_skip">Skip this version</string>
     <string name="update_installed_version">Installed version</string>
     <string name="update_check">Tell me about updates</string>
-    <string name="update_check_description">Checks GitHub for a newer version of InterTune each time you open the app. Off by default. Nothing is ever installed without you confirming it.</string>
+    <string name="update_check_description">Checks GitHub for a new version each time you open the app. Nothing installs without your OK.</string>
     <string name="update_available">Version %1$s is available</string>
     <string name="audio_offload">Enable offload</string>
-    <string name="audio_offload_description">Use the offload audio path for audio playback. Enabling this may reduce power usage but can cause problems with audio playback or post processing. This preference has no effect for unsupported codecs or devices</string>
+    <string name="audio_offload_description">Can save battery, but may cause playback glitches on some phones.</string>
     <string name="keep_alive_title">Prevent system killing app</string>
     <string name="keep_alive_description">Use a persistent foreground service to prevent InterTune from being closed in the background</string>
     <string name="persistent_queue_desc_ot">Restore previous open queue(s) when the app starts</string>
     <string name="min_playback_duration">Minimum playback duration</string>
-    <string name="min_playback_duration_description">How much of a song has to play before it counts as a play. This decides play counts, \"Most played\" and what reaches your YouTube history. The \"History\" screen lists every song heard for 2 seconds or more, whatever this is set to.</string>
+    <string name="min_playback_duration_description">How much of a song has to play to count as a play, for play counts, the most played and your YouTube history. History still lists everything you hear.</string>
     <string name="swipe2Queue">Swipe to queue</string>
-    <string name="swipe2Queue_description">Swipe on a song to add it to "enqueue next" directly after currently playing song</string>
+    <string name="swipe2Queue_description">Swipe a song to play it next.</string>
     <string name="seek_increment">Seek increment</string>
     <!-- Deliberately not called a crossfade: the two songs never play at the same time. -->
     <string name="transition_fade">Fade between tracks</string>
     <string name="transition_fade_description">Each song fades out, then the next one fades in. They do not overlap.</string>
-    <string name="transition_fade_explain">Each song fades out at its end and the next one fades in; they never overlap, so this is not a crossfade. Songs from the same album are not faded, and a song you choose yourself starts at full volume.</string>
+    <string name="transition_fade_explain">Each song fades out and the next fades in, without overlapping. Songs from the same album and songs you pick yourself aren\'t faded.</string>
     <string name="transition_fade_length">Fade length</string>
     <plurals name="transition_fade_length_value">
         <item quantity="one">%1$d second</item>
         <item quantity="other">%1$d seconds</item>
     </plurals>
+    <!-- Crossfade, held back behind Unreleased.CROSSFADE and from translators until the words are agreed. -->
+    <string name="crossfade" translatable="false">Crossfade</string>
+    <string name="crossfade_description" translatable="false">A song that ends by itself fades out while the next one fades in.</string>
+    <string name="crossfade_length" translatable="false">Crossfade length</string>
+    <string name="crossfade_note" translatable="false">Not between songs of one album, and not in a playlist that plays as a mix.</string>
+    <string name="transition_fade_crossfade_on" translatable="false">Not used while Crossfade is on.</string>
 
 <!--Lyrics settings -->
     <string name="lyrics_font_Size">Font size</string>
-    <string name="lyrics_karaoke_title">Karaoke style lyrics.</string>
-    <string name="lyrics_karaoke_description">Enables word by word lyric syncing. Requires lyrics format support.</string>
+    <string name="lyrics_karaoke_title">Karaoke style lyrics</string>
+    <string name="lyrics_karaoke_description">Each word lights up as it\'s sung, when the lyrics have word timings.</string>
     <string name="lyrics_karaoke_hz_title">Adjust karaoke lyrics update speed</string>
     <string name="lyrics_multiline_title">Read multiline lyrics</string>
     <string name="lyrics_multiline_description">Treat all the lines between sync points as one lyric text</string>
@@ -491,7 +498,7 @@ while also allowing users to translate our app as well. New, specific strings to
 <!-- Scanner settings -->
     <string name="auto_scanner_title">Scan automatically</string>
     <!-- Translators: rescans the songs on the device and the download folders when the app opens; there are no folders with these names. -->
-    <string name="auto_scanner_description">Periodically refresh local media songs and custom downloads folders when opening the app</string>
+    <string name="auto_scanner_description">Checks for new local songs when you open the app.</string>
     <string name="auto_scanner_tooltip">For local media, automatic scanning does not reload the metadata of existing songs. Use the manual scanner with the rescan checkbox selected if you also wish to refresh metadata.</string>
 
     <string name="scan_paths_title">Configure scan locations…</string>
@@ -505,14 +512,14 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="scanner_rejected_dir">Invalid selection. A scan folder cannot be a subdirectory of the download folder, or the download folder itself</string>
     <string name="scanner_holds_download_dir">This folder holds your download folder (%s), so it cannot be a scan folder</string>
     <string name="scanner_overlap_kept">Overlaps your download folder; kept as is because it was already saved</string>
-    <!-- Issue 122 (scan folders beside extra import folders): held from translators until the next push of texts, the French beside them in values-fr. -->
-    <string name="scanner_holds_import_dir" translatable="false">This folder holds one of your extra import folders (%s), so it cannot be a scan folder</string>
-    <string name="scanner_inside_import_dir" translatable="false">This folder is inside one of your extra import folders (%s), so it cannot be a scan folder</string>
-    <string name="scanner_overlap_import_kept" translatable="false">Overlaps one of your extra import folders; kept as is because it was already saved</string>
-    <string name="scanner_rule" translatable="false">A scan folder cannot hold, or sit inside, a download folder or an extra import folder</string>
+    <!-- Issue 122 (scan folders beside extra import folders): the French beside them in values-fr. -->
+    <string name="scanner_holds_import_dir">This folder holds one of your extra import folders (%s), so it cannot be a scan folder</string>
+    <string name="scanner_inside_import_dir">This folder is inside one of your extra import folders (%s), so it cannot be a scan folder</string>
+    <string name="scanner_overlap_import_kept">Overlaps one of your extra import folders; kept as is because it was already saved</string>
+    <string name="scanner_rule">A scan folder cannot hold, or sit inside, a download folder or an extra import folder</string>
     <string name="dl_extra_path_overlap_kept">Overlaps a scan folder; kept as is because it was already saved</string>
-    <string name="dl_extra_path_overlaps_scan" translatable="false">This folder overlaps a scan folder, so it cannot be an extra import location</string>
-    <string name="dl_main_path_part_of_scan" translatable="false">This folder is part of a scan folder, so it cannot be the download folder</string>
+    <string name="dl_extra_path_overlaps_scan">This folder overlaps a scan folder, so it cannot be an extra import location</string>
+    <string name="dl_main_path_part_of_scan">This folder is part of a scan folder, so it cannot be the download folder</string>
     <string name="scanner_warning">By default, the scanner will NOT reload any metadata of existing songs unless you specify otherwise above. Depending on the size of your library, it may take a while.</string>
 
 <!-- Scanner progress strings-->
@@ -543,9 +550,9 @@ while also allowing users to translate our app as well. New, specific strings to
 
 <!-- Scanner parameter settings-->
     <string name="scanner_strict_file_name_title">Strict file names</string>
-    <string name="scanner_strict_file_name_description">When enabled, file names will NOT be ignored. Ex. "Song.ogg" will be a different song from "Song.flac". Scanner sensitivity preference will still apply</string>
+    <string name="scanner_strict_file_name_description">File names count: \"Song.ogg\" and \"Song.flac\" become two songs.</string>
     <string name="scanner_strict_file_paths_title">Match file paths instead of metadata</string>
-    <string name="scanner_strict_file_paths_description">Disables all smart matching of metadata. This can cause issues if files are moved in your local storage, but allows for the same song in different folders</string>
+    <string name="scanner_strict_file_paths_description">Turns off smart matching of song info. Moving files can then cause trouble, but the same song can live in two folders.</string>
     <string name="scanner_sensitivity_title">Configure scanner sensitivity</string>
     <string name="scanner_sensitivity_L0">Take first result provided by YouTube when searching on YouTube is enabled, otherwise match title</string>
     <string name="scanner_sensitivity_L1">Match title</string>
@@ -554,7 +561,7 @@ while also allowing users to translate our app as well. New, specific strings to
 
     <string name="scanner_type_title">Metadata extractor</string>
     <string name="scanner_type_tooltip">The system scanner is faster, but may incorrectly extract some metadata compared to other extractors. Please note that switching scanners won\'t automatically reload the metadata of existing songs.</string>
-    <string name="scanner_type_mediastore" translatable="false">(BETA) Use MediaStore system scanner and extractors</string>
+    <string name="scanner_type_mediastore">(BETA) Use MediaStore system scanner and extractors</string>
     <string name="scanner_type_taglib">Use integrated TagLib metadata extractor</string>
     <string name="scanner_type_ffmpeg_ext">Use FFmpeg metadata extractor. Please only use the "full" variant of the app. The "core" variant could cause issues with song tracking</string>
 
@@ -567,10 +574,10 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="clear_song_cache_confirm">Are you sure you want to clear song cache?</string>
     <string name="dl_calculate_size">Tap to calculate download size</string>
     <string name="player_liquid_glass">Liquid glass</string>
-    <string name="player_liquid_glass_description">Floating glass panels for the navigation bar, mini player and transport controls, and richer artwork colours behind the now playing screen</string>
-    <string name="player_liquid_glass_description_legacy">Richer artwork colours behind the now playing screen. The floating glass panels need Android 13 or newer</string>
+    <string name="player_liquid_glass_description">Floating glass panels for the navigation bar, mini player and controls, with richer colours behind the player.</string>
+    <string name="player_liquid_glass_description_legacy">Richer artwork colours behind the now playing screen, and the tabs and mini player float as a dock. The glass itself needs Android 13 or newer</string>
     <string name="player_glass_intensity">Glass intensity</string>
-    <string name="player_glass_intensity_description">Higher is more see-through and more strongly refracted; lower is closer to plain solid surfaces</string>
+    <string name="player_glass_intensity_description">Higher is clearer and bends the light more, lower looks more solid.</string>
     <string name="player_glass_intensity_value">%1$d%%</string>
     <string name="player_glass_preview_needs_13">A live preview of the glass needs Android 13 or later</string>
     <string name="player_glass_preview_side_navigation">A live preview of the glass is not available with the side navigation</string>
@@ -580,14 +587,14 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="sleep_timer_fade_duration_description">How long the fade out lasts before the sleep timer stops playback</string>
     <string name="sleep_timer_fade_duration_value">%1$d seconds</string>
     <string name="download_on_wifi_only_title">Download on Wi-Fi only</string>
-    <string name="download_on_wifi_only_description">Wait for an unmetered connection before downloading. Downloads requested on mobile data are queued and start on their own once Wi-Fi is back</string>
+    <string name="download_on_wifi_only_description">Downloads wait for Wi-Fi, and start by themselves once you\'re back on it.</string>
     <string name="download_waiting_for_wifi">Queued. Will download when Wi-Fi is available</string>
     <plurals name="download_progress_songs">
         <item quantity="one">%1$d of %2$d song</item>
         <item quantity="other">%1$d of %2$d songs</item>
     </plurals>
     <string name="liked_autodownload_backfill_title">Download all liked songs now</string>
-    <string name="liked_autodownload_backfill_description">Catches up every liked song you do not already have. On Wi-Fi only, songs you like while on mobile data are skipped rather than queued, so use this once you are back on Wi-Fi. Songs you deleted by hand will come back.</string>
+    <string name="liked_autodownload_backfill_description">Downloads every liked song you don\'t have yet, like the ones you liked on mobile data. Songs you deleted by hand come back too.</string>
     <string name="liked_autodownload_running">Downloading %1$d of %2$d. Tap to stop.</string>
     <string name="liked_autodownload_finished">Downloaded %1$d liked songs.</string>
     <string name="liked_autodownload_stopped">Stopped. %1$d downloaded, the rest were cancelled.</string>
@@ -598,20 +605,20 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="liked_autodownload_nothing_to_do">Your liked songs are already downloaded.</string>
     <string name="liked_autodownload_blocked">Paused. YouTube has temporarily stopped serving music to this connection, so downloads are waiting rather than failing. They carry on by themselves.</string>
     <string name="dl_extra_path_title">Configure extra import locations…</string>
-    <!-- Issue 122: held from translators until the next push of texts. -->
-    <string name="dl_extra_path_dialog_title" translatable="false">Extra import locations</string>
-    <string name="dl_extra_path_description">Songs from these folders will only appear in the app if you\'ve played them before or added them to a playlist. The folders are only read, never changed.</string>
+    <!-- Issue 122. -->
+    <string name="dl_extra_path_dialog_title">Extra import locations</string>
+    <string name="dl_extra_path_description">Songs from these folders show up once you\'ve played them or added them to a playlist. The folders are never changed.</string>
     <string name="dl_migrate_title">Migrate downloads to external storage…</string>
-    <string name="dl_migrate_description">Move downloads from the app\'s internal storage to the device\'s external storage</string>
+    <string name="dl_migrate_description">Moves downloads from the app\'s own storage to your phone\'s storage.</string>
     <string name="dl_migrate_confirm">This will migrate ALL internal downloads to \"%s\", and this action cannot be undone. Continue?</string>
     <string name="dl_main_path_title">Set external download folder…</string>
     <string name="dl_main_path_description">Pick an empty folder: InterTune may change or delete files in it.</string>
     <string name="dl_oobe_tooltip">Songs are downloaded to the app\'s private storage. To download to a folder you can reach, choose one here; you can change it later in Settings.</string>
     <string name="dl_rescan_title">Rescan download folders…</string>
-    <string name="dl_rescan_description">Update the database and refresh the download registry if any files or folders have changed</string>
+    <string name="dl_rescan_description">Do this if you changed files in your download folders yourself.</string>
 	<string name="dl_rescan_confirm">Rescan all download folders now? This can take a few minutes depending on the size of your library.</string>
-    <!-- File sizes as the settings write them (utils formatFileSize), smallest first: held from translators until the next push of texts, the French beside them in values-fr. -->
-    <string-array name="file_size_units" translatable="false">
+    <!-- File sizes as the settings write them (utils formatFileSize), smallest first: the French beside them in values-fr. -->
+    <string-array name="file_size_units">
         <item>B</item>
         <item>KB</item>
         <item>MB</item>
@@ -656,7 +663,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="oobe_cross_platform_sync">Cross-Platform Sync</string>
     <string name="oobe_cross_platform_sync_description">Keep your music in harmony across devices</string>
     <string name="oobe_update_check_title">Tell you about updates?</string>
-    <string name="oobe_update_check_description">InterTune is not on an app store, so it checks GitHub when you open the app and tells you when there is a new version. It can download and install one for you, and Android always asks you to confirm first. You can change this later in Settings.</string>
+    <string name="oobe_update_check_description">InterTune isn\'t on an app store, so it checks GitHub for new versions when you open it. It can download and install them for you, and Android always asks you first.</string>
     <string name="oobe_update_check_description_fdroid">Your copy came from F-Droid, so F-Droid keeps it up to date and you do not need this. InterTune can still check GitHub and tell you when a release exists, which is usually a little before F-Droid has built it. Nothing is installed without you confirming it, and you can change this later in Settings.</string>
     <string name="oobe_update_check_yes">Yes, check</string>
     <string name="oobe_update_check_no">No thanks</string>
@@ -669,14 +676,14 @@ while also allowing users to translate our app as well. New, specific strings to
 
     <!-- Account setup page -->
     <string name="oobe_ytm_logon_title">Account</string>
-    <string name="oobe_ytm_logon_subtitle">Sign in to your YouTube Music account to sync and access private account content. This is optional.</string>
+    <string name="oobe_ytm_logon_subtitle">Sign in to bring your playlists, likes and recommendations. It\'s optional.</string>
 
     <!-- Local media setup -->
     <string name="oobe_local_media_title">Local media</string>
     <string name="oobe_local_media_subtitle">Choose folders that contain your music. We\'ll scan them for songs to import.</string>
 
     <!-- Downloads -->
-    <string name="oobe_cache_subtitle">Choose a song cache size. This can help reduce internet or YouTube API playback issues</string>
+    <string name="oobe_cache_subtitle">Pick how much space to keep for songs. A bigger cache helps when the connection is poor.</string>
     <string name="oobe_downloads_title">Song downloads</string>
     <string name="oobe_downloads_subtitle">Choose a folder where downloaded songs will be saved.</string>
 
@@ -704,7 +711,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="setup_other_account">Use another account</string>
     <!-- What signing in can cost. Said where somebody signs in (setup, and Account and sync in Settings) and once, in a dialog, to whoever was signed in before this was said anywhere. -->
     <string name="account_notice_title">About your account</string>
-    <string name="account_notice_body">There is a small chance that YouTube restricts or closes an account used with this app. To keep your main account out of it, use the app signed out, or sign in with a second account.</string>
+    <string name="account_notice_body">There\'s a small chance YouTube restricts or closes an account used with this app. To protect your main account, use the app signed out or with a second account.</string>
     <!-- Under account_notice_body in the dialog. %1$s is the name of the Settings entry, grp_account_sync. -->
     <string name="account_notice_signed_in">You are signed in. Signing out is in Settings, under %1$s.</string>
     <!-- On setup's first page, beside "I have a backup", each on half the page: two lines of words at most. It opens the screen of the same name (import_library_title). -->
@@ -776,7 +783,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="settings_player_description">Sound quality, audio effects, and how playback behaves.</string>
     <string name="settings_lyrics_description">Where lyrics are fetched from, and how they are shown.</string>
     <string name="settings_storage_description">Downloads, and how much space the caches may use.</string>
-    <string name="settings_backup_description">Save your library, playlists and settings to a file, bring them back, or back up by itself on a schedule.</string>
+    <string name="settings_backup_description">Save your library, playlists and settings to a file, restore them, or back up on a schedule.</string>
     <string name="settings_privacy_description">What the app records about you, and what it sends.</string>
     <string name="settings_updates_description">Check for a new version, and install it.</string>
     <string name="settings_advanced_description">Maintenance, and developer options.</string>
@@ -787,37 +794,37 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="flush_image_cache_description">Frees the memory holding album art. It is fetched again as you need it.</string>
     <string name="song_cache_max_size">Maximum song cache size</string>
     <string name="image_cache_max_size">Maximum artwork cache size</string>
-    <string name="max_queues_description">How many queues the app keeps at once. The oldest is dropped when you go past this.</string>
-    <string name="enable_proxy_description">Send everything the app fetches through another server first, pictures and lyrics included. Speakers and TVs on your network are still reached directly. Leave this off unless you know you need it.</string>
+    <string name="max_queues_description">How many queues to keep. The oldest goes when you pass this.</string>
+    <string name="enable_proxy_description">Sends everything the app fetches through another server, pictures and lyrics included. Leave it off unless you know you need it.</string>
     <string name="show_liked_and_downloaded_playlist_description">Show Liked songs and Downloaded songs as playlists in your library.</string>
 
     <!-- Descriptions for rows whose titles alone did not say what they do -->
     <string name="pause_listen_history_description">Stop adding songs to your history. Nothing already in it is removed.</string>
-    <string name="pause_remote_listen_history_description">Stop telling YouTube Music what you play. Your history inside this app carries on either way.</string>
+    <string name="pause_remote_listen_history_description">Stop telling YouTube Music what you play. Your history in the app carries on.</string>
     <string name="clear_listen_history_description">Delete everything the app has recorded about what you have played.</string>
     <string name="pause_search_history_description">Stop saving what you search for.</string>
     <string name="clear_search_history_description">Delete every search the app has saved.</string>
-    <string name="sync_params_description">\"Read write\" lets the app change your YouTube Music account: likes, library and playlists. \"Overwrite\" takes out of this phone\'s library whatever is not in the account.</string>
+    <string name="sync_params_description">\"Read write\" lets the app change your YouTube Music likes, library and playlists. \"Overwrite\" removes from this phone anything that isn\'t in your account.</string>
     <string name="enable_lrclib_description">Look for lyrics on LRCLIB, a free community lyrics database.</string>
     <string name="enable_kugou_description">Look for lyrics on KuGou. Its collection is large, and strongest for Chinese music.</string>
-    <!-- Lyrics sources (Unreleased.LYRICS_SOURCES): held back from translators until the words are agreed. -->
-    <string name="lyrics_sources" translatable="false">Lyrics sources</string>
-    <string name="lyrics_sources_hint" translatable="false">Asked from the top. The first timed lyrics found are shown, and plain words only when no source has timed ones.</string>
-    <string name="lyrics_source_youtube_captions" translatable="false">YouTube captions</string>
-    <string name="lyrics_source_youtube_captions_line" translatable="false">The video\'s own timed captions.</string>
-    <string name="lyrics_source_youtube_music" translatable="false">YouTube Music</string>
-    <string name="lyrics_source_youtube_music_line" translatable="false">The words YouTube Music shows, not timed.</string>
-    <string name="lyrics_source_lrclib" translatable="false">LRCLIB</string>
-    <string name="lyrics_source_better_lyrics" translatable="false">Better Lyrics</string>
-    <string name="lyrics_source_better_lyrics_line" translatable="false">Timed word by word, when it has the song.</string>
-    <string name="lyrics_source_kugou" translatable="false">KuGou</string>
-    <string name="lyrics_source_move" translatable="false">Move %1$s</string>
-    <string name="audio_normalization_description">Even out the volume between songs, so one is not suddenly much louder than the last.</string>
+    <!-- Lyrics sources (Unreleased.LYRICS_SOURCES). -->
+    <string name="lyrics_sources">Lyrics sources</string>
+    <string name="lyrics_sources_hint">Asked from the top. The first timed lyrics found are shown, and plain words only when no source has timed ones.</string>
+    <string name="lyrics_source_youtube_captions">YouTube captions</string>
+    <string name="lyrics_source_youtube_captions_line">The video\'s own timed captions.</string>
+    <string name="lyrics_source_youtube_music">YouTube Music</string>
+    <string name="lyrics_source_youtube_music_line">The words YouTube Music shows, not timed.</string>
+    <string name="lyrics_source_lrclib">LRCLIB</string>
+    <string name="lyrics_source_better_lyrics">Better Lyrics</string>
+    <string name="lyrics_source_better_lyrics_line">Timed word by word, when it has the song.</string>
+    <string name="lyrics_source_kugou">KuGou</string>
+    <string name="lyrics_source_move">Move %1$s</string>
+    <string name="audio_normalization_description">Evens out the volume so no song is suddenly much louder.</string>
     <string name="skip_silence_description">Skip silent gaps at the start and end of a track.</string>
     <string name="stop_music_on_task_clear_description">Stop the music when you swipe the app away from your recent apps.</string>
     <string name="enable_dynamic_theme_description">Take the app\'s colours from the cover of the song that is playing. Off, or with nothing playing, it uses your phone\'s own colours (Android 12 and newer).</string>
-    <string name="pure_black_description">Use true black instead of dark grey. On an OLED screen this also saves a little battery.</string>
-    <string name="min_playback_duration_short">How much of a song has to play to count as a play. History shows every song heard for 2 seconds or more, counted or not.</string>
+    <string name="pure_black_description">True black instead of dark grey. On OLED screens it saves a little battery.</string>
+    <string name="min_playback_duration_short">How much of a song has to play to count as a play. History still lists everything you hear.</string>
     <string name="throttle_banner_title">YouTube has paused this connection</string>
     <plurals name="throttle_banner_body">
         <item quantity="one">Recommendations, downloads and sync are on hold for about a minute. Songs you tap still try to play.</item>
@@ -825,9 +832,9 @@ while also allowing users to translate our app as well. New, specific strings to
     </plurals>
     <string name="share_audio_focus">Let other apps play at the same time</string>
     <string name="share_audio_focus_description">Play music over another app\'s sound instead of stopping it.</string>
-    <string name="share_audio_focus_explain">With this on, InterTune and another app play at once.\n\nInterTune also stops lowering itself for navigation and alarms. Calls mute it either way.</string>
+    <string name="share_audio_focus_explain">InterTune keeps playing alongside other apps, and doesn\'t turn itself down for navigation or alarms. Calls still mute it.</string>
     <string name="resume_on_bluetooth">Resume when Bluetooth connects</string>
-    <string name="resume_on_bluetooth_description">Music that stopped when your headphones, car or speaker disconnected plays again if Bluetooth audio connects within 30 minutes. Music you paused stays paused.</string>
+    <string name="resume_on_bluetooth_description">Music that stopped when Bluetooth disconnected plays again if it reconnects soon after. Music you paused stays paused.</string>
     <string name="sleep_timer_notif_end_of_song">The music stops at the end of this song</string>
     <string name="sleep_timer_notif_chip">%1$d min</string>
     <plurals name="sleep_timer_notif_minutes">
@@ -1000,7 +1007,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <!-- The closer look at the settings: the question the tutorial ends on, and a sentence for
          each setting the tour then stops at. The titles of those stops are the rows' own. -->
     <string name="tour_closer_question_title">A closer look at the settings?</string>
-    <string name="tour_closer_question_body">The tour can go on into each screen of Settings and stop at the settings people change most, with a sentence on what each one does. Skip ends it at any stop.</string>
+    <string name="tour_closer_question_body">The tour can go on through Settings and stop at the ones people change most, with a line on each. Skip ends it any time.</string>
     <string name="tour_closer_next_category">Next category</string>
     <string name="tour_closer_entry">Tour of the settings</string>
     <string name="tour_closer_login">Signing in to your YouTube Music account brings your playlists, likes and recommendations here. The app works without it.</string>
@@ -1052,12 +1059,12 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="walkthrough_recognition_title">Name a song playing near you</string>
     <string name="walkthrough_settings_title">All of it is a setting</string>
     <string name="recognise_settings_description">What happens when you ask InterTune to name what is playing.</string>
-    <string name="recognise_keep_listening_desc">The big button keeps going until you stop it, instead of naming one song and finishing. The cards on the screen pick for one run.</string>
-    <string name="recognise_keep_listening_explain">\"Keep listening\" carries on after the first song, adding each new one it hears, even with the screen off. It uses the microphone and the network the whole time, so it costs battery.</string>
+    <string name="recognise_keep_listening_desc">The big button keeps going until you stop it, instead of stopping after one song.</string>
+    <string name="recognise_keep_listening_explain">\"Keep listening\" doesn\'t stop after the first song and adds each new one it hears, even with the screen off. It uses the mic and data the whole time, so it costs battery.</string>
     <string name="recognise_pause_title">Pause my music while listening</string>
     <string name="recognise_pause_desc">Only when the sound is coming from the phone itself.</string>
     <string name="recognise_clear_history_desc">Forget the songs recognised so far.</string>
-    <string name="recognise_clear_history_explain">Empties \"What you have heard\" (the last 200 recognised songs) and this session\'s list, and stops any listening in progress. Nothing on it was in your library or history unless you saved it as a playlist.</string>
+    <string name="recognise_clear_history_explain">Clears \"What you have heard\" and stops any listening. Songs you saved as a playlist stay.</string>
     <string name="recognise_play">Play</string>
     <string name="recognise_save_as_playlist">Save as playlist</string>
     <!-- %1$s is the playlist's name. -->
@@ -1076,16 +1083,16 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="recognise_playlist_name">Heard on %1$s</string>
     <string name="recognise_save_failed">Could not save the playlist</string>
     <string name="lastfm_connect">Connect a Last.fm account</string>
-    <string name="lastfm_connect_description">Sign in to Last.fm and approve InterTune. The page is Last.fm&#8217;s own, so your password is never typed into this app or seen by it.</string>
+    <string name="lastfm_connect_description">Sign in on Last.fm\'s own page and approve InterTune. Your password never goes through this app.</string>
     <string name="lastfm_connected_as">Connected as %1$s</string>
     <string name="lastfm_disconnect_description">Tap to disconnect. Nothing already scrobbled is removed.</string>
     <string name="lastfm_scrobble">Scrobble what I play</string>
-    <string name="lastfm_scrobble_description">Sends finished songs to your Last.fm history. Last.fm counts a song once half of it, or four minutes, has played. Turn this off to stay connected without recording anything.</string>
+    <string name="lastfm_scrobble_description">Adds the songs you finish to your Last.fm history. Off, you stay connected without recording anything.</string>
     <string name="lastfm_unavailable">Not available in this build</string>
-    <string name="lastfm_unavailable_description">Scrobbling needs a Last.fm API key, and this copy of InterTune was built without one. Official releases include it.</string>
+    <string name="lastfm_unavailable_description">This copy of InterTune was built without a Last.fm key. Official releases have one.</string>
     <string name="lastfm_login_failed">Last.fm would not start the login: %1$s</string>
     <string name="polls_unavailable">Not available in this build</string>
-    <string name="polls_unavailable_description">Questions need a source to fetch them from, and this copy of InterTune was built without one.</string>
+    <string name="polls_unavailable_description">This copy of InterTune was built without a source for questions.</string>
     <string name="playlist_empty_title">Let\'s find something for this playlist</string>
     <string name="playlist_empty_search_hint">Search for songs</string>
     <string name="playlist_empty_hint">Search above to add your first song.</string>
@@ -1100,7 +1107,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="recognise_listen_seconds">How long to listen</string>
     <string name="recognise_seconds">%1$d seconds</string>
     <string name="recognise_auto_add">Add matches to the playlist</string>
-    <string name="recognise_auto_add_explain">While listening from a playlist, a song it is sure about is added without asking. Turn this off to be shown what it heard and choose yourself. Songs it is unsure about are never added either way.</string>
+    <string name="recognise_auto_add_explain">When listening from a playlist, songs it\'s sure about are added without asking. Turn this off to check each one first. Songs it\'s unsure about are never added.</string>
     <string name="recognise_auto_add_desc">Only while keeping listening, and only for confident matches</string>
     <string name="recognise_keep_awake">Keep the screen on while listening</string>
     <string name="recognise_keep_awake_desc">Listening continues with the screen off either way</string>
@@ -1117,14 +1124,14 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="recognition_add">Add</string>
     <string name="recognition_identify_song">Identify a song</string>
     <string name="recognition_keep_listening">Keep listening</string>
-    <string name="recognition_keep_listening_desc">Carry on adding songs until you stop it. Only adds a song when the match is unambiguous.</string>
+    <string name="recognition_keep_listening_desc">Keeps adding songs until you stop it, only when it\'s sure of the match.</string>
     <string name="recognition_added_count">Added %1$d so far</string>
     <string name="recognition_service_channel">Song recognition</string>
     <string name="recognition_service_title">Listening for songs</string>
     <string name="recognition_service_none">Nothing added yet</string>
     <string name="discover_something_new">Discover something new</string>
     <string name="discover_row_description">A row under Quick picks of songs you have never played</string>
-    <string name="discover_row_info">Songs you have never played, picked the way \"Best recommendations\" picks them, from what you listen to. A song you skipped after a few seconds counts as played. Pull to refresh for other songs.</string>
+    <string name="discover_row_info">Songs you\'ve never played, picked from what you listen to. Pull down to get others.</string>
     <string name="recognition_service_none_heard">Nothing recognised yet</string>
     <string name="recognition_service_stop">Stop</string>
     <plurals name="recognition_service_added">
@@ -1168,13 +1175,13 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="background_update_text">InterTune %1$s is ready to install.</string>
     <string name="background_poll_title">A new question</string>
     <string name="background_check_interval">Check in the background</string>
-    <string name="background_check_interval_desc">How often to look for updates and questions while the app is closed. Each is only checked if you have it turned on, and you are told once when there is something.</string>
+    <string name="background_check_interval_desc">How often to check for updates and questions while the app is closed.</string>
     <string name="background_check_off">Only when the app opens</string>
     <string name="background_check_hours">Every %1$d hours</string>
     <string name="background_check_hour">Every hour</string>
     <string name="background_check_daily">Once a day</string>
     <string name="auto_backup">Back up automatically</string>
-    <string name="auto_backup_description">To a folder you choose, on a schedule, keeping the last few. Your library, playlists, settings and listening history.</string>
+    <string name="auto_backup_description">Your library, playlists, settings and history, saved to a folder on a schedule.</string>
     <string name="auto_backup_folder">Folder</string>
     <string name="auto_backup_choose_folder">Choose a folder</string>
     <string name="auto_backup_interval">How often</string>
@@ -1217,16 +1224,16 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="auto_backup_last_never">Last backup: never</string>
     <string name="auto_backup_folder_gone">The folder is no longer available</string>
     <string name="resume_on_launch">Start playing when the app opens</string>
-    <string name="resume_on_launch_desc">Picks up your last queue automatically instead of waiting for you to press play. Off by default, since this makes sound without you asking. If something else is already playing, that keeps priority.</string>
+    <string name="resume_on_launch_desc">Plays your last queue as soon as you open the app. If something else is already playing, it leaves it alone.</string>
     <string name="filter_cached">Offline</string>
-    <string name="cached_songs_note">Kept because you played them, so they work with no connection. The app clears the oldest as the cache fills; download a song to keep it for good.</string>
+    <string name="cached_songs_note">Kept because you played them, so they work offline. The oldest go as the cache fills, so download a song to keep it for good.</string>
     <string name="cached_songs_empty">Nothing is cached yet. Songs appear here after you play them.</string>
     <string name="cached_songs_disabled">The song cache is turned off, so nothing is being kept. Set a size under Storage and downloads to use this.</string>
 
 <!-- Moved out of strings.xml, which holds upstream InnerTune strings only and is overwritten when
      translations are pulled from upstream. Everything below belongs to this fork. -->
     <string name="back_animations">Back animations</string>
-    <string name="back_animations_description">Swiping back follows your finger, and reveals the screen underneath instead of fading between the two. Turn off to go back to how it was.</string>
+    <string name="back_animations_description">Swiping back follows your finger and shows the screen underneath.</string>
     <string name="spatial_audio_status">Spatial audio on this device</string>
     <string name="spatial_audio_status_tracking">Head tracking with %1$s, %2$d times a second.</string>
     <string name="spatial_audio_status_no_tracker">No head tracker right now. Connect headphones that have one.</string>
@@ -1235,7 +1242,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="spatial_audio_status_platform_off">The phone has its own spatial audio, switched off.</string>
     <string name="spatial_audio_status_platform_on">The phone has its own spatial audio, switched on.</string>
     <string name="spatial_audio_status_unreadable">Could not read: %1$s</string>
-    <string name="spatial_audio_status_explain">It says first whether InterTune can track your head on this phone, then whether the phone has spatial audio of its own. The phone\'s own is what \"Surround upmix\" relies on. Head tracking does not need it.</string>
+    <string name="spatial_audio_status_explain">First, whether InterTune can follow your head on this phone. Then, whether the phone has spatial audio of its own: \"Surround upmix\" needs it.</string>
     <string name="spatial_audio_needs_13">Needs Android 13 or later.</string>
     <string name="recommendations">Recommendations</string>
     <string name="queue_learn_off">Don\'t learn from this</string>
@@ -1246,7 +1253,7 @@ while also allowing users to translate our app as well. New, specific strings to
         <item quantity="one">%1$d listen, %2$d counted as a play</item>
         <item quantity="other">%1$d listens, %2$d of them counted as plays</item>
     </plurals>
-    <string name="recommendations_listens_description">Every time a song played, however briefly, skips included. Counted as a play means it passed Minimum playback duration, under Privacy and history.</string>
+    <string name="recommendations_listens_description">Every time a song played, even briefly. A play counts once it passes \"Minimum playback duration\".</string>
     <plurals name="recommendations_sessions">
         <item quantity="one">%1$d listening session</item>
         <item quantity="other">%1$d listening sessions</item>
@@ -1254,7 +1261,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="recommendations_sessions_description">A session ends after thirty minutes of silence.</string>
     <string name="recommendations_how_they_ended">How they ended</string>
     <string name="recommendations_where_from">Where you started playing</string>
-    <string name="recommendations_impressions_description">Cards in Quick picks and Discover something new that stayed on screen long enough to be seen.</string>
+    <string name="recommendations_impressions_description">Cards in Quick picks and Discover something new that you actually saw on screen.</string>
     <string name="recommendations_cards_seen">Cards you saw</string>
     <string name="recommendations_cards_seen_line">%1$s: %2$d</string>
     <plurals name="recommendations_cards_seen_waiting">
@@ -1297,13 +1304,13 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="quick_picks_showing_library">Showing your library\'s picks: not enough listening yet for Best recommendations</string>
     <string name="quick_picks_showing_youtube">Showing YouTube\'s picks: not enough listening yet for Best recommendations</string>
     <string name="rank_with_listening">Rank with your listening</string>
-    <string name="rank_with_listening_description">Order the Quick picks row by what you tend to finish, search for and like. Off keeps the source\'s own order.</string>
+    <string name="rank_with_listening_description">Orders Quick picks by what you tend to finish, search for and like.</string>
     <string name="show_reasons">Show reasons</string>
     <string name="show_reasons_description">A line under each Best recommendations card saying what put it there.</string>
     <string name="adventurousness">Adventurousness</string>
-    <string name="adventurousness_description">How much of the Best recommendations row goes to songs new to you, by artists you have never played where it can: %1$d of 20 cards.</string>
+    <string name="adventurousness_description">Songs new to you, from artists you\'ve never played when it can: %1$d of 20 cards.</string>
     <string name="familiarity">Familiarity</string>
-    <string name="familiarity_description">How much of the Best recommendations row goes to songs you have heard well in the last two weeks and are due to hear again: %1$d of 20 cards. Songs you have worn out step back on their own.</string>
+    <string name="familiarity_description">Songs you\'ve enjoyed lately and are due to hear again: %1$d of 20 cards.</string>
     <string name="why_these_lane_again">%1$d you come back to</string>
     <string name="new_songs_only">New songs only</string>
     <string name="new_songs_only_description">Every card in the Best recommendations row is a song new to you.</string>
@@ -1323,7 +1330,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="login_signed_in">Signed in</string>
     <string name="login_going_back">Taking you back.</string>
     <string name="lastfm_opt_in_title">Similar songs from Last.fm too?</string>
-    <string name="lastfm_opt_in_body">Best recommendations finds songs like the ones you play. It can ask Last.fm as well as YouTube, then lean toward whichever finds you more that you keep. For that it sends Last.fm the title and artist of each song you play, and once, of the songs you played in the last month and the ones you liked. Nothing else, and no account. You can change this later in Settings, under Recommendations.</string>
+    <string name="lastfm_opt_in_body">Best recommendations can ask Last.fm as well as YouTube for songs like yours, and lean toward whichever finds songs you keep. For that it sends Last.fm the title and artist of each song you play, plus once the ones you played last month and liked. Nothing else, and no account. You can change this later in Settings, under Recommendations.</string>
     <string name="lastfm_opt_in_yes">Yes, use both</string>
     <string name="lastfm_opt_in_enabled">Similar songs from Last.fm too</string>
     <string name="oobe_lastfm_answered">You can change this any time in Settings, under Recommendations.</string>
@@ -1386,15 +1393,15 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="recommendations_team_library">Your library</string>
     <string name="recommendations_team_youtube">YouTube Music</string>
     <string name="rest_songs_i_skip">Rest songs I skip</string>
-    <string name="rest_songs_i_skip_description">Skipping a liked or often-played song before its middle rests it from Best recommendations for a week. Off: skipped songs are never rested.</string>
+    <string name="rest_songs_i_skip_description">Skip a favourite early and it sits out of Best recommendations for a week.</string>
     <string name="rests_everywhere">Rests apply to every row</string>
-    <string name="rests_everywhere_description">Also keep rested songs out of the YouTube Music and Your library rows. Needs Tidy Home rows on.</string>
+    <string name="rests_everywhere_description">Keeps rested songs out of the YouTube Music and Your library rows too. Needs Tidy Home rows.</string>
     <string name="forget_last_session">Forget the last session</string>
-    <string name="forget_last_session_description">Nothing you played in it teaches Best recommendations any more, and what it taught is taken back.</string>
+    <string name="forget_last_session_description">What you played then stops teaching Best recommendations.</string>
     <string name="forget_today">Forget today\'s listening</string>
     <string name="forget_today_description">The same, for everything since midnight. History and Stats are untouched.</string>
     <string name="engine_developer">Developer tuning</string>
-    <string name="engine_developer_description">Every number Best recommendations is tuned by, and a check of which songs it treats as versions of one another.</string>
+    <string name="engine_developer_description">The numbers Best recommendations is tuned by, and a check of song versions.</string>
     <string name="engine_developer_params">Constants</string>
     <string name="engine_developer_reset">Reset all</string>
     <string name="engine_developer_reset_description">%1$d overridden. A change shows on the next build.</string>
@@ -1405,9 +1412,9 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="export_engine_data">Save a copy</string>
     <string name="export_engine_data_description">What it has learned, in a file to share or keep.</string>
     <string name="shadow_comparison">Compare in the background</string>
-    <string name="shadow_comparison_description">While another source is showing, Best recommendations still builds its row in the background, unseen, and a day later this page shows whether it would have held what you played.</string>
+    <string name="shadow_comparison_description">Builds a hidden Best recommendations row in the background, to show later whether it would have done better.</string>
     <string name="shadow_comparison_unused">Only matters while another source fills Quick picks.</string>
-    <string name="shadow_comparison_not_learning">While another source is showing, Best recommendations still builds its row in the background, unseen. With Learn from listening off, those rows are not checked against what you play until it is back on.</string>
+    <string name="shadow_comparison_not_learning">With \"Learn from listening\" off, the hidden rows wait to be checked until it\'s back on.</string>
     <string name="recommendations_held">Rows that held what you played next</string>
     <plurals name="recommendations_held_songs">
         <item quantity="one">%1$s: held %2$d of %3$d song you chose yourself, counting cards you tapped, in %4$s</item>
@@ -1436,8 +1443,8 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="recommendations_row_try_both_before">Try both, from when it was your source</string>
     <string name="recommendations_brier">How well it predicts</string>
     <plurals name="recommendations_brier_description">
-        <item quantity="one">As one number, for those who want it: a Brier score of %1$.3f over %2$d card, where the same chance for every card scores %3$.3f. Lower is better, and 0 would mean every guess was exactly right.</item>
-        <item quantity="other">As one number, for those who want it: a Brier score of %1$.3f over %2$d cards, where the same chance for every card scores %3$.3f. Lower is better, and 0 would mean every guess was exactly right.</item>
+        <item quantity="one">As one number: a Brier score of %1$.3f over %2$d card, against %3$.3f for the same chance on every card. Lower is better.</item>
+        <item quantity="other">As one number: a Brier score of %1$.3f over %2$d cards, against %3$.3f for the same chance on every card. Lower is better.</item>
     </plurals>
     <string name="recommendations_brier_better">Its own guesses did better than giving every card the same %1$s in 100 chance, the share you actually played.</string>
     <string name="recommendations_brier_worse">Its own guesses did worse than giving every card the same %1$s in 100 chance, the share you actually played.</string>
@@ -1463,16 +1470,16 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="weight_pos">Further down the row</string>
     <string name="weight_bias">Base score of every card</string>
     <string name="recommendations_reset_weights">Reset what it learned</string>
-    <string name="recommendations_reset_weights_description">Back to where it started. Nothing you played is forgotten; Rebuild brings the learning back.</string>
+    <string name="recommendations_reset_weights_description">Back to where it started. Nothing you played is forgotten, and Rebuild brings the learning back.</string>
     <string name="recommendations_rebuild_weights">Rebuild what it learned</string>
-    <string name="recommendations_rebuild_weights_description">Starts again from the beginning and goes back over every card it learned from, in order.</string>
+    <string name="recommendations_rebuild_weights_description">Starts over and relearns from every card, in order.</string>
     <string name="tidy_home_rows">Tidy Home rows</string>
     <string name="tidy_home_rows_description">No song twice on Home, no live or remixed version beside its original, and nothing you have just heard in Quick picks.</string>
     <plurals name="recommendations_signals">
         <item quantity="one">%1$d other thing you did with a song</item>
         <item quantity="other">%1$d other things you did with songs</item>
     </plurals>
-    <string name="recommendations_signals_description">Seeking, changing the volume, repeat one, adding to a playlist, downloading, sharing, opening lyrics or the artist, taking a song out of the queue. Kept for later: nothing uses them yet.</string>
+    <string name="recommendations_signals_description">Seeks, volume changes, repeats, adds to playlists, downloads, shares and more. Kept for later, nothing uses them yet.</string>
     <string name="recommendations_recent_title">Recent listens</string>
     <string name="recommendations_learning_title">Learning</string>
     <string name="recommendations_doing_description">What it showed you, what you played, and how well it guessed.</string>
@@ -1527,42 +1534,42 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="recommendations_ask_copy_goes">The copy you loaded goes too.</string>
     <string name="recommendations_ask_cannot_undo">This cannot be undone.</string>
     <string name="recommendations_load_confirm">Choose a file</string>
-    <string name="recommendations_summary_not_source">Best recommendations is not your Quick picks source, so none of its cards are counted here. You can choose it in Settings, under Library and content, Quick picks source.</string>
+    <string name="recommendations_summary_not_source">\"Best recommendations\" isn\'t your \"Quick picks source\", so there\'s nothing to count here. You can pick it under Library and content.</string>
     <plurals name="recommendations_summary_not_source_waiting">
-        <item quantity="one">Best recommendations is no longer your Quick picks source. The %1$d card it showed you before is judged a day after you saw it, and counted here then. You can choose it again in Settings, under Library and content, Quick picks source.</item>
-        <item quantity="other">Best recommendations is no longer your Quick picks source. The %1$d cards it showed you before are judged a day after you saw them, and counted here then. You can choose it again in Settings, under Library and content, Quick picks source.</item>
+        <item quantity="one">\"Best recommendations\" isn\'t your \"Quick picks source\" anymore. The %1$d card it showed you before is counted here within a day.</item>
+        <item quantity="other">\"Best recommendations\" isn\'t your \"Quick picks source\" anymore. The %1$d cards it showed you before are counted here within a day.</item>
     </plurals>
-    <string name="recommendations_summary_not_source_waiting_single">Best recommendations is no longer your Quick picks source. The card it showed you before is judged a day after you saw it, and counted here then. You can choose it again in Settings, under Library and content, Quick picks source.</string>
+    <string name="recommendations_summary_not_source_waiting_single">\"Best recommendations\" isn\'t your \"Quick picks source\" anymore. The card it showed you before is counted here within a day.</string>
     <plurals name="recommendations_summary_not_source_paused">
-        <item quantity="one">Best recommendations is no longer your Quick picks source. The %1$d card it showed you before is judged once Learn from listening is back on, and counted here then. You can choose it again in Settings, under Library and content, Quick picks source.</item>
-        <item quantity="other">Best recommendations is no longer your Quick picks source. The %1$d cards it showed you before are judged once Learn from listening is back on, and counted here then. You can choose it again in Settings, under Library and content, Quick picks source.</item>
+        <item quantity="one">\"Best recommendations\" isn\'t your \"Quick picks source\" anymore. The %1$d card it showed you before counts once \"Learn from listening\" is back on.</item>
+        <item quantity="other">\"Best recommendations\" isn\'t your \"Quick picks source\" anymore. The %1$d cards it showed you before count once \"Learn from listening\" is back on.</item>
     </plurals>
-    <string name="recommendations_summary_not_source_paused_single">Best recommendations is no longer your Quick picks source. The card it showed you before is judged once Learn from listening is back on, and counted here then. You can choose it again in Settings, under Library and content, Quick picks source.</string>
-    <string name="recommendations_summary_rows_below">How its rows did is still shown under Rows that held what you played next.</string>
-    <string name="recommendations_summary_waiting">Nothing to show yet. Best recommendations\' cards are judged a day after you see them, so this fills in as you listen.</string>
-    <string name="recommendations_summary_not_learning">Learn from listening is off, so Best recommendations is not learning now: no card is judged while it is off, and no new ones are noted. You can turn it back on in Settings, under Recommendations.</string>
-    <string name="recommendations_summary_learning_off">Learn from listening is off, so it is not learning now and no new cards are judged. You can turn it back on in Settings, under Recommendations.</string>
+    <string name="recommendations_summary_not_source_paused_single">\"Best recommendations\" isn\'t your \"Quick picks source\" anymore. The card it showed you before counts once \"Learn from listening\" is back on.</string>
+    <string name="recommendations_summary_rows_below">Its rows still show below, under \"Rows that held what you played next\".</string>
+    <string name="recommendations_summary_waiting">Nothing to show yet. This fills in as you listen.</string>
+    <string name="recommendations_summary_not_learning">\"Learn from listening\" is off, so there\'s nothing to count. You can turn it back on in Recommendations.</string>
+    <string name="recommendations_summary_learning_off">\"Learn from listening\" is off, so new cards aren\'t counted. You can turn it back on in Recommendations.</string>
     <plurals name="recommendations_summary_played">
         <item quantity="one">You played %1$d of the %2$d card Best recommendations showed you, about %3$s in 100.</item>
         <item quantity="other">You played %1$d of the %2$d cards Best recommendations showed you, about %3$s in 100.</item>
     </plurals>
     <string name="recommendations_summary_played_single">You played the one card Best recommendations showed you.</string>
-    <string name="recommendations_summary_not_played_single">You did not play the one card Best recommendations showed you.</string>
+    <string name="recommendations_summary_not_played_single">You didn\'t play the one card Best recommendations showed you.</string>
     <plurals name="recommendations_summary_waiting_more">
-        <item quantity="one">It showed you %1$d more card that is not judged yet. A card you did not tap is judged a day after you saw it.</item>
-        <item quantity="other">%1$d more cards it showed you are not judged yet. A card you did not tap is judged a day after you saw it.</item>
+        <item quantity="one">%1$d more card it showed you is counted within a day.</item>
+        <item quantity="other">%1$d more cards it showed you are counted within a day.</item>
     </plurals>
-    <string name="recommendations_summary_waiting_more_single">One more card it showed you is not judged yet. A card you did not tap is judged a day after you saw it.</string>
+    <string name="recommendations_summary_waiting_more_single">One more card it showed you is counted within a day.</string>
     <string name="recommendations_summary_scale">Higher is better. Most cards get passed over, so small numbers are normal.</string>
     <string name="recommendations_summary_up">Going up: %1$s in 100 over the last two weeks, from %2$s in 100 the two weeks before.</string>
     <string name="recommendations_summary_down">Going down: %1$s in 100 over the last two weeks, from %2$s in 100 the two weeks before.</string>
     <string name="recommendations_summary_no_change">No clear change: %1$s in 100 over the last two weeks, %2$s in 100 the two weeks before.</string>
     <string name="recommendations_summary_too_early">Too early to tell which way it is going.</string>
     <string name="recommendations_summary_too_early_choice">Too early to tell which way it is going since you changed what Quick picks leans toward.</string>
-    <string name="recommendations_summary_from_before">These are from when Best recommendations was your Quick picks source.</string>
-    <string name="recommendations_wins_meaning">Played means you heard at least half a minute and nearly half the song, or liked it. A quick tap and skip does not count. Only cards already judged are counted, and higher is better.</string>
+    <string name="recommendations_summary_from_before">These are from when \"Best recommendations\" was your \"Quick picks source\".</string>
+    <string name="recommendations_wins_meaning">\"Played\" means you heard a good part of the song, or liked it. A quick tap and skip doesn\'t count. Higher is better.</string>
     <string name="similar_mix_meaning">How the similar songs are shared between the two sources. The one you play more from gets more, up to four in five.</string>
-    <string name="recommendations_held_meaning">Of the songs you chose yourself in the day after each refresh, counting cards you tapped, how many were already in the row. Higher is better, and low is normal.</string>
+    <string name="recommendations_held_meaning">How many of the songs you chose in the day after each refresh were already in the row. Higher is better, and low is normal.</string>
     <plurals name="recommendations_predicted_of">
         <item quantity="one">Of the %1$d card it made a guess for, it expected %2$s in 100 to be played, and %3$s in 100 were.</item>
         <item quantity="other">Of the %1$d cards it made a guess for, it expected %2$s in 100 to be played, and %3$s in 100 were.</item>
@@ -1577,9 +1584,9 @@ while also allowing users to translate our app as well. New, specific strings to
         <item quantity="other">%1$d played</item>
     </plurals>
     <string name="recommendations_predicted_meaning">The closer the two, the better its guesses.</string>
-    <string name="recommendations_weights_meaning">How much each thing counts in a card\'s score now, beside where it started. Neither higher nor lower is better: it is what your listening taught it.</string>
+    <string name="recommendations_weights_meaning">How much each thing counts in a card\'s score now, and where it started. Neither good nor bad: it\'s what your listening taught it.</string>
     <string name="recommendations_how_they_ended_meaning">Songs heard to the end count in their favour, skips against.</string>
-    <string name="recommendations_where_from_meaning">Each time you started something counts once, however many songs played on after it. What you choose yourself, from search say, teaches it more than what plays on.</string>
+    <string name="recommendations_where_from_meaning">Each start counts once. What you pick yourself teaches it more than what just plays on.</string>
     <string name="recommendations_learned_meaning">Counts, not scores. More only means more for it to learn from.</string>
     <string name="recommendations_recent_meaning">The last songs you played: how they ended, how much of each you heard, and where you started them.</string>
     <string name="recommendations_nothing_yet">Nothing yet</string>
@@ -1638,8 +1645,8 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="widget_content_list">A list</string>
     <string name="widget_config_which_list">Which list</string>
     <string name="widget_list_recent">Recently played</string>
-    <string name="widget_config_preview_hint">This widget at its size now. Resize it on the home screen for more or fewer rows.</string>
-    <string name="widget_config_preview_hint_guess">Shown at a usual size. Once it is on the home screen, resize it for more or fewer rows.</string>
+    <string name="widget_config_preview_hint">This is its size now. Resize it on your home screen for more or fewer rows.</string>
+    <string name="widget_config_preview_hint_guess">Shown at a usual size. Resize it on your home screen for more or fewer rows.</string>
     <string name="widget_config_done">Done</string>
     <string name="widget_config_reset">Reset</string>
     <string name="widget_config_rows">How many rows</string>
@@ -1680,27 +1687,27 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="widget_look_records">Records</string>
 
 <!-- Recommendations: the little "i" beside an item, and what it opens -->
-    <string name="tidy_home_rows_info">No Home row shows a song an earlier row already has, and versions of one song (live, remastered, video) count as the same. Nothing fills a gap, so a row can come up short. Off, your exclusions only filter the \"Best recommendations\" row.</string>
-    <string name="rank_with_listening_info">Puts the \"Quick picks\" row in an order that suits you: songs you play often, played lately or liked tend to come first. Nothing is added or removed. It leaves the row alone when \"Best recommendations\" or \"Try both\" fills it.</string>
-    <string name="recommendations_engine_title_info">The row is twenty cards: songs related to what you play, songs you keep coming back to, more from your artists, old favourites gone quiet, and a few new to you. These settings apply while \"Quick picks source\" is \"Best recommendations\" or \"Try both\". Pull down on Home to see a change.</string>
-    <string name="similar_source_info">Where \"Best recommendations\" and \"Discover something new\" find songs like the ones you play. With \"Both\" or \"Last.fm only\", the title and artist of songs you play or have liked go to Last.fm, nothing else and no account. \"YouTube only\" sends Last.fm nothing.</string>
-    <string name="new_songs_only_info">The whole row goes to songs you have not heard past about halfway; one you skipped early still counts as new. \"Adventurousness\" and \"Familiarity\" stop mattering while it is on. The row can come up short, and \"Quick picks\" then shows another source.</string>
-    <string name="show_reasons_info">Each card says the main reason it is there: a song it goes with, an artist you play, a like, or that it is new to you. A wildcard is a card picked at random to keep the row fresh.</string>
-    <string name="exclusions_info">Long-press a card in \"Quick picks\" for \"Not this song\", \"Less of this artist\" (for a month) or \"Never this artist\". They only filter the recommendation rows, never search, your library or playlists. This page lists what is in force, and \"Lift\" removes one.</string>
-    <string name="rest_songs_i_skip_info">Skip a song you like or play often before its halfway point, and it stays out of the \"Best recommendations\" row for a week. A skip in the first thirty seconds does not count. You can lift a rest early on the \"Exclusions\" page.</string>
-    <string name="recommendations_doing_info">Worked out on this phone from your own listening, and nothing leaves it unless you save a copy under \"Your data\". Give it a few weeks before you read much into the numbers.</string>
-    <string name="recommendations_summary_info">\"Seen\" means a card was on screen for half a second, or you tapped it. \"Played\" means you heard a good part of that song, or liked it. A card you did not tap is judged a day later, so the newest are not counted yet.</string>
-    <string name="learn_from_listening_info">\"Best recommendations\" learns from what you play and skip among the cards it shows you. Off, it stops learning; History and Stats carry on as before. It all happens on this phone.</string>
-    <string name="shadow_comparison_info">The unseen row is built when Home opens and is never shown. A day later it is checked against what you went on to play; it teaches \"Best recommendations\" nothing. Off, the unseen line on this page stops filling in.</string>
-    <string name="recommendations_brier_info">Every card it shows carries its guess at how likely you are to play it. The lines under the first group the cards by the chance it gave them.</string>
-    <string name="recommendations_reset_weights_info">It goes back to how it started, as if it had learned nothing. Your listens, exclusions and settings are kept, and \"Rebuild what it learned\" brings the learning back. It asks first.</string>
-    <string name="forget_today_info">Every play started since midnight stops teaching, and what it learned is worked out again without them. It asks first, saying how many listens. A song that began before midnight belongs to yesterday and stays.</string>
-    <string name="engine_developer_info">The engine\'s constants, each with its default: a number overrides one, an empty field restores it. They change the \"Best recommendations\" row only, not what it learns. Pull down on Home to see a change.</string>
-    <string name="export_engine_data_info">Saves what it has learned as a file of numbers, where you choose. No song titles, artists or play counts, and nothing about your account or phone; the only date in it is when the file was saved. Nothing is uploaded.</string>
-    <string name="recommendations_learned_title_info">Everything below is kept in the app on this phone and never uploaded. A backup includes it. Under \"Privacy and history\", \"Pause listen history\" stops it being written and \"Clear listen history\" deletes it.</string>
-    <string name="recommendations_where_from_info">Each place counts the times you started playing from there; the songs that play on after are not counted again. A song you chose yourself teaches it more than one that just played on, and a search counts most. \"Not recorded\" means the app did not note where it began.</string>
-    <string name="recommendations_recent_title_info">The last thirty listens it learns from, newest first. Each line says how the play ended, how much of the song you heard and where it was started from. \"Not learned from\" means you told it to forget that listen, or it played from a queue set to \"Don\'t learn from this\".</string>
-    <string name="context_chips_info">The first chip is your usual row. The others lean it until you change back: \"Discover\" toward songs new to you, \"Favourites\" toward songs you liked, \"Focus\", \"Chill\" and \"Party\" toward what you play while each is on. The last chip works on its own, with any of them.</string>
+    <string name="tidy_home_rows_info">A song shows once on Home, not in two rows, and versions of a song (live, remix, video) count as one. Rows can come up a bit short.</string>
+    <string name="rank_with_listening_info">Puts \"Quick picks\" in an order that suits you: songs you play often, lately or liked come first. Nothing is added or removed.</string>
+    <string name="recommendations_engine_title_info">Songs like what you play, favourites old and new, more from your artists and a few surprises. They show when \"Quick picks source\" is \"Best recommendations\" or \"Try both\", so pull down on Home to see a change.</string>
+    <string name="similar_source_info">Where \"Best recommendations\" and \"Discover something new\" look for songs like yours. With \"Both\" or \"Last.fm only\", the title and artist of songs you play or like go to Last.fm, with no account. \"YouTube only\" sends Last.fm nothing.</string>
+    <string name="new_songs_only_info">Fills the whole row with songs you haven\'t really heard yet. The row can come up short, and then \"Quick picks\" uses another source.</string>
+    <string name="show_reasons_info">Each card says why it\'s there: a song it goes with, an artist you play, a like, or that it\'s new to you. A wildcard is picked at random to keep things fresh.</string>
+    <string name="exclusions_info">Long-press a card in \"Quick picks\" for \"Not this song\", \"Less of this artist\" or \"Never this artist\". This only affects recommendations, never search, your library or playlists. Lift one here to undo it.</string>
+    <string name="rest_songs_i_skip_info">Skip a favourite early and it sits out of \"Best recommendations\" for a week. You can bring it back early from \"Exclusions\".</string>
+    <string name="recommendations_doing_info">Worked out on this phone from your listening, and nothing leaves it unless you save a copy under \"Your data\". Give it a few weeks before trusting the numbers.</string>
+    <string name="recommendations_summary_info">\"Seen\": the card was on screen. \"Played\": you heard a good part of it, or liked it. New cards count a day later.</string>
+    <string name="learn_from_listening_info">\"Best recommendations\" learns from what you play and skip. Turn it off and it stops learning, while History and Stats keep going. It all stays on this phone.</string>
+    <string name="shadow_comparison_info">A hidden row is built in the background and checked a day later against what you actually played. It\'s only there to measure how well things work.</string>
+    <string name="recommendations_brier_info">Each card guesses how likely you are to play it. The lines below group the cards by that guess.</string>
+    <string name="recommendations_reset_weights_info">Starts learning over, as if from scratch. Your listens, exclusions and settings stay, and \"Rebuild what it learned\" can bring it back. It asks first.</string>
+    <string name="forget_today_info">Today\'s plays stop counting toward what it learns. It asks first and says how many.</string>
+    <string name="engine_developer_info">The engine\'s numbers, each with its default. Type a value to change one, clear it to reset. Pull down on Home to see the effect.</string>
+    <string name="export_engine_data_info">Saves what it learned as a file of numbers, wherever you choose. It has no titles, artists, play counts or account details, only the date it was saved, and nothing is uploaded.</string>
+    <string name="recommendations_learned_title_info">This stays in the app on this phone and is never uploaded, though backups include it. \"Pause listen history\" stops it and \"Clear listen history\" deletes it, both under \"Privacy and history\".</string>
+    <string name="recommendations_where_from_info">How often you started playing from each place. What you pick yourself counts more, and a search counts most. \"Not recorded\" means the app didn\'t note where.</string>
+    <string name="recommendations_recent_title_info">Your last listens, newest first: how each ended, how much you heard and where it started. \"Not learned from\" means you asked it to forget that one.</string>
+    <string name="context_chips_info">The first chip is your usual row. The others steer it until you switch back: \"Discover\" to new songs, \"Favourites\" to ones you liked, \"Focus\", \"Chill\" and \"Party\" to what you play in that mood. The last chip works with any of them.</string>
     <string name="context_chips">Quick picks chips</string>
     <string name="explain_what_this_does">What %1$s does</string>
     <string name="explain_close">Close</string>
@@ -1958,7 +1965,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="quick_picks_lean_set_aside_chip">The %1$s chip on Home takes over while it is on.</string>
     <string name="quick_picks_lean_set_aside_new_only">New songs only takes over while it is on.</string>
     <string name="quick_picks_lean_new_only_strict">With New songs only on, Best recommendations picks only songs you have never even started, as long as there are enough.</string>
-    <string name="quick_picks_lean_info">\"Auto\" is the usual mix, from what \"Best recommendations\" has learned. Each other choice gives one kind of song most of its cards. \"Songs that fit what I am playing now\" also rebuilds \"Quick picks\" once you have listened to a few songs from elsewhere.</string>
+    <string name="quick_picks_lean_info">\"Auto\" is the usual mix, and the other choices give most of the row to one kind of song. \"Songs that fit what I am playing now\" also updates as you listen.</string>
     <string name="quick_picks_leaning_new">Leaning toward songs you have never heard</string>
     <string name="quick_picks_leaning_artist">Leaning toward artists you keep coming back to</string>
     <string name="quick_picks_leaning_forgotten">Leaning toward things you loved and forgot about</string>
@@ -1986,7 +1993,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="share_link_not_chosen">Not chosen yet</string>
     <!-- Open links in InterTune (OpenLinks): %1$s is the build's own name, InterTune, InterTune Preview or InterTune Debug. -->
     <string name="open_links_title">Open links in %1$s</string>
-    <string name="open_links_description">YouTube Music and intertune.app links open in this app. Turn it off to let another app, like InterTune Preview, open them.</string>
+    <string name="open_links_description">YouTube Music and intertune.app links open here. Off, another app like InterTune Preview can open them.</string>
     <string name="open_links_android_off">Android\'s own link setting is off for this app, so no link opens here.</string>
     <string name="open_links_android_settings">Android\'s link settings</string>
     <string name="favourites_strict" translatable="false">Favourites only</string>
@@ -1996,6 +2003,8 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="history_address_check" translatable="false">Check the history address</string>
     <string name="history_address_check_description" translatable="false">Asks YouTube where a play of the song now playing would be reported, as your account and as a visitor, and shows what came back. Nothing is reported.</string>
     <string name="history_address_check_asking" translatable="false">Asking YouTube</string>
+    <string name="premium_check" translatable="false">Check Premium formats</string>
+    <string name="premium_check_description" translatable="false">Asks YouTube, as your account, which audio streams it offers for the song now playing. A Premium account may get 256 kbps.</string>
     <string name="stats_nothing_played">Nothing was played in this period.</string>
     <string name="sort_order_ascending">Ascending order</string>
     <string name="sort_order_descending">Descending order</string>
@@ -2019,6 +2028,8 @@ while also allowing users to translate our app as well. New, specific strings to
     <!-- Report a problem (ProblemReportDialog), opened from About. -->
     <string name="problem_report_title">Report a problem</string>
     <string name="problem_report_found">This is the last thing that went wrong, as the app noted it, with what led up to it. It names the songs that were playing. Nothing leaves the phone unless you send it.</string>
+    <string name="problem_report_latest_problem">Latest session with a problem</string>
+    <string name="problem_report_player">This is the player\'s error, with what the app noted before it. It names the songs that were playing. Nothing leaves the phone unless you send it.</string>
     <string name="problem_report_none">Nothing that looks like a fault has been noted since the app was opened. These are its last lines.</string>
     <string name="problem_report_empty">The phone\'s log could not be read. The form still opens with the version and the phone filled in.</string>
     <string name="problem_report_reading">Reading the log</string>
@@ -2050,9 +2061,9 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="problem_report_none_then">Nothing that looks like a fault was noted that time. These are its last lines.</string>
     <string name="problem_report_nothing_then">Nothing was written that time.</string>
     <string name="problem_report_older">Show older</string>
-    <!-- Unreleased.REPORT_PLUS: held from translators until his yes (translatable="false"), the French beside it in values-fr. -->
-    <string name="problem_report_extras" translatable="false">The report also has the settings that matter here and the steps taken just before. The steps name no song, search or person.</string>
-    <string name="problem_report_extras_settings" translatable="false">The report also has the settings that matter here, as they are now.</string>
+    <!-- Unreleased.REPORT_PLUS: the French beside it in values-fr. -->
+    <string name="problem_report_extras">The report also has the settings that matter here and the steps taken just before. The steps name no song, search or person.</string>
+    <string name="problem_report_extras_settings">The report also has the settings that matter here, as they are now.</string>
     <!-- Casting, behind Unreleased.CASTING -->
     <string name="cast">Cast</string>
     <string name="cast_to">Cast to</string>
@@ -2103,9 +2114,25 @@ while also allowing users to translate our app as well. New, specific strings to
     </plurals>
 
     <!-- What Home, search, artist pages and radio leave out (ContentFiltersFrag in Library and content). -->
-    <string name="hide_explicit_description">Songs and albums marked explicit stay out of Home, search, artist pages and what a radio adds.</string>
+    <string name="hide_explicit_description">Explicit songs and albums stay out of Home, search, artist pages and radios.</string>
     <string name="hide_video_songs">Hide music videos</string>
-    <string name="hide_video_songs_description">Only album and single tracks are offered, not music videos or uploads. A song you pick still plays.</string>
+    <string name="hide_video_songs_description">Only album and single tracks are suggested, not music videos. A song you pick still plays.</string>
+    <!-- The AI filter (Unreleased.AI_FILTER, AiFilterFrag in Library and content, the artist menus, over
+         search results): held back from translators until the words are agreed. French beside them in values-fr. -->
+    <string name="ai_filter" translatable="false">AI music</string>
+    <string name="ai_filter_off" translatable="false">Off</string>
+    <string name="ai_filter_recommendations" translatable="false">Hide from recommendations</string>
+    <string name="ai_filter_everywhere" translatable="false">Block everywhere</string>
+    <string name="ai_filter_note" translatable="false">Uses a hand-made list of AI artists: CevvalKoala\'s YouTube blocklist and a few known AI acts. It can be wrong, so long-press an artist to mark it AI or not.</string>
+    <string name="ai_filter_explain" translatable="false">\"Hide from recommendations\" keeps AI songs off Home, radios and autoplay. \"Block everywhere\" also hides them in search and skips them in the queue. Songs in your library and your own playlists are never touched.</string>
+    <string name="ai_filter_mark_ai" translatable="false">Mark as AI</string>
+    <string name="ai_filter_not_ai" translatable="false">Not AI</string>
+    <plurals name="ai_filter_hidden" translatable="false">
+        <item quantity="one">%1$d AI result hidden</item>
+        <item quantity="other">%1$d AI results hidden</item>
+    </plurals>
+    <string name="ai_filter_show" translatable="false">Show</string>
+    <string name="ai_filter_skipped" translatable="false">Skipped an AI song</string>
 
     <!-- The recognition widget in the launcher's picker (recognition_widget_info). -->
     <string name="recognition_widget_description">One button that names the song playing around you.</string>
@@ -2130,7 +2157,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <!-- The sleep timer on a schedule, under the sleep timer's fade in Player and audio (SleepScheduleFrag, ScheduledSleep). -->
     <string name="sleep_schedule">Sleep timer on a schedule</string>
     <string name="sleep_schedule_description">Every day from %1$s, the sleep timer starts by itself for %2$s.</string>
-    <string name="sleep_schedule_explain">It starts at that time if music is playing, or when music starts in the 3 hours after. Only once a day: a sleep timer you set yourself counts as that day\'s, and after the timer, music you put on again plays on.</string>
+    <string name="sleep_schedule_explain">Starts at that time if music is playing, or when music starts in the few hours after. Once a day at most, and a timer you set yourself counts as that day\'s.</string>
     <string name="sleep_schedule_start">Starts at</string>
     <string name="sleep_schedule_length">Timer length</string>
     <string name="time_of_day_type">Type the time</string>
@@ -2138,7 +2165,7 @@ while also allowing users to translate our app as well. New, specific strings to
 
     <!-- Show in Latin letters, in Settings > Lyrics and in the lyrics view's settings (LyricsLatin). -->
     <string name="lyrics_latin_title">Show in Latin letters</string>
-    <string name="lyrics_latin_description">Lyrics in Japanese, Korean, Chinese, Russian and some other languages get a second line in Latin letters. Kanji stay as they are.</string>
+    <string name="lyrics_latin_description">Adds a line in Latin letters under Japanese, Korean, Chinese, Russian and other lyrics.</string>
     <string name="equalizer_headphones">Your headphones</string>
     <string name="equalizer_headphones_pick">Pick your model, and the bands follow its measurements from AutoEq.</string>
     <string name="equalizer_headphones_set">%1$s, measured by %2$s</string>
@@ -2154,8 +2181,8 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="lyrics_video_making">Making the video…</string>
     <string name="lyrics_video_failed">The video could not be made</string>
     <string name="lyrics_video_size">The video is %1$s</string>
-    <!-- Held back from translators until the next push of texts. %1$s is where the lyrics card or video went: Movies/InterTune, Pictures/InterTune, or the file's name where the system asked. -->
-    <string name="lyrics_saved" translatable="false">Saved: %1$s</string>
+    <!-- %1$s is where the lyrics card or video went: Movies/InterTune, Pictures/InterTune, or the file's name where the system asked. -->
+    <string name="lyrics_saved">Saved: %1$s</string>
     <plurals name="lyrics_picked_video">
         <item quantity="one">%1$d line, %2$s</item>
         <item quantity="other">%1$d lines, %2$s</item>
@@ -2164,8 +2191,8 @@ while also allowing users to translate our app as well. New, specific strings to
         <item quantity="one">A picture takes %1$d line, a video a minute of the song</item>
         <item quantity="other">A picture takes up to %1$d lines, a video a minute of the song</item>
     </plurals>
-    <!-- Held back from translators until the next push of texts, which also drops lyrics_pick_most_video above (a video takes ten minutes now). %1$d is the most lines a picture takes, %2$d the most minutes of the song a video takes. -->
-    <plurals name="lyrics_pick_most_video_minutes" translatable="false">
+    <!-- %1$d is the most lines a picture takes, %2$d the most minutes of the song a video takes. -->
+    <plurals name="lyrics_pick_most_video_minutes">
         <item quantity="one">A picture takes %1$d line, a video %2$d minutes of the song</item>
         <item quantity="other">A picture takes up to %1$d lines, a video %2$d minutes of the song</item>
     </plurals>
@@ -2222,7 +2249,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="battery_use_full_description">Everything as you set it.</string>
     <string name="battery_use_balanced_description">Your library syncs every two hours instead of every half hour, and the playing bars move more calmly.</string>
     <string name="battery_use_saver_description">Sound effects off except the equalizer, a black theme, fewer frames a second and, on Auto, Low quality on mobile data. Syncs and downloads wait for Wi-Fi.</string>
-    <string name="battery_use_explain">How much InterTune does while you listen. \"Balanced\" syncs your library less often and calms the playing bars. \"Saver\" also turns sound effects off except the equalizer, shows a black theme at fewer frames a second and, with Audio quality on Auto, streams at Low quality on mobile data.</string>
+    <string name="battery_use_explain">\"Balanced\" syncs your library less often and calms the animations. \"Saver\" also turns off sound effects except the equalizer, uses a black theme and, with Auto quality, streams at Low on mobile data.</string>
     <string name="battery_saver_holds_note">Set by \"Battery use\" while it is on \"Saver\".</string>
     <string name="battery_saver_quality_note">Low on mobile data while \"Battery use\" is on \"Saver\".</string>
     <string name="battery_saver_background_note">%1$s while \"Battery use\" is on \"Saver\".</string>
@@ -2326,6 +2353,10 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="signal_wired">Wired headphones</string>
     <string name="signal_other_output">Another device</string>
     <string name="signal_volume">Phone volume</string>
+    <string name="signal_receiver">%1$s, %2$s</string>
+    <string name="signal_receiver_rate">%1$s, %2$s, %3$s kHz</string>
+    <string name="signal_not_on_receiver">Not on this receiver, which gets the song as it is</string>
+    <string name="signal_not_while_casting">Not while casting</string>
     <string name="signal_percent">%1$d%%</string>
     <string name="signal_legend_untouched">Untouched</string>
     <string name="signal_legend_changed">Changed by a setting you chose</string>
@@ -2338,196 +2369,396 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="player_pin_lyrics">Lyrics</string>
     <string name="player_pins_reset">Reset to default</string>
     <!-- Saved twice (issue #47, Unreleased.SAVED_TWICE): held back from translators until his yes on the words, their French beside them in values-fr. The place in each is the list the screen was opened from. -->
-    <string name="saved_twice" translatable="false">Saved twice</string>
+    <string name="saved_twice">Saved twice</string>
     <!-- For a screen reader: the round button beside Play and Shuffle, and the number on it. -->
-    <plurals name="saved_twice_button" translatable="false">
+    <plurals name="saved_twice_button">
         <item quantity="one">%1$d song saved twice</item>
         <item quantity="other">%1$d songs saved twice</item>
     </plurals>
-    <plurals name="saved_twice_intro_liked" translatable="false">
+    <plurals name="saved_twice_intro_liked">
         <item quantity="one">%1$d song is in Liked more than once. Pick the one to keep.</item>
         <item quantity="other">%1$d songs are in Liked more than once. Pick the one to keep.</item>
     </plurals>
-    <plurals name="saved_twice_intro_library" translatable="false">
+    <plurals name="saved_twice_intro_library">
         <item quantity="one">%1$d song is in your library more than once. Pick the one to keep.</item>
         <item quantity="other">%1$d songs are in your library more than once. Pick the one to keep.</item>
     </plurals>
     <!-- %2$s is the playlist's name. -->
-    <plurals name="saved_twice_intro_playlist" translatable="false">
+    <plurals name="saved_twice_intro_playlist">
         <item quantity="one">%1$d song is in %2$s more than once. Pick the one to keep.</item>
         <item quantity="other">%1$d songs are in %2$s more than once. Pick the one to keep.</item>
     </plurals>
     <!-- Under the copy that stays. -->
-    <string name="saved_twice_keep" translatable="false">Keep</string>
+    <string name="saved_twice_keep">Keep</string>
     <!-- Under each copy that goes. %1$s is the playlist's name. -->
-    <string name="saved_twice_out_liked" translatable="false">Take out of Liked</string>
-    <string name="saved_twice_out_library" translatable="false">Take out of your library</string>
-    <string name="saved_twice_out_playlist" translatable="false">Take out of %1$s</string>
+    <string name="saved_twice_out_liked">Take out of Liked</string>
+    <string name="saved_twice_out_library">Take out of your library</string>
+    <string name="saved_twice_out_playlist">Take out of %1$s</string>
     <!-- The button at the bottom. %2$s is the playlist's name. -->
-    <plurals name="saved_twice_take_liked" translatable="false">
+    <plurals name="saved_twice_take_liked">
         <item quantity="one">Take %1$d copy out of Liked</item>
         <item quantity="other">Take %1$d copies out of Liked</item>
     </plurals>
-    <plurals name="saved_twice_take_library" translatable="false">
+    <plurals name="saved_twice_take_library">
         <item quantity="one">Take %1$d copy out of your library</item>
         <item quantity="other">Take %1$d copies out of your library</item>
     </plurals>
-    <plurals name="saved_twice_take_playlist" translatable="false">
+    <plurals name="saved_twice_take_playlist">
         <item quantity="one">Take %1$d copy out of %2$s</item>
         <item quantity="other">Take %1$d copies out of %2$s</item>
     </plurals>
-    <string name="saved_twice_note" translatable="false">Nothing is deleted from your phone, and Undo brings them back.</string>
+    <string name="saved_twice_note">Nothing is deleted from your phone, and Undo brings them back.</string>
     <!-- Said once the button is tapped, with Undo beside it. %2$s is the playlist's name. -->
-    <plurals name="saved_twice_done_liked" translatable="false">
+    <plurals name="saved_twice_done_liked">
         <item quantity="one">%1$d copy taken out of Liked</item>
         <item quantity="other">%1$d copies taken out of Liked</item>
     </plurals>
-    <plurals name="saved_twice_done_library" translatable="false">
+    <plurals name="saved_twice_done_library">
         <item quantity="one">%1$d copy taken out of your library</item>
         <item quantity="other">%1$d copies taken out of your library</item>
     </plurals>
-    <plurals name="saved_twice_done_playlist" translatable="false">
+    <plurals name="saved_twice_done_playlist">
         <item quantity="one">%1$d copy taken out of %2$s</item>
         <item quantity="other">%1$d copies taken out of %2$s</item>
     </plurals>
     <!-- What a copy is, first on its line: "Song · Riot! · 3:31", "Music video · 3:42", a file on the phone. -->
-    <string name="saved_twice_song" translatable="false">Song</string>
-    <string name="saved_twice_music_video" translatable="false">Music video</string>
-    <string name="saved_twice_file" translatable="false">File</string>
+    <string name="saved_twice_song">Song</string>
+    <string name="saved_twice_music_video">Music video</string>
+    <string name="saved_twice_file">File</string>
     <!-- An album that is the song's single: "Houdini (single)". -->
-    <string name="saved_twice_single" translatable="false">%1$s (single)</string>
-    <string name="saved_twice_none" translatable="false">Nothing in here is saved twice.</string>
+    <string name="saved_twice_single">%1$s (single)</string>
+    <string name="saved_twice_none">Nothing in here is saved twice.</string>
     <!-- #68: where YouTube Music has no free plan (South Korea), on Home, above search results and on an album that did not load. -->
     <string name="region_note_title">YouTube Music in South Korea</string>
     <string name="region_note_body">YouTube Music has no free plan in South Korea, so YouTube shows songs, albums and mixes there only to Premium members. Songs in your playlists still play, and search still finds videos. A Premium account, or a VPN or proxy outside Korea, brings the rest back.</string>
     <string name="region_note_proxy">Proxy settings</string>
     <string name="proxy_restart_title">Restart to apply the proxy setting</string>
-    <string name="proxy_restart_description">InterTune takes the proxy when it starts. Tap to restart it now; the music stops.</string>
-    <!-- Why search, radios, mixes or Home stopped loading (WhyStopped): on Home, on a search, album or playlist page that failed, and under a radio that did not start. Held from translators until his yes. -->
-    <string name="why_stopped_sign_in_title" translatable="false">Your YouTube sign-in expired</string>
-    <string name="why_stopped_sign_in_body" translatable="false">YouTube no longer accepts the sign-in InterTune keeps, so search, radios and mixes don\'t load. Sign in again to bring them back.</string>
-    <string name="why_stopped_sign_in_again" translatable="false">Sign in again</string>
-    <string name="why_stopped_unreachable_title" translatable="false">YouTube can\'t be reached</string>
-    <string name="why_stopped_unreachable_body" translatable="false">This connection isn\'t getting through to YouTube. If you use a VPN, make sure its split tunnelling includes InterTune, or try another network.</string>
-    <string name="album_not_loaded_title" translatable="false">This album did not load</string>
-    <string name="album_not_loaded_body" translatable="false">YouTube did not send it, so only the songs InterTune already had are shown.</string>
-    <string name="lyrics_refetch_failed" translatable="false">Lyrics could not be fetched. Check the connection.</string>
-    <string name="lyrics_refetch_none" translatable="false">No other lyrics were found, so these stay.</string>
-    <string name="play_search_failed" translatable="false">The search did not work, so nothing was played.</string>
-    <string name="proxy_address_format" translatable="false">Type the address as host:port, for example 127.0.0.1:8118.</string>
-    <string name="proxy_address_missing" translatable="false">No proxy is used until an address is set here.</string>
-    <string name="proxy_not_used_at_start" translatable="false">No proxy is in use: its address could not be read.</string>
-    <string name="sync_progress_busy" translatable="false">A sync is already running. Its changes show up when it ends.</string>
+    <string name="proxy_restart_description">InterTune picks up the proxy when it starts. Tap to restart it now. The music stops.</string>
+    <!-- Why search, radios, mixes or Home stopped loading (WhyStopped): on Home, on a search, album or playlist page that failed, and under a radio that did not start. -->
+    <string name="why_stopped_sign_in_title">Your YouTube sign-in expired</string>
+    <string name="why_stopped_sign_in_body">YouTube no longer accepts the sign-in InterTune keeps, so search, radios and mixes don\'t load. Sign in again to bring them back.</string>
+    <string name="why_stopped_sign_in_again">Sign in again</string>
+    <string name="why_stopped_unreachable_title">YouTube can\'t be reached</string>
+    <string name="why_stopped_unreachable_body">This connection isn\'t getting through to YouTube. If you use a VPN, make sure its split tunnelling includes InterTune, or try another network.</string>
+    <!-- Under a radio's songs in the queue when YouTube gave the radio nothing and InterTune picked them itself (LocalRadio, Unreleased.RADIO_FALLBACK). -->
+    <string name="radio_from_intertune_title">Picked by InterTune</string>
+    <string name="radio_from_intertune_body">YouTube sent no radio</string>
+    <string name="album_not_loaded_title">This album did not load</string>
+    <string name="album_not_loaded_body">YouTube did not send it, so only the songs InterTune already had are shown.</string>
+    <string name="lyrics_refetch_failed">Lyrics could not be fetched. Check the connection.</string>
+    <string name="lyrics_refetch_none">No other lyrics were found, so these stay.</string>
+    <string name="play_search_failed">The search did not work, so nothing was played.</string>
+    <string name="proxy_address_format">Type the address as host:port, for example 127.0.0.1:8118.</string>
+    <string name="proxy_address_missing">No proxy is used until an address is set here.</string>
+    <string name="proxy_not_used_at_start">No proxy is in use: its address could not be read.</string>
+    <string name="sync_progress_busy">A sync is already running. Its changes show up when it ends.</string>
     <!-- What's playing with no connection (issue #48, RecogniseLater, Unreleased.RECOGNISE_OFFLINE): a listen kept to be named once the phone is back online. Held back from translators until the words are agreed, the French beside them in values-fr. -->
-    <string name="recognise_later_kept" translatable="false">No connection. It kept what it heard and will name the song once you are back online.</string>
-    <string name="recognise_later_keeping" translatable="false">No connection. Keeping what it hears for later</string>
-    <string name="recognise_later_waiting" translatable="false">Waiting for a connection</string>
-    <string name="recognise_later_channel" translatable="false">Songs heard offline</string>
-    <plurals name="recognise_later_named" translatable="false">
+    <string name="recognise_later_kept">No connection. It kept what it heard and will name the song once you are back online.</string>
+    <string name="recognise_later_keeping">No connection. Keeping what it hears for later</string>
+    <string name="recognise_later_waiting">Waiting for a connection</string>
+    <string name="recognise_later_channel">Songs heard offline</string>
+    <plurals name="recognise_later_named">
         <item quantity="one">Found the song you heard offline</item>
         <item quantity="other">Found %1$d songs you heard offline</item>
     </plurals>
-    <string name="recognise_later_none" translatable="false">Nothing found for what you heard offline</string>
+    <string name="recognise_later_none">Nothing found for what you heard offline</string>
     <!-- Liked songs kept in sync with their downloads (issue #64, Unreleased.LIKED_SYNC): held from translators until he says. -->
-    <string name="liked_download_sync" translatable="false">Remove the download with the like</string>
-    <string name="liked_download_sync_description" translatable="false">Only songs this setting downloaded. A song you downloaded yourself stays.</string>
-    <!-- Playlist cover (PlaylistCovers, PlaylistCoverSheet, Unreleased.PLAYLIST_COVER): the choice in Edit playlist and in the sheet that opens from it and from the cover in a playlist's header. Held from translators until the words are agreed, their French beside them in values-fr. -->
-    <string name="playlist_cover_change" translatable="false">Change cover</string>
-    <string name="playlist_cover_title" translatable="false">Playlist cover</string>
-    <string name="playlist_cover_note" translatable="false">The cover above changes as you pick.</string>
-    <string name="playlist_cover_automatic" translatable="false">Automatic</string>
-    <string name="playlist_cover_automatic_note" translatable="false">The first song\'s cover</string>
-    <string name="playlist_cover_photo" translatable="false">A photo</string>
-    <string name="playlist_cover_photo_note" translatable="false">From your phone</string>
-    <string name="playlist_cover_songs" translatable="false">A song from this playlist</string>
-    <!-- Block artist (ArtistBlock, Unreleased.ARTIST_BLOCK): the last item of the song menus, the first button of an artist page's pill, Settings > Library and content > Blocked artists, and the line a search for a blocked artist shows. Held from translators until the words are agreed, their French beside them in values-fr. %1$s is the artist's name. -->
-    <string name="menu_block_artist" translatable="false">Block artist</string>
-    <string name="block_artist_which" translatable="false">Block which artist?</string>
-    <string name="block_artist_title" translatable="false">Block %1$s?</string>
-    <string name="block_artist_body" translatable="false">Their songs, albums and face disappear from InterTune: search, Home, radios, your library and playlists. Their songs are skipped. Unblock any time in Settings &gt; Library and content &gt; Blocked artists.</string>
-    <string name="block_artist_confirm" translatable="false">Block</string>
-    <string name="unblock" translatable="false">Unblock</string>
-    <string name="blocked_artists" translatable="false">Blocked artists</string>
-    <string name="blocked_artists_none" translatable="false">None</string>
-    <string name="blocked_artists_intro" translatable="false">Blocked artists are gone from search, Home, radios, your library and playlists, and their songs are skipped.</string>
-    <string name="blocked_artists_add" translatable="false">Add an artist</string>
-    <string name="blocked_artists_not_found" translatable="false">No artist found.</string>
-    <string name="blocked_today" translatable="false">Blocked today</string>
-    <string name="blocked_on" translatable="false">Blocked %1$s</string>
-    <string name="unblocked" translatable="false">%1$s unblocked</string>
-    <string name="blocked_search_note" translatable="false">%1$s is blocked, so nothing of theirs shows.</string>
-    <string name="blocked_song_skipped" translatable="false">%1$s is blocked, so their song was skipped.</string>
-    <string name="blocked_songs_left" translatable="false">The songs left are all by blocked artists, so the music stopped.</string>
+    <string name="liked_download_sync">Remove the download with the like</string>
+    <string name="liked_download_sync_description">Only songs this setting downloaded. A song you downloaded yourself stays.</string>
+    <!-- Playlist cover (PlaylistCovers, PlaylistCoverSheet, Unreleased.PLAYLIST_COVER): the choice in Edit playlist and in the sheet that opens from it and from the cover in a playlist's header. Their French is beside them in values-fr. -->
+    <string name="playlist_cover_change">Change cover</string>
+    <string name="playlist_cover_title">Playlist cover</string>
+    <string name="playlist_cover_note">The cover above changes as you pick.</string>
+    <string name="playlist_cover_automatic">Automatic</string>
+    <string name="playlist_cover_automatic_note">The first song\'s cover</string>
+    <string name="playlist_cover_photo">A photo</string>
+    <string name="playlist_cover_photo_note">From your phone</string>
+    <string name="playlist_cover_songs">A song from this playlist</string>
+    <!-- Block artist (ArtistBlock, Unreleased.ARTIST_BLOCK): the last item of the song menus, the first button of an artist page's pill, Settings > Library and content > Blocked artists, and the line a search for a blocked artist shows. Open to translators, as it is on for everyone from 0.13 (picked on 8 Nov 2026), their French beside them in values-fr. %1$s is the artist's name. -->
+    <string name="menu_block_artist">Block artist</string>
+    <string name="block_artist_which">Block which artist?</string>
+    <string name="block_artist_title">Block %1$s?</string>
+    <string name="block_artist_body">Their songs, albums and face disappear from InterTune: search, Home, radios, your library and playlists. Their songs are skipped. Unblock any time in Settings &gt; Library and content &gt; Blocked artists.</string>
+    <string name="block_artist_confirm">Block</string>
+    <string name="unblock">Unblock</string>
+    <string name="blocked_artists">Blocked artists</string>
+    <string name="blocked_artists_none">None</string>
+    <string name="blocked_artists_intro">Blocked artists are gone from search, Home, radios, your library and playlists, and their songs are skipped.</string>
+    <string name="blocked_artists_add">Add an artist</string>
+    <string name="blocked_artists_not_found">No artist found.</string>
+    <string name="blocked_today">Blocked today</string>
+    <string name="blocked_on">Blocked %1$s</string>
+    <string name="unblocked">%1$s unblocked</string>
+    <string name="blocked_search_note">%1$s is blocked, so nothing of theirs shows.</string>
+    <string name="blocked_song_skipped">%1$s is blocked, so their song was skipped.</string>
+    <string name="blocked_songs_left">The songs left are all by blocked artists, so the music stopped.</string>
+    <!-- Don't play this song (DontPlay, Unreleased.ARTIST_BLOCK), the song half of Block artist (#78): an item of the song menus beside Block artist and of the player's menu, its twin for a song set so, the lines said when it acts, and its reason and note in Settings > Recommendations > Exclusions. Open to translators, as it is on for everyone from 0.13 (picked on 8 Nov 2026), their French beside them in values-fr. %1$s is the song's title. -->
+    <string name="menu_dont_play_song">Don\'t play this song</string>
+    <string name="menu_dont_play_lift">Allow this song again</string>
+    <string name="dont_play_done">From now on it plays only when you pick it.</string>
+    <string name="dont_play_lifted">It plays like any other song again.</string>
+    <string name="dont_play_skipped">Skipped a song you chose not to play: “%1$s”</string>
+    <string name="dont_play_songs_left">The songs left are ones you chose not to play, so the music stopped.</string>
+    <string name="exclusion_reason_dont_play">Don\'t play this song</string>
+    <string name="exclusions_dont_play_note">Don\'t play this song goes further: the song stays out of radios and autoplay, and plays only when you pick it.</string>
     <!-- The settings search's words for Blocked artists: open to translators, as every search word is (SettingsSearchTest). -->
     <string name="search_words_blocked_artists">ban, hide, mute, blocklist</string>
-    <!-- The crash page when the update check has already found a newer version (CrashReportDialog, the dead-ends audit 1.10): held from translators until his go. -->
-    <string name="crash_newer_title" translatable="false">InterTune %1$s is out</string>
-    <string name="crash_newer_body" translatable="false">It may already fix this crash. Update first, then report it if it comes back.</string>
-    <string name="crash_newer_update" translatable="false">Update</string>
-    <!-- Share as a file under a report (ReportFile, Unreleased.REPORT_FILE): held from translators until his go. -->
-    <string name="problem_report_share_file" translatable="false">Share as a file</string>
-    <!-- Downloads saved as song files (SongFiles, Unreleased.DOWNLOAD_FILES), after the folder's warning: held from translators until his go. -->
-    <string name="dl_song_files_note" translatable="false">Songs are saved as Opus or M4A files with their title, artist and cover, so other apps and cars can play them.</string>
-    <!-- What's new in 0.12.8 (Walkthrough.kt, V0_12_8): held from translators until his go. -->
-    <string name="new_report_send_title" translatable="false">Send a report to InterTune</string>
-    <string name="new_report_send_body" translatable="false">Report a problem can now send the report to InterTune itself, no GitHub account needed. Or share it as a file to post on Discord.</string>
-    <string name="new_backup_parts_title" translatable="false">Backups leave your sign-ins out</string>
-    <string name="new_backup_parts_body" translatable="false">Backup now asks what goes in the file. Your YouTube Music and Last.fm sign-ins only go in if you tick them.</string>
-    <string name="new_backup_parts_way" translatable="false">Backups are made and restored in here.</string>
-    <string name="new_backup_parts_here" translatable="false">Tap Backup to pick what goes in the file. Your sign-ins only go in if you tick them.</string>
-    <string name="new_lyrics_save_title" translatable="false">Save lyrics cards and videos</string>
-    <string name="new_lyrics_save_body" translatable="false">Long-press a line of the lyrics: a card or a video can now be saved on the phone, not only shared.</string>
-    <!-- What's new in 0.12.7, listed from 0.12.8 (his pick of 2 Nov 2026): held from translators until his go. -->
-    <string name="new_shelf_looks_title" translatable="false">The Shelf in three looks</string>
-    <string name="new_shelf_looks_body" translatable="false">Big cover, Crate or Records, picked under Look in the widget\'s settings.</string>
-    <string name="new_lyrics_video_long_title" translatable="false">Lyrics videos up to ten minutes</string>
-    <string name="new_lyrics_video_long_body" translatable="false">Long-press a line of the lyrics to share a video of up to ten minutes of the song. With Living blur on, its background moves with the music.</string>
-    <string name="new_share_cards_title" translatable="false">Shared songs show their cover</string>
-    <string name="new_share_cards_body" translatable="false">A song shared as InterTune\'s page shows its name and cover in chat apps.</string>
-    <!-- The backup sheet (BackupParts): what goes in a backup file, the sign-ins off by default (his yes, 4 Nov 2026): held from translators until his go. -->
-    <string name="backup_parts_title" translatable="false">What goes in the backup</string>
-    <string name="backup_parts_note" translatable="false">Restore it on any phone with InterTune.</string>
-    <string name="backup_part_library" translatable="false">Library</string>
-    <string name="backup_part_library_note" translatable="false">Songs, playlists, history and stats</string>
-    <string name="backup_part_settings" translatable="false">Settings</string>
-    <string name="backup_part_settings_note" translatable="false">How the app looks and plays</string>
-    <string name="backup_part_photos" translatable="false">Playlist photos</string>
-    <string name="backup_part_photos_note" translatable="false">Covers you picked from your phone</string>
-    <string name="backup_part_signins" translatable="false">Your sign-ins</string>
-    <string name="backup_part_signins_note" translatable="false">YouTube Music and Last.fm</string>
-    <string name="backup_part_signins_warning" translatable="false">Anyone with this file could use these accounts.</string>
-    <string name="backup_parts_confirm" translatable="false">Back up</string>
+    <!-- The crash page when the update check has already found a newer version (CrashReportDialog, the dead-ends audit 1.10). -->
+    <string name="crash_newer_title">InterTune %1$s is out</string>
+    <string name="crash_newer_body">It may already fix this crash. Update first, then report it if it comes back.</string>
+    <string name="crash_newer_update">Update</string>
+    <!-- Share as a file under a report (ReportFile, Unreleased.REPORT_FILE). -->
+    <string name="problem_report_share_file">Share as a file</string>
+    <!-- Downloads saved as song files (SongFiles, Unreleased.DOWNLOAD_FILES), after the folder's warning. -->
+    <string name="dl_song_files_note">Songs are saved as Opus or M4A files with their title, artist and cover, so other apps and cars can play them.</string>
+    <!-- Download quality (DownloadsFrag, Unreleased.DOWNLOAD_QUALITY): the row's title, the choice that follows Audio quality, and the line under the row. The other three choices are the Audio quality ones (audio_quality_max, _high, _low). -->
+    <string name="download_quality">Download quality</string>
+    <string name="download_quality_same">Same as playback</string>
+    <string name="download_quality_description">Better quality takes more space. Songs you already downloaded stay as they are.</string>
+    <!-- File format and Bitrate (DownloadsFrag, Unreleased.DOWNLOAD_FORMATS), under the download folder: the row titles, Original's name, Bitrate's choices and the notes under the rows. MP3, M4A (AAC), FLAC and WAV are named in the row itself. -->
+    <string name="download_format">File format</string>
+    <string name="download_format_original">Original</string>
+    <string name="download_format_description">Original keeps the best quality. Other formats are converted on the phone after the download.</string>
+    <string name="download_bitrate">Bitrate</string>
+    <string name="download_bitrate_auto">Auto</string>
+    <string name="download_bitrate_kbps">%1$d kbps</string>
+    <string name="download_bitrate_description">Auto fits each song to what YouTube sent. Converting cannot add quality YouTube did not send.</string>
+    <string name="download_bitrate_aac_kept">Songs YouTube sent as AAC are kept as they are.</string>
+    <!-- Converting songs (ConvertNotice, Unreleased.DOWNLOAD_FORMATS): the notice while it runs and the line that stays when some songs could not be converted. -->
+    <string name="convert_notice_title">Converting to %1$s</string>
+    <string name="convert_notice_text">%1$d of %2$d</string>
+    <string name="convert_fallback_title">Some songs were not converted</string>
+    <plurals name="convert_fallback_text">
+        <item quantity="one">%1$d song could not be converted and was saved as it came.</item>
+        <item quantity="other">%1$d songs could not be converted and were saved as they came.</item>
+    </plurals>
+    <!-- The settings search's words for File format: open to translators, as every search word is (SettingsSearchTest). -->
+    <string name="search_words_download_format">mp3, flac, wav, aac, m4a, convert, format, file type</string>
+    <!-- Export to folder (ExportSheet, Unreleased.DOWNLOAD_FORMATS): the menu entry, the sheet, the line it ends with and the songs it names. -->
+    <string name="export_to_folder">Export to folder</string>
+    <string name="export_note">Only songs that are on the phone are exported.</string>
+    <string name="export_folder">Folder</string>
+    <string name="export_folder_none">Choose a folder</string>
+    <string name="export_action">Export</string>
+    <string name="export_progress">Exporting %1$d of %2$d</string>
+    <string name="export_done_title">Export finished</string>
+    <string name="export_stopped_title">Export stopped</string>
+    <string name="export_names_more">%1$s and %2$d more</string>
+    <plurals name="export_exported">
+        <item quantity="one">%1$d song exported</item>
+        <item quantity="other">%1$d songs exported</item>
+    </plurals>
+    <plurals name="export_skipped_not_downloaded">
+        <item quantity="one">%1$d skipped: not downloaded</item>
+        <item quantity="other">%1$d skipped: not downloaded</item>
+    </plurals>
+    <plurals name="export_skipped_there">
+        <item quantity="one">%1$d skipped: already in the folder</item>
+        <item quantity="other">%1$d skipped: already in the folder</item>
+    </plurals>
+    <plurals name="export_skipped_local">
+        <item quantity="one">%1$d skipped: a file on the phone already</item>
+        <item quantity="other">%1$d skipped: files on the phone already</item>
+    </plurals>
+    <plurals name="export_failed">
+        <item quantity="one">%1$d could not be converted</item>
+        <item quantity="other">%1$d could not be converted</item>
+    </plurals>
+    <!-- What's new in 0.13 (Walkthrough.kt, V0_13). -->
+    <string name="new_block_artist_title">Block an artist</string>
+    <string name="new_block_artist_body">Block artist, in a song\'s menu or on their page, takes their songs, albums and picture out of InterTune.</string>
+    <string name="new_block_artist_way">The artists you blocked are listed in here.</string>
+    <string name="new_block_artist_here">Everyone you blocked, to unblock them or to block an artist by name.</string>
+    <string name="new_dont_play_title">Keep a song from playing</string>
+    <string name="new_dont_play_body">Don\'t play this song, in a song\'s menu, keeps it out of radios and autoplay, other uploads of it included. In a playlist or the queue it stays listed, greyed out, and is skipped. It still plays when you pick it yourself.</string>
+    <string name="new_saved_twice_title">Find songs saved twice</string>
+    <string name="new_saved_twice_body">When Liked songs, your library or a playlist holds a song more than once, a round button with a count shows beside Play and Shuffle. Tap it to keep one copy of each.</string>
+    <string name="new_sleep_timer_title">A sleep timer with more ways to stop</string>
+    <string name="new_sleep_timer_body">Stop at a clock time, or at the end of the song, the album or the queue. Open it with the timer in the player; its notification counts down and adds time.</string>
+    <string name="new_liked_sync_title">Unliking can remove the download</string>
+    <string name="new_liked_sync_body">If your liked songs download themselves, unliking one can now remove its download. Songs you downloaded yourself stay.</string>
+    <string name="new_liked_sync_way">Downloads and the space they take are set in here.</string>
+    <string name="new_liked_sync_here">On, unliking a song removes the download made for it. It works while liked songs download themselves.</string>
+    <string name="new_album_goes_on_title">Albums go on after their last song</string>
+    <string name="new_album_goes_on_body">With Auto load more songs on, an album that ends carries on with a radio from its last song, as in YouTube Music.</string>
+    <string name="new_album_goes_on_way">How the queue goes on at its end is set in here.</string>
+    <string name="new_album_goes_on_here">On, an album that ends goes on with a radio from its last song.</string>
+    <string name="new_recognise_offline_title">Song recognition works offline</string>
+    <string name="new_recognise_offline_body">With no connection, What\'s playing? keeps what it heard and names the songs once the phone is back online. They wait in What you have heard.</string>
+    <string name="new_animations_title">Turn the animations off</string>
+    <string name="new_animations_body">A switch in Look and feel turns the app\'s animations off: screens change at once and backgrounds stand still. Easier on older phones.</string>
+    <string name="new_animations_way">How the app looks and moves is set in here.</string>
+    <string name="new_animations_here">Android\'s own Remove animations turns them off here too, and greys this switch out.</string>
+    <string name="new_stats_plays_title">Stats counts your plays</string>
+    <string name="new_stats_plays_body">Your most played songs, artists and albums now show how many times you played them, the most played first. Open Stats from Home.</string>
+    <string name="new_queue_swipe_title">Swipe a song out of the queue</string>
+    <string name="new_queue_swipe_body">Swipe a song sideways and let go to take it out of the queue. Undo in the bar that comes up brings it back, and Remove on a selection can be undone too.</string>
+    <string name="new_downloads_move_title">Your downloads follow the folder you choose</string>
+    <string name="new_downloads_move_body">Choosing a download folder now offers to move the songs you already downloaded, with a notification while they move. If the folder can\'t be opened, the app says so.</string>
+    <string name="new_downloads_move_here">Choose the folder here. Songs you downloaded before can move there with it.</string>
+    <string name="new_original_audio_title">Podcasts and videos in their own language</string>
+    <string name="new_original_audio_body">When YouTube dubs a podcast or a video into other languages, InterTune now plays the language it was made in.</string>
+    <!-- What's new in 0.12.8 (Walkthrough.kt, V0_12_8). -->
+    <string name="new_report_send_title">Send a report to InterTune</string>
+    <string name="new_report_send_body">Report a problem can now send the report to InterTune itself, no GitHub account needed. Or share it as a file to post on Discord.</string>
+    <string name="new_backup_parts_title">Backups leave your sign-ins out</string>
+    <string name="new_backup_parts_body">Backup now asks what goes in the file. Your YouTube Music and Last.fm sign-ins only go in if you tick them.</string>
+    <string name="new_backup_parts_way">Backups are made and restored in here.</string>
+    <string name="new_backup_parts_here">Tap Backup to pick what goes in the file. Your sign-ins only go in if you tick them.</string>
+    <string name="new_lyrics_save_title">Save lyrics cards and videos</string>
+    <string name="new_lyrics_save_body">Long-press a line of the lyrics: a card or a video can now be saved on the phone, not only shared.</string>
+    <!-- What's new in 0.12.7, listed from 0.12.8 (his pick of 2 Nov 2026). -->
+    <string name="new_shelf_looks_title">The Shelf in three looks</string>
+    <string name="new_shelf_looks_body">Big cover, Crate or Records, picked under Look in the widget\'s settings.</string>
+    <string name="new_lyrics_video_long_title">Lyrics videos up to ten minutes</string>
+    <string name="new_lyrics_video_long_body">Long-press a line of the lyrics to share a video of up to ten minutes of the song. With Living blur on, its background moves with the music.</string>
+    <string name="new_share_cards_title">Shared songs show their cover</string>
+    <string name="new_share_cards_body">A song shared as InterTune\'s page shows its name and cover in chat apps.</string>
+    <!-- The backup sheet (BackupParts): what goes in a backup file, the sign-ins off by default (his yes, 4 Nov 2026). -->
+    <string name="backup_parts_title">What goes in the backup</string>
+    <string name="backup_parts_note">Restore it on any phone with InterTune.</string>
+    <string name="backup_part_library">Library</string>
+    <string name="backup_part_library_note">Songs, playlists, history and stats</string>
+    <string name="backup_part_settings">Settings</string>
+    <string name="backup_part_settings_note">How the app looks and plays</string>
+    <string name="backup_part_photos">Playlist photos</string>
+    <string name="backup_part_photos_note">Covers you picked from your phone</string>
+    <string name="backup_part_signins">Your sign-ins</string>
+    <string name="backup_part_signins_note">YouTube Music and Last.fm</string>
+    <string name="backup_part_signins_warning">Anyone with this file could use these accounts.</string>
+    <string name="backup_parts_confirm">Back up</string>
     <!-- The Animations switch, first row of Look and feel (Animations, his yes of 4 Nov 2026): held from translators until his go, their French beside them in values-fr. -->
-    <string name="animations_title" translatable="false">Animations</string>
-    <string name="animations_description" translatable="false">When off, screens change at once and backgrounds stand still. Easier on older phones.</string>
-    <string name="animations_held_note" translatable="false">Off while animations are off in Android\'s settings.</string>
-    <string name="living_blur_still_switch" translatable="false">Stands still while \"Animations\" is off, at the top of this page.</string>
+    <string name="animations_title">Animations</string>
+    <string name="animations_description">When off, screens change at once and backgrounds stand still. Easier on older phones.</string>
+    <string name="animations_held_note">Off while animations are off in Android\'s settings.</string>
+    <string name="living_blur_still_switch">Stands still while \"Animations\" is off, at the top of this page.</string>
     <!-- The settings search's words for Animations: open to translators, as every search word is (SettingsSearchTest). -->
     <string name="search_words_animations">motion, transitions, effects, slow phone, lag</string>
-    <!-- Settings > Widgets (WidgetsSettings, Unreleased.WIDGETS_PAGE): its row in Settings, its parts, All options' lines for each style, Add, and the note where the home screen takes no widget from an app. Held from translators until his go, their French beside them in values-fr. widgets_cells is a widget's size in cells, figures and a sign: nothing to translate. -->
-    <string name="widgets" translatable="false">Widgets</string>
-    <string name="settings_widgets_description" translatable="false">Add widgets to your home screen, and change how each one looks.</string>
-    <string name="widgets_on_home_screen" translatable="false">On your home screen</string>
-    <string name="widgets_add_title" translatable="false">Add a widget</string>
-    <string name="widgets_add" translatable="false">Add</string>
-    <string name="widgets_all_options" translatable="false">All options</string>
-    <string name="widgets_all_options_cover" translatable="false">Opacity, text size, what it shows</string>
-    <string name="widgets_all_options_full_cover" translatable="false">Text size, what it shows</string>
-    <string name="widgets_all_options_shelf" translatable="false">Background, buttons, rows</string>
-    <string name="widgets_add_from_home" translatable="false">This home screen does not take widgets from apps. Add them from its own widget list.</string>
+    <!-- Settings > Widgets (WidgetsSettings, Unreleased.WIDGETS_PAGE): its row in Settings, its parts, All options' lines for each style, Add, and the note where the home screen takes no widget from an app. Their French is beside them in values-fr. widgets_cells is a widget's size in cells, figures and a sign: nothing to translate. -->
+    <string name="widgets">Widgets</string>
+    <string name="settings_widgets_description">Add widgets to your home screen, and change how each one looks.</string>
+    <string name="widgets_on_home_screen">On your home screen</string>
+    <string name="widgets_add_title">Add a widget</string>
+    <string name="widgets_add">Add</string>
+    <string name="widgets_all_options">All options</string>
+    <string name="widgets_all_options_cover">Opacity, text size, what it shows</string>
+    <string name="widgets_all_options_full_cover">Text size, what it shows</string>
+    <string name="widgets_all_options_shelf">Background, buttons, rows</string>
+    <string name="widgets_add_from_home">This home screen does not take widgets from apps. Add them from its own widget list.</string>
     <string name="widgets_cells" translatable="false">%1$d × %2$d</string>
-    <!-- A write the phone refused, in a toast (NotSaved): a setting, a sort, an add to a playlist. Held for translators. -->
-    <string name="not_saved_storage_full" translatable="false">Not saved: the phone\'s storage is full. Free some space and try again.</string>
-    <string name="not_saved" translatable="false">Not saved: something went wrong. Please try again.</string>
-    <!-- A toast when Remove download could not delete a song's file from the download folder (DownloadUtil.deleteSong): the song stays listed. Held for translators. -->
-    <string name="remove_download_refused" translatable="false">Could not delete the file. Check the download folder.</string>
+    <!-- The Songs tab with nothing in it, by the list picked above (Liked, Downloaded): French beside them in values-fr. Library keeps library_song_empty. -->
+    <string name="library_song_empty_liked">Songs you like will show up here</string>
+    <string name="library_song_empty_downloaded">Downloaded songs will show up here</string>
+    <!-- A write the phone refused, in a toast (NotSaved): a setting, a sort, an add to a playlist. -->
+    <string name="not_saved_storage_full">Not saved: the phone\'s storage is full. Free some space and try again.</string>
+    <string name="not_saved">Not saved: something went wrong. Please try again.</string>
+    <!-- The question before the downloads of the songs picked in a selection are removed. -->
+    <string name="remove_download_selection_confirm">Remove the downloads of the songs you picked?</string>
+    <!-- A toast when Remove download could not delete a song's file from the download folder (DownloadUtil.deleteSong): the song stays listed. -->
+    <string name="remove_download_refused">Could not delete the file. Check the download folder.</string>
+    <!-- Read out by screen readers for the playing song's row held at the top or the foot of the queue while the list is scrolled away from it (#81): a tap puts the list back at the song. -->
+    <string name="queue_held_row_label">go back to the song playing</string>
+    <!-- Stats, Found with InterTune (his idea of 6 Nov 2026): a card among the findings. %1$s is how many of the songs the listener liked InterTune played them first, in the accent colour; under it the split by where those first plays came from, and "Only known since" the day the app began to note where songs come from. -->
+    <string name="stats_found">InterTune found %1$s of the songs you liked.</string>
+    <!-- Where the first plays came from: radios, and the songs played next after one picked by hand; then Home's rows other than Quick picks and Discover something new. -->
+    <string name="found_way_radios">Radios</string>
+    <string name="found_way_home">Other rows of Home</string>
+    <!-- About, the card under the version line (VersionCard): seven quick taps on the version give a card drawn from this device alone. version_card_more counts down the last taps, as Android's build number does; version_card_found is printed on the card, %1$s the day it was found. -->
+    <string name="version_card_title">Your card</string>
+    <string name="version_card_more">%1$d more</string>
+    <string name="version_card_found">Found %1$s</string>
+    <string name="version_card_number">No.</string>
+    <!-- The notification a headset or widget press shows for the moment between the app starting and the song's own notification (MediaButtonStart, issue #98). -->
+    <string name="media_button_resuming">Resuming your queue</string>
+    <!-- Choose what's in the three-dot menus (MENU_CHOICES): a menu being edited, and the line under a trimmed one. -->
+    <string name="menu_hidden">Hidden</string>
+    <string name="menu_hidden_hint">Tap an entry to move it here, or back.</string>
+    <string name="menu_edit_done">Done</string>
+    <string name="menu_edit_hide">Hide</string>
+    <string name="menu_edit_show">Show</string>
+    <string name="menu_edit_start">Edit this menu</string>
+    <string name="menu_choices_title">Three-dot menus</string>
+    <string name="menu_choices_description">Hold any entry of a menu to choose what the menu shows.</string>
+    <string name="menu_choices_show_all">Show all</string>
+    <string name="search_words_menus">menu, three dots, options, hide, entries</string>
+    <plurals name="menu_hidden_count">
+        <item quantity="one">%1$d hidden</item>
+        <item quantity="other">%1$d hidden</item>
+    </plurals>
     <!-- A picker asked for on a device with none (#120, #121). -->
     <string name="no_app_to_pick">No file picker here. Install a file manager app.</string>
-    <!-- The notification a headset or widget press shows for the moment between the app starting and the song's own notification (MediaButtonStart, issue #98). Held for translators. -->
-    <string name="media_button_resuming" translatable="false">Resuming your queue</string>
-    <!-- The Songs tab with nothing in it, by the list picked above (Liked, Downloaded): held from translators until the next push, French beside them in values-fr. Library keeps library_song_empty. -->
-    <string name="library_song_empty_liked" translatable="false">Songs you like will show up here</string>
-    <string name="library_song_empty_downloaded" translatable="false">Downloaded songs will show up here</string>
-    <!-- The question before the downloads of the songs picked in a selection are removed. Held for translators. -->
-    <string name="remove_download_selection_confirm" translatable="false">Remove the downloads of the songs you picked?</string>
+    <!-- The sleep timer's sheet and its notification (SleepTimerDialog, SleepTimerNotification). -->
+    <string name="sleep_row_in">In</string>
+    <string name="sleep_row_at">At</string>
+    <string name="sleep_row_end_of">End of</string>
+    <string name="sleep_minutes_short">%1$d min</string>
+    <string name="sleep_end_song">Song</string>
+    <string name="sleep_end_album">Album</string>
+    <string name="sleep_end_of_album">End of album</string>
+    <string name="sleep_end_of_queue">End of queue</string>
+    <string name="sleep_let_finish">Let the song finish</string>
+    <string name="sleep_fade_row">Fade out · %1$d&#160;s</string>
+    <string name="sleep_every_night">Every night</string>
+    <string name="sleep_start">Start</string>
+    <string name="sleep_stop">Stop timer</string>
+    <string name="sleep_close">Close</string>
+    <string name="sleep_plus_minutes">+%1$d min</string>
+    <string name="sleep_stops_at">Stops at %1$s</string>
+    <string name="sleep_stops_at_after_song">Stops at %1$s, after the song</string>
+    <string name="sleep_the_song">the song</string>
+    <string name="sleep_notif_title_at">Music stops at %1$s</string>
+    <string name="sleep_notif_title_song">Music stops after this song</string>
+    <string name="sleep_notif_title_album">Music stops after this album</string>
+    <string name="sleep_notif_title_queue">Music stops at the end of the queue</string>
+    <string name="sleep_notif_line_fade">Fades out %1$d&#160;s</string>
+    <string name="sleep_notif_line_fade_after">Fades out %1$d&#160;s, after %2$s</string>
+    <string name="sleep_notif_line_after">After %1$s</string>
+    <string name="sleep_notif_stop">Stop</string>
+    <!-- Said under the queue after songs were taken out of it by hand, with Undo beside it (QueueUndo): the song's title, or how many. -->
+    <string name="queue_removed_one">Removed %1$s</string>
+    <plurals name="queue_removed_songs">
+        <item quantity="one">Removed %1$d song</item>
+        <item quantity="other">Removed %1$d songs</item>
+    </plurals>
+    <!-- A download folder saved that does not open (DownloadFolderState): under its row on Settings > Storage, and said once, in a toast (so 70 characters at most, ToastLengthTest), when a download cannot be moved into it. Then the question after a folder is chosen while downloads are still inside the app. -->
+    <string name="dl_folder_cannot_open">InterTune can\'t open this folder any more. New downloads stay inside the app until you choose it again.</string>
+    <string name="dl_folder_cannot_open_notice">InterTune can\'t open your download folder. Downloads stay in the app.</string>
+    <string name="dl_move_here_title">Move your downloads here?</string>
+    <plurals name="dl_move_here_text">
+        <item quantity="one">%d song is still inside the app. Move it to this folder now?</item>
+        <item quantity="other">%d songs are still inside the app. Move them to this folder now?</item>
+    </plurals>
+    <string name="dl_move_here_move">Move</string>
+    <string name="dl_move_here_not_now">Not now</string>
+    <!-- While Migrate, or the move offered once a folder is chosen, puts the downloads kept inside the app into the folder (MoveNotice): the notification as it goes and the line it ends with. -->
+    <string name="dl_move_notice_title">Moving downloads</string>
+    <string name="dl_move_notice_text">%1$d of %2$d</string>
+    <string name="dl_move_notice_done">Downloads moved to your folder</string>
+    <plurals name="dl_move_notice_failed">
+        <item quantity="one">%d song could not be moved and stays inside the app</item>
+        <item quantity="other">%d songs could not be moved and stay inside the app</item>
+    </plurals>
+    <!-- Downloading songs, simpler (DownloadsSimpleLook): the words of the simpler page he chose, C (experiments/features/downloads-simple). The Storage page in plain words, the one row for where downloads go, the choice of two, and what Download says of where a song goes. The words of the ways not chosen go with the switch. -->
+    <string name="dl_simple_size_folder">In your folder: %s</string>
+    <string name="dl_simple_clear_confirm">Remove the downloads kept inside the app? Songs in your folder stay.</string>
+    <string name="dl_simple_nothing_to_move">Nothing to move: no downloads are inside the app.</string>
+    <string name="dl_simple_rescan_description">Do this after you add, move or delete files in your download folders yourself.</string>
+    <string name="dl_simple_where_title">Where downloads go</string>
+    <string name="dl_simple_where_inside">Inside the app</string>
+    <plurals name="dl_simple_still_inside">
+        <item quantity="one">%d song is still inside the app.</item>
+        <item quantity="other">%d songs are still inside the app.</item>
+    </plurals>
+    <string name="dl_simple_choose_again">Choose it again</string>
+    <string name="dl_simple_inside_line">Only InterTune can play them.</string>
+    <string name="dl_simple_in_folder">In a folder</string>
+    <string name="dl_simple_in_folder_line">Ordinary files, for other apps too. Pick an empty folder: InterTune may change or delete files in it.</string>
+    <plurals name="dl_simple_saved_to">
+        <item quantity="one">%1$d song saved to %2$s</item>
+        <item quantity="other">%1$d songs saved to %2$s</item>
+    </plurals>
+    <plurals name="dl_simple_saved_inside">
+        <item quantity="one">%d song downloaded, kept inside the app</item>
+        <item quantity="other">%d songs downloaded, kept inside the app</item>
+    </plurals>
 </resources>

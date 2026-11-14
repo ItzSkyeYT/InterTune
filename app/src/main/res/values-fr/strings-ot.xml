@@ -22,9 +22,9 @@
     <string name="player_background_style">Style d\'arrière-plan du lecteur</string>
     <string name="player_background_living">Flou vivant</string>
     <string name="player_living_strength">Intensité du Flou vivant</string>
-    <string name="player_living_strength_description">À quel point le fond et le halo autour de la pochette bougent avec la musique. À 0, il ne fait que dériver.</string>
+    <string name="player_living_strength_description">À quel point le fond et le halo bougent avec la musique.</string>
     <string name="player_living_smoothing">Douceur du Flou vivant</string>
-    <string name="player_living_smoothing_description">La douceur avec laquelle il suit la musique. Bas, il saute à chaque coup ; haut, il enfle et s\'attarde.</string>
+    <string name="player_living_smoothing_description">La douceur avec laquelle il suit la musique. Bas, il saute à chaque coup. Haut, il enfle et s\'attarde.</string>
     <string name="player_living_colours">Couleurs du Flou vivant</string>
     <string name="player_living_colours_main">Trois couleurs de la pochette : une pour les basses, une pour la voix, une pour les aigus</string>
     <string name="player_living_colours_cover">La pochette elle-même, floutée</string>
@@ -41,7 +41,7 @@
     <string name="ytm_sync">Synchronisation automatique avec votre compte YouTube Music</string>
     <string name="wifi_only">Wi-Fi uniquement</string>
     <string name="grp_audio">Audio</string>
-    <string name="auto_scanner_description">Actualiser périodiquement les titres locaux et les dossiers de téléchargement personnalisés à l\'ouverture de l\'application</string>
+    <string name="auto_scanner_description">Cherche les nouveaux titres locaux à l\'ouverture de l\'application.</string>
     <string name="scan_paths_title">Configurer les emplacements d’analyse…</string>
     <string name="scan_paths_tooltip">Tous les sous-répertoires seront également affectés</string>
     <string name="scan_paths_add_folder">Ajouter un nouveau dossier</string>
@@ -65,13 +65,13 @@
     <string name="action_skip">Passer</string>
     <string name="folders">Dossiers</string>
     <string name="create_sync_playlist">Synchroniser la playlist</string>
-    <string name="create_sync_playlist_description">Remarque : cela permet la synchronisation avec YouTube Music. Ce paramètre ne peut pas être modifié ultérieurement. Vous ne pouvez pas ajouter de titres locaux aux playlists synchronisées.</string>
+    <string name="create_sync_playlist_description">Synchronisée avec YouTube Music. Impossible de changer ce choix plus tard, et les titres locaux ne peuvent pas y être ajoutés.</string>
     <string name="audio_offload">Activer le déchargement</string>
     <string name="local_library_enable_title">Activer les médias locaux</string>
-    <string name="token_adv_login_description">Avancé : saisissez ou mettez à jour ici votre jeton de connexion au lieu de passer par la page web. Toute personne qui a ce jeton peut utiliser votre compte YouTube, ne le partagez donc jamais. Un jeton que l\'application ne sait pas lire n\'est pas accepté.</string>
-    <string name="audio_offload_description">Utilisez le chemin audio de déchargement pour la lecture audio. L\'activation de cette option peut réduire la consommation d\'énergie, mais peut entraîner des problèmes de lecture audio ou de post-traitement. Cette préférence n\'a aucun effet sur les codecs ou appareils non pris en charge.</string>
+    <string name="token_adv_login_description">Pour un usage avancé : collez un jeton de connexion au lieu de passer par la page web. Toute personne qui a ce jeton peut utiliser votre compte YouTube, ne le partagez jamais.</string>
+    <string name="audio_offload_description">Peut économiser la batterie, mais peut causer des problèmes de lecture sur certains téléphones.</string>
     <string name="min_playback_duration">Durée minimale de lecture</string>
-    <string name="min_playback_duration_description">La part d\'un titre qui doit être lue pour compter comme une lecture. Ce réglage détermine le nombre de lectures, les titres les plus joués et ce qui est envoyé à votre historique YouTube. La page « Historique » affiche chaque titre écouté au moins 2 secondes, quel que soit ce réglage.</string>
+    <string name="min_playback_duration_description">La part d\'un titre à écouter pour qu\'il compte comme lu, pour le nombre de lectures, les plus écoutés et votre historique YouTube. L\'historique liste quand même tout ce que vous écoutez.</string>
     <string name="lyrics_prefer_local">Préférez les fichiers de paroles locaux</string>
     <string name="lyrics_settings_title">Paroles</string>
     <string name="slim_navbar_title">Barre de navigation fine</string>
@@ -88,7 +88,7 @@
     <string name="lyrics_trim_title">Supprimer les espaces autour des paroles</string>
     <string name="local_library_enable_description">La désactivation masquera la bibliothèque locale de l\'application</string>
     <string name="lyrics_font_Size">Taille de la police</string>
-    <string name="scanner_strict_file_name_description">Lorsque cette option est activée, les noms de fichiers ne seront pas ignorés. Par exemple, Song.ogg sera une chanson différente de Song.flac. La préférence de sensibilité du scanner s\'appliquera toujours</string>
+    <string name="scanner_strict_file_name_description">Les noms de fichiers comptent : « Song.ogg » et « Song.flac » deviennent deux titres.</string>
     <string name="flat_subfolders_title">Aplatir les sous-dossiers</string>
     <string name="m3u_import_playlist_failed">Échec de l\'importation</string>
     <string name="local_player_settings_title">Médias Locaux</string>
@@ -105,7 +105,7 @@
     <string name="sync_progress_success">Synchronisation terminée</string>
     <string name="tab_arrangement_home_required">L\'onglet Accueil est obligatoire.</string>
     <string name="scanner_manual_btn">Déclencher la synchronisation manuelle</string>
-    <string name="scanner_missing_storage_perm">Le scanner de médias locaux a besoin d\'autorisations d\'accès au stockage pour fonctionner</string>
+    <string name="scanner_missing_storage_perm">Le scanner local a besoin de l\'autorisation de stockage.</string>
     <string name="scanner_scan_fail">Échec de l\'analyse</string>
     <string name="scanner_ytm_link_fail">La tâche de liaison des artistes YouTube a échoué</string>
     <string name="scanner_ytm_link_success">Le travail de création de liens vers les artistes YouTube est terminé</string>
@@ -116,7 +116,7 @@
     </plurals>
     <string name="grp_lyrics_parser">Analyseur</string>
     <string name="grp_lyrics_source">Sources des paroles</string>
-    <string name="swipe2Queue_description">Faites glisser un titre pour l\'ajouter à la file d\'attente directement après le titre en cours de lecture</string>
+    <string name="swipe2Queue_description">Balayez un titre pour le lire ensuite.</string>
     <plurals name="scanner_n_song_processed">
         <item quantity="one">%d titre traité</item>
         <item quantity="many">%d titres traités</item>
@@ -176,12 +176,14 @@
     <string name="speed_slow">Lent</string>
     <string name="speed_medium">Moyen</string>
     <string name="speed_fast">Rapide</string>
-    <string name="lyrics_karaoke_description">Permet la synchronisation mot à mot des paroles. Nécessite la prise en charge du format des paroles.</string>
+    <string name="lyrics_karaoke_description">Chaque mot s\'allume quand il est chanté, si les paroles sont minutées mot par mot.</string>
     <string name="m3u_ytm_lookup">Rechercher sur YouTube Music des titres non trouvées dans la base de données de l\'application</string>
     <string name="tablet_ui_title_description">Activer une interface paysage optimisée pour les écrans plus grands, quelle que soit la taille actuelle de l\'écran</string>
     <string name="attribution_title">Attribution</string>
+    <string name="high_contrast">Compatibilité avec le mode contraste élevé</string>
+    <string name="high_contrast_description">Activez pour corriger certains défauts d\'affichage quand le mode contraste élevé d\'Android est actif</string>
     <string name="oss_licenses_title">Licences open source</string>
-    <string name="lyrics_karaoke_title">Paroles de style karaoké.</string>
+    <string name="lyrics_karaoke_title">Paroles de style karaoké</string>
     <string name="disable_lm_confirm">Voulez-vous vraiment désactiver les fonctionnalités multimédias locales ? Le contenu de votre bibliothèque ne sera pas affecté.</string>
     <string name="scanner_progress_discovering">À la découverte…</string>
     <string name="scanner_progress_processing">Traitement…</string>
@@ -218,14 +220,14 @@
     <string name="dl_main_path_part_of_scan">Ce dossier fait partie d\'un dossier d\'analyse, il ne peut donc pas être le dossier de téléchargement</string>
     <string name="oobe_ad_free_exp_description">Profitez d\'une lecture de musique ininterrompue</string>
     <string name="dl_oobe_tooltip">Les titres sont téléchargés dans le stockage privé de l\'application. Pour télécharger dans un dossier accessible, choisissez-en un ici ; vous pourrez le changer plus tard dans les Paramètres.</string>
-    <string name="oobe_ytm_logon_subtitle">Connectez-vous à votre compte YouTube Music pour synchroniser et accéder à votre contenu privé. Cette option est facultative.</string>
-    <string name="dl_rescan_description">Mettez à jour la base de données et actualisez le registre de téléchargement si des fichiers ou des dossiers ont été modifiés</string>
+    <string name="oobe_ytm_logon_subtitle">Connectez-vous pour retrouver vos playlists, vos titres aimés et vos recommandations. C\'est facultatif.</string>
+    <string name="dl_rescan_description">À faire si vous avez modifié vous-même des fichiers dans vos dossiers de téléchargement.</string>
     <string name="dl_migrate_confirm">Cette action migrera tous les téléchargements internes vers « %s », et elle est irréversible. Souhaitez-vous continuer ?</string>
     <string name="dl_migrate_title">Migrer les téléchargements vers un stockage externe…</string>
-    <string name="dl_migrate_description">Déplacer les téléchargements du stockage interne de l\'application vers le stockage externe de l\'appareil</string>
+    <string name="dl_migrate_description">Déplace les téléchargements du stockage de l\'application vers celui du téléphone.</string>
     <string name="dl_main_path_title">Définir un dossier de téléchargement externe…</string>
     <string name="dl_rescan_title">Réanalyser les dossiers de téléchargement…</string>
-    <string name="dl_extra_path_description">Les titres de ces dossiers n\'apparaîtront dans l\'application que si vous les avez déjà écoutés ou ajoutés à une playlist. Ces dossiers sont seulement lus, jamais modifiés.</string>
+    <string name="dl_extra_path_description">Les titres de ces dossiers apparaissent une fois écoutés ou ajoutés à une playlist. Les dossiers ne sont jamais modifiés.</string>
     <string name="dl_calculate_size">Appuyez pour calculer la taille du téléchargement</string>
     <string name="dl_size_used_cache">Interne : %s utilisés</string>
     <string name="dl_size_used_main">Externe : %s utilisés</string>
@@ -270,30 +272,32 @@
     <string name="audio_decoder_system_with_ffmpeg">Donner la priorité aux décodeurs système</string>
     <string name="max_queues_title">Nombre maximal de files d\'attente</string>
     <string name="oobe_welcome_tip">Pour une expérience optimale, nous vous recommandons d\'effectuer une configuration rapide pour personnaliser les paramètres clés tels que le thème, le compte YouTube, les médias locaux et les téléchargements.</string>
-    <string name="oobe_cache_subtitle">Choisissez la taille du cache des titres. Cela peut contribuer à réduire les problèmes de lecture liés à Internet ou à l\'API YouTube.</string>
+    <string name="oobe_cache_subtitle">Choisissez l\'espace réservé aux titres. Un cache plus grand aide quand la connexion est mauvaise.</string>
     <string name="action_logout_tooltip">Pour vous déconnecter complètement, veuillez vous déconnecter de votre compte YouTube sur le portail Web avant d\'utiliser ce bouton de déconnexion.</string>
     <string name="auto_scanner_tooltip">Pour les médias locaux, cette opération ne recharge pas les métadonnées des titres existants. Utilisez l\'analyse manuelle en cochant la case « Réanalyser » si vous souhaitez également actualiser les métadonnées.</string>
     <string name="scanner_auto_end">L\'actualisation des médias locaux et des téléchargements de titres est terminée !</string>
     <string name="scanner_auto_start">Actualisation des dossiers de téléchargement de médias locaux et de titres…</string>
     <string name="scanner_strict_file_paths_title">Faire correspondre les chemins de fichiers au lieu des métadonnées</string>
-    <string name="scanner_strict_file_paths_description">Désactive toute correspondance intelligente des métadonnées. Cela peut poser problème si des fichiers sont déplacés de votre stockage local, mais autorise le même titre dans différents dossiers</string>
+    <string name="scanner_strict_file_paths_description">Désactive la correspondance intelligente des infos des titres. Déplacer des fichiers peut alors poser problème, mais un même titre peut exister dans deux dossiers.</string>
     <string name="scanner_type_tooltip">L\'analyseur système est plus rapide, mais il peut extraire certaines métadonnées de manière incorrecte par rapport à d\'autres extracteurs. Veuillez noter que le changement d\'analyseur ne recharge pas automatiquement les métadonnées des titres existants.</string>
+    <string name="scanner_type_mediastore">(BÊTA) Utiliser l\'analyseur système MediaStore et ses extracteurs</string>
     <string name="restore_lm_tooltip">Après une restauration sur une nouvelle installation, vos dossiers de téléchargement et d\'analyse peuvent ne plus fonctionner. Retirez-les puis ajoutez-les à nouveau.</string>
     <string name="action_done">Terminé</string>
-    <string name="download_on_wifi_only_description">Attend une connexion Wi-Fi avant de télécharger. Les téléchargements lancés en données mobiles sont mis en attente et démarrent tout seuls dès que le Wi-Fi revient</string>
+    <string name="download_on_wifi_only_description">Les téléchargements attendent le Wi-Fi et démarrent tout seuls quand il revient.</string>
     <string name="download_on_wifi_only_title">Télécharger en Wi-Fi uniquement</string>
-    <string name="download_waiting_for_wifi">En file d\'attente. Le téléchargement s\'effectuera dès qu\'une connexion Wi-Fi sera disponible.</string>
+    <string name="download_waiting_for_wifi">En attente. Le téléchargement démarrera avec le Wi-Fi.</string>
     <plurals name="download_progress_songs">
         <item quantity="one">%1$d sur %2$d titre</item>
         <item quantity="many">%1$d sur %2$d titres</item>
         <item quantity="other">%1$d sur %2$d titres</item>
     </plurals>
     <string name="err_copy_details">Copier les détails de l\'erreur</string>
+    <string name="player_error_report">Signaler</string>
     <string name="err_youtube_busy">YouTube a temporairement cessé d\'envoyer de la musique à cette connexion Internet. Ce n\'est ni votre téléphone, ni votre compte, ni ce titre, et cela se règle tout seul. Un autre réseau, comme les données mobiles, fonctionne souvent. Sinon, patientez un peu et réessayez.</string>
     <string name="grouped_player_controls">Regrouper les boutons du lecteur</string>
-    <string name="grouped_player_controls_description">Réunit les boutons aléatoire, suivant, lecture et répétition dans une seule barre de verre. Désactivez pour qu\'ils flottent séparément sur la pochette. Nécessite Liquid glass.</string>
+    <string name="grouped_player_controls_description">Réunit les boutons de lecture dans une seule barre de verre. Nécessite Liquid glass.</string>
     <string name="grp_updates">Mises à jour</string>
-    <string name="liked_autodownload_backfill_description">Récupère tous les titres aimés que vous n\'avez pas encore. En mode Wi-Fi uniquement, les titres aimés en données mobiles sont ignorés plutôt que mis en attente : utilisez ceci une fois de retour en Wi-Fi. Les titres que vous avez supprimés à la main reviendront.</string>
+    <string name="liked_autodownload_backfill_description">Télécharge tous les titres aimés que vous n\'avez pas encore, comme ceux aimés en données mobiles. Les titres supprimés à la main reviennent aussi.</string>
     <string name="liked_autodownload_backfill_title">Télécharger tous les titres aimés maintenant</string>
     <string name="liked_autodownload_blocked">En pause. YouTube a temporairement cessé d\'envoyer de la musique à cette connexion : les téléchargements attendent au lieu d\'échouer. Ils reprendront tout seuls.</string>
     <string name="liked_autodownload_finished">%1$d titres aimés téléchargés.</string>
@@ -302,11 +306,11 @@
     <string name="liked_autodownload_running">Téléchargement de %1$d sur %2$d. Appuyez pour arrêter.</string>
     <string name="liked_autodownload_stopped">Arrêté. %1$d téléchargés, le reste a été annulé.</string>
     <string name="loudness_repair">Corriger le volume des titres</string>
-    <string name="loudness_repair_available">Recherche le bon volume pour les titres qui n\'en ont pas, pour qu\'aucun ne se mette soudain à hurler plus fort que les autres. %1$d titres en ont encore besoin. Appuyez pour démarrer.</string>
+    <string name="loudness_repair_available">Trouve le bon volume des titres qui n\'en ont pas, pour qu\'aucun ne sonne soudain plus fort. %1$d titres en ont encore besoin. Appuyez pour démarrer.</string>
     <string name="loudness_repair_blocked">Arrêté après plusieurs échecs d\'affilée, ce qui veut souvent dire que YouTube a besoin d\'une pause. %1$d corrigés. Réessayez dans un moment.</string>
     <string name="loudness_repair_done">Terminé. %1$d titres corrigés, ils se lisent maintenant au même volume que les autres.</string>
     <string name="loudness_repair_done_partial">%1$d titres corrigés. %2$d n\'ont aucune information de volume sur YouTube et ont été laissés tels quels.</string>
-    <string name="loudness_repair_none">Recherche le bon volume pour les titres qui n\'en ont pas, pour qu\'aucun ne se mette soudain à hurler plus fort que les autres. Tous vos titres l\'ont déjà.</string>
+    <string name="loudness_repair_none">Tous vos titres ont déjà le bon volume.</string>
     <string name="loudness_repair_offline">Une connexion Internet est nécessaire pour rechercher le volume des titres.</string>
     <string name="loudness_repair_running">Vérification du titre %1$d sur %2$d, %3$d corrigés jusqu\'ici. Appuyez pour arrêter.</string>
     <string name="loudness_repair_stopped">Arrêté. %1$d titres corrigés, il reste les autres. Appuyez pour continuer.</string>
@@ -315,18 +319,18 @@
     <string name="oobe_update_check_title">Vous prévenir des mises à jour ?</string>
     <string name="oobe_update_check_yes">Oui, vérifier</string>
     <string name="player_glass_intensity">Intensité du verre</string>
-    <string name="player_glass_intensity_description">Plus haut, c\'est plus transparent et plus fortement réfracté ; plus bas, c\'est plus proche de surfaces pleines</string>
+    <string name="player_glass_intensity_description">Plus haut est plus transparent, plus bas plus opaque.</string>
     <string name="player_glass_intensity_value">%1$d%%</string>
     <string name="player_liquid_glass">Liquid glass</string>
-    <string name="player_liquid_glass_description">Panneaux de verre flottants pour la barre de navigation, le mini lecteur et les commandes de lecture, et des couleurs de pochette plus riches derrière l\'écran de lecture</string>
-    <string name="player_liquid_glass_description_legacy">Des couleurs de pochette plus riches derrière l\'écran de lecture. Les panneaux de verre flottants nécessitent Android 13 ou plus récent</string>
+    <string name="player_liquid_glass_description">Des panneaux de verre flottants pour la barre de navigation, le mini lecteur et les commandes, avec des couleurs plus riches derrière le lecteur.</string>
+    <string name="player_liquid_glass_description_legacy">Des couleurs de pochette plus riches derrière l\'écran de lecture, et les onglets et le mini-lecteur flottent comme un dock. Le verre lui-même nécessite Android 13 ou plus récent</string>
     <string name="sleep_timer_fade">Fondu avant l\'arrêt</string>
     <string name="sleep_timer_fade_description">Baisse doucement le volume à la fin de la minuterie de sommeil, au lieu de couper net</string>
     <string name="sleep_timer_fade_duration">Durée du fondu</string>
     <string name="sleep_timer_fade_duration_description">Durée du fondu avant que la minuterie de sommeil arrête la lecture</string>
     <string name="sleep_timer_fade_duration_value">%1$d secondes</string>
     <string name="swipe_to_dismiss_player">Balayer le mini lecteur pour le fermer</string>
-    <string name="swipe_to_dismiss_player_description">Balayer le mini lecteur vers le bas le ferme et arrête la musique. Désactivez cette option et il reste en place : le titre continue et vous ne pouvez pas le fermer par accident.</string>
+    <string name="swipe_to_dismiss_player_description">Balayez le mini lecteur vers le bas pour le fermer et arrêter la musique. Désactivé, il reste en place pour éviter les fermetures par erreur.</string>
     <string name="update_available">La version %1$s est disponible</string>
     <string name="update_available_title">Disponible</string>
     <string name="update_check">Me prévenir des mises à jour</string>
@@ -335,8 +339,8 @@
     <string name="quick_picks_source">Source de la Sélection Rapide</string>
     <string name="quick_picks_source_youtube">YouTube Music</string>
     <string name="quick_picks_source_library">Votre bibliothèque</string>
-    <string name="quick_picks_source_description">D\'où viennent les titres de la rangée « Sélection Rapide ». « YouTube Music » prend l\'étagère que YouTube construit pour votre compte, « Votre bibliothèque » des titres liés à ce que vous écoutez, et « Meilleures recommandations » construit la rangée d\'après votre façon d\'écouter. « Essayer les deux » alterne « Meilleures recommandations » avec une autre source.</string>
-    <string name="oobe_update_auto_description">Télécharge la mise à jour en arrière-plan pour qu\'elle soit prête quand vous en aurez envie. Android vous demandera quand même de confirmer.</string>
+    <string name="quick_picks_source_description">D\'où viennent les titres de la « Sélection Rapide ». « YouTube Music » reprend les suggestions de YouTube, « Votre bibliothèque » des titres liés à ce que vous écoutez, « Meilleures recommandations » apprend de votre écoute, et « Essayer les deux » l\'alterne avec une autre source.</string>
+    <string name="oobe_update_auto_description">Télécharger en arrière-plan pour qu\'elle soit prête. Android vous demande quand même d\'abord.</string>
     <string name="oobe_polls_answered">Vous pouvez changer cela à tout moment dans Paramètres, sous Questions et nouvelles.</string>
     <string name="poll_title">Une question d\'InterTune</string>
     <string name="poll_banner_hint">Touchez pour répondre, ou fermez avec la croix</string>
@@ -359,30 +363,30 @@
     <string name="poll_anonymous_notice">Votre réponse est anonyme. Sont envoyés uniquement : de quelle question il s\'agissait, ce que vous avez choisi, et la version de l\'application. Aucun compte, aucune information sur l\'appareil, rien sur votre bibliothèque.</string>
     <string name="grp_polls">Questions et nouvelles</string>
     <string name="polls_enabled">Me poser une question de temps en temps</string>
-    <string name="polls_enabled_description">Une courte question sur l\'accueil de temps en temps, sur ce qu\'il faudrait créer. Désactivé par défaut.</string>
-    <string name="polls_enabled_info">De temps en temps, InterTune télécharge depuis GitHub une courte liste de questions et en affiche une en haut de l\'accueil. Répondre envoie la question, votre choix et la version de l\'application ; ouvrir une question pour la première fois envoie son titre et la version. Jamais votre compte, votre appareil ni votre bibliothèque.</string>
+    <string name="polls_enabled_description">Une courte question sur l\'accueil de temps en temps, sur ce qu\'il faudrait créer.</string>
+    <string name="polls_enabled_info">De temps en temps, InterTune récupère une courte question sur GitHub et l\'affiche sur l\'accueil. Répondre envoie la question, votre réponse et la version de l\'application, et l\'ouvrir envoie son titre et la version. Jamais votre compte, votre appareil ni votre bibliothèque.</string>
     <string name="polls_none">Aucune question pour le moment</string>
     <string name="polls_one_waiting">Une question vous attend</string>
     <string name="news_one_waiting">Il y a une nouvelle en attente</string>
     <string name="news_none">Pas de nouvelles pour le moment</string>
     <string name="polls_forget">Me permettre d\'être à nouveau sollicité</string>
-    <string name="polls_forget_description">Efface ce que vous avez répondu, ignoré et lu, pour que les anciennes questions et nouvelles puissent revenir.</string>
+    <string name="polls_forget_description">Oublie ce que vous avez répondu, ignoré et lu, pour que les anciennes questions et nouvelles puissent revenir.</string>
     <string name="catch_up_title">Quelques questions rapides</string>
     <string name="catch_up_body">Ces réglages ont besoin de votre accord, et cette installation n\'a jamais été interrogée.</string>
     <string name="catch_up_done">Terminé</string>
     <string name="catch_up_all_answered">C\'est tout. Touchez « %1$s » pour finir.</string>
     <string name="polls_opt_in_title">Vous poser une question de temps en temps ?</string>
-    <string name="polls_opt_in_body">De temps en temps, InterTune peut afficher une courte question en haut de l\'accueil, sur ce qu\'il faudrait créer ou changer. Les réponses, et la première ouverture de chacune, sont comptées anonymement. Vous pouvez désactiver cela à tout moment dans les paramètres.</string>
+    <string name="polls_opt_in_body">De temps en temps, InterTune peut poser une courte question sur l\'accueil à propos de la suite. Les réponses et les premières ouvertures sont comptées anonymement, et vous pouvez désactiver cela à tout moment dans les paramètres.</string>
     <string name="polls_opt_in_yes">Oui, posez-moi des questions</string>
     <string name="polls_opt_in_no">Non merci</string>
     <string name="news_enabled">Des nouvelles d\'InterTune</string>
-    <string name="news_enabled_description">Une annonce sur l\'accueil de temps en temps, comme une nouveauté. Désactivé par défaut.</string>
-    <string name="news_enabled_info">De temps en temps, InterTune télécharge depuis GitHub une courte liste d\'annonces et affiche la plus récente en haut de l\'accueil. Ouvrir une annonce pour la première fois envoie son titre et la version de l\'application, pour compter les lecteurs. Jamais votre compte, votre appareil ni votre bibliothèque.</string>
+    <string name="news_enabled_description">Une annonce sur l\'accueil de temps en temps, comme une nouveauté.</string>
+    <string name="news_enabled_info">De temps en temps, InterTune récupère des annonces sur GitHub et les affiche sur l\'accueil. En ouvrir une envoie son titre et la version de l\'application, pour compter les lecteurs. Jamais votre compte, votre appareil ni votre bibliothèque.</string>
     <string name="news_opt_in_title">Recevoir des nouvelles d\'InterTune ?</string>
-    <string name="news_opt_in_body">De temps en temps, InterTune peut afficher une courte annonce en haut de l\'accueil, comme une nouveauté ou son serveur Discord. La première ouverture de chacune est comptée anonymement. Vous pouvez désactiver cela à tout moment dans les paramètres.</string>
+    <string name="news_opt_in_body">De temps en temps, InterTune peut afficher une courte annonce sur l\'accueil, comme une nouveauté. L\'ouverture est comptée anonymement, et vous pouvez désactiver cela à tout moment dans les paramètres.</string>
     <string name="news_opt_in_yes">Oui, montrez-moi</string>
     <string name="oobe_news_answered">Vous pouvez changer cela à tout moment dans Paramètres, sous Questions et nouvelles.</string>
-    <string name="update_available_description">Ouvre la page de la version pour que vous puissiez lire les nouveautés et la télécharger vous-même. Utile si l\'installation depuis l\'application ne fonctionne pas sur cet appareil.</string>
+    <string name="update_available_description">Ouvre la page de la version pour lire les nouveautés et la télécharger vous-même.</string>
     <string name="update_install">Télécharger et installer</string>
     <string name="update_prompt_title">InterTune %1$s est disponible</string>
     <string name="update_prompt_ready">Déjà téléchargée et prête à être installée.</string>
@@ -392,8 +396,8 @@
     <string name="update_prompt_later">Me le rappeler plus tard</string>
     <string name="update_prompt_install">Installer</string>
     <string name="update_auto">Télécharger les mises à jour automatiquement</string>
-    <string name="update_auto_description">Récupère la nouvelle version en arrière-plan pour qu\'elle soit prête dès que vous le souhaitez. Elle ne peut toujours pas s\'installer toute seule : Android vous demande toujours de confirmer, donc la demande d\'installation apparaîtra de toute façon.</string>
-    <string name="update_install_description">Télécharge la nouvelle version et demande à Android de l\'installer. La première fois, Android vous demandera d\'autoriser InterTune à installer des applications. Rien n\'est jamais installé sans votre confirmation.</string>
+    <string name="update_auto_description">Télécharge les nouvelles versions en arrière-plan pour qu\'elles soient prêtes. Android vous demande quand même avant d\'installer.</string>
+    <string name="update_install_description">Télécharge la nouvelle version et demande à Android de l\'installer. Rien n\'est installé sans votre accord.</string>
     <string name="update_downloading">Téléchargement, %1$d%%. Touchez pour arrêter.</string>
     <string name="update_downloading_indeterminate">Téléchargement. Touchez pour arrêter.</string>
     <string name="update_awaiting_confirmation">Prête. Android va vous demander de confirmer l\'installation.</string>
@@ -405,8 +409,8 @@
     <string name="update_open_auto_blocker">Ouvrir le Bloqueur automatique</string>
     <string name="update_try_again">Réessayer</string>
     <string name="update_open_page">Ouvrir plutôt la page de la version</string>
-    <string name="update_check_description">Vérifie sur GitHub s\'il existe une version plus récente d\'InterTune à chaque ouverture de l\'application. Désactivé par défaut. Rien n\'est jamais installé sans votre confirmation.</string>
-    <string name="oobe_update_check_description">InterTune n\'est pas sur une boutique d\'applications : elle consulte donc GitHub à son ouverture et vous prévient quand une nouvelle version existe. Elle peut la télécharger et l\'installer pour vous, et Android vous demande toujours de confirmer d\'abord. Vous pourrez changer cela plus tard dans les paramètres.</string>
+    <string name="update_check_description">Vérifie sur GitHub s\'il y a une nouvelle version à chaque ouverture. Rien ne s\'installe sans votre accord.</string>
+    <string name="oobe_update_check_description">InterTune n\'est pas sur une boutique d\'applications : elle consulte GitHub à l\'ouverture pour trouver les nouvelles versions. Elle peut les télécharger et les installer pour vous, et Android vous demande toujours d\'abord.</string>
     <string name="look_and_feel">Apparence</string>
     <string name="grp_privacy_and_history">Confidentialité et historique</string>
     <string name="grp_storage_and_downloads">Stockage et téléchargements</string>
@@ -427,23 +431,34 @@
     <string name="flush_image_cache_description">Libère la mémoire occupée par les pochettes d\'album. Elles seront récupérées à nouveau au besoin.</string>
     <string name="song_cache_max_size">Taille maximale du cache des morceaux</string>
     <string name="image_cache_max_size">Taille maximale du cache des pochettes</string>
-    <string name="max_queues_description">Combien de files d\'attente l\'application conserve à la fois. La plus ancienne est supprimée au-delà de ce nombre.</string>
-    <string name="enable_proxy_description">Faire passer tout ce que l\'application récupère par un autre serveur, images et paroles comprises. Les enceintes et téléviseurs de votre réseau restent joints directement. Laissez ceci désactivé sauf si vous savez que vous en avez besoin.</string>
+    <string name="max_queues_description">Combien de files garder. La plus ancienne part au-delà.</string>
+    <string name="enable_proxy_description">Fait passer tout ce que l\'application récupère par un autre serveur, images et paroles comprises. Laissez désactivé sauf si vous en avez besoin.</string>
     <string name="show_liked_and_downloaded_playlist_description">Afficher Titres aimés et Titres téléchargés comme des playlists dans votre bibliothèque.</string>
     <string name="pause_listen_history_description">Ne plus ajouter de morceaux à votre historique. Rien de ce qui s\'y trouve déjà n\'est supprimé.</string>
-    <string name="pause_remote_listen_history_description">Ne plus indiquer à YouTube Music ce que vous écoutez. Votre historique dans cette application continue quoi qu\'il arrive.</string>
+    <string name="pause_remote_listen_history_description">Ne plus dire à YouTube Music ce que vous écoutez. L\'historique de l\'application continue.</string>
     <string name="clear_listen_history_description">Supprimer tout ce que l\'application a enregistré sur ce que vous avez écouté.</string>
     <string name="pause_search_history_description">Ne plus enregistrer ce que vous recherchez.</string>
     <string name="clear_search_history_description">Supprimer toutes les recherches enregistrées par l\'application.</string>
-    <string name="sync_params_description">« Lecture / Écriture » permet à l\'application de modifier votre compte YouTube Music : j\'aime, bibliothèque et playlists. « Remplacer le contenu local » retire de la bibliothèque de ce téléphone tout ce qui n\'est pas dans le compte.</string>
+    <string name="sync_params_description">« Lecture / Écriture » permet à l\'application de modifier vos j\'aime, votre bibliothèque et vos playlists YouTube Music. « Remplacer le contenu local » retire de ce téléphone ce qui n\'est pas dans votre compte.</string>
     <string name="enable_lrclib_description">Chercher les paroles sur LRCLIB, une base de paroles communautaire et gratuite.</string>
     <string name="enable_kugou_description">Chercher les paroles sur KuGou. Son catalogue est vaste et particulièrement riche en musique chinoise.</string>
-    <string name="audio_normalization_description">Égalise le volume entre les morceaux, pour qu\'aucun ne soit soudain bien plus fort que le précédent.</string>
+    <string name="lyrics_sources">Sources des paroles</string>
+    <string name="lyrics_sources_hint">Interrogées de haut en bas. Les premières paroles synchronisées trouvées s\'affichent, et les paroles simples seulement si aucune source n\'en a de synchronisées.</string>
+    <string name="lyrics_source_youtube_captions">Sous-titres YouTube</string>
+    <string name="lyrics_source_youtube_captions_line">Les sous-titres synchronisés de la vidéo.</string>
+    <string name="lyrics_source_youtube_music">YouTube Music</string>
+    <string name="lyrics_source_youtube_music_line">Les paroles affichées par YouTube Music, non synchronisées.</string>
+    <string name="lyrics_source_lrclib">LRCLIB</string>
+    <string name="lyrics_source_better_lyrics">Better Lyrics</string>
+    <string name="lyrics_source_better_lyrics_line">Synchronisées mot à mot, quand il a ce titre.</string>
+    <string name="lyrics_source_kugou">KuGou</string>
+    <string name="lyrics_source_move">Déplacer %1$s</string>
+    <string name="audio_normalization_description">Égalise le volume pour qu\'aucun titre ne soit soudain beaucoup plus fort.</string>
     <string name="skip_silence_description">Passer les blancs au début et à la fin d\'un morceau.</string>
     <string name="stop_music_on_task_clear_description">Arrêter la musique quand vous balayez l\'application hors des applications récentes.</string>
     <string name="enable_dynamic_theme_description">Reprendre les couleurs de l\'application depuis la pochette du titre en cours de lecture. Désactivé, ou sans lecture, elle utilise les couleurs de votre téléphone (Android 12 ou plus récent).</string>
-    <string name="pure_black_description">Utiliser du vrai noir au lieu du gris foncé. Sur un écran OLED, cela économise aussi un peu de batterie.</string>
-    <string name="min_playback_duration_short">La part d\'un titre qui doit être lue pour compter comme une lecture. La page Historique affiche chaque titre écouté au moins 2 secondes, que la lecture compte ou non.</string>
+    <string name="pure_black_description">Du vrai noir au lieu du gris foncé. Sur écran OLED, cela économise un peu de batterie.</string>
+    <string name="min_playback_duration_short">La part d\'un titre à écouter pour qu\'il compte comme lu. L\'historique liste quand même tout ce que vous écoutez.</string>
     <string name="throttle_banner_title">YouTube a suspendu cette connexion</string>
     <!-- General -->
     <string name="back">Retour</string>
@@ -457,31 +472,31 @@
     <string name="spatial_audio_off">Désactivé</string>
     <string name="spatial_audio_headphones">Casque</string>
     <string name="spatial_audio_surround">Conversion surround</string>
-    <string name="spatial_audio_explain">L\'option « Casque » le fait dans l\'application, donc cela fonctionne sur n\'importe quel téléphone. L\'option « Conversion surround » le demande à votre téléphone, ce qui n\'aide que s\'il le prend en charge.</string>
+    <string name="spatial_audio_explain">« Casque » fonctionne sur tous les téléphones. « Conversion surround » laisse faire votre téléphone, et seuls certains en sont capables.</string>
     <string name="stage_width">Largeur de scène</string>
     <string name="stage_width_value">Enceintes à %1$d degrés de chaque côté</string>
-    <string name="stage_width_explain">L\'écart entre les deux enceintes virtuelles. La stéréo est mixée pour 30 degrés.\n\nPlus large sépare davantage les instruments. Trop large laisse un trou au milieu.</string>
+    <string name="stage_width_explain">L\'écart entre les deux enceintes virtuelles, 30° sonnant comme une stéréo normale. Plus large écarte les instruments, et trop large laisse un trou au milieu.</string>
     <string name="head_tracking">Suivi de la tête</string>
     <string name="head_tracking_description">La musique reste en place quand vous tournez la tête.</string>
     <string name="head_tracking_report_prompt">Votre casque a le suivi de la tête, mais ceci indique toujours le contraire ? Dites-le-moi.</string>
     <string name="link_wiki">Wiki</string>
     <string name="link_report">Le signaler</string>
     <string name="head_tracking_none">Aucun capteur de suivi de la tête sur ce téléphone.</string>
-    <string name="head_tracking_explain">La musique reste en place quand vous tournez la tête.\n\nNécessite un casque qui indique dans quelle direction il est tourné, et un téléphone qui transmet cette information. La plupart des téléphones ne le font pas.</string>
+    <string name="head_tracking_explain">La musique reste en place quand vous tournez la tête. Il faut un casque qui suit vos mouvements, et la plupart des téléphones ne transmettent pas cette information.</string>
     <string name="head_tracking_response">Réactivité du suivi</string>
     <string name="head_tracking_response_description">La vitesse à laquelle le son réagit quand vous tournez la tête.</string>
     <string name="head_tracking_response_smooth">Douce</string>
     <string name="head_tracking_response_balanced">Équilibrée</string>
     <string name="head_tracking_response_quick">Rapide</string>
     <string name="head_tracking_response_instant">Instantanée</string>
-    <string name="head_tracking_response_explain">« Douce » ne dépasse jamais mais semble un peu en retard. « Rapide » et « Instantanée » semblent immédiates mais peuvent dépasser quand vous arrêtez de tourner. « Équilibrée » se situe entre les deux.</string>
+    <string name="head_tracking_response_explain">« Douce » ne dépasse jamais mais traîne un peu. « Rapide » et « Instantanée » réagissent tout de suite mais peuvent dépasser quand vous vous arrêtez. « Équilibrée » est entre les deux.</string>
     <string name="proximity_volume">Plus bas quand vous vous éloignez</string>
     <string name="proximity_volume_description">Traite votre téléphone comme la source de la musique.</string>
-    <string name="proximity_volume_explain">Éloignez-vous de votre téléphone et la musique baisse un peu, lentement, comme si le téléphone était l\'enceinte. Le son n\'est jamais coupé.\n\nNécessite un casque Bluetooth et l\'autorisation Android « Appareils à proximité » : la distance est estimée d\'après la force de son signal.</string>
+    <string name="proximity_volume_explain">Éloignez-vous du téléphone et la musique baisse un peu, comme si le téléphone était l\'enceinte. Le son ne se coupe jamais.\n\nIl faut un casque Bluetooth et l\'autorisation « Appareils à proximité », pour estimer la distance d\'après son signal.</string>
     <string name="proximity_probe">Journal du signal Bluetooth</string>
     <string name="proximity_probe_stop">Arrêter l\'enregistrement</string>
     <string name="proximity_probe_description">Vérifiez si la distance peut être bien mesurée là où vous êtes.</string>
-    <string name="proximity_probe_explain">Un test de 100 secondes pour vérifier que cela fonctionne là où vous êtes. Chaque étape est lue à voix haute, vous pouvez donc poser le téléphone et suivre.\n\nSi tourner sur place fait autant varier le signal que s\'éloigner, la distance ne peut pas être mesurée ici.</string>
+    <string name="proximity_probe_explain">Un court test pour voir si cela marche là où vous êtes. Il vous guide à voix haute, vous pouvez poser le téléphone et suivre.</string>
     <string name="proximity_probe_step">%1$s  (%2$d s restantes, %3$d mesures)</string>
     <string name="proximity_step_still">Restez immobile, le téléphone à côté de vous.</string>
     <string name="proximity_step_turn">Restez où vous êtes et tournez lentement sur place.</string>
@@ -491,7 +506,7 @@
     <string name="proximity_step_done">Terminé. Vous pouvez reprendre le téléphone.</string>
     <string name="head_tracking_3d">Suivre aussi l\'inclinaison</string>
     <string name="head_tracking_3d_description">Regarder en haut, en bas ou de côté déplace aussi le son.</string>
-    <string name="head_tracking_3d_explain">Regarder en haut et en bas déplace aussi le son, pas seulement tourner la tête.\n\nConsomme un peu plus de batterie. La musique s\'interrompt un instant chaque fois que vous changez ce réglage.</string>
+    <string name="head_tracking_3d_explain">Regarder en haut ou en bas déplace aussi le son, pas seulement tourner la tête. Cela consomme un peu plus de batterie, et la musique s\'interrompt un instant quand vous changez ce réglage.</string>
     <string name="head_tracking_recentre">Recentrer</string>
     <string name="head_tracking_calibrate">Calibrer</string>
     <string name="head_tracking_calibrate_never">Non calibré. Appuyez, puis regardez droit devant vous sans bouger.</string>
@@ -501,15 +516,15 @@
         <item quantity="other">Ne bougez pas et regardez droit devant. %1$d secondes restantes.</item>
     </plurals>
     <string name="head_tracking_calibrate_done">Correction d\'une dérive de %1$.2f degrés par seconde.</string>
-    <string name="head_tracking_calibrate_explain">Votre casque perd peu à peu la notion de l\'avant, donc la musique dérive d\'un côté.\n\nRestez immobile et regardez droit devant pendant 30 secondes. La dérive est mesurée, puis corrigée à partir de là.</string>
+    <string name="head_tracking_calibrate_explain">Le casque perd peu à peu la notion de l\'avant, et la musique dérive d\'un côté. Restez immobile et regardez droit devant pendant 30 secondes pour corriger.</string>
     <string name="head_tracking_lead">Avance du suivi</string>
-    <string name="head_tracking_lead_full_explain">De combien le son anticipe, en millisecondes. Cela doit correspondre au délai jusqu\'à vos oreilles, qui dépend de votre codec Bluetooth.\n\nLancez un titre, tournez la tête, et faites glisser jusqu\'à ce que le son reste en place.</string>
+    <string name="head_tracking_lead_full_explain">De combien le son anticipe, pour rattraper le retard de votre casque. Lancez un titre, tournez la tête et faites glisser jusqu\'à ce que le son reste en place.</string>
     <string name="head_tracking_lead_value">Anticipe de %1$d ms</string>
     <string name="high_precision_audio">Traitement audio 32 bits</string>
     <string name="high_precision_audio_description">Traiter le volume et les effets en 32 bits au lieu de 16 bits.</string>
-    <string name="high_precision_audio_explain">La normalisation du volume modifie chaque échantillon, et en 16 bits le résultat est ensuite arrondi. Le 32 bits évite cet arrondi. Cela coûte un peu de batterie et la différence est faible : c\'est une préférence.</string>
+    <string name="high_precision_audio_explain">Garde un peu plus de détail quand le volume des titres est égalisé. Cela consomme un peu plus de batterie et la différence est faible : à vous de voir.</string>
     <string name="import_engine_data">Charger une copie</string>
-    <string name="import_engine_data_description">Remplace ce qu\'il a appris par une copie que vous avez enregistrée, sur ce téléphone ou un autre.</string>
+    <string name="import_engine_data_description">Remplace ce qu\'il a appris par une copie enregistrée, de ce téléphone ou d\'un autre.</string>
     <string name="engine_data_export_done">Enregistré.</string>
     <string name="engine_data_import_done">Chargé.</string>
     <string name="engine_data_failed">Cela n\'a pas fonctionné. Vérifiez le fichier et réessayez.</string>
@@ -524,7 +539,7 @@
     <!-- Keep radios up to date, 0.12: new or changed, waiting for a yes on the words before translators. -->
     <string name="adaptive_queue">Garder les radios à jour</string>
     <string name="adaptive_radio_description">Plus loin dans une radio, les titres suivent ce que vous passez, écoutez jusqu\'au bout et aimez.</string>
-    <string name="adaptive_queue_explain">Passez, écoutez jusqu\'au bout ou aimez un titre, et la radio s\'adapte plus loin : ce qui ne va plus laisse la place à des suggestions proches de ce que vous avez gardé. Les prochains titres restent en place, et rien ne bouge pendant que vous regardez la file. Les playlists et les albums ne changent jamais.</string>
+    <string name="adaptive_queue_explain">Passez, écoutez jusqu\'au bout ou aimez des titres, et la suite de la radio s\'adapte. Les prochains titres restent en place, et les playlists et albums ne changent jamais.</string>
     <plurals name="adaptive_note_after_skip">
         <item quantity="one">%1$d nouvelle suggestion après le titre passé</item>
         <item quantity="many">%1$d nouvelles suggestions après le titre passé</item>
@@ -553,7 +568,7 @@
     <string name="adaptive_pick_mark">Nouvelle suggestion</string>
     <!-- End of Keep radios up to date, 0.12. -->
     <string name="playback_auth_mode">Utiliser mon compte pour lire</string>
-    <string name="playback_auth_mode_description">Si InterTune peut demander les titres à YouTube avec votre compte. YouTube refuse certains titres aux demandes anonymes.</string>
+    <string name="playback_auth_mode_description">Si InterTune peut demander les titres à YouTube avec votre compte. Certains titres l\'exigent.</string>
     <string name="playback_auth_never">Jamais</string>
     <string name="playback_auth_when_refused">Seulement quand un titre est refusé</string>
     <string name="playback_auth_always">Toujours</string>
@@ -575,13 +590,13 @@
     <string name="help_translate">Aider à traduire InterTune (via Weblate)</string>
     <!-- Player settings -->
     <string name="player_buttons_style">Boutons du lecteur</string>
-    <string name="player_buttons_style_description">L\'option Connectés regroupe partager et j\'aime près du titre, avec les paroles, la minuterie de sommeil et le menu sur une rangée sous les commandes.</string>
+    <string name="player_buttons_style_description">Connectés place partager et j\'aime près du titre, et les paroles, la minuterie et le menu sur une rangée sous les commandes.</string>
     <string name="player_buttons_classic">Classiques</string>
     <string name="player_buttons_connected">Connectés</string>
     <string name="queue_button">Bouton de file d\'attente</string>
-    <string name="queue_button_description">Ouvre la file d\'attente depuis un bouton à côté des autres boutons du lecteur, au lieu de la tirer depuis le bas du lecteur.</string>
+    <string name="queue_button_description">Ouvre la file d\'attente avec un bouton au lieu de la tirer vers le haut.</string>
     <string name="media_control_buttons">Boutons des commandes multimédias</string>
-    <string name="media_control_buttons_explain">Votre téléphone affiche deux boutons à côté de précédent, lecture et suivant : dans la notification, sur l\'écran de verrouillage et dans le panneau multimédia. Touchez-en deux, dans l\'ordre voulu.</string>
+    <string name="media_control_buttons_explain">Deux boutons en plus à côté de précédent, lecture et suivant, dans la notification et sur l\'écran de verrouillage. Touchez les deux que vous voulez, dans l\'ordre.</string>
     <string name="media_control_repeat">Répéter</string>
     <string name="quick_picks_source_engine">Meilleures recommandations (expérimental)</string>
     <string name="quick_picks_source_compare">Essayer les deux (expérimental)</string>
@@ -589,25 +604,31 @@
     <string name="oobe_usage_count_answered">Vous pouvez changer cela à tout moment dans Paramètres, sous Comptage anonyme.</string>
     <string name="grp_usage_count">Comptage anonyme</string>
     <string name="usage_count_enabled">Compter cette installation une fois par jour</string>
-    <string name="usage_count_enabled_description">Envoie un court message par jour : un nom aléatoire remplacé chaque mois par un autre sans lien, si vous avez installé depuis F-Droid ou ailleurs, et les versions de l\'application et d\'Android. Jamais ce que vous écoutez, jamais un compte, jamais rien de lié à votre appareil. Désactivé par défaut. F-Droid ne publie aucun chiffre de téléchargement, c\'est donc le seul moyen de savoir combien de personnes utilisent InterTune.</string>
+    <string name="usage_count_enabled_description">Un court message par jour : un nom aléatoire qui change chaque mois, si vous avez installé depuis F-Droid, et les versions de l\'application et d\'Android. Jamais ce que vous écoutez, votre compte ni rien de lié à votre appareil. F-Droid ne donne aucun chiffre de téléchargement, c\'est le seul moyen de savoir combien de personnes utilisent InterTune.</string>
     <string name="usage_count_forget">Oublier mon nom actuel</string>
-    <string name="usage_count_forget_description">Abandonne le nom aléatoire sous lequel cette installation est comptée. Le prochain comptage en crée un nouveau, sans lien avec l\'ancien.</string>
+    <string name="usage_count_forget_description">Abandonne le nom aléatoire sous lequel cette installation est comptée. Le prochain comptage en utilise un nouveau.</string>
     <string name="usage_count_opt_in_title">Compter cette installation ?</string>
-    <string name="usage_count_opt_in_body">Une fois par jour, InterTune peut envoyer un court message pour dire qu\'elle est toujours utilisée : un nom aléatoire qui change chaque mois, si vous avez installé depuis F-Droid ou ailleurs, et les versions de l\'application et d\'Android. Jamais ce que vous écoutez, jamais un compte, jamais rien de lié à votre appareil. C\'est le seul moyen de savoir combien de personnes utilisent InterTune, car F-Droid ne donne aucun chiffre de téléchargement aux développeurs. Vous pouvez désactiver cela quand vous voulez.</string>
+    <string name="usage_count_opt_in_body">Une fois par jour, InterTune peut envoyer un court message pour dire qu\'elle est toujours utilisée : un nom aléatoire qui change chaque mois, si vous avez installé depuis F-Droid, et les versions de l\'application et d\'Android. Jamais ce que vous écoutez, votre compte ni rien de lié à votre appareil. F-Droid ne donne aucun chiffre de téléchargement, c\'est donc le seul moyen de savoir combien de personnes utilisent InterTune. Vous pouvez le désactiver à tout moment.</string>
     <string name="usage_count_opt_in_yes">Oui, comptez-moi</string>
     <string name="update_prompt_fdroid">Mettre à jour dans F-Droid</string>
-    <string name="update_fdroid_note">Cette copie vient de F-Droid, les mises à jour viennent donc de là. F-Droid compile lui-même chaque version, si bien qu\'une nouvelle version peut mettre un peu de temps à apparaître.</string>
+    <string name="update_fdroid_note">Cette copie vient de F-Droid, les mises à jour viennent donc de là. F-Droid compile chaque version lui-même, une nouvelle peut donc mettre un peu de temps.</string>
     <string name="update_fdroid_source">Les mises à jour viennent de F-Droid</string>
     <string name="update_check_description_fdroid">Vérifie sur GitHub pour que vous sachiez quand une version sort. Votre copie vient de F-Droid, c\'est donc de là qu\'elle s\'installe, et F-Droid ne l\'a peut-être pas encore compilée.</string>
     <string name="transition_fade">Fondu entre les titres</string>
     <string name="transition_fade_description">Chaque titre s\'estompe, puis le suivant arrive en fondu. Ils ne se chevauchent pas.</string>
-    <string name="transition_fade_explain">Chaque titre s\'estompe à la fin et le suivant arrive en fondu ; ils ne se chevauchent jamais, ce n\'est donc pas un fondu enchaîné. Les titres d\'un même album ne sont pas estompés, et un titre que vous choisissez vous-même démarre à plein volume.</string>
+    <string name="transition_fade_explain">Chaque titre s\'estompe et le suivant arrive en fondu, sans se chevaucher. Les titres d\'un même album et ceux que vous choisissez ne sont pas estompés.</string>
     <string name="transition_fade_length">Durée du fondu</string>
     <plurals name="transition_fade_length_value">
         <item quantity="one">%1$d seconde</item>
         <item quantity="many">%1$d secondes</item>
         <item quantity="other">%1$d secondes</item>
     </plurals>
+    <!-- Crossfade: held from translators in values until the words are agreed. -->
+    <string name="crossfade">Fondu enchaîné</string>
+    <string name="crossfade_description">La fin d\'un titre s\'efface pendant que le suivant monte.</string>
+    <string name="crossfade_length">Durée du fondu enchaîné</string>
+    <string name="crossfade_note">Pas entre deux titres d\'un même album, ni dans une playlist mixée.</string>
+    <string name="transition_fade_crossfade_on">Inactif tant que le fondu enchaîné est activé.</string>
     <!-- Storage setting -->
     <string name="clear_downloads_confirm">Supprimer tous les téléchargements internes ? Les téléchargements externes et les importations supplémentaires ne sont pas touchés.</string>
     <string name="player_glass_preview_needs_13">L\'aperçu en direct du verre nécessite Android 13 ou plus récent</string>
@@ -627,7 +648,7 @@
     </plurals>
     <string name="no_playlists_to_export">Aucune playlist à exporter</string>
     <!-- Settings index: one line per entry. -->
-    <string name="settings_backup_description">Enregistrer votre bibliothèque, vos playlists et vos paramètres dans un fichier, les restaurer, ou sauvegarder automatiquement à intervalles réguliers.</string>
+    <string name="settings_backup_description">Enregistrer votre bibliothèque, vos playlists et vos réglages dans un fichier, les restaurer, ou sauvegarder à intervalles réguliers.</string>
     <!-- Descriptions for rows whose titles alone did not say what they do -->
     <plurals name="throttle_banner_body">
         <item quantity="one">Les recommandations, les téléchargements et la synchronisation sont en pause pendant environ %1$d minute. Toucher un titre tente quand même de le lire.</item>
@@ -636,9 +657,9 @@
     </plurals>
     <string name="share_audio_focus">Laisser d\'autres applications jouer en même temps</string>
     <string name="share_audio_focus_description">Lire la musique par-dessus le son d\'une autre application au lieu de l\'arrêter.</string>
-    <string name="share_audio_focus_explain">Avec ceci activé, InterTune et une autre application jouent en même temps.\n\nInterTune cesse aussi de baisser son volume pour la navigation et les alarmes. Les appels coupent le son dans tous les cas.</string>
+    <string name="share_audio_focus_explain">InterTune continue de jouer en même temps que les autres applications, et ne baisse plus pour la navigation ou les alarmes. Les appels le coupent toujours.</string>
     <string name="resume_on_bluetooth">Reprendre à la connexion Bluetooth</string>
-    <string name="resume_on_bluetooth_description">La musique arrêtée par la déconnexion de votre casque, de votre voiture ou de votre enceinte reprend si l\'audio Bluetooth se connecte dans les 30 minutes. Celle que vous mettez en pause reste en pause.</string>
+    <string name="resume_on_bluetooth_description">La musique coupée par une déconnexion Bluetooth reprend si l\'appareil se reconnecte peu après. Celle que vous mettez en pause reste en pause.</string>
     <string name="sleep_timer_notif_end_of_song">La musique s\'arrête à la fin de ce titre</string>
     <string name="sleep_timer_notif_chip">%1$d min</string>
     <plurals name="sleep_timer_notif_minutes">
@@ -694,12 +715,12 @@
     <string name="walkthrough_recognition_title">Identifier un titre qui passe près de vous</string>
     <string name="walkthrough_settings_title">Tout est réglable</string>
     <string name="recognise_settings_description">Ce qui arrive quand vous demandez à InterTune d\'identifier la musique qui passe.</string>
-    <string name="recognise_keep_listening_desc">Le grand bouton continue jusqu\'à ce que vous l\'arrêtiez, au lieu d\'identifier un titre et de s\'arrêter. Les cartes à l\'écran choisissent le mode pour une seule écoute.</string>
-    <string name="recognise_keep_listening_explain">Le mode « Écoute continue » ne s\'arrête pas au premier titre et ajoute chaque nouveau titre entendu, même écran éteint. Il utilise le micro et le réseau tout du long, donc il consomme de la batterie.</string>
+    <string name="recognise_keep_listening_desc">Le grand bouton continue jusqu\'à ce que vous l\'arrêtiez, au lieu de s\'arrêter après un titre.</string>
+    <string name="recognise_keep_listening_explain">« Écoute continue » ne s\'arrête pas au premier titre et ajoute chaque nouveau titre entendu, même écran éteint. Le micro et les données servent tout du long, donc cela consomme de la batterie.</string>
     <string name="recognise_pause_title">Mettre ma musique en pause pendant l\'écoute</string>
     <string name="recognise_pause_desc">Seulement quand le son sort du téléphone lui-même.</string>
     <string name="recognise_clear_history_desc">Oublier les titres reconnus jusqu\'ici.</string>
-    <string name="recognise_clear_history_explain">Vide « Ce que vous avez entendu » (les 200 derniers titres reconnus) et la liste de cette session, et arrête toute écoute en cours. Rien de cette liste n\'était dans votre bibliothèque ou votre historique, sauf si vous l\'avez enregistrée comme playlist.</string>
+    <string name="recognise_clear_history_explain">Vide « Ce que vous avez entendu » et arrête l\'écoute en cours. Les titres enregistrés en playlist restent.</string>
     <string name="recognise_play">Lire</string>
     <string name="recognise_save_as_playlist">Enregistrer comme playlist</string>
     <string name="recognise_following">Les nouveaux titres vont dans %1$s</string>
@@ -712,16 +733,16 @@
     <string name="recognise_playlist_name">Entendu le %1$s</string>
     <string name="recognise_save_failed">Impossible d\'enregistrer la playlist</string>
     <string name="lastfm_connect">Connecter un compte Last.fm</string>
-    <string name="lastfm_connect_description">Connectez-vous à Last.fm et autorisez InterTune. La page est celle de Last.fm, donc votre mot de passe n\'est jamais saisi dans cette application ni vu par elle.</string>
+    <string name="lastfm_connect_description">Connectez-vous sur la page de Last.fm et autorisez InterTune. Votre mot de passe ne passe jamais par cette application.</string>
     <string name="lastfm_connected_as">Connecté en tant que %1$s</string>
     <string name="lastfm_disconnect_description">Appuyez pour vous déconnecter. Rien de ce qui a déjà été scrobblé n\'est supprimé.</string>
     <string name="lastfm_scrobble">Scrobbler ce que j\'écoute</string>
-    <string name="lastfm_scrobble_description">Envoie les titres terminés dans votre historique Last.fm. Last.fm compte un titre après la moitié de sa durée ou quatre minutes d\'écoute. Désactivez ceci pour rester connecté sans rien enregistrer.</string>
+    <string name="lastfm_scrobble_description">Ajoute les titres que vous terminez à votre historique Last.fm. Désactivé, vous restez connecté sans rien enregistrer.</string>
     <string name="lastfm_unavailable">Indisponible dans cette version</string>
-    <string name="lastfm_unavailable_description">Le scrobbling nécessite une clé d\'API Last.fm, et cette copie d\'InterTune a été compilée sans. Les versions officielles l\'incluent.</string>
+    <string name="lastfm_unavailable_description">Cette copie d\'InterTune a été compilée sans clé Last.fm. Les versions officielles en ont une.</string>
     <string name="lastfm_login_failed">Last.fm n\'a pas voulu lancer la connexion : %1$s</string>
     <string name="polls_unavailable">Indisponible dans cette version</string>
-    <string name="polls_unavailable_description">Les questions ont besoin d\'une source d\'où les récupérer, et cette copie d\'InterTune a été compilée sans.</string>
+    <string name="polls_unavailable_description">Cette copie d\'InterTune a été compilée sans source de questions.</string>
     <string name="playlist_empty_title">Trouvons quelque chose pour cette playlist</string>
     <string name="playlist_empty_search_hint">Rechercher des titres</string>
     <string name="playlist_empty_hint">Cherchez ci-dessus pour ajouter votre premier titre.</string>
@@ -736,7 +757,7 @@
     <string name="recognise_listen_seconds">Durée d\'écoute</string>
     <string name="recognise_seconds">%1$d secondes</string>
     <string name="recognise_auto_add">Ajouter les titres reconnus à la playlist</string>
-    <string name="recognise_auto_add_explain">Pendant une écoute depuis une playlist, un titre reconnu avec certitude est ajouté sans demander. Désactivez ceci pour voir ce qui a été entendu et choisir vous-même. Les titres incertains ne sont jamais ajoutés, dans tous les cas.</string>
+    <string name="recognise_auto_add_explain">Pendant une écoute depuis une playlist, les titres reconnus avec certitude sont ajoutés sans demander. Désactivez pour vérifier chacun d\'abord. Les titres incertains ne sont jamais ajoutés.</string>
     <string name="recognise_auto_add_desc">Seulement en écoute continue, et seulement pour les correspondances sûres</string>
     <string name="recognise_keep_awake">Garder l\'écran allumé pendant l\'écoute</string>
     <string name="recognise_keep_awake_desc">L\'écoute se poursuit écran éteint dans tous les cas</string>
@@ -753,14 +774,14 @@
     <string name="recognition_add">Ajouter</string>
     <string name="recognition_identify_song">Identifier un titre</string>
     <string name="recognition_keep_listening">Écoute continue</string>
-    <string name="recognition_keep_listening_desc">Continue d\'ajouter des titres jusqu\'à ce que vous l\'arrêtiez. N\'ajoute un titre que si la correspondance est sans ambiguïté.</string>
+    <string name="recognition_keep_listening_desc">Continue d\'ajouter des titres jusqu\'à ce que vous l\'arrêtiez, seulement quand il est sûr du résultat.</string>
     <string name="recognition_added_count">%1$d ajoutés jusqu\'ici</string>
     <string name="recognition_service_channel">Reconnaissance musicale</string>
     <string name="recognition_service_title">À l\'écoute des titres</string>
     <string name="recognition_service_none">Rien d\'ajouté pour l\'instant</string>
     <string name="discover_something_new">Découvrir du nouveau</string>
     <string name="discover_row_description">Une rangée sous la Sélection Rapide, de titres que vous n\'avez jamais écoutés</string>
-    <string name="discover_row_info">Des titres que vous n\'avez jamais écoutés, choisis comme le fait « Meilleures recommandations », d\'après ce que vous écoutez. Un titre passé au bout de quelques secondes compte comme écouté. Tirez pour actualiser et voir d\'autres titres.</string>
+    <string name="discover_row_info">Des titres que vous n\'avez jamais écoutés, choisis d\'après ce que vous écoutez. Tirez vers le bas pour en voir d\'autres.</string>
     <string name="recognition_service_none_heard">Rien de reconnu pour l\'instant</string>
     <string name="recognition_service_stop">Arrêter</string>
     <plurals name="recognition_service_added">
@@ -806,13 +827,13 @@
     <string name="background_update_text">Vous pouvez installer InterTune %1$s.</string>
     <string name="background_poll_title">Une nouvelle question</string>
     <string name="background_check_interval">Vérifier en arrière-plan</string>
-    <string name="background_check_interval_desc">À quelle fréquence chercher les mises à jour et les questions quand l\'application est fermée. Chacune n\'est vérifiée que si vous l\'avez activée, et vous êtes prévenu une seule fois quand il y a du nouveau.</string>
+    <string name="background_check_interval_desc">À quelle fréquence chercher les mises à jour et les questions quand l\'application est fermée.</string>
     <string name="background_check_off">Seulement à l\'ouverture de l\'application</string>
     <string name="background_check_hours">Toutes les %1$d heures</string>
     <string name="background_check_hour">Toutes les heures</string>
     <string name="background_check_daily">Une fois par jour</string>
     <string name="auto_backup">Sauvegarder automatiquement</string>
-    <string name="auto_backup_description">Dans un dossier de votre choix, à intervalles réguliers, en gardant les dernières. Votre bibliothèque, vos playlists, vos paramètres et votre historique d\'écoute.</string>
+    <string name="auto_backup_description">Votre bibliothèque, vos playlists, vos réglages et votre historique, sauvegardés dans un dossier à intervalles réguliers.</string>
     <string name="auto_backup_folder">Dossier</string>
     <string name="auto_backup_choose_folder">Choisir un dossier</string>
     <string name="auto_backup_interval">Fréquence</string>
@@ -858,14 +879,14 @@
     <string name="auto_backup_last_never">Dernière sauvegarde : jamais</string>
     <string name="auto_backup_folder_gone">Le dossier n\'est plus disponible</string>
     <string name="resume_on_launch">Lancer la lecture à l\'ouverture de l\'application</string>
-    <string name="resume_on_launch_desc">Reprend automatiquement votre dernière file d\'attente au lieu d\'attendre que vous appuyiez sur lecture. Désactivé par défaut, car cela fait du son sans que vous le demandiez. Si autre chose joue déjà, cela garde la priorité.</string>
+    <string name="resume_on_launch_desc">Lance votre dernière file dès l\'ouverture de l\'application. Si autre chose joue déjà, elle n\'y touche pas.</string>
     <string name="filter_cached">Hors ligne</string>
-    <string name="cached_songs_note">Ces titres sont gardés parce que vous les avez écoutés, ils fonctionnent donc sans connexion. L\'application efface les plus anciens quand le cache se remplit ; téléchargez un titre pour le garder pour de bon.</string>
+    <string name="cached_songs_note">Gardés parce que vous les avez écoutés, ils marchent hors connexion. Les plus anciens partent quand le cache se remplit : téléchargez un titre pour le garder pour de bon.</string>
     <string name="cached_songs_empty">Rien n\'est en cache pour l\'instant. Les titres apparaissent ici une fois écoutés.</string>
     <string name="cached_songs_disabled">Le cache des titres est désactivé, donc rien n\'est gardé. Définissez une taille dans Stockage et téléchargements pour utiliser ceci.</string>
     <!-- Moved out of strings.xml, which holds upstream InnerTune strings only. -->
     <string name="back_animations">Animations de retour</string>
-    <string name="back_animations_description">Le geste retour suit votre doigt et dévoile l\'écran en dessous, au lieu d\'un fondu entre les deux. Désactivez pour revenir à l\'ancien comportement.</string>
+    <string name="back_animations_description">Le geste retour suit votre doigt et montre l\'écran en dessous.</string>
     <string name="spatial_audio_status">Audio spatial sur cet appareil</string>
     <string name="spatial_audio_status_tracking">Suivi de la tête avec %1$s, %2$d fois par seconde.</string>
     <string name="spatial_audio_status_no_tracker">Aucun capteur de suivi de la tête pour l\'instant. Connectez un casque qui en a un.</string>
@@ -874,7 +895,7 @@
     <string name="spatial_audio_status_platform_off">Le téléphone a son propre audio spatial, désactivé.</string>
     <string name="spatial_audio_status_platform_on">Le téléphone a son propre audio spatial, activé.</string>
     <string name="spatial_audio_status_unreadable">Lecture impossible : %1$s</string>
-    <string name="spatial_audio_status_explain">Indique d\'abord si InterTune peut suivre votre tête sur ce téléphone, puis si le téléphone a son propre audio spatial. « Conversion surround » s\'appuie sur celui du téléphone. Le suivi de la tête n\'en a pas besoin.</string>
+    <string name="spatial_audio_status_explain">D\'abord, si InterTune peut suivre votre tête sur ce téléphone. Ensuite, si le téléphone a son propre audio spatial : « Conversion surround » en a besoin.</string>
     <string name="spatial_audio_needs_13">Nécessite Android 13 ou plus récent.</string>
     <string name="recommendations">Recommandations</string>
     <string name="queue_learn_off">Ne pas apprendre de cette file</string>
@@ -886,7 +907,7 @@
         <item quantity="many">%1$d écoutes, dont %2$d comptées comme lectures</item>
         <item quantity="other">%1$d écoutes, dont %2$d comptées comme lectures</item>
     </plurals>
-    <string name="recommendations_listens_description">Chaque fois qu\'un titre a joué, même brièvement, titres passés compris. Comptée comme lecture signifie qu\'elle a dépassé la Durée minimale de lecture, dans Confidentialité et historique.</string>
+    <string name="recommendations_listens_description">Chaque fois qu\'un titre a joué, même brièvement. Une lecture compte une fois la « Durée minimale de lecture » dépassée.</string>
     <plurals name="recommendations_sessions">
         <item quantity="one">%1$d session d\'écoute</item>
         <item quantity="many">%1$d sessions d\'écoute</item>
@@ -895,7 +916,7 @@
     <string name="recommendations_sessions_description">Une session se termine après trente minutes de silence.</string>
     <string name="recommendations_how_they_ended">Comment les titres se sont terminés</string>
     <string name="recommendations_where_from">Où vous avez lancé la lecture</string>
-    <string name="recommendations_impressions_description">Les cartes de la Sélection Rapide et de Découvrir du nouveau restées à l\'écran assez longtemps pour être vues.</string>
+    <string name="recommendations_impressions_description">Les cartes de la Sélection Rapide et de Découvrir du nouveau que vous avez vraiment vues à l\'écran.</string>
     <string name="recommendations_cards_seen">Cartes vues</string>
     <string name="recommendations_cards_seen_line">%1$s : %2$d</string>
     <plurals name="recommendations_cards_seen_waiting">
@@ -942,13 +963,13 @@
     <string name="quick_picks_showing_library">Sélection de votre bibliothèque affichée : pas encore assez d\'écoute pour Meilleures recommandations</string>
     <string name="quick_picks_showing_youtube">Sélection de YouTube affichée : pas encore assez d\'écoute pour Meilleures recommandations</string>
     <string name="rank_with_listening">Classer selon votre écoute</string>
-    <string name="rank_with_listening_description">Ordonne la rangée Sélection Rapide selon ce que vous écoutez jusqu\'au bout, recherchez et aimez. Désactivé : l\'ordre de la source est conservé.</string>
+    <string name="rank_with_listening_description">Ordonne la Sélection Rapide selon ce que vous écoutez jusqu\'au bout, recherchez et aimez.</string>
     <string name="show_reasons">Afficher les raisons</string>
     <string name="show_reasons_description">Une ligne sous chaque carte de Meilleures recommandations qui dit pourquoi elle est là.</string>
     <string name="adventurousness">Audace</string>
-    <string name="adventurousness_description">La part de la rangée Meilleures recommandations réservée à des titres nouveaux pour vous, d\'artistes jamais écoutés quand c\'est possible : %1$d cartes sur 20.</string>
+    <string name="adventurousness_description">Des titres nouveaux pour vous, d\'artistes jamais écoutés quand c\'est possible : %1$d cartes sur 20.</string>
     <string name="familiarity">Familiarité</string>
-    <string name="familiarity_description">La part de la rangée Meilleures recommandations réservée aux titres bien écoutés ces deux dernières semaines et qu\'il est temps de réentendre : %1$d cartes sur 20. Les titres que vous avez usés s\'effacent d\'eux-mêmes.</string>
+    <string name="familiarity_description">Des titres appréciés récemment qu\'il est temps de réentendre : %1$d cartes sur 20.</string>
     <string name="why_these_lane_again">%1$d auxquels vous revenez</string>
     <string name="new_songs_only">Nouveaux titres uniquement</string>
     <string name="new_songs_only_description">Chaque carte de la rangée Meilleures recommandations est un titre nouveau pour vous.</string>
@@ -964,7 +985,7 @@
     <string name="login_reassurance_other_page">InterTune ne voit jamais votre mot de passe et ne garde que la connexion renvoyée par YouTube Music.</string>
     <string name="login_no_page_yet">Pas encore de page</string>
     <string name="lastfm_opt_in_title">Des titres similaires via Last.fm aussi ?</string>
-    <string name="lastfm_opt_in_body">La source Meilleures recommandations trouve des titres proches de ceux que vous écoutez. Elle peut interroger Last.fm en plus de YouTube, puis privilégier celui qui vous trouve le plus de titres que vous gardez. Pour cela, elle envoie à Last.fm le nom et l\'artiste de chaque titre que vous écoutez, et une fois, ceux des titres écoutés le mois dernier et de ceux que vous avez aimés. Rien d\'autre, et aucun compte. Vous pourrez changer cela plus tard dans Paramètres, sous Recommandations.</string>
+    <string name="lastfm_opt_in_body">Meilleures recommandations peut interroger Last.fm en plus de YouTube pour trouver des titres proches des vôtres, et privilégier celui qui en trouve que vous gardez. Pour cela, elle envoie à Last.fm le nom et l\'artiste de chaque titre écouté, et une fois ceux du mois dernier et ceux que vous avez aimés. Rien d\'autre, et aucun compte. Vous pourrez changer cela plus tard dans Paramètres, sous Recommandations.</string>
     <string name="lastfm_opt_in_yes">Oui, utiliser les deux</string>
     <string name="lastfm_opt_in_enabled">Titres similaires via Last.fm aussi</string>
     <string name="oobe_lastfm_answered">Vous pouvez changer cela à tout moment dans Paramètres, sous Recommandations.</string>
@@ -1030,15 +1051,15 @@
     <string name="recommendations_team_library">Votre bibliothèque</string>
     <string name="recommendations_team_youtube">YouTube Music</string>
     <string name="rest_songs_i_skip">Mettre au repos les titres passés</string>
-    <string name="rest_songs_i_skip_description">Passer un titre aimé ou souvent écouté avant sa moitié le retire de Meilleures recommandations pendant une semaine. Désactivé : les titres passés ne sont jamais mis au repos.</string>
+    <string name="rest_songs_i_skip_description">Passez tôt un titre favori, et il sort de Meilleures recommandations pendant une semaine.</string>
     <string name="rests_everywhere">Le repos s\'applique à toutes les rangées</string>
-    <string name="rests_everywhere_description">Tenir aussi les titres au repos à l\'écart des rangées YouTube Music et Votre bibliothèque. Il faut que « Épurer les rangées de l\'accueil » soit activé.</string>
+    <string name="rests_everywhere_description">Écarte aussi les titres au repos des rangées YouTube Music et Votre bibliothèque. Nécessite « Épurer les rangées de l\'accueil ».</string>
     <string name="forget_last_session">Oublier la dernière session</string>
-    <string name="forget_last_session_description">Ce que vous y avez écouté n\'apprend plus rien à Meilleures recommandations, et ce qu\'il en avait appris est retiré.</string>
+    <string name="forget_last_session_description">Ce que vous avez écouté alors n\'apprend plus rien à Meilleures recommandations.</string>
     <string name="forget_today">Oublier l\'écoute d\'aujourd\'hui</string>
     <string name="forget_today_description">Pareil, pour tout ce qui a été écouté depuis minuit. L\'historique et les statistiques ne sont pas touchés.</string>
     <string name="engine_developer">Réglages pour développeurs</string>
-    <string name="engine_developer_description">Tous les nombres qui règlent Meilleures recommandations, et une vérification des titres qu\'il traite comme des versions les uns des autres.</string>
+    <string name="engine_developer_description">Les réglages chiffrés de Meilleures recommandations, et une vérification des versions de titres.</string>
     <string name="engine_developer_params">Constantes</string>
     <string name="engine_developer_reset">Tout réinitialiser</string>
     <string name="engine_developer_reset_description">%1$d modifiées. Un changement apparaît à la prochaine construction.</string>
@@ -1049,9 +1070,9 @@
     <string name="export_engine_data">Enregistrer une copie</string>
     <string name="export_engine_data_description">Ce qu\'il a appris, dans un fichier à partager ou à garder.</string>
     <string name="shadow_comparison">Comparer en arrière-plan</string>
-    <string name="shadow_comparison_description">Quand une autre source est affichée, Meilleures recommandations construit quand même sa rangée en arrière-plan, sans l\'afficher, et un jour plus tard cette page montre si elle aurait contenu ce que vous avez écouté.</string>
+    <string name="shadow_comparison_description">Prépare en arrière-plan une rangée cachée de Meilleures recommandations, pour montrer ensuite si elle aurait fait mieux.</string>
     <string name="shadow_comparison_unused">Ne sert que lorsqu\'une autre source remplit la Sélection Rapide.</string>
-    <string name="shadow_comparison_not_learning">Quand une autre source est affichée, Meilleures recommandations construit quand même sa rangée en arrière-plan, sans l\'afficher. Tant qu\'Apprendre de l\'écoute est désactivé, ces rangées ne sont pas comparées à ce que vous écoutez.</string>
+    <string name="shadow_comparison_not_learning">Tant qu\'« Apprendre de l\'écoute » est désactivé, les rangées cachées attendent d\'être comparées.</string>
     <string name="recommendations_held">Rangées qui contenaient ce que vous avez écouté ensuite</string>
     <plurals name="recommendations_held_songs">
         <item quantity="one">%1$s : contenait %2$d sur %3$d titre choisi par vous-même, cartes touchées comprises, dans %4$s</item>
@@ -1082,9 +1103,9 @@
     <string name="recommendations_row_try_both_before">Essayer les deux, quand c\'était votre source</string>
     <string name="recommendations_brier">Justesse de ses prévisions</string>
     <plurals name="recommendations_brier_description">
-        <item quantity="one">En un seul chiffre, pour qui le veut : un score de Brier de %1$.3f sur %2$d carte, là où la même chance pour chaque carte obtient %3$.3f. Plus il est bas, mieux c\'est, et 0 voudrait dire que chaque prévision était exacte.</item>
-        <item quantity="many">En un seul chiffre, pour qui le veut : un score de Brier de %1$.3f sur %2$d cartes, là où la même chance pour chaque carte obtient %3$.3f. Plus il est bas, mieux c\'est, et 0 voudrait dire que chaque prévision était exacte.</item>
-        <item quantity="other">En un seul chiffre, pour qui le veut : un score de Brier de %1$.3f sur %2$d cartes, là où la même chance pour chaque carte obtient %3$.3f. Plus il est bas, mieux c\'est, et 0 voudrait dire que chaque prévision était exacte.</item>
+        <item quantity="one">En un seul chiffre : un score de Brier de %1$.3f sur %2$d carte, contre %3$.3f avec la même chance pour chaque carte. Plus il est bas, mieux c\'est.</item>
+        <item quantity="many">En un seul chiffre : un score de Brier de %1$.3f sur %2$d cartes, contre %3$.3f avec la même chance pour chaque carte. Plus il est bas, mieux c\'est.</item>
+        <item quantity="other">En un seul chiffre : un score de Brier de %1$.3f sur %2$d cartes, contre %3$.3f avec la même chance pour chaque carte. Plus il est bas, mieux c\'est.</item>
     </plurals>
     <string name="recommendations_brier_better">Ses prévisions font mieux que si chaque carte avait reçu la même chance de %1$s sur 100, soit la part réellement écoutée.</string>
     <string name="recommendations_brier_worse">Ses prévisions font moins bien que si chaque carte avait reçu la même chance de %1$s sur 100, soit la part réellement écoutée.</string>
@@ -1111,9 +1132,9 @@
     <string name="weight_pos">Plus loin dans la rangée</string>
     <string name="weight_bias">Score de base de chaque carte</string>
     <string name="recommendations_reset_weights">Réinitialiser l\'apprentissage</string>
-    <string name="recommendations_reset_weights_description">Retour au point de départ. Rien de ce que vous avez écouté n\'est oublié ; Reconstruire rétablit l\'apprentissage.</string>
+    <string name="recommendations_reset_weights_description">Retour au point de départ. Rien de ce que vous avez écouté n\'est oublié, et Reconstruire rétablit l\'apprentissage.</string>
     <string name="recommendations_rebuild_weights">Reconstruire l\'apprentissage</string>
-    <string name="recommendations_rebuild_weights_description">Repart de zéro et reprend dans l\'ordre toutes les cartes qui lui ont servi à apprendre.</string>
+    <string name="recommendations_rebuild_weights_description">Repart de zéro et réapprend de toutes les cartes, dans l\'ordre.</string>
     <string name="tidy_home_rows">Épurer les rangées de l\'accueil</string>
     <string name="tidy_home_rows_description">Aucun titre en double sur l\'accueil, aucune version live ou remix à côté de l\'original, et rien de ce que vous venez d\'entendre dans la Sélection Rapide.</string>
     <plurals name="recommendations_signals">
@@ -1121,7 +1142,7 @@
         <item quantity="many">%1$d autres gestes sur des titres</item>
         <item quantity="other">%1$d autres gestes sur des titres</item>
     </plurals>
-    <string name="recommendations_signals_description">Avancer ou reculer, changer le volume, répéter un titre, ajouter à une playlist, télécharger, partager, ouvrir les paroles ou l\'artiste, retirer un titre de la file d\'attente. Gardés pour plus tard : rien ne s\'en sert encore.</string>
+    <string name="recommendations_signals_description">Avances, changements de volume, répétitions, ajouts à une playlist, téléchargements, partages et plus. Gardés pour plus tard, rien ne s\'en sert encore.</string>
     <string name="recommendations_recent_title">Écoutes récentes</string>
     <string name="recommendations_learning_title">Apprentissage</string>
     <string name="recommendations_doing_description">Ce qu\'il vous a montré, ce que vous avez écouté, et s\'il a vu juste.</string>
@@ -1181,23 +1202,23 @@
     <string name="recommendations_ask_copy_goes">La copie que vous avez chargée disparaît aussi.</string>
     <string name="recommendations_ask_cannot_undo">Cette action est irréversible.</string>
     <string name="recommendations_load_confirm">Choisir un fichier</string>
-    <string name="recommendations_summary_not_source">Meilleures recommandations n\'est pas la source de votre Sélection Rapide, donc aucune de ses cartes n\'est comptée ici. Vous pouvez en faire votre source dans Paramètres, sous Bibliothèque et Contenu, Source de la Sélection Rapide.</string>
+    <string name="recommendations_summary_not_source">« Meilleures recommandations » n\'est pas la « Source de la Sélection Rapide », donc rien n\'est compté ici. Vous pouvez le choisir dans Bibliothèque et Contenu.</string>
     <plurals name="recommendations_summary_not_source_waiting">
-        <item quantity="one">Meilleures recommandations n\'est plus la source de votre Sélection Rapide. Il vous a montré avant %1$d carte, jugée un jour après que vous l\'avez vue, puis comptée ici. Vous pouvez en refaire votre source dans Paramètres, sous Bibliothèque et Contenu, Source de la Sélection Rapide.</item>
-        <item quantity="many">Meilleures recommandations n\'est plus la source de votre Sélection Rapide. Les %1$d cartes qu\'il vous a montrées avant sont jugées un jour après que vous les avez vues, puis comptées ici. Vous pouvez en refaire votre source dans Paramètres, sous Bibliothèque et Contenu, Source de la Sélection Rapide.</item>
-        <item quantity="other">Meilleures recommandations n\'est plus la source de votre Sélection Rapide. Les %1$d cartes qu\'il vous a montrées avant sont jugées un jour après que vous les avez vues, puis comptées ici. Vous pouvez en refaire votre source dans Paramètres, sous Bibliothèque et Contenu, Source de la Sélection Rapide.</item>
+        <item quantity="one">« Meilleures recommandations » n\'est plus la « Source de la Sélection Rapide ». Il vous a montré %1$d carte avant, comptée ici sous 24 heures.</item>
+        <item quantity="many">« Meilleures recommandations » n\'est plus la « Source de la Sélection Rapide ». Il vous a montré %1$d cartes avant, comptées ici sous 24 heures.</item>
+        <item quantity="other">« Meilleures recommandations » n\'est plus la « Source de la Sélection Rapide ». Il vous a montré %1$d cartes avant, comptées ici sous 24 heures.</item>
     </plurals>
-    <string name="recommendations_summary_not_source_waiting_single">Meilleures recommandations n\'est plus la source de votre Sélection Rapide. La carte qu\'il vous a montrée avant est jugée un jour après que vous l\'avez vue, puis comptée ici. Vous pouvez en refaire votre source dans Paramètres, sous Bibliothèque et Contenu, Source de la Sélection Rapide.</string>
+    <string name="recommendations_summary_not_source_waiting_single">« Meilleures recommandations » n\'est plus la « Source de la Sélection Rapide ». La carte qu\'il vous a montrée avant sera comptée ici sous 24 heures.</string>
     <plurals name="recommendations_summary_not_source_paused">
-        <item quantity="one">Meilleures recommandations n\'est plus la source de votre Sélection Rapide. Il vous a montré avant %1$d carte, jugée une fois Apprendre de l\'écoute réactivé, puis comptée ici. Vous pouvez en refaire votre source dans Paramètres, sous Bibliothèque et Contenu, Source de la Sélection Rapide.</item>
-        <item quantity="many">Meilleures recommandations n\'est plus la source de votre Sélection Rapide. Les %1$d cartes qu\'il vous a montrées avant seront jugées une fois Apprendre de l\'écoute réactivé, puis comptées ici. Vous pouvez en refaire votre source dans Paramètres, sous Bibliothèque et Contenu, Source de la Sélection Rapide.</item>
-        <item quantity="other">Meilleures recommandations n\'est plus la source de votre Sélection Rapide. Les %1$d cartes qu\'il vous a montrées avant seront jugées une fois Apprendre de l\'écoute réactivé, puis comptées ici. Vous pouvez en refaire votre source dans Paramètres, sous Bibliothèque et Contenu, Source de la Sélection Rapide.</item>
+        <item quantity="one">« Meilleures recommandations » n\'est plus la « Source de la Sélection Rapide ». Il vous a montré %1$d carte avant, comptée une fois « Apprendre de l\'écoute » réactivé.</item>
+        <item quantity="many">« Meilleures recommandations » n\'est plus la « Source de la Sélection Rapide ». Il vous a montré %1$d cartes avant, comptées une fois « Apprendre de l\'écoute » réactivé.</item>
+        <item quantity="other">« Meilleures recommandations » n\'est plus la « Source de la Sélection Rapide ». Il vous a montré %1$d cartes avant, comptées une fois « Apprendre de l\'écoute » réactivé.</item>
     </plurals>
-    <string name="recommendations_summary_not_source_paused_single">Meilleures recommandations n\'est plus la source de votre Sélection Rapide. La carte qu\'il vous a montrée avant sera jugée une fois Apprendre de l\'écoute réactivé, puis comptée ici. Vous pouvez en refaire votre source dans Paramètres, sous Bibliothèque et Contenu, Source de la Sélection Rapide.</string>
-    <string name="recommendations_summary_rows_below">Le résultat de ses rangées reste affiché sous Rangées qui contenaient ce que vous avez écouté ensuite.</string>
-    <string name="recommendations_summary_waiting">Rien à montrer pour l\'instant. Les cartes de Meilleures recommandations sont jugées un jour après que vous les avez vues, donc cela se remplit au fil de l\'écoute.</string>
-    <string name="recommendations_summary_not_learning">Apprendre de l\'écoute est désactivé, donc Meilleures recommandations n\'apprend rien en ce moment : aucune carte n\'est jugée tant qu\'il est désactivé, et aucune nouvelle n\'est notée. Vous pouvez le réactiver dans Paramètres, sous Recommandations.</string>
-    <string name="recommendations_summary_learning_off">Apprendre de l\'écoute est désactivé, donc il n\'apprend rien en ce moment et aucune nouvelle carte n\'est jugée. Vous pouvez le réactiver dans Paramètres, sous Recommandations.</string>
+    <string name="recommendations_summary_not_source_paused_single">« Meilleures recommandations » n\'est plus la « Source de la Sélection Rapide ». La carte qu\'il vous a montrée avant comptera une fois « Apprendre de l\'écoute » réactivé.</string>
+    <string name="recommendations_summary_rows_below">Ses rangées restent affichées plus bas, sous « Rangées qui contenaient ce que vous avez écouté ensuite ».</string>
+    <string name="recommendations_summary_waiting">Rien à montrer pour l\'instant. Cela se remplit au fil de l\'écoute.</string>
+    <string name="recommendations_summary_not_learning">« Apprendre de l\'écoute » est désactivé, donc rien n\'est compté. Vous pouvez le réactiver dans Recommandations.</string>
+    <string name="recommendations_summary_learning_off">« Apprendre de l\'écoute » est désactivé, donc les nouvelles cartes ne sont pas comptées. Vous pouvez le réactiver dans Recommandations.</string>
     <plurals name="recommendations_summary_played">
         <item quantity="one">Vous avez écouté %1$d carte sur %2$d montrée par Meilleures recommandations, soit environ %3$s sur 100.</item>
         <item quantity="many">Vous avez écouté %1$d des %2$d cartes montrées par Meilleures recommandations, soit environ %3$s sur 100.</item>
@@ -1206,21 +1227,21 @@
     <string name="recommendations_summary_played_single">Vous avez écouté la seule carte montrée par Meilleures recommandations.</string>
     <string name="recommendations_summary_not_played_single">Vous n\'avez pas écouté la seule carte montrée par Meilleures recommandations.</string>
     <plurals name="recommendations_summary_waiting_more">
-        <item quantity="one">Il reste %1$d autre carte montrée qui n\'est pas encore jugée. Une carte que vous n\'avez pas touchée est jugée un jour après que vous l\'avez vue.</item>
-        <item quantity="many">%1$d autres cartes montrées ne sont pas encore jugées. Une carte que vous n\'avez pas touchée est jugée un jour après que vous l\'avez vue.</item>
-        <item quantity="other">%1$d autres cartes montrées ne sont pas encore jugées. Une carte que vous n\'avez pas touchée est jugée un jour après que vous l\'avez vue.</item>
+        <item quantity="one">%1$d autre carte montrée sera comptée sous 24 heures.</item>
+        <item quantity="many">%1$d autres cartes montrées seront comptées sous 24 heures.</item>
+        <item quantity="other">%1$d autres cartes montrées seront comptées sous 24 heures.</item>
     </plurals>
-    <string name="recommendations_summary_waiting_more_single">Une autre carte montrée n\'est pas encore jugée. Une carte que vous n\'avez pas touchée est jugée un jour après que vous l\'avez vue.</string>
+    <string name="recommendations_summary_waiting_more_single">Une autre carte montrée sera comptée sous 24 heures.</string>
     <string name="recommendations_summary_scale">Plus c\'est haut, mieux c\'est. La plupart des cartes sont passées sans être écoutées, donc de petits chiffres sont normaux.</string>
     <string name="recommendations_summary_up">En hausse : %1$s sur 100 ces deux dernières semaines, contre %2$s sur 100 les deux semaines d\'avant.</string>
     <string name="recommendations_summary_down">En baisse : %1$s sur 100 ces deux dernières semaines, contre %2$s sur 100 les deux semaines d\'avant.</string>
     <string name="recommendations_summary_no_change">Pas de changement net : %1$s sur 100 ces deux dernières semaines, %2$s sur 100 les deux semaines d\'avant.</string>
     <string name="recommendations_summary_too_early">Trop tôt pour dire dans quel sens ça va.</string>
     <string name="recommendations_summary_too_early_choice">Trop tôt pour dire dans quel sens ça va depuis que vous avez changé ce que la Sélection Rapide privilégie.</string>
-    <string name="recommendations_summary_from_before">Ces chiffres datent de quand Meilleures recommandations était la source de votre Sélection Rapide.</string>
-    <string name="recommendations_wins_meaning">Écoutée signifie que vous avez entendu au moins une demi-minute et près de la moitié du titre, ou que vous l\'avez aimé. Toucher puis passer vite ne compte pas. Seules les cartes déjà jugées sont comptées, et plus c\'est haut, mieux c\'est.</string>
+    <string name="recommendations_summary_from_before">Ces chiffres datent de quand « Meilleures recommandations » était la « Source de la Sélection Rapide ».</string>
+    <string name="recommendations_wins_meaning">« Écoutée » : vous avez entendu une bonne partie du titre, ou l\'avez aimé. Toucher puis passer vite ne compte pas. Plus c\'est haut, mieux c\'est.</string>
     <string name="similar_mix_meaning">Comment les titres similaires sont partagés entre les deux sources. Celle dont vous écoutez le plus en reçoit davantage, jusqu\'à quatre sur cinq.</string>
-    <string name="recommendations_held_meaning">Parmi les titres que vous avez choisis vous-même dans la journée suivant chaque actualisation, cartes touchées comprises, combien étaient déjà dans la rangée. Plus c\'est haut, mieux c\'est, et un chiffre bas est normal.</string>
+    <string name="recommendations_held_meaning">Combien des titres choisis dans la journée suivant chaque actualisation étaient déjà dans la rangée. Plus c\'est haut, mieux c\'est, et un chiffre bas est normal.</string>
     <plurals name="recommendations_predicted_of">
         <item quantity="one">Sur %1$d carte pour laquelle il a fait une prévision, il pensait que %2$s sur 100 seraient écoutées, et %3$s sur 100 l\'ont été.</item>
         <item quantity="many">Sur les %1$d cartes pour lesquelles il a fait une prévision, il pensait que %2$s sur 100 seraient écoutées, et %3$s sur 100 l\'ont été.</item>
@@ -1237,9 +1258,9 @@
         <item quantity="other">%1$d écoutées</item>
     </plurals>
     <string name="recommendations_predicted_meaning">Plus les deux sont proches, plus ses prévisions sont justes.</string>
-    <string name="recommendations_weights_meaning">Le poids actuel de chaque critère dans la note d\'une carte, à côté de son point de départ. Ni plus haut ni plus bas n\'est mieux : c\'est ce que votre écoute lui a appris.</string>
+    <string name="recommendations_weights_meaning">Le poids actuel de chaque critère dans la note d\'une carte, et son point de départ. Ni bon ni mauvais : c\'est ce que votre écoute lui a appris.</string>
     <string name="recommendations_how_they_ended_meaning">Les titres écoutés jusqu\'au bout comptent en leur faveur, les titres passés contre eux.</string>
-    <string name="recommendations_where_from_meaning">Chaque lancement compte une fois, quel que soit le nombre de titres qui ont suivi. Ce que vous choisissez vous-même, depuis la recherche par exemple, lui en apprend plus que ce qui s\'enchaîne tout seul.</string>
+    <string name="recommendations_where_from_meaning">Chaque lancement compte une fois. Ce que vous choisissez vous-même lui en apprend plus que ce qui s\'enchaîne tout seul.</string>
     <string name="recommendations_learned_meaning">Des comptes, pas des notes. Plus il y en a, plus il a de quoi apprendre.</string>
     <string name="recommendations_recent_meaning">Les derniers titres écoutés : comment ils se sont terminés, quelle part vous en avez entendue, et d\'où vous les avez lancés.</string>
     <string name="recommendations_nothing_yet">Rien pour l\'instant</string>
@@ -1300,8 +1321,8 @@
     <string name="widget_content_list">Une liste</string>
     <string name="widget_config_which_list">Quelle liste</string>
     <string name="widget_list_recent">Écoutés récemment</string>
-    <string name="widget_config_preview_hint">Ce widget à sa taille actuelle. Redimensionnez-le sur l\'écran d\'accueil pour avoir plus ou moins de lignes.</string>
-    <string name="widget_config_preview_hint_guess">Affiché à une taille courante. Une fois sur l\'écran d\'accueil, redimensionnez-le pour avoir plus ou moins de lignes.</string>
+    <string name="widget_config_preview_hint">Voici sa taille actuelle. Redimensionnez-le sur l\'écran d\'accueil pour plus ou moins de lignes.</string>
+    <string name="widget_config_preview_hint_guess">Affiché à une taille courante. Redimensionnez-le sur l\'écran d\'accueil pour plus ou moins de lignes.</string>
     <string name="widget_config_done">Terminé</string>
     <string name="widget_config_reset">Réinitialiser</string>
     <string name="widget_config_rows">Nombre de lignes</string>
@@ -1340,27 +1361,27 @@
     <string name="widget_look_crate">Bac à disques</string>
     <string name="widget_look_records">Vinyles</string>
     <!-- Recommendations: the little "i" beside an item, and what it opens -->
-    <string name="tidy_home_rows_info">Aucune rangée de l\'accueil ne montre un titre déjà présent dans une rangée précédente, et les versions d\'un même titre (live, remasterisé, vidéo) comptent pour une. Rien ne comble les trous, donc une rangée peut être plus courte. Désactivé, vos exclusions ne filtrent plus que la rangée « Meilleures recommandations ».</string>
-    <string name="rank_with_listening_info">Remet la « Sélection Rapide » dans un ordre qui vous convient : les titres que vous écoutez souvent, écoutés récemment ou aimés passent plutôt devant. Rien n\'est ajouté ni retiré. La rangée est laissée telle quelle quand « Meilleures recommandations » ou « Essayer les deux » la remplit.</string>
-    <string name="recommendations_engine_title_info">La rangée compte vingt cartes : des titres proches de ce que vous écoutez, ceux auxquels vous revenez, d\'autres titres de vos artistes, d\'anciens favoris délaissés et quelques nouveautés. Ces réglages s\'appliquent quand « Source de la Sélection Rapide » est sur « Meilleures recommandations » ou « Essayer les deux ». Tirez l\'accueil vers le bas pour voir un changement.</string>
-    <string name="similar_source_info">Où « Meilleures recommandations » et « Découvrir du nouveau » trouvent des titres proches de ceux que vous écoutez. Avec « Les deux » ou « Last.fm uniquement », le nom et l\'artiste des titres que vous écoutez ou avez aimés sont envoyés à Last.fm, rien d\'autre et sans compte. L\'option « YouTube uniquement » n\'envoie rien à Last.fm.</string>
-    <string name="new_songs_only_info">Toute la rangée va aux titres que vous n\'avez pas écoutés au-delà de la moitié environ ; un titre passé tôt compte encore comme nouveau. « Audace » et « Familiarité » ne comptent plus tant que c\'est activé. La rangée peut être courte, et la « Sélection Rapide » affiche alors une autre source.</string>
-    <string name="show_reasons_info">Chaque carte donne sa raison principale : un titre avec lequel elle va, un artiste que vous écoutez, un j\'aime, ou le fait qu\'elle est nouvelle pour vous. Un joker est une carte tirée au hasard pour varier la rangée.</string>
-    <string name="exclusions_info">Appuyez longuement sur une carte de la « Sélection Rapide » pour « Pas ce titre », « Moins de cet artiste » (pendant un mois) ou « Jamais cet artiste ». Cela ne filtre que les rangées de recommandations, jamais la recherche, votre bibliothèque ni vos playlists. Cette page liste ce qui est en vigueur, et « Lever » en retire une.</string>
-    <string name="rest_songs_i_skip_info">Passez avant la moitié un titre que vous aimez ou écoutez souvent, et il reste hors de la rangée « Meilleures recommandations » pendant une semaine. Passer dans les trente premières secondes ne compte pas. Vous pouvez lever une mise au repos plus tôt sur la page « Exclusions ».</string>
-    <string name="recommendations_doing_info">Tout est calculé sur ce téléphone à partir de votre propre écoute, et rien n\'en sort sauf si vous en enregistrez une copie dans « Vos données ». Laissez-lui quelques semaines avant de tirer des conclusions des chiffres.</string>
-    <string name="recommendations_summary_info">« Vue » : la carte est restée à l\'écran une demi-seconde, ou vous l\'avez touchée. « Écoutée » : vous avez entendu une bonne partie de ce titre, ou vous l\'avez aimé. Une carte non touchée est jugée un jour plus tard, donc les plus récentes ne sont pas encore comptées.</string>
-    <string name="learn_from_listening_info">« Meilleures recommandations » apprend de ce que vous écoutez ou passez parmi les cartes qu\'il vous montre. Désactivé, il cesse d\'apprendre ; l\'historique et les statistiques continuent comme avant. Tout se passe sur ce téléphone.</string>
-    <string name="shadow_comparison_info">La rangée non affichée est construite à l\'ouverture de l\'accueil et n\'est jamais montrée. Un jour plus tard, elle est comparée à ce que vous avez écouté ensuite ; elle n\'apprend rien à « Meilleures recommandations ». Désactivé, la ligne des cartes non affichées cesse de se remplir.</string>
-    <string name="recommendations_brier_info">Chaque carte affichée porte sa prévision de la probabilité que vous l\'écoutiez. Les lignes sous la première regroupent les cartes selon la probabilité qu\'il leur donnait.</string>
-    <string name="recommendations_reset_weights_info">Il revient à son point de départ, comme s\'il n\'avait rien appris. Vos écoutes, vos exclusions et vos paramètres sont gardés, et « Reconstruire l\'apprentissage » rétablit ce qu\'il avait appris. Il demande d\'abord confirmation.</string>
-    <string name="forget_today_info">Chaque lecture commencée depuis minuit cesse de lui apprendre quoi que ce soit, et ce qu\'il a appris est recalculé sans elles. Il demande d\'abord confirmation, en disant combien d\'écoutes. Un titre commencé avant minuit appartient à hier et reste.</string>
-    <string name="engine_developer_info">Les constantes du moteur, chacune avec sa valeur par défaut : un nombre en remplace une, un champ vide la rétablit. Elles ne changent que la rangée « Meilleures recommandations », pas ce qu\'il apprend. Tirez l\'accueil vers le bas pour voir un changement.</string>
-    <string name="export_engine_data_info">Enregistre ce qu\'il a appris dans un fichier de nombres, à l\'endroit que vous choisissez. Aucun nom de titre, aucun artiste, aucun nombre de lectures, rien sur votre compte ou votre téléphone ; la seule date est celle de l\'enregistrement du fichier. Rien n\'est envoyé en ligne.</string>
-    <string name="recommendations_learned_title_info">Tout ce qui suit est gardé dans l\'application, sur ce téléphone, et jamais envoyé. Une sauvegarde le contient. Dans « Confidentialité et historique », « Suspendre l\'historique d\'écoute » arrête l\'enregistrement et « Effacer l\'historique d\'écoute » supprime tout.</string>
-    <string name="recommendations_where_from_info">Chaque endroit compte les fois où vous y avez lancé la lecture ; les titres qui s\'enchaînent ensuite ne sont pas recomptés. Un titre choisi vous-même lui en apprend plus qu\'un titre qui s\'est enchaîné tout seul, et une recherche compte le plus. « Non renseigné » signifie que l\'application n\'a pas noté d\'où il a été lancé.</string>
-    <string name="recommendations_recent_title_info">Les trente dernières écoutes qui lui servent à apprendre, de la plus récente à la plus ancienne. Chaque ligne dit comment elle s\'est terminée, la part du titre entendue et d\'où elle a été lancée. « Ne lui apprend rien » signifie que vous lui avez dit d\'oublier cette écoute, ou que sa file était sur « Ne pas apprendre de cette file ».</string>
-    <string name="context_chips_info">La première pastille est votre rangée habituelle. Les autres l\'orientent jusqu\'à ce que vous en changiez : « Découverte » vers des titres nouveaux pour vous, « Favoris » vers ceux que vous avez aimés, « Concentration », « Détente » et « Fête » vers ce que vous écoutez quand chacune est activée. La dernière pastille fonctionne à part, avec n\'importe laquelle.</string>
+    <string name="tidy_home_rows_info">Un titre n\'apparaît qu\'une fois sur l\'accueil, et ses versions (live, remix, vidéo) comptent pour une. Les rangées peuvent être un peu plus courtes.</string>
+    <string name="rank_with_listening_info">Remet la « Sélection Rapide » dans un ordre qui vous ressemble : les titres écoutés souvent, récemment ou aimés passent devant. Rien n\'est ajouté ni retiré.</string>
+    <string name="recommendations_engine_title_info">Des titres proches de ce que vous écoutez, vos favoris anciens et récents, d\'autres titres de vos artistes et quelques surprises. Ils s\'affichent quand « Source de la Sélection Rapide » est sur « Meilleures recommandations » ou « Essayer les deux » : tirez l\'accueil vers le bas pour voir un changement.</string>
+    <string name="similar_source_info">Où « Meilleures recommandations » et « Découvrir du nouveau » cherchent des titres proches des vôtres. Avec « Les deux » ou « Last.fm uniquement », le nom et l\'artiste des titres que vous écoutez ou aimez sont envoyés à Last.fm, sans compte. « YouTube uniquement » n\'envoie rien à Last.fm.</string>
+    <string name="new_songs_only_info">Remplit toute la rangée de titres que vous n\'avez pas encore vraiment écoutés. La rangée peut être courte, et la « Sélection Rapide » prend alors une autre source.</string>
+    <string name="show_reasons_info">Chaque carte dit pourquoi elle est là : un titre avec lequel elle va, un artiste que vous écoutez, un j\'aime, ou parce qu\'elle est nouvelle pour vous. Un joker est tiré au hasard pour varier.</string>
+    <string name="exclusions_info">Appuyez longuement sur une carte de la « Sélection Rapide » pour « Pas ce titre », « Moins de cet artiste » ou « Jamais cet artiste ». Cela ne touche que les recommandations, jamais la recherche, votre bibliothèque ou vos playlists. Levez-en une ici pour annuler.</string>
+    <string name="rest_songs_i_skip_info">Passez tôt un titre favori, et il sort de « Meilleures recommandations » pendant une semaine. Vous pouvez le faire revenir plus tôt depuis « Exclusions ».</string>
+    <string name="recommendations_doing_info">Calculé sur ce téléphone à partir de votre écoute, et rien n\'en sort sauf si vous en enregistrez une copie dans « Vos données ». Laissez-lui quelques semaines avant de vous fier aux chiffres.</string>
+    <string name="recommendations_summary_info">« Vue » : la carte s\'est affichée. « Écoutée » : vous en avez entendu une bonne partie, ou l\'avez aimée. Les nouvelles cartes comptent un jour plus tard.</string>
+    <string name="learn_from_listening_info">« Meilleures recommandations » apprend de ce que vous écoutez et passez. Désactivé, il cesse d\'apprendre, mais l\'historique et les statistiques continuent. Tout reste sur ce téléphone.</string>
+    <string name="shadow_comparison_info">Une rangée cachée est préparée en arrière-plan puis comparée un jour plus tard à ce que vous avez vraiment écouté. Elle sert seulement à mesurer si ça marche bien.</string>
+    <string name="recommendations_brier_info">Chaque carte estime vos chances de l\'écouter. Les lignes en dessous regroupent les cartes selon cette estimation.</string>
+    <string name="recommendations_reset_weights_info">Recommence l\'apprentissage de zéro. Vos écoutes, exclusions et réglages restent, et « Reconstruire l\'apprentissage » peut tout rétablir. Une confirmation est demandée.</string>
+    <string name="forget_today_info">Les écoutes d\'aujourd\'hui ne comptent plus pour l\'apprentissage. Une confirmation est demandée, avec leur nombre.</string>
+    <string name="engine_developer_info">Les réglages chiffrés du moteur, chacun avec sa valeur par défaut. Tapez une valeur pour en changer une, videz le champ pour la rétablir. Tirez l\'accueil vers le bas pour voir l\'effet.</string>
+    <string name="export_engine_data_info">Enregistre ce qu\'il a appris dans un fichier de nombres, où vous voulez. Aucun titre, artiste, nombre d\'écoutes ni détail de compte, seulement la date d\'enregistrement, et rien n\'est envoyé en ligne.</string>
+    <string name="recommendations_learned_title_info">Ceci reste dans l\'application, sur ce téléphone, et n\'est jamais envoyé, mais les sauvegardes l\'incluent. « Suspendre l\'historique d\'écoute » l\'arrête et « Effacer l\'historique d\'écoute » le supprime, dans « Confidentialité et historique ».</string>
+    <string name="recommendations_where_from_info">Combien de fois vous avez lancé la lecture depuis chaque endroit. Ce que vous choisissez vous-même compte plus, et une recherche compte le plus. « Non renseigné » : l\'application ne l\'a pas noté.</string>
+    <string name="recommendations_recent_title_info">Vos dernières écoutes, de la plus récente à la plus ancienne : comment chacune s\'est terminée, ce que vous en avez entendu et d\'où elle a été lancée. « Ne lui apprend rien » : vous lui avez demandé de l\'oublier.</string>
+    <string name="context_chips_info">La première pastille est votre rangée habituelle. Les autres l\'orientent jusqu\'à ce que vous reveniez : « Découverte » vers des titres nouveaux, « Favoris » vers ceux que vous avez aimés, « Concentration », « Détente » et « Fête » vers ce que vous écoutez dans cette humeur. La dernière pastille marche avec toutes.</string>
     <string name="context_chips">Pastilles de la Sélection Rapide</string>
     <!-- 0.10.8 only: the Quick picks source text without Best recommendations and Try both. -->
     <string name="quick_picks_source_description_basic">D\'où viennent les titres de la rangée « Sélection Rapide ». « YouTube Music » prend l\'étagère que YouTube construit pour votre compte, et « Votre bibliothèque » des titres liés à ce que vous écoutez. Seule cette rangée change, rien d\'autre sur l\'accueil.</string>
@@ -1580,7 +1601,7 @@
     <string name="quick_picks_lean_set_aside_chip">La pastille %1$s de l\'accueil prend le dessus tant qu\'elle est activée.</string>
     <string name="quick_picks_lean_set_aside_new_only">Nouveaux titres uniquement prend le dessus tant que ce réglage est activé.</string>
     <string name="quick_picks_lean_new_only_strict">Quand Nouveaux titres uniquement est activé, Meilleures recommandations ne choisit que des titres que vous n\'avez jamais lancés, tant qu\'il y en a assez.</string>
-    <string name="quick_picks_lean_info">« Auto », c\'est le mélange habituel, d\'après ce que « Meilleures recommandations » a appris. Chacun des autres choix donne à une sorte de titres la plupart de ses cartes. « Des titres qui vont avec ce que j\'écoute en ce moment » reconstruit aussi la « Sélection Rapide » quand vous avez écouté quelques titres lancés ailleurs.</string>
+    <string name="quick_picks_lean_info">« Auto », c\'est le mélange habituel, et les autres choix donnent la plus grande part de la rangée à un type de titres. « Des titres qui vont avec ce que j\'écoute en ce moment » se met aussi à jour pendant l\'écoute.</string>
     <string name="quick_picks_leaning_new">Privilégie les titres que vous n\'avez jamais écoutés</string>
     <string name="quick_picks_leaning_artist">Privilégie les artistes auxquels vous revenez sans cesse</string>
     <string name="quick_picks_leaning_forgotten">Privilégie ce que vous adoriez et avez oublié</string>
@@ -1605,7 +1626,7 @@
     <string name="share_link_choice_kept">Votre choix est gardé pour les prochains partages. Vous pouvez le changer à tout moment dans Paramètres, sous %1$s.</string>
     <string name="share_link_not_chosen">Pas encore choisi</string>
     <string name="open_links_title">Ouvrir les liens dans %1$s</string>
-    <string name="open_links_description">Les liens YouTube Music et intertune.app s\'ouvrent dans cette appli. Désactivez pour laisser une autre appli, comme InterTune Preview, les ouvrir.</string>
+    <string name="open_links_description">Les liens YouTube Music et intertune.app s\'ouvrent ici. Désactivé, une autre appli comme InterTune Preview peut les ouvrir.</string>
     <string name="open_links_android_off">Le réglage des liens d\'Android est désactivé pour cette appli : aucun lien ne s\'y ouvre.</string>
     <string name="open_links_android_settings">Réglages des liens d\'Android</string>
     <string name="stats_nothing_played">Rien n\'a été joué sur cette période.</string>
@@ -1639,7 +1660,7 @@
     <string name="setup_signed_in">Votre compte est connecté.</string>
     <string name="setup_other_account">Utiliser un autre compte</string>
     <string name="account_notice_title">À propos de votre compte</string>
-    <string name="account_notice_body">Il existe un faible risque que YouTube restreigne ou ferme un compte utilisé avec cette application. Pour ne pas exposer votre compte principal, utilisez l\'application sans vous connecter, ou connectez-vous avec un second compte.</string>
+    <string name="account_notice_body">Il existe un faible risque que YouTube restreigne ou ferme un compte utilisé avec cette application. Pour protéger votre compte principal, utilisez l\'application sans connexion ou avec un second compte.</string>
     <string name="account_notice_signed_in">Vous êtes connecté. La déconnexion se trouve dans Paramètres, sous %1$s.</string>
     <string name="setup_import_playlists">Importer depuis une autre appli</string>
     <string name="setup_choices_title">Quelques questions</string>
@@ -1670,6 +1691,8 @@
     <string name="android_auto_missing_body">Android Auto n\'affiche que les applications installées par Google Play, il masque donc InterTune. Pour l\'ajouter : ouvrez les paramètres d\'Android Auto sur votre téléphone et touchez dix fois la ligne Version. Ouvrez ensuite les paramètres pour les développeurs depuis le menu en haut et activez Sources inconnues.</string>
     <string name="problem_report_title">Signaler un problème</string>
     <string name="problem_report_found">Voici la dernière chose qui a mal tourné, telle que l\'application l\'a notée, avec ce qui l\'a précédée. Les titres en cours de lecture y figurent. Rien ne quitte le téléphone sauf si vous l\'envoyez.</string>
+    <string name="problem_report_latest_problem">Dernière session avec un problème</string>
+    <string name="problem_report_player">Voici l\'erreur du lecteur, avec ce que l\'application a noté avant. Les titres en cours de lecture y figurent. Rien ne quitte le téléphone sauf si vous l\'envoyez.</string>
     <string name="problem_report_none">Aucune erreur n\'a été notée depuis l\'ouverture de l\'application. Voici ses dernières lignes.</string>
     <string name="problem_report_empty">Le journal du téléphone n\'a pas pu être lu. Le formulaire s\'ouvre quand même avec la version et le téléphone déjà remplis.</string>
     <string name="problem_report_reading">Lecture du journal</string>
@@ -1739,7 +1762,7 @@
     <string name="tour_settings_rest_title">Mises à jour et le reste</string>
     <string name="tour_settings_rest_body">Les nouvelles versions, la façon dont la Sélection Rapide choisit, les réglages dont la plupart des gens n\'ont jamais besoin, et cette visite à nouveau sous À propos.</string>
     <string name="tour_closer_question_title">Regarder les réglages de plus près ?</string>
-    <string name="tour_closer_question_body">La visite peut continuer dans chaque écran des Paramètres et s\'arrêter sur les réglages les plus souvent changés, avec une phrase sur ce que fait chacun. Passer l\'arrête à tout moment.</string>
+    <string name="tour_closer_question_body">La visite peut continuer dans les Paramètres et s\'arrêter sur les réglages les plus changés, avec une phrase pour chacun. Passer l\'arrête à tout moment.</string>
     <string name="tour_closer_next_category">Catégorie suivante</string>
     <string name="tour_closer_entry">Visite des réglages</string>
     <string name="tour_closer_login">Se connecter à votre compte YouTube Music amène ici vos playlists, vos j\'aime et vos recommandations. L\'application marche sans.</string>
@@ -1903,22 +1926,38 @@
         <item quantity="other">%1$s abonnés</item>
     </plurals>
     <!-- What Home, search, artist pages and radio leave out (ContentFiltersFrag in Library and content). -->
-    <string name="hide_explicit_description">Les titres et albums marqués explicites n\'apparaissent plus dans l\'accueil, la recherche, les pages d\'artiste et ce qu\'ajoute une radio.</string>
+    <string name="hide_explicit_description">Les titres et albums explicites restent hors de l\'accueil, de la recherche, des pages d\'artiste et des radios.</string>
     <string name="hide_video_songs">Masquer les clips</string>
-    <string name="hide_video_songs_description">Seuls les titres d\'albums et de singles sont proposés, pas les clips ni les vidéos mises en ligne. Un titre que vous choisissez se lit quand même.</string>
+    <string name="hide_video_songs_description">Seuls les titres d\'albums et de singles sont proposés, pas les clips. Un titre que vous choisissez se lit quand même.</string>
+    <!-- The AI filter (Unreleased.AI_FILTER): held with the English until the words are agreed. -->
+    <string name="ai_filter">Musique IA</string>
+    <string name="ai_filter_off">Désactivé</string>
+    <string name="ai_filter_recommendations">Masquer des recommandations</string>
+    <string name="ai_filter_everywhere">Bloquer partout</string>
+    <string name="ai_filter_note">S\'appuie sur une liste d\'artistes IA faite à la main : la liste de blocage YouTube de CevvalKoala et quelques artistes IA connus. Elle peut se tromper : appuyez longuement sur un artiste pour le marquer IA ou non.</string>
+    <string name="ai_filter_explain">« Masquer des recommandations » écarte les titres IA de l\'accueil, des radios et de la lecture automatique. « Bloquer partout » les masque aussi dans la recherche et les passe dans la file. Les titres de votre bibliothèque et vos propres playlists ne sont jamais touchés.</string>
+    <string name="ai_filter_mark_ai">Marquer comme IA</string>
+    <string name="ai_filter_not_ai">Pas de l\'IA</string>
+    <plurals name="ai_filter_hidden">
+        <item quantity="one">%1$d résultat IA masqué</item>
+        <item quantity="many">%1$d de résultats IA masqués</item>
+        <item quantity="other">%1$d résultats IA masqués</item>
+    </plurals>
+    <string name="ai_filter_show">Afficher</string>
+    <string name="ai_filter_skipped">Titre IA passé</string>
     <!-- The recognition widget in the launcher's picker (recognition_widget_info). -->
     <string name="recognition_widget_description">Un bouton qui trouve le titre qui passe autour de vous.</string>
     <!-- The sleep timer on a schedule, under the sleep timer's fade in Player and audio (SleepScheduleFrag, ScheduledSleep). -->
     <string name="sleep_schedule">Minuterie de sommeil programmée</string>
     <string name="sleep_schedule_description">Chaque jour à partir de %1$s, la minuterie de sommeil se lance seule pour %2$s.</string>
-    <string name="sleep_schedule_explain">Elle se lance à cette heure si la musique joue, ou quand la musique démarre dans les 3 heures qui suivent. Une seule fois par jour : une minuterie que vous lancez vous-même compte pour ce jour-là, et après la minuterie, la musique que vous remettez continue.</string>
+    <string name="sleep_schedule_explain">Se lance à cette heure si la musique joue, ou quand elle démarre dans les heures qui suivent. Une fois par jour au plus, et une minuterie lancée vous-même compte pour ce jour-là.</string>
     <string name="sleep_schedule_start">Commence à</string>
     <string name="sleep_schedule_length">Durée de la minuterie</string>
     <string name="time_of_day_type">Saisir l\'heure</string>
     <string name="time_of_day_clock_face">Utiliser le cadran</string>
     <!-- Show in Latin letters, in Settings > Lyrics and in the lyrics view's settings (LyricsLatin). -->
     <string name="lyrics_latin_title">Afficher en lettres latines</string>
-    <string name="lyrics_latin_description">Les paroles en japonais, coréen, chinois, russe et quelques autres langues ont une deuxième ligne en lettres latines. Les kanji restent tels quels.</string>
+    <string name="lyrics_latin_description">Ajoute une ligne en lettres latines sous les paroles en japonais, coréen, chinois, russe et d\'autres langues.</string>
     <string name="lyrics_share_picture_or_video">Image ou vidéo</string>
     <string name="lyrics_as_picture">Image</string>
     <string name="lyrics_as_video">Vidéo</string>
@@ -2016,7 +2055,7 @@
     <string name="battery_use_full_description">Tout comme vous l\'avez réglé.</string>
     <string name="battery_use_balanced_description">La bibliothèque se synchronise toutes les deux heures au lieu de toutes les demi-heures, et les barres de lecture bougent plus calmement.</string>
     <string name="battery_use_saver_description">Effets sonores coupés sauf l\'égaliseur, thème noir, moins d\'images par seconde et, si la qualité audio est Automatique, qualité Faible sur les données mobiles. Synchronisation et téléchargements attendent le Wi-Fi.</string>
-    <string name="battery_use_explain">Ce que fait InterTune pendant que vous écoutez. « Équilibrée » synchronise la bibliothèque moins souvent et calme les barres de lecture. « Économie » coupe aussi les effets sonores sauf l\'égaliseur, affiche un thème noir avec moins d\'images par seconde et, quand la qualité audio est sur Automatique, diffuse en qualité Faible sur les données mobiles.</string>
+    <string name="battery_use_explain">« Équilibrée » synchronise la bibliothèque moins souvent et calme les animations. « Économie » coupe aussi les effets sonores sauf l\'égaliseur, passe en thème noir et, en qualité Automatique, diffuse en Faible sur les données mobiles.</string>
     <string name="battery_saver_holds_note">Réglé par « Utilisation de la batterie » tant qu\'elle est sur « Économie ».</string>
     <string name="battery_saver_quality_note">Faible sur les données mobiles tant que « Utilisation de la batterie » est sur « Économie ».</string>
     <string name="battery_saver_background_note">%1$s tant que « Utilisation de la batterie » est sur « Économie ».</string>
@@ -2135,6 +2174,10 @@
     <string name="signal_wired">Casque filaire</string>
     <string name="signal_other_output">Un autre appareil</string>
     <string name="signal_volume">Volume du téléphone</string>
+    <string name="signal_receiver">%1$s, %2$s</string>
+    <string name="signal_receiver_rate">%1$s, %2$s, %3$s kHz</string>
+    <string name="signal_not_on_receiver">Pas sur ce récepteur, qui reçoit le titre tel quel</string>
+    <string name="signal_not_while_casting">Pas pendant un cast</string>
     <string name="signal_percent">%1$d %%</string>
     <string name="signal_legend_untouched">Intact</string>
     <string name="signal_legend_changed">Modifié par un réglage que vous avez choisi</string>
@@ -2146,7 +2189,7 @@
     <string name="player_pins_under_controls">Sous les commandes</string>
     <string name="player_pin_lyrics">Paroles</string>
     <string name="player_pins_reset">Réinitialiser</string>
-    <!-- Saved twice (issue #47, Unreleased.SAVED_TWICE): held back from translators until his yes on the words. -->
+    <!-- Saved twice (issue #47, Unreleased.SAVED_TWICE). -->
     <string name="saved_twice">En double</string>
     <plurals name="saved_twice_button">
         <item quantity="one">%1$d titre en double</item>
@@ -2212,12 +2255,14 @@
     <string name="region_note_body">YouTube Music n\'a pas d\'offre gratuite en Corée du Sud : là-bas, YouTube ne montre les titres, les albums et les mix qu\'aux abonnés Premium. Les titres de vos playlists se lisent quand même, et la recherche trouve toujours les vidéos. Un compte Premium, ou un VPN ou un proxy hors de Corée, fait revenir le reste.</string>
     <string name="region_note_proxy">Réglages du proxy</string>
     <string name="proxy_restart_title">Redémarrer pour appliquer le réglage du proxy</string>
-    <string name="proxy_restart_description">InterTune prend le proxy au démarrage. Touchez pour le redémarrer maintenant ; la musique s\'arrête.</string>
+    <string name="proxy_restart_description">InterTune prend le proxy au démarrage. Touchez pour redémarrer maintenant. La musique s\'arrête.</string>
     <string name="why_stopped_sign_in_title">Votre connexion YouTube a expiré</string>
     <string name="why_stopped_sign_in_body">YouTube n\'accepte plus la connexion que garde InterTune, donc la recherche, les radios et les mix ne se chargent pas. Reconnectez-vous pour les retrouver.</string>
     <string name="why_stopped_sign_in_again">Se reconnecter</string>
     <string name="why_stopped_unreachable_title">Impossible de joindre YouTube</string>
     <string name="why_stopped_unreachable_body">Cette connexion n\'arrive pas jusqu\'à YouTube. Si vous utilisez un VPN, vérifiez que son split tunneling inclut InterTune, ou essayez un autre réseau.</string>
+    <string name="radio_from_intertune_title">Choisis par InterTune</string>
+    <string name="radio_from_intertune_body">YouTube n\'a pas envoyé de radio</string>
     <string name="album_not_loaded_title">Cet album ne s\'est pas chargé</string>
     <string name="album_not_loaded_body">YouTube ne l\'a pas envoyé, donc seuls les titres qu\'InterTune avait déjà sont affichés.</string>
     <string name="lyrics_refetch_failed">Paroles non récupérées. Vérifiez la connexion.</string>
@@ -2241,7 +2286,7 @@
     <!-- Liked songs kept in sync with their downloads (issue #64, Unreleased.LIKED_SYNC): held from translators until he says. -->
     <string name="liked_download_sync">Supprimer le téléchargement avec le j’aime</string>
     <string name="liked_download_sync_description">Seulement les titres que ce réglage a téléchargés. Un titre téléchargé par vous reste.</string>
-    <!-- Pochette de la playlist (PlaylistCovers, PlaylistCoverSheet, Unreleased.PLAYLIST_COVER): held from translators in values until the words are agreed. -->
+    <!-- Pochette de la playlist (PlaylistCovers, PlaylistCoverSheet, Unreleased.PLAYLIST_COVER). -->
     <string name="playlist_cover_change">Changer la pochette</string>
     <string name="playlist_cover_title">Pochette de la playlist</string>
     <string name="playlist_cover_note">La pochette au-dessus change à chaque choix.</string>
@@ -2250,7 +2295,7 @@
     <string name="playlist_cover_photo">Une photo</string>
     <string name="playlist_cover_photo_note">Depuis votre téléphone</string>
     <string name="playlist_cover_songs">Un titre de cette playlist</string>
-    <!-- Bloquer l'artiste (ArtistBlock, Unreleased.ARTIST_BLOCK): held from translators in values until the words are agreed. -->
+    <!-- Bloquer l'artiste (ArtistBlock, Unreleased.ARTIST_BLOCK): open to translators in values, on for everyone from 0.13. -->
     <string name="menu_block_artist">Bloquer l\'artiste</string>
     <string name="block_artist_which">Bloquer quel artiste\u00A0?</string>
     <string name="block_artist_title">Bloquer %1$s\u00A0?</string>
@@ -2268,12 +2313,75 @@
     <string name="blocked_search_note">%1$s est bloqué, donc rien de cet artiste ne s\'affiche.</string>
     <string name="blocked_song_skipped">%1$s est bloqué, donc son titre a été passé.</string>
     <string name="blocked_songs_left">Il ne reste que des titres d\'artistes bloqués : la musique s\'arrête.</string>
+    <!-- Ne plus jouer ce titre (DontPlay, Unreleased.ARTIST_BLOCK): open to translators in values, on for everyone from 0.13. -->
+    <string name="menu_dont_play_song">Ne plus jouer ce titre</string>
+    <string name="menu_dont_play_lift">Réautoriser ce titre</string>
+    <string name="dont_play_done">Désormais, il n\'est joué que si vous le choisissez.</string>
+    <string name="dont_play_lifted">Il est de nouveau joué comme les autres titres.</string>
+    <string name="dont_play_skipped">Titre passé, à ne plus jouer : « %1$s »</string>
+    <string name="dont_play_songs_left">Il ne reste que des titres à ne plus jouer : la musique s\'arrête.</string>
+    <string name="exclusion_reason_dont_play">Ne plus jouer ce titre</string>
+    <string name="exclusions_dont_play_note">Ne plus jouer ce titre va plus loin : le titre reste hors des radios et de la lecture automatique, et n\'est joué que si vous le choisissez.</string>
     <string name="search_words_blocked_artists">bannir, masquer, ignorer, liste noire</string>
     <string name="crash_newer_title">InterTune %1$s est disponible</string>
     <string name="crash_newer_body">Cette version corrige peut-être déjà ce plantage. Mettez à jour d\'abord, puis signalez-le s\'il revient.</string>
     <string name="crash_newer_update">Mettre à jour</string>
     <string name="problem_report_share_file">Partager en fichier</string>
     <string name="dl_song_files_note">Chaque titre y est enregistré en Opus ou en M4A, avec son nom, son artiste et sa pochette, pour que d\'autres applis et les voitures puissent le lire.</string>
+    <string name="download_quality">Qualité des téléchargements</string>
+    <string name="download_quality_same">Comme la lecture</string>
+    <string name="download_quality_description">Une meilleure qualité prend plus de place. Les titres déjà téléchargés ne changent pas.</string>
+    <string name="download_format">Format des fichiers</string>
+    <string name="download_format_original">Original</string>
+    <string name="download_format_description">L\'original garde la meilleure qualité. Les autres formats sont convertis sur le téléphone après le téléchargement.</string>
+    <string name="download_bitrate">Débit</string>
+    <string name="download_bitrate_auto">Auto</string>
+    <string name="download_bitrate_kbps">%1$d kb/s</string>
+    <string name="download_bitrate_description">Auto suit ce que YouTube a envoyé pour chaque titre. Convertir n\'ajoute aucune qualité que YouTube n\'a pas envoyée.</string>
+    <string name="download_bitrate_aac_kept">Les titres que YouTube a envoyés en AAC restent tels quels.</string>
+    <string name="convert_notice_title">Conversion en %1$s</string>
+    <string name="convert_notice_text">%1$d sur %2$d</string>
+    <string name="convert_fallback_title">Certains titres n\'ont pas été convertis</string>
+    <plurals name="convert_fallback_text">
+        <item quantity="one">%1$d titre n\'a pas pu être converti et a été enregistré tel quel.</item>
+        <item quantity="many">%1$d titres n\'ont pas pu être convertis et ont été enregistrés tels quels.</item>
+        <item quantity="other">%1$d titres n\'ont pas pu être convertis et ont été enregistrés tels quels.</item>
+    </plurals>
+    <string name="search_words_download_format">mp3, flac, wav, aac, m4a, convertir, format, type de fichier</string>
+    <string name="export_to_folder">Exporter vers un dossier</string>
+    <string name="export_note">Seuls les titres présents sur le téléphone sont exportés.</string>
+    <string name="export_folder">Dossier</string>
+    <string name="export_folder_none">Choisir un dossier</string>
+    <string name="export_action">Exporter</string>
+    <string name="export_progress">Export de %1$d sur %2$d</string>
+    <string name="export_done_title">Export terminé</string>
+    <string name="export_stopped_title">Export arrêté</string>
+    <string name="export_names_more">%1$s et %2$d autres</string>
+    <plurals name="export_exported">
+        <item quantity="one">%1$d titre exporté</item>
+        <item quantity="many">%1$d titres exportés</item>
+        <item quantity="other">%1$d titres exportés</item>
+    </plurals>
+    <plurals name="export_skipped_not_downloaded">
+        <item quantity="one">%1$d ignoré : pas téléchargé</item>
+        <item quantity="many">%1$d ignorés : pas téléchargés</item>
+        <item quantity="other">%1$d ignorés : pas téléchargés</item>
+    </plurals>
+    <plurals name="export_skipped_there">
+        <item quantity="one">%1$d ignoré : déjà dans le dossier</item>
+        <item quantity="many">%1$d ignorés : déjà dans le dossier</item>
+        <item quantity="other">%1$d ignorés : déjà dans le dossier</item>
+    </plurals>
+    <plurals name="export_skipped_local">
+        <item quantity="one">%1$d ignoré : déjà un fichier du téléphone</item>
+        <item quantity="many">%1$d ignorés : déjà des fichiers du téléphone</item>
+        <item quantity="other">%1$d ignorés : déjà des fichiers du téléphone</item>
+    </plurals>
+    <plurals name="export_failed">
+        <item quantity="one">%1$d n\'a pas pu être converti</item>
+        <item quantity="many">%1$d n\'ont pas pu être convertis</item>
+        <item quantity="other">%1$d n\'ont pas pu être convertis</item>
+    </plurals>
     <string name="new_shelf_looks_title">L\'Étagère en trois looks</string>
     <string name="new_shelf_looks_body">Grande pochette, Bac à disques ou Vinyles, à choisir sous Look dans les réglages du widget.</string>
     <string name="new_lyrics_video_long_title">Des vidéos de paroles jusqu\'à dix minutes</string>
@@ -2307,6 +2415,40 @@
     <string name="widgets_all_options_full_cover">Taille du texte, ce qu\'il affiche</string>
     <string name="widgets_all_options_shelf">Arrière-plan, boutons, lignes</string>
     <string name="widgets_add_from_home">Cet écran d\'accueil n\'accepte pas les widgets des applications. Ajoutez-les depuis sa propre liste de widgets.</string>
+    <!-- Nouveautés de 0.13 (Walkthrough.kt, V0_13). -->
+    <string name="new_block_artist_title">Bloquer un artiste</string>
+    <string name="new_block_artist_body">Bloquer l\'artiste, dans le menu d\'un titre ou sur sa page, retire ses titres, ses albums et son visage d\'InterTune.</string>
+    <string name="new_block_artist_way">Les artistes que vous avez bloqués sont listés ici.</string>
+    <string name="new_block_artist_here">Tous ceux que vous avez bloqués, pour les débloquer ou bloquer un artiste par son nom.</string>
+    <string name="new_dont_play_title">Empêcher un titre de jouer</string>
+    <string name="new_dont_play_body">Ne plus jouer ce titre, dans le menu d\'un titre, le tient à l\'écart des radios et de la lecture automatique, ses autres mises en ligne comprises. Dans une playlist ou la file d\'attente, il reste affiché, grisé, et il est passé. Il joue toujours quand vous le choisissez.</string>
+    <string name="new_saved_twice_title">Retrouver les titres en double</string>
+    <string name="new_saved_twice_body">Quand vos Titres aimés, votre bibliothèque ou une playlist contiennent un titre plusieurs fois, un bouton rond avec un nombre s\'affiche à côté de Lecture et Lecture aléatoire. Touchez-le pour garder un exemplaire de chacun.</string>
+    <string name="new_sleep_timer_title">Une minuterie de sommeil avec plus de choix</string>
+    <string name="new_sleep_timer_body">Arrêtez à une heure précise, ou à la fin du titre, de l\'album ou de la file d\'attente. Ouvrez-la avec le minuteur du lecteur ; sa notification fait le décompte et ajoute du temps.</string>
+    <string name="new_liked_sync_title">Retirer un j’aime peut supprimer le téléchargement</string>
+    <string name="new_liked_sync_body">Si vos titres aimés se téléchargent tout seuls, retirer un j’aime peut maintenant supprimer son téléchargement. Ceux téléchargés à la main restent.</string>
+    <string name="new_liked_sync_way">Les téléchargements et la place qu\'ils prennent se règlent ici.</string>
+    <string name="new_liked_sync_here">Activé, retirer votre j’aime supprime le téléchargement fait pour ce titre. Cela marche quand les titres aimés se téléchargent tout seuls.</string>
+    <string name="new_album_goes_on_title">Les albums continuent après leur dernier titre</string>
+    <string name="new_album_goes_on_body">Avec Charger automatiquement plus de titres activé, un album qui se termine continue avec une radio de son dernier titre, comme sur YouTube Music.</string>
+    <string name="new_album_goes_on_way">La façon dont la file continue à sa fin se règle ici.</string>
+    <string name="new_album_goes_on_here">Activé, un album qui se termine continue avec une radio de son dernier titre.</string>
+    <string name="new_recognise_offline_title">La reconnaissance marche hors ligne</string>
+    <string name="new_recognise_offline_body">Sans connexion, Quel est ce titre\u00A0? garde ce qu\'il a entendu et nomme les titres une fois le téléphone de nouveau en ligne. Ils attendent dans Ce que vous avez entendu.</string>
+    <string name="new_animations_title">Couper les animations</string>
+    <string name="new_animations_body">Un bouton dans Apparence coupe les animations de l\'app\u00A0: les écrans changent d\'un coup et les fonds restent immobiles. Plus doux pour les anciens téléphones.</string>
+    <string name="new_animations_way">L\'apparence de l\'app et ses mouvements se règlent ici.</string>
+    <string name="new_animations_here">L\'option Supprimer les animations d\'Android les coupe aussi ici, et grise ce bouton.</string>
+    <string name="new_stats_plays_title">Les statistiques comptent vos lectures</string>
+    <string name="new_stats_plays_body">Vos titres, artistes et albums les plus joués montrent maintenant combien de fois vous les avez joués, le plus joué en premier. Ouvrez Statistiques depuis l\'accueil.</string>
+    <string name="new_queue_swipe_title">Retirer un titre de la file d\'un geste</string>
+    <string name="new_queue_swipe_body">Faites glisser un titre sur le côté et lâchez pour le retirer de la file d\'attente. Annuler, dans la barre qui apparaît, le remet, et Retirer sur une sélection s\'annule aussi.</string>
+    <string name="new_downloads_move_title">Vos téléchargements suivent le dossier choisi</string>
+    <string name="new_downloads_move_body">Choisir un dossier de téléchargement propose maintenant d\'y déplacer les titres déjà téléchargés, avec une notification pendant le déplacement. Si le dossier ne s\'ouvre pas, l\'application le dit.</string>
+    <string name="new_downloads_move_here">Choisissez le dossier ici. Les titres déjà téléchargés peuvent y être déplacés avec lui.</string>
+    <string name="new_original_audio_title">Podcasts et vidéos dans leur langue d\'origine</string>
+    <string name="new_original_audio_body">Quand YouTube double un podcast ou une vidéo dans d\'autres langues, InterTune joue maintenant la langue d\'origine.</string>
     <!-- Nouveautés de 0.12.8 (Walkthrough.kt, V0_12_8). -->
     <string name="new_report_send_title">Envoyer un rapport à InterTune</string>
     <string name="new_report_send_body">Signaler un problème peut maintenant envoyer le rapport à InterTune, sans compte GitHub. Ou le partager en fichier pour le poster sur Discord.</string>
@@ -2316,15 +2458,64 @@
     <string name="new_backup_parts_here">Touchez Sauvegarder pour choisir ce que contient le fichier. Vos connexions n\'y vont que si vous les cochez.</string>
     <string name="new_lyrics_save_title">Enregistrer les cartes et vidéos de paroles</string>
     <string name="new_lyrics_save_body">Appuyez longuement sur une ligne des paroles : une carte ou une vidéo peut maintenant être enregistrée sur le téléphone, pas seulement partagée.</string>
-    <string name="not_saved_storage_full" translatable="false">Non enregistré : stockage du téléphone plein. Libérez de la place.</string>
-    <string name="not_saved" translatable="false">Non enregistré : un problème est survenu. Réessayez.</string>
-    <string name="remove_download_refused" translatable="false">Fichier non supprimé. Vérifiez le dossier de téléchargement.</string>
+    <string name="library_song_empty_liked">Les titres que vous aimez s\'afficheront ici</string>
+    <string name="library_song_empty_downloaded">Les titres téléchargés s\'afficheront ici</string>
+    <string name="not_saved_storage_full">Non enregistré : stockage du téléphone plein. Libérez de la place.</string>
+    <string name="not_saved">Non enregistré : un problème est survenu. Réessayez.</string>
+    <string name="remove_download_selection_confirm">Supprimer les téléchargements des titres choisis ?</string>
+    <string name="remove_download_refused">Fichier non supprimé. Vérifiez le dossier de téléchargement.</string>
+    <string name="queue_held_row_label">revenir au titre en cours</string>
+    <string name="stats_found">InterTune vous a fait découvrir %1$s des titres que vous aimez.</string>
+    <string name="found_way_radios">Radios</string>
+    <string name="found_way_home">Autres rangées de l\'accueil</string>
+    <string name="version_card_title">Votre carte</string>
+    <string name="version_card_more">Encore %1$d</string>
+    <string name="version_card_found">Trouvée le %1$s</string>
+    <string name="version_card_number">N°</string>
+    <string name="media_button_resuming">Reprise de votre file d\'attente</string>
+    <string name="menu_hidden">Masquées</string>
+    <string name="menu_hidden_hint">Touchez une entrée pour la mettre ici, ou la remettre.</string>
+    <string name="menu_edit_done">Terminé</string>
+    <string name="menu_edit_hide">Masquer</string>
+    <string name="menu_edit_show">Afficher</string>
+    <string name="menu_edit_start">Modifier ce menu</string>
+    <string name="menu_choices_title">Menus à trois points</string>
+    <string name="menu_choices_description">Maintenez une entrée d\'un menu pour choisir ce qu\'il affiche.</string>
+    <string name="menu_choices_show_all">Tout afficher</string>
+    <string name="search_words_menus">menu, trois points, options, masquer, entrées</string>
+    <plurals name="menu_hidden_count">
+        <item quantity="one">%1$d masquée</item>
+        <item quantity="many">%1$d masquées</item>
+        <item quantity="other">%1$d masquées</item>
+    </plurals>
     <!-- A picker asked for on a device with none (#120, #121). -->
     <string name="no_app_to_pick">Pas de sélecteur de fichiers. Installez un gestionnaire de fichiers.</string>
-    <string name="media_button_resuming" translatable="false">Reprise de votre file d\'attente</string>
-    <string name="library_song_empty_liked" translatable="false">Les titres que vous aimez s\'afficheront ici</string>
-    <string name="library_song_empty_downloaded" translatable="false">Les titres téléchargés s\'afficheront ici</string>
-    <string name="remove_download_selection_confirm" translatable="false">Supprimer les téléchargements des titres choisis ?</string>
+    <string name="sleep_row_in">Dans</string>
+    <string name="sleep_row_at">À</string>
+    <string name="sleep_row_end_of">Fin de</string>
+    <string name="sleep_minutes_short">%1$d min</string>
+    <string name="sleep_end_song">Titre</string>
+    <string name="sleep_end_album">Album</string>
+    <string name="sleep_end_of_album">Fin de l\'album</string>
+    <string name="sleep_end_of_queue">Fin de la file d\'attente</string>
+    <string name="sleep_let_finish">Laisser finir le titre</string>
+    <string name="sleep_fade_row">Fondu · %1$d&#160;s</string>
+    <string name="sleep_every_night">Chaque nuit</string>
+    <string name="sleep_start">Démarrer</string>
+    <string name="sleep_stop">Arrêter la minuterie</string>
+    <string name="sleep_close">Fermer</string>
+    <string name="sleep_plus_minutes">+%1$d min</string>
+    <string name="sleep_stops_at">S\'arrête à %1$s</string>
+    <string name="sleep_stops_at_after_song">S\'arrête à %1$s, après le titre</string>
+    <string name="sleep_the_song">le titre</string>
+    <string name="sleep_notif_title_at">La musique s\'arrête à %1$s</string>
+    <string name="sleep_notif_title_song">La musique s\'arrête après ce titre</string>
+    <string name="sleep_notif_title_album">La musique s\'arrête après cet album</string>
+    <string name="sleep_notif_title_queue">La musique s\'arrête à la fin de la file d\'attente</string>
+    <string name="sleep_notif_line_fade">Fondu de %1$d&#160;s</string>
+    <string name="sleep_notif_line_fade_after">Fondu de %1$d&#160;s, après %2$s</string>
+    <string name="sleep_notif_line_after">Après %1$s</string>
+    <string name="sleep_notif_stop">Arrêter</string>
     <string-array name="file_size_units">
         <item>o</item>
         <item>Ko</item>
@@ -2333,4 +2524,53 @@
         <item>To</item>
         <item>Po</item>
     </string-array>
+    <string name="queue_removed_one">%1$s retiré</string>
+    <plurals name="queue_removed_songs">
+        <item quantity="one">%1$d titre retiré</item>
+        <item quantity="many">%1$d titres retirés</item>
+        <item quantity="other">%1$d titres retirés</item>
+    </plurals>
+    <string name="dl_folder_cannot_open">InterTune ne peut plus ouvrir ce dossier. Les nouveaux téléchargements restent dans l\'application tant que vous ne l\'avez pas choisi à nouveau.</string>
+    <string name="dl_folder_cannot_open_notice">Dossier inaccessible : les téléchargements restent dans l\'application.</string>
+    <string name="dl_move_here_title">Déplacer vos téléchargements ici ?</string>
+    <plurals name="dl_move_here_text">
+        <item quantity="one">%d titre est encore dans l\'application. Le déplacer dans ce dossier maintenant ?</item>
+        <item quantity="many">%d titres sont encore dans l\'application. Les déplacer dans ce dossier maintenant ?</item>
+        <item quantity="other">%d titres sont encore dans l\'application. Les déplacer dans ce dossier maintenant ?</item>
+    </plurals>
+    <string name="dl_move_here_move">Déplacer</string>
+    <string name="dl_move_here_not_now">Plus tard</string>
+    <string name="dl_move_notice_title">Déplacement des téléchargements</string>
+    <string name="dl_move_notice_text">%1$d sur %2$d</string>
+    <string name="dl_move_notice_done">Téléchargements déplacés dans votre dossier</string>
+    <plurals name="dl_move_notice_failed">
+        <item quantity="one">%d titre n\'a pas pu être déplacé et reste dans l\'application</item>
+        <item quantity="many">%d titres n\'ont pas pu être déplacés et restent dans l\'application</item>
+        <item quantity="other">%d titres n\'ont pas pu être déplacés et restent dans l\'application</item>
+    </plurals>
+    <string name="dl_simple_size_folder">Dans votre dossier : %s</string>
+    <string name="dl_simple_clear_confirm">Supprimer les téléchargements gardés dans l\'application ? Les titres de votre dossier restent.</string>
+    <string name="dl_simple_nothing_to_move">Rien à déplacer : aucun téléchargement dans l\'application.</string>
+    <string name="dl_simple_rescan_description">À faire après avoir ajouté, déplacé ou supprimé vous-même des fichiers dans vos dossiers de téléchargement.</string>
+    <string name="dl_simple_where_title">Où vont les téléchargements</string>
+    <string name="dl_simple_where_inside">Dans l\'application</string>
+    <plurals name="dl_simple_still_inside">
+        <item quantity="one">%d titre est encore dans l\'application.</item>
+        <item quantity="many">%d titres sont encore dans l\'application.</item>
+        <item quantity="other">%d titres sont encore dans l\'application.</item>
+    </plurals>
+    <string name="dl_simple_choose_again">Le choisir à nouveau</string>
+    <string name="dl_simple_inside_line">Seul InterTune peut les lire.</string>
+    <string name="dl_simple_in_folder">Dans un dossier</string>
+    <string name="dl_simple_in_folder_line">Des fichiers ordinaires, pour d\'autres applications aussi. Choisissez un dossier vide : InterTune peut y modifier ou supprimer des fichiers.</string>
+    <plurals name="dl_simple_saved_to">
+        <item quantity="one">%1$d titre enregistré dans %2$s</item>
+        <item quantity="many">%1$d titres enregistrés dans %2$s</item>
+        <item quantity="other">%1$d titres enregistrés dans %2$s</item>
+    </plurals>
+    <plurals name="dl_simple_saved_inside">
+        <item quantity="one">%d titre téléchargé, gardé dans l\'application</item>
+        <item quantity="many">%d titres téléchargés, gardés dans l\'application</item>
+        <item quantity="other">%d titres téléchargés, gardés dans l\'application</item>
+    </plurals>
 </resources>
