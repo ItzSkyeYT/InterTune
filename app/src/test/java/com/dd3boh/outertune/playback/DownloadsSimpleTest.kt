@@ -17,7 +17,7 @@ import java.io.File
  * The simpler ways to download songs and to choose where they go (DownloadsSimpleLook, 12 Nov
  * 2026): three looks were drawn to be chosen from pictures, and he chose C. It is the page in the
  * builds that show held features (Unreleased.DOWNLOADS_SIMPLE); A and B were taken out. It keeps
- * everything the page of today can do, and its words are held from translators with their
+ * everything the page of today can do, and its words are open to translators with their
  * French beside them. The rules are tried as they are; the wiring is read from the source, as the
  * other tests of this page do.
  */
@@ -46,9 +46,9 @@ class DownloadsSimpleTest {
     }
 
     @Test
-    fun `the switch is the preview builds', and the look is read through it`() {
+    fun `the switch is on in every build, a release included, and the look is read through it`() {
         val flags = File(sources, "constants/Unreleased.kt").readText()
-        assertTrue(Regex("""^\s*val DOWNLOADS_SIMPLE = BuildConfig\.PREVIEW_FEATURES\s*$""", RegexOption.MULTILINE).containsMatchIn(flags))
+        assertTrue(Regex("""^\s*val DOWNLOADS_SIMPLE = true\s*$""", RegexOption.MULTILINE).containsMatchIn(flags))
         assertTrue("the look is the switch's", "pick(Unreleased.DOWNLOADS_SIMPLE)" in look)
         // Nothing else decides a look: no other file reads the switch or names a look by itself.
         val readers = sources.walkTopDown().filter { it.extension == "kt" && it.name != "Unreleased.kt" }
@@ -171,13 +171,13 @@ class DownloadsSimpleTest {
         ).associate { it.groupValues[1] to it.groupValues[2] }
 
     @Test
-    fun `the words are held from translators, with their French beside them`() {
+    fun `the words are open to translators, with their French beside them`() {
         for (name in texts) {
-            assertTrue(name, en.contains("<string name=\"$name\" translatable=\"false\">"))
+            assertTrue(name, en.contains("<string name=\"$name\">"))
             assertTrue("$name has no French", fr.contains("<string name=\"$name\">"))
         }
         for (name in plurals) {
-            assertTrue(name, en.contains("<plurals name=\"$name\" translatable=\"false\">"))
+            assertTrue(name, en.contains("<plurals name=\"$name\">"))
             assertEquals(name, setOf("one", "other"), plural(en, name).keys)
             assertEquals("$name in French", setOf("one", "many", "other"), plural(fr, name).keys)
             assertEquals(plural(fr, name)["other"], plural(fr, name)["many"])

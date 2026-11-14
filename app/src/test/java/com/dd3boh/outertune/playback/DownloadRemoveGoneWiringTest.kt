@@ -80,12 +80,12 @@ class DownloadRemoveGoneWiringTest {
     }
 
     @Test
-    fun `the words of the toast are in both languages, held from translators`() {
+    fun `the words of the toast are in both languages, open to translators`() {
         val en = Regex("""<string name="remove_download_refused"([^>]*)>([^<]*)</string>""").find(english)
         val fr = Regex("""<string name="remove_download_refused"([^>]*)>([^<]*)</string>""").find(french)
         assertTrue("English", en != null)
         assertTrue("French", fr != null)
-        assertTrue("held until the next push to translators", en!!.groupValues[1].contains("translatable=\"false\""))
+        assertFalse("open to translators", en!!.groupValues[1].contains("translatable=\"false\""))
         for (text in listOf(en.groupValues[2], fr!!.groupValues[2])) {
             assertFalse("no em dash", '—' in text)
             assertTrue("two or three short sentences at most", text.count { it == '.' } in 1..3)

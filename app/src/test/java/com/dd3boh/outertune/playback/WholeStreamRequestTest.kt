@@ -58,6 +58,6 @@ class WholeStreamRequestTest {
     fun `the 512 KB that is left is only how much of a song the cache must hold to be read from`() {
         val uses = service.lines().map { it.trim() }
             .filter { "CHUNK_LENGTH" in it && "const val" !in it && !it.startsWith("//") && !it.startsWith("*") }
-        assertTrue("CHUNK_LENGTH is used somewhere new: $uses", uses.all { "isCached(" in it })
+        assertTrue("CHUNK_LENGTH is used somewhere new: $uses", uses.all { "isCached(" in it || "holdsFrom(" in it })
     }
 }

@@ -50,7 +50,7 @@ import androidx.compose.ui.Modifier
  */
 @Composable
 fun ColumnScope.PollsFrag() {
-    // Same reasoning as the Last.fm section: a build with no gist and no Umami endpoint cannot
+    // Same reasoning as the Last.fm section: a build with no gist and no counter address cannot
     // ever ask a question, and PollChecker returns early on exactly this check. Offering the
     // switch anyway asks somebody to consent to answers being sent, and then does nothing with
     // that consent forever. Say so rather than leaving a live-looking control.

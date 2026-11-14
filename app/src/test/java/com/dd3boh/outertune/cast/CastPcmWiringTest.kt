@@ -25,8 +25,8 @@ class CastPcmWiringTest {
         .lines().joinToString("\n") { it.substringBefore("//") }
 
     @Test
-    fun `the flag is held back to debug and preview builds`() {
-        assertTrue(Regex("""\bval CAST_PCM = BuildConfig\.PREVIEW_FEATURES\s*$""", RegexOption.MULTILINE).containsMatchIn(code("constants/Unreleased.kt")))
+    fun `the flag is on in every build, a release included`() {
+        assertTrue(Regex("""\bval CAST_PCM = true\s*$""", RegexOption.MULTILINE).containsMatchIn(code("constants/Unreleased.kt")))
     }
 
     @Test

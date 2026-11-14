@@ -127,7 +127,6 @@ fun LibrarySettings(
                 SwitchPreference(
                     modifier = Modifier.settingRow(R.string.show_liked_and_downloaded_playlist),
                     title = { Text(stringResource(R.string.show_liked_and_downloaded_playlist)) },
-                    description = stringResource(R.string.show_liked_and_downloaded_playlist_description),
                     icon = { Icon(Icons.AutoMirrored.Rounded.PlaylistPlay, null) },
                     checked = showLikedAndDownloadedPlaylist,
                     onCheckedChange = onShowLikedAndDownloadedPlaylistChange

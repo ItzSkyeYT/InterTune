@@ -178,11 +178,11 @@ class SleepTimerWiringTest {
         Regex("""<string name="$name"[^>]*>(.*?)</string>""", RegexOption.DOT_MATCHES_ALL).find(xml)?.groupValues?.get(1)
 
     @Test
-    fun `every text is in English, held from translators, with its French beside it`() {
+    fun `every text is in English, open to translators, with its French beside it`() {
         for (name in names) {
             assertNotNull("$name has no English", text(english, name))
             assertNotNull("$name has no French", text(french, name))
-            assertTrue("$name is not held", Regex("""<string name="$name" translatable="false">""").containsMatchIn(english))
+            assertFalse("$name is held in English", Regex("""<string name="$name" translatable="false">""").containsMatchIn(english))
             assertFalse("$name is held in French", Regex("""<string name="$name" translatable="false">""").containsMatchIn(french))
         }
     }

@@ -42,12 +42,12 @@ class PlaylistCoverWiringTest {
     // ---- the flag ----
 
     @Test
-    fun `the flag is on in debug and preview builds and off in a release`() {
+    fun `the flag is on in every build, a release included`() {
         val flags = kotlin("constants/Unreleased.kt")
-        assertTrue(flags.lines().any { it.trim() == "val PLAYLIST_COVER = BuildConfig.PREVIEW_FEATURES" })
-        // Said where ReleasedFlagsTest says it too: it is not one of the flags a release has on.
+        assertTrue(flags.lines().any { it.trim() == "val PLAYLIST_COVER = true" })
+        // Said where ReleasedFlagsTest says it too: it is one of the flags a release has on.
         val released = File("src/test/java/com/dd3boh/outertune/constants/ReleasedFlagsTest.kt").readText()
-        assertFalse("PLAYLIST_COVER" in released)
+        assertTrue("PLAYLIST_COVER" in released)
     }
 
     @Test
@@ -206,16 +206,16 @@ class PlaylistCoverWiringTest {
     @Test
     fun `the words are the ones that were drawn, in English and in French`() {
         for ((name, en, fr) in words) {
-            assertTrue("$name in English", "<string name=\"$name\" translatable=\"false\">$en</string>" in english)
+            assertTrue("$name in English", "<string name=\"$name\">$en</string>" in english)
             assertTrue("$name in French", "<string name=\"$name\">$fr</string>" in french)
         }
     }
 
     @Test
-    fun `the words are held from translators like the other texts that wait, and have no em dash`() {
-        val held = Regex("""<string name="(playlist_cover_\w+)"[^>]*>""").findAll(english).map { it.value }.toList()
-        assertEquals(words.size, held.size)
-        for (line in held) assertTrue(line, "translatable=\"false\"" in line)
+    fun `the words are open to translators, and have no em dash`() {
+        val tags = Regex("""<string name="(playlist_cover_\w+)"[^>]*>""").findAll(english).map { it.value }.toList()
+        assertEquals(words.size, tags.size)
+        for (line in tags) assertFalse(line, "translatable=\"false\"" in line)
         val inFrench = Regex("""<string name="playlist_cover_\w+"[^>]*>([^<]*)</string>""").findAll(french).map { it.groupValues[1] }.toList()
         assertEquals(words.size, inFrench.size)
         for (text in inFrench + words.map { it.second }) assertFalse(text, '—' in text || '–' in text)
