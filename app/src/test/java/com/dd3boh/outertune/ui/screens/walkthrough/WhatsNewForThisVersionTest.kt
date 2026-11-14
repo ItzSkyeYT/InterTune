@@ -26,8 +26,9 @@ class WhatsNewForThisVersionTest {
      * and Danish (#83), a song YouTube no longer plays skipped instead of stopping the music (#82),
      * and the report's boxes kept until sent; nothing to show round. 0.12.10: fixes only, the
      * crashes of 0.12.9 and the fixes brought over from the 0.13 line (docs/release-notes-0.12.10.md).
+     * 0.12.11: the count's new address and three crash and playback fixes (docs/release-notes-0.12.11.md).
      */
-    private val NOTHING_TO_SHOW = setOf("0.12.9", "0.12.10")
+    private val NOTHING_TO_SHOW = setOf("0.12.9", "0.12.10", "0.12.11")
 
     @Test
     fun `the version this build is has its own New in entries`() {
