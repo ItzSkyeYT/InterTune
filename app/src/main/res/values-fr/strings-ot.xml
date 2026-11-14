@@ -2179,7 +2179,7 @@
     <string name="player_pins_under_controls">Sous les commandes</string>
     <string name="player_pin_lyrics">Paroles</string>
     <string name="player_pins_reset">Réinitialiser</string>
-    <!-- Saved twice (issue #47, Unreleased.SAVED_TWICE): held back from translators until his yes on the words. -->
+    <!-- Saved twice (issue #47, Unreleased.SAVED_TWICE). -->
     <string name="saved_twice">En double</string>
     <plurals name="saved_twice_button">
         <item quantity="one">%1$d titre en double</item>
@@ -2276,7 +2276,7 @@
     <!-- Liked songs kept in sync with their downloads (issue #64, Unreleased.LIKED_SYNC): held from translators until he says. -->
     <string name="liked_download_sync">Supprimer le téléchargement avec le j’aime</string>
     <string name="liked_download_sync_description">Seulement les titres que ce réglage a téléchargés. Un titre téléchargé par vous reste.</string>
-    <!-- Pochette de la playlist (PlaylistCovers, PlaylistCoverSheet, Unreleased.PLAYLIST_COVER): held from translators in values until the words are agreed. -->
+    <!-- Pochette de la playlist (PlaylistCovers, PlaylistCoverSheet, Unreleased.PLAYLIST_COVER). -->
     <string name="playlist_cover_change">Changer la pochette</string>
     <string name="playlist_cover_title">Pochette de la playlist</string>
     <string name="playlist_cover_note">La pochette au-dessus change à chaque choix.</string>
@@ -2448,21 +2448,21 @@
     <string name="new_backup_parts_here">Touchez Sauvegarder pour choisir ce que contient le fichier. Vos connexions n\'y vont que si vous les cochez.</string>
     <string name="new_lyrics_save_title">Enregistrer les cartes et vidéos de paroles</string>
     <string name="new_lyrics_save_body">Appuyez longuement sur une ligne des paroles : une carte ou une vidéo peut maintenant être enregistrée sur le téléphone, pas seulement partagée.</string>
-    <string name="library_song_empty_liked" translatable="false">Les titres que vous aimez s\'afficheront ici</string>
-    <string name="library_song_empty_downloaded" translatable="false">Les titres téléchargés s\'afficheront ici</string>
-    <string name="not_saved_storage_full" translatable="false">Non enregistré : stockage du téléphone plein. Libérez de la place.</string>
-    <string name="not_saved" translatable="false">Non enregistré : un problème est survenu. Réessayez.</string>
-    <string name="remove_download_selection_confirm" translatable="false">Supprimer les téléchargements des titres choisis ?</string>
-    <string name="remove_download_refused" translatable="false">Fichier non supprimé. Vérifiez le dossier de téléchargement.</string>
-    <string name="queue_held_row_label" translatable="false">revenir au titre en cours</string>
-    <string name="stats_found" translatable="false">InterTune vous a fait découvrir %1$s des titres que vous aimez.</string>
-    <string name="found_way_radios" translatable="false">Radios</string>
-    <string name="found_way_home" translatable="false">Autres rangées de l\'accueil</string>
-    <string name="version_card_title" translatable="false">Votre carte</string>
-    <string name="version_card_more" translatable="false">Encore %1$d</string>
-    <string name="version_card_found" translatable="false">Trouvée le %1$s</string>
-    <string name="version_card_number" translatable="false">N°</string>
-    <string name="media_button_resuming" translatable="false">Reprise de votre file d\'attente</string>
+    <string name="library_song_empty_liked">Les titres que vous aimez s\'afficheront ici</string>
+    <string name="library_song_empty_downloaded">Les titres téléchargés s\'afficheront ici</string>
+    <string name="not_saved_storage_full">Non enregistré : stockage du téléphone plein. Libérez de la place.</string>
+    <string name="not_saved">Non enregistré : un problème est survenu. Réessayez.</string>
+    <string name="remove_download_selection_confirm">Supprimer les téléchargements des titres choisis ?</string>
+    <string name="remove_download_refused">Fichier non supprimé. Vérifiez le dossier de téléchargement.</string>
+    <string name="queue_held_row_label">revenir au titre en cours</string>
+    <string name="stats_found">InterTune vous a fait découvrir %1$s des titres que vous aimez.</string>
+    <string name="found_way_radios">Radios</string>
+    <string name="found_way_home">Autres rangées de l\'accueil</string>
+    <string name="version_card_title">Votre carte</string>
+    <string name="version_card_more">Encore %1$d</string>
+    <string name="version_card_found">Trouvée le %1$s</string>
+    <string name="version_card_number">N°</string>
+    <string name="media_button_resuming">Reprise de votre file d\'attente</string>
     <!-- Listen together (TogetherDialog), step 1, debug and Preview builds. -->
     <string name="together_title">Écouter ensemble</string>
     <string name="together_intro">Créez un salon et partagez son code, ou tapez celui du salon d\'un ami. Tout le monde entend ce que joue l\'hôte, chaque téléphone le jouant depuis YouTube.</string>
