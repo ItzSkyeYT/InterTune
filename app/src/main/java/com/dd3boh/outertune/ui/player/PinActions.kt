@@ -20,6 +20,7 @@ import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Equalizer
 import androidx.compose.material.icons.rounded.FilterCenterFocus
+import androidx.compose.material.icons.rounded.FolderOpen
 import androidx.compose.material.icons.rounded.Group
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.LibraryAdd
@@ -72,6 +73,7 @@ import com.dd3boh.outertune.ui.dialog.DetailsDialog
 import com.dd3boh.outertune.ui.dialog.ListDialog
 import com.dd3boh.outertune.ui.dialog.SignalPathDialog
 import com.dd3boh.outertune.ui.dialog.togetherAvailable
+import com.dd3boh.outertune.ui.menu.OpenFileLocation
 import com.dd3boh.outertune.ui.menu.PitchTempoDialog
 import com.dd3boh.outertune.ui.menu.removeFromPlaylist
 import com.dd3boh.outertune.utils.ActivityLog
@@ -109,6 +111,7 @@ internal fun pinPainter(pin: PlayerPin, on: Boolean = false): Painter = when (pi
     PlayerPin.LIBRARY -> rememberVectorPainter(if (on) Icons.Rounded.LibraryAddCheck else Icons.Rounded.LibraryAdd)
     PlayerPin.ARTIST -> painterResource(R.drawable.artist)
     PlayerPin.ALBUM -> painterResource(R.drawable.album)
+    PlayerPin.OPEN_FILE_LOCATION -> rememberVectorPainter(Icons.Rounded.FolderOpen)
     PlayerPin.DETAILS -> rememberVectorPainter(Icons.Rounded.Info)
     PlayerPin.EQUALIZER -> rememberVectorPainter(Icons.Rounded.Equalizer)
     PlayerPin.ADVANCED -> rememberVectorPainter(Icons.Rounded.Tune)
@@ -133,6 +136,7 @@ internal fun pinLabel(pin: PlayerPin, on: Boolean = false): String = stringResou
         PlayerPin.LIBRARY -> if (on) R.string.remove_from_library else R.string.add_to_library
         PlayerPin.ARTIST -> R.string.view_artist
         PlayerPin.ALBUM -> R.string.view_album
+        PlayerPin.OPEN_FILE_LOCATION -> R.string.open_file_location
         PlayerPin.DETAILS -> R.string.details
         PlayerPin.EQUALIZER -> R.string.equalizer
         PlayerPin.ADVANCED -> R.string.advanced
@@ -271,6 +275,7 @@ internal fun rememberPinActions(
             pinOffered(pin) && when (pin) {
                 PlayerPin.SHARE, PlayerPin.RADIO, PlayerPin.DOWNLOAD, PlayerPin.LIBRARY -> !local
                 PlayerPin.ALBUM -> !local && mediaMetadata?.album != null
+                PlayerPin.OPEN_FILE_LOCATION -> mediaMetadata?.isLocal == true && !mediaMetadata?.localPath.isNullOrBlank()
                 PlayerPin.ARTIST -> artists.isNotEmpty()
                 PlayerPin.REMOVE_FROM_PLAYLIST -> inPlaylists.isNotEmpty()
                 PlayerPin.RECENTRE -> playerConnection?.service?.headTracking?.isRunning == true
@@ -322,6 +327,7 @@ internal fun rememberPinActions(
                     navController.navigate("album/${it.id}")
                     playerBottomSheetState.collapseSoft()
                 }
+                PlayerPin.OPEN_FILE_LOCATION -> OpenFileLocation.open(context, song.localPath)
                 PlayerPin.DETAILS -> showDetails = true
                 PlayerPin.EQUALIZER -> {
                     val intent = Intent(AudioEffect.ACTION_DISPLAY_AUDIO_EFFECT_CONTROL_PANEL).apply {

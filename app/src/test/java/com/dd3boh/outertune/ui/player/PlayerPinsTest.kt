@@ -100,8 +100,9 @@ class PlayerPinsTest {
         val actions = File("src/main/java/com/dd3boh/outertune/ui/player/PinActions.kt").readText()
         val titles = Regex("""title = R\.string\.(\w+)""").findAll(menu).map { it.groupValues[1] }.toSet()
         assertTrue("the menu read", titles.size >= 12)
-        // Toggle lyrics is the Lyrics pin under its own short name.
-        val missing = titles - "toggle_lyrics" - "grp_lyrics_format" - "grp_lyrics_source" - "grp_lyrics_parser"
+        // Toggle lyrics is the Lyrics pin under its own short name. No artist found is View artist greyed out (#150):
+        // the Artist pin is not shown then, as Album is not for a local song.
+        val missing = titles - "toggle_lyrics" - "grp_lyrics_format" - "grp_lyrics_source" - "grp_lyrics_parser" - "no_artist_found"
         missing.forEach { title -> assertTrue("no pin for the menu's $title", actions.contains("R.string.$title")) }
         assertTrue("download, in both its states", actions.contains("R.string.action_download") && actions.contains("R.string.remove_download"))
         assertTrue("the sleep timer", actions.contains("R.string.sleep_timer"))
