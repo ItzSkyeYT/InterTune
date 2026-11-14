@@ -35,7 +35,7 @@
     <string name="catch_up_body">These settings need your say-so, and this install has never been asked.</string>
     <string name="catch_up_done">Done</string>
     <string name="polls_opt_in_title">Ask you the occasional question?</string>
-    <string name="polls_opt_in_body">Now and then InterTune can show a short question at the top of Home, about what to build or change. Answers, and the first time you open one, are counted anonymously. You can turn this off in Settings at any time.</string>
+    <string name="polls_opt_in_body">Now and then InterTune can ask a short question on Home about what to build next. Answers and first opens are counted anonymously, and you can turn this off in Settings any time.</string>
     <string name="polls_opt_in_yes">Yes, ask me</string>
     <string name="polls_opt_in_no">No thanks</string>
     <string name="grp_updates">Updates</string>
@@ -210,7 +210,7 @@
     <string name="resume_on_launch">Start playing when the app opens</string>
     <string name="resume_on_launch_desc">Plays your last queue as soon as you open the app. If something else is already playing, it leaves it alone.</string>
     <string name="filter_cached">Offline</string>
-    <string name="cached_songs_note">Kept because you played them, so they work with no connection. The app clears the oldest as the cache fills; download a song to keep it for good.</string>
+    <string name="cached_songs_note">Kept because you played them, so they work offline. The oldest go as the cache fills, so download a song to keep it for good.</string>
     <string name="cached_songs_empty">Nothing is cached yet. Songs appear here after you play them.</string>
     <string name="cached_songs_disabled">The song cache is turned off, so nothing is being kept. Set a size under Storage and downloads to use this.</string>
 

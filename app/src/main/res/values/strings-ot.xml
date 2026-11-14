@@ -396,14 +396,14 @@ while also allowing users to translate our app as well. New, specific strings to
     <!-- Under the questions of that screen once every one has its answer. %1$s is its button, catch_up_done. -->
     <string name="catch_up_all_answered">That is all. Tap \"%1$s\" to finish.</string>
     <string name="polls_opt_in_title">Ask you the occasional question?</string>
-    <string name="polls_opt_in_body">Now and then InterTune can show a short question at the top of Home, about what to build or change. Answers, and the first time you open one, are counted anonymously. You can turn this off in Settings at any time.</string>
+    <string name="polls_opt_in_body">Now and then InterTune can ask a short question on Home about what to build next. Answers and first opens are counted anonymously, and you can turn this off in Settings any time.</string>
     <string name="polls_opt_in_yes">Yes, ask me</string>
     <string name="polls_opt_in_no">No thanks</string>
     <string name="news_enabled">News from InterTune</string>
     <string name="news_enabled_description">An announcement on Home now and then, like a new feature.</string>
     <string name="news_enabled_info">Now and then InterTune fetches news from GitHub and shows it on Home. Opening one sends its title and the app version, to count readers. Never your account, device or library.</string>
     <string name="news_opt_in_title">Get news from InterTune?</string>
-    <string name="news_opt_in_body">Now and then InterTune can show a short announcement at the top of Home, like a new feature or its Discord server. The first time you open one is counted anonymously. You can turn this off in Settings at any time.</string>
+    <string name="news_opt_in_body">Now and then InterTune can show a short announcement on Home, like a new feature. Opening one is counted anonymously, and you can turn this off in Settings any time.</string>
     <string name="news_opt_in_yes">Yes, show me</string>
     <string name="oobe_news_answered">You can change this any time in Settings, under Questions and news.</string>
     <string name="grp_usage_count">Anonymous count</string>
@@ -412,7 +412,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="usage_count_forget">Forget my current name</string>
     <string name="usage_count_forget_description">Drops the random name this install is counted under. The next count uses a new one.</string>
     <string name="usage_count_opt_in_title">Count this install?</string>
-    <string name="usage_count_opt_in_body">Once a day InterTune can send one short message saying it is still in use: a random name that changes every month, whether you installed from F-Droid or somewhere else, and the app and Android versions. Never what you play, never an account, never anything tied to your device. It is the only way to know how many people use InterTune, because F-Droid gives developers no download figures at all. You can turn it off whenever you like.</string>
+    <string name="usage_count_opt_in_body">Once a day InterTune can send a short message saying it\'s still in use: a random name that changes every month, whether you installed from F-Droid, and the app and Android versions. Never what you play, your account or anything tied to your device. F-Droid gives no download figures, so this is the only way to know how many people use InterTune. You can turn it off any time.</string>
     <string name="usage_count_opt_in_yes">Yes, count me</string>
     <string name="grp_updates">Updates</string>
     <string name="update_available_title">Available</string>
@@ -426,7 +426,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="update_prompt_later">Remind me later</string>
     <string name="update_prompt_install">Install</string>
     <string name="update_prompt_fdroid">Update in F-Droid</string>
-    <string name="update_fdroid_note">This copy came from F-Droid, so updates come from there. F-Droid builds each release itself, so a new version can take a little while to appear.</string>
+    <string name="update_fdroid_note">This copy came from F-Droid, so updates come from there. F-Droid builds each release itself, so a new one can take a little while.</string>
     <string name="update_fdroid_source">Updates come from F-Droid</string>
     <string name="update_check_description_fdroid">Checks GitHub so you know when a release exists. Your copy came from F-Droid, so that is where it gets installed from, and F-Droid may not have built it yet.</string>
     <string name="update_auto">Download updates automatically</string>
@@ -716,7 +716,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="setup_other_account">Use another account</string>
     <!-- What signing in can cost. Said where somebody signs in (setup, and Account and sync in Settings) and once, in a dialog, to whoever was signed in before this was said anywhere. -->
     <string name="account_notice_title">About your account</string>
-    <string name="account_notice_body">There is a small chance that YouTube restricts or closes an account used with this app. To keep your main account out of it, use the app signed out, or sign in with a second account.</string>
+    <string name="account_notice_body">There\'s a small chance YouTube restricts or closes an account used with this app. To protect your main account, use the app signed out or with a second account.</string>
     <!-- Under account_notice_body in the dialog. %1$s is the name of the Settings entry, grp_account_sync. -->
     <string name="account_notice_signed_in">You are signed in. Signing out is in Settings, under %1$s.</string>
     <!-- On setup's first page, beside "I have a backup", each on half the page: two lines of words at most. It opens the screen of the same name (import_library_title). -->
@@ -1012,7 +1012,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <!-- The closer look at the settings: the question the tutorial ends on, and a sentence for
          each setting the tour then stops at. The titles of those stops are the rows' own. -->
     <string name="tour_closer_question_title">A closer look at the settings?</string>
-    <string name="tour_closer_question_body">The tour can go on into each screen of Settings and stop at the settings people change most, with a sentence on what each one does. Skip ends it at any stop.</string>
+    <string name="tour_closer_question_body">The tour can go on through Settings and stop at the ones people change most, with a line on each. Skip ends it any time.</string>
     <string name="tour_closer_next_category">Next category</string>
     <string name="tour_closer_entry">Tour of the settings</string>
     <string name="tour_closer_login">Signing in to your YouTube Music account brings your playlists, likes and recommendations here. The app works without it.</string>
@@ -1231,7 +1231,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="resume_on_launch">Start playing when the app opens</string>
     <string name="resume_on_launch_desc">Plays your last queue as soon as you open the app. If something else is already playing, it leaves it alone.</string>
     <string name="filter_cached">Offline</string>
-    <string name="cached_songs_note">Kept because you played them, so they work with no connection. The app clears the oldest as the cache fills; download a song to keep it for good.</string>
+    <string name="cached_songs_note">Kept because you played them, so they work offline. The oldest go as the cache fills, so download a song to keep it for good.</string>
     <string name="cached_songs_empty">Nothing is cached yet. Songs appear here after you play them.</string>
     <string name="cached_songs_disabled">The song cache is turned off, so nothing is being kept. Set a size under Storage and downloads to use this.</string>
 
@@ -1335,7 +1335,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="login_signed_in">Signed in</string>
     <string name="login_going_back">Taking you back.</string>
     <string name="lastfm_opt_in_title">Similar songs from Last.fm too?</string>
-    <string name="lastfm_opt_in_body">Best recommendations finds songs like the ones you play. It can ask Last.fm as well as YouTube, then lean toward whichever finds you more that you keep. For that it sends Last.fm the title and artist of each song you play, and once, of the songs you played in the last month and the ones you liked. Nothing else, and no account. You can change this later in Settings, under Recommendations.</string>
+    <string name="lastfm_opt_in_body">Best recommendations can ask Last.fm as well as YouTube for songs like yours, and lean toward whichever finds songs you keep. For that it sends Last.fm the title and artist of each song you play, plus once the ones you played last month and liked. Nothing else, and no account. You can change this later in Settings, under Recommendations.</string>
     <string name="lastfm_opt_in_yes">Yes, use both</string>
     <string name="lastfm_opt_in_enabled">Similar songs from Last.fm too</string>
     <string name="oobe_lastfm_answered">You can change this any time in Settings, under Recommendations.</string>

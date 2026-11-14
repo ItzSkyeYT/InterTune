@@ -373,14 +373,14 @@
     <string name="catch_up_done">Terminé</string>
     <string name="catch_up_all_answered">C\'est tout. Touchez « %1$s » pour finir.</string>
     <string name="polls_opt_in_title">Vous poser une question de temps en temps ?</string>
-    <string name="polls_opt_in_body">De temps en temps, InterTune peut afficher une courte question en haut de l\'accueil, sur ce qu\'il faudrait créer ou changer. Les réponses, et la première ouverture de chacune, sont comptées anonymement. Vous pouvez désactiver cela à tout moment dans les paramètres.</string>
+    <string name="polls_opt_in_body">De temps en temps, InterTune peut poser une courte question sur l\'accueil à propos de la suite. Les réponses et les premières ouvertures sont comptées anonymement, et vous pouvez désactiver cela à tout moment dans les paramètres.</string>
     <string name="polls_opt_in_yes">Oui, posez-moi des questions</string>
     <string name="polls_opt_in_no">Non merci</string>
     <string name="news_enabled">Des nouvelles d\'InterTune</string>
     <string name="news_enabled_description">Une annonce sur l\'accueil de temps en temps, comme une nouveauté.</string>
     <string name="news_enabled_info">De temps en temps, InterTune récupère des annonces sur GitHub et les affiche sur l\'accueil. En ouvrir une envoie son titre et la version de l\'application, pour compter les lecteurs. Jamais votre compte, votre appareil ni votre bibliothèque.</string>
     <string name="news_opt_in_title">Recevoir des nouvelles d\'InterTune ?</string>
-    <string name="news_opt_in_body">De temps en temps, InterTune peut afficher une courte annonce en haut de l\'accueil, comme une nouveauté ou son serveur Discord. La première ouverture de chacune est comptée anonymement. Vous pouvez désactiver cela à tout moment dans les paramètres.</string>
+    <string name="news_opt_in_body">De temps en temps, InterTune peut afficher une courte annonce sur l\'accueil, comme une nouveauté. L\'ouverture est comptée anonymement, et vous pouvez désactiver cela à tout moment dans les paramètres.</string>
     <string name="news_opt_in_yes">Oui, montrez-moi</string>
     <string name="oobe_news_answered">Vous pouvez changer cela à tout moment dans Paramètres, sous Questions et nouvelles.</string>
     <string name="update_available_description">Ouvre la page de la version pour lire les nouveautés et la télécharger vous-même.</string>
@@ -594,10 +594,10 @@
     <string name="usage_count_forget">Oublier mon nom actuel</string>
     <string name="usage_count_forget_description">Abandonne le nom aléatoire sous lequel cette installation est comptée. Le prochain comptage en utilise un nouveau.</string>
     <string name="usage_count_opt_in_title">Compter cette installation ?</string>
-    <string name="usage_count_opt_in_body">Une fois par jour, InterTune peut envoyer un court message pour dire qu\'elle est toujours utilisée : un nom aléatoire qui change chaque mois, si vous avez installé depuis F-Droid ou ailleurs, et les versions de l\'application et d\'Android. Jamais ce que vous écoutez, jamais un compte, jamais rien de lié à votre appareil. C\'est le seul moyen de savoir combien de personnes utilisent InterTune, car F-Droid ne donne aucun chiffre de téléchargement aux développeurs. Vous pouvez désactiver cela quand vous voulez.</string>
+    <string name="usage_count_opt_in_body">Une fois par jour, InterTune peut envoyer un court message pour dire qu\'elle est toujours utilisée : un nom aléatoire qui change chaque mois, si vous avez installé depuis F-Droid, et les versions de l\'application et d\'Android. Jamais ce que vous écoutez, votre compte ni rien de lié à votre appareil. F-Droid ne donne aucun chiffre de téléchargement, c\'est donc le seul moyen de savoir combien de personnes utilisent InterTune. Vous pouvez le désactiver à tout moment.</string>
     <string name="usage_count_opt_in_yes">Oui, comptez-moi</string>
     <string name="update_prompt_fdroid">Mettre à jour dans F-Droid</string>
-    <string name="update_fdroid_note">Cette copie vient de F-Droid, les mises à jour viennent donc de là. F-Droid compile lui-même chaque version, si bien qu\'une nouvelle version peut mettre un peu de temps à apparaître.</string>
+    <string name="update_fdroid_note">Cette copie vient de F-Droid, les mises à jour viennent donc de là. F-Droid compile chaque version lui-même, une nouvelle peut donc mettre un peu de temps.</string>
     <string name="update_fdroid_source">Les mises à jour viennent de F-Droid</string>
     <string name="update_check_description_fdroid">Vérifie sur GitHub pour que vous sachiez quand une version sort. Votre copie vient de F-Droid, c\'est donc de là qu\'elle s\'installe, et F-Droid ne l\'a peut-être pas encore compilée.</string>
     <string name="transition_fade">Fondu entre les titres</string>
@@ -871,7 +871,7 @@
     <string name="resume_on_launch">Lancer la lecture à l\'ouverture de l\'application</string>
     <string name="resume_on_launch_desc">Lance votre dernière file dès l\'ouverture de l\'application. Si autre chose joue déjà, elle n\'y touche pas.</string>
     <string name="filter_cached">Hors ligne</string>
-    <string name="cached_songs_note">Ces titres sont gardés parce que vous les avez écoutés, ils fonctionnent donc sans connexion. L\'application efface les plus anciens quand le cache se remplit ; téléchargez un titre pour le garder pour de bon.</string>
+    <string name="cached_songs_note">Gardés parce que vous les avez écoutés, ils marchent hors connexion. Les plus anciens partent quand le cache se remplit : téléchargez un titre pour le garder pour de bon.</string>
     <string name="cached_songs_empty">Rien n\'est en cache pour l\'instant. Les titres apparaissent ici une fois écoutés.</string>
     <string name="cached_songs_disabled">Le cache des titres est désactivé, donc rien n\'est gardé. Définissez une taille dans Stockage et téléchargements pour utiliser ceci.</string>
     <!-- Moved out of strings.xml, which holds upstream InnerTune strings only. -->
@@ -975,7 +975,7 @@
     <string name="login_reassurance_other_page">InterTune ne voit jamais votre mot de passe et ne garde que la connexion renvoyée par YouTube Music.</string>
     <string name="login_no_page_yet">Pas encore de page</string>
     <string name="lastfm_opt_in_title">Des titres similaires via Last.fm aussi ?</string>
-    <string name="lastfm_opt_in_body">La source Meilleures recommandations trouve des titres proches de ceux que vous écoutez. Elle peut interroger Last.fm en plus de YouTube, puis privilégier celui qui vous trouve le plus de titres que vous gardez. Pour cela, elle envoie à Last.fm le nom et l\'artiste de chaque titre que vous écoutez, et une fois, ceux des titres écoutés le mois dernier et de ceux que vous avez aimés. Rien d\'autre, et aucun compte. Vous pourrez changer cela plus tard dans Paramètres, sous Recommandations.</string>
+    <string name="lastfm_opt_in_body">Meilleures recommandations peut interroger Last.fm en plus de YouTube pour trouver des titres proches des vôtres, et privilégier celui qui en trouve que vous gardez. Pour cela, elle envoie à Last.fm le nom et l\'artiste de chaque titre écouté, et une fois ceux du mois dernier et ceux que vous avez aimés. Rien d\'autre, et aucun compte. Vous pourrez changer cela plus tard dans Paramètres, sous Recommandations.</string>
     <string name="lastfm_opt_in_yes">Oui, utiliser les deux</string>
     <string name="lastfm_opt_in_enabled">Titres similaires via Last.fm aussi</string>
     <string name="oobe_lastfm_answered">Vous pouvez changer cela à tout moment dans Paramètres, sous Recommandations.</string>
@@ -1650,7 +1650,7 @@
     <string name="setup_signed_in">Votre compte est connecté.</string>
     <string name="setup_other_account">Utiliser un autre compte</string>
     <string name="account_notice_title">À propos de votre compte</string>
-    <string name="account_notice_body">Il existe un faible risque que YouTube restreigne ou ferme un compte utilisé avec cette application. Pour ne pas exposer votre compte principal, utilisez l\'application sans vous connecter, ou connectez-vous avec un second compte.</string>
+    <string name="account_notice_body">Il existe un faible risque que YouTube restreigne ou ferme un compte utilisé avec cette application. Pour protéger votre compte principal, utilisez l\'application sans connexion ou avec un second compte.</string>
     <string name="account_notice_signed_in">Vous êtes connecté. La déconnexion se trouve dans Paramètres, sous %1$s.</string>
     <string name="setup_import_playlists">Importer depuis une autre appli</string>
     <string name="setup_choices_title">Quelques questions</string>
@@ -1752,7 +1752,7 @@
     <string name="tour_settings_rest_title">Mises à jour et le reste</string>
     <string name="tour_settings_rest_body">Les nouvelles versions, la façon dont la Sélection Rapide choisit, les réglages dont la plupart des gens n\'ont jamais besoin, et cette visite à nouveau sous À propos.</string>
     <string name="tour_closer_question_title">Regarder les réglages de plus près ?</string>
-    <string name="tour_closer_question_body">La visite peut continuer dans chaque écran des Paramètres et s\'arrêter sur les réglages les plus souvent changés, avec une phrase sur ce que fait chacun. Passer l\'arrête à tout moment.</string>
+    <string name="tour_closer_question_body">La visite peut continuer dans les Paramètres et s\'arrêter sur les réglages les plus changés, avec une phrase pour chacun. Passer l\'arrête à tout moment.</string>
     <string name="tour_closer_next_category">Catégorie suivante</string>
     <string name="tour_closer_entry">Visite des réglages</string>
     <string name="tour_closer_login">Se connecter à votre compte YouTube Music amène ici vos playlists, vos j\'aime et vos recommandations. L\'application marche sans.</string>
