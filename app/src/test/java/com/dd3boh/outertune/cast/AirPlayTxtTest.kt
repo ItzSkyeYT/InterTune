@@ -140,12 +140,12 @@ class AirPlayTxtTest {
     }
 
     @Test
-    fun `the flag is held back to debug and preview builds, and AirPlay leans on raw audio`() {
+    fun `the flag is on in every build, a release included, and AirPlay leans on raw audio`() {
         val flags = File("src/main/java/com/dd3boh/outertune/constants/Unreleased.kt").readText()
-        assertTrue(Regex("""\bval CAST_AIRPLAY = BuildConfig\.PREVIEW_FEATURES\s*$""", RegexOption.MULTILINE).containsMatchIn(flags))
+        assertTrue(Regex("""\bval CAST_AIRPLAY = true\s*$""", RegexOption.MULTILINE).containsMatchIn(flags))
         // The link plays the cast server's raw audio, which needs the decoder CAST_PCM brings: one
         // must never be on in a build where the other is off.
-        assertTrue(Regex("""\bval CAST_PCM = BuildConfig\.PREVIEW_FEATURES\s*$""", RegexOption.MULTILINE).containsMatchIn(flags))
+        assertTrue(Regex("""\bval CAST_PCM = true\s*$""", RegexOption.MULTILINE).containsMatchIn(flags))
         assertEquals(listOf(AirPlay.RATE), (AirPlayLink.FORMATS.pcm.map { it.rate }))
     }
 

@@ -42,12 +42,12 @@ class PlaylistCoverWiringTest {
     // ---- the flag ----
 
     @Test
-    fun `the flag is on in debug and preview builds and off in a release`() {
+    fun `the flag is on in every build, a release included`() {
         val flags = kotlin("constants/Unreleased.kt")
-        assertTrue(flags.lines().any { it.trim() == "val PLAYLIST_COVER = BuildConfig.PREVIEW_FEATURES" })
-        // Said where ReleasedFlagsTest says it too: it is not one of the flags a release has on.
+        assertTrue(flags.lines().any { it.trim() == "val PLAYLIST_COVER = true" })
+        // Said where ReleasedFlagsTest says it too: it is one of the flags a release has on.
         val released = File("src/test/java/com/dd3boh/outertune/constants/ReleasedFlagsTest.kt").readText()
-        assertFalse("PLAYLIST_COVER" in released)
+        assertTrue("PLAYLIST_COVER" in released)
     }
 
     @Test

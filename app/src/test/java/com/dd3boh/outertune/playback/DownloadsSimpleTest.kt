@@ -46,9 +46,9 @@ class DownloadsSimpleTest {
     }
 
     @Test
-    fun `the switch is the preview builds', and the look is read through it`() {
+    fun `the switch is on in every build, a release included, and the look is read through it`() {
         val flags = File(sources, "constants/Unreleased.kt").readText()
-        assertTrue(Regex("""^\s*val DOWNLOADS_SIMPLE = BuildConfig\.PREVIEW_FEATURES\s*$""", RegexOption.MULTILINE).containsMatchIn(flags))
+        assertTrue(Regex("""^\s*val DOWNLOADS_SIMPLE = true\s*$""", RegexOption.MULTILINE).containsMatchIn(flags))
         assertTrue("the look is the switch's", "pick(Unreleased.DOWNLOADS_SIMPLE)" in look)
         // Nothing else decides a look: no other file reads the switch or names a look by itself.
         val readers = sources.walkTopDown().filter { it.extension == "kt" && it.name != "Unreleased.kt" }

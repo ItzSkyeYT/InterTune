@@ -59,11 +59,11 @@ class WidgetsSettingsTest {
     // ---- the flag, and where the page is listed ----
 
     @Test
-    fun `the flag is on in debug and preview builds and off in a release`() {
+    fun `the flag is on in every build, a release included`() {
         val flags = kotlin("constants/Unreleased.kt")
-        assertTrue(flags.lines().any { it.trim() == "val WIDGETS_PAGE = BuildConfig.PREVIEW_FEATURES" })
+        assertTrue(flags.lines().any { it.trim() == "val WIDGETS_PAGE = true" })
         val released = File("src/test/java/com/dd3boh/outertune/constants/ReleasedFlagsTest.kt").readText()
-        assertFalse("WIDGETS_PAGE" in released)
+        assertTrue("WIDGETS_PAGE" in released)
     }
 
     @Test

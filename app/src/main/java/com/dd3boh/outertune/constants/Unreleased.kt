@@ -120,7 +120,7 @@ object Unreleased {
      * English only and held back. To ship: set this to true, or delete it with the one check that
      * reads it, in LyricFrag, and the three entries of SETTINGS_INDEX that say which rows it shows.
      */
-    val LYRICS_SOURCES = BuildConfig.PREVIEW_FEATURES
+    val LYRICS_SOURCES = true
 
     /**
      * The equalizer in the app (EqualizerAudioProcessor): ten bands from 31 Hz to 16 kHz, presets,
@@ -609,7 +609,7 @@ object Unreleased {
      * Without it nothing looks for AirPlay speakers, and nothing else changes. No new texts. When
      * it is agreed: set this to true and add its name to ReleasedFlagsTest.
      */
-    val CAST_AIRPLAY = BuildConfig.PREVIEW_FEATURES
+    val CAST_AIRPLAY = true
 
     /**
      * Songs put in with Play next stay next when a song is picked out of a list: they play right
@@ -704,7 +704,7 @@ object Unreleased {
      * values-fr. When it is agreed: set this to true, add its name to ReleasedFlagsTest, and make its text
      * translatable.
      */
-    val REPORT_PLUS = BuildConfig.PREVIEW_FEATURES
+    val REPORT_PLUS = true
 
     /**
      * Send to InterTune in Report a problem (his idea, mock and plan of 27 Oct 2026,
@@ -762,7 +762,7 @@ object Unreleased {
      * header's cover is a picture and nothing more. When it is agreed: set this to true, make its
      * texts translatable.
      */
-    val PLAYLIST_COVER = BuildConfig.PREVIEW_FEATURES
+    val PLAYLIST_COVER = true
 
     /**
      * Block artist (ArtistBlock), asked for by Dennis on Discord on 1 Nov 2026: an artist blocked
@@ -832,7 +832,7 @@ object Unreleased {
      * beside it in values-fr. When it is agreed: set this to true, add its name to
      * ReleasedFlagsTest, make its texts translatable.
      */
-    val DOWNLOAD_FILES = BuildConfig.PREVIEW_FEATURES
+    val DOWNLOAD_FILES = true
 
     /**
      * Settings > Widgets, under Look and feel (WidgetsSettings), his ask of 3 Nov 2026 for "a easy
@@ -848,7 +848,7 @@ object Unreleased {
      * values-fr. When it is agreed: set this to true, add its name to ReleasedFlagsTest, make its
      * texts translatable.
      */
-    val WIDGETS_PAGE = BuildConfig.PREVIEW_FEATURES
+    val WIDGETS_PAGE = true
 
     /**
      * Follow-up questions in polls (PollFollowUps, PollDialog), his ask of 4 Nov 2026: an option of a
@@ -860,7 +860,7 @@ object Unreleased {
      * so one poll works for every version. No new texts: Next and Back are the app's own. When it is
      * agreed: set this to true and add its name to ReleasedFlagsTest.
      */
-    val POLL_FOLLOW_UPS = BuildConfig.PREVIEW_FEATURES
+    val POLL_FOLLOW_UPS = true
 
     /**
      * Casting to a DLNA speaker that takes only raw audio (Geogos's Zeppelin Wireless, 4 Nov 2026:
@@ -876,7 +876,7 @@ object Unreleased {
      * before. No new texts. When it is agreed: set this to true and add its name to
      * ReleasedFlagsTest.
      */
-    val CAST_PCM = BuildConfig.PREVIEW_FEATURES
+    val CAST_PCM = true
 
     /**
      * A radio YouTube Music refuses still plays (his word of 4 Nov 2026, after Val's radio of one
@@ -892,7 +892,7 @@ object Unreleased {
      * are held from translators, their French beside them in values-fr. When it is agreed: set this
      * to true, add its name to ReleasedFlagsTest, make its texts translatable.
      */
-    val RADIO_FALLBACK = BuildConfig.PREVIEW_FEATURES
+    val RADIO_FALLBACK = true
 
     /**
      * Lyrics videos lit word by word (his idea, 4 Nov 2026), as the lyrics view lights them, where
@@ -901,7 +901,7 @@ object Unreleased {
      * times, a video lights whole lines as before. No new texts. When it is agreed: set this to true
      * and add its name to ReleasedFlagsTest.
      */
-    val LYRICS_VIDEO_WORDS = BuildConfig.PREVIEW_FEATURES
+    val LYRICS_VIDEO_WORDS = true
 
     /**
      * The AI filter (AiFilter, TODO section 17, upstream #1173): a row under Settings > Library and
@@ -931,7 +931,7 @@ object Unreleased {
      * the playlist's own, already translated. Without the flag Custom order is not offered and a
      * stored one reads as Date added. To ship: set this to true and add it to ReleasedFlagsTest.
      */
-    val PLAYLIST_ORDER = BuildConfig.PREVIEW_FEATURES
+    val PLAYLIST_ORDER = true
 
     /**
      * Downloads in their own quality (third in the 0.13 poll, "Downloads in their own quality"):
@@ -951,7 +951,7 @@ object Unreleased {
      * agreed: set this to true, add its name to ReleasedFlagsTest, make its texts translatable, give
      * Download quality a place in ReportSettings' downloads and an entry among what is new.
      */
-    val DOWNLOAD_QUALITY = BuildConfig.PREVIEW_FEATURES
+    val DOWNLOAD_QUALITY = true
 
     /**
      * Downloads in the file format of your choice, and Export to folder (9 Nov 2026, the MP3 that
@@ -986,7 +986,7 @@ object Unreleased {
      * them in values-fr. When it is agreed: set this to true, add its name to ReleasedFlagsTest, make
      * its texts translatable.
      */
-    val DOWNLOAD_FORMATS = BuildConfig.PREVIEW_FEATURES
+    val DOWNLOAD_FORMATS = true
 
     /**
      * The adaptive queue reads a skip by what the skipped song is like (an idea of 9 Nov 2026). A song
@@ -1010,7 +1010,7 @@ object Unreleased {
      * them. Without the flag GridMenu draws every entry whatever is stored, and holding does nothing.
      * To ship: set this to true and add it to ReleasedFlagsTest.
      */
-    val MENU_CHOICES = BuildConfig.PREVIEW_FEATURES
+    val MENU_CHOICES = true
 
     /**
      * Progressive blur on the lyrics (his wish of 11 Nov 2026, seen in another player, as Apple
@@ -1042,5 +1042,5 @@ object Unreleased {
      * Held back as the line's held features are: the debug app, the Preview and the Tester app
      * have it; a release only on his word.
      */
-    val DOWNLOADS_SIMPLE = BuildConfig.PREVIEW_FEATURES
+    val DOWNLOADS_SIMPLE = true
 }

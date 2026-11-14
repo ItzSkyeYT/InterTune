@@ -93,7 +93,7 @@ class PollFollowUpsTest {
     fun `with follow-ups off, then is not read at all, as in every older build`() {
         assertNull(PollFollowUps.read("polish", then, enabled = false))
         val flags = File("src/main/java/com/dd3boh/outertune/constants/Unreleased.kt").readText()
-        assertTrue(flags.contains("val POLL_FOLLOW_UPS = BuildConfig.PREVIEW_FEATURES"))
+        assertTrue(flags.contains("val POLL_FOLLOW_UPS = true"))
         // No then, so no step after the first question, and the answer is the first one alone.
         val plain = poll.copy(options = poll.options.map { it.copy(then = null) })
         assertTrue(PollFollowUps.steps(plain, listOf("polish")).isEmpty())

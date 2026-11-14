@@ -20,7 +20,7 @@ class PlaylistOrderPlacesTest {
 
     @Test
     fun `Custom order is offered only behind its flag, and a stored one reads as Date added without it`() {
-        assertTrue("val PLAYLIST_ORDER = BuildConfig.PREVIEW_FEATURES" in code("constants/Unreleased.kt"))
+        assertTrue("val PLAYLIST_ORDER = true" in code("constants/Unreleased.kt"))
         for (path in listOf("ui/screens/library/LibraryPlaylistsScreen.kt", "ui/dialog/AddToPlaylistDialog.kt")) {
             val screen = code(path)
             assertTrue(path, "offered = { it != PlaylistSortType.CUSTOM || Unreleased.PLAYLIST_ORDER }" in screen)
