@@ -237,6 +237,7 @@ val SETTINGS_INDEX: List<SettingEntry> = listOf(
     // Backup and restore
     SettingEntry(Tour.ROUTE_BACKUP, R.string.action_backup, words = listOf(R.string.search_words_backup)),
     SettingEntry(Tour.ROUTE_BACKUP, R.string.action_restore, words = listOf(R.string.search_words_restore)),
+    SettingEntry(Tour.ROUTE_BACKUP, R.string.metrolist_import, R.string.metrolist_import_description, words = listOf(R.string.search_words_metrolist), there = Unreleased.METROLIST_IMPORT),
     SettingEntry(Tour.ROUTE_BACKUP, R.string.auto_backup, R.string.auto_backup_description, words = listOf(R.string.search_words_backup)),
     SettingEntry(Tour.ROUTE_BACKUP, R.string.auto_backup_folder, under = R.string.auto_backup),
     SettingEntry(Tour.ROUTE_BACKUP, R.string.auto_backup_interval, under = R.string.auto_backup),

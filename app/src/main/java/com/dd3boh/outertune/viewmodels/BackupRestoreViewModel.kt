@@ -15,6 +15,8 @@ import com.dd3boh.outertune.db.InternalDatabase
 import com.dd3boh.outertune.db.MusicDatabase
 import com.dd3boh.outertune.extensions.div
 import com.dd3boh.outertune.extensions.zipInputStream
+import com.dd3boh.outertune.migration.MetrolistBackup
+import com.dd3boh.outertune.migration.MetrolistImport
 import com.dd3boh.outertune.playback.MusicService
 import com.dd3boh.outertune.utils.BackupParts
 import com.dd3boh.outertune.utils.BackupWriter
@@ -99,6 +101,78 @@ class BackupRestoreViewModel @Inject constructor(
                 }
             }
         }
+    }
+
+    /**
+     * Bringing a Metrolist library over (MetrolistImport): reading the chosen file, then what it holds or why it is
+     * refused, then, once asked, what came over. Nothing is written before the answer.
+     */
+    sealed interface Metrolist {
+        data object Working : Metrolist
+        class Ready(val summary: MetrolistImport.Summary, val file: MetrolistBackup.Unpacked, val liked: List<MetrolistImport.LikedSong>) : Metrolist
+        class Refused(val why: MetrolistImport.Refusal, val uri: Uri) : Metrolist
+        class Done(val result: MetrolistImport.Result) : Metrolist
+    }
+
+    val metrolist = MutableStateFlow<Metrolist?>(null)
+
+    private val metrolistFolder get() = File(context.cacheDir, "metrolist-import")
+
+    fun readMetrolist(uri: Uri) {
+        if (metrolist.value == Metrolist.Working || restoreInProgress.value || backupInProgress.value) return
+        metrolist.value = Metrolist.Working
+        viewModelScope.launch {
+            val read = runCatching {
+                withContext(Dispatchers.IO) {
+                    val file = context.applicationContext.contentResolver.openInputStream(uri)?.use { MetrolistBackup.unpack(it, metrolistFolder) }
+                        ?: return@withContext Metrolist.Refused(MetrolistImport.Refusal.NOT_METROLIST, uri)
+                    MetrolistBackup.Theirs(file.database).use { theirs ->
+                        MetrolistImport.refusal(theirs)?.let { return@withContext Metrolist.Refused(it, uri) }
+                        val liked = MetrolistImport.likedFromSettings(file.settingsJson)
+                        Metrolist.Ready(MetrolistImport.summary(theirs, liked), file, liked)
+                    }
+                }
+            }
+            read.onSuccess { metrolist.value = it }.onFailure {
+                metrolist.value = null
+                metrolistFolder.deleteRecursively()
+                reportException(it)
+                FailureLog.record("Reading a Metrolist backup", it)
+                Toaster.show(context, R.string.metrolist_import_failed, Toast.LENGTH_SHORT)
+            }
+        }
+    }
+
+    fun importMetrolist() {
+        val ready = metrolist.value as? Metrolist.Ready ?: return
+        metrolist.value = Metrolist.Working
+        viewModelScope.launch {
+            // Finished and reported even if the screen is left, as a restore is: one transaction, all or nothing.
+            withContext(NonCancellable) {
+                val result = runCatching {
+                    withContext(Dispatchers.IO) {
+                        MetrolistBackup.Theirs(ready.file.database).use { theirs ->
+                            database.transactionNow {
+                                MetrolistImport.merge(theirs, MetrolistBackup.Ours(openHelper.writableDatabase), ready.liked)
+                            }
+                        }
+                    }
+                }
+                metrolistFolder.deleteRecursively()
+                result.onSuccess { metrolist.value = Metrolist.Done(it) }.onFailure {
+                    metrolist.value = null
+                    reportException(it)
+                    FailureLog.record("Bringing a Metrolist library over", it)
+                    Toaster.show(context, R.string.metrolist_import_failed, Toast.LENGTH_SHORT)
+                }
+            }
+        }
+    }
+
+    fun closeMetrolist() {
+        if (metrolist.value == Metrolist.Working) return
+        metrolist.value = null
+        metrolistFolder.deleteRecursively()
     }
 
     fun restore(uri: Uri) {

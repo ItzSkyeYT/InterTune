@@ -2843,4 +2843,17 @@ while also allowing users to translate our app as well. New, specific strings to
         <item quantity="one">%d song downloaded, kept inside the app</item>
         <item quantity="other">%d songs downloaded, kept inside the app</item>
     </plurals>
+    <string name="metrolist_import">Import from Metrolist</string>
+    <string name="metrolist_import_description">Likes, playlists and plays from a Metrolist backup</string>
+    <string name="metrolist_import_reading">Reading the backup</string>
+    <string name="search_words_metrolist">Metrolist, switch, move, transfer, backup</string>
+    <string name="metrolist_import_summary">Songs in its library: %1$d\nLiked songs: %2$d\nPlaylists: %3$d\nPlays: %4$d\n\nNothing you already have is changed or removed.</string>
+    <string name="metrolist_import_confirm">Import</string>
+    <string name="metrolist_import_done_title">Imported from Metrolist</string>
+    <string name="metrolist_import_done">New songs: %1$d\nNewly liked: %2$d\nNew in your library: %3$d\nNew playlists: %4$d\nPlays added: %5$d</string>
+    <string name="metrolist_import_not_metrolist">This isn\'t a Metrolist backup. In Metrolist, make one under Settings, Backup and restore.</string>
+    <string name="metrolist_import_ours">This is an InterTune or OuterTune backup. Restore takes it.</string>
+    <string name="metrolist_import_too_old">This backup comes from InnerTune or an older Metrolist. Restore takes InnerTune\'s; for Metrolist, update it and make a new backup.</string>
+    <string name="metrolist_import_other_file">Choose another file</string>
+    <string name="metrolist_import_failed">Couldn\'t read this backup</string>
 </resources>
