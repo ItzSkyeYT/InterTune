@@ -216,7 +216,7 @@ fun AlbumMenu(
                 }
             )
         }
-        // An album of local files with no artist tag has no artist: left out, as for a song (#150).
+        // An album of local files with no artist tag has no artist: greyed out with its reason (#150).
         if (album.artists.isNotEmpty()) {
             GridMenuItem(
                 icon = R.drawable.artist,
@@ -229,6 +229,13 @@ fun AlbumMenu(
                     showSelectArtistDialog = true
                 }
             }
+        } else {
+            // No artist to go to: the entry stays, greyed out, and says so (#150).
+            GridMenuItem(
+                icon = R.drawable.artist,
+                title = R.string.no_artist_found,
+                enabled = false
+            ) {}
         }
         GridMenuItem(
             icon = {

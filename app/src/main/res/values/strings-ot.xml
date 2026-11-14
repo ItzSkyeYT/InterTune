@@ -2843,4 +2843,7 @@ while also allowing users to translate our app as well. New, specific strings to
         <item quantity="one">%d song downloaded, kept inside the app</item>
         <item quantity="other">%d songs downloaded, kept inside the app</item>
     </plurals>
+    <string name="open_file_location" translatable="false">Open file location</string>
+    <string name="open_file_location_failed" translatable="false">Couldn\'t open the folder</string>
+    <string name="no_artist_found" translatable="false">No artist found</string>
 </resources>
