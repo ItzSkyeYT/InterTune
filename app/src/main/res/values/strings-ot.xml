@@ -1258,7 +1258,7 @@ while also allowing users to translate our app as well. New, specific strings to
         <item quantity="one">%1$d listen, %2$d counted as a play</item>
         <item quantity="other">%1$d listens, %2$d of them counted as plays</item>
     </plurals>
-    <string name="recommendations_listens_description">Every time a song played, even briefly. A play counts once it passes Minimum playback duration.</string>
+    <string name="recommendations_listens_description">Every time a song played, even briefly. A play counts once it passes \"Minimum playback duration\".</string>
     <plurals name="recommendations_sessions">
         <item quantity="one">%1$d listening session</item>
         <item quantity="other">%1$d listening sessions</item>
@@ -1419,7 +1419,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="shadow_comparison">Compare in the background</string>
     <string name="shadow_comparison_description">Builds a hidden Best recommendations row in the background, to show later whether it would have done better.</string>
     <string name="shadow_comparison_unused">Only matters while another source fills Quick picks.</string>
-    <string name="shadow_comparison_not_learning">While another source is showing, Best recommendations still builds its row in the background, unseen. With Learn from listening off, those rows are not checked against what you play until it is back on.</string>
+    <string name="shadow_comparison_not_learning">With \"Learn from listening\" off, the hidden rows wait to be checked until it\'s back on.</string>
     <string name="recommendations_held">Rows that held what you played next</string>
     <plurals name="recommendations_held_songs">
         <item quantity="one">%1$s: held %2$d of %3$d song you chose yourself, counting cards you tapped, in %4$s</item>
@@ -1448,8 +1448,8 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="recommendations_row_try_both_before">Try both, from when it was your source</string>
     <string name="recommendations_brier">How well it predicts</string>
     <plurals name="recommendations_brier_description">
-        <item quantity="one">As one number, for those who want it: a Brier score of %1$.3f over %2$d card, where the same chance for every card scores %3$.3f. Lower is better, and 0 would mean every guess was exactly right.</item>
-        <item quantity="other">As one number, for those who want it: a Brier score of %1$.3f over %2$d cards, where the same chance for every card scores %3$.3f. Lower is better, and 0 would mean every guess was exactly right.</item>
+        <item quantity="one">As one number: a Brier score of %1$.3f over %2$d card, against %3$.3f for the same chance on every card. Lower is better.</item>
+        <item quantity="other">As one number: a Brier score of %1$.3f over %2$d cards, against %3$.3f for the same chance on every card. Lower is better.</item>
     </plurals>
     <string name="recommendations_brier_better">Its own guesses did better than giving every card the same %1$s in 100 chance, the share you actually played.</string>
     <string name="recommendations_brier_worse">Its own guesses did worse than giving every card the same %1$s in 100 chance, the share you actually played.</string>
@@ -1572,9 +1572,9 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="recommendations_summary_too_early">Too early to tell which way it is going.</string>
     <string name="recommendations_summary_too_early_choice">Too early to tell which way it is going since you changed what Quick picks leans toward.</string>
     <string name="recommendations_summary_from_before">These are from when \"Best recommendations\" was your \"Quick picks source\".</string>
-    <string name="recommendations_wins_meaning">Played means you heard at least half a minute and nearly half the song, or liked it. A quick tap and skip does not count. Only cards already judged are counted, and higher is better.</string>
+    <string name="recommendations_wins_meaning">\"Played\" means you heard a good part of the song, or liked it. A quick tap and skip doesn\'t count. Higher is better.</string>
     <string name="similar_mix_meaning">How the similar songs are shared between the two sources. The one you play more from gets more, up to four in five.</string>
-    <string name="recommendations_held_meaning">Of the songs you chose yourself in the day after each refresh, counting cards you tapped, how many were already in the row. Higher is better, and low is normal.</string>
+    <string name="recommendations_held_meaning">How many of the songs you chose in the day after each refresh were already in the row. Higher is better, and low is normal.</string>
     <plurals name="recommendations_predicted_of">
         <item quantity="one">Of the %1$d card it made a guess for, it expected %2$s in 100 to be played, and %3$s in 100 were.</item>
         <item quantity="other">Of the %1$d cards it made a guess for, it expected %2$s in 100 to be played, and %3$s in 100 were.</item>
@@ -1589,9 +1589,9 @@ while also allowing users to translate our app as well. New, specific strings to
         <item quantity="other">%1$d played</item>
     </plurals>
     <string name="recommendations_predicted_meaning">The closer the two, the better its guesses.</string>
-    <string name="recommendations_weights_meaning">How much each thing counts in a card\'s score now, beside where it started. Neither higher nor lower is better: it is what your listening taught it.</string>
+    <string name="recommendations_weights_meaning">How much each thing counts in a card\'s score now, and where it started. Neither good nor bad: it\'s what your listening taught it.</string>
     <string name="recommendations_how_they_ended_meaning">Songs heard to the end count in their favour, skips against.</string>
-    <string name="recommendations_where_from_meaning">Each time you started something counts once, however many songs played on after it. What you choose yourself, from search say, teaches it more than what plays on.</string>
+    <string name="recommendations_where_from_meaning">Each start counts once. What you pick yourself teaches it more than what just plays on.</string>
     <string name="recommendations_learned_meaning">Counts, not scores. More only means more for it to learn from.</string>
     <string name="recommendations_recent_meaning">The last songs you played: how they ended, how much of each you heard, and where you started them.</string>
     <string name="recommendations_nothing_yet">Nothing yet</string>
@@ -1710,8 +1710,8 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="engine_developer_info">The engine\'s numbers, each with its default. Type a value to change one, clear it to reset. Pull down on Home to see the effect.</string>
     <string name="export_engine_data_info">Saves what it learned as a file of numbers, wherever you choose. It has no titles, artists, play counts or account details, only the date it was saved, and nothing is uploaded.</string>
     <string name="recommendations_learned_title_info">This stays in the app on this phone and is never uploaded, though backups include it. \"Pause listen history\" stops it and \"Clear listen history\" deletes it, both under \"Privacy and history\".</string>
-    <string name="recommendations_where_from_info">How often you started playing from each place. A song you picked yourself counts more than one that just played on, and a search counts most. \"Not recorded\" means the app didn\'t note where.</string>
-    <string name="recommendations_recent_title_info">The last listens it learned from, newest first: how each ended, how much you heard and where it started. \"Not learned from\" means you asked it to forget that one, or its queue was set not to teach it.</string>
+    <string name="recommendations_where_from_info">How often you started playing from each place. What you pick yourself counts more, and a search counts most. \"Not recorded\" means the app didn\'t note where.</string>
+    <string name="recommendations_recent_title_info">Your last listens, newest first: how each ended, how much you heard and where it started. \"Not learned from\" means you asked it to forget that one.</string>
     <string name="context_chips_info">The first chip is your usual row. The others steer it until you switch back: \"Discover\" to new songs, \"Favourites\" to ones you liked, \"Focus\", \"Chill\" and \"Party\" to what you play in that mood. The last chip works with any of them.</string>
     <string name="context_chips">Quick picks chips</string>
     <string name="explain_what_this_does">What %1$s does</string>

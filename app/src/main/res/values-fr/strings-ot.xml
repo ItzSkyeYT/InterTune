@@ -897,7 +897,7 @@
         <item quantity="many">%1$d écoutes, dont %2$d comptées comme lectures</item>
         <item quantity="other">%1$d écoutes, dont %2$d comptées comme lectures</item>
     </plurals>
-    <string name="recommendations_listens_description">Chaque fois qu\'un titre a joué, même brièvement. Une lecture compte une fois la Durée minimale de lecture dépassée.</string>
+    <string name="recommendations_listens_description">Chaque fois qu\'un titre a joué, même brièvement. Une lecture compte une fois la « Durée minimale de lecture » dépassée.</string>
     <plurals name="recommendations_sessions">
         <item quantity="one">%1$d session d\'écoute</item>
         <item quantity="many">%1$d sessions d\'écoute</item>
@@ -1062,7 +1062,7 @@
     <string name="shadow_comparison">Comparer en arrière-plan</string>
     <string name="shadow_comparison_description">Prépare en arrière-plan une rangée cachée de Meilleures recommandations, pour montrer ensuite si elle aurait fait mieux.</string>
     <string name="shadow_comparison_unused">Ne sert que lorsqu\'une autre source remplit la Sélection Rapide.</string>
-    <string name="shadow_comparison_not_learning">Quand une autre source est affichée, Meilleures recommandations construit quand même sa rangée en arrière-plan, sans l\'afficher. Tant qu\'Apprendre de l\'écoute est désactivé, ces rangées ne sont pas comparées à ce que vous écoutez.</string>
+    <string name="shadow_comparison_not_learning">Tant qu\'« Apprendre de l\'écoute » est désactivé, les rangées cachées attendent d\'être comparées.</string>
     <string name="recommendations_held">Rangées qui contenaient ce que vous avez écouté ensuite</string>
     <plurals name="recommendations_held_songs">
         <item quantity="one">%1$s : contenait %2$d sur %3$d titre choisi par vous-même, cartes touchées comprises, dans %4$s</item>
@@ -1093,9 +1093,9 @@
     <string name="recommendations_row_try_both_before">Essayer les deux, quand c\'était votre source</string>
     <string name="recommendations_brier">Justesse de ses prévisions</string>
     <plurals name="recommendations_brier_description">
-        <item quantity="one">En un seul chiffre, pour qui le veut : un score de Brier de %1$.3f sur %2$d carte, là où la même chance pour chaque carte obtient %3$.3f. Plus il est bas, mieux c\'est, et 0 voudrait dire que chaque prévision était exacte.</item>
-        <item quantity="many">En un seul chiffre, pour qui le veut : un score de Brier de %1$.3f sur %2$d cartes, là où la même chance pour chaque carte obtient %3$.3f. Plus il est bas, mieux c\'est, et 0 voudrait dire que chaque prévision était exacte.</item>
-        <item quantity="other">En un seul chiffre, pour qui le veut : un score de Brier de %1$.3f sur %2$d cartes, là où la même chance pour chaque carte obtient %3$.3f. Plus il est bas, mieux c\'est, et 0 voudrait dire que chaque prévision était exacte.</item>
+        <item quantity="one">En un seul chiffre : un score de Brier de %1$.3f sur %2$d carte, contre %3$.3f avec la même chance pour chaque carte. Plus il est bas, mieux c\'est.</item>
+        <item quantity="many">En un seul chiffre : un score de Brier de %1$.3f sur %2$d cartes, contre %3$.3f avec la même chance pour chaque carte. Plus il est bas, mieux c\'est.</item>
+        <item quantity="other">En un seul chiffre : un score de Brier de %1$.3f sur %2$d cartes, contre %3$.3f avec la même chance pour chaque carte. Plus il est bas, mieux c\'est.</item>
     </plurals>
     <string name="recommendations_brier_better">Ses prévisions font mieux que si chaque carte avait reçu la même chance de %1$s sur 100, soit la part réellement écoutée.</string>
     <string name="recommendations_brier_worse">Ses prévisions font moins bien que si chaque carte avait reçu la même chance de %1$s sur 100, soit la part réellement écoutée.</string>
@@ -1229,9 +1229,9 @@
     <string name="recommendations_summary_too_early">Trop tôt pour dire dans quel sens ça va.</string>
     <string name="recommendations_summary_too_early_choice">Trop tôt pour dire dans quel sens ça va depuis que vous avez changé ce que la Sélection Rapide privilégie.</string>
     <string name="recommendations_summary_from_before">Ces chiffres datent de quand « Meilleures recommandations » était la « Source de la Sélection Rapide ».</string>
-    <string name="recommendations_wins_meaning">Écoutée signifie que vous avez entendu au moins une demi-minute et près de la moitié du titre, ou que vous l\'avez aimé. Toucher puis passer vite ne compte pas. Seules les cartes déjà jugées sont comptées, et plus c\'est haut, mieux c\'est.</string>
+    <string name="recommendations_wins_meaning">« Écoutée » : vous avez entendu une bonne partie du titre, ou l\'avez aimé. Toucher puis passer vite ne compte pas. Plus c\'est haut, mieux c\'est.</string>
     <string name="similar_mix_meaning">Comment les titres similaires sont partagés entre les deux sources. Celle dont vous écoutez le plus en reçoit davantage, jusqu\'à quatre sur cinq.</string>
-    <string name="recommendations_held_meaning">Parmi les titres que vous avez choisis vous-même dans la journée suivant chaque actualisation, cartes touchées comprises, combien étaient déjà dans la rangée. Plus c\'est haut, mieux c\'est, et un chiffre bas est normal.</string>
+    <string name="recommendations_held_meaning">Combien des titres choisis dans la journée suivant chaque actualisation étaient déjà dans la rangée. Plus c\'est haut, mieux c\'est, et un chiffre bas est normal.</string>
     <plurals name="recommendations_predicted_of">
         <item quantity="one">Sur %1$d carte pour laquelle il a fait une prévision, il pensait que %2$s sur 100 seraient écoutées, et %3$s sur 100 l\'ont été.</item>
         <item quantity="many">Sur les %1$d cartes pour lesquelles il a fait une prévision, il pensait que %2$s sur 100 seraient écoutées, et %3$s sur 100 l\'ont été.</item>
@@ -1248,9 +1248,9 @@
         <item quantity="other">%1$d écoutées</item>
     </plurals>
     <string name="recommendations_predicted_meaning">Plus les deux sont proches, plus ses prévisions sont justes.</string>
-    <string name="recommendations_weights_meaning">Le poids actuel de chaque critère dans la note d\'une carte, à côté de son point de départ. Ni plus haut ni plus bas n\'est mieux : c\'est ce que votre écoute lui a appris.</string>
+    <string name="recommendations_weights_meaning">Le poids actuel de chaque critère dans la note d\'une carte, et son point de départ. Ni bon ni mauvais : c\'est ce que votre écoute lui a appris.</string>
     <string name="recommendations_how_they_ended_meaning">Les titres écoutés jusqu\'au bout comptent en leur faveur, les titres passés contre eux.</string>
-    <string name="recommendations_where_from_meaning">Chaque lancement compte une fois, quel que soit le nombre de titres qui ont suivi. Ce que vous choisissez vous-même, depuis la recherche par exemple, lui en apprend plus que ce qui s\'enchaîne tout seul.</string>
+    <string name="recommendations_where_from_meaning">Chaque lancement compte une fois. Ce que vous choisissez vous-même lui en apprend plus que ce qui s\'enchaîne tout seul.</string>
     <string name="recommendations_learned_meaning">Des comptes, pas des notes. Plus il y en a, plus il a de quoi apprendre.</string>
     <string name="recommendations_recent_meaning">Les derniers titres écoutés : comment ils se sont terminés, quelle part vous en avez entendue, et d\'où vous les avez lancés.</string>
     <string name="recommendations_nothing_yet">Rien pour l\'instant</string>
@@ -1369,8 +1369,8 @@
     <string name="engine_developer_info">Les réglages chiffrés du moteur, chacun avec sa valeur par défaut. Tapez une valeur pour en changer une, videz le champ pour la rétablir. Tirez l\'accueil vers le bas pour voir l\'effet.</string>
     <string name="export_engine_data_info">Enregistre ce qu\'il a appris dans un fichier de nombres, où vous voulez. Aucun titre, artiste, nombre d\'écoutes ni détail de compte, seulement la date d\'enregistrement, et rien n\'est envoyé en ligne.</string>
     <string name="recommendations_learned_title_info">Ceci reste dans l\'application, sur ce téléphone, et n\'est jamais envoyé, mais les sauvegardes l\'incluent. « Suspendre l\'historique d\'écoute » l\'arrête et « Effacer l\'historique d\'écoute » le supprime, dans « Confidentialité et historique ».</string>
-    <string name="recommendations_where_from_info">Combien de fois vous avez lancé la lecture depuis chaque endroit. Un titre choisi vous-même compte plus qu\'un titre enchaîné tout seul, et une recherche compte le plus. « Non renseigné » : l\'application ne l\'a pas noté.</string>
-    <string name="recommendations_recent_title_info">Les dernières écoutes dont il a appris, de la plus récente à la plus ancienne : comment chacune s\'est terminée, ce que vous en avez entendu et d\'où elle a été lancée. « Ne lui apprend rien » : vous lui avez demandé de l\'oublier, ou sa file ne devait rien lui apprendre.</string>
+    <string name="recommendations_where_from_info">Combien de fois vous avez lancé la lecture depuis chaque endroit. Ce que vous choisissez vous-même compte plus, et une recherche compte le plus. « Non renseigné » : l\'application ne l\'a pas noté.</string>
+    <string name="recommendations_recent_title_info">Vos dernières écoutes, de la plus récente à la plus ancienne : comment chacune s\'est terminée, ce que vous en avez entendu et d\'où elle a été lancée. « Ne lui apprend rien » : vous lui avez demandé de l\'oublier.</string>
     <string name="context_chips_info">La première pastille est votre rangée habituelle. Les autres l\'orientent jusqu\'à ce que vous reveniez : « Découverte » vers des titres nouveaux, « Favoris » vers ceux que vous avez aimés, « Concentration », « Détente » et « Fête » vers ce que vous écoutez dans cette humeur. La dernière pastille marche avec toutes.</string>
     <string name="context_chips">Pastilles de la Sélection Rapide</string>
     <!-- 0.10.8 only: the Quick picks source text without Best recommendations and Try both. -->
