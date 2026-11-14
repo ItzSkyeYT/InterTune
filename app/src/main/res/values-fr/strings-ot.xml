@@ -175,6 +175,8 @@
     <string name="lyrics_karaoke_description">Chaque mot s\'allume quand il est chanté, si les paroles sont minutées mot par mot.</string>
     <string name="m3u_ytm_lookup">Rechercher sur YouTube Music des titres non trouvées dans la base de données de l\'application</string>
     <string name="attribution_title">Attribution</string>
+    <string name="high_contrast">Compatibilité avec le mode contraste élevé</string>
+    <string name="high_contrast_description">Activez pour corriger certains défauts d\'affichage quand le mode contraste élevé d\'Android est actif</string>
     <string name="oss_licenses_title">Licences open source</string>
     <string name="lyrics_karaoke_title">Paroles de style karaoké</string>
     <string name="disable_lm_confirm">Voulez-vous vraiment désactiver les fonctionnalités multimédias locales ? Le contenu de votre bibliothèque ne sera pas affecté.</string>
@@ -273,6 +275,7 @@
     <string name="scanner_strict_file_paths_title">Faire correspondre les chemins de fichiers au lieu des métadonnées</string>
     <string name="scanner_strict_file_paths_description">Désactive la correspondance intelligente des infos des titres. Déplacer des fichiers peut alors poser problème, mais un même titre peut exister dans deux dossiers.</string>
     <string name="scanner_type_tooltip">L\'analyseur système est plus rapide, mais il peut extraire certaines métadonnées de manière incorrecte par rapport à d\'autres extracteurs. Veuillez noter que le changement d\'analyseur ne recharge pas automatiquement les métadonnées des titres existants.</string>
+    <string name="scanner_type_mediastore">(BÊTA) Utiliser l\'analyseur système MediaStore et ses extracteurs</string>
     <string name="restore_lm_tooltip">Après une restauration sur une nouvelle installation, vos dossiers de téléchargement et d\'analyse peuvent ne plus fonctionner. Retirez-les puis ajoutez-les à nouveau.</string>
     <string name="action_done">Terminé</string>
     <string name="download_on_wifi_only_description">Les téléchargements attendent le Wi-Fi et démarrent tout seuls quand il revient.</string>
@@ -430,6 +433,17 @@
     <string name="sync_params_description">« Lecture / Écriture » permet à l\'application de modifier vos j\'aime, votre bibliothèque et vos playlists YouTube Music. « Remplacer le contenu local » retire de ce téléphone ce qui n\'est pas dans votre compte.</string>
     <string name="enable_lrclib_description">Chercher les paroles sur LRCLIB, une base de paroles communautaire et gratuite.</string>
     <string name="enable_kugou_description">Chercher les paroles sur KuGou. Son catalogue est vaste et particulièrement riche en musique chinoise.</string>
+    <string name="lyrics_sources">Sources des paroles</string>
+    <string name="lyrics_sources_hint">Interrogées de haut en bas. Les premières paroles synchronisées trouvées s\'affichent, et les paroles simples seulement si aucune source n\'en a de synchronisées.</string>
+    <string name="lyrics_source_youtube_captions">Sous-titres YouTube</string>
+    <string name="lyrics_source_youtube_captions_line">Les sous-titres synchronisés de la vidéo.</string>
+    <string name="lyrics_source_youtube_music">YouTube Music</string>
+    <string name="lyrics_source_youtube_music_line">Les paroles affichées par YouTube Music, non synchronisées.</string>
+    <string name="lyrics_source_lrclib">LRCLIB</string>
+    <string name="lyrics_source_better_lyrics">Better Lyrics</string>
+    <string name="lyrics_source_better_lyrics_line">Synchronisées mot à mot, quand il a ce titre.</string>
+    <string name="lyrics_source_kugou">KuGou</string>
+    <string name="lyrics_source_move">Déplacer %1$s</string>
     <string name="audio_normalization_description">Égalise le volume pour qu\'aucun titre ne soit soudain beaucoup plus fort.</string>
     <string name="stop_music_on_task_clear_description">Arrêter la musique quand vous balayez l\'application hors des applications récentes.</string>
     <string name="enable_dynamic_theme_description">Reprendre les couleurs de l\'application depuis la pochette du titre en cours de lecture. Désactivé, ou sans lecture, elle utilise les couleurs de votre téléphone (Android 12 ou plus récent).</string>

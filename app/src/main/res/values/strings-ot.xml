@@ -2634,7 +2634,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="widgets_all_options_full_cover">Text size, what it shows</string>
     <string name="widgets_all_options_shelf">Background, buttons, rows</string>
     <string name="widgets_add_from_home">This home screen does not take widgets from apps. Add them from its own widget list.</string>
-    <string name="widgets_cells">%1$d × %2$d</string>
+    <string name="widgets_cells" translatable="false">%1$d × %2$d</string>
     <!-- The Songs tab with nothing in it, by the list picked above (Liked, Downloaded): French beside them in values-fr. Library keeps library_song_empty. -->
     <string name="library_song_empty_liked">Songs you like will show up here</string>
     <string name="library_song_empty_downloaded">Downloaded songs will show up here</string>
