@@ -246,7 +246,7 @@ class WidgetsSettingsTest {
             assertTrue("$name in French", "<string name=\"$name\">$fr</string>" in french)
         }
         // A size in cells is figures and a sign, the same in every language.
-        assertTrue("<string name=\"widgets_cells\">%1\$d × %2\$d</string>" in english)
+        assertTrue("<string name=\"widgets_cells\" translatable=\"false\">%1\$d × %2\$d</string>" in english)
         assertFalse("name=\"widgets_cells\"" in french)
     }
 
