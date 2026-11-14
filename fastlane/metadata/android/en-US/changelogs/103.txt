@@ -1,0 +1,7 @@
+Version 0.12.11
+
+- If you chose to be counted, the daily count and poll answers now go to InterTune's own counter instead of Umami, whose free plan ran out. What's sent doesn't change.
+- Crash fixes: the player in split screen or on small screens, and lyrics changing twice in a moment.
+- A wired headset's button plays your queue when the app is closed.
+
+https://github.com/ItzSkyeYT/InterTune/releases/tag/v0.12.11

@@ -1,0 +1,7 @@
+Version 0.12.11
+
+- Pour qui a accepté d'être compté, le comptage du jour et les réponses aux sondages vont au compteur d'InterTune au lieu d'Umami, dont l'offre gratuite est épuisée. Ce qui est envoyé ne change pas.
+- Plantages corrigés : lecteur en écran partagé ou sur petit écran, paroles changeant deux fois de suite.
+- Le bouton d'un casque filaire relance la file quand l'appli est fermée.
+
+https://github.com/ItzSkyeYT/InterTune/releases/tag/v0.12.11
