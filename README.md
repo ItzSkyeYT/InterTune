@@ -168,7 +168,7 @@ Every change in detail, and why this fork exists: [docs/FEATURES.md](https://git
 What's being worked on, roughly in order. `[x]` is done, `[~]` is built and being tested, `[ ]` is still to do. Nothing here has a date, and plans can change. Ideas are welcome in #feature-requests on [Discord](https://discord.gg/68jmqhMjXk) or as a [GitHub issue](https://github.com/ItzSkyeYT/InterTune/issues/new/choose).
 
 <details>
-<summary><b>Next: 0.13</b> · 6 of 37 done, 25 to test</summary>
+<summary><b>Next: 0.13</b> · 8 of 37 done, 24 to test</summary>
 
 `[~]` Listen together: one person plays, friends follow the same song in real time\
 `[x]` AirPlay speakers in the cast list\
@@ -183,7 +183,7 @@ What's being worked on, roughly in order. `[x]` is done, `[~]` is built and bein
 `[~]` What's playing works offline and names the song once you're back online ([#48](https://github.com/ItzSkyeYT/InterTune/issues/48))\
 `[~]` Albums carry on into a radio when they end\
 `[~]` A sleep timer with more ways to stop: at a clock time, or at the end of the song, the album or the queue\
-`[~]` Pick a playlist's cover\
+`[x]` Pick a playlist's cover\
 `[~]` Downloads other apps can use: .m4a or .opus files with the title, artist and cover\
 `[~]` Downloads at a quality of their own, apart from the streaming quality\
 `[~]` Downloads as MP3, M4A, FLAC or WAV, at a bitrate that follows what YouTube sent, and Export to folder\
@@ -206,7 +206,7 @@ What's being worked on, roughly in order. `[x]` is done, `[~]` is built and bein
 `[ ]` Better word by word lyrics\
 `[~]` Albums and artists in your own order too\
 `[ ]` Match your library from another service by logging in to it\
-`[ ]` Bring your library over from a Metrolist backup, from its Android app or its new one *(in progress)*
+`[x]` Bring your library over from a Metrolist backup, from its Android app or its new one
 
 </details>
 
