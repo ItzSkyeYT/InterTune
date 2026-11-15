@@ -124,9 +124,7 @@ fun PlaylistMenu(
     // The cover's choice, as the playlist's page offers it (PlaylistCovers): from Edit playlist.
     var coverSongs by remember { mutableStateOf<List<PlaylistSong>>(emptyList()) }
     var showCoverSheet by remember { mutableStateOf(false) }
-    var showCoverSynced by remember { mutableStateOf(false) }
-    val coverChoosable = PlaylistCovers.canChoose(playlist.playlist.browseId)
-    val coverSynced = PlaylistCovers.isSynced(playlist.playlist.browseId)
+    val coverChoosable = PlaylistCovers.canChoose()
     val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         if (uri != null) {
             val appContext = context.applicationContext
@@ -365,7 +363,7 @@ fun PlaylistMenu(
     if (showEditDialog) {
         TextFieldDialog(
             icon = {
-                if (coverChoosable || coverSynced) {
+                if (coverChoosable) {
                     // The keyboard goes down first, so that the sheet does not come up behind it.
                     val focus = LocalFocusManager.current
                     val keyboard = LocalSoftwareKeyboardController.current
@@ -374,7 +372,7 @@ fun PlaylistMenu(
                         onChange = {
                             keyboard?.hide()
                             focus.clearFocus()
-                            if (coverChoosable) showCoverSheet = true else showCoverSynced = true
+                            showCoverSheet = true
                         }
                     )
                 } else {
@@ -402,16 +400,6 @@ fun PlaylistMenu(
         )
     }
 
-    if (showCoverSynced && coverSynced) {
-        DefaultDialog(
-            onDismiss = { showCoverSynced = false },
-            content = { Text(text = stringResource(R.string.playlist_cover_synced), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(horizontal = 18.dp)) },
-            buttons = {
-                TextButton(onClick = { showCoverSynced = false }) { Text(text = stringResource(android.R.string.ok)) }
-            }
-        )
-    }
-
     // After the edit dialog, so that it comes up over it.
     if (showCoverSheet && coverChoosable) {
         val appContext = context.applicationContext
@@ -421,6 +409,7 @@ fun PlaylistMenu(
             onAutomatic = { CoroutineScope(Dispatchers.IO).launch { PlaylistCovers.choose(appContext, database, playlist.id, null) } },
             onPhoto = { photoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
             onSong = { cover -> CoroutineScope(Dispatchers.IO).launch { PlaylistCovers.choose(appContext, database, playlist.id, cover) } },
+            syncedWithYouTube = playlist.playlist.browseId != null,
             onDismiss = { showCoverSheet = false },
         )
     }
