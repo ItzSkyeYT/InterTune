@@ -2054,6 +2054,11 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="problem_report_copy_link">Copy link</string>
     <string name="problem_report_held">Sent. It goes on GitHub once someone has looked at it.</string>
     <string name="problem_report_send_failed">Couldn\'t send it. Try again, or copy it and post it in #bug-reports.</string>
+    <string name="problem_report_failed_build">The site does not accept this build\'s name yet. Pick GitHub above, or copy the report.</string>
+    <string name="problem_report_failed_network">No connection to InterTune. Check your network and try again.</string>
+    <string name="problem_report_failed_busy">Too many reports from this connection today. Try again tomorrow, or pick GitHub above.</string>
+    <string name="problem_report_failed_long">This report is too long to send. Pick GitHub above, which keeps the end of it, or copy it.</string>
+    <string name="problem_report_failed_site">The InterTune site or GitHub had a problem. Try again in a minute, or pick GitHub above.</string>
     <!-- The two ways a report goes, picked at the top of Report a problem and the crash page; the pick is kept. For translators only after his yes. -->
     <string name="report_way_anonymous">Anonymous</string>
     <string name="report_way_github">GitHub account</string>

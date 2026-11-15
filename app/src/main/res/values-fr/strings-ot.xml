@@ -1715,6 +1715,11 @@
     <string name="problem_report_copy_link">Copier le lien</string>
     <string name="problem_report_held">Envoyé. Il paraîtra sur GitHub une fois relu.</string>
     <string name="problem_report_send_failed">Envoi impossible. Réessayez, ou copiez-le et postez-le dans #bug-reports.</string>
+    <string name="problem_report_failed_build">Le site n\'accepte pas encore le nom de cette version. Choisissez GitHub ci-dessus, ou copiez le rapport.</string>
+    <string name="problem_report_failed_network">Pas de connexion à InterTune. Vérifiez votre réseau et réessayez.</string>
+    <string name="problem_report_failed_busy">Trop de rapports depuis cette connexion aujourd\'hui. Réessayez demain, ou choisissez GitHub ci-dessus.</string>
+    <string name="problem_report_failed_long">Ce rapport est trop long pour être envoyé. Choisissez GitHub ci-dessus, qui en garde la fin, ou copiez-le.</string>
+    <string name="problem_report_failed_site">Le site d\'InterTune ou GitHub a eu un problème. Réessayez dans une minute, ou choisissez GitHub ci-dessus.</string>
     <string name="report_way_anonymous">Anonyme</string>
     <string name="report_way_github">Compte GitHub</string>
     <string name="report_way_anonymous_note">Sans compte. Vous recevez un lien pour le suivre.</string>
