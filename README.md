@@ -179,7 +179,7 @@ What's being worked on, roughly in order. `[x]` is done, `[~]` is built and bein
 `[~]` Swipe a song out of the queue, and Undo brings it back ([#141](https://github.com/ItzSkyeYT/InterTune/issues/141))\
 `[~]` Android Auto's search finds songs on YouTube Music, not only in your library ([#112](https://github.com/ItzSkyeYT/InterTune/issues/112))\
 `[~]` Block an artist\
-`[~]` Your playlists in your own order, dragged where you want them\
+`[~]` Your playlists in your own order, dragged where you want them as well as playlist folders\
 `[~]` What's playing works offline and names the song once you're back online ([#48](https://github.com/ItzSkyeYT/InterTune/issues/48))\
 `[~]` Albums carry on into a radio when they end\
 `[~]` A sleep timer with more ways to stop: at a clock time, or at the end of the song, the album or the queue\
