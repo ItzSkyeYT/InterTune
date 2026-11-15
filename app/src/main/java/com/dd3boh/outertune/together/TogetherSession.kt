@@ -131,6 +131,7 @@ class TogetherSession(
     private var leaderKey: String? = if (owner) me else null
     private val leading: Boolean get() = leaderKey == me
     private var lastState: TogetherMessage.State? = null
+    private val hostLine = HostLine()
     private var roomQueue: TogetherMessage.Queue? = null
     private var settleUntil = 0L
     private var lastSentState = 0L
@@ -405,7 +406,8 @@ class TogetherSession(
             is TogetherMessage.State -> if (!leading) {
                 // Before the owner's word on who leads, whoever sends the playback does.
                 if (leaderKey == null) lead(from)
-                if (from == leaderKey) {
+                // A word with an older clock than the newest is a late one: the relays do not keep order.
+                if (from == leaderKey && hostLine.hear(message)) {
                     lastState = message
                     lastStateAt = now
                     // The leader said yes to this phone's song: back with the room, where it already is.
@@ -484,6 +486,7 @@ class TogetherSession(
         gap = ClockGap()
         pingsToLeader = 0
         lastState = null
+        hostLine.clear()
         loadingSong = null
         matchedQueue = null
         lock.reset()
@@ -685,6 +688,7 @@ class TogetherSession(
             }
             Log.i(TAG, "No word from the leader for ${HOST_TIMEOUT_MS / 1000} s: playing on alone")
             lastState = null
+            hostLine.clear()
             leaderKey = null
             speed(service.exoPlayer, speedBefore.toDouble())
             _status.value = _status.value.copy(waitingForHost = true, driftMs = null)
@@ -733,7 +737,7 @@ class TogetherSession(
             return
         }
         health.drift(target - local)
-        when (val decision = lock.decide(target, local, state.speed)) {
+        when (val decision = lock.decide(target, local, state.speed, now)) {
             is Follow.Seek -> if (Follow.jumpNow(decision.positionMs, local, player.bufferedPosition)) {
                 waitingForData = false
                 seek(player, decision.positionMs)
@@ -887,7 +891,7 @@ class TogetherSession(
      * back, so this spot is the one it fetches.
      */
     private fun leaderAt(state: TogetherMessage.State, now: Long): Long =
-        if (gap.known) Follow.target(state, gap.hostNow(now)) else Follow.guess(state, lastStateAt, now)
+        if (gap.known) hostLine.target(state, gap.hostNow(now)) else Follow.guess(state, lastStateAt, now)
 
     /**
      * The leader's song has just come and is still loading here: if it starts well before the
@@ -909,7 +913,7 @@ class TogetherSession(
 
     private fun seek(player: Player, positionMs: Long) {
         mine()
-        lock.reset()
+        lock.sought()
         // A leader on Bluetooth near the start of a song says a spot before it.
         player.seekTo(positionMs.coerceAtLeast(0))
         settleUntil = System.currentTimeMillis() + SETTLE_MS

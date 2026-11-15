@@ -71,7 +71,7 @@ class TogetherJoinTest {
     @Test
     fun `before the first pong, the session places the leader by that guess`() {
         val at = session.substringAfter("private fun leaderAt(").substringBefore("\n\n")
-        assertTrue(at.contains("if (gap.known) Follow.target(state, gap.hostNow(now)) else Follow.guess(state, lastStateAt, now)"))
+        assertTrue(at.contains("if (gap.known) hostLine.target(state, gap.hostNow(now)) else Follow.guess(state, lastStateAt, now)"))
         for (place in listOf("private fun follow()", "private fun toLeadersSong(", "private fun arrive(")) {
             val body = session.substringAfter(place).substringBefore("\n    }\n")
             assertFalse("$place takes the clocks as equal", body.contains("Follow.target(state, gap.hostNow(now))"))
