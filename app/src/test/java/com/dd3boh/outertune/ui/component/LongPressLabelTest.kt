@@ -52,4 +52,19 @@ class LongPressLabelTest {
             assertFalse(name, inside.contains(".align("))
         }
     }
+
+    @Test
+    fun `the queue's transport buttons and the player's rows of buttons say their name too`() {
+        for (name in listOf("stringResource(R.string.widget_previous)", "seekBackName()", "playPauseName(isPlaying && playbackState != STATE_ENDED)", "seekForwardName()", "stringResource(R.string.widget_next)", "saveQueueDescription")) {
+            assertTrue(name, queue.contains("LongPressLabel($name"))
+        }
+        // The player's circles beside the title and its connected segments say theirs from one place each,
+        // by the content description they already have, and a button without a name shows nothing.
+        val player = File(sources, "ui/player/Player.kt").readText()
+        for (fn in listOf("private fun PlayerCircleButton(", "private fun PlayerActionSegment(")) {
+            val body = player.substringAfter(fn).substringBefore("\n}\n")
+            assertTrue(fn, body.contains("OptionalLongPressLabel(contentDescription"))
+        }
+        assertTrue(player.contains("if (label.isNullOrBlank()) Box(modifier) { content() } else LongPressLabel(label, modifier, content)"))
+    }
 }

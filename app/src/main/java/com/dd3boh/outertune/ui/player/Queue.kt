@@ -1718,24 +1718,26 @@ fun BoxScope.QueueContent(
                     )
                     val saveQueueDescription = stringResource(R.string.save_queue_as_playlist)
                     val queueFallbackName = stringResource(R.string.queue_default_name)
-                    ResizableIconButton(
-                        icon = Icons.AutoMirrored.Rounded.PlaylistAdd,
-                        enabled = mutableSongs.isNotEmpty(),
-                        onClick = {
-                            val title = (detachedQueue ?: mutableQueues.getOrNull(playingQueue))
-                                ?.let { shown -> QueueStart.shownTitle(shown.title) { shown.getCurrentQueueShuffled().firstOrNull()?.title } }
-                            coroutineScope.launch(Dispatchers.IO) {
-                                val names = database.playlists(PlaylistFilter.LIBRARY, PlaylistSortType.NAME, true)
-                                    .first().map { it.playlist.name }
-                                val proposed = QueueToPlaylist.defaultName(title, names, queueFallbackName)
-                                withContext(Dispatchers.Main) { saveQueueName = proposed }
-                            }
-                            haptic.performHapticFeedback(HapticFeedbackType.ContextClick)
-                        },
-                        modifier = Modifier
-                            .padding(vertical = 6.dp, horizontal = 4.dp)
-                            .semantics { contentDescription = saveQueueDescription }
-                    )
+                    LongPressLabel(saveQueueDescription) {
+                        ResizableIconButton(
+                            icon = Icons.AutoMirrored.Rounded.PlaylistAdd,
+                            enabled = mutableSongs.isNotEmpty(),
+                            onClick = {
+                                val title = (detachedQueue ?: mutableQueues.getOrNull(playingQueue))
+                                    ?.let { shown -> QueueStart.shownTitle(shown.title) { shown.getCurrentQueueShuffled().firstOrNull()?.title } }
+                                coroutineScope.launch(Dispatchers.IO) {
+                                    val names = database.playlists(PlaylistFilter.LIBRARY, PlaylistSortType.NAME, true)
+                                        .first().map { it.playlist.name }
+                                    val proposed = QueueToPlaylist.defaultName(title, names, queueFallbackName)
+                                    withContext(Dispatchers.Main) { saveQueueName = proposed }
+                                }
+                                haptic.performHapticFeedback(HapticFeedbackType.ContextClick)
+                            },
+                            modifier = Modifier
+                                .padding(vertical = 6.dp, horizontal = 4.dp)
+                                .semantics { contentDescription = saveQueueDescription }
+                        )
+                    }
                     ResizableIconButton(
                         icon = if (mqExpand) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
                         enabled = !landscape && !queueWindows.isEmpty(),
@@ -1815,95 +1817,100 @@ fun BoxScope.QueueContent(
                         }
 
                         Box(modifier = Modifier.weight(1f)) {
-                            ResizableIconButton(
-                                icon = Icons.Rounded.SkipPrevious,
-                                modifier = Modifier
-                                    .size(32.dp)
-                                    .align(Alignment.Center)
-                                    .named(stringResource(R.string.widget_previous)),
-                                color = iconButtonColor,
-                                enabled = barWorks && (canSkipPrevious || movesStoredQueue),
-                                onClick = {
-                                    // Cold start: the saved queue is not in the player yet, and a
-                                    // skip in an empty player goes nowhere. As the full player does.
-                                    playerConnection.loadQueueIfEmpty().seekToPrevious()
-                                    haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
-                                }
-                            )
+                            LongPressLabel(stringResource(R.string.widget_previous), Modifier.align(Alignment.Center)) {
+                                                            ResizableIconButton(
+                                                                icon = Icons.Rounded.SkipPrevious,
+                                                                modifier = Modifier
+                                                                    .size(32.dp)
+                                                                    .named(stringResource(R.string.widget_previous)),
+                                                                color = iconButtonColor,
+                                                                enabled = barWorks && (canSkipPrevious || movesStoredQueue),
+                                                                onClick = {
+                                                                    // Cold start: the saved queue is not in the player yet, and a
+                                                                    // skip in an empty player goes nowhere. As the full player does.
+                                                                    playerConnection.loadQueueIfEmpty().seekToPrevious()
+                                                                    haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
+                                                                }
+                                                            )
+                            }
                         }
 
                         if (seekIncrement != SeekIncrement.OFF) {
                             Box(modifier = Modifier.weight(1f)) {
-                                ResizableIconButton(
-                                    icon = Icons.Rounded.FastRewind,
-                                    modifier = Modifier
-                                        .size(32.dp)
-                                        .align(Alignment.Center)
-                                        .named(seekBackName()),
-                                    enabled = barWorks,
-                                    onClick = {
-                                        playerConnection.loadQueueIfEmpty().let { it.seekTo(it.currentPosition - seekIncrement.millisec) }
-                                    }
-                                )
+                                LongPressLabel(seekBackName(), Modifier.align(Alignment.Center)) {
+                                                                    ResizableIconButton(
+                                                                        icon = Icons.Rounded.FastRewind,
+                                                                        modifier = Modifier
+                                                                            .size(32.dp)
+                                                                            .named(seekBackName()),
+                                                                        enabled = barWorks,
+                                                                        onClick = {
+                                                                            playerConnection.loadQueueIfEmpty().let { it.seekTo(it.currentPosition - seekIncrement.millisec) }
+                                                                        }
+                                                                    )
+                                }
                             }
                         }
 
                         Spacer(Modifier.width(8.dp))
 
                         Box(modifier = Modifier.weight(1f)) {
-                            ResizableIconButton(
-                                icon = if (playbackState == STATE_ENDED) Icons.Rounded.Replay else if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                                modifier = Modifier
-                                    .size(36.dp)
-                                    .align(Alignment.Center)
-                                    .named(playPauseName(isPlaying && playbackState != STATE_ENDED)),
-                                color = iconButtonColor,
-                                enabled = barWorks,
-                                onClick = {
-                                    if (playbackState == STATE_ENDED) {
-                                        playerConnection.player.seekTo(0, 0)
-                                        playerConnection.player.playWhenReady = true
-                                    } else {
-                                        playerConnection.togglePlayPause()
-                                    }
-                                    // play/pause is slightly harder haptic
-                                    haptic.performHapticFeedback(HapticFeedbackType.Confirm)
-                                }
-                            )
+                            LongPressLabel(playPauseName(isPlaying && playbackState != STATE_ENDED), Modifier.align(Alignment.Center)) {
+                                                            ResizableIconButton(
+                                                                icon = if (playbackState == STATE_ENDED) Icons.Rounded.Replay else if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                                                                modifier = Modifier
+                                                                    .size(36.dp)
+                                                                    .named(playPauseName(isPlaying && playbackState != STATE_ENDED)),
+                                                                color = iconButtonColor,
+                                                                enabled = barWorks,
+                                                                onClick = {
+                                                                    if (playbackState == STATE_ENDED) {
+                                                                        playerConnection.player.seekTo(0, 0)
+                                                                        playerConnection.player.playWhenReady = true
+                                                                    } else {
+                                                                        playerConnection.togglePlayPause()
+                                                                    }
+                                                                    // play/pause is slightly harder haptic
+                                                                    haptic.performHapticFeedback(HapticFeedbackType.Confirm)
+                                                                }
+                                                            )
+                            }
                         }
 
                         Spacer(Modifier.width(8.dp))
 
                         if (seekIncrement != SeekIncrement.OFF) {
                             Box(modifier = Modifier.weight(1f)) {
-                                ResizableIconButton(
-                                    icon = Icons.Rounded.FastForward,
-                                    modifier = Modifier
-                                        .size(32.dp)
-                                        .align(Alignment.Center)
-                                        .named(seekForwardName()),
-                                    enabled = barWorks,
-                                    onClick = {
-                                        playerConnection.loadQueueIfEmpty().let { it.seekTo(it.currentPosition + seekIncrement.millisec) }
-                                    }
-                                )
+                                LongPressLabel(seekForwardName(), Modifier.align(Alignment.Center)) {
+                                                                    ResizableIconButton(
+                                                                        icon = Icons.Rounded.FastForward,
+                                                                        modifier = Modifier
+                                                                            .size(32.dp)
+                                                                            .named(seekForwardName()),
+                                                                        enabled = barWorks,
+                                                                        onClick = {
+                                                                            playerConnection.loadQueueIfEmpty().let { it.seekTo(it.currentPosition + seekIncrement.millisec) }
+                                                                        }
+                                                                    )
+                                }
                             }
                         }
 
                         Box(modifier = Modifier.weight(1f)) {
-                            ResizableIconButton(
-                                icon = Icons.Rounded.SkipNext,
-                                modifier = Modifier
-                                    .size(32.dp)
-                                    .align(Alignment.Center)
-                                    .named(stringResource(R.string.widget_next)),
-                                color = iconButtonColor,
-                                enabled = barWorks && (canSkipNext || movesStoredQueue),
-                                onClick = {
-                                    playerConnection.loadQueueIfEmpty().seekToNext()
-                                    haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
-                                }
-                            )
+                            LongPressLabel(stringResource(R.string.widget_next), Modifier.align(Alignment.Center)) {
+                                                            ResizableIconButton(
+                                                                icon = Icons.Rounded.SkipNext,
+                                                                modifier = Modifier
+                                                                    .size(32.dp)
+                                                                    .named(stringResource(R.string.widget_next)),
+                                                                color = iconButtonColor,
+                                                                enabled = barWorks && (canSkipNext || movesStoredQueue),
+                                                                onClick = {
+                                                                    playerConnection.loadQueueIfEmpty().seekToNext()
+                                                                    haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
+                                                                }
+                                                            )
+                            }
                         }
 
                         Box(modifier = Modifier.weight(1f)) {
