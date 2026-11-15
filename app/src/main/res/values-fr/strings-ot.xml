@@ -2527,6 +2527,8 @@
     <string name="together_kick">Retirer du salon</string>
     <string name="together_kicked">Vous avez été retiré du salon</string>
     <string name="together_closed">Le salon a été fermé</string>
+    <string name="together_host_away">L\'hôte est absent</string>
+    <string name="together_host_gone">L\'hôte n\'est pas revenu, le salon est terminé.</string>
     <string name="together_close_room">Fermer le salon</string>
     <string name="together_song_unavailable">Ce titre n\'est pas disponible pour vous. Le suivant de l\'hôte démarrera tout seul.</string>
     <string name="together_paused_here">En pause ici. Appuyez sur lecture pour revenir où en est le salon.</string>
