@@ -105,7 +105,7 @@
     <string name="sync_progress_success">Synchronisation terminée</string>
     <string name="tab_arrangement_home_required">L\'onglet Accueil est obligatoire.</string>
     <string name="scanner_manual_btn">Déclencher la synchronisation manuelle</string>
-    <string name="scanner_missing_storage_perm">Le scanner local a besoin de l\'autorisation de stockage.</string>
+    <string name="scanner_missing_storage_perm">Le scanner de médias locaux nécessite des autorisations d\'accès au stockage pour fonctionner</string>
     <string name="scanner_scan_fail">Échec de l\'analyse</string>
     <string name="scanner_ytm_link_fail">La tâche de liaison des artistes YouTube a échoué</string>
     <string name="scanner_ytm_link_success">Le travail de création de liens vers les artistes YouTube est terminé</string>
@@ -219,12 +219,12 @@
     <string name="dl_extra_path_overlaps_scan">Ce dossier chevauche un dossier d\'analyse, il ne peut donc pas être un emplacement d\'importation supplémentaire</string>
     <string name="dl_main_path_part_of_scan">Ce dossier fait partie d\'un dossier d\'analyse, il ne peut donc pas être le dossier de téléchargement</string>
     <string name="oobe_ad_free_exp_description">Profitez d\'une lecture de musique ininterrompue</string>
-    <string name="dl_oobe_tooltip">Les titres sont téléchargés dans le stockage privé de l\'application. Pour télécharger dans un dossier accessible, choisissez-en un ici ; vous pourrez le changer plus tard dans les Paramètres.</string>
+    <string name="dl_oobe_tooltip">Les morceaux sont téléchargés dans l\'espace de stockage privé de l\'application. Pour les télécharger dans un dossier auquel vous avez accès, sélectionnez-en un ici ; vous pourrez le modifier ultérieurement dans les Paramètres.</string>
     <string name="oobe_ytm_logon_subtitle">Connectez-vous pour retrouver vos playlists, vos titres aimés et vos recommandations. C\'est facultatif.</string>
     <string name="dl_rescan_description">À faire si vous avez modifié vous-même des fichiers dans vos dossiers de téléchargement.</string>
     <string name="dl_migrate_confirm">Cette action migrera tous les téléchargements internes vers « %s », et elle est irréversible. Souhaitez-vous continuer ?</string>
     <string name="dl_migrate_title">Migrer les téléchargements vers un stockage externe…</string>
-    <string name="dl_migrate_description">Déplace les téléchargements du stockage de l\'application vers celui du téléphone.</string>
+    <string name="dl_migrate_description">Déplace les fichiers téléchargés depuis la mémoire interne de l\'application vers la mémoire de votre téléphone.</string>
     <string name="dl_main_path_title">Définir un dossier de téléchargement externe…</string>
     <string name="dl_rescan_title">Réanalyser les dossiers de téléchargement…</string>
     <string name="dl_extra_path_description">Les titres de ces dossiers apparaissent une fois écoutés ou ajoutés à une playlist. Les dossiers ne sont jamais modifiés.</string>
@@ -232,7 +232,7 @@
     <string name="dl_size_used_cache">Interne : %s utilisés</string>
     <string name="dl_size_used_main">Externe : %s utilisés</string>
     <string name="dl_size_used_extra">Importations supplémentaires : %s utilisés</string>
-    <string name="dl_storage_tooltip">Les téléchargements internes sont dans le stockage privé de l\'application. Les téléchargements externes vont dans un dossier que vous choisissez ; prenez-en un vide, car InterTune peut y modifier ou supprimer des fichiers. Les dossiers d\'importation supplémentaires sont seulement lus, jamais modifiés.</string>
+    <string name="dl_storage_tooltip">Les téléchargements internes sont stockés dans la mémoire privée de l\'application. Les téléchargements externes sont enregistrés dans un dossier de votre choix ; choisissez-en un vide, car InterTune peut modifier ou supprimer les fichiers qu\'il contient. Les dossiers d\'importation supplémentaires sont en lecture seule et ne sont jamais modifiés.</string>
     <string name="scanner_sensitivity_L0">Prendre le premier résultat fourni par YouTube lorsque la recherche sur YouTube est activée ; sinon, rechercher une correspondance avec le titre</string>
     <string name="app_info_title">Informations sur l\'application</string>
     <string name="device_info_title">Informations sur l\'appareil</string>
@@ -412,8 +412,8 @@
     <string name="update_check_description">Vérifie sur GitHub s\'il y a une nouvelle version à chaque ouverture. Rien ne s\'installe sans votre accord.</string>
     <string name="oobe_update_check_description">InterTune n\'est pas sur une boutique d\'applications : elle consulte GitHub à l\'ouverture pour trouver les nouvelles versions. Elle peut les télécharger et les installer pour vous, et Android vous demande toujours d\'abord.</string>
     <string name="look_and_feel">Apparence</string>
-    <string name="grp_privacy_and_history">Confidentialité et historique</string>
-    <string name="grp_storage_and_downloads">Stockage et téléchargements</string>
+    <string name="grp_privacy_and_history">Confidentialité et Historique</string>
+    <string name="grp_storage_and_downloads">Stockage et Téléchargements</string>
     <string name="grp_listen_history">Historique d\'écoute</string>
     <string name="grp_search_history">Historique de recherche</string>
     <string name="settings_account_sync_description">Connectez-vous à YouTube Music et choisissez ce qui est synchronisé.</string>
@@ -883,7 +883,7 @@
     <string name="filter_cached">Hors ligne</string>
     <string name="cached_songs_note">Gardés parce que vous les avez écoutés, ils marchent hors connexion. Les plus anciens partent quand le cache se remplit : téléchargez un titre pour le garder pour de bon.</string>
     <string name="cached_songs_empty">Rien n\'est en cache pour l\'instant. Les titres apparaissent ici une fois écoutés.</string>
-    <string name="cached_songs_disabled">Le cache des titres est désactivé, donc rien n\'est gardé. Définissez une taille dans Stockage et téléchargements pour utiliser ceci.</string>
+    <string name="cached_songs_disabled">Le cache des morceaux est désactivé ; par conséquent, rien n\'est conservé. Pour l\'utiliser, définissez une taille dans la section « Stockage et Téléchargements ».</string>
     <!-- Moved out of strings.xml, which holds upstream InnerTune strings only. -->
     <string name="back_animations">Animations de retour</string>
     <string name="back_animations_description">Le geste retour suit votre doigt et montre l\'écran en dessous.</string>
@@ -1225,7 +1225,7 @@
         <item quantity="other">Vous avez écouté %1$d des %2$d cartes montrées par Meilleures recommandations, soit environ %3$s sur 100.</item>
     </plurals>
     <string name="recommendations_summary_played_single">Vous avez écouté la seule carte montrée par Meilleures recommandations.</string>
-    <string name="recommendations_summary_not_played_single">Vous n\'avez pas écouté la seule carte montrée par Meilleures recommandations.</string>
+    <string name="recommendations_summary_not_played_single">Vous n\'avez pas écouté la seule carte montrée par « Meilleures Recommandations ».</string>
     <plurals name="recommendations_summary_waiting_more">
         <item quantity="one">%1$d autre carte montrée sera comptée sous 24 heures.</item>
         <item quantity="many">%1$d autres cartes montrées seront comptées sous 24 heures.</item>
@@ -2460,7 +2460,7 @@
     <string name="new_lyrics_save_body">Appuyez longuement sur une ligne des paroles : une carte ou une vidéo peut maintenant être enregistrée sur le téléphone, pas seulement partagée.</string>
     <string name="library_song_empty_liked">Les titres que vous aimez s\'afficheront ici</string>
     <string name="library_song_empty_downloaded">Les titres téléchargés s\'afficheront ici</string>
-    <string name="not_saved_storage_full">Non enregistré : stockage du téléphone plein. Libérez de la place.</string>
+    <string name="not_saved_storage_full">Échec de l\'enregistrement : la mémoire du téléphone est pleine. Libérez de l\'espace, puis réessayez.</string>
     <string name="not_saved">Non enregistré : un problème est survenu. Réessayez.</string>
     <string name="remove_download_selection_confirm">Supprimer les téléchargements des titres choisis ?</string>
     <string name="remove_download_refused">Fichier non supprimé. Vérifiez le dossier de téléchargement.</string>
@@ -2499,7 +2499,7 @@
     <string name="sleep_end_of_album">Fin de l\'album</string>
     <string name="sleep_end_of_queue">Fin de la file d\'attente</string>
     <string name="sleep_let_finish">Laisser finir le titre</string>
-    <string name="sleep_fade_row">Fondu · %1$d&#160;s</string>
+    <string name="sleep_fade_row">Fondu · %1$d s</string>
     <string name="sleep_every_night">Chaque nuit</string>
     <string name="sleep_start">Démarrer</string>
     <string name="sleep_stop">Arrêter la minuterie</string>
@@ -2512,8 +2512,8 @@
     <string name="sleep_notif_title_song">La musique s\'arrête après ce titre</string>
     <string name="sleep_notif_title_album">La musique s\'arrête après cet album</string>
     <string name="sleep_notif_title_queue">La musique s\'arrête à la fin de la file d\'attente</string>
-    <string name="sleep_notif_line_fade">Fondu de %1$d&#160;s</string>
-    <string name="sleep_notif_line_fade_after">Fondu de %1$d&#160;s, après %2$s</string>
+    <string name="sleep_notif_line_fade">Fondu de %1$d s</string>
+    <string name="sleep_notif_line_fade_after">Fondu de %1$d s, après %2$s</string>
     <string name="sleep_notif_line_after">Après %1$s</string>
     <string name="sleep_notif_stop">Arrêter</string>
     <string-array name="file_size_units">
