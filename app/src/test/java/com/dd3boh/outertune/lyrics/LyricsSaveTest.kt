@@ -58,7 +58,7 @@ class LyricsSaveTest {
     fun `the message says where it went, in English and French`() {
         val en = File("src/main/res/values/strings-ot.xml").readText()
         val fr = File("src/main/res/values-fr/strings-ot.xml").readText()
-        assertTrue(en.contains("<string name=\"lyrics_saved\" translatable=\"false\">Saved: %1\$s</string>"))
+        assertTrue(en.contains("<string name=\"lyrics_saved\">Saved: %1\$s</string>"))
         assertTrue(fr.contains("<string name=\"lyrics_saved\">Enregistré : %1\$s</string>"))
     }
 }

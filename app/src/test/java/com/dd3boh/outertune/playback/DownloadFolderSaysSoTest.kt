@@ -106,7 +106,7 @@ class DownloadFolderSaysSoTest {
     @Test
     fun `the texts are there in English and French, the question's in plurals`() {
         for (name in listOf("dl_folder_cannot_open", "dl_folder_cannot_open_notice", "dl_move_here_title", "dl_move_here_move", "dl_move_here_not_now")) {
-            assertTrue(name, en.contains("<string name=\"$name\" translatable=\"false\">"))
+            assertTrue(name, en.contains("<string name=\"$name\">"))
             assertTrue(name, fr.contains("<string name=\"$name\">"))
         }
         assertEquals(

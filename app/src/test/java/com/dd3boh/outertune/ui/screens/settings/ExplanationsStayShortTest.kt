@@ -105,16 +105,14 @@ class ExplanationsStayShortTest {
          * as the others' are, their words and sentences are not.
          */
         val SAY_WHAT_IS_SENT = setOf(
-            "usage_count_enabled_description",
             "usage_count_opt_in_body",
             "lastfm_opt_in_body",
         )
 
         /**
-         * Four sentences, and left as it is: the picture over the stage sliders stands in for
-         * this "i" in every build. It is only what the row falls back to without the picture
-         * (StageSliderRow in PlayerFrag).
+         * Texts left long because nothing shows them. Empty since 14 Nov 2026: stage_width_explain,
+         * the fallback for the picture over the stage sliders, was cut to two sentences with the rest.
          */
-        val NOT_SHOWN = setOf("stage_width_explain")
+        val NOT_SHOWN = emptySet<String>()
     }
 }

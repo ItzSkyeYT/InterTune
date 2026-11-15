@@ -1059,7 +1059,6 @@ fun ColumnScope.AudioEffectsFrag() {
     SwitchPreference(
         modifier = Modifier.settingRow(R.string.skip_silence),
         title = { Text(stringResource(R.string.skip_silence)) },
-        description = stringResource(R.string.skip_silence_description),
         icon = { Icon(painterResource(R.drawable.skip_next), null) },
         checked = skipSilence,
         onCheckedChange = onSkipSilenceChange
@@ -1154,7 +1153,6 @@ fun ColumnScope.PlaybackBehaviourFrag() {
     SwitchPreference(
         modifier = Modifier.settingRow(R.string.auto_skip_next_on_error),
         title = { Text(stringResource(R.string.auto_skip_next_on_error)) },
-        description = stringResource(R.string.auto_skip_next_on_error_desc),
         icon = { Icon(Icons.Rounded.SkipNext, null) },
         checked = skipOnErrorKey,
         onCheckedChange = onSkipOnErrorChange
@@ -1172,7 +1170,6 @@ fun ColumnScope.PlaybackBehaviourFrag() {
     ExplainedSwitchPreference(
         modifier = Modifier.settingRow(R.string.share_audio_focus),
         title = stringResource(R.string.share_audio_focus),
-        description = stringResource(R.string.share_audio_focus_description),
         explanation = stringResource(R.string.share_audio_focus_explain),
         icon = { Icon(Icons.Rounded.Hearing, null) },
         checked = shareAudioFocus,
@@ -1191,7 +1188,6 @@ fun ColumnScope.PlaybackBehaviourFrag() {
     SwitchPreference(
         modifier = Modifier.settingRow(R.string.sleep_timer_fade),
         title = { Text(stringResource(R.string.sleep_timer_fade)) },
-        description = stringResource(R.string.sleep_timer_fade_description),
         icon = { Icon(Icons.Rounded.Bedtime, null) },
         checked = sleepTimerFade,
         onCheckedChange = onSleepTimerFadeChange,

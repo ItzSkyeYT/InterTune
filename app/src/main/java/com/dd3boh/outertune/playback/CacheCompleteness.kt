@@ -59,3 +59,17 @@ fun partIsAnotherStream(partLength: Long, length: Long): Boolean = partLength > 
 
 /** Whether two caches hold the same stream of a song, by the lengths each recorded: both known and equal. */
 fun sameRecordedStream(a: Long, b: Long): Boolean = a > 0L && b > 0L && a == b
+
+/**
+ * Whether the cache holds [wanted] bytes of [key] from [position], or all that is left of the song
+ * when less than that is. isCached asks for the whole range, and a song whole in the cache never
+ * holds a whole chunk from inside its last one: a read begun there (a seek near the end, a retry, a
+ * resume) was taken for a song the cache did not have, and offline failed as having no network (#179).
+ */
+fun Cache.holdsFrom(key: String, position: Long, wanted: Long): Boolean {
+    if (isCached(key, position, wanted)) return true
+    val length = ContentMetadata.getContentLength(getContentMetadata(key))
+    if (length <= 0 || position >= length) return false
+    val left = length - position
+    return left < wanted && isCached(key, position, left)
+}

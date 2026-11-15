@@ -168,13 +168,12 @@ Every change in detail, and why this fork exists: [docs/FEATURES.md](https://git
 What's being worked on, roughly in order. `[x]` is done, `[~]` is built and being tested, `[ ]` is still to do. Nothing here has a date, and plans can change. Ideas are welcome in #feature-requests on [Discord](https://discord.gg/68jmqhMjXk) or as a [GitHub issue](https://github.com/ItzSkyeYT/InterTune/issues/new/choose).
 
 <details>
-<summary><b>Next: 0.13</b> · 6 of 41 done, 28 to test</summary>
+<summary><b>Next: 0.13</b> · 6 of 37 done, 25 to test</summary>
 
 `[~]` Listen together: one person plays, friends follow the same song in real time\
 `[x]` AirPlay speakers in the cast list\
 `[~]` The equalizer and volume levelling on AirPlay speakers too, and Signal path shows the speaker you cast to\
 `[~]` Casting to speakers that only take uncompressed audio, like a Zeppelin Wireless\
-`[~]` InterTune's own screen on Chromecasts, with Google Home's Next button working\
 `[~]` Don't play this song: radios, autoplay and Shuffle never bring it back ([#78](https://github.com/ItzSkyeYT/InterTune/issues/78))\
 `[~]` Pick several songs in the queue and remove them at once\
 `[~]` Swipe a song out of the queue, and Undo brings it back ([#141](https://github.com/ItzSkyeYT/InterTune/issues/141))\
@@ -194,9 +193,7 @@ What's being worked on, roughly in order. `[x]` is done, `[~]` is built and bein
 `[~]` A floating dock without the glass on Android 11 and 12\
 `[~]` Tempo in 1% steps between 90% and 110%\
 `[~]` The playing song stays in view at the top or bottom of a long queue ([#81](https://github.com/ItzSkyeYT/InterTune/issues/81))\
-`[~]` Spatial audio for surround recordings, and Strength, Room and Ambience controls\
 `[~]` Choose which lyrics sources are used, and in what order\
-`[~]` Similar artists in the Favourite artists mix\
 `[x]` Find songs you saved twice, in Liked or your library ([#47](https://github.com/ItzSkyeYT/InterTune/issues/47))\
 `[x]` A Widgets page in Settings: each widget on your home screen, how it looks and its main choices\
 `[x]` An Animations switch, for older and smaller phones\
@@ -208,9 +205,32 @@ What's being worked on, roughly in order. `[x]` is done, `[~]` is built and bein
 `[ ]` Lyrics videos\
 `[ ]` Better word by word lyrics\
 `[~]` Albums and artists in your own order too\
-`[ ]` Tablets: settings in two panes, and the player as a side pane *(in progress)*\
-`[ ]` A look made for foldable and flip phones *(in progress)*\
-`[ ]` Match your library from another service by logging in to it
+`[ ]` Match your library from another service by logging in to it\
+`[ ]` Bring your library over from a Metrolist backup, from its Android app or its new one *(in progress)*
+
+</details>
+
+<details>
+<summary><b>After 0.13</b></summary>
+
+`[ ]` Speed dial on Home\
+`[ ]` Lyrics in big lines, each singer on their own side, with a menu to fix them or pick where they come from\
+`[ ]` The queue: radio choices as chips, and a lock\
+`[ ]` Roomier settings, and one page for the services InterTune connects to\
+`[ ]` ListenBrainz ([#159](https://github.com/ItzSkyeYT/InterTune/issues/159))\
+`[ ]` Music videos ([#96](https://github.com/ItzSkyeYT/InterTune/issues/96))\
+`[ ]` Bring your library over from InnerTune, ViMusic, SimpMusic or Kreate\
+`[ ]` A thumbs down that YouTube Music hears too ([#171](https://github.com/ItzSkyeYT/InterTune/issues/171))\
+`[ ]` More haptic feedback ([#176](https://github.com/ItzSkyeYT/InterTune/issues/176))\
+`[ ]` Unison as a lyrics source ([#145](https://github.com/ItzSkyeYT/InterTune/issues/145))\
+`[ ]` Lyrics translated by AI with your own key, if you turn it on ([#177](https://github.com/ItzSkyeYT/InterTune/issues/177))\
+`[ ]` A page with every poll, to see or change what you answered\
+`[ ]` Music to a speaker of your choice while a call stays on the phone ([#117](https://github.com/ItzSkyeYT/InterTune/issues/117))\
+`[~]` InterTune's own screen on Chromecasts, with Google Home's Next button working\
+`[~]` Spatial audio for surround recordings, and Strength, Room and Ambience controls\
+`[~]` Similar artists in the Favourite artists mix\
+`[ ]` Tablets: settings in two panes, and the player as a side pane that can show lyrics *(in progress)* ([#140](https://github.com/ItzSkyeYT/InterTune/issues/140))\
+`[ ]` A look made for foldable and flip phones *(in progress)*
 
 </details>
 

@@ -17,7 +17,7 @@ import java.io.File
  * Downloads in their own quality (Unreleased.DOWNLOAD_QUALITY), read from the source as the other
  * wiring tests are, since a flag is a constant of the build and a resolver cannot be run here: the
  * resolver of DownloadUtil judges the cached copy, picks the stream and records the copy by one
- * value, the row is offered only with the flag, and its texts are held with their French beside them.
+ * value, the row is offered only with the flag, and its texts are open to translators with their French beside them.
  * What the quality is, for a setting and a flag, is DownloadQualityTest.
  */
 class DownloadQualityWiringTest {
@@ -71,8 +71,8 @@ class DownloadQualityWiringTest {
     // ---- the flag
 
     @Test
-    fun `the flag is held back like the others of debug and preview builds`() {
-        assertTrue(Regex("""^\s*val DOWNLOAD_QUALITY = BuildConfig\.PREVIEW_FEATURES\s*$""", RegexOption.MULTILINE).containsMatchIn(fileCode("constants/Unreleased.kt")))
+    fun `the flag is on in every build, a release included`() {
+        assertTrue(Regex("""^\s*val DOWNLOAD_QUALITY = true\s*$""", RegexOption.MULTILINE).containsMatchIn(fileCode("constants/Unreleased.kt")))
     }
 
     @Test
@@ -143,11 +143,11 @@ class DownloadQualityWiringTest {
     private fun text(xml: String, name: String) = Regex("""<string name="$name"[^>]*>(.*?)</string>""").find(xml)?.groupValues?.get(1)
 
     @Test
-    fun `its three texts are held from translators, with their French beside them`() {
+    fun `its three texts are open to translators, with their French beside them`() {
         for (name in names) {
             val tag = Regex("""<string name="$name"[^>]*>""").find(english)?.value
             assertNotNull("$name is not in the English file", tag)
-            assertTrue("$name is not held (translatable=\"false\")", "translatable=\"false\"" in tag!!)
+            assertFalse("$name is still held (translatable=\"false\")", "translatable=\"false\"" in tag!!)
             assertNotNull("$name has no French", text(french, name))
         }
         assertEquals("Download quality", text(english, "download_quality"))

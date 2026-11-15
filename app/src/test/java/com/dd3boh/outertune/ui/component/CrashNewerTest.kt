@@ -56,11 +56,11 @@ class CrashNewerTest {
     }
 
     @Test
-    fun `the words are held in English and written in French`() {
+    fun `the words are open to translators in English and written in French`() {
         val en = File("src/main/res/values/strings-ot.xml").readText()
         val fr = File("src/main/res/values-fr/strings-ot.xml").readText()
         for (name in listOf("crash_newer_title", "crash_newer_body", "crash_newer_update")) {
-            assertTrue(name, en.contains("<string name=\"$name\" translatable=\"false\">"))
+            assertTrue(name, en.contains("<string name=\"$name\">"))
             assertTrue(name, fr.contains("<string name=\"$name\">"))
         }
     }

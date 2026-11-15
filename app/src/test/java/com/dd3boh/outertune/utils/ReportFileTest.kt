@@ -57,10 +57,10 @@ class ReportFileTest {
     }
 
     @Test
-    fun `its words are held in English and written in French`() {
+    fun `its words are open to translators in English and written in French`() {
         val en = File("src/main/res/values/strings-ot.xml").readText()
         val fr = File("src/main/res/values-fr/strings-ot.xml").readText()
-        assertTrue(en.contains("<string name=\"problem_report_share_file\" translatable=\"false\">Share as a file</string>"))
+        assertTrue(en.contains("<string name=\"problem_report_share_file\">Share as a file</string>"))
         assertTrue(fr.contains("<string name=\"problem_report_share_file\">Partager en fichier</string>"))
     }
 }

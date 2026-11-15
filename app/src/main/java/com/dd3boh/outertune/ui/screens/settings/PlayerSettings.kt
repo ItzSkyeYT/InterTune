@@ -243,7 +243,6 @@ fun PlayerSettings(
                 SwitchPreference(
                     modifier = Modifier.settingRow(R.string.keep_alive_title),
                     title = { Text(stringResource(R.string.keep_alive_title)) },
-                    description = stringResource(R.string.keep_alive_description),
                     icon = { Icon(Icons.Rounded.NoCell, null) },
                     checked = keepAlive,
                     onCheckedChange = {
