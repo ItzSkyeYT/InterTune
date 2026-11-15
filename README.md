@@ -213,6 +213,7 @@ What's being worked on, roughly in order. `[x]` is done, `[~]` is built and bein
 <details>
 <summary><b>After 0.13</b></summary>
 
+`[ ]` Paste or share a YouTube link to play it as a song and download it *(0.13.5)*\
 `[ ]` Speed dial on Home\
 `[ ]` Lyrics in big lines, each singer on their own side, with a menu to fix them or pick where they come from\
 `[ ]` The queue: radio choices as chips, and a lock\
