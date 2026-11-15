@@ -93,6 +93,12 @@ fun absoluteFilePathFromUri(context: Context, uri: Uri): String? {
     return fileFromUri(context, dfUri)?.absolutePath
 }
 
+/** A scan folder by its own name, "Music" for /storage/emulated/0/Music, for the line under the row. */
+fun folderName(context: Context, uri: Uri): String =
+    absoluteFilePathFromUri(context, uri)?.trimEnd('/')?.substringAfterLast('/')?.takeIf { it.isNotBlank() }
+        ?: uri.lastPathSegment?.substringAfterLast(':')?.substringAfterLast('/')?.takeIf { it.isNotBlank() }
+        ?: uri.toString()
+
 private fun customDocFileFromTreeTreeUri(context: Context, uri: Uri) = TreeDocumentFileOt(
     null, context, DocumentsContract.buildDocumentUriUsingTree(
         uri, DocumentsContract.getTreeDocumentId(uri)
