@@ -70,6 +70,7 @@ object BuiltInKeys {
     val lastFmApiKey: String get() = revealIfGenuine(BuildConfig.LASTFM_API_KEY)
     val lastFmApiSecret: String get() = revealIfGenuine(BuildConfig.LASTFM_API_SECRET)
     val pollsUrl: String get() = revealIfGenuine(BuildConfig.POLLS_URL)
+    val pollsMirrors: String get() = revealIfGenuine(BuildConfig.POLLS_MIRRORS)
     val countUrl: String get() = revealIfGenuine(BuildConfig.POLLS_COUNT_URL)
     val umamiWebsiteId: String get() = revealIfGenuine(BuildConfig.POLLS_UMAMI_WEBSITE_ID)
 

@@ -16,7 +16,9 @@ import com.dd3boh.outertune.utils.BuiltInKeys
  *
  * Polls are READ from a gist. The maintainer's own machine pushes to it with a token that stays on
  * that machine, so the app never learns anything about where the polls were written. It also means
- * polls keep serving from GitHub's CDN when that machine is off.
+ * polls keep serving from GitHub's CDN when that machine is off. Since 0.13 the document is signed
+ * (SignedDocument), and the same file on three other hosts is asked when the gist gives none to
+ * believe: [SOURCES].
  *
  * Answers are WRITTEN to InterTune's own counter, which has to be reachable to accept them. Never point
  * it at a home connection.
@@ -29,6 +31,15 @@ object Polls {
      * editing the gist is picked up without changing anything here.
      */
     val POLLS_URL: String get() = BuiltInKeys.pollsUrl
+
+    /**
+     * Every host of the signed document, in the order they are asked: the gist, then polls.mirrors in
+     * services.properties (intertune.app, the counter worker, Codeberg), each another company, so one
+     * account closed or one host down does not silence the app. The first that gives a document signed
+     * by the maintainer wins; versions before 0.13 read the gist alone.
+     */
+    val SOURCES: List<String>
+        get() = (listOf(POLLS_URL) + BuiltInKeys.pollsMirrors.split(' ', '\n', '\t')).map { it.trim() }.filter { it.isNotEmpty() }
 
     /**
      * InterTune's own counter, no trailing slash: a Cloudflare worker (intertune-count) that takes
@@ -66,5 +77,5 @@ object Polls {
      * BuiltInKeys). Nothing runs until then, so a clone does not post its answers into these polls.
      */
     val isConfigured: Boolean
-        get() = POLLS_URL.isNotEmpty() && COUNT_URL.isNotEmpty() && UMAMI_WEBSITE_ID.isNotEmpty()
+        get() = SOURCES.isNotEmpty() && COUNT_URL.isNotEmpty() && UMAMI_WEBSITE_ID.isNotEmpty()
 }

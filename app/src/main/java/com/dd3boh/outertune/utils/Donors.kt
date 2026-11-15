@@ -10,10 +10,15 @@ import android.content.Context
 import android.util.Log
 import androidx.datastore.preferences.core.edit
 import com.dd3boh.outertune.constants.DonorsCacheKey
+import com.dd3boh.outertune.constants.SignedDonorsSeqKey
 import com.dd3boh.outertune.extensions.isInternetConnected
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.jsonObject
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.util.concurrent.TimeUnit
@@ -25,10 +30,14 @@ import java.util.concurrent.TimeUnit
  * A name is the bold text that opens a cell of the Donors table. The bold words around the table
  * (the thanks above it, "Want your name here?" below) sit outside any cell and are never taken.
  * The README is asked for when the note opens; the last list is kept in the settings store, so it
- * shows offline and while the request is out. A failed request keeps that list.
+ * shows offline and while the request is out. When GitHub does not answer, the same names come from
+ * the signed donors.json on intertune.app (SignedDocument); when neither does, the last list stands.
  */
 object Donors {
     const val README_URL = "https://raw.githubusercontent.com/ItzSkyeYT/InterTune/visionos-fix/README.md"
+
+    /** The same names, signed (tools/announce/announce.py donors), for when GitHub does not answer. */
+    const val SIGNED_URL = "https://intertune.app/news/donors.json"
     private const val TAG = "Donors"
 
     private val heading = Regex("""(?m)^##\s+Donors\s*$""")
@@ -72,12 +81,22 @@ object Donors {
             client.newCall(Request.Builder().url(README_URL).build()).execute().use { response ->
                 if (!response.isSuccessful) null else response.body?.string()
             }
-        }.getOrNull() ?: run {
-            Log.i(TAG, "README not read, keeping the last list of ${last.size}")
-            return@withContext last
-        }
-        val names = parse(readme)
+        }.getOrNull()
+        val names = readme?.let(::parse)
+            ?: SignedSources.one(context, SIGNED_URL, SignedDocument.DONORS, SignedDonorsSeqKey)?.let(::signedNames)
+            ?: run {
+                Log.i(TAG, "README not read, nor its signed copy, keeping the last list of ${last.size}")
+                return@withContext last
+            }
         context.dataStore.edit { it[DonorsCacheKey] = names.joinToString("\n") }
         names
     }
+
+    /** The names in a signed donors.json, in its order, or null when it has no list. */
+    internal fun signedNames(payload: String): List<String>? = runCatching {
+        (Json.parseToJsonElement(payload).jsonObject["donors"] as JsonArray)
+            .mapNotNull { (it as? JsonPrimitive)?.takeIf { p -> p.isString }?.content?.trim() }
+            .filter { it.isNotEmpty() && it.length <= 60 }
+            .distinct()
+    }.getOrNull()
 }

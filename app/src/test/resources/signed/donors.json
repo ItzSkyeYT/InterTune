@@ -1,0 +1,7 @@
+{
+  "signed": {
+    "key": "1e6c01146ea95627",
+    "payload": "eyJraW5kIjoiZG9ub3JzIiwic2VxIjoxNzk0NzQ0MDAwLCJleHBpcmVzIjoiMjAyNy0xMS0xNVQxMjowMDowMFoiLCJkb25vcnMiOlsiRGlzbW9ycGhpc20iLCJUb20gJiBKZXJyeSJdfQ==",
+    "sig": "MEUCID7MVzedVvIp7gr8NcqQJsbmg/rMnCIwPmBJQOa8C2PdAiEA9EUQV7vUMomp/3IC0l7ppyfEvSaX7dwgWEehet7XVLw="
+  }
+}

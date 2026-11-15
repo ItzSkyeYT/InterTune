@@ -90,7 +90,11 @@ import com.dd3boh.outertune.utils.YouTubeRegion
 import com.dd3boh.outertune.utils.YouTubeTrouble
 import com.dd3boh.outertune.utils.StreamOrder
 import com.dd3boh.outertune.utils.RemoteRoutes
-import com.dd3boh.outertune.constants.CachedPollsJsonKey
+import com.dd3boh.outertune.utils.CheckedPictureFetcher
+import com.dd3boh.outertune.utils.CheckedPictureKeyer
+import com.dd3boh.outertune.utils.CheckedPictures
+import com.dd3boh.outertune.utils.SignedDocument
+import com.dd3boh.outertune.constants.SignedNewsKey
 import com.dd3boh.outertune.constants.LastPollFetchKey
 import com.dd3boh.outertune.utils.YTPlayerUtils
 import com.zionhuang.innertube.YouTube
@@ -196,8 +200,12 @@ class App : Application(), SingletonImageLoader.Factory {
         // the player, which runs on every song. See StreamOrder.
         YTPlayerUtils.streamMemory = StreamOrder.decode(dataStore[StreamOrderKey])
         // The maintainer's playback block, from the document fetched last: see RemoteRoutes. It is
-        // read again whenever the document is.
-        RemoteRoutes.read(dataStore[CachedPollsJsonKey], BuildConfig.VERSION_CODE, dataStore[LastPollFetchKey] ?: 0L)
+        // read again whenever the document is. Only a signed one, in date (SignedDocument).
+        RemoteRoutes.read(
+            dataStore[SignedNewsKey]?.takeIf { SignedDocument.inDate(it, System.currentTimeMillis()) },
+            BuildConfig.VERSION_CODE,
+            dataStore[LastPollFetchKey] ?: 0L,
+        )
         YTPlayerUtils.warmIfTheWebClientServedLast()
         YTPlayerUtils.onStreamMemoryChanged = { changed ->
             GlobalScope.launch { dataStore.edit { it[StreamOrderKey] = changed } }
@@ -327,6 +335,9 @@ class App : Application(), SingletonImageLoader.Factory {
                 .components {
                     add(CoilBitmapLoader.Factory(this@App))
                     add(LocalArtworkPathKeyer())
+                    // The pictures of the news, each checked against the hash its signed document gives.
+                    add(CheckedPictureFetcher.Factory(cacheDir.resolve(CheckedPictures.FOLDER)))
+                    add(CheckedPictureKeyer())
                 // A downloaded song's kept cover, served from the app's own storage: see DownloadCovers.
                 add(DownloadCovers.Interceptor(filesDir))
                 }
@@ -346,6 +357,9 @@ class App : Application(), SingletonImageLoader.Factory {
             .components {
                 add(CoilBitmapLoader.Factory(this@App))
                 add(LocalArtworkPathKeyer())
+                // The pictures of the news, each checked against the hash its signed document gives.
+                add(CheckedPictureFetcher.Factory(cacheDir.resolve(CheckedPictures.FOLDER)))
+                add(CheckedPictureKeyer())
                 // A downloaded song's kept cover, served from the app's own storage: see DownloadCovers.
                 add(DownloadCovers.Interceptor(filesDir))
             }

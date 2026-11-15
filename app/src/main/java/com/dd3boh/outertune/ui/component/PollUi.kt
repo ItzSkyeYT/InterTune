@@ -74,6 +74,7 @@ import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import com.dd3boh.outertune.utils.CheckedPictures
 import com.dd3boh.outertune.ui.utils.DialogAboveKeyboard
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.runtime.DisposableEffect
@@ -626,7 +627,7 @@ private fun PollImage(
             .background(MaterialTheme.colorScheme.surfaceVariant)
     ) {
         AsyncImage(
-            model = url,
+            model = CheckedPictures.model(url),
             contentDescription = null,
             contentScale = ContentScale.Crop,
             modifier = Modifier.fillMaxSize(),

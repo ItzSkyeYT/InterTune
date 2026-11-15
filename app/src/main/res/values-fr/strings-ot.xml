@@ -364,7 +364,7 @@
     <string name="grp_polls">Questions et nouvelles</string>
     <string name="polls_enabled">Me poser une question de temps en temps</string>
     <string name="polls_enabled_description">Une courte question sur l\'accueil de temps en temps, sur ce qu\'il faudrait créer.</string>
-    <string name="polls_enabled_info">De temps en temps, InterTune récupère une courte question sur GitHub et l\'affiche sur l\'accueil. Répondre envoie la question, votre réponse et la version de l\'application, et l\'ouvrir envoie son titre et la version. Jamais votre compte, votre appareil ni votre bibliothèque.</string>
+    <string name="polls_enabled_info">De temps en temps, InterTune récupère une courte question sur GitHub, ou sur intertune.app, Cloudflare ou Codeberg quand GitHub ne répond pas, et l\'affiche sur l\'accueil. Répondre envoie la question, votre réponse et la version de l\'application, et l\'ouvrir envoie son titre et la version. Jamais votre compte, votre appareil ni votre bibliothèque.</string>
     <string name="polls_none">Aucune question pour le moment</string>
     <string name="polls_one_waiting">Une question vous attend</string>
     <string name="news_one_waiting">Il y a une nouvelle en attente</string>
@@ -381,7 +381,7 @@
     <string name="polls_opt_in_no">Non merci</string>
     <string name="news_enabled">Des nouvelles d\'InterTune</string>
     <string name="news_enabled_description">Une annonce sur l\'accueil de temps en temps, comme une nouveauté.</string>
-    <string name="news_enabled_info">De temps en temps, InterTune récupère des annonces sur GitHub et les affiche sur l\'accueil. En ouvrir une envoie son titre et la version de l\'application, pour compter les lecteurs. Jamais votre compte, votre appareil ni votre bibliothèque.</string>
+    <string name="news_enabled_info">De temps en temps, InterTune récupère des annonces sur GitHub, ou sur intertune.app, Cloudflare ou Codeberg quand GitHub ne répond pas, et les affiche sur l\'accueil. En ouvrir une envoie son titre et la version de l\'application, pour compter les lecteurs. Jamais votre compte, votre appareil ni votre bibliothèque.</string>
     <string name="news_opt_in_title">Recevoir des nouvelles d\'InterTune ?</string>
     <string name="news_opt_in_body">De temps en temps, InterTune peut afficher une courte annonce sur l\'accueil, comme une nouveauté. L\'ouverture est comptée anonymement, et vous pouvez désactiver cela à tout moment dans les paramètres.</string>
     <string name="news_opt_in_yes">Oui, montrez-moi</string>
@@ -409,7 +409,7 @@
     <string name="update_open_auto_blocker">Ouvrir le Bloqueur automatique</string>
     <string name="update_try_again">Réessayer</string>
     <string name="update_open_page">Ouvrir plutôt la page de la version</string>
-    <string name="update_check_description">Vérifie sur GitHub s\'il y a une nouvelle version à chaque ouverture. Rien ne s\'installe sans votre accord.</string>
+    <string name="update_check_description">Vérifie sur GitHub s\'il y a une nouvelle version à chaque ouverture, ou sur intertune.app quand GitHub ne répond pas. Rien ne s\'installe sans votre accord.</string>
     <string name="oobe_update_check_description">InterTune n\'est pas sur une boutique d\'applications : elle consulte GitHub à l\'ouverture pour trouver les nouvelles versions. Elle peut les télécharger et les installer pour vous, et Android vous demande toujours d\'abord.</string>
     <string name="look_and_feel">Apparence</string>
     <string name="grp_privacy_and_history">Confidentialité et historique</string>
@@ -613,7 +613,7 @@
     <string name="update_prompt_fdroid">Mettre à jour dans F-Droid</string>
     <string name="update_fdroid_note">Cette copie vient de F-Droid, les mises à jour viennent donc de là. F-Droid compile chaque version lui-même, une nouvelle peut donc mettre un peu de temps.</string>
     <string name="update_fdroid_source">Les mises à jour viennent de F-Droid</string>
-    <string name="update_check_description_fdroid">Vérifie sur GitHub pour que vous sachiez quand une version sort. Votre copie vient de F-Droid, c\'est donc de là qu\'elle s\'installe, et F-Droid ne l\'a peut-être pas encore compilée.</string>
+    <string name="update_check_description_fdroid">Vérifie sur GitHub, ou sur intertune.app quand GitHub ne répond pas, pour que vous sachiez quand une version sort. Votre copie vient de F-Droid, c\'est donc de là qu\'elle s\'installe, et F-Droid ne l\'a peut-être pas encore compilée.</string>
     <string name="transition_fade">Fondu entre les titres</string>
     <string name="transition_fade_description">Chaque titre s\'estompe, puis le suivant arrive en fondu. Ils ne se chevauchent pas.</string>
     <string name="transition_fade_explain">Chaque titre s\'estompe et le suivant arrive en fondu, sans se chevaucher. Les titres d\'un même album et ceux que vous choisissez ne sont pas estompés.</string>
