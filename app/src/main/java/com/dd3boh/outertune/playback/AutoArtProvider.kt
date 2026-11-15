@@ -6,6 +6,7 @@
 
 package com.dd3boh.outertune.playback
 
+import com.dd3boh.outertune.utils.PlaylistCovers
 import android.content.ContentProvider
 import android.content.ContentValues
 import android.content.Context
@@ -99,7 +100,7 @@ class AutoArtProvider : ContentProvider() {
             AutoArt.PLAYLIST -> when (id) {
                 PlaylistEntity.LIKED_PLAYLIST_ID -> web(database.likedSongs(SongSortType.CREATE_DATE, true).first().firstOrNull()?.song?.thumbnailUrl)
                 PlaylistEntity.DOWNLOADED_PLAYLIST_ID -> web(database.downloadNoLocalSongs().first().firstOrNull()?.song?.thumbnailUrl)
-                else -> database.playlist(id).first()?.let { web(it.playlist.thumbnailUrl) + web(it.songThumbnails.firstOrNull { address -> address != null }) }.orEmpty()
+                else -> database.playlist(id).first()?.let { web(PlaylistCovers.songCover(it.playlist.thumbnailUrl)) + web(it.songThumbnails.firstOrNull { address -> address != null }) }.orEmpty()
             }
 
             else -> emptyList()

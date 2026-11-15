@@ -106,6 +106,7 @@ fun PlaylistCoverSheet(
     onPhoto: () -> Unit,
     onSong: (String) -> Unit,
     onDismiss: () -> Unit,
+    syncedWithYouTube: Boolean = false,
 ) {
     val landscape = LocalLandscape.current
     val files = LocalContext.current.filesDir
@@ -151,6 +152,14 @@ fun PlaylistCoverSheet(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 4.dp)
             )
+            if (syncedWithYouTube) {
+                Text(
+                    text = stringResource(R.string.playlist_cover_synced),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 4.dp)
+                )
+            }
 
             // The cells keep a margin round their pictures for the ring, so the row starts a margin
             // before the gutter and the gap between two is two margins less than it looks.
@@ -222,7 +231,7 @@ fun PlaylistCoverSheet(
                 ) {
                     items(options, key = { it.cover }) { option ->
                         ChoiceCell(
-                            selected = stored == option.cover,
+                            selected = PlaylistCovers.songCover(stored) == option.cover,
                             onClick = { onSong(option.cover) },
                             title = option.title,
                             note = null,

@@ -1,5 +1,6 @@
 package com.dd3boh.outertune.db.daos
 
+import com.dd3boh.outertune.utils.PlaylistCovers
 import android.util.Log
 import androidx.room.Dao
 import androidx.room.Delete
@@ -186,7 +187,8 @@ interface PlaylistsDao {
             name = playlistItem.title,
             browseId = playlistItem.id,
             isEditable = playlistItem.isEditable,
-            thumbnailUrl = playlistItem.thumbnail,
+            // A cover chosen in the app stays; Automatic (nothing) takes YouTube's.
+            thumbnailUrl = PlaylistCovers.keepOrRemote(playlistEntity.thumbnailUrl, playlistItem.thumbnail),
             remoteSongCount = playlistItem.songCountText?.let { Regex("""\d+""").find(it)?.value?.toIntOrNull() },
             playEndpointParams = playlistItem.playEndpoint?.params,
             shuffleEndpointParams = playlistItem.shuffleEndpoint?.params,

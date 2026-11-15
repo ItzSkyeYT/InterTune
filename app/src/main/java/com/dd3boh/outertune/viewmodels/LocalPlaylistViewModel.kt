@@ -143,45 +143,19 @@ class LocalPlaylistViewModel @Inject constructor(
         }
     }
 
-    /**
-     * One cover write at a time, so a photo still being read is not overtaken by a pick made after
-     * it: each is the file and the database row written together, in the order they were asked.
-     */
-    private val coverLock = Mutex()
-
     /** The first song's cover again, as a playlist has until another is chosen. */
     fun coverAutomatic() = setCover(null)
 
     /** The cover of one of this playlist's songs, as that song has it (PlaylistCovers.coverOf). */
     fun coverSong(cover: String) = setCover(cover)
 
-    /**
-     * A photo from the phone as the cover: read, brought down to 1024 px, kept as a file of the app's
-     * own and then written to the playlist. One that cannot be read leaves the cover as it was.
-     */
+    /** A photo from the phone as the cover (PlaylistCovers.choosePhoto). */
     fun coverPhoto(uri: Uri) {
-        viewModelScope.launch(Dispatchers.IO) {
-            coverLock.withLock {
-                val name = PlaylistCovers.importPhoto(context, playlistId, uri) ?: return@withLock
-                write(PlaylistCovers.stored(name), kept = name)
-            }
-        }
+        viewModelScope.launch(Dispatchers.IO) { PlaylistCovers.choosePhoto(context, database, playlistId, uri) }
     }
 
     private fun setCover(cover: String?) {
-        viewModelScope.launch(Dispatchers.IO) { coverLock.withLock { write(cover, kept = null) } }
-    }
-
-    /**
-     * Writes the cover, then deletes the photos it replaced: in that order, so that a cut between
-     * them leaves a file nobody names and never a name with no file. When no row took the write (the
-     * playlist is gone, or has a YouTube playlist behind it) nothing that is named is deleted, and
-     * the photo just kept ([kept]) goes, for nobody names it.
-     */
-    private fun write(cover: String?, kept: String?) {
-        val written = database.transactionNow { setPlaylistCover(playlistId, cover) }
-        if (written > 0) PlaylistCovers.forget(context.filesDir, playlistId, except = kept)
-        else if (kept != null) File(PlaylistCovers.dir(context.filesDir), kept).delete()
+        viewModelScope.launch(Dispatchers.IO) { PlaylistCovers.choose(context, database, playlistId, cover) }
     }
 
     init {
