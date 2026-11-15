@@ -98,6 +98,8 @@ class TogetherSession(
         val proposed: Boolean = false,
         /** The leader: a guest's song and queue, waiting for a yes or a no. */
         val proposal: Proposal? = null,
+        /** The host's song fails on this phone (YouTube refuses it here): it waits on it, and takes the next one by itself. */
+        val songUnavailable: Boolean = false,
     )
 
     /** A guest's own song and the queue after it, proposed to this phone as the leader: see [propose]. */
@@ -131,6 +133,7 @@ class TogetherSession(
     private var leaderKey: String? = if (owner) me else null
     private val leading: Boolean get() = leaderKey == me
     private var lastState: TogetherMessage.State? = null
+    private val hostLine = HostLine()
     private var roomQueue: TogetherMessage.Queue? = null
     private var settleUntil = 0L
     private var lastSentState = 0L
@@ -150,6 +153,8 @@ class TogetherSession(
     /** How late this phone's sound comes out (Settings > Listen together). */
     private var delayMs = 0L
     private var pausedHere = false
+    /** The host's song this phone cannot play: see [holdsFailed]. */
+    private val refusal = HostSongRefusal()
     /** The room's queue this phone's own was last made to match, so it is compared once per word. */
     private var matchedQueue: TogetherMessage.Queue? = null
     private var currentId: String? = service.exoPlayer.currentMediaItem?.mediaId
@@ -388,7 +393,8 @@ class TogetherSession(
             is TogetherMessage.State -> if (!leading) {
                 // Before the owner's word on who leads, whoever sends the playback does.
                 if (leaderKey == null) lead(from)
-                if (from == leaderKey) {
+                // A word with an older clock than the newest is a late one: the relays do not keep order.
+                if (from == leaderKey && hostLine.hear(message)) {
                     lastState = message
                     lastStateAt = now
                     // The leader said yes to this phone's song: back with the room, where it already is.
@@ -466,6 +472,7 @@ class TogetherSession(
         gap = ClockGap()
         pingsToLeader = 0
         lastState = null
+        hostLine.clear()
         loadingSong = null
         matchedQueue = null
         lock.reset()
@@ -667,12 +674,16 @@ class TogetherSession(
             }
             Log.i(TAG, "No word from the leader for ${HOST_TIMEOUT_MS / 1000} s: playing on alone")
             lastState = null
+            hostLine.clear()
             leaderKey = null
             speed(service.exoPlayer, speedBefore.toDouble())
             _status.value = _status.value.copy(waitingForHost = true, driftMs = null)
             return
         }
         val player = service.exoPlayer
+        // The host's next song: whatever failed before is behind.
+        refusal.songIs(state.songId)
+        if (_status.value.songUnavailable && refusal.refusedId == null) _status.value = _status.value.copy(songUnavailable = false)
         // Marked paused here while its player plays: the play was missed, and it is back with the room.
         if (pausedHere && player.playWhenReady) listenerPlayed(true)
         // Paused here by the listener: the room plays on, and play brings this phone back to it.
@@ -684,6 +695,19 @@ class TogetherSession(
         }
         loadingSong = null
         waitingFor = null
+        if (refusal.staysOn(state.songId)) {
+            // Failed here: stays on the host's song, not playing, one more try later (see HostSongRefusal).
+            if (player.playbackState == Player.STATE_IDLE && refusal.retryDue(state.songId, now)) {
+                Log.i(TAG, "The leader's ${state.songId} failed here: one more try")
+                mine(SONG_SWITCH_MS)
+                player.prepare()
+            }
+            if (player.playbackState != Player.STATE_READY) return
+        }
+        if (player.playbackState == Player.STATE_READY && refusal.refusedId != null) {
+            refusal.played()
+            _status.value = _status.value.copy(songUnavailable = false)
+        }
         if (player.playbackState != Player.STATE_READY && player.playbackState != Player.STATE_BUFFERING) return
         if (arriving) arrive(player, state, now)
         if (roomQueue !== matchedQueue) matchQueue()
@@ -713,7 +737,7 @@ class TogetherSession(
             _status.value = _status.value.copy(driftMs = target - local, locked = false)
             return
         }
-        when (val decision = lock.decide(target, local, state.speed)) {
+        when (val decision = lock.decide(target, local, state.speed, now)) {
             is Follow.Seek -> if (Follow.jumpNow(decision.positionMs, local, player.bufferedPosition)) {
                 waitingForData = false
                 seek(player, decision.positionMs)
@@ -733,6 +757,25 @@ class TogetherSession(
             }
         }
         _status.value = _status.value.copy(driftMs = target - local, locked = lock.locked)
+    }
+
+    /**
+     * The player failed on [songId] and the service asks whether the room has it: true when it is
+     * the host's song and this phone follows it, which then stays on it, nothing skipped and nothing
+     * asked in a loop (issue #187: the player skipped the song it could not play, the room sent it
+     * back, and round it went 287 times). False for anything else, which the service handles as ever.
+     */
+    fun holdsFailed(songId: String?): Boolean {
+        val state = lastState ?: return false
+        if (leading || ownWay || pausedHere || songId == null || songId != state.songId) return false
+        refusal.songIs(state.songId)
+        refusal.failed(songId, System.currentTimeMillis())
+        // Nothing the session does next is the listener's.
+        mine(SONG_SWITCH_MS)
+        loadingSong = null
+        _status.value = _status.value.copy(songUnavailable = true, driftMs = null, locked = false)
+        Log.i(TAG, "The leader's $songId cannot be played here: staying on it until the leader's next song")
+        return true
     }
 
     /** Behind the leader past what has come in, playing on until it has: see Follow.jumpNow. */
@@ -867,7 +910,7 @@ class TogetherSession(
      * back, so this spot is the one it fetches.
      */
     private fun leaderAt(state: TogetherMessage.State, now: Long): Long =
-        if (gap.known) Follow.target(state, gap.hostNow(now)) else Follow.guess(state, lastStateAt, now)
+        if (gap.known) hostLine.target(state, gap.hostNow(now)) else Follow.guess(state, lastStateAt, now)
 
     /**
      * The leader's song has just come and is still loading here: if it starts well before the
@@ -889,7 +932,7 @@ class TogetherSession(
 
     private fun seek(player: Player, positionMs: Long) {
         mine()
-        lock.reset()
+        lock.sought()
         // A leader on Bluetooth near the start of a song says a spot before it.
         player.seekTo(positionMs.coerceAtLeast(0))
         settleUntil = System.currentTimeMillis() + SETTLE_MS

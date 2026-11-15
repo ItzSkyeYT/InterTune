@@ -199,6 +199,8 @@ import com.dd3boh.outertune.playback.PlayerConnection
 import com.dd3boh.outertune.search.SystemSearch
 import com.dd3boh.outertune.utils.YouTubeLink
 import com.dd3boh.outertune.ui.dialog.TogetherInviteDialog
+import com.dd3boh.outertune.ui.dialog.TogetherSheet
+import com.dd3boh.outertune.together.InviteAnswer
 import com.dd3boh.outertune.ui.dialog.TogetherProposalDialog
 import com.dd3boh.outertune.ui.dialog.togetherAvailable
 import com.dd3boh.outertune.together.RoomCode
@@ -1496,6 +1498,13 @@ class MainActivity : ComponentActivity() {
                     // A listening room's invite, opened from a link: asked before joining.
                     var togetherInvite by remember { mutableStateOf<RoomCode?>(null) }
                     togetherInvite?.let { code -> TogetherInviteDialog(code, playerConnection, onDone = { togetherInvite = null }) }
+                    // An invite to the room this phone is in already opens that room's screen.
+                    var roomScreen by remember { mutableStateOf(false) }
+                    if (roomScreen && playerConnection != null) {
+                        CompositionLocalProvider(LocalPlayerConnection provides playerConnection) {
+                            TogetherSheet(onDismiss = { roomScreen = false })
+                        }
+                    }
                     // A guest's song proposed to this phone as the room's leader: asked wherever the app is.
                     TogetherProposalDialog(playerConnection)
                     LaunchedEffect(pendingLaunchLink, pendingLink.link, playerConnection, oobeStatus) {
@@ -1512,7 +1521,11 @@ class MainActivity : ComponentActivity() {
                         val searchWords = SystemSearch.searchOf(link)
                         val invite = if (togetherAvailable && RoomCode.isInviteLink(link)) RoomCode.parse(link) else null
                         if (invite != null) {
-                            togetherInvite = invite
+                            if (InviteAnswer.forInvite(invite, connection.service.together.value?.code) == InviteAnswer.Answer.OPEN_ROOM) {
+                                roomScreen = true
+                            } else {
+                                togetherInvite = invite
+                            }
                         } else if (libraryPlaylist != null) {
                             navController.navigate("local_playlist/$libraryPlaylist")
                         } else if (SystemSearch.isHeard(link)) {
