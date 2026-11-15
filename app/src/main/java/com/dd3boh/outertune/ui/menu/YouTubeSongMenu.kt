@@ -240,6 +240,13 @@ fun YouTubeSongMenu(
                     showSelectArtistDialog = true
                 }
             }
+        } else {
+            // No artist to go to: the entry stays, greyed out, and says so (#150).
+            GridMenuItem(
+                icon = Icons.Rounded.Person,
+                title = R.string.no_artist_found,
+                enabled = false
+            ) {}
         }
         song.album?.let { album ->
             GridMenuItem(

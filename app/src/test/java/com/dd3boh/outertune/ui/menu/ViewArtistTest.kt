@@ -6,6 +6,7 @@
 
 package com.dd3boh.outertune.ui.menu
 
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
@@ -13,8 +14,8 @@ import java.io.File
 /**
  * #150: a local file with no artist tag has no artist (the scanners drop blank names), and View
  * artist in its menu opened the choice of artists with nothing in it. Every menu that offers View
- * artist shows it only when there is an artist to go to, as the player's and YouTube's menus
- * already did. Read from the source, comments taken out.
+ * artist offers it only when there is an artist to go to; without one the entry stays, greyed out,
+ * and reads "No artist found" (Ti-Die's ask). Read from the source, comments taken out.
  */
 class ViewArtistTest {
 
@@ -39,8 +40,35 @@ class ViewArtistTest {
                     "${file.name}: View artist without a check that there is an artist:\n$before",
                     Regex("""if \([\w.]*artists\.isNotEmpty\(\)\) \{\s*$""").containsMatchIn(before),
                 )
+                // Right below it: the else, a greyed-out entry that says no artist was found.
+                val after = text.substring(at, minOf(text.length, at + 900))
+                assertTrue(
+                    "${file.name}: no greyed-out No artist found entry after View artist",
+                    Regex("""\}\s*else \{\s*GridMenuItem\([^)]*R\.string\.no_artist_found,\s*enabled = false""")
+                        .containsMatchIn(after),
+                )
                 at = text.indexOf("R.string.view_artist", at + 1)
             }
         }
+    }
+
+    @Test
+    fun `Open file location is offered for local songs only`() {
+        for (name in listOf("SongMenu.kt", "PlayerMenu.kt")) {
+            val text = code(File(menus, name))
+            val at = text.indexOf("R.string.open_file_location")
+            assertTrue("$name: no Open file location", at > 0)
+            val before = text.substring(maxOf(0, text.lastIndexOf("GridMenuItem(", at) - 160), at)
+            assertTrue("$name: not limited to local files:\n$before", "isLocal" in before && "localPath" in before)
+        }
+    }
+
+    @Test
+    fun `a file's folder is found from its path`() {
+        assertEquals("primary:Music/Rock", OpenFileLocation.folderDocumentId("/storage/emulated/0/Music/Rock/a.mp3"))
+        assertEquals("primary:", OpenFileLocation.folderDocumentId("/storage/emulated/0/a.mp3"))
+        assertEquals("1234-ABCD:Music", OpenFileLocation.folderDocumentId("/storage/1234-ABCD/Music/b.flac"))
+        assertEquals(null, OpenFileLocation.folderDocumentId("/data/data/x/a.mp3"))
+        assertEquals(null, OpenFileLocation.folderDocumentId(null))
     }
 }
