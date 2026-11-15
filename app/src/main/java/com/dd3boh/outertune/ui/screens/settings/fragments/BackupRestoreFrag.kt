@@ -67,6 +67,9 @@ import com.dd3boh.outertune.constants.PlaylistSortType
 import com.dd3boh.outertune.db.MusicDatabase
 import com.dd3boh.outertune.extensions.tryOrNull
 import com.dd3boh.outertune.ui.dialog.AskFirstDialog
+import com.dd3boh.outertune.constants.Unreleased
+import com.dd3boh.outertune.migration.MetrolistImport
+import androidx.compose.material.icons.rounded.MoveToInbox
 import com.dd3boh.outertune.ui.dialog.InfoLabel
 import com.dd3boh.outertune.ui.component.ListPreference
 import com.dd3boh.outertune.ui.component.PreferenceEntry
@@ -165,6 +168,49 @@ fun ColumnScope.BackupAndRestoreFrag(viewModel: BackupRestoreViewModel) {
             },
             onDismiss = { toRestore = null },
         )
+    }
+
+    // Bringing a Metrolist library over (MetrolistImport): the file is read and what it holds is shown before
+    // anything is written. A file that Restore takes instead is handed to Restore, under its own question.
+    val metrolist by viewModel.metrolist.collectAsState()
+    val backupTypes = arrayOf("application/octet-stream", "application/zip", "application/x-zip-compressed")
+    val metrolistLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) viewModel.readMetrolist(uri)
+    }
+    when (val m = metrolist) {
+        is BackupRestoreViewModel.Metrolist.Ready -> AskFirstDialog(
+            title = stringResource(R.string.metrolist_import),
+            text = stringResource(R.string.metrolist_import_summary, m.summary.inLibrary, m.summary.liked, m.summary.playlists, m.summary.plays),
+            confirm = stringResource(R.string.metrolist_import_confirm),
+            onConfirm = { viewModel.importMetrolist() },
+            onDismiss = { viewModel.closeMetrolist() },
+        )
+        is BackupRestoreViewModel.Metrolist.Refused -> {
+            val otherFile = m.why == MetrolistImport.Refusal.NOT_METROLIST
+            MetrolistDialog(
+                text = stringResource(
+                    when (m.why) {
+                        MetrolistImport.Refusal.NOT_METROLIST -> R.string.metrolist_import_not_metrolist
+                        MetrolistImport.Refusal.OURS -> R.string.metrolist_import_ours
+                        MetrolistImport.Refusal.TOO_OLD -> R.string.metrolist_import_too_old
+                    }
+                ),
+                action = stringResource(if (otherFile) R.string.metrolist_import_other_file else R.string.action_restore),
+                onAction = {
+                    viewModel.closeMetrolist()
+                    if (otherFile) metrolistLauncher.launch(backupTypes) else toRestore = m.uri
+                },
+                onDismiss = { viewModel.closeMetrolist() },
+            )
+        }
+        is BackupRestoreViewModel.Metrolist.Done -> MetrolistDialog(
+            title = stringResource(R.string.metrolist_import_done_title),
+            text = stringResource(R.string.metrolist_import_done, m.result.songs, m.result.liked, m.result.inLibrary, m.result.playlists, m.result.plays),
+            action = null,
+            onAction = {},
+            onDismiss = { viewModel.closeMetrolist() },
+        )
+        else -> Unit
     }
 
     // Every library playlist as an .m3u in a folder of the user's choosing. A one-off write, so
@@ -304,6 +350,20 @@ fun ColumnScope.BackupAndRestoreFrag(viewModel: BackupRestoreViewModel) {
                 restoreLauncher.launch(arrayOf("application/octet-stream"))
             }
         )
+        if (Unreleased.METROLIST_IMPORT) {
+            val reading = metrolist == BackupRestoreViewModel.Metrolist.Working
+            PreferenceEntry(
+                modifier = Modifier.settingRow(R.string.metrolist_import),
+                title = { Text(stringResource(R.string.metrolist_import)) },
+                description = stringResource(if (reading) R.string.metrolist_import_reading else R.string.metrolist_import_description),
+                icon = { Icon(Icons.Rounded.MoveToInbox, null) },
+                trailingContent = if (!reading) null else {
+                    { CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp) }
+                },
+                isEnabled = !reading && !restoring && !backingUp,
+                onClick = { metrolistLauncher.launch(backupTypes) },
+            )
+        }
     }
     // Which backups a restore takes, and what may need doing after one: under the row they are
     // about. Both stood at the foot of the page, below rows they say nothing of.
@@ -840,5 +900,31 @@ private fun BackupPartRow(
                 Text(warning, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 2.dp))
             }
         }
+    }
+}
+
+/** Why a Metrolist backup was not taken, with the one thing to do about it, or what came over. */
+@Composable
+private fun MetrolistDialog(
+    title: String = stringResource(R.string.metrolist_import),
+    text: String,
+    action: String?,
+    onAction: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    DefaultDialog(
+        onDismiss = onDismiss,
+        horizontalAlignment = Alignment.Start,
+        title = {
+            Text(title, modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 4.dp))
+        },
+        buttons = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(if (action == null) android.R.string.ok else android.R.string.cancel))
+            }
+            if (action != null) TextButton(onClick = onAction) { Text(action) }
+        },
+    ) {
+        Text(text, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(horizontal = 16.dp))
     }
 }
