@@ -21,11 +21,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.dd3boh.outertune.constants.ListThumbnailSize
 import com.dd3boh.outertune.db.entities.Artist
 import com.dd3boh.outertune.ui.utils.getNSongsString
+import com.dd3boh.outertune.utils.LocalArtworkPath
+import kotlin.math.roundToInt
 
 @Composable
 fun ArtistListItem(
@@ -64,8 +67,13 @@ fun ArtistListItem(
     subtitle = getNSongsString(artist.songCount, artist.downloadCount),
     badges = badges,
     thumbnailContent = {
+        val px = (ListThumbnailSize.value * LocalDensity.current.density).roundToInt()
         AsyncImage(
-            model = artist.artist.thumbnailUrl,
+            model = if (artist.artist.thumbnailUrl?.startsWith("/storage") == true) {
+                LocalArtworkPath(artist.artist.thumbnailUrl, px, px)
+            } else {
+                artist.artist.thumbnailUrl
+            },
             contentDescription = null,
             // A wide photo fills the round, as on the grid; fitted, it shrank to a strip across it.
             contentScale = ContentScale.Crop,
@@ -119,8 +127,14 @@ fun ArtistGridItem(
     subtitle = subtitle ?: getNSongsString(artist.songCount, artist.downloadCount),
     badges = badges,
     thumbnailContent = {
+        val density = LocalDensity.current
+        val px = (128 * density.density).roundToInt()
         AsyncImage(
-            model = artist.artist.thumbnailUrl,
+            model = if (artist.artist.thumbnailUrl?.startsWith("/storage") == true) {
+                LocalArtworkPath(artist.artist.thumbnailUrl, px, px)
+            } else {
+                artist.artist.thumbnailUrl
+            },
             contentDescription = null,
             contentScale = ContentScale.Companion.Crop,
             modifier = Modifier

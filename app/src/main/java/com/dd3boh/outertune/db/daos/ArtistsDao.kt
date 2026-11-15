@@ -152,9 +152,24 @@ interface ArtistsDao {
             LEFT JOIN song ON sam.songId = song.id
         WHERE artist.isLocal = 1
         GROUP BY artist.id
-        ORDER BY artist.name ASC
+        ORDER BY artist.name COLLATE NOCASE ASC
     """)
     fun localArtistsByName(): List<Artist>
+
+    @Transaction
+    @Query("""
+        SELECT 
+            artist.*,
+            COUNT(song.id) AS songCount,
+            SUM(CASE WHEN song.dateDownload IS NOT NULL THEN 1 ELSE 0 END) AS downloadCount
+        FROM artist
+            LEFT JOIN song_artist_map sam ON artist.id = sam.artistId
+            LEFT JOIN song ON sam.songId = song.id
+        WHERE artist.isLocal = 1
+        GROUP BY artist.id
+        ORDER BY artist.name COLLATE NOCASE ASC
+    """)
+    fun allLocalArtistsFlow(): Flow<List<Artist>>
     // endregion
 
     // region Artist Songs Sort
@@ -200,6 +215,12 @@ interface ArtistsDao {
     @Transaction
     @Query("UPDATE song_artist_map SET artistId = :newId WHERE artistId = :oldId")
     fun updateSongArtistMap(oldId: String, newId: String)
+
+    @Query("UPDATE OR IGNORE song_artist_map SET artistId = :newId WHERE artistId = :oldId")
+    fun updateSongArtistMapIgnore(oldId: String, newId: String)
+
+    @Query("DELETE FROM song_artist_map WHERE artistId = :oldId")
+    fun deleteSongArtistMap(oldId: String)
     // endregion
 
     // region Deletes

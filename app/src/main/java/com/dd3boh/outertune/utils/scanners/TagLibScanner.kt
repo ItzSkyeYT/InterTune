@@ -101,10 +101,9 @@ class TagLibScanner : MetadataScanner {
                         "ALBUM", "album" -> albumName = it
                         "TITLE", "title" -> rawTitle = it
                         "GENRE", "genre" -> {
-                            val splitGenres = it.split(ARTIST_SEPARATORS)
-                            splitGenres.forEach { genreVal ->
+                            val genreVal = it.trim()
+                            if (genreVal.isNotBlank()) {
                                 genresList.add(GenreEntity(GenreEntity.generateGenreId(), genreVal, isLocal = true))
-
                             }
                         }
                         // date can have multiple list elements, though let it parse via string regardless

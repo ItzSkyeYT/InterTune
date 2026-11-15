@@ -120,12 +120,12 @@ class FFmpegScanner() : MetadataScanner {
 
                     "DATE", "date" -> rawDate = it.substringAfter(':').trim()
                     "GENRE", "genre" -> {
-                        val splitGenres = it.split(ARTIST_SEPARATORS)
-                        splitGenres.forEach { genreVal ->
+                        val genreVal = it.substringAfter(':').trim()
+                        if (genreVal.isNotBlank()) {
                             genresList.add(
                                 GenreEntity(
                                     GenreEntity.generateGenreId(),
-                                    genreVal.substringAfter(':').trim(),
+                                    genreVal,
                                     isLocal = true
                                 )
                             )

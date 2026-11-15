@@ -165,6 +165,22 @@ interface DatabaseDao : SongsDao, AlbumsDao, ArtistsDao, PlaylistsDao, QueueDao,
     LIMIT :previewSize""")
     fun allLocalGenresByName(previewSize: Int = Int.MAX_VALUE): List<GenreEntity>
 
+    @Query("""
+        SELECT * FROM genre
+        WHERE genre.isLocal = 1
+        ORDER BY genre.title COLLATE NOCASE ASC
+    """)
+    fun allLocalGenresFlow(): Flow<List<GenreEntity>>
+
+    @Transaction
+    @Query("""
+        SELECT song.* FROM song
+        JOIN song_genre_map ON song.id = song_genre_map.songId
+        WHERE song_genre_map.genreId = :genreId AND song.isLocal = 1
+        ORDER BY song.title COLLATE NOCASE ASC
+    """)
+    fun songsByGenre(genreId: String): Flow<List<Song>>
+
     @Query("SELECT * FROM genre WHERE id = :id")
     fun genreById(id: String): GenreEntity?
 
@@ -220,14 +236,23 @@ interface DatabaseDao : SongsDao, AlbumsDao, ArtistsDao, PlaylistsDao, QueueDao,
             return
         }
         mediaMetadata.artists.forEachIndexed { index, artist ->
-            val artistId = artist.id ?: artistByName(artist.name)?.id ?: ArtistEntity.generateArtistId()
-            insert( // TODO: use upsert???
-                ArtistEntity(
-                    id = artistId,
-                    name = artist.name,
-                    isLocal = artist.isLocal
+            val existingArtist = artistByName(artist.name)
+            val artistId = existingArtist?.id ?: artist.id?.takeIf { it.isNotBlank() && !it.startsWith("LA_") } ?: ArtistEntity.generateArtistId()
+            val thumb = existingArtist?.thumbnailUrl ?: mediaMetadata.thumbnailUrl
+            if (existingArtist != null) {
+                if (existingArtist.thumbnailUrl == null && mediaMetadata.thumbnailUrl != null) {
+                    update(existingArtist.copy(thumbnailUrl = mediaMetadata.thumbnailUrl))
+                }
+            } else {
+                insert(
+                    ArtistEntity(
+                        id = artistId,
+                        name = artist.name,
+                        thumbnailUrl = thumb,
+                        isLocal = artist.isLocal
+                    )
                 )
-            )
+            }
             insert(
                 SongArtistMap(
                     songId = mediaMetadata.id,

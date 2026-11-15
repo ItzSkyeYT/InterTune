@@ -63,6 +63,7 @@ import com.dd3boh.outertune.ui.screens.library.FolderScreen
 import com.dd3boh.outertune.ui.screens.library.LibraryAlbumsScreen
 import com.dd3boh.outertune.ui.screens.library.LibraryArtistsScreen
 import com.dd3boh.outertune.ui.screens.library.LibraryFoldersScreen
+import com.dd3boh.outertune.ui.screens.library.LocalMusicScreen
 import com.dd3boh.outertune.ui.screens.library.LibraryPlaylistsScreen
 import com.dd3boh.outertune.ui.screens.library.LibraryScreen
 import com.dd3boh.outertune.ui.screens.library.LibrarySongsScreen
@@ -156,7 +157,7 @@ fun NavGraphBuilder.appDestinations(
             LibrarySongsScreen(navController)
         }
         screen(Screens.Folders.route, floating = false) {
-            AskForMusicOnOpening(tourState.running) { LibraryFoldersScreen(navController, scrollBehavior) }
+            AskForMusicOnOpening(tourState.running) { LocalMusicScreen(navController, scrollBehavior) }
         }
         screen(
             route = "${Screens.Folders.route}/{path}",
