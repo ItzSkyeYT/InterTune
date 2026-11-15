@@ -220,7 +220,7 @@ suspend fun scanInit(
         context.dataStore.edit { settings ->
             settings[LastLocalScanKey] = timeNow
         }
-        playerConnection?.service?.initQueue()
+        playerConnection?.service?.refreshQueuesAfterScan()
         Log.i(MAIN_TAG, "Downloads scan completed. Local media is disabled.")
         // Without this the routine fell through to the completion snackbar below, so a
         // downloads-only user got told about local media twice.
@@ -237,9 +237,10 @@ suspend fun scanInit(
         if (perms == PackageManager.PERMISSION_GRANTED) {
             // equivalent to (quick scan)
             try {
-                withContext(Dispatchers.Main) {
-                    playerConnection?.player?.pause()
-                }
+                // The music is left alone. The player used to be paused here, so a song someone had on, a
+                // YouTube Music one as much as a local one, stopped for a scan of folders. The scan touches
+                // local songs only, and the queues are read again afterwards without asking anything of the
+                // player (MusicService.refreshQueuesAfterScan).
                 val scanner = LocalMediaScanner.getScanner(
                     context, scannerImpl, SCANNER_OWNER_LM
                 )
@@ -292,7 +293,7 @@ suspend fun scanInit(
             context.dataStore.edit { settings ->
                 settings[LastLocalScanKey] = timeNow
             }
-            playerConnection?.service?.initQueue()
+            playerConnection?.service?.refreshQueuesAfterScan()
             Log.i(MAIN_TAG, "Local media and downloads scan completed")
         } else if (perms == PackageManager.PERMISSION_DENIED) {
             // Asked once, at the first automatic scan that finds it missing. Asked at every

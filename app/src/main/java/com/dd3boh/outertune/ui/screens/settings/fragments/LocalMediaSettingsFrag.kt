@@ -242,8 +242,10 @@ fun ColumnScope.LocalScannerFrag() {
 
                 scannerFailure = false
 
-                playerConnection?.player?.pause()
-
+                // The music is left alone. The player used to be paused here, so a song someone had on, a
+                // YouTube Music one as much as a local one, stopped for a scan of folders. The scan touches
+                // local songs only, and the queues are read again afterwards without asking anything of the
+                // player (MusicService.refreshQueuesAfterScan).
                 coroutineScope.launch(lmScannerCoroutine) {
                     if (scannerState > 0) {
                         return@launch
@@ -392,7 +394,7 @@ fun ColumnScope.LocalScannerFrag() {
                     }
 
                     // post scan actions
-                    playerConnection?.service?.initQueue()
+                    playerConnection?.service?.refreshQueuesAfterScan()
 
                     onLastLocalScanChange(LocalDateTime.now().toInstant(ZoneOffset.UTC).toEpochMilli())
                 }
