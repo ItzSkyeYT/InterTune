@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Update
@@ -101,6 +102,9 @@ fun CrashReportDialog() {
     var sending by remember { mutableStateOf(false) }
     var outcome by remember { mutableStateOf<ReportRelay.Outcome?>(null) }
     val scope = rememberCoroutineScope()
+    val scroll = rememberScrollState()
+    // A failed send says so at the top, and the page goes there (see ProblemReportDialog).
+    LaunchedEffect(outcome) { if (outcome is ReportRelay.Outcome.Failed) scroll.animateScrollTo(0) }
     val forget = {
         CrashLog.clear(context)
         report = null
@@ -120,8 +124,11 @@ fun CrashReportDialog() {
         // What they typed, then the trace from its top, as much as the link holds for someone signed out.
         val said = if (relay && words.what.isNotBlank()) words.what.trim().take(FORM_WHAT_LIMIT) + "\n\n" else ""
         val room = FORM_LINK_LIMIT - base.toString().length - "&body=".length - ProblemLog.linkLength("$said```\n\n```")
+        // The same link escaped again, as GitHub's sign-in page holds it (FORM_SIGN_IN_LIMIT).
+        val signInRoom = FORM_SIGN_IN_LIMIT - ProblemLog.SIGN_IN_ADDRESS - ProblemLog.signInLengthOfLink("$base&body=") -
+            ProblemLog.signInLength("$said```\n\n```")
         val uri = base.buildUpon()
-            .appendQueryParameter("body", "$said```\n${ProblemLog.startForLink(text.take(ISSUE_BODY_LIMIT), room)}\n```")
+            .appendQueryParameter("body", "$said```\n${ProblemLog.startForLink(text.take(ISSUE_BODY_LIMIT), room, signInRoom)}\n```")
             .build()
         runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, uri).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
         forget()
@@ -131,7 +138,11 @@ fun CrashReportDialog() {
         onDismissRequest = forget,
         title = { Text(stringResource(R.string.crash_report_title)) },
         text = {
-            Column(Modifier.verticalScroll(rememberScrollState())) {
+            Column(Modifier.verticalScroll(scroll)) {
+                (outcome as? ReportRelay.Outcome.Failed)?.let {
+                    SendFailedNote(it)
+                    Spacer(Modifier.height(12.dp))
+                }
                 Text(stringResource(R.string.crash_report_text))
                 if (newer != null) {
                     NoteCard(
@@ -185,15 +196,6 @@ fun CrashReportDialog() {
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth(),
                         )
-                        // A send that failed says so on its own line, not on the contact box (see ProblemReportDialog).
-                        if (outcome is ReportRelay.Outcome.Failed) {
-                            Spacer(Modifier.height(8.dp))
-                            Text(
-                                stringResource(R.string.problem_report_send_failed),
-                                color = MaterialTheme.colorScheme.error,
-                                style = MaterialTheme.typography.bodyMedium,
-                            )
-                        }
                     }
                 }
                 Spacer(Modifier.height(12.dp))
