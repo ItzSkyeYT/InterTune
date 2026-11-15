@@ -14,6 +14,9 @@ import android.media.ExifInterface
 import android.net.Uri
 import android.util.Log
 import com.dd3boh.outertune.constants.Unreleased
+import com.dd3boh.outertune.db.MusicDatabase
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.io.File
 import java.io.InputStream
 import java.io.OutputStream
@@ -51,6 +54,13 @@ object PlaylistCovers {
      * and only while [enabled] says so.
      */
     fun canChoose(browseId: String?, enabled: Boolean = Unreleased.PLAYLIST_COVER): Boolean = enabled && browseId == null
+
+    /**
+     * Whether the choice is the one a synced playlist cannot take: the flag is on and a YouTube
+     * playlist is behind it. Where the choice would be, such a playlist says why it has none
+     * rather than offering nothing.
+     */
+    fun isSynced(browseId: String?, enabled: Boolean = Unreleased.PLAYLIST_COVER): Boolean = enabled && browseId != null
 
     /** Whether this build lets anyone pick a cover at all: the backup sheet offers their photos only then. */
     val offered: Boolean get() = canChoose(browseId = null)
@@ -192,6 +202,38 @@ object PlaylistCovers {
             for (file in staged) runCatching { file.copyTo(File(dir, file.name), overwrite = true) }
         }
         staging.deleteRecursively()
+    }
+
+    // ---- the write, for every screen that offers the choice ----
+
+    /** One cover write at a time, so a photo still being read is not overtaken by a pick made after it. */
+    private val writeLock = Mutex()
+
+    /** The first song's cover again (null), or the cover of one of the playlist's songs. Blocking on the database: off the main thread. */
+    suspend fun choose(context: Context, database: MusicDatabase, playlistId: String, cover: String?) =
+        writeLock.withLock { write(context, database, playlistId, cover, kept = null) }
+
+    /**
+     * A photo from the phone as the cover: read, brought down to [MAX_SIDE], kept as a file of the
+     * app's own and then written to the playlist. One that cannot be read leaves the cover as it was.
+     */
+    suspend fun choosePhoto(context: Context, database: MusicDatabase, playlistId: String, uri: Uri) {
+        writeLock.withLock {
+            val name = importPhoto(context, playlistId, uri) ?: return@withLock
+            write(context, database, playlistId, stored(name), kept = name)
+        }
+    }
+
+    /**
+     * Writes the cover, then deletes the photos it replaced: in that order, so that a cut between
+     * them leaves a file nobody names and never a name with no file. When no row took the write (the
+     * playlist is gone, or has a YouTube playlist behind it) nothing that is named is deleted, and
+     * the photo just kept ([kept]) goes, for nobody names it.
+     */
+    private fun write(context: Context, database: MusicDatabase, playlistId: String, cover: String?, kept: String?) {
+        val written = database.transactionNow { setPlaylistCover(playlistId, cover) }
+        if (written > 0) forget(context.filesDir, playlistId, except = kept)
+        else if (kept != null) File(dir(context.filesDir), kept).delete()
     }
 
     // ---- what is drawn ----

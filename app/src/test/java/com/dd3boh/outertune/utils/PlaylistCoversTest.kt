@@ -317,6 +317,15 @@ class PlaylistCoversTest {
     }
 
     @Test
+    fun `a playlist from YouTube is told why, with the flag on, and no other playlist is`() {
+        assertTrue(PlaylistCovers.isSynced(browseId = "PLabc123", enabled = true))
+        assertFalse(PlaylistCovers.isSynced(browseId = null, enabled = true))
+        assertFalse(PlaylistCovers.isSynced(browseId = "PLabc123", enabled = false))
+        // Never both: a playlist either takes a cover, or is told why not.
+        for (id in listOf(null, "PLabc123")) assertFalse(PlaylistCovers.canChoose(id, true) && PlaylistCovers.isSynced(id, true))
+    }
+
+    @Test
     fun `the limits are the ones that were asked for`() {
         assertEquals(1024, PlaylistCovers.MAX_SIDE)
         assertEquals(90, PlaylistCovers.QUALITY)

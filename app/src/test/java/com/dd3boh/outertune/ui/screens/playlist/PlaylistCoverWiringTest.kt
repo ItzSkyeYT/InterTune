@@ -69,7 +69,11 @@ class PlaylistCoverWiringTest {
             "PlaylistCovers.canChoose(currentPlaylist.playlist.browseId)" in screen
         )
         // The tap on the header's cover is a link to the sheet only while the choice is offered, else null.
-        assertTrue("val onChangeCover: (() -> Unit)? = if (coverChoosable) ({ showCoverSheet = true }) else null" in screen)
+        assertTrue("if (coverChoosable) ({ showCoverSheet = true }) else if (coverSynced) ({ showCoverSynced = true }) else null" in screen)
+        // A synced playlist is not left with nothing: the same places say why it has no choice.
+        assertTrue("PlaylistCovers.isSynced(currentPlaylist.playlist.browseId)" in screen)
+        assertTrue("if (showCoverSynced && coverSynced) {" in screen)
+        assertTrue("R.string.playlist_cover_synced" in screen)
         // The sheet is composed only while it is offered and asked for.
         assertTrue("if (showCoverSheet && coverChoosable) {" in screen)
     }
@@ -113,8 +117,23 @@ class PlaylistCoverWiringTest {
     @Test
     fun `no other screen offers the sheet`() {
         // Not the automatic playlists (liked, downloaded), nor a playlist from YouTube's own page.
-        assertEquals(setOf("ui/screens/playlist/LocalPlaylistScreen.kt", "ui/dialog/PlaylistCoverSheet.kt"), filesWith("PlaylistCoverSheet("))
-        assertEquals(setOf("ui/screens/playlist/LocalPlaylistScreen.kt", "ui/dialog/PlaylistCoverSheet.kt"), filesWith("PlaylistCoverEditor("))
+        // Besides the playlist's page, the Library's playlist menu: its Edit is where people look.
+        val places = setOf("ui/screens/playlist/LocalPlaylistScreen.kt", "ui/menu/PlaylistMenu.kt", "ui/dialog/PlaylistCoverSheet.kt")
+        assertEquals(places, filesWith("PlaylistCoverSheet("))
+        assertEquals(places, filesWith("PlaylistCoverEditor("))
+    }
+
+    @Test
+    fun `the Library menu's Edit offers the choice, or says why not, as the page does`() {
+        val menu = kotlin("ui/menu/PlaylistMenu.kt")
+        assertTrue("PlaylistCovers.canChoose(playlist.playlist.browseId)" in menu)
+        assertTrue("PlaylistCovers.isSynced(playlist.playlist.browseId)" in menu)
+        val dialog = menu.substring(menu.indexOf("if (showEditDialog) {"))
+        assertTrue("PlaylistCoverEditor(" in dialog)
+        assertTrue("if (showCoverSynced && coverSynced) {" in dialog)
+        assertTrue("if (showCoverSheet && coverChoosable) {" in dialog)
+        assertTrue("R.string.playlist_cover_synced" in dialog)
+        assertTrue("PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)" in menu)
     }
 
     // ---- what a pick does ----
@@ -144,14 +163,14 @@ class PlaylistCoverWiringTest {
         assertTrue("browseId IS NULL" in kotlin("db/PlaylistSql.kt").substringAfter("const val SET_COVER"))
         // Nothing else writes a cover: not a copy of the whole row, which could put an old one back.
         val writers = all.filterValues { "setPlaylistCover(" in it }.keys
-        assertEquals(setOf("db/daos/PlaylistsDao.kt", "viewmodels/LocalPlaylistViewModel.kt"), writers)
+        assertEquals(setOf("db/daos/PlaylistsDao.kt", "utils/PlaylistCovers.kt"), writers)
     }
 
     @Test
     fun `a replaced photo is deleted after the new cover is written, never before`() {
-        val model = kotlin("viewmodels/LocalPlaylistViewModel.kt")
+        val model = kotlin("utils/PlaylistCovers.kt")
         val write = model.substring(model.indexOf("private fun write("))
-        assertTrue(write.indexOf("setPlaylistCover(") in 0 until write.indexOf("PlaylistCovers.forget("))
+        assertTrue(write.indexOf("setPlaylistCover(") in 0 until write.indexOf("forget("))
         assertTrue("except = kept" in write)
         // A write no row took keeps what is named, and drops the photo it just made.
         assertTrue("if (written > 0)" in write)
@@ -201,6 +220,11 @@ class PlaylistCoverWiringTest {
         Triple("playlist_cover_photo", "A photo", "Une photo"),
         Triple("playlist_cover_photo_note", "From your phone", "Depuis votre téléphone"),
         Triple("playlist_cover_songs", "A song from this playlist", "Un titre de cette playlist"),
+        Triple(
+            "playlist_cover_synced",
+            "This playlist is synced with YouTube Music, which keeps its cover, so it cannot take another one here. A playlist made only on this phone can.",
+            "Cette playlist est synchronisée avec YouTube Music, qui garde sa pochette\\u00A0: elle ne peut pas en prendre une autre ici. Une playlist créée seulement sur ce téléphone le peut."
+        ),
     )
 
     @Test

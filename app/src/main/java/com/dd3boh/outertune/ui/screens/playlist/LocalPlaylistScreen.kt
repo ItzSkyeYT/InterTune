@@ -317,7 +317,11 @@ fun LocalPlaylistScreen(
     // the header is a picture and nothing more.
     val coverChoosable = currentPlaylist != null && PlaylistCovers.canChoose(currentPlaylist.playlist.browseId)
     var showCoverSheet by remember { mutableStateOf(false) }
-    val onChangeCover: (() -> Unit)? = if (coverChoosable) ({ showCoverSheet = true }) else null
+    // A playlist synced with YouTube Music keeps YouTube's picture: the same places answer with the reason.
+    val coverSynced = currentPlaylist != null && PlaylistCovers.isSynced(currentPlaylist.playlist.browseId)
+    var showCoverSynced by remember { mutableStateOf(false) }
+    val onChangeCover: (() -> Unit)? =
+        if (coverChoosable) ({ showCoverSheet = true }) else if (coverSynced) ({ showCoverSynced = true }) else null
     // Here and not in the sheet, so that a photo picked still reaches the playlist when the sheet
     // has gone, or the activity was made again while the picker was up.
     val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
@@ -368,6 +372,16 @@ fun LocalPlaylistScreen(
                 }
             )
         }
+    }
+
+    if (showCoverSynced && coverSynced) {
+        DefaultDialog(
+            onDismiss = { showCoverSynced = false },
+            content = { Text(text = stringResource(R.string.playlist_cover_synced), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(horizontal = 18.dp)) },
+            buttons = {
+                TextButton(onClick = { showCoverSynced = false }) { Text(text = stringResource(android.R.string.ok)) }
+            }
+        )
     }
 
     // After the edit dialog, so that it comes up over it when opened from there.
