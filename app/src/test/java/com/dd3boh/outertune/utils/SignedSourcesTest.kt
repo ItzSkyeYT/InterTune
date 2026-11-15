@@ -45,10 +45,55 @@ class SignedSourcesTest {
         sources: Map<String, SignedSources.Fetched>,
         highest: Long = 0,
         asked: MutableList<String> = Collections.synchronizedList(mutableListOf()),
+        lastResort: Map<String, SignedSources.Fetched> = emptyMap(),
     ) = runBlocking {
-        SignedSources.best(sources.keys.toList(), { asked += it; sources.getValue(it) }) {
+        val all = sources + lastResort
+        SignedSources.best(sources.keys.toList(), { asked += it; all.getValue(it) }, lastResort.keys.toList()) {
             SignedDocument.open(it, SignedDocument.NEWS, keys, highest, emptySet(), NOW)
         }
+    }
+
+    @Test
+    fun `Codeberg is asked only when the other three give nothing to believe`() {
+        val asked = Collections.synchronizedList(mutableListOf<String>())
+        val walk = walk(
+            linkedMapOf(
+                GIST to SignedSources.Fetched.Failed("HTTP 404"),
+                SITE to SignedSources.Fetched.Text("<html>hotel wifi</html>"),
+                WORKER to SignedSources.Fetched.Failed("SocketTimeoutException: timeout"),
+            ),
+            asked = asked,
+            lastResort = linkedMapOf(CODEBERG to SignedSources.Fetched.Text(good)),
+        )
+        assertEquals(3, walk.found!!.index)
+        assertEquals(setOf(GIST, SITE, WORKER, CODEBERG), asked.toSet())
+        assertEquals("host 4 (codeberg.org): taken, number $SEQ", walk.notes[3])
+    }
+
+    @Test
+    fun `Codeberg is never asked while one of the three has a document to believe`() {
+        val asked = Collections.synchronizedList(mutableListOf<String>())
+        val walk = walk(
+            linkedMapOf(GIST to SignedSources.Fetched.Text(good), SITE to SignedSources.Fetched.Failed("HTTP 404")),
+            asked = asked,
+            lastResort = linkedMapOf(CODEBERG to SignedSources.Fetched.Text(newer)),
+        )
+        assertEquals(0, walk.found!!.index)
+        assertEquals(setOf(GIST, SITE), asked.toSet())
+        assertEquals(2, walk.notes.size)
+    }
+
+    @Test
+    fun `Codeberg is asked when the three only have copies older than one taken`() {
+        val walk = walk(
+            linkedMapOf(GIST to SignedSources.Fetched.Text(good), SITE to SignedSources.Fetched.Text(good)),
+            highest = SEQ + 30,
+            lastResort = linkedMapOf(CODEBERG to SignedSources.Fetched.Text(newer)),
+        )
+        assertEquals(2, walk.found!!.index)
+        assertEquals(SEQ + 60, walk.found!!.accepted.seq)
+        assertTrue(walk.answered)
+        assertEquals("host 1 (gist.githubusercontent.com): refused, older than one already taken", walk.notes[0])
     }
 
     @Test
@@ -177,17 +222,14 @@ class SignedSourcesTest {
     }
 
     @Test
-    fun `the hosts after the gist are intertune app, the counter worker and Codeberg, in that order`() {
+    fun `beside the gist, intertune app and the counter worker, with Codeberg as the last resort`() {
         val services = Properties().apply { File("../services.properties").reader().use { load(it) } }
-        val mirrors = services.getProperty("polls.mirrors").split(' ').filter { it.isNotBlank() }
+        fun list(name: String) = services.getProperty(name).split(' ').filter { it.isNotBlank() }
         assertEquals(
-            listOf(
-                "https://intertune.app/news/polls.json",
-                "https://intertune-count.intertune.workers.dev/news/polls.json",
-                "https://codeberg.org/ItzSkyeYT/intertune-news/raw/branch/main/news/polls.json",
-            ),
-            mirrors,
+            listOf("https://intertune.app/news/polls.json", "https://intertune-count.intertune.workers.dev/news/polls.json"),
+            list("polls.mirrors"),
         )
+        assertEquals(listOf(CODEBERG), list("polls.lastResort"))
         assertTrue(services.getProperty("polls.gistUrl").startsWith("https://gist.githubusercontent.com/"))
     }
 
@@ -232,5 +274,6 @@ class SignedSourcesTest {
         const val GIST = "https://gist.githubusercontent.com/ItzSkyeYT/0123456789abcdef0123/raw/polls.json"
         const val SITE = "https://intertune.app/news/polls.json"
         const val WORKER = "https://intertune-count.intertune.workers.dev/news/polls.json"
+        const val CODEBERG = "https://codeberg.org/ItzSkyeYT/intertune-news/raw/branch/main/news/polls.json"
     }
 }

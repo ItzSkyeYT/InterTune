@@ -17,7 +17,8 @@ import com.dd3boh.outertune.utils.BuiltInKeys
  * Polls are READ from a gist. The maintainer's own machine pushes to it with a token that stays on
  * that machine, so the app never learns anything about where the polls were written. It also means
  * polls keep serving from GitHub's CDN when that machine is off. Since 0.13 the document is signed
- * (SignedDocument), and the same file on three other hosts is asked at the same time: [SOURCES].
+ * (SignedDocument), and the same file on two other hosts is asked at the same time ([SOURCES]), and on
+ * a third only when those give nothing ([LAST_RESORT]).
  *
  * Answers are WRITTEN to InterTune's own counter, which has to be reachable to accept them. Never point
  * it at a home connection.
@@ -32,14 +33,23 @@ object Polls {
     val POLLS_URL: String get() = BuiltInKeys.pollsUrl
 
     /**
-     * Every host of the signed document: the gist, then polls.mirrors in services.properties
-     * (intertune.app, the counter worker, Codeberg), each another company, so one account closed or one
-     * host down does not silence the app. All are asked at once and the newest document signed by the
-     * maintainer wins; this order only decides between copies with the same number. Versions before
-     * 0.13 read the gist alone.
+     * The hosts of the signed document asked every time: the gist, then polls.mirrors in
+     * services.properties (intertune.app, the counter worker), each another company, so one account
+     * closed or one host down does not silence the app. All are asked at once and the newest document
+     * signed by the maintainer wins; this order only decides between copies with the same number.
+     * Versions before 0.13 read the gist alone.
      */
     val SOURCES: List<String>
-        get() = (listOf(POLLS_URL) + BuiltInKeys.pollsMirrors.split(' ', '\n', '\t')).map { it.trim() }.filter { it.isNotEmpty() }
+        get() = words(POLLS_URL + " " + BuiltInKeys.pollsMirrors)
+
+    /**
+     * Asked only when [SOURCES] give nothing to believe: Codeberg (polls.lastResort), which hosts code,
+     * not a CDN for every phone's every check.
+     */
+    val LAST_RESORT: List<String>
+        get() = words(BuiltInKeys.pollsLastResort)
+
+    private fun words(list: String): List<String> = list.split(' ', '\n', '\t').map { it.trim() }.filter { it.isNotEmpty() }
 
     /**
      * InterTune's own counter, no trailing slash: a Cloudflare worker (intertune-count) that takes

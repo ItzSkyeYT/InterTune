@@ -24,6 +24,8 @@ import com.dd3boh.outertune.constants.UpdateCheckEnabledKey
 import com.dd3boh.outertune.extensions.isInternetConnected
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -49,8 +51,8 @@ import javax.inject.Singleton
  * F-Droid page instead; see [InstallSource].
  *
  * Opt in. Nothing is fetched until the user turns it on, because a version check is a network
- * request to a third party that reveals roughly when the app is used. It asks GitHub, and only when
- * GitHub does not answer, the signed latest.json on intertune.app ([LATEST_URL], SignedDocument).
+ * request to a third party that reveals roughly when the app is used. It asks GitHub and the signed
+ * latest.json on intertune.app together ([LATEST_URL], SignedDocument), and the newer version wins.
  */
 @Singleton
 class UpdateChecker @Inject constructor(
@@ -137,21 +139,28 @@ class UpdateChecker @Inject constructor(
             return@withContext restoreFromDisk()
         }
 
-        val body = runCatching {
-            client.newCall(
-                Request.Builder()
-                    .url(RELEASES_URL)
-                    .header("Accept", "application/vnd.github+json")
-                    .build()
-            ).execute().use { response ->
-                if (!response.isSuccessful) return@runCatching null
-                response.body?.string()
+        // GitHub and the signed copy on intertune.app (SignedDocument), asked together every time, and the
+        // newer version wins: a GitHub that still answers with an old release (an account locked, not
+        // closed) cannot hide a newer one, and GitHub not answering (its rate limit, a block, the account
+        // gone) is not the end of it. Android installs an update only when it is signed like the app
+        // already there, wherever the apk comes from.
+        val (body, fromSite) = coroutineScope {
+            val github = async {
+                runCatching {
+                    client.newCall(
+                        Request.Builder()
+                            .url(RELEASES_URL)
+                            .header("Accept", "application/vnd.github+json")
+                            .build()
+                    ).execute().use { response ->
+                        if (!response.isSuccessful) return@runCatching null
+                        response.body?.string()
+                    }
+                }.getOrNull()
             }
-        }.getOrNull()
-        // GitHub not answering (its rate limit, a block, the account gone) is not the end of it: the
-        // same news, signed, on intertune.app (SignedDocument). Android installs an update only when
-        // it is signed like the app already there, wherever the apk comes from.
-        val fromSite = if (body == null) signedLatest() else null
+            val site = async { signedLatest() }
+            github.await() to site.await()
+        }
         if (body == null && fromSite == null) {
             // A network that claims internet access can still fail here: a captive portal, a bad
             // DNS answer, a timeout, GitHub's rate limit. Treated like offline.
@@ -167,7 +176,8 @@ class UpdateChecker @Inject constructor(
         // a single flaky moment suppress checks for the whole interval.
         context.dataStore.edit { it[LastUpdateCheckKey] = now }
 
-        val update = fromSite ?: body?.let { runCatching { parse(it) }.getOrNull() } ?: return@withContext null
+        val fromGitHub = body?.let { runCatching { parse(it) }.getOrNull() }
+        val update = newerUpdate(fromGitHub, fromSite) ?: return@withContext null
 
         // Skipping is per version, so a newer one still gets through. And it holds back only the
         // checks that run by themselves: one the person starts offers the skipped version again.
@@ -245,7 +255,7 @@ class UpdateChecker @Inject constructor(
         )
     }
 
-    /** The newest version from the signed latest.json on intertune.app, when GitHub did not answer. */
+    /** The newest version as the signed latest.json on intertune.app gives it, or null. */
     private suspend fun signedLatest(): Update? =
         SignedSources.one(context, LATEST_URL, SignedDocument.UPDATE, SignedUpdateSeqKey)?.let(::latestUpdate)
 
@@ -316,7 +326,7 @@ class UpdateChecker @Inject constructor(
         private const val RELEASES_URL =
             "https://api.github.com/repos/ItzSkyeYT/InterTune/releases/latest"
 
-        /** The same, signed (tools/announce/announce.py update), for when GitHub does not answer. */
+        /** The same, signed (tools/announce/announce.py update), asked together with GitHub. */
         const val LATEST_URL = "https://intertune.app/news/latest.json"
 
         /** `InterTune-0.10.2-core-release-79.apk` -> 79 */
@@ -346,6 +356,17 @@ class UpdateChecker @Inject constructor(
  */
 internal fun shouldOffer(latestCode: Int, installedCode: Int, skippedCode: Int, manual: Boolean): Boolean =
     latestCode > installedCode && (manual || latestCode != skippedCode)
+
+/**
+ * Of the release GitHub gives and the one the signed latest.json gives, the newer by version code: GitHub's
+ * when both name the same version (its release is what the other copies), and either alone when only one did.
+ */
+internal fun newerUpdate(github: UpdateChecker.Update?, site: UpdateChecker.Update?): UpdateChecker.Update? = when {
+    github == null -> site
+    site == null -> github
+    site.versionCode > github.versionCode -> site
+    else -> github
+}
 
 /**
  * The newest version as the signed latest.json gives it: what the GitHub release gives, the apk's address

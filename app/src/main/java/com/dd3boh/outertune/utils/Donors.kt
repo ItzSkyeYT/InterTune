@@ -13,6 +13,8 @@ import com.dd3boh.outertune.constants.DonorsCacheKey
 import com.dd3boh.outertune.constants.SignedDonorsSeqKey
 import com.dd3boh.outertune.extensions.isInternetConnected
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
@@ -30,13 +32,14 @@ import java.util.concurrent.TimeUnit
  * A name is the bold text that opens a cell of the Donors table. The bold words around the table
  * (the thanks above it, "Want your name here?" below) sit outside any cell and are never taken.
  * The README is asked for when the note opens; the last list is kept in the settings store, so it
- * shows offline and while the request is out. When GitHub does not answer, the same names come from
- * the signed donors.json on intertune.app (SignedDocument); when neither does, the last list stands.
+ * shows offline and while the request is out. The signed donors.json on intertune.app is asked at the
+ * same time (SignedDocument), and wins when it adds names to the README's ([newerNames]); when
+ * neither answers, the last list stands.
  */
 object Donors {
     const val README_URL = "https://raw.githubusercontent.com/ItzSkyeYT/InterTune/visionos-fix/README.md"
 
-    /** The same names, signed (tools/announce/announce.py donors), for when GitHub does not answer. */
+    /** The same names, signed (tools/announce/announce.py donors), asked together with the README. */
     const val SIGNED_URL = "https://intertune.app/news/donors.json"
     private const val TAG = "Donors"
 
@@ -77,19 +80,38 @@ object Donors {
         if (!BuiltInKeys.official) return@withContext emptyList()
         val last = cached(context)
         if (!context.isInternetConnected()) return@withContext last
-        val readme = runCatching {
-            client.newCall(Request.Builder().url(README_URL).build()).execute().use { response ->
-                if (!response.isSuccessful) null else response.body?.string()
+        // The README on GitHub and the signed copy on intertune.app (SignedDocument), asked together every
+        // time: a README left behind (an account locked, not closed) cannot hide a newer donor.
+        val (readme, signed) = coroutineScope {
+            val github = async {
+                runCatching {
+                    client.newCall(Request.Builder().url(README_URL).build()).execute().use { response ->
+                        if (!response.isSuccessful) null else response.body?.string()
+                    }
+                }.getOrNull()
             }
-        }.getOrNull()
-        val names = readme?.let(::parse)
-            ?: SignedSources.one(context, SIGNED_URL, SignedDocument.DONORS, SignedDonorsSeqKey)?.let(::signedNames)
-            ?: run {
-                Log.i(TAG, "README not read, nor its signed copy, keeping the last list of ${last.size}")
-                return@withContext last
-            }
+            val site = async { SignedSources.one(context, SIGNED_URL, SignedDocument.DONORS, SignedDonorsSeqKey)?.let(::signedNames) }
+            github.await() to site.await()
+        }
+        val names = newerNames(readme?.let(::parse), signed) ?: run {
+            Log.i(TAG, "Neither the README nor its signed copy was read, keeping the last list of ${last.size}")
+            return@withContext last
+        }
         context.dataStore.edit { it[DonorsCacheKey] = names.joinToString("\n") }
         names
+    }
+
+    /**
+     * The README's names, or the signed copy's when it holds every one of them and more. So a README left
+     * behind cannot hide a newer donor, and a signed copy left behind (the README has moved on since, a name
+     * added or changed) never wins. The README has no number of its own to set against the signed copy's,
+     * so the lists themselves are compared. One alone is taken as it is.
+     */
+    internal fun newerNames(readme: List<String>?, signed: List<String>?): List<String>? = when {
+        readme == null -> signed
+        signed == null -> readme
+        signed.size > readme.size && signed.containsAll(readme) -> signed
+        else -> readme
     }
 
     /** The names in a signed donors.json, in its order, or null when it has no list. */

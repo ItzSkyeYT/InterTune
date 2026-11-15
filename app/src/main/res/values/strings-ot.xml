@@ -375,7 +375,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="grp_polls">Questions and news</string>
     <string name="polls_enabled">Ask me the occasional question</string>
     <string name="polls_enabled_description">A short question on Home now and then, about what to build next.</string>
-    <string name="polls_enabled_info">Now and then InterTune fetches a short question from GitHub, intertune.app, Cloudflare and Codeberg, and shows it on Home. Answering sends the question, your answer and the app version, and opening it sends its title and the app version. Never your account, device or library.</string>
+    <string name="polls_enabled_info">Now and then InterTune fetches a short question from GitHub, intertune.app and Cloudflare (Codeberg when those are down), and shows it on Home. Answering sends the question, your answer and the app version, and opening it sends its title and the app version. Never your account, device or library.</string>
     <string name="polls_none">No question right now</string>
     <string name="polls_one_waiting">There is a question waiting</string>
     <string name="news_one_waiting">There is news waiting</string>
@@ -401,7 +401,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="polls_opt_in_no">No thanks</string>
     <string name="news_enabled">News from InterTune</string>
     <string name="news_enabled_description">An announcement on Home now and then, like a new feature.</string>
-    <string name="news_enabled_info">Now and then InterTune fetches news from GitHub, intertune.app, Cloudflare and Codeberg, and shows it on Home. Opening one sends its title and the app version, to count readers. Never your account, device or library.</string>
+    <string name="news_enabled_info">Now and then InterTune fetches news from GitHub, intertune.app and Cloudflare (Codeberg when those are down), and shows it on Home. Opening one sends its title and the app version, to count readers. Never your account, device or library.</string>
     <string name="news_opt_in_title">Get news from InterTune?</string>
     <string name="news_opt_in_body">Now and then InterTune can show a short announcement on Home, like a new feature. Opening one is counted anonymously, and you can turn this off in Settings any time.</string>
     <string name="news_opt_in_yes">Yes, show me</string>
@@ -428,7 +428,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="update_prompt_fdroid">Update in F-Droid</string>
     <string name="update_fdroid_note">This copy came from F-Droid, so updates come from there. F-Droid builds each release itself, so a new one can take a little while.</string>
     <string name="update_fdroid_source">Updates come from F-Droid</string>
-    <string name="update_check_description_fdroid">Checks GitHub, or intertune.app when GitHub is down, so you know when a release exists. Your copy came from F-Droid, so that is where it gets installed from, and F-Droid may not have built it yet.</string>
+    <string name="update_check_description_fdroid">Checks GitHub and intertune.app so you know when a release exists. Your copy came from F-Droid, so that is where it gets installed from, and F-Droid may not have built it yet.</string>
     <string name="update_auto">Download updates automatically</string>
     <string name="update_auto_description">Downloads new versions in the background so they\'re ready. Android still asks you before installing.</string>
     <string name="update_install_description">Downloads the new version and asks Android to install it. Nothing is installed without your OK.</string>
@@ -446,7 +446,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="update_skip">Skip this version</string>
     <string name="update_installed_version">Installed version</string>
     <string name="update_check">Tell me about updates</string>
-    <string name="update_check_description">Checks GitHub for a new version each time you open the app, or intertune.app when GitHub is down. Nothing installs without your OK.</string>
+    <string name="update_check_description">Checks GitHub and intertune.app for a new version each time you open the app. Nothing installs without your OK.</string>
     <string name="update_available">Version %1$s is available</string>
     <string name="audio_offload">Enable offload</string>
     <string name="audio_offload_description">Can save battery, but may cause playback glitches on some phones.</string>
@@ -668,8 +668,8 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="oobe_cross_platform_sync">Cross-Platform Sync</string>
     <string name="oobe_cross_platform_sync_description">Keep your music in harmony across devices</string>
     <string name="oobe_update_check_title">Tell you about updates?</string>
-    <string name="oobe_update_check_description">InterTune isn\'t on an app store, so it checks GitHub for new versions when you open it. It can download and install them for you, and Android always asks you first.</string>
-    <string name="oobe_update_check_description_fdroid">Your copy came from F-Droid, so F-Droid keeps it up to date and you do not need this. InterTune can still check GitHub and tell you when a release exists, which is usually a little before F-Droid has built it. Nothing is installed without you confirming it, and you can change this later in Settings.</string>
+    <string name="oobe_update_check_description">InterTune isn\'t on an app store, so it checks GitHub and intertune.app for new versions when you open it. It can download and install them for you, and Android always asks you first.</string>
+    <string name="oobe_update_check_description_fdroid">Your copy came from F-Droid, so F-Droid keeps it up to date and you do not need this. InterTune can still check GitHub and intertune.app and tell you when a release exists, which is usually a little before F-Droid has built it. Nothing is installed without you confirming it, and you can change this later in Settings.</string>
     <string name="oobe_update_check_yes">Yes, check</string>
     <string name="oobe_update_check_no">No thanks</string>
     <string name="oobe_update_check_answered">You can change this any time in Settings, under Updates.</string>
@@ -724,8 +724,8 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="setup_choices_title">A few questions</string>
     <string name="setup_choices_body">You can change your mind later in Settings.</string>
     <string name="setup_updates_question">Hear about new versions?</string>
-    <string name="setup_updates_line">Looks on GitHub for a new version when you open the app.</string>
-    <string name="setup_updates_line_fdroid">F-Droid keeps your copy up to date. This looks on GitHub, where a release appears a little earlier.</string>
+    <string name="setup_updates_line">Looks on GitHub and intertune.app for a new version when you open the app.</string>
+    <string name="setup_updates_line_fdroid">F-Droid keeps your copy up to date. This looks on GitHub and intertune.app, where a release appears a little earlier.</string>
     <string name="setup_updates_short">New versions</string>
     <string name="setup_word_question">A word from InterTune now and then?</string>
     <string name="setup_word_line">A piece of news or a short question on Home, a few times a year.</string>

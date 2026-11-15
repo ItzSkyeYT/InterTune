@@ -83,8 +83,30 @@ object SignedSources {
      * put live yet) never holds the app back while another host has something newer. The order of [sources]
      * only decides between copies with the same number. A host that fails, or serves a document [open] refuses
      * (not signed, signed by someone else, older than one taken, expired), counts for nothing.
+     *
+     * [lastResort] is asked, the same way, only when [sources] give nothing to believe: a host that is there
+     * for the day the others are gone, not for every check (Codeberg is not a CDN). Its hosts are numbered on
+     * from [sources]' in the log.
      */
-    suspend fun best(sources: List<String>, fetch: (String) -> Fetched, open: (String) -> SignedDocument.Result): Walk {
+    suspend fun best(
+        sources: List<String>,
+        fetch: (String) -> Fetched,
+        lastResort: List<String> = emptyList(),
+        open: (String) -> SignedDocument.Result,
+    ): Walk {
+        val first = together(sources, 0, fetch, open)
+        if (first.found != null || lastResort.isEmpty()) return first
+        val last = together(lastResort, sources.size, fetch, open)
+        return Walk(last.found, first.answered || last.answered, first.notes + last.notes)
+    }
+
+    /** [best] for one set of hosts, asked at once, numbered in the log from [offset] + 1. */
+    private suspend fun together(
+        sources: List<String>,
+        offset: Int,
+        fetch: (String) -> Fetched,
+        open: (String) -> SignedDocument.Result,
+    ): Walk {
         val answers = coroutineScope {
             sources.map { url ->
                 async(Dispatchers.IO) {
@@ -98,14 +120,14 @@ object SignedSources {
             var top: Found? = null
             for (i in sources.indices) {
                 val result = results[i]
-                if (result is SignedDocument.Accepted && (top == null || result.seq > top.accepted.seq)) top = Found(i, result)
+                if (result is SignedDocument.Accepted && (top == null || result.seq > top.accepted.seq)) top = Found(offset + i, result)
             }
             top
         }
 
         var answered = false
         val notes = sources.indices.map { i ->
-            val where = "host ${i + 1} (${host(sources[i])})"
+            val where = "host ${offset + i + 1} (${host(sources[i])})"
             when (val result = results[i]) {
                 null -> "$where: ${(answers[i] as Fetched.Failed).why}"
                 is SignedDocument.Refused -> {
@@ -116,7 +138,7 @@ object SignedSources {
                     answered = true
                     val taken = best!!
                     when {
-                        taken.index == i -> "$where: taken, number ${result.seq}"
+                        taken.index == offset + i -> "$where: taken, number ${result.seq}"
                         result.seq < taken.accepted.seq -> "$where: number ${result.seq}, older than host ${taken.index + 1}'s"
                         else -> "$where: number ${result.seq}, the same as host ${taken.index + 1}'s"
                     }

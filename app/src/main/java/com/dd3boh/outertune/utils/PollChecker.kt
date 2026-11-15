@@ -51,9 +51,9 @@ import javax.inject.Singleton
  *
  * WHAT LEAVES THE DEVICE, in full, because this is the part that has to be true when the modal
  * says the answer is anonymous:
- *  - a GET for the poll list, which reveals only that some InterTune install looked: to each of
- *    the four hosts at once, the gist, intertune.app, the counter worker and Codeberg
- *    (Polls.SOURCES, SignedDocument)
+ *  - a GET for the poll list, which reveals only that some InterTune install looked: to the gist,
+ *    intertune.app and the counter worker at once, and to Codeberg only when those three give
+ *    nothing to believe (Polls.SOURCES, Polls.LAST_RESORT, SignedDocument)
  *  - on answering, one POST carrying the poll id and its question, the chosen options' ids and
  *    labels, the words typed into an "Other" box when there are some, and the app version;
  *    a follow-up question's picks go in that same event, as "<optionId>/<followUpOptionId>"
@@ -181,11 +181,13 @@ class PollChecker @Inject constructor(
             return@withContext restoreFromCache()
         }
 
-        // Every host at once, the gist, intertune.app, the counter worker and Codeberg, and the newest
-        // document the maintainer signed wins, wherever it is (SignedDocument). Only its signed part is read.
+        // The gist, intertune.app and the counter worker at once, the newest document the maintainer signed
+        // winning wherever it is, and Codeberg only when those give nothing (SignedDocument). Only the signed
+        // part is read.
         val highest = store.get(SignedNewsSeqKey, 0L)
         val revoked = store.get(RevokedSigningKeysKey, emptySet())
-        val walk = SignedSources.best(sources(), { SignedSources.fetch(it) }) {
+        val (hosts, lastResort) = sources()
+        val walk = SignedSources.best(hosts, { SignedSources.fetch(it) }, lastResort) {
             SignedDocument.open(it, SignedDocument.NEWS, SigningKeys.BUILT_IN, highest, revoked, now)
         }
         walk.notes.forEach { Log.i(TAG, it) }
@@ -217,18 +219,22 @@ class PollChecker @Inject constructor(
     }
 
     /**
-     * The hosts the document is fetched from: [Polls.SOURCES], or on a debug build the lines of
-     * files/news-sources.txt while it is there, to try a host that is down or a forged copy on an emulator
+     * The hosts the document is fetched from, and the last resort: [Polls.SOURCES] and [Polls.LAST_RESORT],
+     * or on a debug build the lines of files/news-sources.txt while it is there (those after a line "then"
+     * being the last resort), to try a host that is down or a forged copy on an emulator
      * (docs/announcements.md). Only adb (run-as) can put it there. Never in a release.
      */
-    private fun sources(): List<String> {
+    private fun sources(): Pair<List<String>, List<String>> {
         if (BuildConfig.DEBUG) {
             runCatching { File(context.filesDir, SOURCES_STAND_IN).takeIf { it.isFile }?.readLines() }.getOrNull()
                 ?.map { it.trim() }?.filter { it.isNotEmpty() && !it.startsWith("#") }
                 ?.takeIf { it.isNotEmpty() }
-                ?.let { return it }
+                ?.let { lines ->
+                    val split = lines.indexOf("then").takeIf { it >= 0 } ?: lines.size
+                    return lines.take(split) to lines.drop(split + 1)
+                }
         }
-        return Polls.SOURCES
+        return Polls.SOURCES to Polls.LAST_RESORT
     }
 
     /**
