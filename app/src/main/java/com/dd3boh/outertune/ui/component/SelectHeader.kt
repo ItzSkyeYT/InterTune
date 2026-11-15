@@ -15,7 +15,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Deselect
 import androidx.compose.material.icons.rounded.MoreVert
-import androidx.compose.material.icons.rounded.PlaylistRemove
 import androidx.compose.material.icons.rounded.SelectAll
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalContentColor
@@ -49,9 +48,8 @@ fun RowScope.SelectHeader(
     val context = LocalContext.current
 
     // As wide as its content: the pill the lists float over their foot, the queue's too. The queue's
-    // Remove from queue is a button of the pill itself, not only an item of its menu (asked for on
-    // 9 Nov 2026: "not in a ... menu"). It stands at the end of the row, after close, so the count, the
-    // menu, select all and close keep the places people know them at.
+    // Remove from queue is an item of the pill's menu and not a button beside the close (testers found it
+    // "mysterious and dangerous" there; 15 Nov 2026). Undo after it stays as the queue offers it.
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier.padding(top = 2.dp, bottom = 3.dp)
@@ -114,21 +112,6 @@ fun RowScope.SelectHeader(
                     Icons.Rounded.Close,
                     contentDescription = stringResource(R.string.cancel_selection)
                 )
-            }
-        }
-
-        // The pill's trailing action, only where a list gives one: the queue's.
-        if (onRemoveFromQueue != null) {
-            LongPressLabel(stringResource(R.string.remove_from_queue)) {
-                IconButton(
-                    onClick = onRemoveFromQueue,
-                    enabled = selectedItems.isNotEmpty(),
-                ) {
-                    Icon(
-                        Icons.Rounded.PlaylistRemove,
-                        contentDescription = stringResource(R.string.remove_from_queue),
-                    )
-                }
             }
         }
     }

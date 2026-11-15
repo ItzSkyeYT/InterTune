@@ -32,7 +32,7 @@ class LongPressLabelTest {
 
     @Test
     fun `every button of the pill says its own name, the one screen readers hear`() {
-        for (name in listOf("R.string.options", "if (allSelected) R.string.select_all else R.string.deselect_all", "R.string.cancel_selection", "R.string.remove_from_queue")) {
+        for (name in listOf("R.string.options", "if (allSelected) R.string.select_all else R.string.deselect_all", "R.string.cancel_selection")) {
             assertTrue(name, pill.contains("LongPressLabel(stringResource($name)) {"))
             assertTrue("$name is also its content description", pill.contains("contentDescription = stringResource($name)"))
         }

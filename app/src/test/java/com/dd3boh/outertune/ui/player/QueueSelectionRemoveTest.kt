@@ -7,6 +7,7 @@
 package com.dd3boh.outertune.ui.player
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
@@ -107,15 +108,17 @@ class QueueSelectionRemoveTest {
     }
 
     @Test
-    fun `the selection pill has it as a button of its own, at its end, where nothing moves for it`() {
-        // Asked for on 9 Nov 2026: "the remove from queue button needs to be easily accessible, not in a ... menu".
+    fun `the selection pill has no button for it, only the menu does, and the undo stays`() {
+        // 15 Nov 2026: Ti-Die and Niko found it "mysterious and dangerous" beside the close.
         val header = File("src/main/java/com/dd3boh/outertune/ui/component/SelectHeader.kt").readText()
-        val button = header.indexOf("onClick = onRemoveFromQueue,")
-        assertTrue("a tap on the bar removes the songs picked", button > 0)
-        assertTrue("named for TalkBack", "contentDescription = stringResource(R.string.remove_from_queue)" in header.substring(button))
-        assertTrue("nothing to remove, nothing to tap", "enabled = selectedItems.isNotEmpty()," in header.substring(button))
-        // After close, the last of the row's buttons, so the count, the menu, select all and close stay put.
-        assertTrue(button > header.indexOf("contentDescription = stringResource(R.string.cancel_selection)"))
-        assertTrue("only where the queue gives it", "if (onRemoveFromQueue != null) {" in header.substring(0, button))
+        assertFalse("no button of its own", "onClick = onRemoveFromQueue" in header)
+        assertFalse("no icon of its own", "PlaylistRemove" in header)
+        assertTrue("the menu still gets it", "onRemoveFromQueue = onRemoveFromQueue," in header)
+        // The menu item runs the very same action, so the undo it offers is the same one.
+        val menu = File("src/main/java/com/dd3boh/outertune/ui/menu/SelectionSongsMenu.kt").readText()
+        val item = menu.substring(menu.indexOf("title = R.string.remove_from_queue"))
+        assertTrue("onRemoveFromQueue()" in item.substringBefore("}"))
+        val queue = File("src/main/java/com/dd3boh/outertune/ui/player/Queue.kt").readText()
+        assertTrue("offerUndo(queueId, taken)" in queue.substringAfter("val removeSelected").substringBefore("// search"))
     }
 }
