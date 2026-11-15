@@ -2344,6 +2344,7 @@
     <string name="download_format">Format des fichiers</string>
     <string name="download_format_original">Original</string>
     <string name="download_format_description">L\'original garde la meilleure qualité. Les autres formats sont convertis sur le téléphone après le téléchargement.</string>
+    <string name="download_format_wav_no_cover">Un fichier WAV ne peut pas contenir de pochette.</string>
     <string name="download_bitrate">Débit</string>
     <string name="download_bitrate_auto">Auto</string>
     <string name="download_bitrate_kbps">%1$d kb/s</string>

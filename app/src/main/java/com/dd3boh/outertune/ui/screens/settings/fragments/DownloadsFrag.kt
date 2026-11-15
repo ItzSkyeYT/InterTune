@@ -408,7 +408,13 @@ fun ColumnScope.DownloadsFrag() {
             modifier = Modifier.settingRow(R.string.download_format),
             title = { Text(stringResource(R.string.download_format)) },
             icon = { Icon(Icons.Rounded.AudioFile, null) },
-            content = { MeaningLine(stringResource(R.string.download_format_description)) },
+            content = {
+                Column {
+                    MeaningLine(stringResource(R.string.download_format_description))
+                    // WAV has no place for a cover: said where the format is picked.
+                    if (fileFormat == DownloadFormat.WAV) MeaningLine(stringResource(R.string.download_format_wav_no_cover))
+                }
+            },
             selectedValue = fileFormat,
             onValueSelected = onFileFormatChange,
             valueText = {

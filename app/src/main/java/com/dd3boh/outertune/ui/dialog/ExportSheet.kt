@@ -166,6 +166,15 @@ fun ExportSheet(items: List<ExportItem>, onDismiss: () -> Unit) {
                             }
                         }
                     )
+                    // WAV has no place for a cover: said where the format is picked.
+                    if (format == DownloadFormat.WAV) {
+                        Text(
+                            text = stringResource(R.string.download_format_wav_no_cover),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 24.dp),
+                        )
+                    }
                     if (DownloadFormats.bitrateRowShown(format)) {
                         EnumListPreference(
                             title = { Text(stringResource(R.string.download_bitrate)) },
