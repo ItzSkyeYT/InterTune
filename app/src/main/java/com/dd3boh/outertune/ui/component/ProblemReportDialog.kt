@@ -102,6 +102,13 @@ private const val FORM_LOG_LIMIT = 5000
  */
 internal const val FORM_LINK_LIMIT = 4500
 
+/**
+ * The sign-in address at most, which holds the form's link escaped a second time (ProblemLog.signInLength). Signed out
+ * of GitHub, the sign-in page answers 500 from about 6,900 (measured 15 Nov 2026 with filler links: 6,805 opens, 7,061
+ * fails); a log full of spaces and colons reaches that with a link of 4,430, well under FORM_LINK_LIMIT. 6,600 keeps a margin.
+ */
+internal const val FORM_SIGN_IN_LIMIT = 6600
+
 /** What happened, as typed, in the form's link at most: the rest of the link is the log's. */
 internal const val FORM_WHAT_LIMIT = 1000
 
@@ -228,6 +235,9 @@ fun ProblemReportDialog(
     var sending by remember { mutableStateOf(false) }
     var outcome by remember { mutableStateOf<ReportRelay.Outcome?>(null) }
     val scope = rememberCoroutineScope()
+    val scroll = rememberScrollState()
+    // A failed send says so at the top, and the page goes there: the box under which it stood was out of sight.
+    LaunchedEffect(outcome) { if (outcome is ReportRelay.Outcome.Failed) scroll.animateScrollTo(0) }
     when (val done = outcome) {
         is ReportRelay.Outcome.Sent -> return SentDialog(done, onDismiss)
         ReportRelay.Outcome.Held -> return HeldDialog(onDismiss)
@@ -248,8 +258,10 @@ fun ProblemReportDialog(
             .build()
         // The log as much as the link holds: see FORM_LINK_LIMIT.
         val room = FORM_LINK_LIMIT - form.toString().length - "&logs=".length
+        // The same link escaped again, as the sign-in page holds it: see FORM_SIGN_IN_LIMIT.
+        val signInRoom = FORM_SIGN_IN_LIMIT - ProblemLog.SIGN_IN_ADDRESS - ProblemLog.signInLengthOfLink("$form&logs=")
         val uri = form.buildUpon()
-            .appendQueryParameter("logs", ProblemLog.fittedForLink(text.orEmpty(), room, FORM_LOG_LIMIT))
+            .appendQueryParameter("logs", ProblemLog.fittedForLink(text.orEmpty(), room, FORM_LOG_LIMIT, signInRoom))
             .build()
         runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, uri).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
         onDismiss()
@@ -261,7 +273,11 @@ fun ProblemReportDialog(
         text = {
             // One scroll for the words, the list and the log together, so the buttons stay on a
             // short screen. The log's long lines scroll sideways by themselves.
-            Column(Modifier.verticalScroll(rememberScrollState())) {
+            Column(Modifier.verticalScroll(scroll)) {
+                (outcome as? ReportRelay.Outcome.Failed)?.let {
+                    SendFailedNote(it)
+                    Spacer(Modifier.height(12.dp))
+                }
                 Text(
                     stringResource(
                         when {
@@ -411,6 +427,26 @@ internal fun ReportWayChoice(way: ReportWay, onPick: (ReportWay) -> Unit) {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
+}
+
+/** The words for a failed send: why it failed and what to do about it ([ReportRelay.reason]). */
+internal fun failedText(reason: ReportRelay.Reason): Int = when (reason) {
+    ReportRelay.Reason.BUILD -> R.string.problem_report_failed_build
+    ReportRelay.Reason.NETWORK -> R.string.problem_report_failed_network
+    ReportRelay.Reason.BUSY -> R.string.problem_report_failed_busy
+    ReportRelay.Reason.TOO_LONG -> R.string.problem_report_failed_long
+    ReportRelay.Reason.SITE -> R.string.problem_report_failed_site
+    ReportRelay.Reason.OTHER -> R.string.problem_report_send_failed
+}
+
+/** A send that did not go: the reason and the fix, in the error colour, at the top where it is seen. */
+@Composable
+internal fun SendFailedNote(failed: ReportRelay.Outcome.Failed) {
+    Text(
+        stringResource(failedText(ReportRelay.reason(failed.why))),
+        color = MaterialTheme.colorScheme.error,
+        style = MaterialTheme.typography.bodyMedium,
+    )
 }
 
 /** After Send to InterTune: the issue's number and its link, which anyone can follow without an account. */

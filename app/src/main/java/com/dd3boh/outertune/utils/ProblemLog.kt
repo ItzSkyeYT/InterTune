@@ -298,8 +298,20 @@ object ProblemLog {
         while (hi > fault && size(lo, hi) > budget) hi--
         while (lo > 0 && size(lo - 1, hi) <= budget) lo--
         while (hi < lines.lastIndex && size(lo, hi + 1) <= budget) hi++
+        // A trace cut in its middle lost the line that says why (the exception and its message, the "Caused by"
+        // lines, #187): those come back, and the frames nearest the cut go instead, never the fault's own lines.
+        var pinned = if (lo in 1 until m && isFrame(lines[lo])) traceHeads(lines, lo) else emptyList()
+        if (pinned.isNotEmpty()) {
+            fun need() = pinned.sumOf { lines[it].length + 1 } + (if (pinned.last() == lo - 1) 0 else FRAMES_LEFT_OUT.length + 1) + size(lo, hi)
+            while (lo < m - 1 && need() > budget) lo++
+            if (need() > budget) pinned = emptyList()
+        }
         val out = StringBuilder(heading)
         if (lo > 0) out.append('\n').append(EARLIER_LEFT_OUT)
+        if (pinned.isNotEmpty()) {
+            pinned.forEach { out.append('\n').append(lines[it]) }
+            if (pinned.last() != lo - 1) out.append('\n').append(FRAMES_LEFT_OUT)
+        }
         out.append('\n').append(lines.subList(lo, hi + 1).joinToString("\n"))
         if (hi < lines.lastIndex) out.append('\n').append(LATER_LEFT_OUT)
         if (stopsRoom > 0) out.append("\n\n").append(stops)
@@ -308,6 +320,33 @@ object ProblemLog {
 
     private const val EARLIER_LEFT_OUT = "(the earlier lines are left out)"
     private const val LATER_LEFT_OUT = "(the later lines are left out)"
+    private const val FRAMES_LEFT_OUT = "(some frames are left out)"
+
+    private val FRAME = Regex(""":\s+(at [\w$.<>/]+\(|\.\.\. \d+ more)""")
+    private val CAUSED_BY = Regex(""":\s+(Caused by|Suppressed): """)
+
+    /** A line of a stack trace that only says where: "at pkg.Class.method(File.kt:12)" or "... 5 more". */
+    internal fun isFrame(line: String) = FRAME.containsMatchIn(line)
+
+    /**
+     * The lines of the trace that ends just before [from] which say what went wrong and not where: the exception's
+     * line with its message, and each "Caused by", oldest first, at most [MOST_HEADS] of them. Empty when the line
+     * before [from] is not part of a trace.
+     */
+    internal fun traceHeads(lines: List<String>, from: Int): List<Int> {
+        val heads = ArrayDeque<Int>()
+        var i = from - 1
+        while (i >= 0 && heads.size < MOST_HEADS) {
+            if (isFrame(lines[i])) { i--; continue }
+            heads.addFirst(i)
+            // The exception's own line ends the trace; a "Caused by" continues it into the one before.
+            if (!CAUSED_BY.containsMatchIn(lines[i])) break
+            i--
+        }
+        return heads.toList()
+    }
+
+    private const val MOST_HEADS = 6
 
     /**
      * The steps block in [room] characters: its header, and the lines nearest the marker, the farthest
@@ -340,19 +379,41 @@ object ProblemLog {
     }
 
     /**
+     * How long [text] is once escaped for a link and that link escaped again, as GitHub's sign-in page holds it
+     * in the address it sends a signed-out person to: a plain character stays one, every other byte is %XX in the
+     * link and %25XX in the address (five). Measured on 15 Nov 2026 against github.com/login: the address is 35
+     * characters and the link escaped as above, and from about 6,900 of them the sign-in answers 500 (Ti-Die's
+     * "Looks like something went wrong"); the link on its own was well under its 4,500.
+     */
+    fun signInLength(text: String): Int = text.toByteArray(Charsets.UTF_8).sumOf { byte ->
+        val c = byte.toInt() and 0xFF
+        val plain = c in 'a'.code..'z'.code || c in 'A'.code..'Z'.code || c in '0'.code..'9'.code ||
+            c == '-'.code || c == '_'.code || c == '.'.code || c == '~'.code
+        if (plain) 1 else 5
+    }
+
+    /** The sign-in address's share of a finished [link] (already escaped once): a plain character stays one, every other is three. */
+    fun signInLengthOfLink(link: String): Int = link.sumOf { c -> if (c in 'a'..'z' || c in 'A'..'Z' || c in '0'..'9' || c in "-_.~") 1 else 3 }
+
+    /**
      * [report] cut as [fitted] cuts it, from [most] characters down, until escaped for a link it
-     * takes [budget] characters at most. GitHub answers a link to its form that is too long with
+     * takes [budget] characters at most, and escaped twice, as the sign-in page holds it, [signInBudget]
+     * at most (see [signInLength]). GitHub answers a link to its form that is too long with
      * "Something went wrong", and a log of spaces, colons and brackets doubles once escaped.
      */
-    fun fittedForLink(report: String, budget: Int, most: Int): String {
+    fun fittedForLink(report: String, budget: Int, most: Int, signInBudget: Int = Int.MAX_VALUE): String {
+        fun fits(cut: String) = linkLength(cut) <= budget && signInLength(cut) <= signInBudget
         var limit = minOf(report.length, most)
         var cut = fitted(report, limit)
-        while (limit > 0 && linkLength(cut) > budget) {
+        while (limit > 0 && !fits(cut)) {
             limit = limit * 4 / 5
             cut = fitted(report, limit)
         }
-        return if (linkLength(cut) <= budget) cut else ""
+        return if (fits(cut)) cut else ""
     }
+
+    /** The link to a form, escaped twice for the sign-in page, as [signInLength] counts it: "github.com/login?return_to=" is 35. */
+    const val SIGN_IN_ADDRESS = 35
 
     /**
      * The start of [text] that takes [budget] characters at most once escaped for a link, cut at the
@@ -360,26 +421,31 @@ object ProblemLog {
      * that matter, where [fittedForLink] keeps the end of a log. A first line longer than the budget
      * is cut where the budget runs out.
      */
-    fun startForLink(text: String, budget: Int): String {
-        if (budget <= 0) return ""
-        if (linkLength(text) <= budget) return text
+    fun startForLink(text: String, budget: Int, signInBudget: Int = Int.MAX_VALUE): String {
+        if (budget <= 0 || signInBudget <= 0) return ""
+        if (linkLength(text) <= budget && signInLength(text) <= signInBudget) return text
         val out = StringBuilder()
         var used = 0
+        var used2 = 0
         for (line in text.lineSequence()) {
             val piece = if (out.isEmpty()) line else "\n$line"
             val cost = linkLength(piece)
-            if (used + cost > budget) break
+            val cost2 = signInLength(piece)
+            if (used + cost > budget || used2 + cost2 > signInBudget) break
             out.append(piece)
             used += cost
+            used2 += cost2
         }
         if (out.isEmpty()) {
             var i = 0
             while (i < text.length) {
                 val next = i + Character.charCount(text.codePointAt(i))
                 val cost = linkLength(text.substring(i, next))
-                if (used + cost > budget) break
+                val cost2 = signInLength(text.substring(i, next))
+                if (used + cost > budget || used2 + cost2 > signInBudget) break
                 out.append(text, i, next)
                 used += cost
+                used2 += cost2
                 i = next
             }
         }

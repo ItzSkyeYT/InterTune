@@ -279,7 +279,7 @@ class ProblemLogTest {
     @Test
     fun `the form's link is built with the log fitted to what is left of it`() {
         val dialog = java.io.File("src/main/java/com/dd3boh/outertune/ui/component/ProblemReportDialog.kt").readText()
-        assertTrue("ProblemLog.fittedForLink(text.orEmpty(), room, FORM_LOG_LIMIT)" in dialog)
+        assertTrue("ProblemLog.fittedForLink(text.orEmpty(), room, FORM_LOG_LIMIT, signInRoom)" in dialog)
     }
 
     @Test
@@ -310,7 +310,7 @@ class ProblemLogTest {
     fun `the crash page's link is cut for someone signed out too`() {
         val crash = java.io.File("src/main/java/com/dd3boh/outertune/ui/component/CrashReportDialog.kt").readText()
         assertTrue("FORM_LINK_LIMIT - base.toString().length" in crash)
-        assertTrue("ProblemLog.startForLink(text.take(ISSUE_BODY_LIMIT), room)" in crash)
+        assertTrue("ProblemLog.startForLink(text.take(ISSUE_BODY_LIMIT), room, signInRoom)" in crash)
     }
 
     @Test
@@ -384,5 +384,58 @@ class ProblemLogTest {
         assertEquals(-1, none)
         val dialog = java.io.File("src/main/java/com/dd3boh/outertune/ui/component/ProblemReportDialog.kt").readText()
         assertTrue("color = MaterialTheme.colorScheme.error" in dialog.substringAfter("if (choice.latestProblem) {"))
+    }
+
+    @Test
+    fun `a trace cut in its middle keeps the exception line and its causes, and gives up frames instead (#187)`() {
+        // Ti-Die, 15 Nov 2026: the log was cut to fit the form's link and only the coroutines' last frames were left
+        // above the fault, so the line that said why (a response code) was gone.
+        val tag = "18:05:14.713 E/LoadTask: "
+        val trace = listOf(
+            tag + "  androidx.media3.exoplayer.upstream.Loader\$UnexpectedLoaderException: Unexpected IOException: Response code: 403",
+            tag + "      at androidx.media3.exoplayer.upstream.Loader\$LoadTask.run(Loader.java:445)",
+            tag + "  Caused by: androidx.media3.datasource.HttpDataSource\$InvalidResponseCodeException: Response code: 403",
+        ) + List(30) { tag + "      at kotlinx.coroutines.scheduling.CoroutineScheduler\$Worker.step$it(CoroutineScheduler.kt:$it)" }
+        val after = listOf("18:05:14.721 E/ExoPlayerImplInternal: Playback error") +
+            List(8) { "18:05:14.721 E/ExoPlayerImplInternal:       at androidx.media3.exoplayer.ExoPlayerImplInternal.step$it(ExoPlayerImplInternal.java:$it)" }
+        val report = "InterTune 0.12.9 (101, core beta)\nGoogle Pixel 11, Android 17 (API 37)\n\n" +
+            (listOf("18:05:00.000 I/MusicService: PLAYING: a song") + trace + listOf(">>> here") + after).joinToString("\n")
+        val cut = ProblemLog.fittedForLink(report, 2200, 5000)
+        assertTrue(ProblemLog.linkLength(cut) <= 2200)
+        assertTrue(">>> here" in cut)
+        assertTrue("the exception and its message", "UnexpectedLoaderException: Unexpected IOException: Response code: 403" in cut)
+        assertTrue("its cause", "Caused by: androidx.media3.datasource.HttpDataSource\$InvalidResponseCodeException: Response code: 403" in cut)
+        assertTrue("frames went instead", "(some frames are left out)" in cut)
+        // The trace's frames come back in order, the head before the window.
+        assertTrue(cut.indexOf("UnexpectedLoaderException") < cut.indexOf(">>> here"))
+        // With room enough nothing is changed.
+        assertEquals(report, ProblemLog.fitted(report, report.length))
+    }
+
+    @Test
+    fun `a line of a trace is a frame when it only says where`() {
+        assertTrue(ProblemLog.isFrame("18:05:14.713 E/LoadTask:       at kotlinx.coroutines.scheduling.CoroutineScheduler\$Worker.run(CoroutineScheduler.kt:704)"))
+        assertTrue(ProblemLog.isFrame("18:05:14.713 E/LoadTask:       ... 5 more"))
+        assertFalse(ProblemLog.isFrame("18:05:14.713 E/LoadTask:   java.io.IOException: Response code: 403"))
+        assertFalse(ProblemLog.isFrame("18:05:14.713 E/LoadTask:   Caused by: java.net.SocketTimeoutException: timeout"))
+    }
+
+    @Test
+    fun `a link that is short enough alone is cut again when the sign-in page would hold it too long (Ti-Die, 15 Nov 2026)`() {
+        // Measured against github.com/login with filler links: the address (35 characters and the link escaped
+        // again) opens at 6,805 and answers 500 at 7,061. A log of spaces and colons has a link of 4,430 there.
+        val heading = "InterTune 0.12.9 (101, core beta)\nGoogle Pixel 11, Android 17 (API 37)\n\n"
+        val lines = (1..300).joinToString("\n") { "18:05:%02d.713 I/T: [a] (b) {c} : : : : = = $it".format(it % 60) }
+        val report = heading + lines
+        val base = 250
+        val cut = ProblemLog.fittedForLink(report, 4500 - base, 1900, 6600 - ProblemLog.SIGN_IN_ADDRESS - base)
+        assertTrue(ProblemLog.linkLength(cut) <= 4500 - base)
+        assertTrue(ProblemLog.signInLength(cut) <= 6600 - ProblemLog.SIGN_IN_ADDRESS - base)
+        // Without the second limit the same log was let through at a length the sign-in page turns away.
+        val alone = ProblemLog.fittedForLink(report, 4500 - base, 1900)
+        assertTrue("alone ${alone.length} chars, link ${ProblemLog.linkLength(alone)}, sign-in ${ProblemLog.signInLength(alone)}", ProblemLog.signInLength(alone) > 6600 - ProblemLog.SIGN_IN_ADDRESS - base)
+        assertEquals(5, ProblemLog.signInLength(":"))
+        assertEquals(1, ProblemLog.signInLength("a"))
+        assertEquals(6, ProblemLog.signInLengthOfLink("a%3A"))
     }
 }
