@@ -96,6 +96,17 @@ import com.dd3boh.outertune.ui.screens.walkthrough.tourTarget
 fun searchPillLeadsBack(searchActive: Boolean, route: String?): Boolean =
     searchActive || route?.startsWith("search") == true
 
+/**
+ * Whether the search pill is on screen: over every tab of the bar, over a page of search results,
+ * and over anything while search is open. [tabs] is the bar as it is now.
+ *
+ * It was the bar as it was when the app was opened, so a tab that came into the bar later (Folders,
+ * which turning local media on brings back, or one added under Arrange tabs) had an empty band
+ * where the pill goes until the app was started again.
+ */
+fun searchPillShown(searchActive: Boolean, route: String?, tabs: List<Screens>): Boolean =
+    searchActive || tabs.fastAny { it.route == route } || route?.startsWith("search/") == true
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SearchBarContainer(
@@ -117,7 +128,9 @@ fun SearchBarContainer(
     var searchSource by rememberEnumPreference(SearchSourceKey, SearchSource.ONLINE)
     val updateAvailable by rememberPreference(UpdateAvailableKey, defaultValue = false)
 
-    val navigationItems = remember { Screens.getScreens(enabledTabs) }
+    // The bar as it is now: kept from when the app was opened, a tab that came into the bar later had no
+    // pill over it (searchPillShown).
+    val navigationItems = remember(enabledTabs) { Screens.getScreens(enabledTabs) }
     val searchBarFocusRequester = remember { FocusRequester() }
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -179,9 +192,8 @@ fun SearchBarContainer(
     }
 
 
-    val shouldShowSearchBar = remember(searchActive, navBackStackEntry) {
-        (searchActive || navigationItems.fastAny { it.route == navBackStackEntry?.destination?.route } ||
-                navBackStackEntry?.destination?.route?.startsWith("search/") == true)
+    val shouldShowSearchBar = remember(searchActive, navBackStackEntry, navigationItems) {
+        searchPillShown(searchActive, navBackStackEntry?.destination?.route, navigationItems)
     }
 
     LaunchedEffect(navBackStackEntry) {

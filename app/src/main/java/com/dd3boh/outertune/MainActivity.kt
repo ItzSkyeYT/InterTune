@@ -108,7 +108,11 @@ import kotlinx.coroutines.withContext
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import androidx.compose.material3.TopAppBarState
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.snapshotFlow
@@ -758,7 +762,7 @@ class MainActivity : ComponentActivity() {
     }
 
     @SuppressLint("UnusedBoxWithConstraintsScope")
-    @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+    @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class, ExperimentalCoroutinesApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         // Debug builds only: a file that makes this phone count as a Samsung, so Auto Blocker's
@@ -1369,6 +1373,20 @@ class MainActivity : ComponentActivity() {
                                     appBarState.contentOffset = 0f
                                     appBarState.resetHeightOffset()
                                 }
+                            }
+                    }
+                    // A tab tapped again is scrolled to its top by the screen itself, in code, which the scroll
+                    // behaviour above never feels (it follows fingers and flings): the bar that had slid away with
+                    // the list stayed away over the top of it, an empty band. It comes back with the list.
+                    LaunchedEffect(Unit) {
+                        snapshotFlow { navBackStackEntry }
+                            .flatMapLatest { entry -> entry?.savedStateHandle?.getStateFlow("scrollToTop", false) ?: flowOf(false) }
+                            // Only the asking: the screen sets it back to false when it has scrolled, which must not
+                            // cut the bar's own way back short.
+                            .filter { it }
+                            .collectLatest {
+                                appBarState.contentOffset = 0f
+                                appBarState.resetHeightOffset()
                             }
                     }
 
