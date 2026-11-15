@@ -2658,4 +2658,17 @@
     <string name="open_file_location" translatable="false">Ouvrir l\'emplacement</string>
     <string name="open_file_location_failed" translatable="false">Impossible d\'ouvrir le dossier</string>
     <string name="no_artist_found" translatable="false">Aucun artiste trouvé</string>
+    <string name="metrolist_import">Importer depuis Metrolist</string>
+    <string name="metrolist_import_description">Titres aimés, playlists et écoutes d\'une sauvegarde Metrolist</string>
+    <string name="metrolist_import_reading">Lecture de la sauvegarde</string>
+    <string name="search_words_metrolist">Metrolist, changer, transférer, sauvegarde</string>
+    <string name="metrolist_import_summary">Titres de sa bibliothèque : %1$d\nTitres aimés : %2$d\nPlaylists : %3$d\nÉcoutes : %4$d\n\nRien de ce que vous avez déjà n\'est changé ni supprimé.</string>
+    <string name="metrolist_import_confirm">Importer</string>
+    <string name="metrolist_import_done_title">Importé depuis Metrolist</string>
+    <string name="metrolist_import_done">Nouveaux titres : %1$d\nNouveaux titres aimés : %2$d\nAjoutés à votre bibliothèque : %3$d\nNouvelles playlists : %4$d\nÉcoutes ajoutées : %5$d</string>
+    <string name="metrolist_import_not_metrolist">Ce n\'est pas une sauvegarde Metrolist. Dans Metrolist, créez-en une dans Paramètres, Sauvegarde et restauration.</string>
+    <string name="metrolist_import_ours">C\'est une sauvegarde InterTune ou OuterTune. Restaurer la prend.</string>
+    <string name="metrolist_import_too_old">Cette sauvegarde vient d\'InnerTune ou d\'un ancien Metrolist. Restaurer prend celles d\'InnerTune ; pour Metrolist, mettez-le à jour et faites une nouvelle sauvegarde.</string>
+    <string name="metrolist_import_other_file">Choisir un autre fichier</string>
+    <string name="metrolist_import_failed">Impossible de lire cette sauvegarde</string>
 </resources>
