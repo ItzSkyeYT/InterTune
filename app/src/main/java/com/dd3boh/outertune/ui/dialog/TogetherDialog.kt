@@ -139,6 +139,7 @@ import com.dd3boh.outertune.together.TogetherSession
 import com.dd3boh.outertune.ui.utils.LocalLandscape
 import com.dd3boh.outertune.ui.utils.shrinkToFit
 import com.dd3boh.outertune.utils.dataStore
+import androidx.datastore.preferences.core.edit
 import com.dd3boh.outertune.utils.Toaster
 import com.dd3boh.outertune.utils.shareSheet
 import kotlinx.coroutines.flow.first
@@ -197,6 +198,21 @@ fun TogetherSheet(onDismiss: () -> Unit) {
         scope.launch { service.startTogether(code, owner, togetherRelays(context), togetherName(context)) }
     }
 
+    // Starting a room with no name set asks for one first; Continue keeps it in the setting.
+    var askingName by rememberSaveable { mutableStateOf(false) }
+    if (askingName) {
+        NameBeforeRoomDialog(
+            onDismiss = { askingName = false },
+            onContinue = { name ->
+                askingName = false
+                scope.launch {
+                    context.dataStore.edit { it[TogetherNameKey] = name }
+                    open(RoomCode.generate(), owner = true)
+                }
+            },
+        )
+    }
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
@@ -223,7 +239,12 @@ fun TogetherSheet(onDismiss: () -> Unit) {
                 if (room == null) {
                     StartPage(
                         cover = song?.thumbnailUrl,
-                        onStart = { open(RoomCode.generate(), owner = true) },
+                        onStart = {
+                            scope.launch {
+                                if (needsName(context.dataStore.data.first()[TogetherNameKey])) askingName = true
+                                else open(RoomCode.generate(), owner = true)
+                            }
+                        },
                         onJoin = { open(it, owner = false) },
                     )
                 } else {
@@ -331,7 +352,7 @@ private fun RoomPage(room: TogetherSession, song: MediaMetadata?, onLeave: () ->
     val haptics = LocalHapticFeedback.current
     val status by room.status.collectAsState()
     val copied = stringResource(R.string.together_copied)
-    val invite = stringResource(R.string.together_invite_text, room.code.pretty, room.code.appLink)
+    val invite = stringResource(R.string.together_invite_text, room.code.pretty, room.code.webLink)
     var showingQr by rememberSaveable { mutableStateOf(false) }
     if (showingQr) RoomQrDialog(room.code, onDismiss = { showingQr = false })
     // The owner's leaving ends the room for everyone: asked first (his word of 17 Oct 2026).
@@ -1053,6 +1074,36 @@ private fun ControlRow(name: String, canTakeBack: Boolean, onTakeBack: () -> Uni
     }
 }
 
+/** Whether a room's owner is asked for a name first: none is set in Settings > Listen together. */
+internal fun needsName(stored: String?): Boolean = stored.isNullOrBlank()
+
+/** The most a name can be, as in Settings > Listen together. */
+private const val NAME_LENGTH = 40
+
+/** Asked when someone starts a room and has no name set: one field, Continue saves it and starts the room. */
+@Composable
+private fun NameBeforeRoomDialog(onDismiss: () -> Unit, onContinue: (String) -> Unit) {
+    var name by rememberSaveable { mutableStateOf("") }
+    val ready = name.isNotBlank()
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.together_name_setting)) },
+        text = {
+            OutlinedTextField(
+                value = name,
+                onValueChange = { name = it.take(NAME_LENGTH) },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                keyboardActions = androidx.compose.foundation.text.KeyboardActions(onDone = { if (ready) onContinue(name.trim()) }),
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = { onContinue(name.trim()) }, enabled = ready) { Text(stringResource(R.string.together_name_continue)) }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(android.R.string.cancel)) } },
+    )
+}
+
 /** The relays a room uses: the public ones, or in a debug build those of TogetherRelaysKey when set. */
 suspend fun togetherRelays(context: Context): List<String> =
     context.dataStore.data.first()[TogetherRelaysKey]
@@ -1083,7 +1134,6 @@ internal fun meterPlace(driftMs: Long): Float {
 
 private const val METER_MS = 400L
 private const val IN_STEP_MS = 25L
-private const val LINK = "intertune://together/"
 
 /**
  * What the code field keeps of what was typed or pasted, [before] being what it held. A code or a
@@ -1093,7 +1143,7 @@ private const val LINK = "intertune://together/"
  */
 internal fun codeTyped(input: String, before: String = ""): String {
     RoomCode.parse(input)?.let { return it.raw }
-    val inside = Regex("$LINK([A-Za-z0-9]{${RoomCode.LENGTH}})", RegexOption.IGNORE_CASE).find(input)?.groupValues?.get(1)
+    val inside = Regex("(?:${Regex.escape(RoomCode.APP_LINK)}|${Regex.escape(RoomCode.WEB_LINK)})([A-Za-z0-9]{${RoomCode.LENGTH}})", RegexOption.IGNORE_CASE).find(input)?.groupValues?.get(1)
         ?: Regex("\\b[A-Za-z0-9]{4}-[A-Za-z0-9]{4}-[A-Za-z0-9]{4}\\b").find(input)?.value
     RoomCode.parse(inside)?.let { return it.raw }
     if ("://" in input || input.count { it.isLetterOrDigit() } > RoomCode.LENGTH + 2) return before

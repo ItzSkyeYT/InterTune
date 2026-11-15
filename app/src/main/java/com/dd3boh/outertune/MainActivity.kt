@@ -1510,7 +1510,7 @@ class MainActivity : ComponentActivity() {
                         // has no YouTube page: it opens here.
                         val libraryPlaylist = SystemSearch.playlistOf(link)
                         val searchWords = SystemSearch.searchOf(link)
-                        val invite = if (togetherAvailable && link.startsWith("intertune://together/", ignoreCase = true)) RoomCode.parse(link) else null
+                        val invite = if (togetherAvailable && RoomCode.isInviteLink(link)) RoomCode.parse(link) else null
                         if (invite != null) {
                             togetherInvite = invite
                         } else if (libraryPlaylist != null) {
