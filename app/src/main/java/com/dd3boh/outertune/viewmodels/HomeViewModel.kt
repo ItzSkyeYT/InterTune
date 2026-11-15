@@ -1,5 +1,6 @@
 package com.dd3boh.outertune.viewmodels
 
+import com.dd3boh.outertune.utils.AppLanguage
 import com.dd3boh.outertune.constants.ContentLanguageKey
 import com.dd3boh.outertune.constants.ContentCountryKey
 import com.dd3boh.outertune.models.AiFilter
@@ -1716,6 +1717,12 @@ class HomeViewModel @Inject constructor(
                 .distinctUntilChanged()
                 .drop(1)
                 .collect { refresh(force = true) }
+        }
+        // The app's own language changing, which no setting stored here tells of: the titles of
+        // the rows are made from its words (Quick picks) and YouTube's from the language it was
+        // just set to answer in (AppLanguage.follow), so both are asked for again.
+        viewModelScope.launch {
+            AppLanguage.changes.collect { refresh(force = true) }
         }
         // Where similar songs come from changes the engine's whole graph; the input cache notices
         // the mode by itself, and these are the rebuilds, at once for any change, so the row on

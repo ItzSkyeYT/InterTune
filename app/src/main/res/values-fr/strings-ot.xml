@@ -2584,6 +2584,8 @@
         <item>Po</item>
     </string-array>
     <string name="app_language">Langue de l\'application</string>
+    <string name="youtube_language">Langue de YouTube Music</string>
+    <string name="youtube_country">Pays de YouTube Music</string>
     <string name="queue_removed_one">%1$s retiré</string>
     <plurals name="queue_removed_songs">
         <item quantity="one">%1$d titre retiré</item>

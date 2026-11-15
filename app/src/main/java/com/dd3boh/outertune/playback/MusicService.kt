@@ -237,6 +237,7 @@ import com.dd3boh.outertune.playback.queues.Queue
 import com.dd3boh.outertune.playback.queues.YouTubeQueue
 import com.dd3boh.outertune.together.TogetherSession
 import com.dd3boh.outertune.together.RoomCode
+import com.dd3boh.outertune.utils.AppLanguage
 import com.dd3boh.outertune.utils.PhoneState
 import com.dd3boh.outertune.utils.SoundRoute
 import com.dd3boh.outertune.utils.SessionBitmapLoader
@@ -1198,6 +1199,11 @@ class MusicService : MediaLibraryService(),
                 StopReasons.keep(this@MusicService, StopReasons.NOT_IN_FOREGROUND)
             }
         })
+        // The app's own language changing: the buttons of the media notification were named in the
+        // old one when their layout was last sent, which is not until the next song or press.
+        scope.launch {
+            AppLanguage.changes.collect { runCatching { updateNotification() } }
+        }
         // An artist blocked while their song is the one playing: it is passed over at once.
         if (Unreleased.ARTIST_BLOCK) scope.launch {
             blockedArtists.drop(1).collect {

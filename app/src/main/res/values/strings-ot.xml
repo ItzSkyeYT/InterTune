@@ -2789,6 +2789,9 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="sleep_notif_stop" translatable="false">Stop</string>
     <!-- The app's own language (AppLanguageFrag), above the content language. Held from translators until the next push of texts, the French beside it in values-fr. -->
     <string name="app_language" translatable="false">App language</string>
+    <!-- The two rows under App language (LocalizationFrag): what YouTube Music writes in, which is not the app's own words (a Dutch phone set to "English" there was left half Dutch, 15 Nov 2026). They replace Default content language and Default content country. Held from translators until the next push of texts, the French beside it in values-fr. -->
+    <string name="youtube_language" translatable="false">YouTube Music language</string>
+    <string name="youtube_country" translatable="false">YouTube Music country</string>
     <!-- Said under the queue after songs were taken out of it by hand, with Undo beside it (QueueUndo): the song's title, or how many. Held from translators. -->
     <string name="queue_removed_one" translatable="false">Removed %1$s</string>
     <plurals name="queue_removed_songs" translatable="false">

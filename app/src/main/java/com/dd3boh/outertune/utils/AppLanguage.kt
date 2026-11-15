@@ -14,6 +14,9 @@ import android.content.res.Resources
 import android.os.Build
 import android.os.LocaleList
 import com.dd3boh.outertune.constants.SYSTEM_DEFAULT
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import java.util.Locale
 
 /**
@@ -25,10 +28,18 @@ import java.util.Locale
  * different things. The platform then draws the activity again in the new language by itself.
  *
  * Before Android 13 there is no such place, and MainActivity is a ComponentActivity, so AppCompat's
- * backport is not there to use. The tag is kept in a small preference file read before anything is
- * drawn ([wrap], from attachBaseContext of the app and of the activity), and the activity is
- * made again on a change. Navigation and what is typed are saved across that, and the music is
- * the service's, which is not touched.
+ * backport is not there to use (it only reaches AppCompatActivity screens anyway, never the
+ * notification, the widget or a service, which are the other half of "half Dutch, half English").
+ * The tag is kept in a small preference file. Screens take it in attachBaseContext ([wrap]) and
+ * are made again on a change; everything else (the services, the receivers of the widgets, the
+ * workers, the notifications) reads the app's own resources, which [applyToProcess] puts in the
+ * chosen language at the start of the process and again after every change of the phone's
+ * configuration, which would otherwise put them back to the phone's language. Navigation and what
+ * is typed are saved across the screen being made again, and the music is the service's, which is
+ * not touched.
+ *
+ * On every Android, [follow] is what notices the language the app really speaks (however it was
+ * picked: this row, Android's own page, the phone's language changing) and sets the rest to it.
  */
 object AppLanguage {
 
@@ -45,6 +56,19 @@ object AppLanguage {
 
     private const val FILE = "app_language"
     private const val KEY = "tag"
+
+    private val changed = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+
+    /**
+     * Said each time the language the app speaks is not the one it spoke a moment ago, after YouTube
+     * has been set up for the new one: whatever was built with words (Home's rows, the media
+     * notification's buttons, the widget) is made again from it.
+     */
+    val changes: SharedFlow<Unit> = changed.asSharedFlow()
+
+    /** The language [follow] last saw, as a tag. Nothing before the app has started. */
+    @Volatile
+    private var followed: String? = null
 
     /** What the platform is handed for a choice: nothing at all for the phone's own language. */
     fun languageTags(choice: String): String = if (choice in TAGS) choice else ""
@@ -94,16 +118,50 @@ object AppLanguage {
         } else {
             if (tags == saved(activity)) return
             activity.getSharedPreferences(FILE, Context.MODE_PRIVATE).edit().putString(KEY, tags).apply()
-            // The app's own context too, which the notification and the widget take their words
-            // from: they follow at their next update.
+            // The app's own resources too, which the notification, the widget and the services take
+            // their words from: they follow at once, and again after each configuration change.
             val locale = if (tags.isEmpty()) Resources.getSystem().configuration.locales[0] else Locale.forLanguageTag(tags)
-            Locale.setDefault(locale)
-            val resources = activity.applicationContext.resources
-            val config = Configuration(resources.configuration).apply { setLocale(locale) }
-            @Suppress("DEPRECATION")
-            resources.updateConfiguration(config, resources.displayMetrics)
+            applyInPlace(activity.applicationContext.resources, locale)
             activity.recreate()
         }
+    }
+
+    /**
+     * Takes the language the app speaks as seen from [context] (an activity as it is made, the app
+     * at its start and at every configuration change): YouTube is asked in it, unless the two
+     * content rows say otherwise ([ContentLocale]), and when it is not the language of a moment
+     * ago, [changes] says so. This is the one place that learns of a change, so a language picked
+     * on Android's own App languages page, where the platform only makes the screen again, is taken
+     * exactly as one picked in Settings.
+     */
+    fun follow(context: Context) {
+        val locale = ContentLocale.appLocale(context)
+        val tag = locale.toLanguageTag()
+        val before = followed
+        if (tag == before) return
+        followed = tag
+        ContentLocale.setUpFor(context, locale)
+        if (before != null) changed.tryEmit(Unit)
+    }
+
+    /**
+     * Before Android 13: the app's own resources (not a screen's) in the chosen language. Android
+     * puts them back to the phone's language at every change of the phone's configuration (the
+     * screen turning, the font size, night mode), so this runs when the process starts and again
+     * from Application.onConfigurationChanged. Later Androids do all of it themselves.
+     */
+    fun applyToProcess(context: Context) {
+        if (Build.VERSION.SDK_INT >= 33) return
+        val tag = saved(context)
+        if (tag.isEmpty()) return
+        applyInPlace(context.resources, Locale.forLanguageTag(tag))
+    }
+
+    @Suppress("DEPRECATION")
+    private fun applyInPlace(resources: Resources, locale: Locale) {
+        Locale.setDefault(locale)
+        val config = Configuration(resources.configuration).apply { setLocale(locale) }
+        resources.updateConfiguration(config, resources.displayMetrics)
     }
 
     /**

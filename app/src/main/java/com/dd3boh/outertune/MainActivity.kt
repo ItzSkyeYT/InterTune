@@ -774,6 +774,9 @@ class MainActivity : ComponentActivity() {
         YouTubeRegion.pretendFrom(this)
         // And a file that makes album pages fail as YouTube's NOT_FOUND does, to see what they do then.
         AlbumAnswerPretend.pretendFrom(this)
+        // The language this screen was made in: YouTube is asked in it and Home is loaded again when it
+        // is not the one of a moment ago, however it was picked (AppLanguage.follow).
+        AppLanguage.follow(this)
         // Not again after a rotation or a restored process: the shortcut was tapped once. Nor when
         // the task is reopened from recents, which starts it again with the shortcut's intent and
         // replayed the liked songs over whatever was playing (Android 11 and older, where Back
