@@ -287,6 +287,67 @@ object PauseHere {
     }
 }
 
+/**
+ * What opening an invite does when this phone may be in that room already (his find of 15 Nov
+ * 2026: the host opened its own link and was two in the room). The same room is opened on its
+ * screen; any other is asked about, as before.
+ */
+object InviteAnswer {
+    enum class Answer { ASK, OPEN_ROOM }
+
+    fun forInvite(invite: RoomCode, current: RoomCode?): Answer =
+        if (current != null && current == invite) Answer.OPEN_ROOM else Answer.ASK
+}
+
+/**
+ * The host's song, which this phone cannot play (issue #187: YouTube refused it to a guest on every
+ * client). The guest stays on it, not playing, with a line saying so, and picks up again at the
+ * host's next song. One more try a while after the first failure (a stream can come back), none
+ * after the second, so that nothing is asked every second, and no skipping away: the room only
+ * sent it back.
+ */
+class HostSongRefusal {
+    /** The host's song this phone failed on, null when it plays or has not failed. */
+    var refusedId: String? = null
+        private set
+    private var hostId: String? = null
+    private var failures = 0
+    private var firstFailedAt = 0L
+
+    /** The host's song is [id] now: a different one than before starts afresh. */
+    fun songIs(id: String) {
+        if (id == hostId) return
+        hostId = id
+        refusedId = null
+        failures = 0
+    }
+
+    /** The player failed on [id]. Only the host's song counts. */
+    fun failed(id: String, nowMs: Long) {
+        if (id != hostId) return
+        refusedId = id
+        failures++
+        if (failures == 1) firstFailedAt = nowMs
+    }
+
+    /** The song played after all: the next failure is a first one again. */
+    fun played() {
+        refusedId = null
+        failures = 0
+    }
+
+    /** Whether the player is to stay on [id], failed and left alone: it is the host's and it failed. */
+    fun staysOn(id: String): Boolean = id == hostId && refusedId == id
+
+    /** Whether the one more try is due: once, [RETRY_AFTER_MS] after the first failure. */
+    fun retryDue(id: String, nowMs: Long): Boolean =
+        staysOn(id) && failures == 1 && nowMs - firstFailedAt >= RETRY_AFTER_MS
+
+    companion object {
+        const val RETRY_AFTER_MS = 20_000L
+    }
+}
+
 /** Settings > Listen together as a room uses them, each held to its range, unset ones at their default. */
 data class TogetherTuning(val toleranceMs: Long, val maxNudge: Double, val delayMs: Long) {
     companion object {

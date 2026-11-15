@@ -2071,6 +2071,7 @@
         <item quantity="other">Et %1$d autres après lui, de sa file d\'attente.</item>
     </plurals>
     <string name="together_removed">%1$s a été retiré. Le salon a un nouveau code.</string>
+    <string name="together_song_unavailable">Ce titre n\'est pas disponible pour vous. Le suivant de l\'hôte démarrera tout seul.</string>
     <!-- The phone's own search and the equalizer, in every build from 0.12. -->
     <string name="system_search_description">Les titres, artistes, albums et playlists de votre bibliothèque, puis sur YouTube Music.</string>
     <string name="system_search_artist">Artiste</string>

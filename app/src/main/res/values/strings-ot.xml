@@ -2294,6 +2294,7 @@ while also allowing users to translate our app as well. New, specific strings to
         <item quantity="other">And %1$d more after it, from their queue.</item>
     </plurals>
     <string name="together_removed">%1$s was removed. The room has a new code.</string>
+    <string name="together_song_unavailable">This song isn\'t available for you. The next one from the host plays by itself.</string>
     <string name="support_title">Support InterTune</string>
     <string name="support_text">InterTune is free and has no ads. To give something back, use InterTune\'s Ko-fi and say in your message if you want your name here. For crypto, message the developer on Discord.</string>
     <string name="support_thanks">Thanks to those who already gave:</string>

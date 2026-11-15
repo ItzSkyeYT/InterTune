@@ -515,6 +515,8 @@ class MusicService : MediaLibraryService(),
 
     /** Opens a room, hosting or following, in place of any already open. Main thread. */
     fun startTogether(code: RoomCode, owner: Boolean, relays: List<String>, name: String): TogetherSession {
+        // Already in this very room (an invite to it opened again): it stays as it is, not joined a second time.
+        together.value?.takeIf { it.code == code }?.let { return it }
         together.value?.stop()
         return TogetherSession(this, code, owner, relays, name).also {
             together.value = it
@@ -5203,6 +5205,9 @@ class MusicService : MediaLibraryService(),
         // A song every client called gone, before any of it played: passed over to the next one,
         // whatever skip on error says, and named (issue #82). No network or retry can bring it
         // back, so it neither waits for the network nor is tried again. See GoneSkip.
+        // In a room the host's song stays, not played, and is tried once more later: skipping it
+        // only had the room send the guest back (issue #187).
+        if (GoneSkip.isGone(error) && holdInRoom(error, failedId)) return
         if (passOverGone(error, failedId)) return
 
         // Wait for reconnection, but only where a network could help. See waitsForNetwork: a
@@ -5242,6 +5247,8 @@ class MusicService : MediaLibraryService(),
             }
         }
 
+        // The same in a room for any other failure that got this far, past the waits and tries above.
+        if (holdInRoom(error, failedId)) return
         if (dataStore.get(SkipOnErrorKey, false)) {
             skipOnError()
         } else {
@@ -5274,6 +5281,26 @@ class MusicService : MediaLibraryService(),
             else ErrorText.withoutAddresses("plr: ${error.message} (${error.errorCode}): ${error.cause?.message ?: ""} "),
             Toast.LENGTH_LONG
         )
+    }
+
+    /**
+     * A guest in a room whose player failed on the host's song keeps it there instead of skipping
+     * or stopping (TogetherSession.holdsFailed), and is told once for the song. False when the
+     * failed song is not the host's, or no room is followed. Main thread.
+     */
+    private fun holdInRoom(error: PlaybackException, failedId: String?): Boolean {
+        if (together.value?.holdsFailed(failedId) != true) return false
+        if (failedId != null && goneSongs.tellOnce(failedId)) {
+            // What YouTube said, in the words the ordinary path has for it (issue #124 for the sign-in).
+            val words = when {
+                YTPlayerUtils.isConnectionTurnedAway(error) -> R.string.error_connection_turned_away
+                YTPlayerUtils.isSignInWanted(error) ->
+                    if (WhyStopped.signedIn(YouTube.cookie)) R.string.error_connection_turned_away else R.string.error_sign_in_wanted
+                else -> R.string.err_song_unavailable
+            }
+            Toaster.show(this@MusicService, getString(words), Toast.LENGTH_LONG)
+        }
+        return true
     }
 
     /**

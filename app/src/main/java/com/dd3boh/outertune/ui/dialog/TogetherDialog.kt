@@ -483,6 +483,7 @@ private fun RoomPage(room: TogetherSession, song: MediaMetadata?, onLeave: () ->
                     },
                 )
                 status.pausedHere -> PausedHere()
+                status.songUnavailable -> SongUnavailable()
                 // How close this phone follows is for those who want to see it (Settings > Listen together).
                 else -> if (showTiming) SyncMeter(status.driftMs, status.locked, status.toleranceMs)
             }
@@ -853,6 +854,16 @@ private fun Waiting() {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
+}
+
+/** The host's song fails on this phone: it waits on it, and the host's next song plays by itself. */
+@Composable
+private fun SongUnavailable() {
+    Text(
+        stringResource(R.string.together_song_unavailable),
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
 }
 
 /** A follower paused by its listener: the room goes on, and play brings this phone back to it. */
