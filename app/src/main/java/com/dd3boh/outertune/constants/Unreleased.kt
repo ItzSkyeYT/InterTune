@@ -39,10 +39,10 @@ import com.dd3boh.outertune.BuildConfig
 object Unreleased {
     /**
      * Listening rooms (together/): a room that follows its host, through Nostr relays, step 1 of
-     * the three he said yes to for 0.13 (17 Oct 2026). Debug and Preview builds only, from the
-     * player's menu, while it is built.
+     * the three he said yes to for 0.13 (17 Oct 2026). On for everyone in 0.13, his word of 14 Nov
+     * 2026 ("listen together goes to 0.13"); before that debug and Preview builds only.
      */
-    val LISTEN_TOGETHER = BuildConfig.PREVIEW_FEATURES
+    val LISTEN_TOGETHER = true
 
     /**
      * The engine as a Quick picks source: Best recommendations, Try both, the context chips that
