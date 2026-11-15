@@ -46,6 +46,24 @@
         <intent>
             <action android:name="android.media.action.DISPLAY_AUDIO_EFFECT_CONTROL_PANEL" />
         </intent>
+        <!-- Open file location (ui/menu/OpenFileLocation.kt): the file managers that can show a folder answer
+             four different intents, and from Android 11 an app sees only the apps it names here.
+             OpenFileLocationTest holds this list to the one in the code. -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="content" android:host="com.android.externalstorage.documents" android:mimeType="vnd.android.document/directory" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="file" android:mimeType="resource/folder" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="file" android:mimeType="inode/directory" />
+        </intent>
+        <intent>
+            <action android:name="samsung.myfiles.intent.action.LAUNCH_MY_FILES" />
+        </intent>
     </queries>
     <application
         android:name=".App"
