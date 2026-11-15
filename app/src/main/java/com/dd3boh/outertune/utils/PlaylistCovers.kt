@@ -14,6 +14,9 @@ import android.media.ExifInterface
 import android.net.Uri
 import android.util.Log
 import com.dd3boh.outertune.constants.Unreleased
+import com.dd3boh.outertune.db.MusicDatabase
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.io.File
 import java.io.InputStream
 import java.io.OutputStream
@@ -46,14 +49,32 @@ object PlaylistCovers {
     const val QUALITY = 90
 
     /**
-     * Whether the choice is offered for a playlist: only a playlist of one's own, with no YouTube
-     * playlist behind it, since a synced one has YouTube's picture written into the same field,
-     * and only while [enabled] says so.
+     * Whether the choice is offered: for every playlist of one's own and every one synced with
+     * YouTube Music, while [enabled] says so. A synced playlist keeps the cover chosen here when it
+     * syncs ([keepOrRemote]); Automatic gives YouTube's back.
      */
-    fun canChoose(browseId: String?, enabled: Boolean = Unreleased.PLAYLIST_COVER): Boolean = enabled && browseId == null
+    fun canChoose(enabled: Boolean = Unreleased.PLAYLIST_COVER): Boolean = enabled
+
+    /** What marks a song's cover chosen here, in front of its address, so that a sync can tell it from YouTube's own. */
+    const val SONG_MARK = "song-cover:"
+
+    /** What goes in the picture field for the cover of a song. */
+    fun storedSong(cover: String) = SONG_MARK + cover
+
+    /** Whether the picture field holds a cover chosen here, a photo or a song's, and not nothing or YouTube's. */
+    fun isChosen(stored: String?): Boolean = stored != null && (isPhoto(stored) || stored.startsWith(SONG_MARK))
+
+    /** The address of the song's cover a field holds, marked or (as before the mark) not; a photo's value is left as it is. */
+    fun songCover(stored: String?): String? = stored?.removePrefix(SONG_MARK)
+
+    /**
+     * What a sync writes in the picture field of a synced playlist: the cover chosen here when
+     * there is one, else what YouTube Music says ([remote]).
+     */
+    fun keepOrRemote(current: String?, remote: String?): String? = if (isChosen(current)) current else remote
 
     /** Whether this build lets anyone pick a cover at all: the backup sheet offers their photos only then. */
-    val offered: Boolean get() = canChoose(browseId = null)
+    val offered: Boolean get() = canChoose()
 
     // ---- the size of a kept photo ----
 
@@ -194,6 +215,38 @@ object PlaylistCovers {
         staging.deleteRecursively()
     }
 
+    // ---- the write, for every screen that offers the choice ----
+
+    /** One cover write at a time, so a photo still being read is not overtaken by a pick made after it. */
+    private val writeLock = Mutex()
+
+    /** The first song's cover again (null), or the cover of one of the playlist's songs. Blocking on the database: off the main thread. */
+    suspend fun choose(context: Context, database: MusicDatabase, playlistId: String, cover: String?) =
+        writeLock.withLock { write(context, database, playlistId, cover?.let(::storedSong), kept = null) }
+
+    /**
+     * A photo from the phone as the cover: read, brought down to [MAX_SIDE], kept as a file of the
+     * app's own and then written to the playlist. One that cannot be read leaves the cover as it was.
+     */
+    suspend fun choosePhoto(context: Context, database: MusicDatabase, playlistId: String, uri: Uri) {
+        writeLock.withLock {
+            val name = importPhoto(context, playlistId, uri) ?: return@withLock
+            write(context, database, playlistId, stored(name), kept = name)
+        }
+    }
+
+    /**
+     * Writes the cover, then deletes the photos it replaced: in that order, so that a cut between
+     * them leaves a file nobody names and never a name with no file. When no row took the write (the
+     * playlist is gone, or has a YouTube playlist behind it) nothing that is named is deleted, and
+     * the photo just kept ([kept]) goes, for nobody names it.
+     */
+    private fun write(context: Context, database: MusicDatabase, playlistId: String, cover: String?, kept: String?) {
+        val written = database.transactionNow { setPlaylistCover(playlistId, cover) }
+        if (written > 0) forget(context.filesDir, playlistId, except = kept)
+        else if (kept != null) File(dir(context.filesDir), kept).delete()
+    }
+
     // ---- what is drawn ----
 
     /**
@@ -206,7 +259,7 @@ object PlaylistCovers {
             val file = fileOf(base, stored)
             return if (file != null && file.isFile) file else automatic?.let { getThumbnailModel(it, px, px) }
         }
-        return (stored ?: automatic)?.let { getThumbnailModel(it, px, px) }
+        return (songCover(stored) ?: automatic)?.let { getThumbnailModel(it, px, px) }
     }
 
     /** A song of a playlist as the sheet reads it: the cover its row shows, and its title. */

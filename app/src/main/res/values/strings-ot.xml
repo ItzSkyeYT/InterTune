@@ -2484,6 +2484,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="playlist_cover_photo">A photo</string>
     <string name="playlist_cover_photo_note">From your phone</string>
     <string name="playlist_cover_songs">A song from this playlist</string>
+    <string name="playlist_cover_synced">On YouTube Music this playlist keeps its own cover. Yours stays on this phone.</string>
     <!-- Block artist (ArtistBlock, Unreleased.ARTIST_BLOCK): the last item of the song menus, the first button of an artist page's pill, Settings > Library and content > Blocked artists, and the line a search for a blocked artist shows. Open to translators, as it is on for everyone from 0.13 (picked on 8 Nov 2026), their French beside them in values-fr. %1$s is the artist's name. -->
     <string name="menu_block_artist">Block artist</string>
     <string name="block_artist_which">Block which artist?</string>

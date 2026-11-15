@@ -308,12 +308,36 @@ class PlaylistCoversTest {
     // ---- who may choose ----
 
     @Test
-    fun `only a playlist of one's own, and only with the flag on`() {
-        assertTrue(PlaylistCovers.canChoose(browseId = null, enabled = true))
-        // A playlist from YouTube keeps YouTube's picture, which its sync writes into the same field.
-        assertFalse(PlaylistCovers.canChoose(browseId = "PLabc123", enabled = true))
-        assertFalse(PlaylistCovers.canChoose(browseId = null, enabled = false))
-        assertFalse(PlaylistCovers.canChoose(browseId = "PLabc123", enabled = false))
+    fun `every playlist may choose, with the flag on`() {
+        assertTrue(PlaylistCovers.canChoose(enabled = true))
+        assertFalse(PlaylistCovers.canChoose(enabled = false))
+    }
+
+    @Test
+    fun `a song's cover is marked, so that a sync can tell it from YouTube's own`() {
+        val song = "https://lh3.googleusercontent.com/abc=w544"
+        val stored = PlaylistCovers.storedSong(song)
+        assertTrue(PlaylistCovers.isChosen(stored))
+        assertEquals(song, PlaylistCovers.songCover(stored))
+        // As written before the mark, and what YouTube writes, are read as the address they are.
+        assertEquals(song, PlaylistCovers.songCover(song))
+        assertFalse(PlaylistCovers.isChosen(song))
+        assertFalse(PlaylistCovers.isChosen(null))
+        assertTrue(PlaylistCovers.isChosen(PlaylistCovers.stored("pl-1.jpg")))
+    }
+
+    @Test
+    fun `a sync keeps a cover chosen in the app, and Automatic hands the cover back to it`() {
+        val youtube = "https://yt3.ggpht.com/remote"
+        // A photo or a song's cover stays through a sync.
+        val photo = PlaylistCovers.stored("pl-1.jpg")
+        val song = PlaylistCovers.storedSong("https://example/song")
+        assertEquals(photo, PlaylistCovers.keepOrRemote(photo, youtube))
+        assertEquals(song, PlaylistCovers.keepOrRemote(song, youtube))
+        // Automatic is nothing in the field: YouTube's cover comes in, and the next sync keeps it fresh.
+        assertEquals(youtube, PlaylistCovers.keepOrRemote(null, youtube))
+        assertEquals("https://yt3.ggpht.com/new", PlaylistCovers.keepOrRemote(youtube, "https://yt3.ggpht.com/new"))
+        assertEquals(null, PlaylistCovers.keepOrRemote(null, null))
     }
 
     @Test
