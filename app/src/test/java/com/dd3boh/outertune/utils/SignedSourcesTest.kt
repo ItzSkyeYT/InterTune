@@ -21,14 +21,17 @@ import org.junit.Test
 import java.io.File
 import java.net.InetAddress
 import java.net.ServerSocket
+import java.util.Collections
 import java.util.Properties
 import java.util.concurrent.TimeUnit
 import kotlin.concurrent.thread
+import kotlinx.coroutines.runBlocking
 
 /**
- * The hosts are asked in order and the first with a document to believe wins (SignedSources): one that fails,
- * hangs, or serves something unsigned, forged or older is passed over. With fake hosts, and with real ones on
- * this machine for what only a real connection shows: a host that never answers.
+ * Every host is asked at once and the newest document to believe wins, wherever it is (SignedSources): one that
+ * fails, hangs, or serves something unsigned, forged or older counts for nothing, and the order only decides
+ * between copies with the same number. With fake hosts, and with real ones on this machine for what only a real
+ * connection shows: hosts that never answer, waited for together.
  */
 class SignedSourcesTest {
 
@@ -38,14 +41,19 @@ class SignedSourcesTest {
     private val good = sign(main, payload())
     private val newer = sign(main, payload(seq = SEQ + 60))
 
-    private fun walk(sources: Map<String, SignedSources.Fetched>, highest: Long = 0, asked: MutableList<String> = mutableListOf()) =
-        SignedSources.first(sources.keys.toList(), { asked += it; sources.getValue(it) }) {
+    private fun walk(
+        sources: Map<String, SignedSources.Fetched>,
+        highest: Long = 0,
+        asked: MutableList<String> = Collections.synchronizedList(mutableListOf()),
+    ) = runBlocking {
+        SignedSources.best(sources.keys.toList(), { asked += it; sources.getValue(it) }) {
             SignedDocument.open(it, SignedDocument.NEWS, keys, highest, emptySet(), NOW)
         }
+    }
 
     @Test
-    fun `the first host that fails is passed over and the next one is taken, the rest never asked`() {
-        val asked = mutableListOf<String>()
+    fun `every host is asked, and the newest document wins wherever it is`() {
+        val asked = Collections.synchronizedList(mutableListOf<String>())
         val walk = walk(
             linkedMapOf(
                 GIST to SignedSources.Fetched.Failed("HTTP 404"),
@@ -54,14 +62,50 @@ class SignedSourcesTest {
             ),
             asked = asked,
         )
-        assertEquals(1, walk.found!!.index)
-        assertEquals(SEQ, walk.found!!.accepted.seq)
-        assertEquals(listOf(GIST, SITE), asked)
-        assertEquals(listOf("host 1 (gist.githubusercontent.com): HTTP 404", "host 2 (intertune.app): taken, number $SEQ"), walk.notes)
+        assertEquals(2, walk.found!!.index)
+        assertEquals(SEQ + 60, walk.found!!.accepted.seq)
+        assertEquals(setOf(GIST, SITE, WORKER), asked.toSet())
+        assertEquals(
+            listOf(
+                "host 1 (gist.githubusercontent.com): HTTP 404",
+                "host 2 (intertune.app): number $SEQ, older than host 3's",
+                "host 3 (intertune-count.intertune.workers.dev): taken, number ${SEQ + 60}",
+            ),
+            walk.notes,
+        )
     }
 
     @Test
-    fun `a forged copy is refused and the next host is asked`() {
+    fun `a frozen copy on the first host never holds phones back from a newer one on the third`() {
+        // Host 1 valid but older (a gist nobody can change any more), host 3 valid and newer: host 3 wins.
+        val walk = walk(
+            linkedMapOf(
+                GIST to SignedSources.Fetched.Text(good),
+                SITE to SignedSources.Fetched.Failed("HTTP 404"),
+                WORKER to SignedSources.Fetched.Text(newer),
+            )
+        )
+        assertEquals(2, walk.found!!.index)
+        assertEquals(SEQ + 60, walk.found!!.accepted.seq)
+        assertTrue(walk.answered)
+        assertEquals("host 1 (gist.githubusercontent.com): number $SEQ, older than host 3's", walk.notes[0])
+    }
+
+    @Test
+    fun `the order decides only between copies with the same number`() {
+        val walk = walk(
+            linkedMapOf(
+                GIST to SignedSources.Fetched.Text(good),
+                SITE to SignedSources.Fetched.Failed("HTTP 404"),
+                WORKER to SignedSources.Fetched.Text(good),
+            )
+        )
+        assertEquals(0, walk.found!!.index)
+        assertEquals("host 3 (intertune-count.intertune.workers.dev): number $SEQ, the same as host 1's", walk.notes[2])
+    }
+
+    @Test
+    fun `a forged copy and a stranger's are refused, the real one is taken`() {
         val forged = good.replace(SignedDocumentTest.base64(payload().toByteArray()), SignedDocumentTest.base64(payload().replace("Signed", "Forged").toByteArray()))
         val walk = walk(
             linkedMapOf(
@@ -104,17 +148,21 @@ class SignedSourcesTest {
     }
 
     @Test
-    fun `a host that never answers is cut off, and the next one is asked`() {
-        LocalHost { path -> if (path == "/hangs") null else Reply(200, good.toByteArray()) }.use { server ->
+    fun `hosts that never answer are cut off, all at once, and the one that answers is taken`() {
+        LocalHost { path -> if (path.startsWith("/hangs")) null else Reply(200, good.toByteArray()) }.use { server ->
             val client = OkHttpClient.Builder().readTimeout(1, TimeUnit.SECONDS).callTimeout(3, TimeUnit.SECONDS).build()
             val started = System.nanoTime()
-            val walk = SignedSources.first(listOf("${server.base}/hangs", "${server.base}/polls.json"), { SignedSources.fetch(it, client) }) {
-                SignedDocument.open(it, SignedDocument.NEWS, keys, 0, emptySet(), NOW)
+            val walk = runBlocking {
+                SignedSources.best(
+                    listOf("${server.base}/hangs-1", "${server.base}/hangs-2", "${server.base}/hangs-3", "${server.base}/polls.json"),
+                    { SignedSources.fetch(it, client) },
+                ) { SignedDocument.open(it, SignedDocument.NEWS, keys, 0, emptySet(), NOW) }
             }
             val seconds = (System.nanoTime() - started) / 1e9
-            assertEquals(1, walk.found?.index)
-            assertTrue(walk.notes[0], walk.notes[0].startsWith("host 1 (127.0.0.1): SocketTimeoutException"))
-            assertTrue("took $seconds s", seconds < 5)
+            assertEquals(3, walk.found?.index)
+            for (i in 0..2) assertTrue(walk.notes[i], walk.notes[i].startsWith("host ${i + 1} (127.0.0.1): SocketTimeoutException"))
+            // Asked together: three hosts that each take a second to give up cost about one second, not three.
+            assertTrue("took $seconds s", seconds < 2.5)
         }
     }
 

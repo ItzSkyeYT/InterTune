@@ -11,14 +11,18 @@ import android.util.Log
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import com.dd3boh.outertune.constants.RevokedSigningKeysKey
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.util.concurrent.TimeUnit
 
 /**
- * Fetching the signed documents ([SignedDocument]) from their hosts: one small file at a time, each host given
- * a short while, in order, and the first that answers with a document to believe wins.
+ * Fetching the signed documents ([SignedDocument]) from their hosts: every host asked at once, each given a
+ * short while, and the newest document to believe wins, wherever it came from.
  *
  * Until 0.13 the news came from one gist, and the update check and the donors from GitHub alone, so one ban of
  * one GitHub account took every way of reaching the app's users at once. More gists on the same account would
@@ -33,19 +37,20 @@ object SignedSources {
         data class Failed(val why: String) : Fetched
     }
 
-    /** The first host that gave a document to believe, by its place in the list. */
+    /** The host whose document was taken, by its place in the list. */
     data class Found(val index: Int, val accepted: SignedDocument.Accepted)
 
     /**
-     * Where a walk through the hosts ended. [answered]: some host answered with a signed document, even one
-     * refused (an older copy), so the hosts are there; not nobody at all, or a hotel's sign-in page. [notes]:
-     * a line for each host asked, for the log.
+     * What the hosts gave. [answered]: some host answered with a signed document, even one refused (an older
+     * copy), so the hosts are there; not nobody at all, or a hotel's sign-in page. [notes]: a line for each
+     * host, in the list's order, for the log.
      */
     class Walk(val found: Found?, val answered: Boolean, val notes: List<String>)
 
     /**
-     * A short while per host, so four that do not answer cost a minute at most, in the background: a host
-     * that is down is most often down at once (no such name, refused), and one that hangs is cut off.
+     * A short while per host. The hosts are asked at once, so the slowest bounds the whole: 15 seconds at
+     * most, in the background. A host that is down is most often down at once (no such name, refused), and
+     * one that hangs is cut off.
      */
     val client: OkHttpClient by lazy {
         OkHttpClient.Builder()
@@ -73,30 +78,52 @@ object SignedSources {
     }
 
     /**
-     * Asks [sources] in order and stops at the first whose file [open] takes. A host that fails, or answers with
-     * a document [open] refuses (not signed, signed by someone else, older than one taken, expired), is passed
-     * over for the next.
+     * Asks every one of [sources] at once and takes, among the documents [open] believes, the one with the
+     * highest number. So a host that still serves an older copy (a gist nobody can change any more, a copy not
+     * put live yet) never holds the app back while another host has something newer. The order of [sources]
+     * only decides between copies with the same number. A host that fails, or serves a document [open] refuses
+     * (not signed, signed by someone else, older than one taken, expired), counts for nothing.
      */
-    fun first(sources: List<String>, fetch: (String) -> Fetched, open: (String) -> SignedDocument.Result): Walk {
-        val notes = mutableListOf<String>()
+    suspend fun best(sources: List<String>, fetch: (String) -> Fetched, open: (String) -> SignedDocument.Result): Walk {
+        val answers = coroutineScope {
+            sources.map { url ->
+                async(Dispatchers.IO) {
+                    runCatching { fetch(url) }.getOrElse { Fetched.Failed(it.javaClass.simpleName) }
+                }
+            }.awaitAll()
+        }
+        val results = answers.map { got -> (got as? Fetched.Text)?.let { open(it.body) } }
+
+        val best = run {
+            var top: Found? = null
+            for (i in sources.indices) {
+                val result = results[i]
+                if (result is SignedDocument.Accepted && (top == null || result.seq > top.accepted.seq)) top = Found(i, result)
+            }
+            top
+        }
+
         var answered = false
-        sources.forEachIndexed { i, url ->
-            val where = "host ${i + 1} (${host(url)})"
-            when (val got = fetch(url)) {
-                is Fetched.Failed -> notes += "$where: ${got.why}"
-                is Fetched.Text -> when (val result = open(got.body)) {
-                    is SignedDocument.Accepted -> {
-                        notes += "$where: taken, number ${result.seq}"
-                        return Walk(Found(i, result), true, notes)
-                    }
-                    is SignedDocument.Refused -> {
-                        answered = answered || result.signed
-                        notes += "$where: refused, ${result.why}"
+        val notes = sources.indices.map { i ->
+            val where = "host ${i + 1} (${host(sources[i])})"
+            when (val result = results[i]) {
+                null -> "$where: ${(answers[i] as Fetched.Failed).why}"
+                is SignedDocument.Refused -> {
+                    answered = answered || result.signed
+                    "$where: refused, ${result.why}"
+                }
+                is SignedDocument.Accepted -> {
+                    answered = true
+                    val taken = best!!
+                    when {
+                        taken.index == i -> "$where: taken, number ${result.seq}"
+                        result.seq < taken.accepted.seq -> "$where: number ${result.seq}, older than host ${taken.index + 1}'s"
+                        else -> "$where: number ${result.seq}, the same as host ${taken.index + 1}'s"
                     }
                 }
             }
         }
-        return Walk(null, answered, notes)
+        return Walk(best, answered, notes)
     }
 
     /** The host alone, for the log: the gist's own address is never written anywhere. */
@@ -125,7 +152,7 @@ object SignedSources {
         val now = System.currentTimeMillis()
         val highest = store.get(seqKey, 0L)
         val revoked = store.get(RevokedSigningKeysKey, emptySet())
-        val walk = first(listOf(url), { fetch(it) }) {
+        val walk = best(listOf(url), { fetch(it) }) {
             SignedDocument.open(it, kind, SigningKeys.BUILT_IN, highest, revoked, now)
         }
         walk.notes.forEach { Log.i(TAG, "$kind: $it") }

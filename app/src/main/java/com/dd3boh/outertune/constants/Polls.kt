@@ -17,8 +17,7 @@ import com.dd3boh.outertune.utils.BuiltInKeys
  * Polls are READ from a gist. The maintainer's own machine pushes to it with a token that stays on
  * that machine, so the app never learns anything about where the polls were written. It also means
  * polls keep serving from GitHub's CDN when that machine is off. Since 0.13 the document is signed
- * (SignedDocument), and the same file on three other hosts is asked when the gist gives none to
- * believe: [SOURCES].
+ * (SignedDocument), and the same file on three other hosts is asked at the same time: [SOURCES].
  *
  * Answers are WRITTEN to InterTune's own counter, which has to be reachable to accept them. Never point
  * it at a home connection.
@@ -33,10 +32,11 @@ object Polls {
     val POLLS_URL: String get() = BuiltInKeys.pollsUrl
 
     /**
-     * Every host of the signed document, in the order they are asked: the gist, then polls.mirrors in
-     * services.properties (intertune.app, the counter worker, Codeberg), each another company, so one
-     * account closed or one host down does not silence the app. The first that gives a document signed
-     * by the maintainer wins; versions before 0.13 read the gist alone.
+     * Every host of the signed document: the gist, then polls.mirrors in services.properties
+     * (intertune.app, the counter worker, Codeberg), each another company, so one account closed or one
+     * host down does not silence the app. All are asked at once and the newest document signed by the
+     * maintainer wins; this order only decides between copies with the same number. Versions before
+     * 0.13 read the gist alone.
      */
     val SOURCES: List<String>
         get() = (listOf(POLLS_URL) + BuiltInKeys.pollsMirrors.split(' ', '\n', '\t')).map { it.trim() }.filter { it.isNotEmpty() }

@@ -6,7 +6,7 @@ Announcements exist from 0.10.9.5 (versionCode 89). Older versions only read `po
 
 ## Signed, and on four hosts (from 0.13)
 
-From 0.13 the app believes only a document signed with Mel's key, and fetches it from four hosts in turn: the gist, `https://intertune.app/news/polls.json`, `https://intertune-count.intertune.workers.dev/news/polls.json` and `https://codeberg.org/ItzSkyeYT/intertune-news/raw/branch/main/news/polls.json` (`polls.gistUrl` and `polls.mirrors` in services.properties). It stops at the first that gives a document to believe. A host that is down, or serves something unsigned, forged, older than what the phone already took, or expired, is passed over. So one GitHub account closed does not silence the app, and no host can make it say anything Mel did not sign.
+From 0.13 the app believes only a document signed with Mel's key, and asks four hosts for it at once: the gist, `https://intertune.app/news/polls.json`, `https://intertune-count.intertune.workers.dev/news/polls.json` and `https://codeberg.org/ItzSkyeYT/intertune-news/raw/branch/main/news/polls.json` (`polls.gistUrl` and `polls.mirrors` in services.properties). It takes the newest document it can believe, the one with the highest `seq`, wherever it is; the order above only decides between two copies with the same number. A host that is down, or serves something unsigned, forged, older than what the phone already took, or expired, counts for nothing, and one still serving an older copy (a gist nobody can change any more) never holds phones back. So one GitHub account closed does not silence the app, and no host can make it say anything Mel did not sign.
 
 Never write the signed part by hand. `tools/polls/gist.py apply <file>` checks the document, signs it (`tools/announce/announce.py`), writes the copy for the other hosts into `site/news/`, updates the gist and prints the command that puts each other copy live. The file keeps the fields above, unchanged, for the builds before 0.13, and adds one:
 
@@ -147,13 +147,13 @@ adb shell run-as dev.skye.intertune.debug cp /data/local/tmp/poll-stand-in.json 
 
 With Questions on, the question shows at the next check (Settings, Questions and news, or the next start). While the file is there nothing is fetched and nothing is sent: an answer goes to the log instead (`adb logcat -s PollChecker`), so a test never lands among the real answers. Let me be asked again shows an answered question again. `adb shell run-as dev.skye.intertune.debug rm files/poll-stand-in.json` ends it. Releases never read it. The stand-in is read as it is, unsigned.
 
-To try the hosts themselves (one down, a forged copy, the next one taken), a debug build reads its list of hosts from `files/news-sources.txt` while it is there, one address a line, in place of the built-in four. A local server works through `adb reverse` (debug builds allow plain http to 127.0.0.1). The documents must still be signed with a key the build holds. `adb logcat -s PollChecker SignedSources CheckedPictures` says what each host gave.
+To try the hosts themselves (one down, an older copy, a forged one, the newest taken), a debug build reads its list of hosts from `files/news-sources.txt` while it is there, one address a line, in place of the built-in four. A local server works through `adb reverse` (debug builds allow plain http to 127.0.0.1). The documents must still be signed with a key the build holds. `adb logcat -s PollChecker SignedSources CheckedPictures` says what each host gave.
 
 ## Worth knowing
 
 - A mistake leaves out that one announcement, never the others. A date or version the app cannot read hides it, rather than showing it early or for ever, so if one does not appear, check those first.
 - Buttons and pictures take web addresses only. Use `https://`: phones refuse to load pictures over plain `http://`.
 - Pictures are downloaded on the phone's connection when the announcement opens. Keep each one well under 1 MB.
-- The app checks at most every six hours, so a change takes up to that long to reach phones. The gist is asked first, so an apply reaches them without waiting for the other hosts.
+- The app checks at most every six hours, so a change takes up to that long to reach phones. An apply reaches them through the gist without waiting for the other hosts: the newest copy wins wherever it is.
 - Only phones with news or questions switched on fetch the document at all (Settings, Privacy and history, Questions and news). Announcements need News from InterTune on. Phones that had said yes to questions before news had its own switch have news on too.
 - The first time a phone opens an announcement it sends its id, its title and the app version to InterTune's own counter, as `poll_view` with type `announcement`. That is the view count on the dashboard. Nothing else is sent.

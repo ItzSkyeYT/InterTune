@@ -51,9 +51,9 @@ import javax.inject.Singleton
  *
  * WHAT LEAVES THE DEVICE, in full, because this is the part that has to be true when the modal
  * says the answer is anonymous:
- *  - a GET for the poll list, which reveals only that some InterTune install looked: to the gist,
- *    and only when it gives no document to believe, to intertune.app, the counter worker and
- *    Codeberg in turn (Polls.SOURCES, SignedDocument)
+ *  - a GET for the poll list, which reveals only that some InterTune install looked: to each of
+ *    the four hosts at once, the gist, intertune.app, the counter worker and Codeberg
+ *    (Polls.SOURCES, SignedDocument)
  *  - on answering, one POST carrying the poll id and its question, the chosen options' ids and
  *    labels, the words typed into an "Other" box when there are some, and the app version;
  *    a follow-up question's picks go in that same event, as "<optionId>/<followUpOptionId>"
@@ -181,11 +181,11 @@ class PollChecker @Inject constructor(
             return@withContext restoreFromCache()
         }
 
-        // The hosts in order, the first whose document the maintainer signed winning (SignedDocument):
-        // the gist, then intertune.app, the counter worker and Codeberg. Only its signed part is read.
+        // Every host at once, the gist, intertune.app, the counter worker and Codeberg, and the newest
+        // document the maintainer signed wins, wherever it is (SignedDocument). Only its signed part is read.
         val highest = store.get(SignedNewsSeqKey, 0L)
         val revoked = store.get(RevokedSigningKeysKey, emptySet())
-        val walk = SignedSources.first(sources(), { SignedSources.fetch(it) }) {
+        val walk = SignedSources.best(sources(), { SignedSources.fetch(it) }) {
             SignedDocument.open(it, SignedDocument.NEWS, SigningKeys.BUILT_IN, highest, revoked, now)
         }
         walk.notes.forEach { Log.i(TAG, it) }
@@ -217,7 +217,7 @@ class PollChecker @Inject constructor(
     }
 
     /**
-     * The hosts the document is fetched from, in order: [Polls.SOURCES], or on a debug build the lines of
+     * The hosts the document is fetched from: [Polls.SOURCES], or on a debug build the lines of
      * files/news-sources.txt while it is there, to try a host that is down or a forged copy on an emulator
      * (docs/announcements.md). Only adb (run-as) can put it there. Never in a release.
      */
