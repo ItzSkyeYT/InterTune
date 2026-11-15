@@ -189,6 +189,8 @@
                 <data android:path="/s" />
                 <data android:path="/s/" />
                 <data android:pathPrefix="/s/v/" />
+                <!-- A listening room's invite (together/RoomCode.webLink), the link Share sends. -->
+                <data android:pathPrefix="/together/" />
             </intent-filter>
 
             <!-- Youtube filter -->

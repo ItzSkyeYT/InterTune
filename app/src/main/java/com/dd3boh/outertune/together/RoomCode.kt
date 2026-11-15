@@ -55,8 +55,11 @@ class RoomCode private constructor(val raw: String) {
         String(cipher.doFinal(data, 12, data.size - 12))
     }.getOrNull()
 
-    /** A link that opens the room in InterTune. */
-    val appLink: String get() = "intertune://together/$raw"
+    /** The app's own link, the one the room's QR holds. */
+    val appLink: String get() = "$APP_LINK$raw"
+
+    /** The link Share sends: a web address, which chat apps make tappable (intertune:// they do not). */
+    val webLink: String get() = "$WEB_LINK$raw"
 
     override fun equals(other: Any?) = other is RoomCode && other.raw == raw
     override fun hashCode() = raw.hashCode()
@@ -68,14 +71,25 @@ class RoomCode private constructor(val raw: String) {
         private const val ITERATIONS = 40_000
         private val random = SecureRandom()
 
+        const val APP_LINK = "intertune://together/"
+        const val WEB_LINK = "https://intertune.app/together/"
+
+        /** Whether [link] is a room's invite, in the app's own form or the web one. */
+        fun isInviteLink(link: String): Boolean =
+            link.startsWith(APP_LINK, ignoreCase = true) || link.startsWith(WEB_LINK, ignoreCase = true)
+
+        /** What follows the prefix of an invite link, up to a slash, a ? or a #. */
+        private fun afterPrefix(value: String): String? {
+            val prefix = listOf(APP_LINK, WEB_LINK).firstOrNull { value.startsWith(it, ignoreCase = true) } ?: return null
+            return value.substring(prefix.length).takeWhile { it != '/' && it != '?' && it != '#' }
+        }
+
         fun generate() = RoomCode(String(CharArray(LENGTH) { ALPHABET[random.nextInt(ALPHABET.length)] }))
 
-        /** A code typed or pasted in any form ("k7qx m2pa-9dte", or the app link); null when it is not one. */
+        /** A code typed or pasted in any form ("k7qx m2pa-9dte", or either invite link); null when it is not one. */
         fun parse(text: String?): RoomCode? {
             val value = text?.trim() ?: return null
-            val candidate = if (value.startsWith("intertune://together/", ignoreCase = true)) {
-                value.substring("intertune://together/".length)
-            } else value
+            val candidate = afterPrefix(value) ?: value
             if (!candidate.matches(Regex("[A-Za-z0-9\\s-]+"))) return null
             val cleaned = candidate.uppercase().filter { it.isLetterOrDigit() }
             return cleaned.takeIf { it.length == LENGTH && it.all { c -> c in ALPHABET } }?.let(::RoomCode)
