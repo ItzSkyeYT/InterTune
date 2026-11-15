@@ -88,4 +88,24 @@ class TogetherLinkTest {
         assertTrue("title = { Text(stringResource(R.string.together_name_setting)) }" in dialog)
         assertTrue("it[TogetherNameKey] = name" in dialog)
     }
+
+    @Test
+    fun `an invite to the room this phone is in opens that room, it does not join again`() {
+        val code = RoomCode.generate()
+        val other = RoomCode.generate()
+        // Hosting or following, the room is the same room: no question, no second join.
+        assertEquals(InviteAnswer.Answer.OPEN_ROOM, InviteAnswer.forInvite(code, current = RoomCode.parse(code.webLink)))
+        assertEquals(InviteAnswer.Answer.OPEN_ROOM, InviteAnswer.forInvite(RoomCode.parse(code.appLink)!!, current = code))
+        // Another room, or none: asked as before.
+        assertEquals(InviteAnswer.Answer.ASK, InviteAnswer.forInvite(code, current = other))
+        assertEquals(InviteAnswer.Answer.ASK, InviteAnswer.forInvite(code, current = null))
+    }
+
+    @Test
+    fun `the links and the service use that answer, and a second start of the same room changes nothing`() {
+        val main = File("src/main/java/com/dd3boh/outertune/MainActivity.kt").readText()
+        assertTrue("InviteAnswer.forInvite(invite," in main)
+        val service = File("src/main/java/com/dd3boh/outertune/playback/MusicService.kt").readText()
+        assertTrue("together.value?.takeIf { it.code == code }" in service)
+    }
 }

@@ -288,6 +288,18 @@ object PauseHere {
 }
 
 /**
+ * What opening an invite does when this phone may be in that room already (his find of 15 Nov
+ * 2026: the host opened its own link and was two in the room). The same room is opened on its
+ * screen; any other is asked about, as before.
+ */
+object InviteAnswer {
+    enum class Answer { ASK, OPEN_ROOM }
+
+    fun forInvite(invite: RoomCode, current: RoomCode?): Answer =
+        if (current != null && current == invite) Answer.OPEN_ROOM else Answer.ASK
+}
+
+/**
  * The host's song, which this phone cannot play (issue #187: YouTube refused it to a guest on every
  * client). The guest stays on it, not playing, with a line saying so, and picks up again at the
  * host's next song. One more try a while after the first failure (a stream can come back), none

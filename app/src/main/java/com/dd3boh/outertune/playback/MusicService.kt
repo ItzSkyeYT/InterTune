@@ -512,6 +512,8 @@ class MusicService : MediaLibraryService(),
 
     /** Opens a room, hosting or following, in place of any already open. Main thread. */
     fun startTogether(code: RoomCode, owner: Boolean, relays: List<String>, name: String): TogetherSession {
+        // Already in this very room (an invite to it opened again): it stays as it is, not joined a second time.
+        together.value?.takeIf { it.code == code }?.let { return it }
         together.value?.stop()
         return TogetherSession(this, code, owner, relays, name).also {
             together.value = it
