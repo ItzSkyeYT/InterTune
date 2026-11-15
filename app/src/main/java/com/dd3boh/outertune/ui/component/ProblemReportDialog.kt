@@ -132,6 +132,11 @@ private class LogChoice(
     val trail: String? = null,
     /** The newest run in which something went wrong ([latestProblemFirst]): listed first, picked, and marked. */
     val latestProblem: Boolean = false,
+    /**
+     * The newest run in which something went wrong, when it is from an older build than the one installed: listed
+     * after "Now", not picked, and marked as from an older version ([reportOrder]).
+     */
+    val olderProblem: Boolean = false,
 ) {
     val version: String get() = run?.versionName ?: BuildConfig.VERSION_NAME
     val build: String get() = run?.build ?: ProblemLog.build()
@@ -200,9 +205,12 @@ fun ProblemReportDialog(
             } else emptyList()
             // The newest run in which something went wrong comes first and is the one picked: a
             // report sent right after the app was opened again showed a run with nothing in it
-            // (#97, 7 Nov 2026), while the fault was in the run before.
-            val (ordered, marked) = latestProblemFirst(listOf(now) + earlier) { it.excerpt.faultAt != null }
-            ordered.mapIndexed { i, c -> if (i == marked) c.marked() else c }
+            // (#97, 7 Nov 2026), while the fault was in the run before. Only when it is of the build
+            // installed: a fault of an older build is not what a report from this one is about, and
+            // went out stamped with the old version (15 Nov 2026). Then "Now" stays picked, and the
+            // older fault is listed after it, marked.
+            val order = reportOrder(listOf(now) + earlier, { it.excerpt.faultAt != null }, { it.version == BuildConfig.VERSION_NAME })
+            order.items.mapIndexed { i, c -> if (i == order.marked) c.marked(order.older) else c }
         }
     }
     val all = choices
@@ -480,17 +488,33 @@ internal fun HeldDialog(onDismiss: () -> Unit) {
     )
 }
 
-/** [this], marked as the newest run in which something went wrong. */
-private fun LogChoice.marked() = LogChoice(run, excerpt, stops, installedFrom, phoneNow, playback, settings, trail, latestProblem = true)
+/** [this], marked as the newest run in which something went wrong, or, [older], as one from an older version. */
+private fun LogChoice.marked(older: Boolean) =
+    LogChoice(run, excerpt, stops, installedFrom, phoneNow, playback, settings, trail, latestProblem = !older, olderProblem = older)
 
 /**
  * [items], newest first, with the newest that [hasProblem] moved to the front, and its place there
  * (0), or -1 when none has one and the order is left as it was.
  */
-internal fun <T> latestProblemFirst(items: List<T>, hasProblem: (T) -> Boolean): Pair<List<T>, Int> {
+internal fun <T> latestProblemFirst(items: List<T>, hasProblem: (T) -> Boolean): Pair<List<T>, Int> =
+    reportOrder(items, hasProblem) { true }.let { it.items to it.marked }
+
+/** How the logs are listed: [items] in order, which is [marked], and whether it is [older] than the build installed (then not first). */
+internal class ReportOrder<T>(val items: List<T>, val marked: Int, val older: Boolean)
+
+/**
+ * [items], newest first, the first of them this run's: the newest that [hasProblem] is marked. From the build
+ * installed ([fromThisBuild]) it moves to the front, where it is picked. From an older build it is not what a report
+ * from this one is about: this run's stays first, and it goes right after it, still in sight, marked as older. Nothing
+ * with a problem leaves the order as it was, and marks nothing.
+ */
+internal fun <T> reportOrder(items: List<T>, hasProblem: (T) -> Boolean, fromThisBuild: (T) -> Boolean): ReportOrder<T> {
     val at = items.indexOfFirst(hasProblem)
-    if (at < 0) return items to -1
-    return (listOf(items[at]) + items.filterIndexed { i, _ -> i != at }) to 0
+    if (at < 0) return ReportOrder(items, -1, false)
+    val problem = items[at]
+    val rest = items.filterIndexed { i, _ -> i != at }
+    if (fromThisBuild(problem) || rest.isEmpty()) return ReportOrder(listOf(problem) + rest, 0, false)
+    return ReportOrder(listOf(rest.first(), problem) + rest.drop(1), 1, true)
 }
 
 /** The logs to choose from, this run's first; the picked one stands out, and is shown even among the older. */
@@ -524,6 +548,13 @@ private fun LogList(choices: List<LogChoice>, picked: Int, showAll: Boolean, onP
                     if (choice.latestProblem) {
                         Text(
                             stringResource(R.string.problem_report_latest_problem),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
+                    if (choice.olderProblem) {
+                        Text(
+                            stringResource(R.string.problem_report_older_problem),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.error,
                         )
