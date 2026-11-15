@@ -2843,4 +2843,31 @@ while also allowing users to translate our app as well. New, specific strings to
         <item quantity="one">%d song downloaded, kept inside the app</item>
         <item quantity="other">%d songs downloaded, kept inside the app</item>
     </plurals>
+
+    <!-- Local music categories (Gramophone style) -->
+    <string name="local_music" translatable="false">Local</string>
+    <string name="local_category_songs" translatable="false">Songs</string>
+    <string name="local_category_artists" translatable="false">Artists</string>
+    <string name="local_category_albums" translatable="false">Albums</string>
+    <string name="local_category_genres" translatable="false">Genres</string>
+    <string name="local_category_dates" translatable="false">Dates</string>
+    <string name="local_category_folders" translatable="false">Folders</string>
+    <string name="local_category_filesystem" translatable="false">Filesystem</string>
+    <string name="local_category_playlists" translatable="false">Playlists</string>
+    <string name="play_all" translatable="false">Play all</string>
+    <string name="shuffle_all" translatable="false">Shuffle</string>
+    <string name="no_local_songs" translatable="false">No local songs</string>
+    <string name="no_local_artists" translatable="false">No local artists</string>
+    <string name="no_local_albums" translatable="false">No local albums</string>
+    <string name="no_local_genres" translatable="false">No local genres</string>
+    <string name="no_local_dates" translatable="false">No songs with dates</string>
+    <string name="no_local_playlists" translatable="false">No local playlists</string>
+    <string name="empty_directory" translatable="false">This folder is empty</string>
+    <string name="parent_folder" translatable="false">Parent folder</string>
+    <string name="year_unknown" translatable="false">Unknown year</string>
+    <string name="genre_unknown" translatable="false">Unknown genre</string>
+    <plurals name="n_items" translatable="false">
+        <item quantity="one">%d item</item>
+        <item quantity="other">%d items</item>
+    </plurals>
 </resources>

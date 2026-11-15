@@ -845,8 +845,8 @@ class LocalMediaScanner(val context: Context, scannerImpl: ScannerImpl) {
                     artistList.add(ArtistEntity(ArtistEntity.generateArtistId(), artistVal, isLocal = true))
                 }
 
-                genre?.split(ARTIST_SEPARATORS)?.forEach { genreVal ->
-                    genresList.add(GenreEntity(GenreEntity.generateGenreId(), genreVal, isLocal = true))
+                if (!genre.isNullOrBlank()) {
+                    genresList.add(GenreEntity(GenreEntity.generateGenreId(), genre.trim(), isLocal = true))
                 }
                 val albumID = AlbumEntity.generateAlbumId()
                 val albumEntity = if (album != null) AlbumEntity(

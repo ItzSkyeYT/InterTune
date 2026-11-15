@@ -72,6 +72,18 @@ interface AlbumsDao : ArtistsDao {
     fun allLocalAlbumsByName(previewSize: Int = Int.MAX_VALUE): List<AlbumEntity>
 
     @Transaction
+    @Query("""
+        SELECT album.*, count(song.dateDownload) downloadCount
+        FROM album
+            LEFT JOIN song_album_map ON album.id = song_album_map.albumId
+            LEFT JOIN song ON song.id = song_album_map.songId
+        WHERE album.isLocal = 1
+        GROUP BY album.id
+        ORDER BY album.title COLLATE NOCASE ASC
+    """)
+    fun allLocalAlbumsFlow(): Flow<List<Album>>
+
+    @Transaction
     @Query("UPDATE song_album_map SET albumId = :newId WHERE albumId = :oldId")
     fun updateSongAlbumMap(oldId: String, newId: String)
 

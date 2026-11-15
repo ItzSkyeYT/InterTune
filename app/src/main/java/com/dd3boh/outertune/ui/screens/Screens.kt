@@ -30,7 +30,7 @@ sealed class Screens(
 ) {
     data object Home : Screens(R.string.home, Icons.Rounded.Home, "home")
     data object Songs : Screens(R.string.songs, Icons.Rounded.MusicNote, "songs")
-    data object Folders : Screens(R.string.folders, Icons.Rounded.Folder, "folders")
+    data object Folders : Screens(R.string.local_music, Icons.Rounded.Folder, "folders")
     data object Artists : Screens(R.string.artists, Icons.Rounded.Person, "artists")
     data object Albums : Screens(R.string.albums, Icons.Rounded.Album, "albums")
     data object Playlists : Screens(R.string.playlists, Icons.AutoMirrored.Rounded.QueueMusic, "playlists")

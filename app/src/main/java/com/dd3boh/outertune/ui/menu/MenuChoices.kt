@@ -21,6 +21,7 @@ enum class MenuKind(val key: String) {
     PLAYLIST("playlist"),
     FOLDER("folder"),
     LYRICS("lyrics"),
+    GENRE("genre"),
 }
 
 /**
