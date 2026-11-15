@@ -340,7 +340,7 @@ class DownloadFormatsWiringTest {
     private val exportPlurals = listOf("export_exported", "export_skipped_not_downloaded", "export_skipped_there", "export_skipped_local", "export_failed")
 
     private val held = listOf(
-        "download_format", "download_format_original", "download_format_description", "download_bitrate", "download_bitrate_auto",
+        "download_format", "download_format_original", "download_format_description", "download_format_wav_no_cover", "download_bitrate", "download_bitrate_auto",
         "download_bitrate_kbps", "download_bitrate_description", "download_bitrate_aac_kept", "convert_notice_title", "convert_notice_text",
         "convert_fallback_title",
     )
@@ -430,5 +430,16 @@ class DownloadFormatsWiringTest {
             }
             assertFalse("$language search words have a long dash", '—' in text(xml, "search_words_download_format")!!)
         }
+    }
+
+    @Test
+    fun `picking WAV says it cannot hold a cover, in the settings row and in the export sheet`() {
+        val frag = fileCode("ui/screens/settings/fragments/DownloadsFrag.kt")
+        assertTrue("if (fileFormat == DownloadFormat.WAV) MeaningLine(stringResource(R.string.download_format_wav_no_cover))" in frag)
+        val sheet = fileCode("ui/dialog/ExportSheet.kt")
+        assertTrue("if (format == DownloadFormat.WAV) {" in sheet && "R.string.download_format_wav_no_cover" in sheet)
+        assertEquals("WAV files can't hold a cover.", text(english, "download_format_wav_no_cover")?.replace("\\'", "'"))
+        // French says vous when it addresses anyone; this line addresses no one, and names the cover as the app does.
+        assertTrue(text(french, "download_format_wav_no_cover")!!.contains("pochette"))
     }
 }

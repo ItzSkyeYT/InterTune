@@ -46,6 +46,7 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import com.dd3boh.outertune.ui.component.LongPressLabel
 import com.dd3boh.outertune.ui.component.rememberSleepTimerState
 import com.dd3boh.outertune.ui.component.openProxySetting
 import androidx.compose.material3.Icon
@@ -2525,21 +2526,24 @@ private fun PlayerCircleButton(
     onClick: () -> Unit,
     nudge: Dp = 0.dp,
 ) {
-    Box(
-        contentAlignment = Alignment.Center,
-        modifier = Modifier
-            .offset(y = 5.dp)
-            .size(36.dp)
-            .clip(CircleShape)
-            .background(container)
-            .clickable(onClick = onClick)
-    ) {
-        Icon(
-            painter = painter,
-            contentDescription = contentDescription,
-            tint = content,
-            modifier = Modifier.offset(x = nudge).size(24.dp)
-        )
+    // A long press says the button's own name (LongPressLabel), nothing shown otherwise. The label's box
+    // takes the place of the circle, offset as it was.
+    OptionalLongPressLabel(contentDescription, Modifier.offset(y = 5.dp)) {
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier
+                .size(36.dp)
+                .clip(CircleShape)
+                .background(container)
+                .clickable(onClick = onClick)
+        ) {
+            Icon(
+                painter = painter,
+                contentDescription = contentDescription,
+                tint = content,
+                modifier = Modifier.offset(x = nudge).size(24.dp)
+            )
+        }
     }
 }
 
@@ -2561,54 +2565,57 @@ private fun PlayerActionSegment(
     /** Moves the icon sideways, for a glyph whose weight is off its middle ([SHARE_NUDGE]). */
     nudge: Dp = 0.dp,
 ) {
-    Row(
-        horizontalArrangement = Arrangement.Center,
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier
-            .height(40.dp)
-            .widthIn(min = width)
-            .clip(shape)
-            .then(
-                // Frosted, with no lens, highlight or shadow. Those draw a bright rim, and at this
-                // size the rim made the buttons read as empty outlines. So this is only the blur and
-                // vibrancy, clipped to the shape, under the button's colour: a filled button keeps
-                // most of its fill, an idle one gets a wash.
-                // Still on Saver (LocalGlassStill): the same fill and wash, nothing behind them blurred.
-                if (backdrop != null) Modifier
-                    .then(if (LocalGlassStill.current) Modifier else Modifier.drawBackdrop(
-                        backdrop = backdrop,
-                        shape = { shape },
-                        effects = {
-                            vibrancy()
-                            blur(lerp(16f, 6f, glassIntensity.coerceIn(0f, 1f)).dp.toPx())
-                        },
-                        // The library's default highlight and shadow are the rim.
-                        highlight = { null },
-                        shadow = { null },
-                    ))
-                    .background(
-                        if (filled) container.copy(alpha = lerp(0.95f, 0.8f, glassIntensity.coerceIn(0f, 1f)))
-                        else content.copy(alpha = 0.16f)
-                    )
-                else Modifier.background(container)
+    // A long press says the button's own name (LongPressLabel), nothing shown otherwise.
+    OptionalLongPressLabel(contentDescription) {
+        Row(
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .height(40.dp)
+                .widthIn(min = width)
+                .clip(shape)
+                .then(
+                    // Frosted, with no lens, highlight or shadow. Those draw a bright rim, and at this
+                    // size the rim made the buttons read as empty outlines. So this is only the blur and
+                    // vibrancy, clipped to the shape, under the button's colour: a filled button keeps
+                    // most of its fill, an idle one gets a wash.
+                    // Still on Saver (LocalGlassStill): the same fill and wash, nothing behind them blurred.
+                    if (backdrop != null) Modifier
+                        .then(if (LocalGlassStill.current) Modifier else Modifier.drawBackdrop(
+                            backdrop = backdrop,
+                            shape = { shape },
+                            effects = {
+                                vibrancy()
+                                blur(lerp(16f, 6f, glassIntensity.coerceIn(0f, 1f)).dp.toPx())
+                            },
+                            // The library's default highlight and shadow are the rim.
+                            highlight = { null },
+                            shadow = { null },
+                        ))
+                        .background(
+                            if (filled) container.copy(alpha = lerp(0.95f, 0.8f, glassIntensity.coerceIn(0f, 1f)))
+                            else content.copy(alpha = 0.16f)
+                        )
+                    else Modifier.background(container)
+                )
+                .clickable(onClick = onClick)
+                .padding(horizontal = 10.dp)
+        ) {
+            Icon(
+                painter = painter,
+                contentDescription = contentDescription,
+                tint = content,
+                modifier = Modifier.offset(x = nudge).size(22.dp)
             )
-            .clickable(onClick = onClick)
-            .padding(horizontal = 10.dp)
-    ) {
-        Icon(
-            painter = painter,
-            contentDescription = contentDescription,
-            tint = content,
-            modifier = Modifier.offset(x = nudge).size(22.dp)
-        )
-        if (label != null) {
-            Spacer(Modifier.width(6.dp))
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelLarge,
-                color = content,
-                maxLines = 1
-            )
+            if (label != null) {
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.labelLarge,
+                    color = content,
+                    maxLines = 1
+                )
+            }
         }
     }
 }
@@ -2700,4 +2707,10 @@ private fun SwipeableArtwork(
 private fun skipFromArtwork(playerConnection: PlayerConnection, forward: Boolean) {
     val player = playerConnection.loadQueueIfEmpty()
     if (forward) player.seekToNext() else player.seekToPreviousMediaItem()
+}
+
+/** [LongPressLabel] when the button has a name to say, the plain button when it has none. */
+@Composable
+private fun OptionalLongPressLabel(label: String?, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+    if (label.isNullOrBlank()) Box(modifier) { content() } else LongPressLabel(label, modifier, content)
 }

@@ -2626,6 +2626,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="download_format">File format</string>
     <string name="download_format_original">Original</string>
     <string name="download_format_description">Original keeps the best quality. Other formats are converted on the phone after the download.</string>
+    <string name="download_format_wav_no_cover">WAV files can\'t hold a cover.</string>
     <string name="download_bitrate">Bitrate</string>
     <string name="download_bitrate_auto">Auto</string>
     <string name="download_bitrate_kbps">%1$d kbps</string>
