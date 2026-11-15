@@ -124,6 +124,9 @@ private const val FIRST_SHOWN = 4
 /** The forms in .github/ISSUE_TEMPLATE the report opens: everyone's, and the testers' own. */
 private const val BUG_FORM = "bug_report.yml"
 private const val TESTER_FORM = "tester_report.yml"
+// The ids of the "What happened" box in each form: .github/ISSUE_TEMPLATE/*.yml.
+private const val BUG_WHAT_KEY = "what-happens"
+private const val TESTER_WHAT_KEY = "what"
 
 private class LogChoice(
     val run: RunLogs.Run?,
@@ -253,8 +256,9 @@ fun ProblemReportDialog(
             .appendQueryParameter("build", choice?.build ?: ProblemLog.build())
             .apply { if (tester != null) appendQueryParameter("tester", tester.toString()) }
             .appendQueryParameter("device", ProblemLog.device())
-            // What they typed above, into the form's own box for it (id what-happens).
-            .apply { if (relay && words.what.isNotBlank()) appendQueryParameter("what-happens", words.what.trim().take(FORM_WHAT_LIMIT)) }
+            // What they typed above, into the form's own box for it: the testers' form names it what,
+            // the bug form what-happens (ReportWayTest reads both files).
+            .apply { if (relay && words.what.isNotBlank()) appendQueryParameter(if (tester != null) TESTER_WHAT_KEY else BUG_WHAT_KEY, words.what.trim().take(FORM_WHAT_LIMIT)) }
             .build()
         // The log as much as the link holds: see FORM_LINK_LIMIT.
         val room = FORM_LINK_LIMIT - form.toString().length - "&logs=".length

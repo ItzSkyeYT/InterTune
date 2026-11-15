@@ -73,9 +73,15 @@ class ReportWayTest {
     fun `what was typed goes into the form's own box`() {
         val problem = read("ui/component/ProblemReportDialog.kt")
         // The words as kept until sent (ReportDraft): the same box's words.
-        assertTrue("appendQueryParameter(\"what-happens\", words.what.trim().take(FORM_WHAT_LIMIT))" in problem)
-        // The id is the form's: renaming the box there would empty it silently.
-        assertTrue(File("../.github/ISSUE_TEMPLATE/bug_report.yml").readText().contains("id: what-happens"))
+        assertTrue("appendQueryParameter(if (tester != null) TESTER_WHAT_KEY else BUG_WHAT_KEY, words.what.trim().take(FORM_WHAT_LIMIT))" in problem)
+        // The keys are the forms' box ids: the app's constants and the two files must agree, or the box
+        // stays empty without a sound (it did: the testers' form said what, the app sent what-happens).
+        for ((form, constant) in listOf("bug_report.yml" to "BUG_WHAT_KEY", "tester_report.yml" to "TESTER_WHAT_KEY")) {
+            val key = Regex("""private const val $constant = "([^"]+)"""").find(problem)!!.groupValues[1]
+            val yml = File("../.github/ISSUE_TEMPLATE/$form").readText()
+            assertTrue("$form has no box with id $key", Regex("""(?m)^\s*id: ${Regex.escape(key)}\s*$""").containsMatchIn(yml))
+        }
+        assertTrue("what" == Regex("""TESTER_WHAT_KEY = "([^"]+)"""").find(problem)!!.groupValues[1])
     }
 
     @Test
