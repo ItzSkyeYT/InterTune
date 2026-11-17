@@ -41,6 +41,24 @@ Android 7.0 or later. Once installed, InterTune finds new versions by itself if 
 
 </div>
 
+<details>
+<summary><b>Android won't install it?</b></summary>
+
+From 2027 Google wants every Android app to come from a developer who sent them their ID. I won't do that, so your phone will block InterTune until you tell it not to. Easiest way, no computer:
+
+1. Settings > About phone, tap Build number 7 times
+2. Open Developer options and turn on "Allow apps from unverified developers". It'll ask for your PIN and a restart
+3. Wait 24 hours (Google's choice, not mine)
+4. Go back to that same setting and finish. Pick "indefinitely", the 7 day one runs out after a week
+
+You can switch Developer options back off after that and InterTune still updates.
+
+If you use Shizuku you can skip the wait: set Obtainium's install method to Shizuku (Settings > Installation method) and updates go in by themselves. [anyapk](https://github.com/sam1am/anyapk) also works, over wireless debugging, if you'd rather just open the APK. And `adb install` from a computer works like it always did.
+
+None of this happens on a rooted phone or on a ROM without Google's apps, like LineageOS or GrapheneOS. If InterTune is already on your phone it keeps working, only the updates get stopped.
+
+</details>
+
 ## Screenshots
 
 <div align="center">
