@@ -44,7 +44,21 @@ Android 7.0 or later. Once installed, InterTune finds new versions by itself if 
 <details>
 <summary><b>Android won't install it?</b></summary>
 
-From 2027 Google wants every Android app to come from a developer who sent them their ID. I won't do that, so your phone will block InterTune until you tell it not to. Easiest way, no computer:
+Google wants every Android app to come from a developer who sent them their ID. I won't do that, so your phone will block InterTune until you tell it not to. That's already happening in Brazil, Indonesia, Singapore and Thailand, and everywhere else from 2027. It doesn't matter where the APK comes from: GitHub, Obtainium and F-Droid all get blocked the same way.
+
+Pick whatever fits you:
+
+| Your situation | What to do |
+|---|---|
+| Just a phone, and waiting a day is fine | Google's switch, steps below |
+| Just a phone, but you want it now | [anyapk](https://github.com/sam1am/anyapk), which installs over wireless debugging (Android 11 or newer) |
+| You already use Shizuku | Obtainium, with Settings > Installation method set to Shizuku. Updates go in by themselves |
+| Rooted | Any root installer, or Shizuku started with root |
+| You have a computer | `adb install` the APK, same as always |
+| On a ROM without Google's apps (LineageOS, GrapheneOS...) | Nothing, this doesn't touch you |
+| InterTune is already installed | It keeps working, only updates get stopped. Sort out one of the above before the next one |
+
+Google's switch:
 
 1. Settings > About phone, tap Build number 7 times
 2. Open Developer options and turn on "Allow apps from unverified developers". It'll ask for your PIN and a restart
@@ -53,9 +67,7 @@ From 2027 Google wants every Android app to come from a developer who sent them 
 
 You can switch Developer options back off after that and InterTune still updates.
 
-If you use Shizuku you can skip the wait: set Obtainium's install method to Shizuku (Settings > Installation method) and updates go in by themselves. [anyapk](https://github.com/sam1am/anyapk) also works, over wireless debugging, if you'd rather just open the APK. And `adb install` from a computer works like it always did.
-
-None of this happens on a rooted phone or on a ROM without Google's apps, like LineageOS or GrapheneOS. If InterTune is already on your phone it keeps working, only the updates get stopped.
+On a Samsung, Auto Blocker stops installs as well. Turn it off for the install and back on after if you want.
 
 </details>
 
