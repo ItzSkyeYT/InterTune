@@ -45,7 +45,8 @@ class LikedDownloadsTest {
         assertTrue("forgetLikedDownload(id)\n                    sends.attempt(\"removing \$id\")" in util)
         // and so does a download that fails or goes any other way: the notification's Cancel, Clear all downloads
         val listener = util.substringAfter("override fun onDownloadChanged(")
-        assertTrue(listener.contains("if (download.state == Download.STATE_FAILED || download.state == Download.STATE_REMOVING) {\n                        forgetLikedDownload(download.request.id)\n                    }"))
+        // First in that branch; what else goes with a failure (DownloadSays) may follow it.
+        assertTrue(listener.contains("if (download.state == Download.STATE_FAILED || download.state == Download.STATE_REMOVING) {\n                        forgetLikedDownload(download.request.id)\n"))
     }
 
     @Test
