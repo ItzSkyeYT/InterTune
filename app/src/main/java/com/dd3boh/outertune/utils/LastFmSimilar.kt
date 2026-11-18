@@ -33,7 +33,9 @@ import kotlin.coroutines.cancellation.CancellationException
 /**
  * Where similar songs come from, as the app acts on it. The only way app code reads the mode, so
  * a build without a Last.fm key, or a release while the engine is held back, never asks Last.fm
- * anything whatever the stored setting says.
+ * anything whatever the stored setting says. From 1 December 2026 every build reads as one
+ * without a key (LastFmEnd), so similar songs come from YouTube alone, without a word, and the
+ * stored choice is left as it was.
  */
 /**
  * Whether the first-run questions still owe the Last.fm one: only in a build that has a key and
@@ -108,6 +110,13 @@ class LastFmSimilar @Inject constructor(
         var failing = 0
         var gaveUp = false
         for (song in database.lastFmCatchUp(System.currentTimeMillis() - CATCH_UP_WINDOW_MS, CATCH_UP_LIMIT)) {
+            // Last.fm closed on the way (LastFmEnd: the date came, or it refused the key). The
+            // rest would only be waved through unasked, and Home told of neighbours that never
+            // came, so it stops here like a catch-up that gave up, and nothing is recorded.
+            if (!isAvailable) {
+                gaveUp = true
+                break
+            }
             when (attempt(song.id, song.title, song.artist)) {
                 Outcome.FAILED -> if (++failing >= 3) { gaveUp = true; break }
                 Outcome.SETTLED -> failing = 0

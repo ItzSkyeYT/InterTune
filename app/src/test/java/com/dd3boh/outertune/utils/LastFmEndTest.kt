@@ -19,8 +19,13 @@ import com.dd3boh.outertune.constants.LastFmRefusedAtKey
 import com.dd3boh.outertune.constants.LastFmScrobbleKey
 import com.dd3boh.outertune.constants.LastFmSessionKey
 import com.dd3boh.outertune.constants.LastFmUsernameKey
+import com.dd3boh.outertune.constants.SimilarFromLastFmKey
+import com.dd3boh.outertune.constants.SimilarSource
 import com.dd3boh.outertune.constants.SimilarSourceKey
+import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.models.MediaMetadata
+import com.dd3boh.outertune.ui.screens.SetupQuestion
+import com.dd3boh.outertune.ui.screens.catchUpQuestions
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
@@ -313,6 +318,53 @@ class LastFmEndTest {
         val screen = File("src/main/java/com/dd3boh/outertune/ui/screens/LastFmLoginScreen.kt").readText()
         assertTrue("closed = LastFmEnd.closed()" in screen)
         assertTrue("if (closed) stringResource(R.string.lastfm_ended_description)" in screen)
+    }
+
+    @Test
+    fun `similar songs come from YouTube alone once Last-fm has closed, and the choice is kept`() {
+        assumeTheBuildHasAKey()
+        val stored = listOf(
+            mutablePreferencesOf(SimilarSourceKey to SimilarSource.BOTH.name),
+            mutablePreferencesOf(SimilarSourceKey to SimilarSource.LASTFM.name),
+            mutablePreferencesOf(SimilarFromLastFmKey to true),
+            mutablePreferencesOf(SimilarSourceKey to SimilarSource.YOUTUBE.name),
+        )
+        LastFmEnd.clock = { dayBefore }
+        assumeTrue(Unreleased.ENGINE)
+        assertEquals(
+            listOf(SimilarSource.BOTH, SimilarSource.LASTFM, SimilarSource.LASTFM, SimilarSource.YOUTUBE),
+            stored.map(::similarSourceOf),
+        )
+        LastFmEnd.clock = { theDay }
+        assertEquals(List(4) { SimilarSource.YOUTUBE }, stored.map(::similarSourceOf))
+        // Only read: the choice is there again should Last.fm ever be.
+        assertEquals(SimilarSource.BOTH.name, stored[0][SimilarSourceKey])
+    }
+
+    @Test
+    fun `setup and the questions after an update stop asking about Last-fm`() {
+        assumeTheBuildHasAKey()
+        LastFmEnd.clock = { dayBefore }
+        assertEquals(Unreleased.ENGINE, lastFmQuestionAskable())
+        LastFmEnd.clock = { theDay }
+        assertFalse(lastFmQuestionAskable())
+        assertFalse(SetupQuestion.LASTFM in catchUpQuestions(mutablePreferencesOf(), lastFmQuestionAskable()).asked)
+    }
+
+    @Test
+    fun `Recommendations hides the choice, and a catch-up stops when Last-fm closes on its way`() {
+        // The choice of where similar songs come from is drawn only with a key, which reads as
+        // empty from the date: no Both or Last.fm only left to pick that would do nothing.
+        val recommendations = File("src/main/java/com/dd3boh/outertune/ui/screens/settings/RecommendationsSettings.kt").readText()
+        val gate = recommendations.indexOf("if (BuiltInKeys.lastFmApiKey.isNotEmpty()) {")
+        assertTrue(gate in 0 until recommendations.indexOf("settingRow(R.string.similar_source)"))
+        // The catch-up looks again before each song, and stops as one that gave up: nothing is
+        // recorded, and Home is not told of neighbours that never came.
+        val similar = File("src/main/java/com/dd3boh/outertune/utils/LastFmSimilar.kt").readText()
+        assertTrue("val isAvailable get() = scrobbler.canFindSimilar" in similar)
+        val loop = similar.substringAfter("suspend fun catchUp(): Boolean {").substringBefore("when (attempt(")
+        assertTrue(loop, Regex("""for \(song in [^\n]+\n(\s*//[^\n]*\n)*\s*if \(!isAvailable\) \{\s*gaveUp = true\s*break""").containsMatchIn(loop))
+        assertTrue(similar.substringAfter("suspend fun catchUp(): Boolean {").contains("if (!gaveUp) _caughtUpAt.value"))
     }
 
     @Test
