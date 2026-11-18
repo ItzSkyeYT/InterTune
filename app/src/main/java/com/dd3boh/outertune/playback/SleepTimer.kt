@@ -360,7 +360,8 @@ class SleepTimer(
     /** Real time until the end the timer waits for, or null when a length on the way is not known. */
     private fun endLeftMs(end: SleepEnd): Long? {
         val song = songLeftMs() ?: return null
-        if (end == SleepEnd.SONG || passEndsWithThisSong()) return song
+        // Under repeat one every end is this song's: the queue after it never plays by itself.
+        if (end == SleepEnd.SONG || passEndsWithThisSong() || player.repeatMode == Player.REPEAT_MODE_ONE) return song
         val timeline = player.currentTimeline
         var index = player.currentMediaItemIndex
         if (timeline.isEmpty || index !in 0 until timeline.windowCount) return song
@@ -554,11 +555,14 @@ object SleepTimerRules {
      * song, or, under shuffle, the song after the last one, which the service shuffled again to the
      * front. Under repeat all that is the queue starting over: the end of the queue, and of the
      * album it was in.
-     * Under repeat one the song starts over and neither ends: the end of the song is all that does.
+     * Under repeat one the song is all that plays, so its starting over is the album and the queue
+     * starting over too, and every end comes there. It used to be no end at all, and a timer set to
+     * the end of the album or the queue never stopped the music under repeat one.
      */
     fun endsAt(end: SleepEnd, reason: Int, repeatAll: Boolean, albumBefore: String?, albumAfter: String?, newIsFirst: Boolean): Boolean {
         if (!endsSong(reason)) return false
-        val wrapped = repeatAll && (reason == Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT || newIsFirst)
+        // A repeat comes only under repeat one, or repeat all with one song: either way the queue starts over.
+        val wrapped = reason == Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT || (repeatAll && newIsFirst)
         return when (end) {
             SleepEnd.SONG -> true
             SleepEnd.ALBUM -> wrapped || (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO && albumOver(albumBefore, albumAfter))
@@ -569,12 +573,12 @@ object SleepTimerRules {
     /**
      * Whether the song playing is the last one a timer set to [end] waits for, which is the one
      * that fades. [hasNext] says a song follows it in the queue, repeat left out. Under repeat one
-     * the album and the queue never end.
+     * the song playing is all that plays: every end comes at its end ([endsAt]), so it is the one.
      */
     fun finalSong(end: SleepEnd, repeatMode: Int, hasNext: Boolean, albumNow: String?, albumNext: String?): Boolean = when (end) {
         SleepEnd.SONG -> true
-        SleepEnd.ALBUM -> repeatMode != Player.REPEAT_MODE_ONE && (!hasNext || albumOver(albumNow, albumNext))
-        SleepEnd.QUEUE -> repeatMode != Player.REPEAT_MODE_ONE && !hasNext
+        SleepEnd.ALBUM -> repeatMode == Player.REPEAT_MODE_ONE || !hasNext || albumOver(albumNow, albumNext)
+        SleepEnd.QUEUE -> repeatMode == Player.REPEAT_MODE_ONE || !hasNext
     }
 
     /** The volume factor with [remainingMs] to go of a fade given [windowMs]: 1 at the start, 0 at the end. */

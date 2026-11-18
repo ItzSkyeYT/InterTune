@@ -150,14 +150,15 @@ class SleepTimerEndsTest {
     }
 
     @Test
-    fun `repeat one never ends an album, and the queue running out always does`() {
+    fun `under repeat one the album ends where the song starts over, a skip before carries it on`() {
         queueOf("A-1" to 200, "A-2" to 200)
         fake.repeatMode = Player.REPEAT_MODE_ONE
         val timer = timer().apply { start(SleepEnd.ALBUM) }
-        timer.onMediaItemTransition(song("A-1"), repeat)
+        fake.index = 1
+        timer.onMediaItemTransition(song("A-2"), seek)
         assertEquals(0, finished)
         assertTrue(timer.isActive)
-        timer.onPlaybackStateChanged(Player.STATE_ENDED)
+        timer.onMediaItemTransition(song("A-2"), repeat)
         assertEquals(1, finished)
         assertFalse(timer.isActive)
     }
@@ -213,14 +214,16 @@ class SleepTimerEndsTest {
     }
 
     @Test
-    fun `under repeat one the queue is never over, and a skip carries the timer on`() {
+    fun `under repeat one a skip carries the timer on, and the song starting over ends the queue`() {
         queueOf("A-1" to 200, "A-2" to 200)
         fake.repeatMode = Player.REPEAT_MODE_ONE
         val timer = timer().apply { start(SleepEnd.QUEUE) }
-        timer.onMediaItemTransition(song("A-1"), repeat)
+        fake.index = 1
         timer.onMediaItemTransition(song("A-2"), seek)
         assertEquals(0, finished)
         assertEquals(SleepEnd.QUEUE, timer.endOf)
+        timer.onMediaItemTransition(song("A-2"), repeat)
+        assertEquals(1, finished)
     }
 
     // ---- the end of the queue under every shuffle and repeat
@@ -418,18 +421,20 @@ class SleepTimerEndsTest {
     }
 
     @Test
-    fun `shuffle on or off, repeat one - the queue never comes round, the queue running out still ends it`() {
-        // The rule of 10 Nov: under repeat one the song is all that plays, and neither the album
-        // nor the queue ends. No reshuffle comes without repeat all, and one said is not taken.
+    fun `shuffle on or off, repeat one - the song starting over ends it, and the time left is the song's`() {
+        // Under repeat one the song is all that plays: the queue after it never comes by itself,
+        // so its end is the end of the queue. No reshuffle comes without repeat all.
         queueOf("C-1" to 200, "A-1" to 200, "B-1" to 200)
         fake.repeatMode = Player.REPEAT_MODE_ONE
-        fake.index = 2
+        fake.durationMs = 200_000L
+        fake.positionMs = 50_000L
+        fake.index = 1
         val timer = timer().apply { start(SleepEnd.QUEUE) }
         timer.queueStartsOverAfterThisSong()
-        timer.onMediaItemTransition(song("B-1"), repeat)
-        assertEquals(0, finished)
-        timer.onPlaybackStateChanged(Player.STATE_ENDED)
+        assertEquals(150_000L, timer.status(now)!!.leftMs)
+        timer.onMediaItemTransition(song("A-1"), repeat)
         assertEquals(1, finished)
+        assertFalse(timer.isActive)
     }
 
     // ---- the time, and Let the song finish
