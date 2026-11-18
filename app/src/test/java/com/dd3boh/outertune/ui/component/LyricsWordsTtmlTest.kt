@@ -100,12 +100,30 @@ class LyricsWordsTtmlTest {
         }
     }
 
+    /** One line of hand-made TTML, [p] its paragraph: text in it outside a timed span has no time of its own. */
+    private fun partly(p: String): SemanticLyrics.LyricLine {
+        val tt = """<tt xmlns="http://www.w3.org/ns/ttml" xmlns:ttm="http://www.w3.org/ns/ttml#metadata" xmlns:ttp="http://www.w3.org/ns/ttml#parameter" xmlns:itunes="http://music.apple.com/lyric-ttml-internal" ttp:timeBase="media" xml:lang="en" itunes:timing="Word"><head><metadata><ttm:agent xml:id="v1" type="person"/></metadata></head><body dur="0:10.000"><div>$p</div></body></tt>"""
+        val parsed = parseTtml(null, tt, KXmlParser())
+        assertNotNull("the TTML is read", parsed)
+        return (parsed as SemanticLyrics.SyncedLyrics).text.single { it.text.isNotBlank() }
+    }
+
     /** A line placed as the app's own way places it. */
-    private inner class Placed(val line: SemanticLyrics.LyricLine, rows: (String) -> Rows) {
+    private inner class Placed(val line: SemanticLyrics.LyricLine, layOut: (String) -> Rows) {
+        val rows = layOut(line.text)
         val pieces = LyricsWords.pieces(line.text, line.words)
-        val boxes = LyricsWords.place(pieces, rows(line.text), past = 50f)
+        val boxes = LyricsWords.place(pieces, rows, past = 50f)
 
         fun box(word: String): WordBox = boxes.single { line.text.substring(pieces[it.piece].from, pieces[it.piece].to) == word }
+
+        /** That all of [row] is drawn: its boxes reach its ends, with no gap between them, since nothing outside them is. */
+        fun drawsWhole(row: Int) {
+            val mine = boxes.filter { it.row == row }.sortedBy { it.left }
+            assertTrue("row $row has something drawn", mine.isNotEmpty())
+            assertTrue("row $row is drawn from its start", mine.minOf { it.clipLeft } <= rows.left(row))
+            assertTrue("row $row is drawn to its end", mine.maxOf { it.clipRight } >= rows.right(row))
+            mine.zipWithNext { a, b -> assertEquals("row $row is drawn with no gap", a.clipRight, b.clipLeft, 0.001f) }
+        }
 
         /** Where the lit part of [row] ends at [atMs], read from the left: the far end of all that is lit, or null for none. */
         fun litEnd(row: Int, atMs: Long): Float? = boxes.filter { it.row == row }
@@ -215,6 +233,49 @@ class LyricsWordsTtmlTest {
         assertNull(placed.litEnd(0, 39_000))
         assertNull(placed.litEnd(1, 39_000))
         assertEquals(placed.box("end\"").clipRight, placed.litEnd(1, 46_400)!!, 0.001f)
+    }
+
+    @Test
+    fun `text with no time of its own after the timed words is drawn and lit with them, never cut off`() {
+        // Hand-made TTML with one timed word and "world (x2)" outside any span: while the line was sung only
+        // "Hello w" was drawn, the rest gone until it ended.
+        val placed = Placed(partly("""<p begin="0:01.000" end="0:04.000" ttm:agent="v1"><span begin="0:01.000" end="0:02.000">Hello</span> world (x2)</p>""")) { Rows(it) }
+        assertEquals("Hello world (x2)", placed.line.text)
+        assertEquals(1, placed.pieces.size)
+        placed.drawsWhole(0)
+        assertNull(placed.litEnd(0, 500))
+        // While "Hello" is sung, none of the rest; once it is, all of it with it.
+        assertTrue(placed.litEnd(0, 1_500)!! < placed.rows.x(placed.line.text.indexOf("world")))
+        assertTrue(placed.litEnd(0, 2_000)!! >= placed.rows.right(0))
+    }
+
+    @Test
+    fun `text with no time of its own before the first word of its row is lit as that word starts`() {
+        val placed = Placed(partly("""<p begin="0:01.000" end="0:03.000" ttm:agent="v1">(x2) <span begin="0:01.000" end="0:02.000">Hello</span> <span begin="0:02.000" end="0:03.000">world</span></p>""")) {
+            Rows(it, centred = true)
+        }
+        assertEquals("(x2) Hello world", placed.line.text)
+        placed.drawsWhole(0)
+        assertNull(placed.litEnd(0, 900))
+        val hello = placed.box("Hello")
+        val lit = LyricsWords.lit(hello, LyricsWords.sung(placed.pieces[hello.piece], 1_100), false)!!
+        assertTrue("\"(x2)\" is lit with \"Hello\"", lit.start <= placed.rows.left(0))
+        assertTrue("and \"Hello\" only as far as it is sung", lit.endInclusive < hello.right)
+    }
+
+    @Test
+    fun `a row no word stands on is drawn whole and lit whole, as the word after it starts or once the word before it is sung`() {
+        val placed = Placed(partly("""<p begin="0:01.000" end="0:04.000" ttm:agent="v1">oh la la <span begin="0:02.000" end="0:02.500">Hello</span> <span begin="0:03.000" end="0:03.500">there</span> na na na</p>""")) {
+            Rows(it, breaks = listOf(it.indexOf("Hello"), it.indexOf("na na na")))
+        }
+        assertEquals("oh la la Hello there na na na", placed.line.text)
+        for (row in 0..2) placed.drawsWhole(row)
+        // Before "Hello", nothing; as it starts, all of the row before it, which used to wait for a word after it.
+        assertNull(placed.litEnd(0, 1_500))
+        assertTrue(placed.litEnd(0, 2_050)!! >= placed.rows.right(0))
+        // The row after "there" waits for "there" to be sung, not for a word before it.
+        assertNull(placed.litEnd(2, 3_200))
+        assertTrue(placed.litEnd(2, 3_500)!! >= placed.rows.right(2))
     }
 
     @Test

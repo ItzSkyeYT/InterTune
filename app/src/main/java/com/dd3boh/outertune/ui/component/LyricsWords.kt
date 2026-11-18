@@ -251,9 +251,10 @@ internal object LyricsWords {
     /**
      * Where each of [pieces] stands in the line laid out in [rows]: a box for each row a word is on
      * (a word too long for a row goes on over two), in the order of the rows and across each, drawn
-     * out to half way to the words beside it and [past] beyond the line's ends. The rows are read
+     * out to half way to the words beside it and [past] beyond the row's own ends. The rows are read
      * from where the letters were laid out, never from the words counted, so a word timed as two
-     * syllables is two boxes side by side, and the line's last word is on the row it stands on.
+     * syllables is two boxes side by side, and the line's last word is on the row it stands on. Text
+     * with no time of its own goes with the word nearest it, and a row with none is one box.
      */
     fun place(pieces: List<Piece>, rows: WordRows, past: Float): List<WordBox> {
         val length = rows.length
@@ -289,12 +290,19 @@ internal object LyricsWords {
             }
             out += mine
         }
-        // A row no word stands on (words the lyrics give no time for) is lit with the word before it.
+        // A row no word stands on (text the lyrics give no time for) is drawn whole and lit whole: a row before the
+        // first word as that word starts, any other once the word before it is sung. The words are in the order they
+        // are read, so the word before a row is the last of them on a row above it; the rows added here are not
+        // words, and are never taken for one.
+        val words = out.toList()
+        val firstRow = words.minOfOrNull { it.row }
         for (row in covered.indices) {
-            if (covered[row] || out.isEmpty()) continue
-            val with = out.lastOrNull { it.row < row } ?: out.first()
+            if (covered[row] || firstRow == null) continue
+            val early = row < firstRow
+            val with = if (early) words.first() else words.last { it.row < row }
             out += WordBox(with.piece, row, rows.left(row), rows.right(row), rows.top(row), rows.bottom(row)).apply {
-                before = 0.999f
+                // All of it at once: a share of the word too small to be seen being sung.
+                before = if (early) 0f else 0.999f
                 part = 0.001f
             }
         }
@@ -302,8 +310,10 @@ internal object LyricsWords {
         for ((i, box) in out.withIndex()) {
             val leftOf = out.getOrNull(i - 1)?.takeIf { it.row == box.row }
             val rightOf = out.getOrNull(i + 1)?.takeIf { it.row == box.row }
-            box.clipLeft = if (leftOf == null) box.left - past else (leftOf.right + box.left) / 2f
-            box.clipRight = if (rightOf == null) box.right + past else (box.right + rightOf.left) / 2f
+            // Out to half way to the word beside it, and at a row's ends out past the row's own end: text there with
+            // no time of its own is drawn and lit with the word nearest it, never cut off.
+            box.clipLeft = if (leftOf == null) min(box.left, rows.left(box.row)) - past else (leftOf.right + box.left) / 2f
+            box.clipRight = if (rightOf == null) max(box.right, rows.right(box.row)) + past else (box.right + rightOf.left) / 2f
             // Above the first row and under the last nothing else is drawn: tall letters and tails keep their ends.
             if (box.row == 0) box.clipTop = box.top - past
             if (box.row == rows.count - 1) box.clipBottom = box.bottom + past
@@ -426,8 +436,15 @@ internal class WordBox(
     var before = 0f
     var part = 1f
 
-    /** How much of this box is sung when [sung] of its word is, from none to all of it. */
-    fun share(sung: Float): Float = ((sung - before) / part).coerceIn(0f, 1f)
+    /**
+     * How much of this box is sung when [sung] of its word is, from none to all of it: none before the word
+     * starts and all once it is sung, whatever the rounding of [before] and [part].
+     */
+    fun share(sung: Float): Float = when {
+        sung <= 0f -> 0f
+        sung >= 1f -> 1f
+        else -> ((sung - before) / part).coerceIn(0f, 1f)
+    }
 }
 
 /**
