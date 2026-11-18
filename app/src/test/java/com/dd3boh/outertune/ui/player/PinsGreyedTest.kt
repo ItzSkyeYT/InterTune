@@ -45,4 +45,19 @@ class PinsGreyedTest {
             assertTrue("$name in French", fr.contains("name=\"$name\""))
         }
     }
+
+    /**
+     * The grey's overlay does not cover every way in: the Classic circle is drawn 5 dp below its box, so a tap on its
+     * lower edge reached the button, and TalkBack or a keyboard reach it too. A greyed Start radio on a local file
+     * then replaced the queue (review of 18 Nov 2026). The action itself checks the same reason first.
+     */
+    @Test
+    fun `a greyed pin's action never runs, however it is reached`() {
+        assertTrue(actions.contains("unavailable = why,"))
+        val run = actions.substringAfter("run = run@{ pin ->").substringBefore("when (pin)")
+        assertTrue(run.contains("why(pin)?.let { Toaster.show(context, it); return@run }"))
+        val share = player.substringAfter("val shareSong: () -> Unit = {").substringBefore("ActivityLog.note")
+        assertTrue(share.contains("if (song.isLocal)"))
+        assertTrue(share.contains("R.string.pin_not_for_local"))
+    }
 }

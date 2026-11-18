@@ -280,26 +280,27 @@ internal fun rememberPinActions(
     }
 
     val local = mediaMetadata?.isLocal != false
-    return PinActions(
-        shown = { pin -> pinOffered(pin) },
-        // A button that cannot act for this song keeps its place, greyed: hidden, it left a gap that moved the row from
-        // song to song, and Niko took six pins for broken on a local song (#testers, 18 Nov 2026).
-        unavailable = { pin ->
-            when (pin) {
-                PlayerPin.SHARE, PlayerPin.RADIO, PlayerPin.DOWNLOAD, PlayerPin.LIBRARY -> R.string.pin_not_for_local.takeIf { local }
-                PlayerPin.ALBUM -> when {
-                    local -> R.string.pin_not_for_local
-                    mediaMetadata?.album == null -> R.string.pin_no_album
-                    else -> null
-                }
-                PlayerPin.OPEN_FILE_LOCATION ->
-                    R.string.pin_only_local.takeIf { mediaMetadata?.isLocal != true || mediaMetadata?.localPath.isNullOrBlank() }
-                PlayerPin.ARTIST -> R.string.no_artist_found.takeIf { artists.isEmpty() }
-                PlayerPin.REMOVE_FROM_PLAYLIST -> R.string.pin_not_in_playlist.takeIf { inPlaylists.isEmpty() }
-                PlayerPin.RECENTRE -> R.string.pin_head_tracking_off.takeIf { playerConnection?.service?.headTracking?.isRunning != true }
+    // A button that cannot act for this song keeps its place, greyed: hidden, it left a gap that moved the row from
+    // song to song, and Niko took six pins for broken on a local song (#testers, 18 Nov 2026).
+    val why: (PlayerPin) -> Int? = { pin ->
+        when (pin) {
+            PlayerPin.SHARE, PlayerPin.RADIO, PlayerPin.DOWNLOAD, PlayerPin.LIBRARY -> R.string.pin_not_for_local.takeIf { local }
+            PlayerPin.ALBUM -> when {
+                local -> R.string.pin_not_for_local
+                mediaMetadata?.album == null -> R.string.pin_no_album
                 else -> null
             }
-        },
+            PlayerPin.OPEN_FILE_LOCATION ->
+                R.string.pin_only_local.takeIf { mediaMetadata?.isLocal != true || mediaMetadata?.localPath.isNullOrBlank() }
+            PlayerPin.ARTIST -> R.string.no_artist_found.takeIf { artists.isEmpty() }
+            PlayerPin.REMOVE_FROM_PLAYLIST -> R.string.pin_not_in_playlist.takeIf { inPlaylists.isEmpty() }
+            PlayerPin.RECENTRE -> R.string.pin_head_tracking_off.takeIf { playerConnection?.service?.headTracking?.isRunning != true }
+            else -> null
+        }
+    }
+    return PinActions(
+        shown = { pin -> pinOffered(pin) },
+        unavailable = why,
         on = { pin ->
             when (pin) {
                 PlayerPin.DOWNLOAD -> downloaded
@@ -311,6 +312,9 @@ internal fun rememberPinActions(
         run = run@{ pin ->
             val song = mediaMetadata ?: return@run
             val connection = playerConnection ?: return@run
+            // The greyed button's own action never runs: a tap the grey's overlay misses (the Classic circle sits
+            // 5 dp below its box), TalkBack or a keyboard would start a radio on a local file and lose the queue.
+            why(pin)?.let { Toaster.show(context, it); return@run }
             when (pin) {
                 PlayerPin.RADIO -> connection.playQueue(YouTubeQueue.radio(song), isRadio = true)
                 PlayerPin.ADD_TO_QUEUE -> showQueues = true

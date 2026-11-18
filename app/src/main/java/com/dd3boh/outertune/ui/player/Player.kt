@@ -17,6 +17,7 @@ import com.dd3boh.outertune.LocalBatteryMode
 import androidx.compose.foundation.interaction.DragInteraction
 import androidx.compose.runtime.snapshotFlow
 import com.dd3boh.outertune.ui.menu.rememberShareLink
+import com.dd3boh.outertune.utils.Toaster
 import com.dd3boh.outertune.utils.ShareLinks
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.rememberUpdatedState
@@ -1030,6 +1031,11 @@ fun BottomSheetPlayer(
             val shareLink = rememberShareLink()
             val shareSong: () -> Unit = {
                 mediaMetadata?.let { song ->
+                    // A file on the phone has no link to share: its Share is greyed, and says why if reached anyway.
+                    if (song.isLocal) {
+                        Toaster.show(context, R.string.pin_not_for_local)
+                        return@let
+                    }
                     ActivityLog.note(context, database, song.id, SignalKind.SHARE)
                     shareLink(ShareLinks.song(song.id, song.title, song.artists.map { it.name }, song.duration, song.album != null)) {}
                 }
