@@ -562,7 +562,8 @@ class DownloadUtil @Inject constructor(
      */
     private val says = DownloadSays(context)
 
-    private fun rememberAskedByHand(ids: List<String>) = says.asked(ids)
+    /** Not a song already downloaded: no download lands for it, and its id waited for good. */
+    private fun rememberAskedByHand(ids: List<String>) = says.asked(ids.filterNot { isDownloaded(it) })
 
     /**
      * Where what the liked catch up remembers is read and changed: one thing at a time, in the
@@ -1873,6 +1874,8 @@ class DownloadUtil @Inject constructor(
                     // like (LikedDownloads, issue #64).
                     if (download.state == Download.STATE_FAILED || download.state == Download.STATE_REMOVING) {
                         forgetLikedDownload(download.request.id)
+                        // Nor is it waited for to be said where it went (DownloadSays).
+                        says.forget(download.request.id)
                     }
 
                     // Before the map changes, so a rescan merging at the same moment keeps this
