@@ -25,14 +25,12 @@ import com.dd3boh.outertune.models.DontPlay
 import com.dd3boh.outertune.models.DislikePlan
 import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.playback.DownloadUtil
+import com.dd3boh.outertune.utils.RatingWrites
 import com.dd3boh.outertune.utils.Toaster
 import com.dd3boh.outertune.utils.mayPushToYouTube
-import com.dd3boh.outertune.utils.syncCoroutine
 import com.dd3boh.outertune.viewmodels.ExclusionsViewModel
 import com.zionhuang.innertube.YouTube
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.launch
 
 /** The icon of Don't play this song: a struck-out note, set apart from Not this song's ring and Block artist's. */
 val DontPlayIcon = Icons.Rounded.MusicOff
@@ -87,9 +85,10 @@ fun toggleDontPlay(
     liked: Boolean = false,
 ) {
     val plan = DislikePlan.of(Unreleased.DISLIKE, held, song.isLocal, liked, context.mayPushToYouTube())
+    // In tap order with the song's other ratings, the heart's included (RatingWrites).
     when (plan.tell) {
-        DislikePlan.Tell.DISLIKE -> CoroutineScope(syncCoroutine).launch { YouTube.dislikeVideo(song.id) }
-        DislikePlan.Tell.REMOVE -> CoroutineScope(syncCoroutine).launch { YouTube.likeVideo(song.id, false) }
+        DislikePlan.Tell.DISLIKE -> RatingWrites.send(song.id) { YouTube.dislikeVideo(song.id) }
+        DislikePlan.Tell.REMOVE -> RatingWrites.send(song.id) { YouTube.likeVideo(song.id, false) }
         DislikePlan.Tell.NOTHING -> Unit
     }
     if (!plan.keep) {

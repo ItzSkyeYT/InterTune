@@ -56,8 +56,8 @@ class DislikeWiringTest {
     fun `the tap follows the plan, and a like is taken back here without a removelike beside the thumbs down`() {
         val dontPlay = source("ui/menu/DontPlaySong.kt")
         assertTrue("val plan = DislikePlan.of(Unreleased.DISLIKE, held, song.isLocal, liked, context.mayPushToYouTube())" in dontPlay)
-        assertTrue("DislikePlan.Tell.DISLIKE -> CoroutineScope(syncCoroutine).launch { YouTube.dislikeVideo(song.id) }" in dontPlay)
-        assertTrue("DislikePlan.Tell.REMOVE -> CoroutineScope(syncCoroutine).launch { YouTube.likeVideo(song.id, false) }" in dontPlay)
+        assertTrue("DislikePlan.Tell.DISLIKE -> RatingWrites.send(song.id) { YouTube.dislikeVideo(song.id) }" in dontPlay)
+        assertTrue("DislikePlan.Tell.REMOVE -> RatingWrites.send(song.id) { YouTube.likeVideo(song.id, false) }" in dontPlay)
         val toggle = dontPlay.substringAfter("fun toggleDontPlay(")
         // localToggleLike sends nothing; toggleLike would send removelike, which could land after the thumbs down.
         assertTrue("songRow(song.id)?.takeIf { it.liked }?.localToggleLike()?.let { unliked ->" in toggle)

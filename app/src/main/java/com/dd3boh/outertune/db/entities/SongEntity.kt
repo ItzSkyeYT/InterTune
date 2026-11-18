@@ -6,12 +6,9 @@ import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
 import com.dd3boh.outertune.utils.LocalArtworkPath
+import com.dd3boh.outertune.utils.RatingWrites
 import com.dd3boh.outertune.utils.mayPushToYouTube
-import com.dd3boh.outertune.utils.syncCoroutine
 import com.zionhuang.innertube.YouTube
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.cancel
-import kotlinx.coroutines.launch
 import org.apache.commons.lang3.RandomStringUtils
 import java.time.LocalDateTime
 import java.time.Month
@@ -61,11 +58,11 @@ data class SongEntity(
         likedDate = if (!liked) LocalDateTime.now() else null,
         inLibrary = if (!liked) inLibrary ?: LocalDateTime.now() else inLibrary
     ).also {
-        CoroutineScope(syncCoroutine).launch {
+        // In tap order with the song's other ratings, a Dislike's included (RatingWrites).
+        RatingWrites.send(id) {
             // Local files have no YouTube id, and a like made signed out or in "Read only" must
             // stay here: nothing may reach the account then.
             if (!isLocal && mayPushToYouTube()) YouTube.likeVideo(id, !liked)
-            this.cancel()
         }
     }
 
