@@ -14,6 +14,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -26,7 +27,9 @@ import com.dd3boh.outertune.LocalPlayerAwareWindowInsets
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.LocalScrobbler
 import com.dd3boh.outertune.ui.component.FloatingTopBar
+import com.dd3boh.outertune.ui.component.NoWebViewNote
 import com.dd3boh.outertune.utils.ErrorText
+import com.dd3boh.outertune.utils.WebViewCheck
 import kotlinx.coroutines.launch
 
 /**
@@ -65,7 +68,18 @@ fun LastFmLoginScreen(
 
     val message = error
     val url = authorizeUrl
-    if (message != null) {
+    // Last.fm's page is a web view too, which threw on a phone whose web view cannot start (#221).
+    val context = LocalContext.current
+    val webViewWorks = remember { WebViewCheck.works(context) }
+    if (!webViewWorks) {
+        Box(
+            modifier = Modifier
+                .windowInsetsPadding(LocalPlayerAwareWindowInsets.current)
+                .fillMaxSize(),
+        ) {
+            NoWebViewNote()
+        }
+    } else if (message != null) {
         // Closing the screen without a word was the old behaviour, and it made a rejected API key
         // look like a dead button. Say what happened instead.
         Box(

@@ -2790,6 +2790,10 @@ while also allowing users to translate our app as well. New, specific strings to
     </plurals>
     <!-- A picker asked for on a device with none (#120, #121). -->
     <string name="no_app_to_pick">No file picker here. Install a file manager app.</string>
+    <!-- The sign-in page on a phone whose web view cannot start (#221). -->
+    <string name="no_web_view_title" translatable="false">The sign-in page can\'t open here</string>
+    <string name="no_web_view_body" translatable="false">Signing in happens on a web page, and this phone\'s web view won\'t start. Updating Android System WebView or Chrome from the Play Store usually fixes it.</string>
+    <string name="no_web_view_store" translatable="false">Open the Play Store</string>
     <!-- The sleep timer's sheet and its notification (SleepTimerDialog, SleepTimerNotification). -->
     <string name="sleep_row_in">In</string>
     <string name="sleep_row_at">At</string>
