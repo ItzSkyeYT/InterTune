@@ -187,4 +187,16 @@ class AppLanguageTest {
         assertFalse(wrap, "Configuration(base.resources.configuration)" in wrap)
         assertTrue("base.createConfigurationContext(config)" in wrap)
     }
+
+    @Test
+    fun `back to System default before Android 13, the app takes the phone's whole list of languages`() {
+        // Lithuanian then Russian on the phone (no Lithuanian words in the app): its first language alone put the
+        // notifications and widgets in English, where Android's own match gives Russian.
+        val language = source("utils/AppLanguage.kt")
+        val set = language.substringAfter("fun set(activity: Activity, choice: String) {").substringBefore("\n    }\n")
+        assertTrue(set, "if (tags.isEmpty()) Resources.getSystem().configuration.locales else LocaleList(Locale.forLanguageTag(tags))" in set)
+        assertFalse(set, "locales[0]" in set)
+        val inPlace = language.substringAfter("private fun applyInPlace(resources: Resources, locales: LocaleList) {").substringBefore("\n    }\n")
+        assertTrue(inPlace, "LocaleList.setDefault(locales)" in inPlace && "setLocales(locales)" in inPlace)
+    }
 }

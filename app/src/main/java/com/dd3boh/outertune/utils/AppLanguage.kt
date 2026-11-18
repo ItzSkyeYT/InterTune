@@ -119,9 +119,12 @@ object AppLanguage {
             if (tags == saved(activity)) return
             activity.getSharedPreferences(FILE, Context.MODE_PRIVATE).edit().putString(KEY, tags).apply()
             // The app's own resources too, which the notification, the widget and the services take
-            // their words from: they follow at once, and again after each configuration change.
-            val locale = if (tags.isEmpty()) Resources.getSystem().configuration.locales[0] else Locale.forLanguageTag(tags)
-            applyInPlace(activity.applicationContext.resources, locale)
+            // their words from: they follow at once, and again after each configuration change. Back
+            // to the phone's language, the phone's whole list, so Android takes the first one the app
+            // has words for, as everywhere else: its first language alone fell to English when the
+            // app has none of it.
+            val locales = if (tags.isEmpty()) Resources.getSystem().configuration.locales else LocaleList(Locale.forLanguageTag(tags))
+            applyInPlace(activity.applicationContext.resources, locales)
             activity.recreate()
         }
     }
@@ -154,13 +157,13 @@ object AppLanguage {
         if (Build.VERSION.SDK_INT >= 33) return
         val tag = saved(context)
         if (tag.isEmpty()) return
-        applyInPlace(context.resources, Locale.forLanguageTag(tag))
+        applyInPlace(context.resources, LocaleList(Locale.forLanguageTag(tag)))
     }
 
     @Suppress("DEPRECATION")
-    private fun applyInPlace(resources: Resources, locale: Locale) {
-        Locale.setDefault(locale)
-        val config = Configuration(resources.configuration).apply { setLocale(locale) }
+    private fun applyInPlace(resources: Resources, locales: LocaleList) {
+        if (!locales.isEmpty) LocaleList.setDefault(locales)
+        val config = Configuration(resources.configuration).apply { setLocales(locales) }
         resources.updateConfiguration(config, resources.displayMetrics)
     }
 
