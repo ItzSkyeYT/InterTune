@@ -112,6 +112,7 @@ import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
@@ -1018,11 +1019,12 @@ private fun Person(
     onPress: (() -> Unit)? = null,
 ) {
     val ring = BottomSheetDefaults.ContainerColor
+    // One stop for TalkBack per person, as their name, Host and the phone's name; the tap that opens the menu says so.
     val pressable = if (onPress != null) {
         Modifier
             .clip(RoundedCornerShape(12.dp))
-            .combinedClickable(onClick = onPress, onLongClick = onPress)
-    } else Modifier
+            .combinedClickable(onClickLabel = stringResource(R.string.options), onClick = onPress, onLongClick = onPress)
+    } else Modifier.semantics(mergeDescendants = true) { }
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(76.dp).then(pressable)) {
         Box {
             Box(
@@ -1038,6 +1040,8 @@ private fun Person(
                     initials,
                     style = MaterialTheme.typography.titleMedium,
                     color = if (you) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
+                    // Drawn only: TalkBack read them first, letter by letter, before the name they come from.
+                    modifier = Modifier.clearAndSetSemantics { },
                 )
             }
             if (owner) {
