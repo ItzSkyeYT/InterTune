@@ -68,4 +68,19 @@ class WindowThemeTest {
         assertTrue(window.contains("setBackgroundColor(colour)"))
         assertTrue(window.contains("activity.window.setBackgroundDrawable(ColorDrawable(colour))"))
     }
+
+    @Test
+    fun `the theme the window starts in stays on the phone, out of the cloud backup and out of a transfer`() {
+        // It notes what this phone's splash was told. Carried to a new phone with the settings, it
+        // said the splash there was told already, and the cold start followed the phone's dark mode
+        // instead of the theme picked in the app.
+        val window = File("src/main/java/com/dd3boh/outertune/ui/theme/WindowTheme.kt").readText()
+        val prefs = Regex("""private const val PREFS = "([a-z_]+)"""").find(window)!!.groupValues[1]
+        assertTrue("getSharedPreferences(PREFS, Context.MODE_PRIVATE)" in window)
+        val kept = Regex("""<exclude\s+domain="sharedpref"\s+path="${Regex.escape("$prefs.xml")}"\s*/>""")
+        val rules = res("xml/data_extraction_rules.xml")
+        assertTrue("cloud backup", kept.containsMatchIn(rules.substringAfter("<cloud-backup>").substringBefore("</cloud-backup>")))
+        assertTrue("a transfer to a new phone", kept.containsMatchIn(rules.substringAfter("<device-transfer>").substringBefore("</device-transfer>")))
+        assertTrue("Android 11 and earlier", kept.containsMatchIn(res("xml/backup_rules.xml")))
+    }
 }

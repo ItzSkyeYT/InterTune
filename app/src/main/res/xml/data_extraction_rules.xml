@@ -15,6 +15,11 @@
    So do the words typed on Report a problem or the crash page and not sent yet (ReportDraft):
    they are this phone's, in a file of their own beside the settings, out of the cloud backup with
    the rest of datastore/ and out of a transfer by name.
+
+   The theme the window starts in (window_theme, WindowTheme) stays out of both too. It notes what
+   this phone has been told, and the splash Android keeps for the app is this phone's alone: carried
+   over with the settings, it said the new phone was told already, and the splash there followed the
+   phone's dark mode instead of the theme picked, until the theme was changed in the app.
 -->
 <data-extraction-rules>
     <cloud-backup>
@@ -24,6 +29,9 @@
         <exclude
             domain="file"
             path="datastore/" />
+        <exclude
+            domain="sharedpref"
+            path="window_theme.xml" />
         <exclude
             domain="root"
             path="app_webview/" />
@@ -50,6 +58,9 @@
         <exclude
             domain="file"
             path="datastore/report_draft.preferences_pb" />
+        <exclude
+            domain="sharedpref"
+            path="window_theme.xml" />
         <exclude
             domain="file"
             path="./exoplayer" />
