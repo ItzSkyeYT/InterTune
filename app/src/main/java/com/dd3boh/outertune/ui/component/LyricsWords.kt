@@ -38,15 +38,20 @@ import kotlin.math.min
 import kotlin.math.sin
 
 /**
- * Better word by word lyrics, as looks to choose from (his line on the Roadmap for 0.13; #94, #145):
- * the line being sung drawn another way than the app's own, which stays what every build but the
- * debug app has, and what the debug app has until a look is picked (Unreleased.LYRICS_WORDS_LOOKS).
+ * Word by word lyrics: the line being sung is lit where each word stands, from the text as it was
+ * laid out (the same layout as before the line was sung, so nothing moves as it starts), each word
+ * from its first letter to its last over the time it is sung.
  *
- * The app's own way lights the line from its start up to a share of its width, the same share for
- * every word whatever its length, with a hard edge, and lays the line out anew when it starts being
- * sung. Every look here lights the words where they stand (from the text as it was laid out, the
- * same layout as before the line was sung, so nothing moves as it starts), each word from its first
- * letter to its last over the time it is sung, with a soft edge:
+ * The app's own way, with no look picked (every build but the debug app, and the debug app until a
+ * look is picked), does that with the hard edge it always had. Until #165 (13 Nov 2026) it lit each
+ * row from its start up to a share of its width counted in words, the same share for every word
+ * whatever its length, and handed the words to the rows by counting spaces: paused between two
+ * words, the lit part stood inside a word not sung yet or short of the end of one sung, and a word
+ * timed as two syllables shifted the rest of the line and lost its last word.
+ *
+ * Better word by word lyrics, as looks to choose from (his line on the Roadmap for 0.13; #94, #145),
+ * the debug app's (Unreleased.LYRICS_WORDS_LOOKS): the same words in the same places, with a soft
+ * edge, and:
  *
  * - [A], on the word: that, and nothing moves.
  * - [B], lifted: each word rises a little as it is sung and stays up until the line is over; a word
@@ -230,6 +235,83 @@ internal object LyricsWords {
     }
 
     /**
+     * The app's own way: what of [box] is lit when [sung] of its word is sung, from where to where
+     * across, or null for none of it. All of it once the word is sung; while it is, from the side
+     * it is read from up to a hard edge that crosses its letters evenly over its time. Between two
+     * words nothing of the next one is lit until it starts.
+     */
+    fun lit(box: WordBox, sung: Float, rtl: Boolean): ClosedFloatingPointRange<Float>? {
+        val p = box.share(sung)
+        if (p <= 0f) return null
+        if (p >= 1f) return box.clipLeft..box.clipRight
+        val edge = edge(box.left, box.right, p, 0f, rtl)
+        return if (rtl) edge..box.clipRight else box.clipLeft..edge
+    }
+
+    /**
+     * Where each of [pieces] stands in the line laid out in [rows]: a box for each row a word is on
+     * (a word too long for a row goes on over two), in the order of the rows and across each, drawn
+     * out to half way to the words beside it and [past] beyond the line's ends. The rows are read
+     * from where the letters were laid out, never from the words counted, so a word timed as two
+     * syllables is two boxes side by side, and the line's last word is on the row it stands on.
+     */
+    fun place(pieces: List<Piece>, rows: WordRows, past: Float): List<WordBox> {
+        val length = rows.length
+        val out = ArrayList<WordBox>(pieces.size + 2)
+        val covered = BooleanArray(rows.count)
+        for ((index, piece) in pieces.withIndex()) {
+            if (piece.from >= length) continue
+            val to = piece.to.coerceAtMost(length)
+            val firstRow = rows.rowOf(piece.from)
+            val lastRow = rows.rowOf((to - 1).coerceAtLeast(piece.from))
+            val mine = ArrayList<WordBox>(1)
+            for (row in firstRow..lastRow) {
+                val rowStart = rows.start(row)
+                val rowEnd = rows.visibleEnd(row)
+                val a = max(piece.from, rowStart)
+                val b = min(to, rowEnd)
+                if (b <= a) continue
+                val rowRtl = rows.rtl(row)
+                // The row's own ends where the word reaches them: the place of a letter at a row's
+                // end can be given as the start of the next row.
+                val xa = if (a <= rowStart) (if (rowRtl) rows.right(row) else rows.left(row)) else rows.x(a)
+                val xb = if (b >= rowEnd) (if (rowRtl) rows.left(row) else rows.right(row)) else rows.x(b)
+                if (xa == xb) continue
+                mine += WordBox(index, row, min(xa, xb), max(xa, xb), rows.top(row), rows.bottom(row))
+                covered[row] = true
+            }
+            val width = mine.sumOf { (it.right - it.left).toDouble() }.toFloat().coerceAtLeast(1f)
+            var before = 0f
+            for (box in mine) {
+                box.before = before
+                box.part = (box.right - box.left) / width
+                before += box.part
+            }
+            out += mine
+        }
+        // A row no word stands on (words the lyrics give no time for) is lit with the word before it.
+        for (row in covered.indices) {
+            if (covered[row] || out.isEmpty()) continue
+            val with = out.lastOrNull { it.row < row } ?: out.first()
+            out += WordBox(with.piece, row, rows.left(row), rows.right(row), rows.top(row), rows.bottom(row)).apply {
+                before = 0.999f
+                part = 0.001f
+            }
+        }
+        out.sortWith(compareBy<WordBox> { it.row }.thenBy { it.left })
+        for ((i, box) in out.withIndex()) {
+            val leftOf = out.getOrNull(i - 1)?.takeIf { it.row == box.row }
+            val rightOf = out.getOrNull(i + 1)?.takeIf { it.row == box.row }
+            box.clipLeft = if (leftOf == null) box.left - past else (leftOf.right + box.left) / 2f
+            box.clipRight = if (rightOf == null) box.right + past else (box.right + rightOf.left) / 2f
+            // Above the first row and under the last nothing else is drawn: tall letters and tails keep their ends.
+            if (box.row == 0) box.clipTop = box.top - past
+            if (box.row == rows.count - 1) box.clipBottom = box.bottom + past
+        }
+        return out
+    }
+
+    /**
      * C: how far a word nods for the music's [levels] as it starts (MusicLevels' values), as a
      * share of the full nod: the stronger of the bass and the middle, as much as the passage
      * counts in its song, never under [NOD_LEAST].
@@ -325,7 +407,7 @@ internal class LyricsCarry {
 }
 
 /** Where a word stands in the line as laid out: one of these for each row it is on. */
-private class WordBox(
+internal class WordBox(
     val piece: Int,
     val row: Int,
     /** From its first letter to its last. */
@@ -343,11 +425,53 @@ private class WordBox(
     /** The share of the word that stands before this box, and the share that is in it. */
     var before = 0f
     var part = 1f
+
+    /** How much of this box is sung when [sung] of its word is, from none to all of it. */
+    fun share(sung: Float): Float = ((sung - before) / part).coerceIn(0f, 1f)
 }
 
 /**
- * The line being sung, drawn as [LyricsWordsLook] says: what is worked out once for the line as it
- * was laid out (where each word stands), and the drawing of one frame.
+ * What the placing of the words (LyricsWords.place) reads of the line as it was laid out, row by
+ * row: the layout's own answers on a screen (LaidOutRows), made-up ones in a test.
+ */
+internal interface WordRows {
+    /** How many letters the text has, and how many rows it was laid out on. */
+    val length: Int
+    val count: Int
+
+    fun rowOf(offset: Int): Int
+    fun start(row: Int): Int
+
+    /** Where [row]'s letters end, the spaces at its end left out. */
+    fun visibleEnd(row: Int): Int
+    fun left(row: Int): Float
+    fun right(row: Int): Float
+    fun top(row: Int): Float
+    fun bottom(row: Int): Float
+    fun rtl(row: Int): Boolean
+
+    /** Where the letter at [offset] starts, across. */
+    fun x(offset: Int): Float
+}
+
+/** The rows of a line as Compose laid it out. */
+private class LaidOutRows(private val layout: TextLayoutResult) : WordRows {
+    override val length = layout.layoutInput.text.length
+    override val count = layout.lineCount
+    override fun rowOf(offset: Int) = layout.getLineForOffset(offset)
+    override fun start(row: Int) = layout.getLineStart(row)
+    override fun visibleEnd(row: Int) = layout.getLineEnd(row, visibleEnd = true)
+    override fun left(row: Int) = layout.getLineLeft(row)
+    override fun right(row: Int) = layout.getLineRight(row)
+    override fun top(row: Int) = layout.getLineTop(row)
+    override fun bottom(row: Int) = layout.getLineBottom(row)
+    override fun rtl(row: Int) = layout.getParagraphDirection(layout.getLineStart(row)) == ResolvedTextDirection.Rtl
+    override fun x(offset: Int) = layout.getHorizontalPosition(offset, true)
+}
+
+/**
+ * The line being sung, drawn the app's own way or as a [LyricsWordsLook] says: what is worked out
+ * once for the line as it was laid out (where each word stands), and the drawing of one frame.
  */
 private class WordsDrawing(private val pieces: List<LyricsWords.Piece>, private val measurer: TextMeasurer) {
     private var laidOut: TextLayoutResult? = null
@@ -361,65 +485,8 @@ private class WordsDrawing(private val pieces: List<LyricsWords.Piece>, private 
         if (layout === laidOut) return boxes
         laidOut = layout
         alone.clear()
-        boxes = place(layout)
+        boxes = LyricsWords.place(pieces, LaidOutRows(layout), emOf(layout))
         return boxes
-    }
-
-    private fun place(layout: TextLayoutResult): List<WordBox> {
-        val length = layout.layoutInput.text.length
-        val out = ArrayList<WordBox>(pieces.size + 2)
-        val covered = BooleanArray(layout.lineCount)
-        for ((index, piece) in pieces.withIndex()) {
-            if (piece.from >= length) continue
-            val to = piece.to.coerceAtMost(length)
-            val firstRow = layout.getLineForOffset(piece.from)
-            val lastRow = layout.getLineForOffset((to - 1).coerceAtLeast(piece.from))
-            val mine = ArrayList<WordBox>(1)
-            for (row in firstRow..lastRow) {
-                val rowStart = layout.getLineStart(row)
-                val rowEnd = layout.getLineEnd(row, visibleEnd = true)
-                val a = max(piece.from, rowStart)
-                val b = min(to, rowEnd)
-                if (b <= a) continue
-                val rowRtl = layout.getParagraphDirection(rowStart) == ResolvedTextDirection.Rtl
-                // The row's own ends where the word reaches them: the place of a letter at a row's
-                // end can be given as the start of the next row.
-                val xa = if (a <= rowStart) (if (rowRtl) layout.getLineRight(row) else layout.getLineLeft(row)) else layout.getHorizontalPosition(a, true)
-                val xb = if (b >= rowEnd) (if (rowRtl) layout.getLineLeft(row) else layout.getLineRight(row)) else layout.getHorizontalPosition(b, true)
-                if (xa == xb) continue
-                mine += WordBox(index, row, min(xa, xb), max(xa, xb), layout.getLineTop(row), layout.getLineBottom(row))
-                covered[row] = true
-            }
-            val width = mine.sumOf { (it.right - it.left).toDouble() }.toFloat().coerceAtLeast(1f)
-            var before = 0f
-            for (box in mine) {
-                box.before = before
-                box.part = (box.right - box.left) / width
-                before += box.part
-            }
-            out += mine
-        }
-        // A row no word stands on (words the lyrics give no time for) is lit with the word before it.
-        for (row in covered.indices) {
-            if (covered[row] || out.isEmpty()) continue
-            val with = out.lastOrNull { it.row < row } ?: out.first()
-            out += WordBox(with.piece, row, layout.getLineLeft(row), layout.getLineRight(row), layout.getLineTop(row), layout.getLineBottom(row)).apply {
-                before = 0.999f
-                part = 0.001f
-            }
-        }
-        out.sortWith(compareBy<WordBox> { it.row }.thenBy { it.left })
-        val past = emOf(layout)
-        for ((i, box) in out.withIndex()) {
-            val leftOf = out.getOrNull(i - 1)?.takeIf { it.row == box.row }
-            val rightOf = out.getOrNull(i + 1)?.takeIf { it.row == box.row }
-            box.clipLeft = if (leftOf == null) box.left - past else (leftOf.right + box.left) / 2f
-            box.clipRight = if (rightOf == null) box.right + past else (box.right + rightOf.left) / 2f
-            // Above the first row and under the last nothing else is drawn: tall letters and tails keep their ends.
-            if (box.row == 0) box.clipTop = box.top - past
-            if (box.row == layout.lineCount - 1) box.clipBottom = box.bottom + past
-        }
-        return out
     }
 
     /** The lyrics' font size in pixels, as the line was laid out; a line's height where it has none of its own. */
@@ -443,7 +510,8 @@ private class WordsDrawing(private val pieces: List<LyricsWords.Piece>, private 
         }.getOrNull()
     }
 
-    fun DrawScope.drawWords(layout: TextLayoutResult, look: LyricsWordsLook, color: Color, atMs: Long, lineEndMs: Long, weights: FloatArray?) {
+    /** One frame of the line at [atMs] in the lyrics: the app's own way with no [look], else as it says. */
+    fun DrawScope.drawWords(layout: TextLayoutResult, look: LyricsWordsLook?, color: Color, atMs: Long, lineEndMs: Long, weights: FloatArray?) {
         val all = boxesOf(layout)
         if (all.isEmpty()) {
             drawText(textLayoutResult = layout, color = color, shadow = Shadow.None)
@@ -455,7 +523,7 @@ private class WordsDrawing(private val pieces: List<LyricsWords.Piece>, private 
             val piece = pieces[i]
             sung[i] = LyricsWords.sung(piece, atMs)
             up[i] = when (look) {
-                LyricsWordsLook.A -> 0f
+                null, LyricsWordsLook.A -> 0f
                 LyricsWordsLook.B -> LyricsWords.rise(piece, atMs, lineEndMs)
                 LyricsWordsLook.C -> LyricsWords.nod(piece, atMs) * (weights?.getOrNull(i)?.coerceAtLeast(0f) ?: 0f)
             }
@@ -465,7 +533,7 @@ private class WordsDrawing(private val pieces: List<LyricsWords.Piece>, private 
         var i = 0
         while (i < all.size) {
             val box = all[i]
-            val p = ((sung[box.piece] - box.before) / box.part).coerceIn(0f, 1f)
+            val p = box.share(sung[box.piece])
             val dy = -up[box.piece] * LyricsWords.LIFT_EM * em
             val swell = full[box.piece]
             // Words side by side that look the same, all sung or none of it and nothing of their
@@ -475,7 +543,7 @@ private class WordsDrawing(private val pieces: List<LyricsWords.Piece>, private 
                 while (last + 1 < all.size) {
                     val beside = all[last + 1]
                     if (beside.row != box.row || full[beside.piece] != 0f || up[beside.piece] != up[box.piece]) break
-                    if (((sung[beside.piece] - beside.before) / beside.part).coerceIn(0f, 1f) != p) break
+                    if (beside.share(sung[beside.piece]) != p) break
                     last++
                 }
             }
@@ -502,8 +570,15 @@ private class WordsDrawing(private val pieces: List<LyricsWords.Piece>, private 
                         drawText(textLayoutResult = layout, color = color, shadow = Shadow.None)
                     } else {
                         drawText(textLayoutResult = layout, color = unsung, shadow = Shadow.None)
-                        if (p > 0f) {
-                            val rtl = pieces[box.piece].rtl
+                        val rtl = pieces[box.piece].rtl
+                        if (p > 0f && look == null) {
+                            // The app's own way: up to a hard edge, as the line was always lit.
+                            LyricsWords.lit(box, sung[box.piece], rtl)?.let { lit ->
+                                clipRect(lit.start, box.clipTop, lit.endInclusive, box.clipBottom) {
+                                    drawText(textLayoutResult = layout, color = color, shadow = Shadow.None)
+                                }
+                            }
+                        } else if (p > 0f) {
                             val edge = LyricsWords.edge(box.left, box.right, p, soft, rtl)
                             // To the same colour with no ink: towards clear black the edge would darken on its way.
                             val clear = color.copy(alpha = 0f)
@@ -523,14 +598,14 @@ private class WordsDrawing(private val pieces: List<LyricsWords.Piece>, private 
 }
 
 /**
- * The line being sung, lit word by word as [look] says. The same text, size and wrapping as the
- * line had before it was sung, so that it stays where it was; [at] gives where the song is in
- * the lyrics at the frame being drawn, and is read only as the line draws. [weights] is C's: how
- * far each word nods (LyricsWords.weigh).
+ * The line being sung, lit word by word the app's own way, or as [look] says when one is picked.
+ * The same text, size and wrapping as the line had before it was sung, so that it stays where it
+ * was; [at] gives where the song is in the lyrics at the frame being drawn, and is read only as
+ * the line draws. [weights] is C's: how far each word nods (LyricsWords.weigh).
  */
 @Composable
 internal fun LyricsWordsLine(
-    look: LyricsWordsLook,
+    look: LyricsWordsLook?,
     text: String,
     pieces: List<LyricsWords.Piece>,
     lineEndMs: Long,

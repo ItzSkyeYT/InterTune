@@ -1062,8 +1062,9 @@ object Unreleased {
      *
      * Looks to judge on a screen, none of them chosen: the app's own way stays until one is picked
      * in the developer options ("DEBUG: Word by word look"), and they have no text of their own.
-     * Without the flag the choice is never read and the line is drawn as it was. To be removed,
-     * with the looks not kept, once he has chosen.
+     * Without the flag the choice is never read and the line is lit the app's own way: each word
+     * where it stands, with a hard edge (#165). To be removed, with the looks not kept, once he has
+     * chosen.
      *
      * Debug builds only, kept out of the previews that testers get.
      */

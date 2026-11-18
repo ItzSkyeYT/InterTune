@@ -879,26 +879,16 @@ fun Lyrics(
                             )
                     ) {
                         if (inLine && lyricsFancy && item.words != null && !context.isPowerSaver() && !picking) { // word by word
-                            // now do eye bleach to make lyric line babies
-                            val style = LocalTextStyle.current.copy(
-                                fontSize = lyricsFontSize.sp,
-                                color = textColor,
-                                fontWeight = FontWeight.Bold
-                            )
-                            // Measured once for the line. It was measured again at every read of the
-                            // song, a word at a time.
-                            val textMeasurer = rememberTextMeasurer()
-                            val lyricLines = remember(item, style, maxW, textMeasurer, density) {
-                                karaokeLines(item, splitTextToLines(item.text, style, maxW, textMeasurer, density))
-                            }
+                            // The line's words with their times, each where it stands in its text: the line is
+                            // lit from them where each word stands (#165), the app's own way or in the look being
+                            // compared (LyricsWordsLook); and for C how far each nods, weighed against the music
+                            // as the word starts.
+                            val pieces = remember(item) { LyricsWords.pieces(item.text, item.words) }
+                            val nods = remember(pieces, wordsLook) { if (wordsLook == LyricsWordsLook.C) FloatArray(pieces.size) { -1f } else null }
 
                             // Lit as the frames are drawn, at where the song is at each one: the line
                             // asks for every frame while it is being sung and the music plays. Started
                             // again with each player connection, as the lines' own clock above is.
-                            // The looks being compared (LyricsWordsLook): the line's words with their times, and
-                            // for C how far each nods, weighed against the music as the word starts.
-                            val pieces = remember(item, wordsLook) { if (wordsLook == null) emptyList() else LyricsWords.pieces(item.text, item.words) }
-                            val nods = remember(pieces, wordsLook) { if (wordsLook == LyricsWordsLook.C) FloatArray(pieces.size) { -1f } else null }
                             LaunchedEffect(playerConnection, nods) {
                                 lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                                     while (isActive) {
@@ -911,31 +901,48 @@ fun Lyrics(
                                 }
                             }
 
-                            if (wordsLook != null && pieces.isNotEmpty()) LyricsWordsLine(
-                                look = wordsLook,
-                                text = item.text,
-                                pieces = pieces,
-                                lineEndMs = item.end.toLong(),
-                                fontSize = lyricFontSizeAdjusted.sp,
-                                color = textColor,
-                                textAlign = when (lyricsTextPosition) {
-                                    LyricsPosition.LEFT -> TextAlign.Left
-                                    LyricsPosition.CENTER -> TextAlign.Center
-                                    LyricsPosition.RIGHT -> TextAlign.Right
-                                },
-                                at = { drawnPos },
-                                weights = nods,
-                            ) else lyricLines.forEach {
-                                HorizontalReveal(
-                                    progress = { calculateLineProgress(it, drawnPos) },
-                                    modifier = Modifier
-                                ) {
-                                    Text(
-                                        text = it.text,
-                                        fontSize = lyricFontSizeAdjusted.sp,
-                                        color = textColor,
-                                        fontWeight = FontWeight.Bold
-                                    )
+                            if (pieces.isNotEmpty()) {
+                                LyricsWordsLine(
+                                    look = wordsLook,
+                                    text = item.text,
+                                    pieces = pieces,
+                                    lineEndMs = item.end.toLong(),
+                                    fontSize = lyricFontSizeAdjusted.sp,
+                                    color = textColor,
+                                    textAlign = when (lyricsTextPosition) {
+                                        LyricsPosition.LEFT -> TextAlign.Left
+                                        LyricsPosition.CENTER -> TextAlign.Center
+                                        LyricsPosition.RIGHT -> TextAlign.Right
+                                    },
+                                    at = { drawnPos },
+                                    weights = nods,
+                                )
+                            } else {
+                                // No word of the line has its letters in the text: lit across the line by its
+                                // time, in rows of its own, as before.
+                                val style = LocalTextStyle.current.copy(
+                                    fontSize = lyricsFontSize.sp,
+                                    color = textColor,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                // Measured once for the line. It was measured again at every read of the
+                                // song, a word at a time.
+                                val textMeasurer = rememberTextMeasurer()
+                                val lyricLines = remember(item, style, maxW, textMeasurer, density) {
+                                    karaokeLines(item, splitTextToLines(item.text, style, maxW, textMeasurer, density))
+                                }
+                                lyricLines.forEach {
+                                    HorizontalReveal(
+                                        progress = { calculateLineProgress(it, drawnPos) },
+                                        modifier = Modifier
+                                    ) {
+                                        Text(
+                                            text = it.text,
+                                            fontSize = lyricFontSizeAdjusted.sp,
+                                            color = textColor,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
                                 }
                             }
                             // The words are timed on the line itself; its Latin version is shown whole while it is sung.
@@ -1199,6 +1206,10 @@ internal fun lyricsLines(lyrics: SemanticLyrics): List<LyricLine> = when (lyrics
 /**
  * [item] cut into the lines [split] gives, each with its own words and times, for lighting word by
  * word one line after the other.
+ *
+ * Only for a line none of whose words has its letters in its text: every other line lit word by
+ * word is lit where each word stands (LyricsWords.place). The words are handed to the lines here by
+ * counting spaces, which a word timed as two syllables throws off (#165).
  */
 internal fun karaokeLines(item: LyricLine, split: List<String>): List<LyricLine> {
     val lyricLines = ArrayList<LyricLine>()
@@ -1314,7 +1325,10 @@ fun findCurrentLineIndex(lines: List<LyricLine>, position: Long): Int {
 }
 
 /**
- * Get current position in lyric line. Used for word by word lyrics
+ * How far across [line] to light at [currentPositionMs], from 0 to 1: a share counted in words, the
+ * same share for every word whatever its length. Only for a line whose words cannot be placed in its
+ * text (karaokeLines); every other line lit word by word is lit where each word stands (LyricsWords),
+ * since this share lit words not sung yet and fell short of words sung (#165).
  */
 fun calculateLineProgress(line: LyricLine, currentPositionMs: Long): Float {
     val words = line.words

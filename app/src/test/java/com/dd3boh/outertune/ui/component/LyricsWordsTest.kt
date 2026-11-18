@@ -269,13 +269,21 @@ class LyricsWordsTest {
     }
 
     @Test
-    fun `with no look picked the line is drawn the app's own way, and every part of look C hangs on it`() {
+    fun `with no look picked the line is lit the app's own way, where each word stands, and every part of look C hangs on it`() {
         val lyrics = code("ui/component/Lyrics.kt")
-        // A look draws the line only when one is picked and the line has word times; else the app's own.
-        assertTrue(lyrics.contains("if (wordsLook != null && pieces.isNotEmpty()) LyricsWordsLine("))
-        assertTrue(lyrics.contains(") else lyricLines.forEach {"))
+        // Every line whose words stand in its text is lit where they stand (#165): with no look picked the app's own
+        // way, else the look. Only a line none of whose words can be placed is lit across by its time, as before.
+        assertTrue(lyrics.contains("val pieces = remember(item) { LyricsWords.pieces(item.text, item.words) }"))
+        assertTrue(lyrics.contains("if (pieces.isNotEmpty()) {\n                                LyricsWordsLine(\n                                    look = wordsLook,"))
         assertTrue(lyrics.contains("progress = { calculateLineProgress(it, drawnPos) },"))
-        assertTrue(lyrics.contains("val pieces = remember(item, wordsLook) { if (wordsLook == null) emptyList() else LyricsWords.pieces(item.text, item.words) }"))
+        assertFalse("no look picked is no longer the rows counted in words", lyrics.contains("wordsLook != null && pieces.isNotEmpty()"))
+        // The app's own way: nothing of the looks moves, and the lit part ends at a hard edge in the word being sung.
+        val words = code("ui/component/LyricsWords.kt")
+        assertTrue(words.contains("null, LyricsWordsLook.A -> 0f"))
+        assertTrue(words.contains("full[i] = if (look == LyricsWordsLook.B) LyricsWords.swell(piece, atMs) else 0f"))
+        assertTrue(words.contains("if (p > 0f && look == null) {"))
+        assertTrue(words.contains("LyricsWords.lit(box, sung[box.piece], rtl)?.let { lit ->"))
+        assertTrue(words.contains("val edge = edge(box.left, box.right, p, 0f, rtl)"))
         // C's size, its lines that follow later, its measuring of the music and its nod: all only with C picked.
         assertTrue(lyrics.contains("val carried = wordsLook == LyricsWordsLook.C && isSynced && lyricsFancy && !context.isPowerSaver()"))
         assertTrue(lyrics.contains("val aroundSize = if (!carried) null else animateFloatAsState("))
