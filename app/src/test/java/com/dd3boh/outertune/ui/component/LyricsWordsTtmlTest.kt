@@ -174,7 +174,7 @@ class LyricsWordsTtmlTest {
     }
 
     @Test
-    fun `the first picture, a word timed as two syllables on the second row: lit to the end of the word sung, nothing of by`() {
+    fun `the first picture, a word timed as two syllables on the second row, lit to the end of the word sung, nothing of by`() {
         val lines = lines()
         assertEquals(3, lines.size)
         // On two rows as in the picture, the second starting with the split word; set in the middle, the app's default.
@@ -196,7 +196,7 @@ class LyricsWordsTtmlTest {
     }
 
     @Test
-    fun `the second picture, one row: lit to the end of the word sung, nothing of way`() {
+    fun `the second picture, one row, lit to the end of the word sung, nothing of way`() {
         val placed = Placed(lines()[1]) { Rows(it) }
         // Paused at 0:52.0, after "the" (here "five") and before "way" (here "six").
         placed.stopsBetween(row = 0, atMs = 52_000, sung = "five", next = "six")
@@ -209,7 +209,7 @@ class LyricsWordsTtmlTest {
     }
 
     @Test
-    fun `the third picture, two rows: Don't lit to its end, nothing of the next word, nothing of the second row`() {
+    fun `the third picture, two rows, Don't lit to its end, nothing of the next word, nothing of the second row`() {
         val placed = Placed(lines()[2]) { Rows(it, breaks = listOf(it.indexOf("nine"))) }
         // Paused at 2:13.5, after "Don't" (here "four) and before "be" (here "five").
         placed.stopsBetween(row = 0, atMs = 133_500, sung = "\"four", next = "five")
