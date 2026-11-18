@@ -2282,6 +2282,9 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="battery_follow_phone">Follow the phone\'s battery saver</string>
     <string name="battery_follow_phone_description">\"Saver\" while it is on.</string>
     <string name="battery_follow_phone_now">\"Saver\" now: the phone\'s battery saver is on.</string>
+    <!-- The note said twice at most when the phone's battery saver puts the app on Saver (SaverNote, Unreleased.SAVER_NOTE). -->
+    <string name="saver_note_title" translatable="false">Battery saver is on</string>
+    <string name="saver_note_body" translatable="false">InterTune saves battery along with it. Word-by-word lyrics, the player\'s moving background and sound effects (not the equalizer) pause, the theme turns black and syncs wait for Wi-Fi. It all comes back when the saver goes off.</string>
     <!-- The search at the top of Settings (SettingsSearch.kt, Unreleased.SETTINGS_SEARCH). %1$s is what was typed. -->
     <string name="search_settings">Search settings</string>
     <string name="search_settings_none">No setting matches \"%1$s\".</string>

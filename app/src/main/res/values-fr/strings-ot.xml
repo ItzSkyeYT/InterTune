@@ -2085,6 +2085,9 @@
     <string name="battery_follow_phone">Suivre l\'économiseur de batterie du téléphone</string>
     <string name="battery_follow_phone_description">« Économie » tant qu\'il est activé.</string>
     <string name="battery_follow_phone_now">« Économie » en ce moment : l\'économiseur du téléphone est activé.</string>
+    <!-- The note said twice at most when the phone's battery saver puts the app on Saver (SaverNote, Unreleased.SAVER_NOTE). -->
+    <string name="saver_note_title" translatable="false">L\'économiseur de batterie est activé</string>
+    <string name="saver_note_body" translatable="false">InterTune économise la batterie avec lui. Les paroles mot à mot, le fond animé du lecteur et les effets sonores (pas l\'égaliseur) se mettent en pause, le thème passe en noir et les synchronisations attendent le Wi-Fi. Tout revient quand l\'économiseur est désactivé.</string>
     <!-- The search at the top of Settings (SettingsSearch.kt). -->
     <string name="search_settings">Rechercher dans les paramètres</string>
     <string name="search_settings_none">Aucun paramètre ne correspond à «\u00A0%1$s\u00A0».</string>
