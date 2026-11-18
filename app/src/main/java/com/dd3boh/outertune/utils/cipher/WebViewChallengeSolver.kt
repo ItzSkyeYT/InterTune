@@ -7,6 +7,7 @@
 package com.dd3boh.outertune.utils.cipher
 
 import android.content.Context
+import com.dd3boh.outertune.utils.AppLanguage
 import android.graphics.Bitmap
 import android.os.Build
 import android.os.Handler
@@ -186,6 +187,8 @@ private class SolverPage private constructor(
     private class Question(val input: String, val player: String, val answer: CancellableContinuation<String>)
 
     init {
+        // Before Android 13 the first WebView of the process puts the app's words back in the phone's language.
+        AppLanguage.afterWebView(context)
         val settings = webView.settings
         //noinspection SetJavaScriptEnabled running JavaScript is what the page is for
         settings.javaScriptEnabled = true

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The What's playing widget with a language of the app's own: the same layout under another
+         id (RecognitionWidgetReceiver). Given the layout it already shows, the launcher keeps its
+         views and only runs the new steps on them, so going back to the phone's language left the
+         app's words on the button; another id makes it build the button afresh. -->
+    <item name="widget_recognition_app_language" type="layout">@layout/widget_recognition</item>
+</resources>

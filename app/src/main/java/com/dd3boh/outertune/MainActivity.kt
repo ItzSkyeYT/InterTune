@@ -9,6 +9,8 @@
 
 package com.dd3boh.outertune
 
+import com.dd3boh.outertune.utils.AppLanguage
+import android.content.Context
 import com.dd3boh.outertune.utils.BuiltInKeys
 import com.dd3boh.outertune.recognition.RecognitionShortcut
 import com.dd3boh.outertune.ui.navigation.appDestinations
@@ -493,6 +495,11 @@ private fun playFromWidget(
 class MainActivity : ComponentActivity() {
     val MAIN_TAG = "MainOtActivity"
 
+    /** Before Android 13 the app's language is ours to apply (AppLanguage); later the platform has done it. */
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(AppLanguage.wrap(newBase))
+    }
+
     @Inject
     lateinit var database: MusicDatabase
 
@@ -796,6 +803,9 @@ class MainActivity : ComponentActivity() {
         YouTubeRegion.pretendFrom(this)
         // And a file that makes album pages fail as YouTube's NOT_FOUND does, to see what they do then.
         AlbumAnswerPretend.pretendFrom(this)
+        // The language this screen was made in: YouTube is asked in it and Home is loaded again when it
+        // is not the one of a moment ago, however it was picked (AppLanguage.follow).
+        AppLanguage.follow(this)
         // Not again after a rotation or a restored process: the shortcut was tapped once. Nor when
         // the task is reopened from recents, which starts it again with the shortcut's intent and
         // replayed the liked songs over whatever was playing (Android 11 and older, where Back

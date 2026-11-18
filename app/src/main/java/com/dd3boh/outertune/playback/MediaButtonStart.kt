@@ -194,13 +194,13 @@ internal object MediaButtonStart {
     fun placeholder(context: Context, channelId: String): Notification {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             context.getSystemService<NotificationManager>()?.let { manager ->
-                if (manager.getNotificationChannel(channelId) == null) {
-                    manager.createNotificationChannel(
-                        NotificationChannel(channelId, context.getString(R.string.music_player), NotificationManager.IMPORTANCE_LOW).apply {
-                            if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.O_MR1) setShowBadge(false)
-                        }
-                    )
-                }
+                // Made each time: a channel that is there keeps what the listener set and takes the
+                // name in the app's language now (ChannelNames).
+                manager.createNotificationChannel(
+                    NotificationChannel(channelId, context.getString(R.string.music_player), NotificationManager.IMPORTANCE_LOW).apply {
+                        if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.O_MR1) setShowBadge(false)
+                    }
+                )
             }
         }
         return NotificationCompat.Builder(context, channelId)

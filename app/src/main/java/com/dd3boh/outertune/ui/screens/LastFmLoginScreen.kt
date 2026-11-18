@@ -29,6 +29,7 @@ import com.dd3boh.outertune.LocalScrobbler
 import com.dd3boh.outertune.ui.component.FloatingTopBar
 import com.dd3boh.outertune.ui.component.NoWebViewNote
 import com.dd3boh.outertune.utils.ErrorText
+import com.dd3boh.outertune.utils.AppLanguage
 import com.dd3boh.outertune.utils.WebViewCheck
 import kotlinx.coroutines.launch
 
@@ -101,6 +102,9 @@ fun LastFmLoginScreen(
                 .fillMaxSize(),
             factory = { context ->
                 WebView(context).apply {
+                    // Before Android 13 the first WebView of the process puts the app's words back
+                    // in the phone's language.
+                    AppLanguage.afterWebView(context)
                     webViewClient = object : WebViewClient() {
                         override fun onPageFinished(view: WebView, pageUrl: String?) {
                             if (finishing) return
