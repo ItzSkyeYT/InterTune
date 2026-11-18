@@ -69,7 +69,7 @@ class LibrarySearchTest {
     }
 
     @Test
-    fun `the database is asked for each word, a lone letter only when nothing is longer`() {
+    fun `the database is asked for each word, and lone letters together as typed`() {
         assertEquals(listOf("c"), LibrarySearch.asked("c"))
         assertEquals(listOf("toe"), LibrarySearch.asked("c toe"))
         assertEquals(listOf("good", "kid"), LibrarySearch.asked("good kid"))
@@ -106,9 +106,12 @@ class LibrarySearchTest {
         val model = File("src/main/java/com/dd3boh/outertune/viewmodels/LocalSearchViewModel.kt").readText()
         assertTrue(model.contains("val preview = LibrarySearch.limit(query, PREVIEW_SIZE)"))
         assertTrue(model.contains("val listed = LibrarySearch.limit(query, Int.MAX_VALUE)"))
-        val asks = Regex("""found \{ database\.search\w+\(([^)]*)\) \}""").findAll(model).map { it.groupValues[1] }.toList()
+        val asks = Regex("""found\((\w+), ([\w.]+)\) \{ term, n -> database\.search\w+\(term, n\) \}""").findAll(model)
+            .map { it.groupValues[1] + ", " + it.groupValues[2] }.toList()
         assertEquals("the overview's five, the chips' five", 10, asks.size)
-        for (ask in asks) assertTrue(ask, ask == "it, preview" || ask == "it, listed")
+        for (ask in asks) assertTrue(ask, ask == "preview, PREVIEW_SIZE" || ask == "listed, Int.MAX_VALUE")
+        // Words apart, the phrase as typed is asked too with one word's limit: a two-word artist's songs come whole.
+        assertTrue(model.contains("asked.map { search(it, perWord) } + search(query.trim(), phrase)"))
     }
 
     @Test

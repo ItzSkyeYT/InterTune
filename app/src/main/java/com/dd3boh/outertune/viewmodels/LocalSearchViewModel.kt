@@ -45,30 +45,32 @@ class LocalSearchViewModel @Inject constructor(
             val asked = LibrarySearch.asked(query)
             val preview = LibrarySearch.limit(query, PREVIEW_SIZE)
             val listed = LibrarySearch.limit(query, Int.MAX_VALUE)
-            fun found(search: (String) -> Flow<List<LocalItem>>): Flow<List<LocalItem>> =
-                if (asked.size == 1) search(asked.single())
-                else combine(asked.map(search)) { lists -> lists.flatMap { it } }
+            // With words apart the phrase as typed is asked too, with the limit one word has: an artist with more songs
+            // than the per-word cap still comes whole under Songs ("taylor swift"), as before the words were split.
+            fun found(perWord: Int, phrase: Int, search: (String, Int) -> Flow<List<LocalItem>>): Flow<List<LocalItem>> =
+                if (asked.size == 1) search(asked.single(), perWord)
+                else combine(asked.map { search(it, perWord) } + search(query.trim(), phrase)) { lists -> lists.flatMap { it } }
             when (filter) {
                 LocalFilter.ALL -> combine(
-                    found { database.searchSongs(it, preview) },
-                    found { database.searchAlbums(it, preview) },
-                    found { database.searchArtists(it, preview) },
-                    found { database.searchArtistSongs(it, preview) },
-                    found { database.searchPlaylists(it, preview) },
+                    found(preview, PREVIEW_SIZE) { term, n -> database.searchSongs(term, n) },
+                    found(preview, PREVIEW_SIZE) { term, n -> database.searchAlbums(term, n) },
+                    found(preview, PREVIEW_SIZE) { term, n -> database.searchArtists(term, n) },
+                    found(preview, PREVIEW_SIZE) { term, n -> database.searchArtistSongs(term, n) },
+                    found(preview, PREVIEW_SIZE) { term, n -> database.searchPlaylists(term, n) },
                 ) { songs, albums, artists, artistSongs, playlists ->
                     val list = songs + albums + artists + artistSongs + playlists
                     list.distinctBy { it.id }
                 }
                 LocalFilter.SONG -> combine(
-                    found { database.searchSongs(it, listed) },
-                    found { database.searchArtistSongs(it, listed) },
+                    found(listed, Int.MAX_VALUE) { term, n -> database.searchSongs(term, n) },
+                    found(listed, Int.MAX_VALUE) { term, n -> database.searchArtistSongs(term, n) },
                 ) { songs, artistSongs ->
                     val list = songs + artistSongs
                     list.distinctBy { it.id }
                 }
-                LocalFilter.ALBUM -> found { database.searchAlbums(it, listed) }.map { list -> list.distinctBy { it.id } }
-                LocalFilter.ARTIST -> found { database.searchArtists(it, listed) }.map { list -> list.distinctBy { it.id } }
-                LocalFilter.PLAYLIST -> found { database.searchPlaylists(it, listed) }.map { list -> list.distinctBy { it.id } }
+                LocalFilter.ALBUM -> found(listed, Int.MAX_VALUE) { term, n -> database.searchAlbums(term, n) }.map { list -> list.distinctBy { it.id } }
+                LocalFilter.ARTIST -> found(listed, Int.MAX_VALUE) { term, n -> database.searchArtists(term, n) }.map { list -> list.distinctBy { it.id } }
+                LocalFilter.PLAYLIST -> found(listed, Int.MAX_VALUE) { term, n -> database.searchPlaylists(term, n) }.map { list -> list.distinctBy { it.id } }
             }.withoutBlocked().map { list ->
                 LocalSearchResult(
                     query = query,
