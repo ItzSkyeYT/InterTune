@@ -2841,6 +2841,11 @@ while also allowing users to translate our app as well. New, specific strings to
         <item quantity="one">%d song could not be moved and stays inside the app</item>
         <item quantity="other">%d songs could not be moved and stay inside the app</item>
     </plurals>
+    <!-- The songs a move leaves for later because they are playing (HeldWhilePlaying): at the end of its notification, or in a toast where none shows (so 70 characters at most). -->
+    <plurals name="dl_move_notice_held" translatable="false">
+        <item quantity="one">%d song moves once it stops playing</item>
+        <item quantity="other">%d songs move once they stop playing</item>
+    </plurals>
     <!-- Downloading songs, simpler (DownloadsSimpleLook): the words of the simpler page he chose, C (experiments/features/downloads-simple). The Storage page in plain words, the one row for where downloads go, the choice of two, and what Download says of where a song goes. The words of the ways not chosen go with the switch. -->
     <string name="dl_simple_size_folder">In your folder: %s</string>
     <string name="dl_simple_clear_confirm">Remove the downloads kept inside the app? Songs in your folder stay.</string>

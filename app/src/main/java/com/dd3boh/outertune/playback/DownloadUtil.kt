@@ -1224,6 +1224,9 @@ class DownloadUtil @Inject constructor(
         var notice: ConvertNotice? = null
         var moveNotice: MoveNotice? = null
         var movedCount = 0
+        // The songs left for later because the player has them open (HeldWhilePlaying): a move asked
+        // for says they come after, rather than that it is done.
+        var held = 0
         try {
             // What media3 holds, read from its index. A second DownloadManager over it, as this
             // used to make for the same list, started a thread of its own that was never let go.
@@ -1237,7 +1240,8 @@ class DownloadUtil @Inject constructor(
             val completed = downloadedSongs.filter { it.value.state == Download.STATE_COMPLETED && (only == null || it.key in only) }
             // Not a song the player has open: its file would change under it. It goes once it is let go (playerHas).
             val movable = inPlay.movableNow(completed.keys)
-            if (movable.size < completed.size) Log.i(TAG, "${completed.size - movable.size} downloads wait until they no longer play to move")
+            held = completed.size - movable.size
+            if (held > 0) Log.i(TAG, "$held downloads wait until they no longer play to move")
             val toMigrate = completed.filterKeys { it in movable }
             // Songs made another format (Unreleased.DOWNLOAD_FORMATS) take a while each: the phone says so.
             val format = DownloadFormats.effective(downloadFormat, Unreleased.DOWNLOAD_FORMATS)
@@ -1316,8 +1320,15 @@ class DownloadUtil @Inject constructor(
         } finally {
             notice?.finish()
             // Done, or how many stay inside the app: a song with nothing in the cache to copy, one
-            // the folder refused, or the rest of a move that failed halfway.
-            moveNotice?.finish(movedCount)
+            // the folder refused, or the rest of a move that failed halfway; and the songs that
+            // move once they stop playing.
+            moveNotice?.finish(movedCount, held)
+            // A move asked for with no notification to say it in (none can show, or every song it
+            // found plays): the songs that come after are said in a toast.
+            if (!quiet && held > 0 && moveNotice == null) {
+                val later = context.resources.getQuantityString(R.plurals.dl_move_notice_held, held, held)
+                CoroutineScope(Dispatchers.Main.immediate).launch { Toaster.show(context, later, Toast.LENGTH_LONG) }
+            }
             isProcessingDownloads.value = false
         }
     }
