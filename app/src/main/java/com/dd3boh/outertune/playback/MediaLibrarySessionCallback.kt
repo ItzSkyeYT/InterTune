@@ -10,6 +10,7 @@ import android.os.Bundle
 import android.os.SystemClock
 import android.util.Log
 import android.view.KeyEvent
+import android.view.ViewConfiguration
 import androidx.annotation.DrawableRes
 import androidx.core.content.FileProvider
 import androidx.core.content.IntentCompat
@@ -169,6 +170,9 @@ class MediaLibrarySessionCallback @Inject constructor(
         }
     }
 
+    /** When a press last played the saved queue (SystemClock.elapsedRealtime, which counts deep sleep too), null once its double press is over: see onMediaButtonEvent. */
+    private var savedQueuePressAt: Long? = null
+
     /**
      * A headset's, a speaker's or a car's play/pause (or a wired headset's button) that reaches the
      * running service while the player is empty: the saved queue plays, as the app's own play button
@@ -184,9 +188,21 @@ class MediaLibrarySessionCallback @Inject constructor(
         val key = runCatching { IntentCompat.getParcelableExtra(intent, Intent.EXTRA_KEY_EVENT, KeyEvent::class.java) }.getOrNull()
             ?: return false
         val legacy = controllerInfo.controllerVersion == MediaSession.ControllerInfo.LEGACY_CONTROLLER_VERSION
+        val now = SystemClock.elapsedRealtime()
+        // The second press of a double click, or a second press because nothing seemed to happen:
+        // media3 never saw the first one, so it would take this one for a single press and pause the
+        // song the first one just started. The pair counts as one press, as media3 counts a double
+        // press as one; a third press is media3's again.
+        if (EmptyPlayerPress.secondOfDoublePress(key.keyCode, key.action, key.repeatCount, legacy,
+                sinceLoadMs = savedQueuePressAt?.let { now - it }, doubleTapMs = ViewConfiguration.getDoubleTapTimeout().toLong())) {
+            savedQueuePressAt = null
+            Log.i(TAG, "A media button's ${EmptyPlayerPress.keyName(key.keyCode)} again, right after the one that played the saved queue: taken with it, not a pause")
+            return true
+        }
         if (!EmptyPlayerPress.playsSavedQueue(key.keyCode, key.action, key.repeatCount, legacy, empty = service.player.currentMediaItem == null)) {
             return false
         }
+        savedQueuePressAt = now
         service.playSavedQueue("A media button's ${EmptyPlayerPress.keyName(key.keyCode)}")
         return true
     }

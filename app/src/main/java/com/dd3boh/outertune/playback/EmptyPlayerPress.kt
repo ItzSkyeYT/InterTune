@@ -32,7 +32,23 @@ object EmptyPlayerPress {
      * Bluetooth device, a wired headset, a car, another app), while the player holds no song ([empty]).
      */
     fun playsSavedQueue(keyCode: Int, action: Int, repeatCount: Int, legacy: Boolean, empty: Boolean): Boolean =
-        legacy && empty && action == KeyEvent.ACTION_DOWN && repeatCount == 0 &&
+        empty && isPlayPausePress(keyCode, action, repeatCount, legacy)
+
+    /**
+     * Whether a press is the second of a double press whose first one played the saved queue, [sinceLoadMs]
+     * ago (null: no press did), within Android's double tap time [doubleTapMs]: it is taken and does nothing.
+     *
+     * media3 tells a double press (next) from a single one (play/pause) only for presses it has seen, and the
+     * one that played the saved queue never reached it. So the second press of a double click, or a second
+     * press because nothing seemed to happen, went to media3 as a new single press, and a moment later it
+     * toggled the song that had just started: the saved queue loaded and stayed paused.
+     */
+    fun secondOfDoublePress(keyCode: Int, action: Int, repeatCount: Int, legacy: Boolean, sinceLoadMs: Long?, doubleTapMs: Long): Boolean =
+        sinceLoadMs != null && sinceLoadMs in 0..doubleTapMs && isPlayPausePress(keyCode, action, repeatCount, legacy)
+
+    /** Play/pause or the hook, pressed (not released, not held), through Android's own session: what media3 counts for a double press. */
+    private fun isPlayPausePress(keyCode: Int, action: Int, repeatCount: Int, legacy: Boolean): Boolean =
+        legacy && action == KeyEvent.ACTION_DOWN && repeatCount == 0 &&
             (keyCode == KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE || keyCode == KeyEvent.KEYCODE_HEADSETHOOK)
 
     /** The key in the log's words. */

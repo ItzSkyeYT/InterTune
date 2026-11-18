@@ -31,6 +31,54 @@ class EmptyPlayerPressTest {
     private fun plays(key: Int, action: Int = KeyEvent.ACTION_DOWN, repeat: Int = 0, legacy: Boolean = true, empty: Boolean = true) =
         EmptyPlayerPress.playsSavedQueue(key, action, repeat, legacy, empty)
 
+    /** [since] ms after a press played the saved queue (null: none did), with Android's double tap time, 300 ms. */
+    private fun second(key: Int, since: Long?, action: Int = KeyEvent.ACTION_DOWN, repeat: Int = 0, legacy: Boolean = true) =
+        EmptyPlayerPress.secondOfDoublePress(key, action, repeat, legacy, since, doubleTapMs = 300)
+
+    @Test
+    fun `a second press within the double tap time of the one that played the saved queue is taken with it`() {
+        // A wired headset's double click comes about 150 to 250 ms apart. Left to media3, the second press
+        // was a single one: 300 ms later it paused the song the first had just started.
+        assertTrue(second(KeyEvent.KEYCODE_HEADSETHOOK, since = 180))
+        assertTrue(second(KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE, since = 0))
+        assertTrue(second(KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE, since = 300))
+    }
+
+    @Test
+    fun `later, or with no such press before it, the press is media3's as before`() {
+        assertFalse(second(KeyEvent.KEYCODE_HEADSETHOOK, since = 301))
+        assertFalse(second(KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE, since = 5_000))
+        assertFalse(second(KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE, since = null))
+        assertFalse(second(KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE, since = -1))
+    }
+
+    @Test
+    fun `only what media3 counts for a double press is taken as the second one`() {
+        // Pressed, not released or held, through Android's own session, and play/pause or the hook.
+        assertFalse(second(KeyEvent.KEYCODE_HEADSETHOOK, since = 180, action = KeyEvent.ACTION_UP))
+        assertFalse(second(KeyEvent.KEYCODE_HEADSETHOOK, since = 180, repeat = 1))
+        assertFalse(second(KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE, since = 180, legacy = false))
+        for (key in listOf(KeyEvent.KEYCODE_MEDIA_PLAY, KeyEvent.KEYCODE_MEDIA_PAUSE, KeyEvent.KEYCODE_MEDIA_NEXT, KeyEvent.KEYCODE_MEDIA_PREVIOUS)) {
+            assertFalse("$key", second(key, since = 180))
+        }
+    }
+
+    @Test
+    fun `the session takes the second press before media3 or the empty player's rule sees it, and only once`() {
+        val button = callback.substringAfter("override fun onMediaButtonEvent(").substringBefore("\n    }\n")
+        assertTrue(button, "val now = SystemClock.elapsedRealtime()" in button)
+        val taken = button.indexOf("EmptyPlayerPress.secondOfDoublePress(key.keyCode, key.action, key.repeatCount, legacy,")
+        assertTrue(button, "sinceLoadMs = savedQueuePressAt?.let { now - it }, doubleTapMs = ViewConfiguration.getDoubleTapTimeout().toLong())" in button)
+        val rule = button.indexOf("EmptyPlayerPress.playsSavedQueue(")
+        assertTrue(button, taken in 0 until rule)
+        // Taken: the pair is over, so a third press is media3's; and media3 is told the press was handled.
+        val over = button.indexOf("savedQueuePressAt = null", taken)
+        assertTrue(button, over in taken until rule && button.indexOf("return true", over) in over until rule)
+        // The press that plays the saved queue is the one remembered.
+        val kept = button.indexOf("savedQueuePressAt = now")
+        assertTrue(button, kept in rule until button.indexOf("service.playSavedQueue("))
+    }
+
     @Test
     fun `play pause and the headset's button on an empty player play the saved queue`() {
         assertTrue(plays(KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE))
