@@ -154,7 +154,6 @@ class DownloadDirectoryManagerOt(private var context: Context, private var dir: 
     }
 
     fun saveFile(mediaId: String, input: InputStream, displayName: String?): Uri? {
-        val resolver = context.contentResolver
         val directory = DocumentFile.fromTreeUri(context, dir)
 
         if (directory == null || !directory.isDirectory) {
@@ -162,24 +161,52 @@ class DownloadDirectoryManagerOt(private var context: Context, private var dir: 
         }
 
         val fileName = "$displayName [$mediaId].mka"
-        val newFile = directory.createFile("audio/mka", fileName) ?: return null
-
-        try {
-            // A stream that would not open used to return the new file's address all the same,
-            // for an empty file.
-            val out = resolver.openOutputStream(newFile.uri) ?: throw IOException("Could not open $fileName")
-            out.use { input.copyTo(it) }
-        } catch (e: Exception) {
-            // Not left behind half written, where the next scan would take it for the download.
-            newFile.delete()
-            throw e
-        }
+        // Whole or not at all (writeWhole): a half file under this name was taken for the download.
+        val newFile = writeWhole(directory, fileName) { out -> input.copyTo(out) } ?: return null
         // In the list at once, as a song file is (saveSongFile): the player finds a download in the
         // folder through it, and Remove download deletes through it. Left out until the next full
         // scan, the song was streamed meanwhile and Remove download did nothing.
         addAvailable(TreeDocumentFileOt(null, context, newFile.uri, newFile.name ?: fileName, "audio/mka"))
         return newFile.uri
     }
+
+    /**
+     * Writes [fileName] into [directory] whole or not at all: under a name of its own while [write]
+     * runs (PartialFiles), renamed to [fileName] once it is all there. The app ended halfway leaves
+     * that part, which is never taken for a song and goes at a later full listing; a write that
+     * fails deletes it. Null when the folder makes no file; a write or a rename that fails throws.
+     * The file it gives back has the name the folder gave it ("Song (1).opus" next to another).
+     * A folder whose files cannot be renamed, or that will not make the part, gets the final name
+     * from the start, as before, and has only the delete on failure, as the automatic backup does
+     * (AutoBackup.write): the move never fails where it used to work.
+     */
+    private fun writeWhole(directory: DocumentFile, fileName: String, write: (OutputStream) -> Unit): DocumentFile? {
+        val partName = PartialFiles.nameWhileWritten(fileName)
+        val made = directory.createFile(PartialFiles.MIME_TYPE, partName)
+        val renames = made != null && canRename(made.uri)
+        val file = if (renames) made!! else {
+            made?.delete()
+            directory.createFile(MimeTypeMap.getSingleton().getMimeTypeFromExtension(fileName.substringAfterLast('.')) ?: "audio/mka", fileName) ?: return null
+        }
+        val whole = try {
+            // A stream that would not open used to return the new file's address all the same,
+            // for an empty file.
+            val out = context.contentResolver.openOutputStream(file.uri) ?: throw IOException("Could not open ${file.name}")
+            out.use(write)
+            if (!renames) file.uri else DocumentsContract.renameDocument(context.contentResolver, file.uri, fileName)
+                ?: throw IOException("Could not name $partName $fileName")
+        } catch (e: Exception) {
+            file.delete()
+            throw e
+        }
+        return TreeDocumentFileOt(null, context, whole)
+    }
+
+    /** Whether the folder can rename [document]: the internal storage and cards can. */
+    private fun canRename(document: Uri): Boolean = runCatching {
+        context.contentResolver.query(document, arrayOf(DocumentsContract.Document.COLUMN_FLAGS), null, null, null)
+            ?.use { c -> c.moveToFirst() && (c.getInt(0) and DocumentsContract.Document.FLAG_SUPPORTS_RENAME) != 0 }
+    }.getOrNull() ?: false
 
     /** Under the same lock as [deleteFile], so a save and a delete at the same moment cannot undo each other in the list. */
     @Synchronized
@@ -197,22 +224,16 @@ class DownloadDirectoryManagerOt(private var context: Context, private var dir: 
         if (directory == null || !directory.isDirectory) {
             throw IOException("Invalid directory")
         }
-        // The type Android itself gives the extension: given another, a provider may add the
-        // extension of that type to the name, as in "Song.opus.ogg".
+        // The type Android itself gives the extension, for the list below: the file is made as a
+        // part (writeWhole), whose type keeps its name as given, and takes the extension's type
+        // once renamed.
         val extension = fileName.substringAfterLast('.')
         val mimeType = MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension) ?: "application/octet-stream"
-        val newFile = directory.createFile(mimeType, fileName) ?: return null
-        try {
-            val out = context.contentResolver.openOutputStream(newFile.uri) ?: throw IOException("Could not open $fileName")
-            out.use { stream ->
-                val buffered = BufferedOutputStream(stream, 64 * 1024)
-                write(buffered)
-                buffered.flush()
-            }
-        } catch (e: Exception) {
-            newFile.delete()
-            throw e
-        }
+        val newFile = writeWhole(directory, fileName) { stream ->
+            val buffered = BufferedOutputStream(stream, 64 * 1024)
+            write(buffered)
+            buffered.flush()
+        } ?: return null
         documentId(newFile)?.let { songFileIds[it] = mediaId }
         val saved = TreeDocumentFileOt(null, context, newFile.uri, newFile.name ?: fileName, mimeType)
         addAvailable(saved)
@@ -228,6 +249,8 @@ class DownloadDirectoryManagerOt(private var context: Context, private var dir: 
      */
     fun idOf(file: DocumentFile): String? {
         val name = file.name ?: return null
+        // A file being written, or one a move left half written: no song's, though its name may say one (PartialFiles).
+        if (PartialFiles.isPartial(name)) return null
         if (SongFileNames.isSongFile(name)) {
             return documentId(file)?.let { songFileIds[it] } ?: SongFileNames.idInName(name)
         }
@@ -296,6 +319,16 @@ class DownloadDirectoryManagerOt(private var context: Context, private var dir: 
                     continue
                 }
                 scanDfRecursive(d, result, true)
+            }
+            // Parts a move left half written when the app was ended: never a song, and gone from the
+            // main folder once no move can be writing them. The extra folders are never changed.
+            val now = System.currentTimeMillis()
+            result.removeAll { file ->
+                PartialFiles.isPartial(file.name).also { partial ->
+                    if (partial && isInMainDir(file) && PartialFiles.leftBehind(file.lastModified(), now)) {
+                        runCatching { file.delete() }.onSuccess { Log.i(TAG, "A part a move left behind goes: ${file.name}") }
+                    }
+                }
             }
             unlistedDirs = unlistedDownloadDirs(
                 main = dir.toString(),
