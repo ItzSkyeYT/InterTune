@@ -4,12 +4,15 @@ import com.dd3boh.outertune.constants.PlayOrigin
 import com.dd3boh.outertune.constants.PlayingQueueKey
 import android.content.ContentResolver
 import android.content.Context
+import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.os.SystemClock
 import android.util.Log
+import android.view.KeyEvent
 import androidx.annotation.DrawableRes
 import androidx.core.content.FileProvider
+import androidx.core.content.IntentCompat
 import androidx.core.net.toUri
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
@@ -164,6 +167,28 @@ class MediaLibrarySessionCallback @Inject constructor(
         } finally {
             service.resumptionRunning = false
         }
+    }
+
+    /**
+     * A headset's, a speaker's or a car's play/pause (or a wired headset's button) that reaches the
+     * running service while the player is empty: the saved queue plays, as the app's own play button
+     * plays it (EmptyPlayerPress). media3 left the press a toggle of the empty player, which did
+     * nothing. Every other key, and every key that came as a start of the service, goes on to media3
+     * as before.
+     */
+    override fun onMediaButtonEvent(
+        session: MediaSession,
+        controllerInfo: MediaSession.ControllerInfo,
+        intent: Intent,
+    ): Boolean {
+        val key = runCatching { IntentCompat.getParcelableExtra(intent, Intent.EXTRA_KEY_EVENT, KeyEvent::class.java) }.getOrNull()
+            ?: return false
+        val legacy = controllerInfo.controllerVersion == MediaSession.ControllerInfo.LEGACY_CONTROLLER_VERSION
+        if (!EmptyPlayerPress.playsSavedQueue(key.keyCode, key.action, key.repeatCount, legacy, empty = service.player.currentMediaItem == null)) {
+            return false
+        }
+        service.playSavedQueue("A media button's ${EmptyPlayerPress.keyName(key.keyCode)}")
+        return true
     }
 
     /**

@@ -217,6 +217,7 @@ import com.dd3boh.outertune.extensions.findNextMediaItemById
 import com.dd3boh.outertune.extensions.isUserLoggedIn
 import com.dd3boh.outertune.extensions.joinWithin
 import com.dd3boh.outertune.extensions.metadata
+import com.dd3boh.outertune.extensions.playSafe
 import com.dd3boh.outertune.extensions.setOffloadEnabled
 import com.dd3boh.outertune.extensions.shouldShowPlayButton
 import com.dd3boh.outertune.lyrics.LyricsHelper
@@ -3116,6 +3117,33 @@ class MusicService : MediaLibraryService(),
             Log.i(TAG, "Resuming playback on launch")
             activePlayer.prepare()
             activePlayer.play()
+        }
+    }
+
+    /**
+     * The saved queue into the player and played, when the player holds nothing: what [what], a
+     * media button's play/pause or hook, asks of an empty player (EmptyPlayerPress). Done as the
+     * app's own play button does it after a cold start (PlayerConnection.loadQueueIfEmpty) and as
+     * Resume playback on launch does above: the board's current queue at its place, then
+     * prepared and played. On the main thread, where the board loads the player.
+     */
+    fun playSavedQueue(what: String) {
+        scope.launch {
+            // Not before the saved queues are read: a press as the service starts would find the
+            // board empty. Bounded, as for a request to play from the car (resolvePlayRequest).
+            kotlinx.coroutines.withTimeoutOrNull(SAVED_QUEUES_WAIT_MS) { queuesLoadedOnce.await() }
+            // The mini player swiped away since: the board is read again, as playQueue does.
+            if (!qbInit.value) initQueue(onlyIfNeeded = true)
+            // Something may have been loaded meanwhile, a tap in the app: that one plays as it is.
+            if (activePlayer.mediaItemCount == 0) {
+                val loaded = queueBoard.setCurrQueue(shouldResume = true)
+                if (loaded == null || activePlayer.mediaItemCount == 0) {
+                    Log.i(TAG, "$what with nothing loaded, and no saved queue to play")
+                    return@launch
+                }
+            }
+            Log.i(TAG, "$what with nothing loaded: the saved queue plays, as the app's play button plays it")
+            activePlayer.playSafe()
         }
     }
 
@@ -7072,6 +7100,9 @@ class MusicService : MediaLibraryService(),
 
         /** The longest a request is held back while a new song loads: see afterSongStarts. */
         private const val NEW_SONG_WAIT_MS = 20_000L
+
+        /** The longest a media button's play on an empty player waits for the saved queues to be read: see playSavedQueue. */
+        private const val SAVED_QUEUES_WAIT_MS = 5_000L
 
         /** How much of the next song is loaded ahead while one plays: 5 s, enough to start it at once. */
         private const val PRELOAD_AHEAD_US = 5_000_000L
