@@ -2595,6 +2595,10 @@
     </plurals>
     <!-- A picker asked for on a device with none (#120, #121). -->
     <string name="no_app_to_pick">Pas de sélecteur de fichiers. Installez un gestionnaire de fichiers.</string>
+    <!-- The sign-in page on a phone whose web view cannot start (#221). -->
+    <string name="no_web_view_title" translatable="false">La page de connexion ne peut pas s\'ouvrir ici</string>
+    <string name="no_web_view_body" translatable="false">La connexion se fait sur une page web, et la vue web de ce téléphone ne démarre pas. Mettre à jour Android System WebView ou Chrome depuis le Play Store règle le problème la plupart du temps.</string>
+    <string name="no_web_view_store" translatable="false">Ouvrir le Play Store</string>
     <string name="sleep_row_in">Dans</string>
     <string name="sleep_row_at">À</string>
     <string name="sleep_row_end_of">Fin de</string>

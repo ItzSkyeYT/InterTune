@@ -79,7 +79,6 @@ import androidx.media3.exoplayer.audio.SilenceSkippingAudioProcessor
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.exoplayer.source.ShuffleOrder
 import androidx.media3.session.CommandButton
-import androidx.media3.session.DefaultMediaNotificationProvider
 import androidx.media3.session.MediaController
 import androidx.media3.session.MediaLibraryService
 import androidx.media3.session.MediaSession
@@ -1274,6 +1273,11 @@ class MusicService : MediaLibraryService(),
         super.onCreate()
         isRunning = true
         instance = WeakReference(this)
+        // For the guard of a media button's start from outside the app: Android's time for the first
+        // start of a service created with its process has run since the process began
+        // (MediaButtonStart.sinceStart). The app's own starts carry the moment they were handed on.
+        processStartedAt = android.os.Process.getStartUptimeMillis()
+        createdAt = SystemClock.uptimeMillis()
         // media3 writes this under its own name only, which Report a problem leaves out, and it is
         // the line that explains a song stopping a minute after the screen goes off (issue #26).
         setListener(object : Listener {
@@ -1426,7 +1430,9 @@ class MusicService : MediaLibraryService(),
                         ).also { addListener(it) }
                     }
                 }
-                addAnalyticsListener(PlaybackStatsListener(false, this@MusicService))
+                // media3's play-time counter, which closed the app when it tripped on its own
+                // bookkeeping: now made again instead (GuardedPlaybackStats).
+                addAnalyticsListener(GuardedPlaybackStats(this@MusicService))
                 // A song whose cached copy cannot be read is given up, so a retry reads it whole. See BadCachedCopy.
                 addAnalyticsListener(object : AnalyticsListener {
                     /** When each song's last failed load was written down: the player retries every few seconds. */
@@ -1525,6 +1531,14 @@ class MusicService : MediaLibraryService(),
         isNetworkConnected.collect(scope) { online ->
             if (online) covers.tryAgain()
         }
+        // A session an earlier start of this service left registered in this process: media3
+        // refuses a second one with the same id, and the service could not start at all (#181,
+        // "Session ID must be unique", Android 12). onDestroy forgets the one it releases, so one
+        // still here was never released: released now, as that onDestroy should have.
+        leftSession?.get()?.let { left ->
+            Log.w(TAG, "A session from an earlier start of the service was never released: released now")
+            runCatching { left.release() }
+        }
         mediaSession = MediaLibrarySession.Builder(this, sessionPlayer, mediaLibrarySessionCallback)
             .setSessionActivity(
                 PendingIntent.getActivity(
@@ -1545,6 +1559,7 @@ class MusicService : MediaLibraryService(),
             // app's own screens read the player directly and never saw these.
             .setPeriodicPositionUpdateEnabled(false)
             .build()
+        leftSession = WeakReference(mediaSession)
 
         // In a car the player's row of buttons is laid out for a driver (MediaControlButtons.CAR).
         if (Unreleased.AUTO_REWORK) carType.observeForever(carWatch)
@@ -1610,8 +1625,10 @@ class MusicService : MediaLibraryService(),
         // The widget's heart shows the like as stored, wherever it was given or taken back.
         WidgetStore.followLikes(this, scope) { id -> database.songLiked(id) }
 
+        // media3's own notification, whose play button no longer demands the foreground of a
+        // service that may not reach it (PlainPlayNotifications).
         setMediaNotificationProvider(
-            DefaultMediaNotificationProvider(
+            PlainPlayNotifications(
                 this@MusicService,
                 { NOTIFICATION_ID },
                 CHANNEL_ID,
@@ -4925,8 +4942,19 @@ class MusicService : MediaLibraryService(),
      */
     fun updateNotification() {
         val buttons = if (inCar) MediaControlButtons.CAR else MediaControlButtons.layout(mediaControlButtons)
-        mediaSession.setCustomLayout(buttons.map(::mediaControlButton))
+        val layout = buttons.map(::mediaControlButton)
+        // Each send has media3 post the notification anew and the system draw it again, and this
+        // runs on every change to the playing song's row (a play counted, its format found), most
+        // of which change no button. A realme on Android 11 closed the app when its system failed
+        // to draw a notification posted several times in a moment (#206: "Couldn't inflate
+        // contentViews", a ConcurrentModificationException in the system's own drawing).
+        if (layout == sentLayout) return
+        sentLayout = layout
+        mediaSession.setCustomLayout(layout)
     }
+
+    /** The buttons last sent to the session by [updateNotification]. */
+    private var sentLayout: List<CommandButton>? = null
 
     private fun mediaControlButton(button: MediaControlButton): CommandButton {
         val song = currentSong.value
@@ -6687,6 +6715,13 @@ class MusicService : MediaLibraryService(),
     /** The plain notification is up, holding the foreground for a media button's start. */
     private var holdingForMediaButton = false
 
+    /** When the app's process started and when this service was created, in uptime ([MediaButtonStart.sinceStart]). */
+    private var processStartedAt = 0L
+    private var createdAt = 0L
+
+    /** No start has reached the service yet: the first may be the one it was created for. */
+    private var firstStart = true
+
     private val mediaButtonHandler = Handler(Looper.getMainLooper())
 
     /** A resumption media3 asked for is being read (MediaLibrarySessionCallback). */
@@ -6706,8 +6741,11 @@ class MusicService : MediaLibraryService(),
      *
      * With a song in the player media3 plays and shows at once, so nothing is held: the guard
      * alone looks again, after a play press, in case the song did not start.
+     *
+     * [handedAt] is when the app handed Android this start, if it did (MediaButtonStart.markHanded):
+     * Android's time runs from there, not from the process's start.
      */
-    private fun holdForegroundForMediaButton(key: Int?) {
+    private fun holdForegroundForMediaButton(key: Int?, handedAt: Long?) {
         // Already seen to.
         if (mediaButtonPending || foregroundNow()) return
         val hasSong = ::player.isInitialized && player.mediaItemCount > 0
@@ -6722,7 +6760,23 @@ class MusicService : MediaLibraryService(),
         holdingForMediaButton = false
         mediaButtonHandler.removeCallbacks(mediaButtonLetGo)
         val held = !hasSong && Build.VERSION.SDK_INT < Build.VERSION_CODES.S && holdForeground()
-        mediaButtonHandler.postDelayed(mediaButtonGuard, MediaButtonStart.guardMs(Build.VERSION.SDK_INT, held))
+        val sinceStart = MediaButtonStart.sinceStart(handedAt, firstStart, processStartedAt, createdAt, SystemClock.uptimeMillis())
+        mediaButtonHandler.postDelayed(mediaButtonGuard, MediaButtonStart.guardDelayMs(Build.VERSION.SDK_INT, held, sinceStart))
+    }
+
+    /**
+     * The service is about to stop while a media button's start may still be owed: Android closes
+     * the app at once when a service it waits on stops before startForeground
+     * (ActiveServices.bringDownServiceLocked), so the demand is met first. The app swiped away in
+     * the seconds after a play press whose song had not started yet was such a stop.
+     */
+    private fun meetMediaButtonStartBeforeStop() {
+        if (!mediaButtonPending) return
+        mediaButtonPending = false
+        mediaButtonHandler.removeCallbacks(mediaButtonGuard)
+        if (holdingForMediaButton || foregroundNow()) return
+        if (holdForeground()) ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
+        holdingForMediaButton = false
     }
 
     /**
@@ -6917,11 +6971,17 @@ class MusicService : MediaLibraryService(),
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (BuildConfig.BUILD_TYPE == "debug" && Unreleased.AUTOMIX_EDITOR) intent?.getStringExtra("mixtrial")?.let { mixTrial(it) }
         // media3's media button receiver starts the service with startForegroundService, whether
-        // it was running or not, and so do the widget and the play button of media3's own
-        // notification (MediaButtonStart). No intent at all is Android bringing the service back
-        // after the app's process died, with what the old process still owed it.
+        // it was running or not, and so does the widget (MediaButtonStart). The play button of
+        // media3's notification is a plain start (PlainPlayNotifications) that owes Android
+        // nothing, marked so the guard leaves it alone: if its song does not start, or there is no
+        // saved queue, the service just stays started (from Android 8, Android stops it once the
+        // app is idle). No intent at all is Android bringing the service back after the app's
+        // process died, with what the old process still owed it.
         if (intent == null) settleAfterRestart()
-        else if (intent.action == Intent.ACTION_MEDIA_BUTTON) holdForegroundForMediaButton(MediaButtonStart.keyOf(intent))
+        else if (intent.action == Intent.ACTION_MEDIA_BUTTON && !MediaButtonStart.isPlain(intent))
+            holdForegroundForMediaButton(MediaButtonStart.keyOf(intent), MediaButtonStart.handedAtOf(intent, flags))
+        // Only the start the service was created for began with the process.
+        firstStart = false
         return super.onStartCommand(intent, flags, startId)
     }
 
@@ -7045,6 +7105,7 @@ class MusicService : MediaLibraryService(),
         effectsSession.close()
         mediaSession.player.stop()
         mediaSession.release()
+        if (leftSession?.get() === mediaSession) leftSession = null
         mediaSession.player.release()
         super.onDestroy()
         Log.i(TAG, "Terminated MusicService.")
@@ -7113,6 +7174,8 @@ class MusicService : MediaLibraryService(),
 
     override fun onTaskRemoved(rootIntent: Intent?) {
         Log.i(TAG, "onTaskRemoved called")
+        // Both ways below may stop the service: not while Android still waits on a media button's start.
+        meetMediaButtonStartBeforeStop()
         if (dataStore.get(StopMusicOnTaskClearKey, true) && !dataStore.get(KeepAliveKey, false)) {
             Log.i(TAG, "onTaskRemoved kill")
             pauseAllPlayersAndStopSelf()
@@ -7178,6 +7241,12 @@ class MusicService : MediaLibraryService(),
          */
         @Volatile
         private var instance: WeakReference<MusicService>? = null
+
+        /**
+         * The session the service built last, until its onDestroy releases it: one still here when
+         * the service starts again was never released (#181).
+         */
+        private var leftSession: WeakReference<MediaLibrarySession>? = null
 
         /** See [instance]. */
         fun alive(): MusicService? = instance?.get()
