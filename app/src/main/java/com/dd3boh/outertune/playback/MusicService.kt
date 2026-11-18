@@ -1257,6 +1257,10 @@ class MusicService : MediaLibraryService(),
         super.onCreate()
         isRunning = true
         instance = WeakReference(this)
+        // For the guard of a media button's start: Android's time for the first start of a service
+        // created with its process has run since the process began (MediaButtonStart.guardDelayMs).
+        processStartedAt = android.os.Process.getStartUptimeMillis()
+        createdAt = SystemClock.uptimeMillis()
         // media3 writes this under its own name only, which Report a problem leaves out, and it is
         // the line that explains a song stopping a minute after the screen goes off (issue #26).
         setListener(object : Listener {
@@ -6604,6 +6608,13 @@ class MusicService : MediaLibraryService(),
     /** The plain notification is up, holding the foreground for a media button's start. */
     private var holdingForMediaButton = false
 
+    /** When the app's process started and when this service was created, in uptime ([MediaButtonStart.sinceColdStart]). */
+    private var processStartedAt = 0L
+    private var createdAt = 0L
+
+    /** No start has reached the service yet: the first may be the one it was created for. */
+    private var firstStart = true
+
     private val mediaButtonHandler = Handler(Looper.getMainLooper())
 
     /** A resumption media3 asked for is being read (MediaLibrarySessionCallback). */
@@ -6639,7 +6650,9 @@ class MusicService : MediaLibraryService(),
         holdingForMediaButton = false
         mediaButtonHandler.removeCallbacks(mediaButtonLetGo)
         val held = !hasSong && Build.VERSION.SDK_INT < Build.VERSION_CODES.S && holdForeground()
-        mediaButtonHandler.postDelayed(mediaButtonGuard, MediaButtonStart.guardMs(Build.VERSION.SDK_INT, held))
+        val sinceProcessStart = if (!firstStart) null
+            else MediaButtonStart.sinceColdStart(processStartedAt, createdAt, SystemClock.uptimeMillis())
+        mediaButtonHandler.postDelayed(mediaButtonGuard, MediaButtonStart.guardDelayMs(Build.VERSION.SDK_INT, held, sinceProcessStart))
     }
 
     /**
@@ -6840,6 +6853,8 @@ class MusicService : MediaLibraryService(),
         // after the app's process died, with what the old process still owed it.
         if (intent == null) settleAfterRestart()
         else if (intent.action == Intent.ACTION_MEDIA_BUTTON) holdForegroundForMediaButton(MediaButtonStart.keyOf(intent))
+        // Only the start the service was created for began with the process.
+        firstStart = false
         return super.onStartCommand(intent, flags, startId)
     }
 

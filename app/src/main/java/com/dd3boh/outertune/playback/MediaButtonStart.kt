@@ -69,6 +69,39 @@ internal object MediaButtonStart {
         else -> 2_500L
     }
 
+    /**
+     * How long from now until the guard looks, [guardMs] counted from the start of the app's
+     * process when the service started with it ([sinceProcessStartMs], null for a service that was
+     * running already). Android's time for a cold start runs from when the new process reports in,
+     * before Application.onCreate and the service's onCreate, and on a slow phone those can take
+     * seconds of it: counted from onStartCommand, the look could come after Android's limit
+     * (#184, #195, #204, #208, #216 had no caller in their trace). Never sooner than [MIN_LOOK_MS].
+     */
+    fun guardDelayMs(sdk: Int, held: Boolean, sinceProcessStartMs: Long?): Long {
+        val full = guardMs(sdk, held)
+        if (held || sinceProcessStartMs == null) return full
+        return (full - sinceProcessStartMs.coerceAtLeast(0L)).coerceAtLeast(MIN_LOOK_MS)
+    }
+
+    /** The guard's earliest look after a cold start, so media3 has a moment for the press. */
+    const val MIN_LOOK_MS = 1_000L
+
+    /**
+     * How long since the app's process started, for the guard of the first start of a service
+     * created with its process ([guardDelayMs]); null when the service was not, or when this start
+     * came long after its creation (a service a screen had bound and a press that came later).
+     * All three times in uptime.
+     */
+    fun sinceColdStart(processStartedAt: Long, serviceCreatedAt: Long, now: Long): Long? =
+        if (serviceCreatedAt - processStartedAt < COLD_START_MS && now - serviceCreatedAt < COLD_START_MS) now - processStartedAt
+        else null
+
+    /**
+     * A service created this soon after its process started is taken to have started with it, and
+     * a start this soon after the service's creation to be the one it was created for.
+     */
+    const val COLD_START_MS = 15_000L
+
     /** How long the plain notification stays over a player whose song never started, before it goes. */
     const val LET_GO_MS = 60_000L
 

@@ -122,7 +122,7 @@ class MediaButtonStartTest {
         val service = source("MusicService.kt")
         val hold = body(service, "private fun holdForegroundForMediaButton(key: Int?)")
         assertTrue(hold, "val held = !hasSong && Build.VERSION.SDK_INT < Build.VERSION_CODES.S && holdForeground()" in hold)
-        assertTrue(hold, "mediaButtonHandler.postDelayed(mediaButtonGuard, MediaButtonStart.guardMs(Build.VERSION.SDK_INT, held))" in hold)
+        assertTrue(hold, "mediaButtonHandler.postDelayed(mediaButtonGuard, MediaButtonStart.guardDelayMs(Build.VERSION.SDK_INT, held, sinceProcessStart))" in hold)
         val held = service.substringAfter("private fun holdForeground(): Boolean = try {").substringBefore("    } catch")
         assertTrue(held, "NOTIFICATION_ID,\n            MediaButtonStart.placeholder(this, CHANNEL_ID),\n            ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK," in held)
     }
@@ -188,5 +188,49 @@ class MediaButtonStartTest {
         assertTrue("media3's notification uses the same channel and its name",
             Regex("""PlainPlayNotifications\(\s*this@MusicService,\s*\{ NOTIFICATION_ID },\s*CHANNEL_ID,\s*R\.string\.music_player""").containsMatchIn(service))
         assertTrue("which is media3's own provider", ") : DefaultMediaNotificationProvider(service, notificationIdProvider, channelId, channelNameResourceId) {" in source("PlainPlayNotifications.kt"))
+    }
+
+    @Test
+    fun `after a cold start the guard counts from the process's start, so a slow start cannot push it past Android's time`() {
+        // #184, #195, #204, #208 and #216 (0.12.10 and 0.12.11, no caller in the trace): Android
+        // counts from when the new process reports in, before Application.onCreate and the
+        // service's onCreate; the guard counted from onStartCommand.
+        for (sdk in 26..37) for (held in listOf(false, true)) {
+            assertEquals("a running service: from now, as before", MediaButtonStart.guardMs(sdk, held), MediaButtonStart.guardDelayMs(sdk, held, null))
+        }
+        assertEquals(17_000L, MediaButtonStart.guardDelayMs(36, held = false, sinceProcessStartMs = 3_000L))
+        assertEquals(2_000L, MediaButtonStart.guardDelayMs(31, held = false, sinceProcessStartMs = 3_000L))
+        // However slow the start, a moment for media3, and the look still before Android's limit when it can be.
+        assertEquals(MediaButtonStart.MIN_LOOK_MS, MediaButtonStart.guardDelayMs(36, held = false, sinceProcessStartMs = 25_000L))
+        assertEquals(MediaButtonStart.MIN_LOOK_MS, MediaButtonStart.guardDelayMs(31, held = false, sinceProcessStartMs = 9_000L))
+        // Held since the press (before Android 12), nothing is owed any more: the look waits as before.
+        assertEquals(30_000L, MediaButtonStart.guardDelayMs(30, held = true, sinceProcessStartMs = 4_000L))
+        // Counted from the process's start, the look comes before Android's limit whenever the
+        // start left time for it at all.
+        for (sdk in 26..37) for (age in listOf(0L, 2_000L, 6_000L, 15_000L)) {
+            val limit = MediaButtonStart.limitMs(sdk)
+            if (age + MediaButtonStart.MIN_LOOK_MS >= limit) continue
+            val look = age + MediaButtonStart.guardDelayMs(sdk, held = false, sinceProcessStartMs = age)
+            assertTrue("$sdk, $age: the look $look ms after the process started, Android's limit $limit", look < limit)
+        }
+    }
+    @Test
+    fun `only the first start of a service created with its process counts from the process`() {
+        // Created 2 s after the process, the press 1 s after that: 3 s of Android's time are gone.
+        assertEquals(3_000L, MediaButtonStart.sinceColdStart(processStartedAt = 10_000L, serviceCreatedAt = 12_000L, now = 13_000L))
+        // A service made long after its process (the app open for minutes): from now.
+        assertEquals(null, MediaButtonStart.sinceColdStart(processStartedAt = 10_000L, serviceCreatedAt = 300_000L, now = 301_000L))
+        // A service a screen bound at once, and a press minutes later: from now.
+        assertEquals(null, MediaButtonStart.sinceColdStart(processStartedAt = 10_000L, serviceCreatedAt = 11_000L, now = 200_000L))
+
+        val service = source("MusicService.kt")
+        val onCreate = service.substringAfter("override fun onCreate() {").substringBefore("setListener(object : Listener {")
+        assertTrue(onCreate, "processStartedAt = android.os.Process.getStartUptimeMillis()" in onCreate)
+        assertTrue(onCreate, "createdAt = SystemClock.uptimeMillis()" in onCreate)
+        val hold = body(service, "private fun holdForegroundForMediaButton(key: Int?)")
+        assertTrue(hold, "val sinceProcessStart = if (!firstStart) null" in hold)
+        val start = body(service, "override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {")
+        val first = start.indexOf("firstStart = false")
+        assertTrue(start, first > start.indexOf("holdForegroundForMediaButton(MediaButtonStart.keyOf(intent))") && first < start.indexOf("return super.onStartCommand("))
     }
 }
