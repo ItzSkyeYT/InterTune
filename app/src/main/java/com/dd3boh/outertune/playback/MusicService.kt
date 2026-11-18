@@ -1514,6 +1514,14 @@ class MusicService : MediaLibraryService(),
         isNetworkConnected.collect(scope) { online ->
             if (online) covers.tryAgain()
         }
+        // A session an earlier start of this service left registered in this process: media3
+        // refuses a second one with the same id, and the service could not start at all (#181,
+        // "Session ID must be unique", Android 12). onDestroy forgets the one it releases, so one
+        // still here was never released: released now, as that onDestroy should have.
+        leftSession?.get()?.let { left ->
+            Log.w(TAG, "A session from an earlier start of the service was never released: released now")
+            runCatching { left.release() }
+        }
         mediaSession = MediaLibrarySession.Builder(this, sessionPlayer, mediaLibrarySessionCallback)
             .setSessionActivity(
                 PendingIntent.getActivity(
@@ -1534,6 +1542,7 @@ class MusicService : MediaLibraryService(),
             // app's own screens read the player directly and never saw these.
             .setPeriodicPositionUpdateEnabled(false)
             .build()
+        leftSession = WeakReference(mediaSession)
 
         // In a car the player's row of buttons is laid out for a driver (MediaControlButtons.CAR).
         if (Unreleased.AUTO_REWORK) carType.observeForever(carWatch)
@@ -7004,6 +7013,7 @@ class MusicService : MediaLibraryService(),
         effectsSession.close()
         mediaSession.player.stop()
         mediaSession.release()
+        if (leftSession?.get() === mediaSession) leftSession = null
         mediaSession.player.release()
         super.onDestroy()
         Log.i(TAG, "Terminated MusicService.")
@@ -7139,6 +7149,12 @@ class MusicService : MediaLibraryService(),
          */
         @Volatile
         private var instance: WeakReference<MusicService>? = null
+
+        /**
+         * The session the service built last, until its onDestroy releases it: one still here when
+         * the service starts again was never released (#181).
+         */
+        private var leftSession: WeakReference<MediaLibrarySession>? = null
 
         /** See [instance]. */
         fun alive(): MusicService? = instance?.get()
