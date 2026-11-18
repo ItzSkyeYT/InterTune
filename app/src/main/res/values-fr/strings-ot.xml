@@ -2684,6 +2684,7 @@
     <string name="open_file_location" translatable="false">Ouvrir l\'emplacement</string>
     <string name="open_file_location_failed" translatable="false">Impossible d\'ouvrir le dossier</string>
     <string name="no_artist_found" translatable="false">Aucun artiste trouvé</string>
+    <string name="lyrics_word_by_word_saver" translatable="false">Désactivé tant que l\'économiseur de batterie d\'Android est activé.</string>
     <string name="metrolist_import">Importer depuis Metrolist</string>
     <string name="metrolist_import_description">Titres aimés, playlists et écoutes d\'une sauvegarde Metrolist</string>
     <string name="metrolist_import_reading">Lecture de la sauvegarde</string>
