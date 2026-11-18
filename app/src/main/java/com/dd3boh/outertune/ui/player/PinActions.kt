@@ -8,10 +8,13 @@ package com.dd3boh.outertune.ui.player
 
 import android.content.Intent
 import android.media.audiofx.AudioEffect
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -41,6 +44,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.painter.Painter
@@ -89,8 +94,13 @@ import java.time.LocalDateTime
  * timer and like are the player's own and drawn by it.
  */
 internal class PinActions(
-    /** Whether the button applies to the song playing, as the menu offers it: a local file has no radio, link, download or album. */
+    /** Whether the button is there at all: Listen together only where rooms are. */
     val shown: (PlayerPin) -> Boolean,
+    /**
+     * Why the button can do nothing for the song playing, or null when it can: a local file has no radio, link,
+     * download or album. Such a button keeps its place, greyed, and a tap says why ([PinGreyed]).
+     */
+    val unavailable: (PlayerPin) -> Int?,
     /** Whether what it stands for is on, for the buttons that are a state: downloaded, in the library, in a room. */
     val on: (PlayerPin) -> Boolean,
     val run: (PlayerPin) -> Unit,
@@ -271,15 +281,23 @@ internal fun rememberPinActions(
 
     val local = mediaMetadata?.isLocal != false
     return PinActions(
-        shown = { pin ->
-            pinOffered(pin) && when (pin) {
-                PlayerPin.SHARE, PlayerPin.RADIO, PlayerPin.DOWNLOAD, PlayerPin.LIBRARY -> !local
-                PlayerPin.ALBUM -> !local && mediaMetadata?.album != null
-                PlayerPin.OPEN_FILE_LOCATION -> mediaMetadata?.isLocal == true && !mediaMetadata?.localPath.isNullOrBlank()
-                PlayerPin.ARTIST -> artists.isNotEmpty()
-                PlayerPin.REMOVE_FROM_PLAYLIST -> inPlaylists.isNotEmpty()
-                PlayerPin.RECENTRE -> playerConnection?.service?.headTracking?.isRunning == true
-                else -> mediaMetadata != null
+        shown = { pin -> pinOffered(pin) },
+        // A button that cannot act for this song keeps its place, greyed: hidden, it left a gap that moved the row from
+        // song to song, and Niko took six pins for broken on a local song (#testers, 18 Nov 2026).
+        unavailable = { pin ->
+            when (pin) {
+                PlayerPin.SHARE, PlayerPin.RADIO, PlayerPin.DOWNLOAD, PlayerPin.LIBRARY -> R.string.pin_not_for_local.takeIf { local }
+                PlayerPin.ALBUM -> when {
+                    local -> R.string.pin_not_for_local
+                    mediaMetadata?.album == null -> R.string.pin_no_album
+                    else -> null
+                }
+                PlayerPin.OPEN_FILE_LOCATION ->
+                    R.string.pin_only_local.takeIf { mediaMetadata?.isLocal != true || mediaMetadata?.localPath.isNullOrBlank() }
+                PlayerPin.ARTIST -> R.string.no_artist_found.takeIf { artists.isEmpty() }
+                PlayerPin.REMOVE_FROM_PLAYLIST -> R.string.pin_not_in_playlist.takeIf { inPlaylists.isEmpty() }
+                PlayerPin.RECENTRE -> R.string.pin_head_tracking_off.takeIf { playerConnection?.service?.headTracking?.isRunning != true }
+                else -> null
             }
         },
         on = { pin ->
@@ -346,4 +364,30 @@ internal fun rememberPinActions(
             }
         },
     )
+}
+
+/**
+ * A pinned button that can do nothing for the song playing ([PinActions.unavailable]): it keeps its place and size,
+ * greyed, and a tap says why instead of doing nothing (his pick of 18 Nov 2026).
+ */
+@Composable
+internal fun PinGreyed(why: Int?, content: @Composable () -> Unit) {
+    if (why == null) {
+        content()
+        return
+    }
+    val context = LocalContext.current
+    val reason = stringResource(why)
+    Box(contentAlignment = Alignment.Center) {
+        Box(modifier = Modifier.alpha(0.38f)) { content() }
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClickLabel = reason,
+                ) { Toast.makeText(context, reason, Toast.LENGTH_SHORT).show() }
+        )
+    }
 }

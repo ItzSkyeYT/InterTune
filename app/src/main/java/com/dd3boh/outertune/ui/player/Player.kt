@@ -1125,7 +1125,7 @@ fun BottomSheetPlayer(
                     onClick = toggleLyrics
                 )
             }
-            val pinCircle: @Composable (PlayerPin) -> Unit = { pin ->
+            val pinCircle: @Composable (PlayerPin) -> Unit = { pin -> PinGreyed(pinActions.unavailable(pin)) {
                 when (pin) {
                     PlayerPin.SHARE -> shareCircle()
                     PlayerPin.LYRICS -> lyricsCircle()
@@ -1142,7 +1142,7 @@ fun BottomSheetPlayer(
                         )
                     }
                 }
-            }
+            } }
 
             /** Classic's pins by the title, as many as fit there beside the queue's circle or without it. */
             fun classicPins(queueCircle: Boolean): List<PlayerPin> =
@@ -1203,7 +1203,7 @@ fun BottomSheetPlayer(
             // nearly square where they meet. A local file has no link to share, so it gets like alone.
             // Connected's pair by the title: share and like as they have always been, and the timer
             // and lyrics in share's colours while off, their own while on.
-            val titleSegment: @Composable (PlayerPin, Shape) -> Unit = { pin, shape ->
+            val titleSegment: @Composable (PlayerPin, Shape) -> Unit = { pin, shape -> PinGreyed(pinActions.unavailable(pin)) {
                 val liked = currentSong?.song?.liked == true
                 when (pin) {
                     PlayerPin.SHARE -> PlayerActionSegment(
@@ -1261,7 +1261,7 @@ fun BottomSheetPlayer(
                         )
                     }
                 }
-            }
+            } }
 
             val connectedButtons: @Composable RowScope.() -> Unit = {
                 Log.v(TAG, "PLR-3.xa")
@@ -1350,7 +1350,7 @@ fun BottomSheetPlayer(
                     rowPins.forEachIndexed { i, pin ->
                         val shape = connectedShape(first = i == 0 && !queueLayout.queueButton, last = false)
                         val liked = currentSong?.song?.liked == true
-                        when (pin) {
+                        PinGreyed(pinActions.unavailable(pin)) { when (pin) {
                             PlayerPin.LYRICS -> PlayerActionSegment(
                                 painter = rememberVectorPainter(Icons.Rounded.Lyrics),
                                 contentDescription = stringResource(R.string.toggle_lyrics),
@@ -1416,7 +1416,7 @@ fun BottomSheetPlayer(
                                     onClick = { pinActions.run(pin) },
                                 )
                             }
-                        }
+                        } }
                     }
                     if (roomApart) {
                         PlayerActionSegment(
