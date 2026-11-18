@@ -2884,5 +2884,5 @@ while also allowing users to translate our app as well. New, specific strings to
     <!-- Varispeed (Unreleased.VARISPEED, #225): held from translators until it ships, French beside them. -->
     <string name="varispeed" translatable="false">Varispeed</string>
     <string name="varispeed_description" translatable="false">Faster sounds higher and slower sounds lower, like a record player.</string>
-    <string name="search_words_varispeed" translatable="false">pitch, speed, tempo, record player, vinyl, tape, key lock, nightcore, slowed</string>
+    <string name="search_words_varispeed">pitch, speed, tempo, record player, vinyl, tape, key lock, nightcore, slowed</string>
 </resources>

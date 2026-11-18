@@ -65,7 +65,8 @@ class VarispeedTest {
         assertTrue("rememberPreference(VarispeedKey, defaultValue = false)" in dialog)
         assertTrue("Varispeed.parameters(tempo, transposeValue, linked)" in dialog)
         assertTrue("if (!linked) ValueAdjuster(" in dialog)
-        assertFalse("the dialog still builds its own parameters", "PlaybackParameters(" in dialog)
+        // A constructor call, not updatePlaybackParameters(), which goes through Varispeed.parameters.
+        assertFalse("the dialog still builds its own parameters", Regex("""(?<![A-Za-z])PlaybackParameters\(""").containsMatchIn(dialog))
         // The speed row is drawn whatever the switch says.
         assertEquals(2, Regex("""ValueAdjuster\(""").findAll(dialog).count())
         assertTrue("values = TEMPO_STEPS," in dialog)
