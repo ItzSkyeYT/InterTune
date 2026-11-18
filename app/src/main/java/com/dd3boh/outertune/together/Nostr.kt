@@ -200,6 +200,13 @@ class RelayPool(
                 val message = runCatching { Json.parseToJsonElement(text) as JsonArray }.getOrNull() ?: return
                 if (message.size >= 3 && message[0].jsonPrimitive.content == "EVENT") {
                     val event = (message[2] as? JsonObject)?.let(NostrEvent::parse) ?: return
+                    // Every relay passes each event on: a copy of one already taken is not checked again.
+                    if (event.id in seen) return
+                    // Only what its author signed, as itself: a relay could resend any member's sealed word under a new
+                    // id or another key, and a suggestion was queued again, a proposal asked again, someone gone kept on
+                    // the list (review of 0.13, 18 Nov 2026). Before it is remembered, so a forged copy cannot shut
+                    // out the real one.
+                    if (!event.valid()) return
                     if (remember(event.id)) _events.tryEmit(event)
                 } else if (message.isNotEmpty() && message[0].jsonPrimitive.content == "NOTICE") {
                     Log.i(TAG, "$url says: ${message.getOrNull(1)?.jsonPrimitive?.content}")

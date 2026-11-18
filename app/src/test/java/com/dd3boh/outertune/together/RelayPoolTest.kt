@@ -7,8 +7,12 @@
 package com.dd3boh.outertune.together
 
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import okhttp3.Protocol
 import okhttp3.Request
@@ -22,6 +26,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
 import java.io.IOException
+import java.util.Collections
 
 /**
  * Leaving a room closed the relays already connected, but one still connecting was not among them: it opened a moment
@@ -99,6 +104,41 @@ class RelayPoolTest {
         assertEquals("the stop left a reconnect waiting", 0, job.children.count { it.isActive })
         Thread.sleep(1_300)  // past the first reconnect's second
         assertEquals("a relay was asked again after the stop", 1, relays.made.size)
+        job.cancel()
+    }
+
+    @Test
+    fun `only events their author signed are taken, each once`() {
+        val relays = Relays()
+        val job = SupervisorJob()
+        val scope = CoroutineScope(job + Dispatchers.Unconfined)
+        val pool = RelayPool(listOf("wss://one.example"), buildJsonObject {}, relays, scope)
+        val got = Collections.synchronizedList(mutableListOf<NostrEvent>())
+        scope.launch(start = CoroutineStart.UNDISPATCHED) { pool.events.collect { got += it } }
+        pool.start()
+        val (socket, listener) = relays.made.single()
+        listener.onOpen(socket, opened(socket))
+        fun relayed(e: NostrEvent) = listener.onMessage(socket, buildJsonArray { add(JsonPrimitive("EVENT")); add(JsonPrimitive("room")); add(e.toJson()) }.toString())
+
+        val word = NostrEvent.signed(Secp256k1.newSecretKey(), TogetherMessage.KIND, listOf(listOf("t", "tag")), "sealed")
+        // a relay's forgeries: the same id over other content, a new time with the id made again but the old signature,
+        // and the word passed off as someone else's
+        val forgedSameId = word.copy(content = "other")
+        val later = word.createdAt + 60
+        val newId = Secp256k1.sha256(NostrEvent.serialize(word.pubkey, later, word.kind, word.tags, word.content).toByteArray()).toHex()
+        val replayed = word.copy(id = newId, createdAt = later)
+        val other = Secp256k1.publicKey(Secp256k1.newSecretKey()).toHex()
+        val otherKey = word.copy(
+            pubkey = other,
+            id = Secp256k1.sha256(NostrEvent.serialize(other, word.createdAt, word.kind, word.tags, word.content).toByteArray()).toHex(),
+        )
+        for (forged in listOf(forgedSameId, replayed, otherKey)) relayed(forged)
+        assertEquals("a forged event was taken", emptyList<NostrEvent>(), got.toList())
+        // the real one still comes through after a forgery under its id, and once however many relays pass it on
+        relayed(word)
+        relayed(word)
+        assertEquals(listOf(word), got.toList())
+        pool.stop()
         job.cancel()
     }
 
