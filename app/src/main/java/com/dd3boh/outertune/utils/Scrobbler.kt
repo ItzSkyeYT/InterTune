@@ -10,6 +10,7 @@ import com.dd3boh.outertune.constants.LastFmUsernameKey
 import com.dd3boh.outertune.constants.PauseListenHistoryKey
 import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.playback.ListenReporting
+import com.dd3boh.outertune.playback.ListenRules
 import android.content.Context
 import androidx.datastore.preferences.core.edit
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -101,7 +102,8 @@ class Scrobbler @Inject constructor(
     ) {
         val session = sessionOrNull() ?: return
         val duration = durationSeconds
-        if (!LastFm.qualifies(playedMs, duration)) return
+        // One rule for Last.fm and ListenBrainz, so a play does not count for one and not the other.
+        if (!ListenRules.qualifies(playedMs, duration)) return
         val artist = primaryArtist(metadata.artists.map { it.name }) ?: return
         api.scrobble(
             sessionKey = session,

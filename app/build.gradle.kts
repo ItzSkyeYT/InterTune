@@ -419,6 +419,8 @@ dependencies {
     implementation(project(":kugou"))
     implementation(project(":lrclib"))
     implementation(project(":lastfm"))
+    // Scrobbling in place of Last.fm, held back for now: Unreleased.LISTENBRAINZ.
+    implementation(project(":listenbrainz"))
     implementation(libs.work)
 
     testImplementation(libs.junit)
