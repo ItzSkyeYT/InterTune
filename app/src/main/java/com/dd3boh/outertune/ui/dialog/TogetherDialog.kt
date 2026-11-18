@@ -111,6 +111,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -124,6 +125,7 @@ import androidx.compose.ui.text.input.TransformedText
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
@@ -817,12 +819,13 @@ private fun SongRow(cover: String?, title: String, artist: String?) {
 }
 
 /**
- * How far this phone is from the host: a dot on a line, behind to the left and ahead to the right,
- * on a square-root scale so that the few ms that matter show and 400 ms reaches the end. The band
- * in the middle is in step, and the dot takes the main colour inside it.
+ * How far this phone is from the host: a dot on a line, behind on the side "Behind" is written (the left, or the right
+ * in a right-to-left language) and ahead on the other, on a square-root scale so that the few ms that matter show and
+ * 400 ms reaches the end. The band in the middle is in step, and the dot takes the main colour inside it.
  */
 @Composable
 private fun SyncMeter(driftMs: Long?, locked: Boolean, toleranceMs: Long) {
+    val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
     // Locked, it is in step by its own measure: it leaves gaps within the tolerance be.
     val inStep = driftMs != null && (locked || abs(driftMs) <= IN_STEP_MS)
     val dot by animateColorAsState(
@@ -858,7 +861,7 @@ private fun SyncMeter(driftMs: Long?, locked: Boolean, toleranceMs: Long) {
             val bandHalf = reach * meterPlace(toleranceMs)
             drawLine(band, Offset(half - bandHalf, y), Offset(half + bandHalf, y), strokeWidth = 10.dp.toPx(), cap = StrokeCap.Round)
             drawLine(tick, Offset(half, y - 6.dp.toPx()), Offset(half, y + 6.dp.toPx()), strokeWidth = 1.5.dp.toPx())
-            if (driftMs != null) drawCircle(dot, radius = 6.dp.toPx(), center = Offset(half - place * reach, y))
+            if (driftMs != null) drawCircle(dot, radius = 6.dp.toPx(), center = Offset(half + meterX(place, rtl) * reach, y))
         }
         Row(Modifier.fillMaxWidth()) {
             Text(
@@ -1167,6 +1170,13 @@ fun phoneName(context: Context): String {
 /** Up to two letters for someone's circle: the first of each of the first two words of their phone's name. */
 internal fun initials(name: String): String =
     name.split(' ', '_', '-').filter { it.isNotBlank() }.take(2).joinToString("") { it.first().uppercase() }.ifEmpty { "?" }
+
+/**
+ * Where the meter's dot sits for [place] (meterPlace), from -1 at the left end to 1 at the right: behind on the side
+ * "Behind" is written. A Canvas does not turn round with a right-to-left layout as the words under it do, and in Arabic,
+ * Hebrew or Persian a phone behind showed its dot under "Ahead" (review of 0.13, 18 Nov 2026).
+ */
+internal fun meterX(place: Float, rtl: Boolean): Float = if (rtl) place else -place
 
 /** Where a gap sits on the meter, from -1 to 1 (positive: behind): the square root of its share of 400 ms. */
 internal fun meterPlace(driftMs: Long): Float {
