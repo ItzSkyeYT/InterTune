@@ -1257,8 +1257,9 @@ class MusicService : MediaLibraryService(),
         super.onCreate()
         isRunning = true
         instance = WeakReference(this)
-        // For the guard of a media button's start: Android's time for the first start of a service
-        // created with its process has run since the process began (MediaButtonStart.guardDelayMs).
+        // For the guard of a media button's start from outside the app: Android's time for the first
+        // start of a service created with its process has run since the process began
+        // (MediaButtonStart.sinceStart). The app's own starts carry the moment they were handed on.
         processStartedAt = android.os.Process.getStartUptimeMillis()
         createdAt = SystemClock.uptimeMillis()
         // media3 writes this under its own name only, which Report a problem leaves out, and it is
@@ -6630,7 +6631,7 @@ class MusicService : MediaLibraryService(),
     /** The plain notification is up, holding the foreground for a media button's start. */
     private var holdingForMediaButton = false
 
-    /** When the app's process started and when this service was created, in uptime ([MediaButtonStart.sinceColdStart]). */
+    /** When the app's process started and when this service was created, in uptime ([MediaButtonStart.sinceStart]). */
     private var processStartedAt = 0L
     private var createdAt = 0L
 
@@ -6656,8 +6657,11 @@ class MusicService : MediaLibraryService(),
      *
      * With a song in the player media3 plays and shows at once, so nothing is held: the guard
      * alone looks again, after a play press, in case the song did not start.
+     *
+     * [handedAt] is when the app handed Android this start, if it did (MediaButtonStart.markHanded):
+     * Android's time runs from there, not from the process's start.
      */
-    private fun holdForegroundForMediaButton(key: Int?) {
+    private fun holdForegroundForMediaButton(key: Int?, handedAt: Long?) {
         // Already seen to.
         if (mediaButtonPending || foregroundNow()) return
         val hasSong = ::player.isInitialized && player.mediaItemCount > 0
@@ -6672,9 +6676,8 @@ class MusicService : MediaLibraryService(),
         holdingForMediaButton = false
         mediaButtonHandler.removeCallbacks(mediaButtonLetGo)
         val held = !hasSong && Build.VERSION.SDK_INT < Build.VERSION_CODES.S && holdForeground()
-        val sinceProcessStart = if (!firstStart) null
-            else MediaButtonStart.sinceColdStart(processStartedAt, createdAt, SystemClock.uptimeMillis())
-        mediaButtonHandler.postDelayed(mediaButtonGuard, MediaButtonStart.guardDelayMs(Build.VERSION.SDK_INT, held, sinceProcessStart))
+        val sinceStart = MediaButtonStart.sinceStart(handedAt, firstStart, processStartedAt, createdAt, SystemClock.uptimeMillis())
+        mediaButtonHandler.postDelayed(mediaButtonGuard, MediaButtonStart.guardDelayMs(Build.VERSION.SDK_INT, held, sinceStart))
     }
 
     /**
@@ -6889,7 +6892,7 @@ class MusicService : MediaLibraryService(),
         // way since it cannot be told apart. No intent at all is Android bringing the service back
         // after the app's process died, with what the old process still owed it.
         if (intent == null) settleAfterRestart()
-        else if (intent.action == Intent.ACTION_MEDIA_BUTTON) holdForegroundForMediaButton(MediaButtonStart.keyOf(intent))
+        else if (intent.action == Intent.ACTION_MEDIA_BUTTON) holdForegroundForMediaButton(MediaButtonStart.keyOf(intent), MediaButtonStart.handedAtOf(intent, flags))
         // Only the start the service was created for began with the process.
         firstStart = false
         return super.onStartCommand(intent, flags, startId)

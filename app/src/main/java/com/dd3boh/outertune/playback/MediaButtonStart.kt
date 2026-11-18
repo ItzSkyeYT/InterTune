@@ -9,9 +9,11 @@ package com.dd3boh.outertune.playback
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import android.os.SystemClock
 import android.view.KeyEvent
 import androidx.core.app.NotificationCompat
 import androidx.core.content.IntentCompat
@@ -70,25 +72,72 @@ internal object MediaButtonStart {
     }
 
     /**
-     * How long from now until the guard looks, [guardMs] counted from the start of the app's
-     * process when the service started with it ([sinceProcessStartMs], null for a service that was
-     * running already). Android's time for a cold start runs from when the new process reports in,
-     * before Application.onCreate and the service's onCreate, and on a slow phone those can take
-     * seconds of it: counted from onStartCommand, the look could come after Android's limit
-     * (#184, #195, #204, #208, #216 had no caller in their trace). Never sooner than [MIN_LOOK_MS].
+     * How long from now until the guard looks: [guardMs], as it always was, unless the part of the
+     * start that Android counts took so long that this look would come less than
+     * [LOOK_BEFORE_LIMIT_MS] before Android's limit. Then it comes that long before the limit, and
+     * never sooner than [MIN_LOOK_MS] from now. [sinceStartMs] is how much of Android's time had
+     * gone when the service saw the press ([sinceStart]), null when that cannot be told.
+     *
+     * On a slow phone the service's own start can take seconds of Android's time, and counted from
+     * onStartCommand alone the look could come after the limit (#184, #195, #204, #208, #216 had no
+     * caller in their trace). A start of up to 2 s (7 s from Android 13) is looked at exactly as
+     * before: what the app does before it hands Android the start (Application.onCreate, the media
+     * button receiver reading the saved queue) is not counted, since Android does not count it.
+     * Counted from the process's start, that time pulled the look in, on Android 12 and 12L to as
+     * little as 1 s after the press, and a saved queue not read by then was given up. Android 8,
+     * with 5 s in all, holds the foreground at the press; its guard looks unheld only when that failed.
      */
-    fun guardDelayMs(sdk: Int, held: Boolean, sinceProcessStartMs: Long?): Long {
+    fun guardDelayMs(sdk: Int, held: Boolean, sinceStartMs: Long?): Long {
         val full = guardMs(sdk, held)
-        if (held || sinceProcessStartMs == null) return full
-        return (full - sinceProcessStartMs.coerceAtLeast(0L)).coerceAtLeast(MIN_LOOK_MS)
+        if (held || sinceStartMs == null) return full
+        val beforeLimit = limitMs(sdk) - LOOK_BEFORE_LIMIT_MS - sinceStartMs.coerceAtLeast(0L)
+        return minOf(full, beforeLimit.coerceAtLeast(MIN_LOOK_MS))
     }
 
-    /** The guard's earliest look after a cold start, so media3 has a moment for the press. */
+    /** The latest the guard looks after a slow start, before Android's limit ([guardDelayMs]). */
+    const val LOOK_BEFORE_LIMIT_MS = 3_000L
+
+    /** The guard's earliest look after a slow start, so media3 has a moment for the press. */
     const val MIN_LOOK_MS = 1_000L
 
     /**
+     * How much of Android's time for this start had gone by [now], when it can be told: from
+     * [handedAt], when the app handed Android the start itself ([EXTRA_HANDED_AT]: the media button
+     * receiver, and the widget with the player running), or else, for the first start of a
+     * service created with its process, from the process's start ([sinceColdStart]): a start from
+     * outside the app that brought the process up with it, which Android counts from when the new
+     * process reports in. Null for any other start, which is counted from now. Times in uptime.
+     */
+    fun sinceStart(handedAt: Long?, firstStart: Boolean, processStartedAt: Long, serviceCreatedAt: Long, now: Long): Long? = when {
+        handedAt != null -> (now - handedAt).coerceAtLeast(0L)
+        firstStart -> sinceColdStart(processStartedAt, serviceCreatedAt, now)
+        else -> null
+    }
+
+    /**
+     * Put on a media button's start by the app as it hands the start to Android ([markHanded]):
+     * the uptime of that moment, which is when Android's time for the start begins.
+     */
+    const val EXTRA_HANDED_AT = "media_button_handed_at"
+
+    /** [intent], marked with now as the moment the app hands it to Android ([EXTRA_HANDED_AT]). */
+    fun markHanded(intent: Intent): Intent = intent.putExtra(EXTRA_HANDED_AT, SystemClock.uptimeMillis())
+
+    /**
+     * When the app handed Android this start ([markHanded]); null for a start from outside the app.
+     * Null as well for a start Android delivers again ([flags] START_FLAG_RETRY or
+     * START_FLAG_REDELIVERY): the app's process died before the service had taken it, and Android
+     * starts its time again when it hands the start to the new process, so the service counts from
+     * that process's start instead ([sinceStart]).
+     */
+    fun handedAtOf(intent: Intent?, flags: Int): Long? {
+        if (flags and (Service.START_FLAG_RETRY or Service.START_FLAG_REDELIVERY) != 0) return null
+        return runCatching { intent?.takeIf { it.hasExtra(EXTRA_HANDED_AT) }?.getLongExtra(EXTRA_HANDED_AT, 0L) }.getOrNull()
+    }
+
+    /**
      * How long since the app's process started, for the guard of the first start of a service
-     * created with its process ([guardDelayMs]); null when the service was not, or when this start
+     * created with its process ([sinceStart]); null when the service was not, or when this start
      * came long after its creation (a service a screen had bound and a press that came later).
      * All three times in uptime.
      */

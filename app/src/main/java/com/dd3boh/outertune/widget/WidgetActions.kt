@@ -21,6 +21,7 @@ import com.dd3boh.outertune.MainActivity
 import com.dd3boh.outertune.extensions.metadata
 import com.dd3boh.outertune.extensions.toggleShuffleMode
 import com.dd3boh.outertune.models.MediaMetadata
+import com.dd3boh.outertune.playback.MediaButtonStart
 import com.dd3boh.outertune.playback.MusicService
 import com.dd3boh.outertune.playback.ResumingMediaButtonReceiver
 import com.dd3boh.outertune.playback.turnLike
@@ -55,7 +56,10 @@ object WidgetCommands {
         val sent = runCatching {
             if (MusicService.isRunning) {
                 intent.component = ComponentName(context, MusicService::class.java)
-                if (startsPlayback) ContextCompat.startForegroundService(context, intent)
+                // With the moment it is handed to Android, which the player's guard counts from
+                // (MediaButtonStart.sinceStart), and not from the app's start: a player that a
+                // screen brought up moments before is not a cold start.
+                if (startsPlayback) ContextCompat.startForegroundService(context, MediaButtonStart.markHanded(intent))
                 // Refused in the background once the service has left the foreground; the catch
                 // below then opens the app instead.
                 else context.startService(intent)
