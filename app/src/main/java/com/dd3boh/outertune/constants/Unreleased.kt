@@ -1051,4 +1051,16 @@ object Unreleased {
      * Metrolist 14.0 backup over on the emulator (15 Nov 2026), so on for everyone in 0.13 (his yes of 14 Nov 2026).
      */
     val METROLIST_IMPORT = true
+
+    /**
+     * Living blur's aura as a thin rim round the cover (issue #215, asked for on 16 Nov 2026: "make the rim
+     * thickness 40% what it is now, and make the rim intensity somewhat stronger"): the aura stands at 40% of its
+     * reach, stronger, and is made of points close enough together to run into one band (LivingField.rim). The
+     * soft aura it replaces has a point for each patch on the grid's edge, three along a phone's cover top, and
+     * at 40% of their size those would be three dots. The strength slider still takes it further on a kick.
+     *
+     * Without it the aura is the soft one, as before. It has no texts. When it is agreed: set this to true and
+     * add its name to ReleasedFlagsTest, or delete it with the one check that reads it, in LivingBackground.kt.
+     */
+    val LIVING_RIM_THIN = BuildConfig.PREVIEW_FEATURES
 }
