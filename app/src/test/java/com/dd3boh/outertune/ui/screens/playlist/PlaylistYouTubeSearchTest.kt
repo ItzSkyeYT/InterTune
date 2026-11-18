@@ -7,6 +7,13 @@
 package com.dd3boh.outertune.ui.screens.playlist
 
 import com.dd3boh.outertune.constants.SearchSource
+import com.dd3boh.outertune.models.ArtistBlock
+import com.dd3boh.outertune.models.BlockedArtist
+import com.dd3boh.outertune.models.ContentFilter
+import com.zionhuang.innertube.models.Artist
+import com.zionhuang.innertube.models.SongItem
+import com.zionhuang.innertube.models.WatchEndpoint.WatchEndpointMusicSupportedConfigs.WatchEndpointMusicConfig.Companion.MUSIC_VIDEO_TYPE_ATV
+import com.zionhuang.innertube.models.WatchEndpoint.WatchEndpointMusicSupportedConfigs.WatchEndpointMusicConfig.Companion.MUSIC_VIDEO_TYPE_OMV
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -134,6 +141,33 @@ class PlaylistYouTubeSearchTest {
         val params = code("ui/screens/playlist/PlaylistYouTubeSearch.kt")
             .substringAfter("fun LazyListScope.playlistYouTubeResults(").substringBefore(") {")
         assertTrue(params, listOf("inSelectMode", "onSelect", "selection").none { it in params })
+    }
+
+    @Test
+    fun `YouTube Music's songs leave out what the main search hides, and at once after a block from their menu`() {
+        // Found 18 Nov 2026: with an artist blocked, searching the name listed the artist's songs with +, and + put
+        // in a row the playlist never shows (withoutBlocked), so the + was back at each visit. The empty playlist's
+        // add search, which shares this list, had the same gap.
+        val model = code("viewmodels/LocalPlaylistViewModel.kt")
+        val watch = model.substringAfter("private fun watchAddQuery() {").substringBefore("\n    fun addSong(")
+        assertTrue(watch, "addSent = result?.items?.filterIsInstance<SongItem>().orEmpty().distinctBy { it.id }" in watch)
+        assertTrue(watch, "_addResults.value = ContentFilter.current.apply(addSent)" in watch)
+        // Block artist is in a song's three dots: its songs leave the list then, as in the main search.
+        assertTrue(watch, "ContentFilter.changes.drop(1).collect { filter -> _addResults.value = filter.apply(addSent) }" in watch)
+        // Nothing reaches the list another way.
+        val assigned = Regex("""_addResults\.value = (.+)""").findAll(model).map { it.groupValues[1] }.toSet()
+        assertEquals(setOf("emptyList()", "ContentFilter.current.apply(addSent)", "filter.apply(addSent) }"), assigned)
+        // As the main search filters its results.
+        assertTrue("ContentFilter.current.apply(sent.items)" in code("viewmodels/OnlineSearchViewModel.kt"))
+
+        // What that leaves out: the blocked artist's songs, and explicit and video songs while the switches say so.
+        val x = BlockedArtist(id = "UCx", name = "X", at = 1L)
+        fun song(id: String, by: Artist = Artist("A", "UCa"), explicit: Boolean = false, type: String? = MUSIC_VIDEO_TYPE_ATV) =
+            SongItem(id = id, title = id, artists = listOf(by), thumbnail = "", explicit = explicit, musicVideoType = type)
+        val sent = listOf(song("byX", by = Artist("X", "UCx")), song("explicit", explicit = true), song("video", type = MUSIC_VIDEO_TYPE_OMV), song("kept"))
+        val filter = ContentFilter(explicit = true, videoSongs = true, blocked = ArtistBlock(listOf(x)))
+        assertEquals(listOf("kept"), filter.apply(sent).map { it.id })
+        assertEquals(sent, ContentFilter().apply(sent))
     }
 
     @Test
