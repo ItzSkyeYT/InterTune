@@ -2691,4 +2691,5 @@
     <string name="metrolist_import_too_old">Cette sauvegarde vient d\'InnerTune ou d\'un ancien Metrolist. Restaurer prend celles d\'InnerTune ; pour Metrolist, mettez-le à jour et faites une nouvelle sauvegarde.</string>
     <string name="metrolist_import_other_file">Choisir un autre fichier</string>
     <string name="metrolist_import_failed">Impossible de lire cette sauvegarde</string>
+    <string name="err_download_not_on_phone">Ce titre est marqué comme téléchargé, mais son fichier manque ou est incomplet sur ce téléphone. Téléchargez-le à nouveau une fois en ligne.</string>
 </resources>

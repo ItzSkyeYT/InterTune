@@ -64,6 +64,7 @@ import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.ResolvingDataSource
 import androidx.media3.datasource.cache.CacheDataSource
 import androidx.media3.datasource.cache.CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR
+import androidx.media3.datasource.cache.ContentMetadata
 import androidx.media3.datasource.cache.SimpleCache
 import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.DefaultLoadControl
@@ -3459,7 +3460,9 @@ class MusicService : MediaLibraryService(),
          */
         fun resolve(mediaId: String, position: Long, length: Long, ahead: Boolean = false): ResolvedSong {
             val said = if (ahead) "AHEAD" else "PLAYING"
-            Log.i(TAG, "$said: song id = $mediaId")
+            // Where in the song the read starts: a read begun near the end found a song kept on the
+            // phone wanting, and nothing in the log said so (#179).
+            Log.i(TAG, if (position > 0L) "$said: song id = $mediaId, from byte $position" else "$said: song id = $mediaId")
 
             val queued = queueBoard.getCurrentQueue()?.findSong(mediaId)
             // in the case of resumption, queueBoard may not be ready yet
@@ -3576,6 +3579,19 @@ class MusicService : MediaLibraryService(),
         }
 
         /**
+         * What a song the app counts as downloaded failed with when the player could not read it from
+         * the phone and there was no network to fetch it from ([failure]): see DownloadNotOnPhone. Says
+         * in the log which of its causes it is, read from the download cache and the download folders.
+         */
+        private fun downloadNotOnPhone(mediaId: String, position: Long, failure: Throwable, said: String): DownloadNotOnPhone {
+            val length = runCatching { ContentMetadata.getContentLength(downloadCache.getContentMetadata(mediaId)) }.getOrDefault(C.LENGTH_UNSET.toLong())
+            val held = runCatching { downloadCache.getCachedBytes(mediaId, 0, C.LENGTH_UNSET.toLong()) }.getOrDefault(0L)
+            val inFolder = runCatching { downloadUtil.localMgr.isExists(mediaId)?.exists() == true }.getOrDefault(false)
+            Log.w(TAG, "$said: ${DownloadNotOnPhone.said(mediaId, position, held, length, inFolder)}")
+            return DownloadNotOnPhone(failure)
+        }
+
+        /**
          * The song's stream fetched from YouTube, its row and its address kept, with what a copy
          * already here needs done about it: [staleQuality] and [partialCopy] as [resolve] found
          * them, for a read from [position]. [said] names the resolve in the log, AHEAD or PLAYING.
@@ -3619,7 +3635,14 @@ class MusicService : MediaLibraryService(),
                 val error = when (throwable) {
                     is PlaybackException -> throwable
 
-                    is ConnectException, is UnknownHostException -> PlaybackException(
+                    // A song counted as downloaded comes here only when the phone has not got what the
+                    // player asked for: said so, not "No network connection", which was true and told
+                    // nothing (#179). Still a network failure, so the network is waited for as before.
+                    is ConnectException, is UnknownHostException -> if (downloadUtil.isDownloaded(mediaId)) PlaybackException(
+                        getString(R.string.err_download_not_on_phone),
+                        downloadNotOnPhone(mediaId, position, throwable, said),
+                        PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED
+                    ) else PlaybackException(
                         getString(R.string.error_no_internet),
                         throwable,
                         PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED

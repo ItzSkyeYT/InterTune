@@ -67,6 +67,7 @@ import com.dd3boh.outertune.utils.rememberEnumPreference
 import com.dd3boh.outertune.utils.Throttle
 import com.dd3boh.outertune.utils.YTPlayerUtils
 import com.dd3boh.outertune.playback.StreamAnswer
+import com.dd3boh.outertune.playback.DownloadNotOnPhone
 import com.dd3boh.outertune.LocalPlayerConnection
 import com.dd3boh.outertune.utils.installedFrom
 import android.widget.Toast
@@ -135,6 +136,9 @@ fun ThumbnailPlaybackError(
     // And what came back not being audio at all ("Source error (3003): None of the available
     // extractors ... could read the stream"): said plainly, with what usually causes it.
     val isNotAudio = remember(error) { ErrorText.isNotAudio(error) }
+    // And a song counted as downloaded that is not all there on the phone, offline: it said "No
+    // network connection", which was true and told nothing (#179).
+    val isDownloadNotOnPhone = remember(error) { DownloadNotOnPhone.isIt(error) }
 
     var showStackTrace by remember { mutableStateOf(false) }
     var reporting by remember { mutableStateOf(false) }
@@ -167,6 +171,8 @@ fun ThumbnailPlaybackError(
                     stringResource(R.string.err_song_unavailable)
                 } else if (isNotAudio) {
                     stringResource(R.string.err_not_audio)
+                } else if (isDownloadNotOnPhone) {
+                    stringResource(R.string.err_download_not_on_phone)
                 } else {
                     // What the error says of itself goes through ErrorText, here and below: a
                     // connection that failed names the phone's own address, and this screen is
