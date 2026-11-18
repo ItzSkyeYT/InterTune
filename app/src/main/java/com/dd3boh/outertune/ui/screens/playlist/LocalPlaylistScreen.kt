@@ -750,7 +750,10 @@ fun LocalPlaylistScreen(
                                 modifier = Modifier.weight(1f)
                             )
 
-                            if (editable && !(inSelectMode || isSearching)) {
+                            // Only in the order of your own, which is what the lock is for: with another order picked the
+                            // rows are not dragged at all, and the lock could be tapped and did nothing (15 Nov 2026). The
+                            // Library's lists hide theirs the same way.
+                            if (editable && sortType == PlaylistSongSortType.CUSTOM && !(inSelectMode || isSearching)) {
                                 IconButton(
                                     onClick = { locked = !locked },
                                     modifier = Modifier.padding(horizontal = 6.dp)

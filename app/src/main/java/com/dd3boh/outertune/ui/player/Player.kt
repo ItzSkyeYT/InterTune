@@ -1778,6 +1778,9 @@ fun BottomSheetPlayer(
                     slots = if (seekIncrement != SeekIncrement.OFF) 6 else 4,
                     gutter = hPadding,
                 )
+                // The cover is the size the phone shows it upright and no bigger, see landscapeCoverSide.
+                // The controls beside it keep their column, so nothing but the cover changes.
+                val coverSide = landscapeCoverSide(LocalConfiguration.current.smallestScreenWidthDp.dp)
                 Row(modifier = Modifier.fillMaxSize()) {
                     // The queue sheet's peek is reserved on the controls column alone, not on this
                     // Row. The arrow is horizontally centred on the window, well clear of the
@@ -1799,6 +1802,7 @@ fun BottomSheetPlayer(
                                     .animateContentSize(),
                                 showLyricsOnClick = true,
                                 customMediaMetadata = mediaMetadata,
+                                maxSide = coverSide,
                                 lyricsBottomPadding = queueClearance,
                                 onSignIn = leaveForSignIn,
                                 onProxy = leaveForProxy,
@@ -1819,6 +1823,7 @@ fun BottomSheetPlayer(
                                         .animateContentSize(),
                                     showLyricsOnClick = true,
                                     customMediaMetadata = it,
+                                    maxSide = coverSide,
                                     lyricsBottomPadding = queueClearance,
                                     onSignIn = leaveForSignIn,
                                     onProxy = leaveForProxy,
@@ -2178,6 +2183,19 @@ internal fun landscapeControlsWidth(available: Dp, playButton: Dp, slots: Int, g
     val needed = LandscapeTransportSlot * slots + playButton + PlayButtonGap * 2 + gutter * 2
     return (available / 2).coerceAtLeast(needed).coerceAtMost(available * 0.62f)
 }
+
+/**
+ * The side of the cover on a phone on its side: the cover the same phone shows upright, which is
+ * the screen's short side less the player's gutter on either side.
+ *
+ * On its side the cover took all the height the window had, all but 16dp above and below, where
+ * upright it has 32dp of margin all round, and beside the controls it looked huge (15 Nov 2026).
+ * It is held to this, and to the room it is given if that is less. Where the strip of covers that
+ * swipes to skip is on, it already came out at this size, by the 16dp that strip adds above and
+ * below, and it still does.
+ */
+internal fun landscapeCoverSide(shortSide: Dp, gutter: Dp = PlayerHorizontalPadding): Dp =
+    (shortSide - gutter * 2).coerceAtLeast(0.dp)
 
 /**
  * Whether some queue list is genuinely on screen right now, i.e. whether the adaptive queue must

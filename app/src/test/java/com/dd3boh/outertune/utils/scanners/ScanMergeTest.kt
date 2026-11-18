@@ -133,4 +133,23 @@ class ScanMergeTest {
     fun `with every folder listed nothing is covered`() {
         assertFalse(ScanMerge.coveredByUnlistedRoot("/storage/emulated/0/Music/a.flac", emptyList()))
     }
+
+    @Test
+    fun `songs under a folder MediaStore had nothing for stay, and a song it says is gone does not`() {
+        val card = "/storage/0000-0000/Ad04a"
+        val music = "/storage/emulated/0/Music"
+        val library = listOf("$card/a.mp3", "$music/x.mp3", "$music/gone.mp3")
+        // MediaStore gave x.mp3 for Music, and nothing at all for the folder on the card.
+        val kept = MediaStoreAnswer.foldersToKeep(listOf(card, music), listOf("$music/x.mp3"), library, emptyList())
+        assertTrue(ScanMerge.coveredByUnlistedRoot("$card/a.mp3", kept))
+        assertFalse(ScanMerge.coveredByUnlistedRoot("$music/gone.mp3", kept))
+    }
+
+    @Test
+    fun `when MediaStore gave nothing for any folder, no song of the library is disabled`() {
+        val music = "/storage/emulated/0/Music"
+        val library = listOf("$music/a.mp3", "$music/Sub/b.mp3")
+        val kept = MediaStoreAnswer.foldersToKeep(listOf(music), emptyList(), library, emptyList())
+        library.forEach { assertTrue(it, ScanMerge.coveredByUnlistedRoot(it, kept)) }
+    }
 }

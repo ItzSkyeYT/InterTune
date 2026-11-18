@@ -237,6 +237,11 @@ import com.dd3boh.outertune.playback.queues.Queue
 import com.dd3boh.outertune.playback.queues.YouTubeQueue
 import com.dd3boh.outertune.together.TogetherSession
 import com.dd3boh.outertune.together.RoomCode
+import com.dd3boh.outertune.together.RoomMemory
+import com.dd3boh.outertune.together.hexToBytes
+import com.dd3boh.outertune.ui.dialog.togetherAvailable
+import com.dd3boh.outertune.ui.dialog.togetherName
+import com.dd3boh.outertune.ui.dialog.togetherRelays
 import com.dd3boh.outertune.utils.PhoneState
 import com.dd3boh.outertune.utils.SoundRoute
 import com.dd3boh.outertune.utils.SessionBitmapLoader
@@ -510,26 +515,87 @@ class MusicService : MediaLibraryService(),
     /** A listening room while one lasts (together/TogetherSession), null otherwise. */
     val together = MutableStateFlow<TogetherSession?>(null)
 
-    /** Opens a room, hosting or following, in place of any already open. Main thread. */
-    fun startTogether(code: RoomCode, owner: Boolean, relays: List<String>, name: String): TogetherSession {
+    /** The room this phone is in, kept so that it comes back: see [RoomMemory]. */
+    private val roomMemory by lazy { RoomMemory(File(noBackupFilesDir, RoomMemory.FILE)) }
+    private var roomTouchedAt = 0L
+
+    /** A room that is on says so every few seconds: remembered as alive, at most once a minute. */
+    fun roomAlive() {
+        val now = System.currentTimeMillis()
+        if (now - roomTouchedAt < 60_000L) return
+        roomTouchedAt = now
+        roomMemory.touch(now)
+    }
+
+    /**
+     * Opens a room, hosting or following, in place of any already open. Main thread. Null on a service that has
+     * stopped: a room made there is held by nothing and stopped by nothing (onDestroy has run), and went on saying it
+     * was the host to a screen that was no longer there. The app keeps the stopped service for a moment after it comes
+     * back from another app (PlayerConnection.isAlive), and a tap on Start in that moment made one (15 Nov 2026).
+     *
+     * [identity] is the key a room that comes back signs with, the same as before (RoomMemory).
+     */
+    fun startTogether(
+        code: RoomCode,
+        owner: Boolean,
+        relays: List<String>,
+        name: String,
+        moving: Boolean = false,
+        identity: ByteArray? = null,
+    ): TogetherSession? {
+        if (destroyed) {
+            Log.w(TAG, "No room is made on a service that has stopped")
+            return null
+        }
         // Already in this very room (an invite to it opened again): it stays as it is, not joined a second time.
         together.value?.takeIf { it.code == code }?.let { return it }
-        together.value?.stop()
-        return TogetherSession(this, code, owner, relays, name).also {
-            together.value = it
-            it.start()
-        }
+        // Another room in its place: the one it replaces ends, and an owner's says so. Not when the room carries on under
+        // a new code (moveTogether): its people have moved with it.
+        together.value?.let { if (moving) it.stop() else it.closeNow() }
+        val session = if (identity != null) TogetherSession(this, code, owner, relays, name, identity)
+        else TogetherSession(this, code, owner, relays, name)
+        together.value = session
+        session.start()
+        roomTouchedAt = System.currentTimeMillis()
+        roomMemory.save(code, owner, session.identityHex, roomTouchedAt)
+        return session
     }
 
     /** The room carries on under [code], each phone as it was: what its owner does after sending someone out. */
     fun moveTogether(code: RoomCode) {
         val room = together.value ?: return
-        startTogether(code, room.owner, room.relays, room.name)
+        startTogether(code, room.owner, room.relays, room.name, moving = true)
     }
 
+    /** The room is over, by the person's own hand or because it was closed: it is forgotten, and does not come back. */
     fun stopTogether() {
         together.value?.stop()
         together.value = null
+        roomMemory.forget()
+    }
+
+    /** The room stops here with the service and is remembered: the next service joins it again (rejoinSavedRoom). */
+    private fun pauseTogether() {
+        together.value?.stop()
+        together.value = null
+    }
+
+    /**
+     * The room this phone was in comes back with the service: joined again in the same role, the host as the same owner
+     * and a guest as a guest, with nothing asked. Whatever the app gets, the same service, a new one, or a new process
+     * after Android ended the app, finds it here. Not for a room forgotten, or last alive more than six hours ago.
+     */
+    private fun rejoinSavedRoom() {
+        if (!togetherAvailable) return
+        val saved = roomMemory.load(System.currentTimeMillis()) ?: return
+        val code = RoomCode.parse(saved.code) ?: return
+        scope.launch {
+            val relays = togetherRelays(this@MusicService)
+            val name = togetherName(this@MusicService)
+            if (together.value != null || destroyed) return@launch
+            Log.i(TAG, "A room this phone was in comes back, as ${if (saved.owner) "its host" else "a guest"}")
+            startTogether(code, saved.owner, relays, name, identity = saved.identity.hexToBytes())
+        }
     }
 
     private var routedPlayer: RoutedPlayer? = null
@@ -1234,6 +1300,8 @@ class MusicService : MediaLibraryService(),
                 androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED,
             )
         }.onFailure { Log.w(TAG, "Could not listen for the sleep timer's buttons", it) }.isSuccess
+        // A room this phone was in comes back with this service.
+        rejoinSavedRoom()
 
         // The repair scan must never rewrite the loudness of the song that is playing, because
         // after the unknown-loudness fallback an unrepaired track sits at heavy attenuation and
@@ -2984,6 +3052,27 @@ class MusicService : MediaLibraryService(),
             queuesLoadedOnce.complete(Unit)
             Log.i(TAG, "-initQueue()")
         }
+    }
+
+    /**
+     * The queues read again from the database once a scan has run, so that a local song the scan
+     * moved or retagged is the new one in the queue: resolve looks there first for where a file is.
+     *
+     * Nothing is asked of the player. What plays goes on playing: a scan used to pause the music
+     * before it began, as a way of keeping quiet a queue that was about to be read again. Only the
+     * board is built again, as for a new Max queues (initQueue), and the player keeps its own songs
+     * until the queue next loads.
+     *
+     * Not with Persistent queue off. There is nothing saved to read back then, and initQueue would
+     * only empty the board under the music that goes on, leaving no queue for a radio to add its
+     * next songs to or for a song's place to be kept in.
+     */
+    suspend fun refreshQueuesAfterScan() {
+        if (!dataStore.get(PersistentQueueKey, true)) {
+            Log.i(TAG, "A scan is done, and Persistent queue is off: the queues stay as they are")
+            return
+        }
+        initQueue()
     }
 
     /**
@@ -6788,7 +6877,8 @@ class MusicService : MediaLibraryService(),
     }
 
     override fun onDestroy() {
-        stopTogether()
+        // A room is paused with the service, not ended: the next service joins it again.
+        pauseTogether()
         // Checked by playQueue's resolve coroutine each time it resumes: that coroutine belongs to
         // no scope this method cancels (see the comment at its launch site), so this is the only
         // way it can find out the service is gone before touching the queue board or the player.
