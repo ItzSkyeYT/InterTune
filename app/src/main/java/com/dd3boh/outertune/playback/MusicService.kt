@@ -6022,6 +6022,24 @@ class MusicService : MediaLibraryService(),
                 ?.let { runCatching { player.getMediaItemAt(it).mediaId }.getOrNull() }
             sabrAhead.queueAt(player.currentMediaItem?.mediaId, next)
         }
+        // The songs the player has open, the one playing and the next it may read ahead: the downloads
+        // neither move their files nor replace their bytes under it (HeldWhilePlaying). None once it
+        // has let go of its songs: stopped, or failed and waiting to be prepared again.
+        if (events.containsAny(
+                Player.EVENT_MEDIA_ITEM_TRANSITION, EVENT_TIMELINE_CHANGED, Player.EVENT_PLAYBACK_STATE_CHANGED,
+                Player.EVENT_SHUFFLE_MODE_ENABLED_CHANGED, Player.EVENT_REPEAT_MODE_CHANGED,
+            )
+        ) {
+            downloadUtil.playerHas(openSongs(player))
+        }
+    }
+
+    /** The songs [player] has open: none while it is idle, else the one playing and the next. */
+    private fun openSongs(player: Player): Set<String> {
+        if (player.playbackState == Player.STATE_IDLE) return emptySet()
+        val next = player.nextMediaItemIndex.takeIf { it != C.INDEX_UNSET }
+            ?.let { runCatching { player.getMediaItemAt(it).mediaId }.getOrNull() }
+        return setOfNotNull(player.currentMediaItem?.mediaId, next)
     }
 
     /** Whether Data Saver holds this app back on the network in use: nothing is read ahead then. */
@@ -6884,6 +6902,8 @@ class MusicService : MediaLibraryService(),
         // way it can find out the service is gone before touching the queue board or the player.
         destroyed = true
         mediaButtonHandler.removeCallbacksAndMessages(null)
+        // The player lets go of its songs with the service: a move held for one of them is made now.
+        if (::downloadUtil.isInitialized) runCatching { downloadUtil.playerHas(emptySet()) }
         // Back on the phone before anything is saved or released: the queue then saves the
         // receiver's song and position, and the release below reaches the phone's own player.
         castSession?.release()

@@ -142,7 +142,8 @@ class DownloadsSimpleTest {
         // The three ways a download is asked for by hand, each before the song is queued.
         assertEquals(3, Regex("""rememberAskedByHand\(""").findAll(util.substringAfter("fun download(songs: List<MediaMetadata>) {").substringBefore("private val says = DownloadSays(context)")).count())
         val idle = util.substringAfter("override fun onIdle(downloadManager: DownloadManager) {").substringBefore("override fun onDownloadChanged(")
-        assertTrue("after the move, so that it says where the song is", idle.indexOf("migrateDownloads(quiet = true, only = just)") in 0 until idle.indexOf("says.whenDone(just) { localMgr.getFilePathIfExists(it) != null }"))
+        // Not of a song held while it plays: said once it has moved (HeldWhilePlayingTest).
+        assertTrue("after the move, so that it says where the song is", idle.indexOf("migrateDownloads(quiet = true, only = just)") in 0 until idle.indexOf("says.whenDone(just.filterTo(mutableSetOf()) { !inPlay.isHeld(it) }) { localMgr.getFilePathIfExists(it) != null }"))
         assertTrue("with no folder set too", idle.contains("says.whenDone(just) { false }"))
         // Remembered only on the simpler page, and only for songs that were asked for by hand.
         val asked = says.substringAfter("fun asked(").substringBefore("\n    }\n")
