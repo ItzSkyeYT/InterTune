@@ -4870,8 +4870,19 @@ class MusicService : MediaLibraryService(),
      */
     fun updateNotification() {
         val buttons = if (inCar) MediaControlButtons.CAR else MediaControlButtons.layout(mediaControlButtons)
-        mediaSession.setCustomLayout(buttons.map(::mediaControlButton))
+        val layout = buttons.map(::mediaControlButton)
+        // Each send has media3 post the notification anew and the system draw it again, and this
+        // runs on every change to the playing song's row (a play counted, its format found), most
+        // of which change no button. A realme on Android 11 closed the app when its system failed
+        // to draw a notification posted several times in a moment (#206: "Couldn't inflate
+        // contentViews", a ConcurrentModificationException in the system's own drawing).
+        if (layout == sentLayout) return
+        sentLayout = layout
+        mediaSession.setCustomLayout(layout)
     }
+
+    /** The buttons last sent to the session by [updateNotification]. */
+    private var sentLayout: List<CommandButton>? = null
 
     private fun mediaControlButton(button: MediaControlButton): CommandButton {
         val song = currentSong.value
