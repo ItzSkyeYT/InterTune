@@ -6,8 +6,11 @@
 
 package com.dd3boh.outertune.utils
 
+import android.app.LocaleManager
 import android.content.Context
 import android.content.res.Resources
+import android.os.Build
+import android.util.Log
 import com.dd3boh.outertune.constants.ContentCountryKey
 import com.dd3boh.outertune.constants.ContentLanguageKey
 import com.dd3boh.outertune.constants.CountryCodeToName
@@ -69,13 +72,30 @@ object ContentLocale {
     /** The language the app speaks right now, as [context] (an activity, a service, the app) sees it. */
     fun appLocale(context: Context): Locale = context.resources.configuration.locales[0]
 
-    /** The phone's own language and region, which the app's own choice never touches. */
-    fun phoneLocale(): Locale = Resources.getSystem().configuration.locales[0]
+    /**
+     * The phone's own language and region, which the app's own choice never touches. From Android 13
+     * an app with a language of its own is handed that language first everywhere in its process,
+     * the system's resources included (an app set to English on a Dutch phone reads "en, nl-NL"
+     * there, and plain "en" has no country), so the phone's own is asked of LocaleManager, which
+     * leaves the app's choice out. Before 13 the app's choice never reaches the system's resources.
+     */
+    fun phoneLocale(context: Context): Locale {
+        if (Build.VERSION.SDK_INT >= 33) {
+            val phone = context.getSystemService(LocaleManager::class.java)?.systemLocales
+            if (phone != null && !phone.isEmpty) return phone[0]
+        }
+        return Resources.getSystem().configuration.locales[0]
+    }
 
     /** Sets what YouTube is asked in, for an app that speaks [spoken] with the two rows as stored now. */
     fun setUpFor(context: Context, spoken: Locale) {
         val store = context.dataStore
-        YouTube.locale = of(store[ContentLanguageKey], store[ContentCountryKey], spoken, phoneLocale())
+        val phone = phoneLocale(context)
+        YouTube.locale = of(store[ContentLanguageKey], store[ContentCountryKey], spoken, phone)
         KuGou.useTraditionalChinese = traditionalChinese(spoken)
+        Log.i(TAG, "YouTube in ${YouTube.locale.hl}, ${YouTube.locale.gl}: the app speaks ${spoken.toLanguageTag()}, " +
+            "the phone ${phone.toLanguageTag()}, the process ${Resources.getSystem().configuration.locales.toLanguageTags()}")
     }
+
+    private const val TAG = "ContentLocale"
 }

@@ -11,6 +11,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.File
 import java.util.Locale
 
 /**
@@ -74,6 +75,19 @@ class ContentLocaleTest {
         assertEquals("id", ContentLocale.of(null, null, Locale.forLanguageTag("id"), dutchPhone).hl)
         assertEquals("iw", ContentLocale.of(null, null, Locale("iw"), dutchPhone).hl)
         assertEquals("iw", ContentLocale.of(null, null, Locale.forLanguageTag("he"), dutchPhone).hl)
+    }
+
+    @Test
+    fun `the phone's country is read where the app's own language cannot hide it`() {
+        // From Android 13 the app's process, the system's resources included, is handed the app's own
+        // language first: "en, nl-NL" for English on a Dutch phone, and plain "en" has no country, so
+        // read there the phone's country was lost and the charts went to the US fallback.
+        // LocaleManager's systemLocales leaves the app's choice out.
+        val source = File("src/main/java/com/dd3boh/outertune/utils/ContentLocale.kt").readText()
+        val phone = source.substringAfter("fun phoneLocale(context: Context)").substringBefore("\n    }")
+        assertTrue(phone, "SDK_INT >= 33" in phone && ".systemLocales" in phone)
+        assertTrue(phone, phone.indexOf(".systemLocales") < phone.indexOf("Resources.getSystem()"))
+        assertTrue("setUpFor asks it with a context", "phoneLocale(context)" in source.substringAfter("fun setUpFor("))
     }
 
     @Test
