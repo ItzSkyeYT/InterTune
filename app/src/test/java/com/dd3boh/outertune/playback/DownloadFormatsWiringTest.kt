@@ -92,7 +92,8 @@ class DownloadFormatsWiringTest {
         assertTrue("the priority is given back", "android.os.Process.setThreadPriority(priority)" in encode.substringAfterLast("} finally {"))
         assertTrue("a cancelled coroutine stops the conversion between two pieces", "{ job?.isActive == false }" in save)
         assertTrue("a cancellation is not taken for a failure to save", "if (it is CancellationException) throw it" in save)
-        assertTrue("a song that fell back is counted for the notice", "conversion?.failure != null) notice?.fellBack()" in save)
+        // Only when the song as it came was saved: a folder that refused both saved nothing (DownloadFolderClosedMoveTest).
+        assertTrue("a song that fell back is counted for the notice", "conversion?.failure != null && saved != null) notice?.fellBack()" in save)
         assertTrue("whatever made it fall back is told to the conversion", "override fun failed(e: Exception)" in converter)
     }
 

@@ -1192,6 +1192,15 @@ class DownloadUtil @Inject constructor(
      * downloaded, without a word ([quiet]).
      */
     suspend fun migrateDownloads(quiet: Boolean = false, only: Set<String>? = null) = scanLock.withLock {
+        // Nothing is converted, copied or dropped for a folder that does not open: the downloads stay
+        // inside the app, which is where the folder's refusal of each file left them, after minutes
+        // of conversion thrown away and a notice that said they were saved as they came. Said: once
+        // a start after a download (notifyIfFolderCannotOpen), and at once to a move asked for.
+        if (localMgr.folderState.value != DownloadFolderState.OPEN) {
+            Log.w(TAG, "The download folder does not open (${localMgr.folderState.value}): nothing moves, the downloads stay inside the app")
+            if (!quiet) withContext(Dispatchers.Main) { Toaster.show(context, R.string.dl_folder_cannot_open_notice, Toast.LENGTH_LONG) }
+            return@withLock
+        }
         isProcessingDownloads.value = true
 
         var runs = 0
@@ -1321,7 +1330,12 @@ class DownloadUtil @Inject constructor(
         }.onFailure {
             if (it is CancellationException) throw it
             Log.w(TAG, "Could not save $id as a song file, it is saved as the stream", it)
-        }.getOrNull().also { if (conversion?.failure != null) notice?.fellBack() }
+        }.getOrNull().also { saved ->
+            // Said as saved as it came only when it was: a folder that refused the converted file
+            // refuses the song as it came too, and then nothing was saved at all (the song stays
+            // inside the app, which the move's own notice counts).
+            if (conversion?.failure != null && saved != null) notice?.fellBack()
+        }
     }
 
 
