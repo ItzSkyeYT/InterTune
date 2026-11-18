@@ -122,6 +122,14 @@
         <item quantity="many">%d titres traités</item>
         <item quantity="other">%d titres traités</item>
     </plurals>
+    <plurals name="scan_note_unreadable">
+        <item quantity="one">Impossible d\'ouvrir %1$s. Retirez-le de la liste des dossiers et ajoutez-le de nouveau.</item>
+        <item quantity="many">Impossible d\'ouvrir %1$s. Retirez-les de la liste des dossiers et ajoutez-les de nouveau.</item>
+        <item quantity="other">Impossible d\'ouvrir %1$s. Retirez-les de la liste des dossiers et ajoutez-les de nouveau.</item>
+    </plurals>
+    <string name="scan_note_kept">Android ne voit aucune musique dans %1$s. Vos titres y sont restés tels quels.</string>
+    <string name="scan_note_blocked">Certains titres n\'ont pas pu être lus. Un fichier .nomedia dans leur dossier peut en être la cause.</string>
+    <string name="scan_note_empty">Aucune musique trouvée dans %1$s.</string>
     <string name="swipe2Queue">Glisser pour mettre en file d’attente</string>
     <string name="playlist_add_local_to_synced_note">L\'ajout de fichiers de ce téléphone à une playlist synchronisée avec YouTube Music n\'est pas pris en charge.</string>
     <plurals name="playlist_add_skipped">

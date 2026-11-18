@@ -1064,8 +1064,8 @@ object Unreleased {
     /**
      * Import from Metrolist, under Restore in Backup and restore (migration/MetrolistImport): a Metrolist backup,
      * from its Android app or its new one, brings its songs, likes, library, playlists, plays and lyrics in, merged
-     * into ours, nothing replaced. His word of 14 Nov 2026: "in 0.13, and also support KMP?". Debug, Preview and
-     * Tester builds until it has been seen bringing a real Metrolist backup over; then on for everyone in 0.13.
+     * into ours, nothing replaced. His word of 14 Nov 2026: "in 0.13, and also support KMP?". Seen bringing a real
+     * Metrolist 14.0 backup over on the emulator (15 Nov 2026), so on for everyone in 0.13 (his yes of 14 Nov 2026).
      */
-    val METROLIST_IMPORT = BuildConfig.PREVIEW_FEATURES
+    val METROLIST_IMPORT = true
 }

@@ -553,6 +553,15 @@ while also allowing users to translate our app as well. New, specific strings to
         <item quantity="other">%d songs found</item>
     </plurals>
 
+    <!-- What a scan says when it found nothing, or could not read what it found: the French beside them in values-fr. -->
+    <plurals name="scan_note_unreadable">
+        <item quantity="one">Can\'t open %1$s. Remove it from the folder list and add it again.</item>
+        <item quantity="other">Can\'t open %1$s. Remove them from the folder list and add them again.</item>
+    </plurals>
+    <string name="scan_note_kept">Android can\'t see any music in %1$s. Your songs there were left as they are.</string>
+    <string name="scan_note_blocked">Some songs couldn\'t be read. A .nomedia file in their folder can cause that.</string>
+    <string name="scan_note_empty">No music found in %1$s.</string>
+
 <!-- Scanner parameter settings-->
     <string name="scanner_strict_file_name_title">Strict file names</string>
     <string name="scanner_strict_file_name_description">File names count: \"Song.ogg\" and \"Song.flac\" become two songs.</string>
