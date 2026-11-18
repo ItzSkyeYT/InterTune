@@ -69,6 +69,10 @@ interface ListenDao {
     @Insert
     fun insertSignal(signal: ListenSignal)
 
+    /** Takes back the newest signal of [kind] about [songId] noted at [since] or later (an Undo). */
+    @Query(ListenSql.DROP_LAST_SIGNAL)
+    fun dropLastSignal(songId: String, kind: Int, since: Long)
+
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     fun insertVersionMap(rows: List<SongVersionMap>)
 

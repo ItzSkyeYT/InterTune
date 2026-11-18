@@ -41,4 +41,15 @@ object ListenSql {
           AND ((l.startedAt >= :dayAgo AND l.playedMs >= 30000 AND ((l.durationMs > 0 AND l.playedMs * 20 >= l.durationMs * 9) OR (l.durationMs <= 0 AND l.playedMs >= 120000)))
             OR l.sessionId = :sessionId)
     """
+
+    /**
+     * Takes back the newest signal of :kind about :songId noted at :since or later: Undo of a song
+     * taken out of the queue takes back the REMOVED_FROM_QUEUE noted for it. One row, the newest, so
+     * a second removal of the same song that is not undone keeps its own.
+     */
+    const val DROP_LAST_SIGNAL = """
+        DELETE FROM listen_signal WHERE id = (
+            SELECT id FROM listen_signal WHERE songId = :songId AND kind = :kind AND at >= :since ORDER BY id DESC LIMIT 1
+        )
+    """
 }
