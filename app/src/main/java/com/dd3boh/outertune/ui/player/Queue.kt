@@ -502,8 +502,14 @@ fun BoxScope.QueueContent(
     // The shown queue's place, read again when the stored queue is said to have changed: a move
     // there takes the place along with the song that will play, and the lit row has to follow it.
     val detachedPlace = remember(detachedQueue, unloadedQueueChanged) { detachedQueue?.getQueuePosShuffled() }
-    val mutableQueues = remember { mutableStateListOf<MultiQueueObject>() }
-    var playingQueue by remember { mutableIntStateOf(-1) }
+    // Filled as the sheet is composed, and not only by the effect further down, which runs a frame later: on an
+    // opening the list of queues showed empty, "No queues" and then its rows, and the queue playing was lit a
+    // moment after the others (15 Nov 2026, a phone on its side). The effect still keeps both up to date.
+    val queuesKnown by playerConnection.service.qbInit.collectAsState()
+    val mutableQueues = remember {
+        mutableStateListOf<MultiQueueObject>().apply { if (queuesKnown) addAll(qb.getAllQueues().distinctBy { it.id }) }
+    }
+    var playingQueue by remember { mutableIntStateOf(if (queuesKnown) qb.getAllQueues().indexOf(qb.getCurrentQueue()) else -1) }
 
 
     /**
