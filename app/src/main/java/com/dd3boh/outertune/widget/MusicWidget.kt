@@ -1068,7 +1068,8 @@ private fun Artwork(art: Bitmap?, w: Int, h: Int, paint: Paint, description: Str
 @Composable
 private fun Note(size: Int, tint: ColorProvider) {
     Image(
-        provider = ImageProvider(R.drawable.music_note),
+        // The rounded note of the app's own cover for a song without one (#150), as everywhere a cover is missing.
+        provider = ImageProvider(R.drawable.note_rounded),
         contentDescription = null,
         colorFilter = ColorFilter.tint(tint),
         modifier = GlanceModifier.size(size.dp),
