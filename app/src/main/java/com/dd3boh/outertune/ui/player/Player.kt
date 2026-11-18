@@ -245,7 +245,6 @@ import com.dd3boh.outertune.constants.SwipeToDismissPlayerKey
 import com.dd3boh.outertune.constants.GroupedPlayerControlsKey
 import com.dd3boh.outertune.constants.PlayerGlassIntensityKey
 import com.dd3boh.outertune.constants.PlayerLiquidGlassKey
-import com.dd3boh.outertune.extensions.isPowerSaver
 import com.dd3boh.outertune.extensions.metadata
 import com.dd3boh.outertune.extensions.supportsWideScreen
 import com.dd3boh.outertune.extensions.tabMode
@@ -486,7 +485,10 @@ fun BottomSheetPlayer(
     val chosenPlayerBackground =
         if (playerBackground == PlayerBackgroundStyle.LIVING && !Unreleased.LIVING_BACKGROUND) DEFAULT_PLAYER_BACKGROUND
         else BatteryUse.playerBackground(playerBackground, LocalBatteryMode.current, DEFAULT_PLAYER_BACKGROUND)
-    val effectivePlayerBackground = if (chosenPlayerBackground == PlayerBackgroundStyle.BLUR && context.supportsWideScreen()) {
+    // Blur is swapped for the Gradient on a tablet only, where the blurred cover would be stretched over a big
+    // window. Not on a phone on its side: its window is then as wide as a small tablet's, and it kept its Blur
+    // upright but showed the Gradient sideways, or nothing at all (Niko, #testers, 18 Nov 2026).
+    val effectivePlayerBackground = if (chosenPlayerBackground == PlayerBackgroundStyle.BLUR && LocalConfiguration.current.smallestScreenWidthDp >= 600) {
         PlayerBackgroundStyle.GRADIENT
     } else {
         chosenPlayerBackground
@@ -496,7 +498,10 @@ fun BottomSheetPlayer(
     LaunchedEffect(mediaMetadata, effectivePlayerBackground) {
         // Keyed on the EFFECTIVE style. Keying on the raw preference would mean a tablet that has
         // BLUR selected never extracts any colours, and then renders a gradient of nothing.
-        if (effectivePlayerBackground != PlayerBackgroundStyle.GRADIENT || context.isPowerSaver()) {
+        // Not skipped under Android's battery saver either: the Gradient then had no colours and the player went
+        // black (18 Nov 2026). One palette of a 100px cover per song costs next to nothing, and Battery use's
+        // Saver already takes the costly backgrounds away.
+        if (effectivePlayerBackground != PlayerBackgroundStyle.GRADIENT) {
             return@LaunchedEffect
         }
 
@@ -509,9 +514,8 @@ fun BottomSheetPlayer(
             )
 
             val bitmap = result.image?.toBitmap()?.extractGradientColors()
-            bitmap?.let {
-                gradientColors = it
-            }
+            // A cover that cannot be read still gives a gradient: the plain grey of a cover with no colour.
+            gradientColors = bitmap ?: gradientColors.ifEmpty { NO_COVER_GRADIENT }
         }
     }
 
@@ -2183,6 +2187,9 @@ internal fun landscapeControlsWidth(available: Dp, playButton: Dp, slots: Int, g
     val needed = LandscapeTransportSlot * slots + playButton + PlayButtonGap * 2 + gutter * 2
     return (available / 2).coerceAtLeast(needed).coerceAtMost(available * 0.62f)
 }
+
+/** The Gradient's colours for a cover that cannot be read, the same greys extractGradientColors falls back to. */
+private val NO_COVER_GRADIENT = listOf(Color(0xFF595959), Color(0xFF0D0D0D))
 
 /**
  * The side of the cover on a phone on its side: the cover the same phone shows upright, which is
