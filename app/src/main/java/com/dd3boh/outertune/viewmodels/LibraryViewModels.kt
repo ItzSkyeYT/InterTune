@@ -68,6 +68,7 @@ import com.dd3boh.outertune.utils.dataStore
 import com.dd3boh.outertune.utils.reportException
 import com.dd3boh.outertune.utils.scanners.LocalMediaScanner.Companion.refreshLocal
 import com.dd3boh.outertune.utils.scanners.TrackTagReread
+import com.dd3boh.outertune.utils.scanners.LocalRemoval
 import com.zionhuang.innertube.YouTube
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -87,6 +88,8 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.time.Duration
 import java.time.LocalDateTime
@@ -134,6 +137,13 @@ class LibrarySongsViewModel @Inject constructor(
     }
 }
 
+/**
+ * One folder at a time after a removal (LocalRemoval): every folder on the back stack reads itself again at the same
+ * signal, and DirectoryTree numbers its folders, the keys of the list, from one counter they share, which two trees
+ * built at once could give the same number twice.
+ */
+private val removalReloads = Mutex()
+
 @HiltViewModel
 class LibraryFoldersViewModel @Inject constructor(
     @ApplicationContext val context: Context,
@@ -163,6 +173,23 @@ class LibraryFoldersViewModel @Inject constructor(
                 if (uiInit) {
                     getLocalSongs()
                     getSongCount()
+                }
+            }
+        }
+        // A song or a folder taken out of the library from its menu, or put back with Undo (LocalRemoval): read again
+        // in place, as the song leaves the folder open on screen at once. A new scan's signal (LastLocalScanKey)
+        // would take the screen back to the start.
+        viewModelScope.launch(Dispatchers.IO) {
+            LocalRemoval.changes.drop(1).collect {
+                if (uiInit) {
+                    removalReloads.withLock {
+                        getLocalSongs()
+                        getSongCount()
+                    }
+                    // A song taken out from the results of a search here leaves them too.
+                    lastSearch?.takeIf { it.first.isNotBlank() }?.let { (query, dir) ->
+                        withContext(Dispatchers.Main) { searchInDir(query, dir) }
+                    }
                 }
             }
         }
@@ -199,6 +226,10 @@ class LibraryFoldersViewModel @Inject constructor(
 
     private var searchJob: Job? = null
 
+    /** The words of the last search here and where, asked again after a removal (LocalRemoval). */
+    @Volatile
+    private var lastSearch: Pair<String, String>? = null
+
     /**
      * Update filteredSongs with search query. The last query asked wins: the search still running
      * for an earlier one is cancelled, or a short query with many rows could finish after the
@@ -207,6 +238,7 @@ class LibraryFoldersViewModel @Inject constructor(
      * the list is drawn from.
      */
     fun searchInDir(query: String, dir: String = path) {
+        lastSearch = query to dir
         searchJob?.cancel()
         if (query.isBlank()) {
             filteredSongs.clear()

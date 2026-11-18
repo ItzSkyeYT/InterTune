@@ -58,7 +58,9 @@ import com.dd3boh.outertune.LocalDatabase
 import com.dd3boh.outertune.constants.PlayOrigin
 import com.dd3boh.outertune.LocalDownloadUtil
 import com.dd3boh.outertune.LocalPlayerConnection
+import com.dd3boh.outertune.LocalSnackbarHostState
 import com.dd3boh.outertune.R
+import com.dd3boh.outertune.utils.scanners.LocalRemoval
 import androidx.compose.material.icons.rounded.Group
 import android.widget.Toast
 import com.dd3boh.outertune.constants.ListThumbnailSize
@@ -166,6 +168,12 @@ fun SongMenu(
     var showBlockArtist by rememberSaveable { mutableStateOf(false) }
     val blockable = remember(song.artists) { blockChoices(song.artists) }
     val dontPlay = if (Unreleased.ARTIST_BLOCK) rememberDontPlay() else DontPlay.NONE
+    // A file of the phone's: the line Excluded scan paths gets for it, so that Remove from library holds through
+    // every scan (LocalRemoval). Null on a volume the folder picker does not know: then nothing is offered.
+    val snackbarHostState = LocalSnackbarHostState.current
+    val localAddress = remember(song.song.localPath) {
+        if (Unreleased.LOCAL_REMOVE && song.song.isLocal) song.song.localPath?.let { LocalRemoval.addressOf(context, it) } else null
+    }
 
     ListItem(
         title = song.song.title,
@@ -385,6 +393,17 @@ fun SongMenu(
                         update(song.song.toggleLibrary())
                     }
                 }
+            }
+        }
+        // A file of the phone's, in the same place and with the same words as a YouTube song's: out of the library,
+        // and kept out of every scan; the file stays. Said in a snackbar with Undo (LocalRemoveMenu).
+        if (Unreleased.LOCAL_REMOVE && song.song.isLocal && song.song.inLibrary != null && localAddress != null) {
+            GridMenuItem(
+                icon = Icons.Rounded.LibraryAddCheck,
+                title = R.string.remove_from_library
+            ) {
+                onDismiss()
+                LocalRemoveMenu.removeSong(context, database, snackbarHostState, song.song, localAddress)
             }
         }
         if (event != null) {

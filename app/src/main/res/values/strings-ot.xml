@@ -2880,4 +2880,8 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="metrolist_import_too_old">This backup comes from InnerTune or an older Metrolist. Restore takes InnerTune\'s; for Metrolist, update it and make a new backup.</string>
     <string name="metrolist_import_other_file">Choose another file</string>
     <string name="metrolist_import_failed">Couldn\'t read this backup</string>
+    <!-- Remove from library on a file of the phone's and Exclude folder on a folder's row of the Folders tab (LocalRemoval, Unreleased.LOCAL_REMOVE): the folder menu's entry (the song's is remove_from_library, as a YouTube song's), and what each says after, beside Undo. Held from translators. -->
+    <string name="local_exclude_folder" translatable="false">Exclude folder</string>
+    <string name="local_removed" translatable="false">Removed from your library. The file stays.</string>
+    <string name="local_folder_excluded" translatable="false">%1$s excluded. Its files stay.</string>
 </resources>

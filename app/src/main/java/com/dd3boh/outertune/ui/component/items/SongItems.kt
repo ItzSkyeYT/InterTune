@@ -318,7 +318,9 @@ fun SongFolderItem(
                             folder = folder,
                             coroutineScope = coroutineScope,
                             navController = navController,
-                            onDismiss = menuState::dismiss
+                            onDismiss = menuState::dismiss,
+                            // A folder's own row: its menu can exclude it (LocalRemoval).
+                            excludable = true,
                         )
                     }
                     haptic.performHapticFeedback(HapticFeedbackType.Companion.ContextClick)
