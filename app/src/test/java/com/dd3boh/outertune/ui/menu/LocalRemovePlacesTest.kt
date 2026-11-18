@@ -166,6 +166,22 @@ class LocalRemovePlacesTest {
     }
 
     @Test
+    fun `the snackbar lives as long as its activity, and Undo's write as long as the app`() {
+        // Found 18 Nov 2026 (the review of local-remove, L5): in a dark mode or language switch within its 10 seconds
+        // the activity is made anew with a host of its own, and the old host's snackbar never went: the wait for it
+        // never ended.
+        val glue = code("ui/menu/LocalRemoveMenu.kt")
+        assertEquals(2, Regex("""val shows = context\.activity\(\)\?\.lifecycleScope \?: scope""").findAll(glue).count())
+        assertEquals(2, Regex("""offerUndo\(app, database, snackbar, said, undo, change, shows\)""").findAll(glue).count())
+        val offer = glue.substringAfter("private fun offerUndo(").substringBefore("private tailrec fun Context.activity()")
+        assertTrue(offer, "shows.launch(CoroutineExceptionHandler { _, e -> reportException(e) }) {" in offer)
+        assertTrue(offer, "scope.launch { saying(context) { LocalRemoval.undo(context, database, change) } }" in offer)
+        // Not the screen's own lifetime (a nav entry's): leaving the screen keeps the snackbar.
+        assertTrue("is ComponentActivity -> this\n        is ContextWrapper -> baseContext.activity()" in glue)
+        assertFalse("LocalLifecycleOwner" in glue)
+    }
+
+    @Test
     fun `the flag is held back, and its words are held from translators, short, in English and French`() {
         val flags = code("constants/Unreleased.kt")
         assertTrue("val LOCAL_REMOVE = BuildConfig.PREVIEW_FEATURES" in flags)
