@@ -185,6 +185,11 @@ class MediaLibrarySessionCallback @Inject constructor(
         controllerInfo: MediaSession.ControllerInfo,
         intent: Intent,
     ): Boolean {
+        // media3 is already reading the saved queue for a resumption of its own (the press that started
+        // the service, the system's resumption controls, the car): every press is media3's, as before.
+        // Loaded here as well, the queue would go into the player twice: media3 puts its answer in the
+        // player whatever is there, and the song's load would start over.
+        if (service.resumptionRunning) return false
         val key = runCatching { IntentCompat.getParcelableExtra(intent, Intent.EXTRA_KEY_EVENT, KeyEvent::class.java) }.getOrNull()
             ?: return false
         val legacy = controllerInfo.controllerVersion == MediaSession.ControllerInfo.LEGACY_CONTROLLER_VERSION

@@ -80,6 +80,21 @@ class EmptyPlayerPressTest {
     }
 
     @Test
+    fun `while media3's own resumption reads the saved queue, every press is left to media3`() {
+        // A press that started the service has media3 reading the saved queue. A second press then reached
+        // the session as one on an empty player, and the queue went into the player twice: media3 puts its
+        // answer in the player whatever is there, so the song's load started over.
+        val button = callback.substringAfter("override fun onMediaButtonEvent(").substringBefore("\n    }\n")
+        val left = button.indexOf("if (service.resumptionRunning) return false")
+        assertTrue(button, left >= 0)
+        assertTrue(button, left < button.indexOf("EmptyPlayerPress.secondOfDoublePress(") && left < button.indexOf("service.playSavedQueue("))
+        // The flag is up for the whole of media3's resumption, from before the saved queue is read until it is answered.
+        val resumption = callback.substringAfter("override fun onPlaybackResumption(").substringBefore("\n    }\n")
+        assertTrue(resumption, resumption.indexOf("service.resumptionRunning = true") in 0 until resumption.indexOf("resumptionItems()"))
+        assertTrue(resumption, "} finally {\n            service.resumptionRunning = false\n        }" in resumption)
+    }
+
+    @Test
     fun `play pause and the headset's button on an empty player play the saved queue`() {
         assertTrue(plays(KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE))
         assertTrue(plays(KeyEvent.KEYCODE_HEADSETHOOK))
