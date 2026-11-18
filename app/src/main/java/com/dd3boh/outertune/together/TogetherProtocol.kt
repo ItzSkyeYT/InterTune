@@ -90,6 +90,14 @@ sealed interface TogetherMessage {
         /** How many songs of the leader's queue travel, the one playing first. */
         const val QUEUE_SONGS = 30
 
+        /**
+         * What a room carries of a song's picture: a web address any phone can load, and nothing else. A song from a
+         * file on the phone has the file's full path there (/storage/emulated/0/Music/<folders>/<file>, the folders
+         * often named after people), and it went to everyone with the room's code, who cannot play that song anyway
+         * (review of 0.13, 18 Nov 2026). Applied as a message is made and as one is read.
+         */
+        fun thumbnailFor(uri: String?): String = uri?.trim()?.takeIf { it.startsWith("https://", ignoreCase = true) }.orEmpty()
+
         fun encode(message: TogetherMessage): String = when (message) {
             is State -> buildJsonObject {
                 put("t", "state"); put("song", message.songId); put("title", message.title); put("artist", message.artist)
@@ -103,7 +111,7 @@ sealed interface TogetherMessage {
             }
             is Suggest -> buildJsonObject {
                 put("t", "suggest"); put("song", message.songId); put("title", message.title); put("artist", message.artist)
-                put("thumb", message.thumbnail); put("by", message.by)
+                put("thumb", thumbnailFor(message.thumbnail)); put("by", message.by)
             }
             is Queue -> buildJsonObject {
                 put("t", "queue"); put("repeat", message.repeat); put("shuffle", message.shuffle)
@@ -120,14 +128,14 @@ sealed interface TogetherMessage {
 
         private fun songsJson(songs: List<Song>) = buildJsonArray {
             songs.forEach { song ->
-                addJsonObject { put("id", song.id); put("title", song.title); put("artist", song.artist); put("thumb", song.thumbnail) }
+                addJsonObject { put("id", song.id); put("title", song.title); put("artist", song.artist); put("thumb", thumbnailFor(song.thumbnail)) }
             }
         }
 
         private fun songsOf(o: JsonObject) = o["songs"]!!.jsonArray.map { item ->
             val song = item.jsonObject
             fun f(key: String) = song[key]!!.jsonPrimitive.content
-            Song(f("id"), f("title"), f("artist"), f("thumb"))
+            Song(f("id"), f("title"), f("artist"), thumbnailFor(f("thumb")))
         }
 
         fun decode(text: String): TogetherMessage? = runCatching {
@@ -139,7 +147,7 @@ sealed interface TogetherMessage {
                 "ping" -> Ping(l("c"), s("to"))
                 "pong" -> Pong(l("c"), l("h"), s("to"))
                 "here" -> Here(s("name"), o["owner"]!!.jsonPrimitive.boolean, o["lead"]?.jsonPrimitive?.content)
-                "suggest" -> Suggest(s("song"), s("title"), s("artist"), s("thumb"), s("by"))
+                "suggest" -> Suggest(s("song"), s("title"), s("artist"), thumbnailFor(s("thumb")), s("by"))
                 "queue" -> Queue(
                     songs = songsOf(o),
                     repeat = o["repeat"]!!.jsonPrimitive.int,

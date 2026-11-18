@@ -415,7 +415,8 @@ class TogetherSession(
                 id = item.mediaId,
                 title = metadata.title?.toString().orEmpty(),
                 artist = metadata.artist?.toString().orEmpty(),
-                thumbnail = metadata.artworkUri?.toString().orEmpty(),
+                // Never a file's path: a song from the phone has it as its picture (TogetherMessage.thumbnailFor).
+                thumbnail = TogetherMessage.thumbnailFor(metadata.artworkUri?.toString()),
             )
             index = timeline.getNextWindowIndex(index, Player.REPEAT_MODE_OFF, player.shuffleModeEnabled)
         }
@@ -633,7 +634,7 @@ class TogetherSession(
 
     /** A follower's song for the leader to play next. */
     fun suggest(song: MediaMetadata) {
-        send(TogetherMessage.Suggest(song.id, song.title, song.artists.joinToString { it.name }, song.thumbnailUrl.orEmpty(), name))
+        send(TogetherMessage.Suggest(song.id, song.title, song.artists.joinToString { it.name }, TogetherMessage.thumbnailFor(song.thumbnailUrl), name))
         Log.i(TAG, "Suggested ${song.id} to the room")
     }
 
