@@ -128,7 +128,10 @@ class VarispeedTest {
     @Test
     fun `its texts are held from translators, short, with their French beside them`() {
         for (name in listOf("varispeed", "varispeed_description", "search_words_varispeed")) {
-            assertTrue("$name is not held", "translatable=\"false\"" in (tag(english, name) ?: error("$name is not in the English file")))
+            // Search words are open to translators whatever their feature (SettingsSearchTest); the rest is held.
+            if (name != "search_words_varispeed") {
+                assertTrue("$name is not held", "translatable=\"false\"" in (tag(english, name) ?: error("$name is not in the English file")))
+            }
             assertNotNull("$name has no French", text(french, name))
             for (xml in listOf(english, french)) assertFalse("$name has a long dash", '—' in text(xml, name)!!)
         }
