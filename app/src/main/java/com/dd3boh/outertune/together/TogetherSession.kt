@@ -168,6 +168,8 @@ class TogetherSession(
     private val greeted = mutableSetOf<String>()
     /** Sent out by the owner: their messages are not read. */
     private val sentOut = mutableSetOf<String>()
+    /** The sealed words taken, so that a copy is not taken twice (TakenSeals). */
+    private val seals = TakenSeals()
     private val speedBefore = service.exoPlayer.playbackParameters.speed
     private val repeatBefore = service.exoPlayer.repeatMode
     private var repeatTaken = false
@@ -336,7 +338,7 @@ class TogetherSession(
         if (owner) {
             runCatching {
                 pool.publish(
-                    NostrEvent.signed(secret, TogetherMessage.KIND, listOf(listOf("t", code.tag)), code.seal(TogetherMessage.encode(TogetherMessage.End)))
+                    NostrEvent.signed(secret, TogetherMessage.KIND, listOf(listOf("t", code.tag)), code.seal(TogetherMessage.encode(TogetherMessage.End, sender = me)))
                 )
             }.onFailure { Log.w(TAG, "The end of the room could not be sent", it) }
         }
@@ -426,7 +428,7 @@ class TogetherSession(
     private fun send(message: TogetherMessage) {
         scope.launch {
             val event = withContext(Dispatchers.Default) {
-                NostrEvent.signed(secret, TogetherMessage.KIND, listOf(listOf("t", code.tag)), code.seal(TogetherMessage.encode(message)))
+                NostrEvent.signed(secret, TogetherMessage.KIND, listOf(listOf("t", code.tag)), code.seal(TogetherMessage.encode(message, sender = me)))
             }
             pool.publish(event)
         }
@@ -435,7 +437,11 @@ class TogetherSession(
     private fun onEvent(event: NostrEvent) {
         val from = event.pubkey
         if (from == me || event.kind != TogetherMessage.KIND || from in sentOut) return
-        val message = code.open(event.content)?.let(TogetherMessage::decode) ?: return
+        // Only a word its signer sealed: anyone who sees the room's sealed words on a public relay could sign one again
+        // with a key of their own (TogetherMessage.decodeFrom).
+        val message = code.open(event.content)?.let { TogetherMessage.decodeFrom(it, from) } ?: return
+        // And each sealed word once, whatever event carries it again.
+        if (!seals.take(event.content)) return
         val now = System.currentTimeMillis()
         // A newcomer gets where the leader is and its queue at once, not at the next beat two
         // seconds on: a guest who joined waited seconds for the song (his ask of 26 Oct 2026). The
