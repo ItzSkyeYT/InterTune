@@ -15,11 +15,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.clipRect
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.node.Ref
 import androidx.compose.ui.text.TextLayoutResult
@@ -246,6 +249,30 @@ internal object LyricsWords {
         if (p >= 1f) return box.clipLeft..box.clipRight
         val edge = edge(box.left, box.right, p, 0f, rtl)
         return if (rtl) edge..box.clipRight else box.clipLeft..edge
+    }
+
+    /** A stretch of a row the app's own way lights in one go: [from] to [to] across, [top] to [bottom] down. */
+    data class Stretch(val row: Int, val from: Float, val to: Float, val top: Float, val bottom: Float)
+
+    /**
+     * The app's own way: what of the line is lit at once, each word's lit part ([lit]) with those that touch on a
+     * row joined, so that a row is drawn lit in one go up to the word being sung. [boxes] in the order [place]
+     * gives them, [sung] how much of each of [pieces] is sung.
+     */
+    fun litStretches(boxes: List<WordBox>, pieces: List<Piece>, sung: FloatArray): List<Stretch> {
+        val out = ArrayList<Stretch>(2)
+        for (box in boxes) {
+            val part = lit(box, sung[box.piece], pieces[box.piece].rtl) ?: continue
+            val last = out.lastOrNull()
+            if (last != null && last.row == box.row && part.start <= last.to) {
+                out[out.lastIndex] = Stretch(
+                    box.row, min(last.from, part.start), max(last.to, part.endInclusive), min(last.top, box.clipTop), max(last.bottom, box.clipBottom),
+                )
+            } else {
+                out += Stretch(box.row, part.start, part.endInclusive, box.clipTop, box.clipBottom)
+            }
+        }
+        return out
     }
 
     /**
@@ -498,6 +525,9 @@ private class WordsDrawing(private val pieces: List<LyricsWords.Piece>, private 
     private val up = FloatArray(pieces.size)
     private val full = FloatArray(pieces.size)
 
+    /** Half the ink: the app's own way draws the part not sung yet through it, the whole line as one layer. */
+    private val halfInk = Paint().apply { alpha = LyricsWords.UNSUNG }
+
     private fun boxesOf(layout: TextLayoutResult): List<WordBox> {
         if (layout === laidOut) return boxes
         laidOut = layout
@@ -546,6 +576,23 @@ private class WordsDrawing(private val pieces: List<LyricsWords.Piece>, private 
             }
             full[i] = if (look == LyricsWordsLook.B) LyricsWords.swell(piece, atMs) else 0f
         }
+        if (look == null) {
+            // The app's own way, drawn as the line always was (HorizontalReveal): all of it at half its ink through
+            // one layer, so that letters which overlap, as in scripts whose letters join, are no darker where they
+            // do; then what is sung over it at full ink, up to a hard edge, a stretch of a row at a time.
+            drawIntoCanvas { canvas ->
+                canvas.saveLayer(Rect(-em, -em, size.width + em, size.height + em), halfInk)
+                drawText(textLayoutResult = layout, color = color, shadow = Shadow.None)
+                canvas.restore()
+            }
+            for (lit in LyricsWords.litStretches(all, pieces, sung)) {
+                clipRect(lit.from, lit.top, lit.to, lit.bottom) {
+                    drawText(textLayoutResult = layout, color = color, shadow = Shadow.None)
+                }
+            }
+            return
+        }
+        // The looks being compared: each word drawn on its own, as it moves on its own.
         val unsung = color.copy(alpha = color.alpha * LyricsWords.UNSUNG)
         var i = 0
         while (i < all.size) {
@@ -587,15 +634,8 @@ private class WordsDrawing(private val pieces: List<LyricsWords.Piece>, private 
                         drawText(textLayoutResult = layout, color = color, shadow = Shadow.None)
                     } else {
                         drawText(textLayoutResult = layout, color = unsung, shadow = Shadow.None)
-                        val rtl = pieces[box.piece].rtl
-                        if (p > 0f && look == null) {
-                            // The app's own way: up to a hard edge, as the line was always lit.
-                            LyricsWords.lit(box, sung[box.piece], rtl)?.let { lit ->
-                                clipRect(lit.start, box.clipTop, lit.endInclusive, box.clipBottom) {
-                                    drawText(textLayoutResult = layout, color = color, shadow = Shadow.None)
-                                }
-                            }
-                        } else if (p > 0f) {
+                        if (p > 0f) {
+                            val rtl = pieces[box.piece].rtl
                             val edge = LyricsWords.edge(box.left, box.right, p, soft, rtl)
                             // To the same colour with no ink: towards clear black the edge would darken on its way.
                             val clear = color.copy(alpha = 0f)

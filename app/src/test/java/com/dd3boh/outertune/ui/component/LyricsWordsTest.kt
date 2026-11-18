@@ -281,9 +281,16 @@ class LyricsWordsTest {
         val words = code("ui/component/LyricsWords.kt")
         assertTrue(words.contains("null, LyricsWordsLook.A -> 0f"))
         assertTrue(words.contains("full[i] = if (look == LyricsWordsLook.B) LyricsWords.swell(piece, atMs) else 0f"))
-        assertTrue(words.contains("if (p > 0f && look == null) {"))
-        assertTrue(words.contains("LyricsWords.lit(box, sung[box.piece], rtl)?.let { lit ->"))
         assertTrue(words.contains("val edge = edge(box.left, box.right, p, 0f, rtl)"))
+        // Drawn as the line always was: all of it at half its ink through one layer, so that letters which overlap
+        // (scripts whose letters join) are no darker where they do, then the lit stretches over it at full ink.
+        val own = words.substringAfter("if (look == null) {", missingDelimiterValue = "").substringBefore("\n            return\n        }")
+        assertTrue("the app's own way could not be found", own.length > 200)
+        assertTrue(own.contains("canvas.saveLayer(Rect(-em, -em, size.width + em, size.height + em), halfInk)"))
+        assertTrue(own.contains("for (lit in LyricsWords.litStretches(all, pieces, sung)) {"))
+        assertFalse("never a half-clear colour, letter over letter", own.contains("unsung"))
+        assertTrue(words.contains("private val halfInk = Paint().apply { alpha = LyricsWords.UNSUNG }"))
+        assertEquals(0.5f, LyricsWords.UNSUNG, 0f)
         // C's size, its lines that follow later, its measuring of the music and its nod: all only with C picked.
         assertTrue(lyrics.contains("val carried = wordsLook == LyricsWordsLook.C && isSynced && lyricsFancy && !context.isPowerSaver()"))
         assertTrue(lyrics.contains("val aroundSize = if (!carried) null else animateFloatAsState("))

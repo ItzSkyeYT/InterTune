@@ -279,6 +279,29 @@ class LyricsWordsTtmlTest {
     }
 
     @Test
+    fun `paused, each row is lit in one stretch, from its start to the end of the word sung`() {
+        val placed = Placed(lines()[0]) { Rows(it, breaks = listOf(it.indexOf("eight")), centred = true) }
+        fun at(ms: Long) = FloatArray(placed.pieces.size) { LyricsWords.sung(placed.pieces[it], ms) }
+        // The first picture's moment: all of the first row, and the second up to the end of "ken" (here "ht").
+        val stretches = LyricsWords.litStretches(placed.boxes, placed.pieces, at(44_400))
+        assertEquals(listOf(0, 1), stretches.map { it.row })
+        val (first, second) = stretches
+        assertTrue(first.from <= placed.rows.left(0))
+        assertEquals(placed.box("seven").clipRight, first.to, 0.001f)
+        assertTrue(second.from <= placed.rows.left(1))
+        assertEquals(placed.box("ht").clipRight, second.to, 0.001f)
+        assertTrue("nothing of \"by\"", second.to <= placed.box("by").left)
+        // Half way through "seven": one stretch, up to the hard edge in its middle.
+        val seven = placed.box("seven")
+        val piece = placed.pieces[seven.piece]
+        val inside = LyricsWords.litStretches(placed.boxes, placed.pieces, at((piece.startMs + piece.endMs) / 2))
+        assertEquals(1, inside.size)
+        assertEquals((seven.left + seven.right) / 2f, inside.single().to, 0.5f)
+        // Before the line, none.
+        assertTrue(LyricsWords.litStretches(placed.boxes, placed.pieces, at(39_000)).isEmpty())
+    }
+
+    @Test
     fun `a line read from the right is lit from the right`() {
         // Two words of a right to left script, timed one after the other.
         val text = "אבג דהו"
