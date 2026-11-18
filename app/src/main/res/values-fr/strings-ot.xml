@@ -1905,6 +1905,8 @@
     <string name="output_this_phone">Ce téléphone</string>
     <string name="output_wired">Casque filaire</string>
     <string name="output_cable">Sur un câble</string>
+    <string name="output_pill" translatable="false">Bouton de sortie audio</string>
+    <string name="output_pill_description" translatable="false">Affiche où joue la musique, sous les commandes.</string>
     <string name="cast_searching">Recherche de récepteurs sur ce Wi-Fi</string>
     <string name="cast_about">Caste vers les récepteurs FCast, les appareils Chromecast et Google TV, et les téléviseurs et enceintes DLNA du même Wi-Fi. FCast demande l\'application FCast Receiver sur le téléviseur ou l\'ordinateur. Le téléphone reste allumé et envoie la musique pendant le cast.</string>
     <string name="cast_add_by_address">Ajouter par adresse</string>

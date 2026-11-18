@@ -26,6 +26,7 @@ import androidx.compose.material.icons.rounded.Lyrics
 import androidx.compose.material.icons.rounded.PushPin
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.SmartButton
+import androidx.compose.material.icons.rounded.Speaker
 import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -55,6 +56,8 @@ import com.dd3boh.outertune.ui.player.PinPlace
 import com.dd3boh.outertune.ui.player.PlayerPin
 import com.dd3boh.outertune.ui.player.PlayerPins
 import com.dd3boh.outertune.constants.QueueButtonKey
+import com.dd3boh.outertune.constants.OutputPillKey
+import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.ui.component.PreferenceEntry
 import com.dd3boh.outertune.ui.component.SwitchPreference
 import com.dd3boh.outertune.utils.rememberEnumPreference
@@ -236,6 +239,21 @@ fun ColumnScope.PlayerButtonsFrag() {
         checked = backClosesPlayer,
         onCheckedChange = onBackClosesPlayerChange
     )
+
+    // Off by default, his pick of 15 Nov 2026: the cast button at the player's top right and nothing
+    // under the controls. On gives back the pill that names where the music plays ("the pill should
+    // be toggleable"). Only where casting is, and with the pick (CAST_AT_TOP): without it the pill is always there.
+    if (Unreleased.CASTING && Unreleased.CAST_AT_TOP) {
+        val (outputPill, onOutputPillChange) = rememberPreference(OutputPillKey, defaultValue = false)
+        SwitchPreference(
+            modifier = Modifier.settingRow(R.string.output_pill),
+            title = { Text(stringResource(R.string.output_pill)) },
+            description = stringResource(R.string.output_pill_description),
+            icon = { Icon(Icons.Rounded.Speaker, null) },
+            checked = outputPill,
+            onCheckedChange = onOutputPillChange
+        )
+    }
 }
 
 @Composable

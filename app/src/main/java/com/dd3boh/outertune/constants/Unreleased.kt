@@ -1051,4 +1051,17 @@ object Unreleased {
      * Metrolist 14.0 backup over on the emulator (15 Nov 2026), so on for everyone in 0.13 (his yes of 14 Nov 2026).
      */
     val METROLIST_IMPORT = true
+
+    /**
+     * Where the player says it plays, his pick of 15 Nov 2026 ("C with B's badges", "yes thats it"): the cast
+     * button at the player's top right and nothing under the controls; the pill that names where music plays
+     * (this phone, the headphones, a TV) a switch in Look and feel, off by default ("the pill should be
+     * toggleable", OutputPillKey); and elsewhere in the app a small badge on the mini player's cover while a room
+     * or a cast is on (MiniPlayerBadge). With this off the player is as it was: the pill under the controls, or in
+     * a corner on its side, and no badge.
+     *
+     * Held back as the line's held features are: the debug app, the Preview and the Tester app have it; a release
+     * only on his word.
+     */
+    val CAST_AT_TOP = BuildConfig.PREVIEW_FEATURES
 }

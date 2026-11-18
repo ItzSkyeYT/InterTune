@@ -32,6 +32,7 @@ import com.dd3boh.outertune.constants.PlayerButtonsStyle
 import com.dd3boh.outertune.constants.PlayerButtonsStyleKey
 import com.dd3boh.outertune.constants.PlayerPinsKey
 import com.dd3boh.outertune.constants.QueueButtonKey
+import com.dd3boh.outertune.constants.OutputPillKey
 import com.dd3boh.outertune.constants.QueueBackClosesPlayerKey
 import com.dd3boh.outertune.constants.QueueLeftOpenKey
 import androidx.compose.material.icons.automirrored.rounded.QueueMusic
@@ -430,6 +431,10 @@ fun BottomSheetPlayer(
     // Back from the queue closes the whole player, and the player opens where it was left (#30).
     val queueBackClosesPlayer by rememberPreference(QueueBackClosesPlayerKey, defaultValue = false)
     var queueLeftOpen by rememberPreference(QueueLeftOpenKey, defaultValue = false)
+    // The pill under the controls naming where the music plays. With CAST_AT_TOP (his pick of 15 Nov
+    // 2026) it is a switch that is off, and the cast button stands at the top right instead.
+    val outputPillSwitch by rememberPreference(OutputPillKey, defaultValue = false)
+    val outputPill = !Unreleased.CAST_AT_TOP || outputPillSwitch
 
     // Read again on a new song as well as on a new state, since the loop below only reads while the
     // player is ready. A song changed while the one before was still loading kept that song's place
@@ -1840,6 +1845,17 @@ fun BottomSheetPlayer(
                                 )
                             }
                         }
+
+                        // The cast button at the cover pane's top right, as on a tablet's two panes,
+                        // while the output button is off. The pane is already clear of the status bar.
+                        if (!outputPill) {
+                            CastButton(
+                                tint = onBackgroundColor,
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .padding(end = 4.dp)
+                            )
+                        }
                     }
 
                     Column(
@@ -1965,9 +1981,11 @@ fun BottomSheetPlayer(
                         }
 
                         // Laid over the empty top right corner, under the status bar, so nothing
-                        // else on the player moves or changes size for it. Only on a tablet's two
-                        // panes now: everywhere else the output button says and does more.
-                        if (tabletTwoPane) {
+                        // else on the player moves or changes size for it. On a tablet's two panes,
+                        // and everywhere else while the output button is off (his pick of 15 Nov
+                        // 2026: the cast button at the top right, nothing under the controls). Not
+                        // in a small player, whose top right is the cover's or its circles'.
+                        if (tabletTwoPane || (!outputPill && !compactPlayer)) {
                             CastButton(
                                 tint = onBackgroundColor,
                                 modifier = Modifier
@@ -2031,10 +2049,11 @@ fun BottomSheetPlayer(
                             // when the block has to shrink.
                             if (!compactPlayer) Spacer(Modifier.height(24.dp))
                         }
-                        if (queueLayout.outputRoom > 0.dp) {
+                        if (queueLayout.outputRoom > 0.dp && outputPill) {
                             // Where the music is coming out, in the half of the queue's strip its
                             // arrow gave up, drawn a little into the gap above so that it sits in
-                            // the middle of the two. Nothing above it has moved for it.
+                            // the middle of the two. Nothing above it has moved for it. Switched
+                            // off, the half stays empty, so the arrow and the controls stay put.
                             Box(
                                 contentAlignment = Alignment.Center,
                                 modifier = Modifier
@@ -2134,7 +2153,7 @@ fun BottomSheetPlayer(
         // and under it the pill was seen and could not be pressed: the tap opened the queue. Gone
         // once the queue is most of the way up. Not on a small upright window, where that corner
         // is the play row's.
-        if (isLandscape && queueLayout.outputRoom == 0.dp && !tabletTwoPane && mediaMetadata != null && !queueCovers) {
+        if (outputPill && isLandscape && queueLayout.outputRoom == 0.dp && !tabletTwoPane && mediaMetadata != null && !queueCovers) {
             OutputButton(
                 tint = onBackgroundColor,
                 wide = false,
