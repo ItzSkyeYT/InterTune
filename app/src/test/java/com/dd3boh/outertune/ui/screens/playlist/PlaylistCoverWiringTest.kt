@@ -42,12 +42,12 @@ class PlaylistCoverWiringTest {
     // ---- the flag ----
 
     @Test
-    fun `the flag is on in debug and preview builds and off in a release`() {
+    fun `the flag is on in every build, a release included`() {
         val flags = kotlin("constants/Unreleased.kt")
-        assertTrue(flags.lines().any { it.trim() == "val PLAYLIST_COVER = BuildConfig.PREVIEW_FEATURES" })
-        // Said where ReleasedFlagsTest says it too: it is not one of the flags a release has on.
+        assertTrue(flags.lines().any { it.trim() == "val PLAYLIST_COVER = true" })
+        // Said where ReleasedFlagsTest says it too: it is one of the flags a release has on.
         val released = File("src/test/java/com/dd3boh/outertune/constants/ReleasedFlagsTest.kt").readText()
-        assertFalse("PLAYLIST_COVER" in released)
+        assertTrue("PLAYLIST_COVER" in released)
     }
 
     @Test
@@ -56,7 +56,7 @@ class PlaylistCoverWiringTest {
         assertEquals(setOf("utils/PlaylistCovers.kt"), filesWith("Unreleased.PLAYLIST_COVER"))
         val canChoose = kotlin("utils/PlaylistCovers.kt").lines().single { "fun canChoose(" in it }
         assertTrue(canChoose, "enabled: Boolean = Unreleased.PLAYLIST_COVER" in canChoose)
-        assertTrue(canChoose, "enabled && browseId == null" in canChoose)
+        assertTrue(canChoose, "= enabled" in canChoose)
     }
 
     // ---- where it is offered ----
@@ -64,12 +64,11 @@ class PlaylistCoverWiringTest {
     @Test
     fun `the screen asks once whether the choice is offered, and everything hangs on the answer`() {
         assertEquals(1, Regex("""PlaylistCovers\.canChoose\(""").findAll(screen).count())
-        assertTrue(
-            "canChoose must be asked of the playlist's browseId",
-            "PlaylistCovers.canChoose(currentPlaylist.playlist.browseId)" in screen
-        )
+        assertTrue("PlaylistCovers.canChoose()" in screen)
         // The tap on the header's cover is a link to the sheet only while the choice is offered, else null.
         assertTrue("val onChangeCover: (() -> Unit)? = if (coverChoosable) ({ showCoverSheet = true }) else null" in screen)
+        // A synced playlist takes a cover too, and the sheet says that YouTube Music keeps its own.
+        assertTrue("syncedWithYouTube = editing.playlist.browseId != null" in screen)
         // The sheet is composed only while it is offered and asked for.
         assertTrue("if (showCoverSheet && coverChoosable) {" in screen)
     }
@@ -113,8 +112,21 @@ class PlaylistCoverWiringTest {
     @Test
     fun `no other screen offers the sheet`() {
         // Not the automatic playlists (liked, downloaded), nor a playlist from YouTube's own page.
-        assertEquals(setOf("ui/screens/playlist/LocalPlaylistScreen.kt", "ui/dialog/PlaylistCoverSheet.kt"), filesWith("PlaylistCoverSheet("))
-        assertEquals(setOf("ui/screens/playlist/LocalPlaylistScreen.kt", "ui/dialog/PlaylistCoverSheet.kt"), filesWith("PlaylistCoverEditor("))
+        // Besides the playlist's page, the Library's playlist menu: its Edit is where people look.
+        val places = setOf("ui/screens/playlist/LocalPlaylistScreen.kt", "ui/menu/PlaylistMenu.kt", "ui/dialog/PlaylistCoverSheet.kt")
+        assertEquals(places, filesWith("PlaylistCoverSheet("))
+        assertEquals(places, filesWith("PlaylistCoverEditor("))
+    }
+
+    @Test
+    fun `the Library menu's Edit offers the choice, as the page does`() {
+        val menu = kotlin("ui/menu/PlaylistMenu.kt")
+        assertTrue("PlaylistCovers.canChoose()" in menu)
+        val dialog = menu.substring(menu.indexOf("if (showEditDialog) {"))
+        assertTrue("PlaylistCoverEditor(" in dialog)
+        assertTrue("if (showCoverSheet && coverChoosable) {" in dialog)
+        assertTrue("syncedWithYouTube = playlist.playlist.browseId != null" in dialog)
+        assertTrue("PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)" in menu)
     }
 
     // ---- what a pick does ----
@@ -140,18 +152,19 @@ class PlaylistCoverWiringTest {
     }
 
     @Test
-    fun `the choice is written by one statement that refuses a playlist from YouTube`() {
-        assertTrue("browseId IS NULL" in kotlin("db/PlaylistSql.kt").substringAfter("const val SET_COVER"))
+    fun `the choice is written by one statement, and a sync keeps what it wrote`() {
+        assertFalse("browseId" in kotlin("db/PlaylistSql.kt").substringAfter("const val SET_COVER").substringBefore("\n\n"))
+        assertTrue("PlaylistCovers.keepOrRemote(playlistEntity.thumbnailUrl, playlistItem.thumbnail)" in kotlin("db/daos/PlaylistsDao.kt"))
         // Nothing else writes a cover: not a copy of the whole row, which could put an old one back.
         val writers = all.filterValues { "setPlaylistCover(" in it }.keys
-        assertEquals(setOf("db/daos/PlaylistsDao.kt", "viewmodels/LocalPlaylistViewModel.kt"), writers)
+        assertEquals(setOf("db/daos/PlaylistsDao.kt", "utils/PlaylistCovers.kt"), writers)
     }
 
     @Test
     fun `a replaced photo is deleted after the new cover is written, never before`() {
-        val model = kotlin("viewmodels/LocalPlaylistViewModel.kt")
+        val model = kotlin("utils/PlaylistCovers.kt")
         val write = model.substring(model.indexOf("private fun write("))
-        assertTrue(write.indexOf("setPlaylistCover(") in 0 until write.indexOf("PlaylistCovers.forget("))
+        assertTrue(write.indexOf("setPlaylistCover(") in 0 until write.indexOf("forget("))
         assertTrue("except = kept" in write)
         // A write no row took keeps what is named, and drops the photo it just made.
         assertTrue("if (written > 0)" in write)
@@ -201,21 +214,26 @@ class PlaylistCoverWiringTest {
         Triple("playlist_cover_photo", "A photo", "Une photo"),
         Triple("playlist_cover_photo_note", "From your phone", "Depuis votre téléphone"),
         Triple("playlist_cover_songs", "A song from this playlist", "Un titre de cette playlist"),
+        Triple(
+            "playlist_cover_synced",
+            "On YouTube Music this playlist keeps its own cover. Yours stays on this phone.",
+            "Sur YouTube Music, cette playlist garde sa propre pochette. La vôtre reste sur ce téléphone."
+        ),
     )
 
     @Test
     fun `the words are the ones that were drawn, in English and in French`() {
         for ((name, en, fr) in words) {
-            assertTrue("$name in English", "<string name=\"$name\" translatable=\"false\">$en</string>" in english)
+            assertTrue("$name in English", "<string name=\"$name\">$en</string>" in english)
             assertTrue("$name in French", "<string name=\"$name\">$fr</string>" in french)
         }
     }
 
     @Test
-    fun `the words are held from translators like the other texts that wait, and have no em dash`() {
-        val held = Regex("""<string name="(playlist_cover_\w+)"[^>]*>""").findAll(english).map { it.value }.toList()
-        assertEquals(words.size, held.size)
-        for (line in held) assertTrue(line, "translatable=\"false\"" in line)
+    fun `the words are open to translators, and have no em dash`() {
+        val tags = Regex("""<string name="(playlist_cover_\w+)"[^>]*>""").findAll(english).map { it.value }.toList()
+        assertEquals(words.size, tags.size)
+        for (line in tags) assertFalse(line, "translatable=\"false\"" in line)
         val inFrench = Regex("""<string name="playlist_cover_\w+"[^>]*>([^<]*)</string>""").findAll(french).map { it.groupValues[1] }.toList()
         assertEquals(words.size, inFrench.size)
         for (text in inFrench + words.map { it.second }) assertFalse(text, '—' in text || '–' in text)

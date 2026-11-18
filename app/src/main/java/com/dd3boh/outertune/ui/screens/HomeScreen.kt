@@ -621,6 +621,15 @@ fun HomeScreen(
             )
         }
 
+        // A column is as wide as the screen, so after a turn the scroll offset a row kept belonged to
+        // the other width and left it halfway through a column (snapping only acts after a fling).
+        // Back to a whole column, the same first one the person was looking at, whenever the width changes.
+        LaunchedEffect(horizontalLazyGridItemWidth) {
+            listOf(quickPicksLazyGridState, discoverLazyGridState, forgottenFavoritesLazyGridState).forEach { state ->
+                state.scrollToItem(state.firstVisibleItemIndex)
+            }
+        }
+
         ScrollToTopManager(navController, lazylistState)
         val tilesBeside = LocalLandscape.current.active
         LazyColumn(

@@ -97,9 +97,9 @@ class DownloadMoveNoticeTest {
 
     @Test
     fun `the words are there in English and French`() {
-        assertTrue(en.contains("<string name=\"dl_move_notice_title\" translatable=\"false\">Moving downloads</string>"))
-        assertTrue(en.contains("<string name=\"dl_move_notice_text\" translatable=\"false\">%1\$d of %2\$d</string>"))
-        assertTrue(en.contains("<string name=\"dl_move_notice_done\" translatable=\"false\">Downloads moved to your folder</string>"))
+        assertTrue(en.contains("<string name=\"dl_move_notice_title\">Moving downloads</string>"))
+        assertTrue(en.contains("<string name=\"dl_move_notice_text\">%1\$d of %2\$d</string>"))
+        assertTrue(en.contains("<string name=\"dl_move_notice_done\">Downloads moved to your folder</string>"))
         assertTrue(fr.contains("<string name=\"dl_move_notice_title\">Déplacement des téléchargements</string>"))
         assertTrue(fr.contains("<string name=\"dl_move_notice_text\">%1\$d sur %2\$d</string>"))
         assertTrue(fr.contains("<string name=\"dl_move_notice_done\">Téléchargements déplacés dans votre dossier</string>"))

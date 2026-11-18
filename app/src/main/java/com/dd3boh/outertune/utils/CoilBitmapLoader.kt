@@ -13,7 +13,6 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Canvas
-import android.graphics.drawable.Drawable
 import android.media.MediaMetadataRetriever
 import androidx.core.content.ContextCompat
 import androidx.core.graphics.scale
@@ -27,7 +26,6 @@ import coil3.key.Keyer
 import coil3.request.Options
 import com.dd3boh.outertune.R
 import javax.inject.Inject
-import kotlin.math.min
 
 /**
  * Coil's reader for the picture inside a music file on the phone, for the app's own screens.
@@ -94,31 +92,21 @@ class CoilBitmapLoader @Inject constructor(
     }
 
     companion object {
-        // TODO: re eval dimens after a few months
         /**
-         * Draw a centered square app icon with the maximum possible size while maintaining aspect ratio.
+         * The cover of a local song or album that has none: a slate square with a white note, opaque
+         * like a real cover, so a list, the player or a widget never shows what is behind it (#150,
+         * drawn after Ti-Die's design of 14 Nov 2026). Coil hands it out as the file's picture.
          *
          * @param context
          * @param x Desired final x dimension
          * @param y Desired final y dimension
-         * @param size Percentage size of valid draw frame. Must be a value between 0.0 and 1.0. For example, 0.8
-         *      means that inner frame should be 80% of the size of the final frame, and centered within that frame.
          */
-        fun drawPlaceholder(context: Context, x: Int = 2000, y: Int = 2000, size: Float = 0.8f): Bitmap {
-            val padding = size.coerceIn(0f, 1f)
-            val innerRecWidth = x * padding
-            val innerRecHeight = y * padding
-
-            val squareLength = min(innerRecWidth, innerRecHeight).toInt()
-            val squareLeft = ((x - squareLength) / 2)
-            val squareTop = ((y - squareLength) / 2)
-
-            val drawable: Drawable? = ContextCompat.getDrawable(context, R.drawable.placeholder_icon)
+        fun drawPlaceholder(context: Context, x: Int = 2000, y: Int = 2000): Bitmap {
             val bitmap = Bitmap.createBitmap(x, y, Bitmap.Config.ARGB_8888)
-            val canvas = Canvas(bitmap)
-
-            drawable?.setBounds(squareLeft, squareTop, squareLeft + squareLength, squareTop + squareLength)
-            drawable?.draw(canvas)
+            ContextCompat.getDrawable(context, R.drawable.local_song_cover)?.let { cover ->
+                cover.setBounds(0, 0, x, y)
+                cover.draw(Canvas(bitmap))
+            }
             return bitmap
         }
     }

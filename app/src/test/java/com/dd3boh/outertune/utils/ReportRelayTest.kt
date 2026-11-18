@@ -100,11 +100,34 @@ class ReportRelayTest {
         val names = listOf(
             "problem_report_send", "problem_report_contact", "problem_report_contact_hint", "problem_report_contact_note",
             "problem_report_sent", "problem_report_sent_body", "problem_report_open_issue", "problem_report_copy_link",
-            "problem_report_held", "problem_report_send_failed", "problem_report_what",
+            "problem_report_held", "problem_report_send_failed", "problem_report_what", "problem_report_failed_build",
+            "problem_report_failed_network", "problem_report_failed_busy", "problem_report_failed_long", "problem_report_failed_site",
         )
         for (folder in listOf("values", "values-fr")) {
             val texts = File("src/main/res/$folder/strings-ot.xml").readText()
             for (name in names) assertTrue("$folder: $name", texts.contains("name=\"$name\""))
         }
+    }
+
+    @Test
+    fun `a failed send says why, each reason with its own words`() {
+        assertEquals(ReportRelay.Reason.BUILD, ReportRelay.reason("build"))
+        assertEquals(ReportRelay.Reason.BUSY, ReportRelay.reason("too many"))
+        assertEquals(ReportRelay.Reason.TOO_LONG, ReportRelay.reason("too long"))
+        assertEquals(ReportRelay.Reason.SITE, ReportRelay.reason("github"))
+        assertEquals(ReportRelay.Reason.SITE, ReportRelay.reason("HTTP 500"))
+        assertEquals(ReportRelay.Reason.NETWORK, ReportRelay.reason("UnknownHostException"))
+        assertEquals(ReportRelay.Reason.NETWORK, ReportRelay.reason("SocketTimeoutException"))
+        assertEquals(ReportRelay.Reason.OTHER, ReportRelay.reason("unreadable answer"))
+    }
+
+    @Test
+    fun `a failure is shown at the top of both dialogs and not under the contact box`() {
+        val files = listOf("ProblemReportDialog.kt", "CrashReportDialog.kt").map { File("src/main/java/com/dd3boh/outertune/ui/component/$it").readText() }
+        for (src in files) {
+            assertTrue(src.contains("SendFailedNote(it)"))
+            assertTrue(src.contains("scroll.animateScrollTo(0)"))
+        }
+        assertFalse(files[0].contains("isError = failed"))
     }
 }

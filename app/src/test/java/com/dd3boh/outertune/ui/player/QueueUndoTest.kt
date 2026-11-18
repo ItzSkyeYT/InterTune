@@ -205,11 +205,11 @@ class QueueUndoTest {
     }
 
     @Test
-    fun `the words are held from translators in English and there in French, with plurals`() {
+    fun `the words are open to translators in English and there in French, with plurals`() {
         val en = File("src/main/res/values/strings-ot.xml").readText()
         val fr = File("src/main/res/values-fr/strings-ot.xml").readText()
-        assertTrue("""<string name="queue_removed_one" translatable="false">Removed %1${'$'}s</string>""" in en)
-        assertTrue("""<plurals name="queue_removed_songs" translatable="false">""" in en)
+        assertTrue("""<string name="queue_removed_one">Removed %1${'$'}s</string>""" in en)
+        assertTrue("""<plurals name="queue_removed_songs">""" in en)
         assertTrue("""<string name="queue_removed_one">""" in fr && """<plurals name="queue_removed_songs">""" in fr)
         val plural = fr.substringAfter("""<plurals name="queue_removed_songs">""").substringBefore("</plurals>")
         for (quantity in listOf("one", "many", "other")) assertTrue(quantity, """quantity="$quantity"""" in plural)

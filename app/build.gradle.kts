@@ -52,8 +52,8 @@ android {
         applicationId = "dev.skye.intertune"
         minSdk = 24
         targetSdk = 36
-        versionCode = 102
-        versionName = "0.12.10"
+        versionCode = 103
+        versionName = "0.12.11"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         // Obfuscated, not encrypted, and the difference matters. Anything the app can read, so
@@ -100,8 +100,8 @@ android {
         )
         buildConfigField(
             "int[]",
-            "POLLS_UMAMI_URL",
-            obfuscated(service("polls.umamiUrl"))
+            "POLLS_COUNT_URL",
+            obfuscated(service("polls.countUrl"))
         )
         buildConfigField(
             "int[]",

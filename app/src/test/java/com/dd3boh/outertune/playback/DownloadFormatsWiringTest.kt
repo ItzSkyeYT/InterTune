@@ -18,7 +18,7 @@ import java.io.File
  * the other wiring tests are, since a flag is a constant of the build and MediaCodec cannot run
  * here: where the format is read, that a song is converted into a temporary file and put in the
  * folder only when whole (and saved as Original when the conversion fails), that the rows are
- * offered only with the flag, and that the texts are held with their French beside them. What the
+ * offered only with the flag, and that the texts are open to translators with their French beside them. What the
  * formats and Auto's bitrate are is DownloadFormatsTest; the files are FileEncodersTest.
  */
 class DownloadFormatsWiringTest {
@@ -39,8 +39,8 @@ class DownloadFormatsWiringTest {
     // ---- the flag
 
     @Test
-    fun `the flag is held back like the others of debug and preview builds`() {
-        assertTrue(Regex("""^\s*val DOWNLOAD_FORMATS = BuildConfig\.PREVIEW_FEATURES\s*$""", RegexOption.MULTILINE).containsMatchIn(fileCode("constants/Unreleased.kt")))
+    fun `the flag is on in every build, a release included`() {
+        assertTrue(Regex("""^\s*val DOWNLOAD_FORMATS = true\s*$""", RegexOption.MULTILINE).containsMatchIn(fileCode("constants/Unreleased.kt")))
     }
 
     @Test
@@ -188,7 +188,8 @@ class DownloadFormatsWiringTest {
         assertTrue("the rows are not behind the flag", start > 0)
         assertTrue("under the folder row", start > folder)
         assertTrue("before the sizes", start < frag.indexOf("R.string.dl_size_used_cache"))
-        val rows = frag.substring(start).substringAfter("{").substringBefore("Text(\n        text = stringResource(R.string.dl_size_used_cache")
+        // Up to the sizes line, wherever it is indented (the simpler looks put it in an else).
+        val rows = frag.substring(start).substringAfter("{").substringBefore("stringResource(R.string.dl_size_used_cache")
         assertTrue("rememberEnumPreference(DownloadFormatKey, DownloadFormat.ORIGINAL)" in rows)
         assertTrue("Modifier.settingRow(R.string.download_format)" in rows)
         assertTrue("MeaningLine(stringResource(R.string.download_format_description))" in rows)
@@ -339,19 +340,19 @@ class DownloadFormatsWiringTest {
     private val exportPlurals = listOf("export_exported", "export_skipped_not_downloaded", "export_skipped_there", "export_skipped_local", "export_failed")
 
     private val held = listOf(
-        "download_format", "download_format_original", "download_format_description", "download_bitrate", "download_bitrate_auto",
+        "download_format", "download_format_original", "download_format_description", "download_format_wav_no_cover", "download_bitrate", "download_bitrate_auto",
         "download_bitrate_kbps", "download_bitrate_description", "download_bitrate_aac_kept", "convert_notice_title", "convert_notice_text",
         "convert_fallback_title",
     )
 
     @Test
-    fun `the texts are held from translators, with their French beside them`() {
+    fun `the texts are open to translators, with their French beside them`() {
         for (name in held) {
             assertNotNull("$name is not in the English file", tag(english, name))
-            assertTrue("$name is not held (translatable=\"false\")", "translatable=\"false\"" in tag(english, name)!!)
+            assertFalse("$name is still held (translatable=\"false\")", "translatable=\"false\"" in tag(english, name)!!)
             assertNotNull("$name has no French", text(french, name))
         }
-        assertTrue(Regex("""<plurals name="convert_fallback_text" translatable="false">""").containsMatchIn(english))
+        assertTrue(Regex("""<plurals name="convert_fallback_text">""").containsMatchIn(english))
         assertTrue(french.contains("""<plurals name="convert_fallback_text">"""))
         // The search words are open to translators, as every search word is.
         assertFalse("translatable=\"false\"" in tag(english, "search_words_download_format")!!)
@@ -359,14 +360,14 @@ class DownloadFormatsWiringTest {
     }
 
     @Test
-    fun `the export texts are held from translators, with their French beside them`() {
+    fun `the export texts are open to translators, with their French beside them`() {
         for (name in exportTexts) {
             assertNotNull("$name is not in the English file", tag(english, name))
-            assertTrue("$name is not held", "translatable=\"false\"" in tag(english, name)!!)
+            assertFalse("$name is still held", "translatable=\"false\"" in tag(english, name)!!)
             assertNotNull("$name has no French", text(french, name))
         }
         for (name in exportPlurals) {
-            assertTrue("$name is not held", Regex("""<plurals name="$name" translatable="false">""").containsMatchIn(english))
+            assertTrue("$name is still held", Regex("""<plurals name="$name">""").containsMatchIn(english))
             assertTrue("$name has no French", french.contains("""<plurals name="$name">"""))
         }
         assertEquals("Export to folder", text(english, "export_to_folder"))
@@ -429,5 +430,16 @@ class DownloadFormatsWiringTest {
             }
             assertFalse("$language search words have a long dash", '—' in text(xml, "search_words_download_format")!!)
         }
+    }
+
+    @Test
+    fun `picking WAV says it cannot hold a cover, in the settings row and in the export sheet`() {
+        val frag = fileCode("ui/screens/settings/fragments/DownloadsFrag.kt")
+        assertTrue("if (fileFormat == DownloadFormat.WAV) MeaningLine(stringResource(R.string.download_format_wav_no_cover))" in frag)
+        val sheet = fileCode("ui/dialog/ExportSheet.kt")
+        assertTrue("if (format == DownloadFormat.WAV) {" in sheet && "R.string.download_format_wav_no_cover" in sheet)
+        assertEquals("WAV files can't hold a cover.", text(english, "download_format_wav_no_cover")?.replace("\\'", "'"))
+        // French says vous when it addresses anyone; this line addresses no one, and names the cover as the app does.
+        assertTrue(text(french, "download_format_wav_no_cover")!!.contains("pochette"))
     }
 }

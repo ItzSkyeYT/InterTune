@@ -3,6 +3,12 @@ package com.dd3boh.outertune.ui.menu
 import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
+import kotlinx.coroutines.Dispatchers
+import com.dd3boh.outertune.ui.dialog.PlaylistCoverSheet
+import com.dd3boh.outertune.ui.dialog.PlaylistCoverEditor
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
@@ -115,8 +121,20 @@ fun PlaylistMenu(
         }
     }
 
+    // The cover's choice, as the playlist's page offers it (PlaylistCovers): from Edit playlist.
+    var coverSongs by remember { mutableStateOf<List<PlaylistSong>>(emptyList()) }
+    var showCoverSheet by remember { mutableStateOf(false) }
+    val coverChoosable = PlaylistCovers.canChoose()
+    val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        if (uri != null) {
+            val appContext = context.applicationContext
+            CoroutineScope(Dispatchers.IO).launch { PlaylistCovers.choosePhoto(appContext, database, playlist.id, uri) }
+        }
+    }
+
     LaunchedEffect(Unit) {
         database.playlistSongs(playlist.id).collect {
+            coverSongs = it
             songs = it.map(PlaylistSong::song)
         }
     }
@@ -344,7 +362,23 @@ fun PlaylistMenu(
 
     if (showEditDialog) {
         TextFieldDialog(
-            icon = { Icon(imageVector = Icons.Rounded.Edit, contentDescription = null) },
+            icon = {
+                if (coverChoosable) {
+                    // The keyboard goes down first, so that the sheet does not come up behind it.
+                    val focus = LocalFocusManager.current
+                    val keyboard = LocalSoftwareKeyboardController.current
+                    PlaylistCoverEditor(
+                        playlist = playlist,
+                        onChange = {
+                            keyboard?.hide()
+                            focus.clearFocus()
+                            showCoverSheet = true
+                        }
+                    )
+                } else {
+                    Icon(imageVector = Icons.Rounded.Edit, contentDescription = null)
+                }
+            },
             title = { Text(text = stringResource(R.string.edit_playlist)) },
             onDismiss = { showEditDialog = false },
             initialTextFieldValue = TextFieldValue(
@@ -363,6 +397,20 @@ fun PlaylistMenu(
                     }
                 }
             }
+        )
+    }
+
+    // After the edit dialog, so that it comes up over it.
+    if (showCoverSheet && coverChoosable) {
+        val appContext = context.applicationContext
+        PlaylistCoverSheet(
+            playlist = playlist,
+            songs = coverSongs,
+            onAutomatic = { CoroutineScope(Dispatchers.IO).launch { PlaylistCovers.choose(appContext, database, playlist.id, null) } },
+            onPhoto = { photoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+            onSong = { cover -> CoroutineScope(Dispatchers.IO).launch { PlaylistCovers.choose(appContext, database, playlist.id, cover) } },
+            syncedWithYouTube = playlist.playlist.browseId != null,
+            onDismiss = { showCoverSheet = false },
         )
     }
 

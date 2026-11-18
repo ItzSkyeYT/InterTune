@@ -21,8 +21,8 @@ class SongsTabWordsTest {
         assertTrue("SongFilter.LIBRARY -> R.string.library_song_empty" in screen)
         for (folder in listOf("values", "values-fr")) {
             val words = File("src/main/res/$folder/strings-ot.xml").readText()
-            assertTrue(folder, "<string name=\"library_song_empty_liked\" translatable=\"false\">" in words)
-            assertTrue(folder, "<string name=\"library_song_empty_downloaded\" translatable=\"false\">" in words)
+            assertTrue(folder, "<string name=\"library_song_empty_liked\">" in words)
+            assertTrue(folder, "<string name=\"library_song_empty_downloaded\">" in words)
         }
     }
 

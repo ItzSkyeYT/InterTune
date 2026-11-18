@@ -131,7 +131,7 @@ class ActiveCount @Inject constructor(
         runCatching {
             client.newCall(
                 Request.Builder()
-                    .url("${Polls.UMAMI_URL}/api/send")
+                    .url("${Polls.COUNT_URL}/api/send")
                     // Must read as a browser. Umami runs bot detection over this and drops what
                     // does not, while still answering 200, which is how the poll sender spent a
                     // week reporting success to an empty dashboard.
@@ -140,7 +140,7 @@ class ActiveCount @Inject constructor(
                     .build()
             ).execute().use { response ->
                 if (!response.isSuccessful) {
-                    Log.w(TAG, "Umami refused the ping: HTTP ${response.code}")
+                    Log.w(TAG, "The counter refused the ping: HTTP ${response.code}")
                     return@use false
                 }
                 true

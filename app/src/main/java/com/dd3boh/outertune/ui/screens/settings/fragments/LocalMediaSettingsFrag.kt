@@ -105,6 +105,8 @@ import com.dd3boh.outertune.utils.scanners.LocalMediaScanner.Companion.scannerSt
 import com.dd3boh.outertune.utils.scanners.ScannerAbortException
 import com.dd3boh.outertune.utils.scanners.absoluteFilePathFromUri
 import com.dd3boh.outertune.utils.scanners.ScanFolderRules
+import com.dd3boh.outertune.utils.scanners.ScanReport
+import com.dd3boh.outertune.utils.scanners.folderName
 import com.dd3boh.outertune.utils.scanners.stringFromUriList
 import com.dd3boh.outertune.utils.scanners.uriListFromString
 import kotlinx.coroutines.CancellationException
@@ -242,12 +244,16 @@ fun ColumnScope.LocalScannerFrag() {
 
                 scannerFailure = false
 
-                playerConnection?.player?.pause()
-
+                // The music is left alone. The player used to be paused here, so a song someone had on, a
+                // YouTube Music one as much as a local one, stopped for a scan of folders. The scan touches
+                // local songs only, and the queues are read again afterwards without asking anything of the
+                // player (MusicService.refreshQueuesAfterScan).
                 coroutineScope.launch(lmScannerCoroutine) {
                     if (scannerState > 0) {
                         return@launch
                     }
+                    // What the scan found out about its folders, said at the very end (ScanReport).
+                    var scanNote: ScanReport.Note? = null
                     // full rescan
                     if (fullRescan) {
                         try {
@@ -266,6 +272,7 @@ fun ColumnScope.LocalScannerFrag() {
                                 val uris = scanner.scanLocal(scanPaths, excludedScanPaths)
                                 scanner.fullSync(database, uris, scannerSensitivity, strictExtensions, strictFilePaths)
                             }
+                            scanNote = ScanReport.noteFor(scanner.lastFolders, scanner.unreadableFiles)
 
                             delay(1000)
                             // start artist linking job
@@ -339,6 +346,7 @@ fun ColumnScope.LocalScannerFrag() {
                                     strictFilePaths
                                 )
                             }
+                            scanNote = ScanReport.noteFor(scanner.lastFolders, scanner.unreadableFiles)
 
                             delay(1000)
                             // start artist linking job
@@ -392,9 +400,18 @@ fun ColumnScope.LocalScannerFrag() {
                     }
 
                     // post scan actions
-                    playerConnection?.service?.initQueue()
+                    playerConnection?.service?.refreshQueuesAfterScan()
 
                     onLastLocalScanChange(LocalDateTime.now().toInstant(ZoneOffset.UTC).toEpochMilli())
+
+                    // After the reload above, since showSnackbar waits for the message to go.
+                    scanNote?.let { note ->
+                        snackbarHostState.showSnackbar(
+                            message = scanNoteText(context, note),
+                            withDismissAction = true,
+                            duration = SnackbarDuration.Long
+                        )
+                    }
                 }
             }
         ) {
@@ -811,11 +828,23 @@ private fun scanConflictText(
     }
 }
 
-/** A scan folder by its own name, "Music" for /storage/emulated/0/Music, for the line under the row. */
-private fun folderName(context: android.content.Context, uri: Uri): String =
-    absoluteFilePathFromUri(context, uri)?.trimEnd('/')?.substringAfterLast('/')?.takeIf { it.isNotBlank() }
-        ?: uri.lastPathSegment?.substringAfterLast(':')?.substringAfterLast('/')?.takeIf { it.isNotBlank() }
-        ?: uri.toString()
+/**
+ * The line a scan ends with when it found nothing, kept what it could not see or could not read
+ * what it found: which folders, and the way out (ScanReport). A scan that found nothing used to
+ * say nothing.
+ */
+private fun scanNoteText(context: android.content.Context, note: ScanReport.Note): String = when (note) {
+    is ScanReport.Note.Unreadable ->
+        context.resources.getQuantityString(
+            R.plurals.scan_note_unreadable, note.names.size, note.names.joinToString(", ")
+        )
+    is ScanReport.Note.Kept ->
+        context.getString(R.string.scan_note_kept, note.names.joinToString(", "))
+    ScanReport.Note.Blocked ->
+        context.getString(R.string.scan_note_blocked)
+    is ScanReport.Note.Empty ->
+        context.getString(R.string.scan_note_empty, note.names.joinToString(", "))
+}
 
 /**
  * A scanner option as a line of the card: the box where the rows have their icons, the label where

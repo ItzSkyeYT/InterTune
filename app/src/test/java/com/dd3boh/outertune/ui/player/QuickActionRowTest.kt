@@ -183,6 +183,21 @@ class QuickActionRowTest {
     }
 
     @Test
+    fun `each button of the row is measured once, its own width asked as an intrinsic`() {
+        // A second measure of the same button in one pass closes the app: the row too wide for its
+        // room did it in 0.12.10, in the landscape player and beside another app (#157, #158, #162).
+        val centred = player.substringAfter("private fun CentredRow(").substringBefore("\n}\n")
+        assertEquals("one measure, in one place", 1, Regex("""\.measure\(""").findAll(centred).count())
+        assertTrue(centred.contains("val placeables = measurables.mapIndexed { i, measurable ->"))
+        assertTrue(centred.contains("measurables[it].maxIntrinsicWidth(loose.maxHeight).coerceAtMost(loose.maxWidth)"))
+        assertFalse("nothing measured before the widths are known", centred.contains("measurables.map { it.measure("))
+        // The buttons are all PlayerActionSegment, whose intrinsic width is the one it is drawn at:
+        // a Row of an icon and a label, at least [width] wide. Nothing in it that cannot be asked.
+        val segment = player.substringAfter("private fun PlayerActionSegment(").substringBefore("\n}\n")
+        for (unasked in listOf("BoxWithConstraints", "SubcomposeLayout", "LazyRow", "AndroidView")) assertFalse(unasked, segment.contains(unasked))
+    }
+
+    @Test
     fun `an icon-only button is as narrow as the floor says`() {
         // QuickActionIconOnlyWidth is the icon's 22dp and 10dp either side, from PlayerActionSegment.
         val segment = player.substringAfter("private fun PlayerActionSegment(").substringBefore("\n}\n")

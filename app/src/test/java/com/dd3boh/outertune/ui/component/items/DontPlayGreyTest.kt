@@ -131,7 +131,7 @@ class DontPlayGreyTest {
         val en = File("src/main/res/values/strings-ot.xml").readLines()
         val fr = File("src/main/res/values-fr/strings-ot.xml").readLines()
         val card = en.single { "name=\"new_dont_play_body\"" in it }
-        assertTrue("held from translators", "translatable=\"false\"" in card)
+        assertFalse("open to translators", "translatable=\"false\"" in card)
         assertTrue("it stays listed, greyed out, and is skipped" in card)
         val body = card.substringAfter(">").substringBeforeLast("<")
         assertTrue(body, body.split(Regex("""(?<=\.)\s""")).size <= 3)

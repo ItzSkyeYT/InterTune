@@ -56,10 +56,11 @@ class PlaylistCoverSqlTest {
     }
 
     @Test
-    fun `a playlist with a YouTube playlist behind it keeps YouTube's picture`() {
-        assertEquals(0, setCover("LPsynced", "playlist-covers/LPsynced-1.jpg"))
-        assertEquals(0, setCover("LPsynced", null))
-        assertEquals("https://yt.example/pic.jpg", coverOf("LPsynced"))
+    fun `a playlist with a YouTube playlist behind it takes a cover too, and Automatic clears it for the sync`() {
+        assertEquals(1, setCover("LPsynced", "playlist-covers/LPsynced-1.jpg"))
+        assertEquals("playlist-covers/LPsynced-1.jpg", coverOf("LPsynced"))
+        assertEquals(1, setCover("LPsynced", null))
+        assertEquals(null, coverOf("LPsynced"))
     }
 
     @Test

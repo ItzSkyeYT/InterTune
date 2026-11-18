@@ -232,7 +232,6 @@ fun ColumnScope.PlayerButtonsFrag() {
     SwitchPreference(
         modifier = Modifier.settingRow(R.string.queue_back_closes_player),
         title = { Text(stringResource(R.string.queue_back_closes_player)) },
-        description = stringResource(R.string.queue_back_closes_player_description),
         icon = { Icon(Icons.Rounded.KeyboardDoubleArrowDown, null) },
         checked = backClosesPlayer,
         onCheckedChange = onBackClosesPlayerChange

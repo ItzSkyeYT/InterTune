@@ -315,7 +315,7 @@ fun LocalPlaylistScreen(
     // The choice of the cover is only for a playlist of one's own, and only with the flag on
     // (PlaylistCovers.canChoose). Where it is not, Edit playlist keeps its pencil and the cover in
     // the header is a picture and nothing more.
-    val coverChoosable = currentPlaylist != null && PlaylistCovers.canChoose(currentPlaylist.playlist.browseId)
+    val coverChoosable = currentPlaylist != null && PlaylistCovers.canChoose()
     var showCoverSheet by remember { mutableStateOf(false) }
     val onChangeCover: (() -> Unit)? = if (coverChoosable) ({ showCoverSheet = true }) else null
     // Here and not in the sheet, so that a photo picked still reaches the playlist when the sheet
@@ -379,6 +379,7 @@ fun LocalPlaylistScreen(
                 onAutomatic = viewModel::coverAutomatic,
                 onPhoto = { photoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
                 onSong = viewModel::coverSong,
+                syncedWithYouTube = editing.playlist.browseId != null,
                 onDismiss = { showCoverSheet = false },
             )
         }

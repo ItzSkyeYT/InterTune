@@ -102,6 +102,7 @@ fun SearchBarContainer(
     navController: NavController,
     scrollBehavior: TopAppBarScrollBehavior,
     searchActive: Boolean,
+    clearQuery: Int = 0,
     onActiveChange: (Boolean) -> Unit,
 ) {
     Log.v("SearchBarContainer", "SB-1")
@@ -123,6 +124,9 @@ fun SearchBarContainer(
     val (query, onQueryChange) = rememberSaveable(stateSaver = TextFieldValue.Saver) {
         mutableStateOf(TextFieldValue())
     }
+    // A tap on the tab the bar is over clears what was typed, as closing the search there does
+    // (#166): it used to close the search and leave its words in the bar with nothing found under them.
+    LaunchedEffect(clearQuery) { if (clearQuery > 0) onQueryChange(TextFieldValue()) }
 
 
     val navBackStackEntry by navController.currentBackStackEntryAsState()

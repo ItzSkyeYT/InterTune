@@ -6,6 +6,7 @@
 
 package com.dd3boh.outertune.utils
 
+import com.dd3boh.outertune.together.RoomCode
 import com.dd3boh.outertune.utils.YouTubeLink.Channel
 import com.dd3boh.outertune.utils.YouTubeLink.Playlist
 import com.dd3boh.outertune.utils.YouTubeLink.Video
@@ -216,7 +217,7 @@ class YouTubeLinkTest {
     private fun NodeList.elements(): List<Element> = (0 until length).map { item(it) as Element }
 
     @Test
-    fun `Android opens the share page's links in the app, verified, and leaves the rest of the site to the browser`() {
+    fun `Android opens the share page's and rooms' links in the app, verified, and leaves the rest of the site to the browser`() {
         val manifest = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(File("src/main/AndroidManifest.xml"))
         val filters = manifest.getElementsByTagName("intent-filter").elements().filter { filter ->
             filter.getElementsByTagName("data").elements().any { "intertune.app" in it.getAttribute("android:host") }
@@ -233,21 +234,26 @@ class YouTubeLinkTest {
         assertEquals(setOf("android.intent.category.DEFAULT", "android.intent.category.BROWSABLE"), all("category", "name"))
         assertEquals(setOf("https"), all("data", "scheme"))
         assertEquals(setOf("intertune.app"), all("data", "host"))
-        // The share page and nothing else of the site. A pathPrefix of "/s" would take /sitemap.xml too, and
-        // any page named with an s, which the app would open on Home with nothing to show.
+        // The share page, a room's invite (Listen together, 15 Nov 2026) and nothing else of the site. A pathPrefix
+        // of "/s" would take /sitemap.xml too, and any page named with an s, which the app would open on Home with
+        // nothing to show.
         for (pattern in listOf("pathPattern", "pathAdvancedPattern", "pathSuffix")) {
             assertTrue(pattern, all("data", pattern).isEmpty())
         }
         val paths = all("data", "path")
         val prefixes = all("data", "pathPrefix")
         fun claimed(path: String) = path in paths || prefixes.any { path.startsWith(it) }
-        for (path in listOf("/s", "/s/", "/s/v/BSTsnWoslP4")) assertTrue(path, claimed(path))
+        assertEquals("a song's page and a room's invite, no other prefix", setOf("/s/v/", "/together/"), prefixes)
+        for (path in listOf("/s", "/s/", "/s/v/BSTsnWoslP4", "/together/7PQLAR9QKRPA")) assertTrue(path, claimed(path))
         // the preview's picture of a song stays the browser's (and the chat app's)
-        for (path in listOf("/", "/wiki/", "/wiki/faq/", "/sitemap.xml", "/settings", "/s/icons/spotify.svg", "/404.html", "/releases/", "/s/card/BSTsnWoslP4.jpg")) {
+        for (path in listOf("/", "/wiki/", "/wiki/faq/", "/sitemap.xml", "/settings", "/s/icons/spotify.svg", "/404.html", "/releases/", "/s/card/BSTsnWoslP4.jpg", "/together")) {
             assertFalse(path, claimed(path))
         }
-        // And every page it takes, the app opens: the page with the song after the #, a song's own page by its id.
+        // And every page it takes, the app opens: the page with the song after the #, a song's own page by its id,
+        // a room by its code.
         for (path in paths) assertNotNull(path, YouTubeLink.parse("https://intertune.app$path#v=BSTsnWoslP4"))
-        for (prefix in prefixes) assertNotNull(prefix, YouTubeLink.parse("https://intertune.app${prefix}BSTsnWoslP4"))
+        assertNotNull(YouTubeLink.parse("https://intertune.app/s/v/BSTsnWoslP4"))
+        assertTrue(RoomCode.isInviteLink("https://intertune.app/together/7PQLAR9QKRPA"))
+        assertNotNull(RoomCode.parse("https://intertune.app/together/7PQLAR9QKRPA"))
     }
 }

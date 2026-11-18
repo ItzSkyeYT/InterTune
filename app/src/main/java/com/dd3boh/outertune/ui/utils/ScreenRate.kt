@@ -19,14 +19,21 @@ import com.dd3boh.outertune.playback.BatteryUse
  *
  * The window is held to the slowest display mode at the size in use that is still at least 30 Hz
  * (BatteryUse.saverScreenMode), and where the display has no faster mode to hold back, 30 is asked
- * as a hint the system may ignore. On Android 15 and later the window also asks for the low frame
- * rate category and no boost to a higher rate on a touch. The category alone would not hold here:
+ * as a hint the system may ignore. On Android 15 and later the window also asked for the low frame
+ * rate category and no boost to a higher rate on a touch (until option (b) below). The category
+ * alone would not hold the rate down while things move:
  * Compose (1.9.4) sets its own view's requested rate at the end of every frame it draws and asks
  * for the high category whenever a layer moves, and the platform takes a view's vote after that
  * (View.updateDisplayListIfDirty), so a low category on the Compose view never counts. The display
  * mode is a request to the system's display policy, which those votes cannot raise. Everything is
  * undone at once when the mode changes. A real panel's answer is unverified: the emulator only says
  * what the window asked for.
+ *
+ * Option (b) of #156, for his pick (12 Nov 2026): held so, a list scrolled at the slowest mode read
+ * as "laggy and choppy" on a Galaxy A35 in Saver. On Android 15 and later the mode is no longer
+ * pinned and a touch raises the rate again: the low category holds the window down while nothing
+ * moves, and a scroll or anything that animates is drawn at the screen's rate. Below 15, where no
+ * category exists, the slowest mode is still pinned.
  */
 object ScreenRate {
     private const val TAG = "ScreenRate"
@@ -40,7 +47,7 @@ object ScreenRate {
                 @Suppress("DEPRECATION")
                 activity.windowManager.defaultDisplay
             }
-            if (low && display != null) {
+            if (low && display != null && Build.VERSION.SDK_INT < Build.VERSION_CODES.VANILLA_ICE_CREAM) {
                 val current = display.mode
                 val modes = display.supportedModes.map { BatteryUse.ScreenMode(it.modeId, it.physicalWidth, it.physicalHeight, it.refreshRate) }
                 val pick = BatteryUse.saverScreenMode(modes, BatteryUse.ScreenMode(current.modeId, current.physicalWidth, current.physicalHeight, current.refreshRate))
@@ -55,7 +62,7 @@ object ScreenRate {
             window.attributes = attributes
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) {
                 window.decorView.requestedFrameRate = if (low) View.REQUESTED_FRAME_RATE_CATEGORY_LOW else View.REQUESTED_FRAME_RATE_CATEGORY_DEFAULT
-                window.setFrameRateBoostOnTouchEnabled(!low)
+                window.setFrameRateBoostOnTouchEnabled(true)
             }
         }.onFailure { Log.w(TAG, "Could not set the frame rate", it) }
     }

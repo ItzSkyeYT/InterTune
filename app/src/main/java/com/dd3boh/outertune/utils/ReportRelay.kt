@@ -95,6 +95,22 @@ object ReportRelay {
         }
     }
 
+    /** Why a send failed, in the groups that each have their own words and their own fix. */
+    enum class Reason { BUILD, NETWORK, BUSY, TOO_LONG, SITE, OTHER }
+
+    /**
+     * What the site's or the network's answer [why] (see [Outcome.Failed]) means for the person: no connection,
+     * a build name the site turns away, too many reports today, a report too long, or the site or GitHub failing.
+     */
+    fun reason(why: String): Reason = when {
+        why == "build" -> Reason.BUILD
+        why == "too many" || why == "HTTP 429" -> Reason.BUSY
+        why == "too long" || why == "HTTP 413" -> Reason.TOO_LONG
+        why == "github" || why == "relay" || Regex("HTTP 5\\d\\d").matches(why) -> Reason.SITE
+        why.endsWith("Exception") -> Reason.NETWORK
+        else -> Reason.OTHER
+    }
+
     /** The fault the page found, as an issue's title: its own words, without the time and the tag. */
     fun title(excerpt: ProblemLog.Excerpt?): String? =
         excerpt?.faultAt?.let { excerpt.lines.getOrNull(it) }?.let { "${it.tag.trim()}: ${it.message.trim()}" }?.take(MOST_TITLE)

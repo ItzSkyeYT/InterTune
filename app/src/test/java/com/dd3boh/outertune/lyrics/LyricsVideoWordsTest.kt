@@ -76,6 +76,6 @@ class LyricsVideoWordsTest {
         assertTrue("words = if (!Unreleased.LYRICS_VIDEO_WORDS || !lyricsFancy) emptyList()" in view)
         assertTrue("an inclusive range made exclusive", "word.charRange.first, word.charRange.last + 1" in view)
         val flags = File("src/main/java/com/dd3boh/outertune/constants/Unreleased.kt").readText()
-        assertTrue("held back to debug and preview builds", "val LYRICS_VIDEO_WORDS = BuildConfig.PREVIEW_FEATURES" in flags)
+        assertTrue("on in every build since 0.13", "val LYRICS_VIDEO_WORDS = true" in flags)
     }
 }

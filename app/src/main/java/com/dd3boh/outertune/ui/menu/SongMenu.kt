@@ -1,6 +1,7 @@
 package com.dd3boh.outertune.ui.menu
 
 import androidx.compose.material.icons.rounded.FileUpload
+import androidx.compose.material.icons.rounded.FolderOpen
 import androidx.compose.material.icons.rounded.PersonOff
 import androidx.compose.material.icons.rounded.Snooze
 import androidx.compose.material.icons.rounded.Block
@@ -311,7 +312,7 @@ fun SongMenu(
         }
 
         // A local file with no artist tag has no artist: the choice of artists would open empty
-        // (#150). Left out then, as the player's menu does.
+        // (#150). The entry is greyed out then, and says so.
         if (song.artists.isNotEmpty()) {
             GridMenuItem(
                 icon = R.drawable.artist,
@@ -325,6 +326,13 @@ fun SongMenu(
                     showSelectArtistDialog = true
                 }
             }
+        } else {
+            // No artist to go to: the entry stays, greyed out, and says so (#150).
+            GridMenuItem(
+                icon = R.drawable.artist,
+                title = R.string.no_artist_found,
+                enabled = false
+            ) {}
         }
         if (song.song.albumId != null && !song.song.isLocal) {
             GridMenuItem(
@@ -342,6 +350,15 @@ fun SongMenu(
             ) {
                 ActivityLog.note(context, database, song.id, SignalKind.SHARE)
                 shareLink(ShareLinks.song(song.id, song.song.title, song.artists.map { it.name }, song.song.duration, song.song.albumId != null), onDismiss)
+            }
+        // A local file's folder, in the file manager (#150).
+        if (song.song.isLocal && !song.song.localPath.isNullOrBlank())
+            GridMenuItem(
+                icon = Icons.Rounded.FolderOpen,
+                title = R.string.open_file_location
+            ) {
+                OpenFileLocation.open(context, song.song.localPath)
+                onDismiss()
             }
         GridMenuItem(
             icon = Icons.Rounded.Info,

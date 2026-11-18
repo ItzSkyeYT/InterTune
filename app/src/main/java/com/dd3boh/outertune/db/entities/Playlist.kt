@@ -40,7 +40,7 @@ data class Playlist(
     val thumbnails: List<String>
         get() {
             return if (playlist.thumbnailUrl != null && !PlaylistCovers.isPhoto(playlist.thumbnailUrl))
-                listOf(playlist.thumbnailUrl)
+                listOf(PlaylistCovers.songCover(playlist.thumbnailUrl)!!)
             else songThumbnails.filterNotNull()
         }
 

@@ -6,6 +6,7 @@
 
 package com.dd3boh.outertune.together
 
+import kotlin.math.abs
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -18,88 +19,95 @@ import java.io.File
  */
 class SyncLockTest {
 
-    private fun looks(lock: SyncLock, gaps: List<Long>) = gaps.map { lock.decide(10_000 + it, 10_000, 1.0) }
-
-    private fun inStep(lock: SyncLock) = looks(lock, List(SyncLock.LOCK_LOOKS) { 5L })
-
-    @Test
-    fun `in step for two seconds, it locks`() {
-        val lock = SyncLock()
-        looks(lock, List(SyncLock.LOCK_LOOKS - 1) { 5L })
-        assertFalse(lock.locked)
-        looks(lock, listOf(5L))
-        assertTrue(lock.locked)
-    }
+    /** A look every 250 ms from [from], the host [gap] ms ahead of the guest each time; what it decides at each. */
+    private fun looks(lock: SyncLock, gaps: List<Long>, from: Long = 0L) =
+        gaps.mapIndexed { i, gap -> lock.decide(10_000 + gap, 10_000, 1.0, from + i * 250L) }
 
     @Test
-    fun `locked, readings within the tolerance leave the speed alone`() {
+    fun `in step, readings inside the tolerance leave the speed alone however they wobble`() {
         val lock = SyncLock(toleranceMs = 60)
-        inStep(lock)
-        // The wobble of a real room: before the lock each of these was a nudge.
-        val decisions = looks(lock, listOf(40, -35, 55, -50, 30, 58, -20))
+        // The wobble of a real room: before, each of these past 25 ms was a change of speed, a click.
+        val decisions = looks(lock, List(40) { listOf(40L, -35L, 55L, -50L, 30L, 58L, -20L, 10L)[it % 8] })
         assertTrue(decisions.all { it == Follow.Steady(1.0) })
         assertTrue(lock.locked)
-        // Unlocked, the same reading nudges, as it always did.
-        assertTrue(SyncLock(toleranceMs = 60).decide(10_040, 10_000, 1.0) is Follow.Nudge)
     }
 
     @Test
-    fun `locked, a steady lag inside the tolerance is still corrected, a wobble round zero is not`() {
-        // His find of 17 Oct 2026 on two phones: locked, the guest sat a little behind the host for
-        // good, inside the 60 ms it left alone ("the correction can be useful sometimes").
+    fun `one odd reading is not drifting, nor are a few`() {
         val lock = SyncLock(toleranceMs = 60)
-        inStep(lock)
-        val wobble = looks(lock, listOf(18, -15, 20, -19, 5, -8, 17, -20, 12, -6, 9, -14, 16, -11, 3, -17))
-        assertTrue(wobble.all { it == Follow.Steady(1.0) })
-        assertTrue(lock.locked)
-        // Forty behind and staying there: within the tolerance, and corrected all the same.
-        val lagging = looks(lock, List(SyncLock.LAG_LOOKS) { 40L })
-        assertFalse(lock.locked)
-        val last = lagging.last()
-        assertTrue("a touch faster, behind the leader: $last", last is Follow.Nudge && last.speed > 1.0)
-        // Once in step again it locks again.
-        inStep(lock)
-        assertTrue(lock.locked)
+        val gaps = List(40) { if (it % 7 == 3) 300L else 5L }
+        assertTrue(looks(lock, gaps).all { it == Follow.Steady(1.0) })
     }
 
     @Test
-    fun `one reading past the tolerance is not drifting, a second of them is`() {
+    fun `a real gap is corrected once, with one speed held for as long as it takes, then back`() {
         val lock = SyncLock(toleranceMs = 60)
-        inStep(lock)
-        assertEquals(Follow.Steady(1.0), looks(lock, listOf(90)).single())
-        looks(lock, listOf(10))                                   // back inside: the count starts again
-        val held = looks(lock, List(SyncLock.UNLOCK_LOOKS - 1) { 90L })
-        assertTrue(held.all { it == Follow.Steady(1.0) })
-        assertTrue(lock.locked)
-        val drifting = looks(lock, listOf(90)).single()
-        assertFalse(lock.locked)
-        assertTrue(drifting is Follow.Nudge && drifting.speed > 1.0) // behind: a touch faster
+        // 150 ms behind and staying: after the first looks one nudge, no other change till it ends.
+        val first = looks(lock, List(8) { 150L })
+        val nudge = first.last() as Follow.Nudge
+        assertTrue(nudge.speed > 1.0)
+        assertEquals(1.05, nudge.speed, 1e-9)                       // 150 / 3 s is 5%, the cap
+        // 150 ms at 5% takes 3 s, from the sixth look at 1.25 s to 4.25 s: held whatever the looks read
+        val held = looks(lock, List(9) { 20L }, from = 8 * 250L)
+        assertTrue(held.all { it == nudge })
+        // and then the host's speed again, and the readings start again, quietly
+        val after = looks(lock, List(30) { 0L }, from = 4_250L)
+        assertEquals(Follow.Steady(1.0), after.first())
+        assertTrue(after.all { it == Follow.Steady(1.0) })
     }
 
     @Test
-    fun `corrected back into step, it locks again`() {
-        val lock = SyncLock(toleranceMs = 60)
-        inStep(lock)
-        looks(lock, List(SyncLock.UNLOCK_LOOKS) { 90L })
-        assertFalse(lock.locked)
-        inStep(lock)
-        assertTrue(lock.locked)
-    }
-
-    @Test
-    fun `a jump is a jump at once, locked or not, and the lock is earned again`() {
+    fun `a gap past the seek line is a jump on the second look, not the first`() {
         val lock = SyncLock()
-        inStep(lock)
-        assertEquals(Follow.Seek(10_900), lock.decide(10_900, 10_000, 1.0))
+        assertEquals(Follow.Steady(1.0), lock.decide(10_900, 10_000, 1.0, 0))
+        assertEquals(Follow.Seek(10_900), lock.decide(10_900, 10_000, 1.0, 250))
         assertFalse(lock.locked)
+    }
+
+    @Test
+    fun `after a jump it does not jump again at once, unless the host is miles away`() {
+        val lock = SyncLock()
+        lock.sought(0)
+        lock.decide(10_900, 10_000, 1.0, 1_000)
+        assertTrue("no second jump within five seconds", lock.decide(10_900, 10_000, 1.0, 1_250) !is Follow.Seek)
+        assertTrue(lock.decide(20_000, 10_000, 1.0, 1_500) is Follow.Seek)
+        assertTrue(lock.decide(10_900, 10_000, 1.0, 5_500) is Follow.Seek)
     }
 
     @Test
     fun `the catch-up speed sets how hard it nudges`() {
-        val gentle = SyncLock(maxNudge = 0.01).decide(10_200, 10_000, 1.0) as Follow.Nudge
-        val quick = SyncLock(maxNudge = 0.05).decide(10_200, 10_000, 1.0) as Follow.Nudge
+        val gentle = looks(SyncLock(maxNudge = 0.01), List(8) { 200L }).last() as Follow.Nudge
+        val quick = looks(SyncLock(maxNudge = 0.05), List(8) { 200L }).last() as Follow.Nudge
         assertEquals(1.01, gentle.speed, 1e-9)
         assertEquals(1.05, quick.speed, 1e-9)
+    }
+
+    @Test
+    fun `the host's last words give a line that one odd word does not move`() {
+        val line = HostLine()
+        fun state(at: Long, pos: Long) = TogetherMessage.State("s", "", "", pos, true, 1.0, at)
+        var newest = state(0, 1_000)
+        for (i in 0 until 6) { newest = state(i * 2_000L, 1_000 + i * 2_000L + listOf(10, -8, 12, -11, 6, -5)[i]); line.hear(newest) }
+        val before = line.target(newest, 12_000)
+        newest = state(12_000, 13_000 + 120)                      // one word 120 ms off
+        line.hear(newest)
+        assertTrue("moved ${line.target(newest, 14_000) - 15_000}", abs(line.target(newest, 14_000) - 15_000) < 40)
+        assertTrue(abs(before - 13_000) < 15)
+        // a late word, older than the newest, is ignored
+        assertFalse(line.hear(state(8_000, 9_000)))
+        // a seek of the host starts the line again
+        newest = state(14_000, 40_000)
+        assertTrue(line.hear(newest))
+        assertEquals(40_000L, line.target(newest, 14_000))
+    }
+
+    @Test
+    fun `one lopsided pong moves the clock gap little`() {
+        val gap = ClockGap()
+        for (i in 0 until 5) gap.heard(askedAtMs = i * 1_000L, hostMs = i * 1_000L + 5_000 + 350, nowMs = i * 1_000L + 700)
+        assertEquals(5_000L, gap.offsetMs)
+        gap.heard(askedAtMs = 9_000, hostMs = 9_000 + 5_000 + 480, nowMs = 9_000 + 720)  // 130 ms off: answered fast, came back slow
+        assertTrue(abs(gap.offsetMs - 5_000) < 20)
     }
 
     @Test

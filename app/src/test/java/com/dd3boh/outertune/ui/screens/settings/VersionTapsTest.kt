@@ -87,8 +87,8 @@ class VersionTapsTest {
             Triple("version_card_found", "Found %1\$s", "Trouvée le %1\$s"),
             Triple("version_card_number", "No.", "N°"),
         )) {
-            assertTrue(name, en.contains("<string name=\"$name\" translatable=\"false\">$english</string>"))
-            assertTrue(name, fr.contains("<string name=\"$name\" translatable=\"false\">$french</string>"))
+            assertTrue(name, en.contains("<string name=\"$name\">$english</string>"))
+            assertTrue(name, fr.contains("<string name=\"$name\">$french</string>"))
         }
     }
 }

@@ -49,11 +49,12 @@ class ReportWayTest {
      * line of its own, and the box stays as it was.
      */
     @Test
-    fun `a failed send says so on its own line, not on the contact box`() {
+    fun `a failed send says so on its own line at the top, not on the contact box`() {
         for (path in dialogs) {
             val source = read(path)
             assertFalse(path, "isError = failed" in source)
-            assertTrue(path, "if (outcome is ReportRelay.Outcome.Failed) {" in source)
+            // Its own note, with the reason and a way out (SendFailedNote), since 15 Nov 2026.
+            assertTrue(path, source.lines().any { it.trim().startsWith("SendFailedNote(") })
             assertTrue(path, "supportingText = { Text(stringResource(R.string.problem_report_contact_note)) }" in source)
         }
     }

@@ -96,7 +96,6 @@ fun LocalPlayerSettings(
         SwitchPreference(
             modifier = Modifier.tourTarget(Tour.SETTING_LOCAL_MEDIA).settingRow(R.string.local_library_enable_title),
             title = { Text(stringResource(R.string.local_library_enable_title)) },
-            description = stringResource(R.string.local_library_enable_description),
             icon = { Icon(Icons.Rounded.SdCard, null) },
             checked = localLibEnable,
             onCheckedChange = {
@@ -120,7 +119,6 @@ fun LocalPlayerSettings(
             SwitchPreference(
                 modifier = Modifier.settingRow(R.string.auto_scanner_title),
                 title = { Text(stringResource(R.string.auto_scanner_title)) },
-                description = stringResource(R.string.auto_scanner_description),
                 icon = { Icon(Icons.Rounded.Autorenew, null) },
                 checked = autoScan,
                 onCheckedChange = onAutoScanChange

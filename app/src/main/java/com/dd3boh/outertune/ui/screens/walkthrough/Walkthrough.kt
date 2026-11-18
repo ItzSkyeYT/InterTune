@@ -8,6 +8,8 @@ package com.dd3boh.outertune.ui.screens.walkthrough
 
 import androidx.annotation.StringRes
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.DriveFileMove
+import androidx.compose.material.icons.automirrored.rounded.TrendingUp
 import androidx.compose.material.icons.rounded.Animation
 import androidx.compose.material.icons.rounded.Autorenew
 import androidx.compose.material.icons.rounded.Backup
@@ -37,6 +39,8 @@ import androidx.compose.material.icons.rounded.Battery5Bar
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.PushPin
 import androidx.compose.material.icons.rounded.SurroundSound
+import androidx.compose.material.icons.rounded.SwipeLeft
+import androidx.compose.material.icons.rounded.Translate
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.Widgets
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -471,6 +475,48 @@ val NEW_THINGS = listOf(
             TourStop("animations_setting", Tour.SETTING_ANIMATIONS, Tour.ROUTE_LOOK_AND_FEEL, R.string.animations_title, R.string.new_animations_here, V0_13),
         ),
         there = { Unreleased.ANIMATIONS_SWITCH },
+    ),
+    // Merged into 0.13 after his eight, for everyone (drafted 12 Nov 2026 for his yes,
+    // experiments/release-0.13/whats-new/cards-draft-1112.md). Stats and the queue live outside
+    // Settings, and the original audio has nothing to set: their cards say where, or only what.
+    NewThing(
+        id = "stats_plays",
+        release = "0.13",
+        sinceVersionCode = V0_13,
+        title = R.string.new_stats_plays_title,
+        body = R.string.new_stats_plays_body,
+        icon = Icons.AutoMirrored.Rounded.TrendingUp,
+        action = NewThingAction.NONE,
+    ),
+    NewThing(
+        id = "queue_swipe_undo",
+        release = "0.13",
+        sinceVersionCode = V0_13,
+        title = R.string.new_queue_swipe_title,
+        body = R.string.new_queue_swipe_body,
+        icon = Icons.Rounded.SwipeLeft,
+        action = NewThingAction.NONE,
+    ),
+    NewThing(
+        id = "downloads_move",
+        release = "0.13",
+        sinceVersionCode = V0_13,
+        title = R.string.new_downloads_move_title,
+        body = R.string.new_downloads_move_body,
+        icon = Icons.AutoMirrored.Rounded.DriveFileMove,
+        stops = listOf(
+            TourStop("downloads_move_row", Tour.ROW_STORAGE, Tour.ROUTE_SETTINGS, R.string.grp_storage_and_downloads, R.string.new_liked_sync_way, V0_13),
+            TourStop("downloads_move_setting", Tour.SETTING_DOWNLOAD_FOLDER, Tour.ROUTE_STORAGE, R.string.dl_main_path_title, R.string.new_downloads_move_here, V0_13),
+        ),
+    ),
+    NewThing(
+        id = "original_audio",
+        release = "0.13",
+        sinceVersionCode = V0_13,
+        title = R.string.new_original_audio_title,
+        body = R.string.new_original_audio_body,
+        icon = Icons.Rounded.Translate,
+        action = NewThingAction.NONE,
     ),
     // 0.12.8's own. Sending a report is shown where Report a problem is, in About, and the
     // backup's choice where backups are made. The lyrics' Save lives outside Settings, so its

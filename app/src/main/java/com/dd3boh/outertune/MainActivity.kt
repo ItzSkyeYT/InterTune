@@ -201,6 +201,8 @@ import com.dd3boh.outertune.playback.PlayerConnection
 import com.dd3boh.outertune.search.SystemSearch
 import com.dd3boh.outertune.utils.YouTubeLink
 import com.dd3boh.outertune.ui.dialog.TogetherInviteDialog
+import com.dd3boh.outertune.ui.dialog.TogetherSheet
+import com.dd3boh.outertune.together.InviteAnswer
 import com.dd3boh.outertune.ui.dialog.TogetherProposalDialog
 import com.dd3boh.outertune.ui.dialog.togetherAvailable
 import com.dd3boh.outertune.together.RoomCode
@@ -1290,6 +1292,10 @@ class MainActivity : ComponentActivity() {
                  * like the tap did nothing.
                  */
                 var searchActive by rememberSaveable { mutableStateOf(false) }
+                // A tap on the tab that is showing clears what was typed in the search bar over it, as
+                // closing the search there does; a tap on another tab keeps it (#166, after #143's rule:
+                // the same tab closes, another keeps). Counted, so each tap asks once.
+                var searchCleared by rememberSaveable { mutableIntStateOf(0) }
 
                 BoxWithConstraints(
                     modifier = Modifier
@@ -1502,6 +1508,13 @@ class MainActivity : ComponentActivity() {
                     // A listening room's invite, opened from a link: asked before joining.
                     var togetherInvite by remember { mutableStateOf<RoomCode?>(null) }
                     togetherInvite?.let { code -> TogetherInviteDialog(code, playerConnection, onDone = { togetherInvite = null }) }
+                    // An invite to the room this phone is in already opens that room's screen.
+                    var roomScreen by remember { mutableStateOf(false) }
+                    if (roomScreen && playerConnection != null) {
+                        CompositionLocalProvider(LocalPlayerConnection provides playerConnection) {
+                            TogetherSheet(onDismiss = { roomScreen = false })
+                        }
+                    }
                     // A guest's song proposed to this phone as the room's leader: asked wherever the app is.
                     TogetherProposalDialog(playerConnection)
                     LaunchedEffect(pendingLaunchLink, pendingLink.link, playerConnection, oobeStatus) {
@@ -1516,9 +1529,13 @@ class MainActivity : ComponentActivity() {
                         // has no YouTube page: it opens here.
                         val libraryPlaylist = SystemSearch.playlistOf(link)
                         val searchWords = SystemSearch.searchOf(link)
-                        val invite = if (togetherAvailable && link.startsWith("intertune://together/", ignoreCase = true)) RoomCode.parse(link) else null
+                        val invite = if (togetherAvailable && RoomCode.isInviteLink(link)) RoomCode.parse(link) else null
                         if (invite != null) {
-                            togetherInvite = invite
+                            if (InviteAnswer.forInvite(invite, connection.service.together.value?.code) == InviteAnswer.Answer.OPEN_ROOM) {
+                                roomScreen = true
+                            } else {
+                                togetherInvite = invite
+                            }
                         } else if (libraryPlaylist != null) {
                             navController.navigate("local_playlist/$libraryPlaylist")
                         } else if (SystemSearch.isHeard(link)) {
@@ -2254,6 +2271,7 @@ class MainActivity : ComponentActivity() {
                                                 }
 
                                                 if (navBackStackEntry?.destination?.hierarchy?.any { it.route == screen.route } == true) {
+                                                    searchCleared++
                                                     if (!searchActive) {
                                                         navBackStackEntry?.savedStateHandle?.set(
                                                             "scrollToTop",
@@ -2357,6 +2375,7 @@ class MainActivity : ComponentActivity() {
                                                 }
 
                                                 if (navBackStackEntry?.destination?.hierarchy?.any { it.route == screen.route } == true) {
+                                                    searchCleared++
                                                     if (!searchActive) {
                                                         navBackStackEntry?.savedStateHandle?.set(
                                                             "scrollToTop",
@@ -2450,7 +2469,7 @@ class MainActivity : ComponentActivity() {
                                 CompositionLocalProvider(
                                     LocalSearchBarGlass provides if (navGlass) GlassSpec(navHostBackdrop, glassIntensity.coerceIn(0f, 1f), still = glassStill) else null
                                 ) {
-                                    SearchBarContainer(navController, scrollBehavior, searchActive) { searchActive = it }
+                                    SearchBarContainer(navController, scrollBehavior, searchActive, onActiveChange = { searchActive = it }, clearQuery = searchCleared)
                                 }
                             }
 

@@ -513,6 +513,8 @@ class MusicService : MediaLibraryService(),
 
     /** Opens a room, hosting or following, in place of any already open. Main thread. */
     fun startTogether(code: RoomCode, owner: Boolean, relays: List<String>, name: String): TogetherSession {
+        // Already in this very room (an invite to it opened again): it stays as it is, not joined a second time.
+        together.value?.takeIf { it.code == code }?.let { return it }
         together.value?.stop()
         return TogetherSession(this, code, owner, relays, name).also {
             together.value = it
@@ -2991,6 +2993,27 @@ class MusicService : MediaLibraryService(),
     }
 
     /**
+     * The queues read again from the database once a scan has run, so that a local song the scan
+     * moved or retagged is the new one in the queue: resolve looks there first for where a file is.
+     *
+     * Nothing is asked of the player. What plays goes on playing: a scan used to pause the music
+     * before it began, as a way of keeping quiet a queue that was about to be read again. Only the
+     * board is built again, as for a new Max queues (initQueue), and the player keeps its own songs
+     * until the queue next loads.
+     *
+     * Not with Persistent queue off. There is nothing saved to read back then, and initQueue would
+     * only empty the board under the music that goes on, leaving no queue for a radio to add its
+     * next songs to or for a song's place to be kept in.
+     */
+    suspend fun refreshQueuesAfterScan() {
+        if (!dataStore.get(PersistentQueueKey, true)) {
+            Log.i(TAG, "A scan is done, and Persistent queue is off: the queues stay as they are")
+            return
+        }
+        initQueue()
+    }
+
+    /**
      * Plays the restored queue on startup, when the user has asked for that.
      *
      * Upstream #1132: the reporter runs this on a car head unit with the app in autostart and has
@@ -3389,7 +3412,7 @@ class MusicService : MediaLibraryService(),
             }
 
             val isDownload =
-                downloadCache.isCached(mediaId, position, if (length >= 0) length else 1)
+                downloadCache.holdsFrom(mediaId, position, if (length >= 0) length else 1)
             // A song moved into the download folder after the queue was made: the queue's copy of
             // the song has no path, nor has a row read before the move recorded its file, and its
             // copy in the app is gone. The folder is asked whatever they say; it used to be asked
@@ -3401,7 +3424,7 @@ class MusicService : MediaLibraryService(),
                     return ResolvedSong.Downloaded(it)
                 }
             }
-            val isCache = playerCache.isCached(mediaId, position, CHUNK_LENGTH)
+            val isCache = playerCache.holdsFrom(mediaId, position, CHUNK_LENGTH)
             // A copy fetched at a lower setting is fetched again, once, at the higher one. Only
             // upwards: re-fetching to make something worse would spend data to lose quality, and
             // the bytes are already here. Downloads are left alone whatever the setting says,
@@ -5184,6 +5207,9 @@ class MusicService : MediaLibraryService(),
         // A song every client called gone, before any of it played: passed over to the next one,
         // whatever skip on error says, and named (issue #82). No network or retry can bring it
         // back, so it neither waits for the network nor is tried again. See GoneSkip.
+        // In a room the host's song stays, not played, and is tried once more later: skipping it
+        // only had the room send the guest back (issue #187).
+        if (GoneSkip.isGone(error) && holdInRoom(error, failedId)) return
         if (passOverGone(error, failedId)) return
 
         // Wait for reconnection, but only where a network could help. See waitsForNetwork: a
@@ -5223,6 +5249,8 @@ class MusicService : MediaLibraryService(),
             }
         }
 
+        // The same in a room for any other failure that got this far, past the waits and tries above.
+        if (holdInRoom(error, failedId)) return
         if (dataStore.get(SkipOnErrorKey, false)) {
             skipOnError()
         } else {
@@ -5252,6 +5280,26 @@ class MusicService : MediaLibraryService(),
             else ErrorText.withoutAddresses("plr: ${error.message} (${error.errorCode}): ${error.cause?.message ?: ""} "),
             Toast.LENGTH_LONG
         )
+    }
+
+    /**
+     * A guest in a room whose player failed on the host's song keeps it there instead of skipping
+     * or stopping (TogetherSession.holdsFailed), and is told once for the song. False when the
+     * failed song is not the host's, or no room is followed. Main thread.
+     */
+    private fun holdInRoom(error: PlaybackException, failedId: String?): Boolean {
+        if (together.value?.holdsFailed(failedId) != true) return false
+        if (failedId != null && goneSongs.tellOnce(failedId)) {
+            // What YouTube said, in the words the ordinary path has for it (issue #124 for the sign-in).
+            val words = when {
+                YTPlayerUtils.isConnectionTurnedAway(error) -> R.string.error_connection_turned_away
+                YTPlayerUtils.isSignInWanted(error) ->
+                    if (WhyStopped.signedIn(YouTube.cookie)) R.string.error_connection_turned_away else R.string.error_sign_in_wanted
+                else -> R.string.err_song_unavailable
+            }
+            Toaster.show(this@MusicService, getString(words), Toast.LENGTH_LONG)
+        }
+        return true
     }
 
     /**
