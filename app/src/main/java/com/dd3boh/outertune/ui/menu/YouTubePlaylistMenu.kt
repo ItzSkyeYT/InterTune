@@ -65,6 +65,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import androidx.compose.ui.platform.LocalHapticFeedback
+import com.dd3boh.outertune.ui.component.tapTick
 
 @Composable
 fun YouTubePlaylistMenu(
@@ -109,8 +111,10 @@ fun YouTubePlaylistMenu(
         item = playlist,
         trailingContent = {
             if (playlist.id != "LM" && !playlist.isEditable) {
+                val haptic = LocalHapticFeedback.current
                 IconButton(
                     onClick = {
+                        haptic.tapTick()
                         if (dbPlaylist?.playlist == null) {
                             database.transaction {
                                 val playlistEntity = PlaylistEntity(

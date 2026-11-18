@@ -116,6 +116,8 @@ import java.time.LocalDateTime
 import kotlin.math.log2
 import kotlin.math.pow
 import kotlin.math.round
+import androidx.compose.ui.platform.LocalHapticFeedback
+import com.dd3boh.outertune.ui.component.tapTick
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -667,9 +669,11 @@ fun <T : Comparable<T>> ValueAdjuster(
             modifier = Modifier.size(28.dp)
         )
 
+        val haptic = LocalHapticFeedback.current
         IconButton(
             enabled = stepValue(values, currentValue, up = false) != null,
             onClick = {
+                haptic.tapTick()
                 stepValue(values, currentValue, up = false)?.let(onValueUpdate)
             }
         ) {
@@ -689,6 +693,7 @@ fun <T : Comparable<T>> ValueAdjuster(
         IconButton(
             enabled = stepValue(values, currentValue, up = true) != null,
             onClick = {
+                haptic.tapTick()
                 stepValue(values, currentValue, up = true)?.let(onValueUpdate)
             }
         ) {

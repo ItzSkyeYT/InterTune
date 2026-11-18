@@ -88,6 +88,8 @@ import com.dd3boh.outertune.utils.shareSheet
 import com.dd3boh.outertune.viewmodels.LyricsMenuViewModel
 import org.akanework.gramophone.logic.utils.SemanticLyrics
 import com.dd3boh.outertune.utils.Toaster
+import androidx.compose.ui.platform.LocalHapticFeedback
+import com.dd3boh.outertune.ui.component.tapTick
 
 
 @Composable
@@ -329,8 +331,10 @@ fun LyricsMenu(
                         }
                     }
 
+                    val haptic = LocalHapticFeedback.current
                     IconButton(
                         onClick = {
+                            haptic.tapTick()
                             expandedItemIndex = if (expandedItemIndex == index) -1 else index
                         }
                     ) {

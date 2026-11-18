@@ -142,4 +142,19 @@ class MoreHapticsTest {
         assertTrue("IconButton(onClick = {\n                haptic.tapTick()\n                onCancel()" in pickBar)
         assertTrue("onClick = {\n                    haptic.tapTick()\n                    onShare()" in pickBar)
     }
+
+    @Test
+    fun `the buttons inside the menus tick too, the heart in their header and the Advanced dialog's steps`() {
+        // The heart beside a song, an album, an artist or a playlist at the top of its menu, YouTube's twins included.
+        for (menu in listOf("SongMenu", "YouTubeSongMenu", "AlbumMenu", "YouTubeAlbumMenu", "ArtistMenu", "YouTubeArtistMenu", "PlaylistMenu", "YouTubePlaylistMenu")) {
+            // The header's start: the heart, behind an if in the playlist menus.
+            val header = source("ui/menu/$menu.kt").substringAfter("trailingContent = {").take(400)
+            assertTrue("$menu's header button has no tick", "val haptic = LocalHapticFeedback.current" in header && "haptic.tapTick()" in header)
+        }
+        // Tempo and pitch, a step at a time, in the player menu's Advanced dialog.
+        val adjuster = source("ui/menu/PlayerMenu.kt").substringAfter("fun <T : Comparable<T>> ValueAdjuster(")
+        assertEquals(2, Regex("""haptic\.tapTick\(\)\s+stepValue\(values, currentValue, up = (true|false)\)""").findAll(adjuster).count())
+        // The lyrics search's expand.
+        assertTrue("haptic.tapTick()\n                            expandedItemIndex" in source("ui/menu/LyricsMenu.kt"))
+    }
 }

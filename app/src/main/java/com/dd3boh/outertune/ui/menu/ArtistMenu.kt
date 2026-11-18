@@ -41,6 +41,8 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
+import androidx.compose.ui.platform.LocalHapticFeedback
+import com.dd3boh.outertune.ui.component.tapTick
 
 @Composable
 fun ArtistMenu(
@@ -60,8 +62,10 @@ fun ArtistMenu(
         artist = artist,
         badges = {},
         trailingContent = {
+            val haptic = LocalHapticFeedback.current
             IconButton(
                 onClick = {
+                    haptic.tapTick()
                     database.transaction {
                         update(artist.artist.toggleLike())
                     }
