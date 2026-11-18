@@ -606,6 +606,22 @@ class AirPlayLinkTest {
     }
 
     @Test
+    fun `a resend request gets at most a burst of packets, however many it names`() = runBlocking {
+        val speaker = FakeSpeaker()
+        val link = link(speaker)
+        link.connect()
+        // Far more kept than a burst: over a second and a half of packets.
+        eventually(what = "200 packets") { speaker.packets.size >= 200 }
+        val first = speaker.recordSeq()
+        speaker.control.send(DatagramPacket(resendAsk(first, 0xFFFF), 8, loopback, speaker.senderControlPort))
+        eventually(what = "the packets sent again") { speaker.resent.size >= AirPlayStream.MAX_RESEND }
+        // What would follow has had time to land.
+        Thread.sleep(300)
+        assertEquals(64, AirPlayStream.MAX_RESEND)
+        assertEquals((0 until 64).map { (first + it) and 0xFFFF }, speaker.resent.map { it.seq })
+    }
+
+    @Test
     fun `only the debug app answers other addresses than the speaker's, for the emulator's NAT`() {
         // The Preview is debuggable too (initWith debug), so BuildConfig.DEBUG alone would let it answer anyone.
         val links = File("src/main/java/com/dd3boh/outertune/cast/CastLinks.kt").readText()

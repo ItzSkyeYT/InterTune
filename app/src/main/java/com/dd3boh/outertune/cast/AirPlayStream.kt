@@ -431,8 +431,9 @@ class AirPlayStream(
         socket.send(DatagramPacket(reply, reply.size, question.address, question.port))
     }
 
+    /** The packets asked for that are still kept, [MAX_RESEND] at most however many the request names. */
     private fun resend(first: Int, count: Int, to: InetAddress, port: Int) {
-        for (offset in 0 until count.coerceAtMost(BACKLOG)) {
+        for (offset in 0 until count.coerceAtMost(MAX_RESEND)) {
             val wanted = (first + offset) and 0xFFFF
             val slot = wanted and (BACKLOG - 1)
             val reply = synchronized(lock) {
@@ -465,9 +466,16 @@ class AirPlayStream(
         const val LEAD_NANOS = 150_000_000L
         const val SYNC_EVERY_NANOS = 1_000_000_000L
 
-        /** Packets kept for resends: a power of two, about 12 seconds. */
+        /** Packets kept for resends: a power of two, about 8 seconds. */
         const val BACKLOG = 1024
         private const val MAX_BURST = 64
+
+        /**
+         * The most packets one resend request gets, half a second of audio: a speaker asks for the
+         * few it lost, and again for any still missing. A request naming thousands got the whole
+         * backlog, 1.4 MB for 8 bytes.
+         */
+        const val MAX_RESEND = 64
         private const val MAX_SPANS = 4096
         private const val BATCH_NANOS = 20_000_000L
         private const val MAX_SEND_FAILURES = 50
