@@ -2705,4 +2705,6 @@
     <string name="metrolist_import_other_file">Choisir un autre fichier</string>
     <string name="metrolist_import_failed">Impossible de lire cette sauvegarde</string>
     <string name="err_download_not_on_phone" translatable="false">Ce titre est marqué comme téléchargé, mais son fichier manque ou est incomplet sur ce téléphone. Téléchargez-le à nouveau une fois en ligne.</string>
+    <!-- The library search when it finds nothing (#200), under "No results found", held from translators. -->
+    <string name="library_search_none" translatable="false">Pas dans votre bibliothèque</string>
 </resources>

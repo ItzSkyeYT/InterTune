@@ -104,7 +104,7 @@ interface SongsDao {
     fun albumIndexOf(songId: String, albumId: String): Int?
 
     @Transaction
-    @Query("SELECT * FROM song WHERE title LIKE '%' || :query || '%' AND (inLibrary IS NOT NULL OR dateDownload IS NOT NULL) LIMIT :previewSize")
+    @Query(LibrarySql.SEARCH_SONGS)
     fun searchSongs(query: String, previewSize: Int = Int.MAX_VALUE): Flow<List<Song>>
 
     @Transaction

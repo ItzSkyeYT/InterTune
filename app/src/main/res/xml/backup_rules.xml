@@ -8,6 +8,10 @@
    The app's own logs, one file per run for Report a problem (logs, RunLogs), belong to this phone
    and stay out: up to some megabytes, and of no use on another phone. So do the words typed on
    Report a problem or the crash page and not sent yet (ReportDraft), with the rest of datastore/.
+
+   So does the theme the window starts in (window_theme, WindowTheme): it follows the settings, which
+   stay out, so restored without them it opened the first window in the old phone's theme. On
+   Android 12 and later (data_extraction_rules) it also notes the splash told to this phone alone.
 -->
 <full-backup-content>
     <exclude
@@ -16,6 +20,9 @@
     <exclude
         domain="file"
         path="datastore/" />
+    <exclude
+        domain="sharedpref"
+        path="window_theme.xml" />
     <exclude
         domain="root"
         path="app_webview/" />

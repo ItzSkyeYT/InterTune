@@ -169,6 +169,7 @@ import com.dd3boh.outertune.constants.AppBarHeight
 import com.dd3boh.outertune.constants.BackAnimationsKey
 import com.dd3boh.outertune.constants.DEFAULT_ENABLED_TABS
 import com.dd3boh.outertune.constants.DarkMode
+import com.dd3boh.outertune.constants.BatteryMode
 import com.dd3boh.outertune.constants.DarkModeKey
 import com.dd3boh.outertune.constants.DefaultOpenTabKey
 import com.dd3boh.outertune.constants.DynamicThemeKey
@@ -257,6 +258,7 @@ import com.dd3boh.outertune.ui.theme.ColorSaver
 import com.dd3boh.outertune.ui.theme.DefaultThemeColor
 import com.dd3boh.outertune.ui.theme.PlayerTheme
 import com.dd3boh.outertune.ui.theme.OuterTuneTheme
+import com.dd3boh.outertune.ui.theme.WindowTheme
 import com.dd3boh.outertune.ui.theme.extractThemeSource
 import com.dd3boh.outertune.ui.utils.appBarScrollBehavior
 import com.dd3boh.outertune.ui.utils.blockFocusWhen
@@ -764,6 +766,8 @@ class MainActivity : ComponentActivity() {
     @SuppressLint("UnusedBoxWithConstraintsScope")
     @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class, ExperimentalCoroutinesApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
+        // The window in the app's picked theme from the start (#213).
+        WindowTheme.startTheme(this)?.let { setTheme(it) }
         super.onCreate(savedInstanceState)
         // Debug builds only: a file that makes this phone count as a Samsung, so Auto Blocker's
         // message and way out can be seen on an emulator. Nothing in a release.
@@ -961,6 +965,12 @@ class MainActivity : ComponentActivity() {
             LaunchedEffect(useDarkTheme) {
                 setSystemBarAppearance(useDarkTheme)
             }
+            // The next cold start's splash in the theme picked here, or the phone's when it follows
+            // the phone (#213): the splash is drawn before any of the app runs.
+            LaunchedEffect(darkTheme, chosenBatteryMode) {
+                val start = WindowTheme.start(darkTheme, alwaysDark = chosenBatteryMode == BatteryMode.SAVER)
+                withContext(Dispatchers.IO) { WindowTheme.startWith(this@MainActivity, start) }
+            }
             var themeColor by rememberSaveable(stateSaver = ColorSaver) {
                 mutableStateOf(DefaultThemeColor)
             }
@@ -1029,6 +1039,14 @@ class MainActivity : ComponentActivity() {
                 themeColor = pagesThemeColor
             ) {
                 Log.v(MAIN_TAG, "RC-2.1")
+
+                // The window behind the pages, and the colour the launcher paints round the app as it
+                // opens from a widget or closes into one, in the pages' own colour (#213: a white
+                // border round the widget in the dark theme). Once per change of the theme's colour.
+                val pagesSurface = MaterialTheme.colorScheme.surface
+                LaunchedEffect(pagesSurface) {
+                    WindowTheme.paint(this@MainActivity, pagesSurface.toArgb())
+                }
 
                 /**
                  * Offer the update, and let the answer stick.

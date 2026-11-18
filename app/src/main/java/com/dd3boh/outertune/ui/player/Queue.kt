@@ -1249,7 +1249,8 @@ fun BoxScope.QueueContent(
         }
     }
 
-    // A song's ⋮: in its row, and on the playing song's row held at the edge of the list (#81).
+    // A song's ⋮: in its row, and on the playing song's row held at the edge of the list (#81). It
+    // opens on the song's own row with its heart (#219): a song of the queue is liked from here.
     fun showSongMenu(song: MediaMetadata) {
         menuState.show {
             PlayerMenu(
@@ -1259,6 +1260,7 @@ fun BoxScope.QueueContent(
                 onDismiss = {
                     menuState.dismiss()
                 },
+                songHeader = true,
             )
         }
         haptic.performHapticFeedback(HapticFeedbackType.ContextClick)

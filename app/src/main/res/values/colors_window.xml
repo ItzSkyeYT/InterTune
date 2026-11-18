@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Behind the pages and round the app as the launcher opens or closes it (styles.xml, WindowTheme). -->
+    <color name="window_background_light">#FFFFFFFF</color>
+    <color name="window_background_dark">#FF121212</color>
+    <color name="window_background">@color/window_background_light</color>
+</resources>

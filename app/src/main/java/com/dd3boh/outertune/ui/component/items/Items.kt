@@ -433,8 +433,15 @@ fun MediaMetadataListItem(
         if (isNew) {
             Icon.NewPick()
         }
-        if (showLikedIcon && mediaMetadata.liked) {
-            Icon.Favorite()
+        if (showLikedIcon) {
+            // The like as stored, as it changes: a like from the queue's menu (#219) or the player's
+            // heart shows on the row at once. The queue's own copy of the song keeps the like it had
+            // when the queue was made, and only stands in for a song with no row yet.
+            val database = LocalDatabase.current
+            val storedLike by remember(mediaMetadata.id) { database.songLiked(mediaMetadata.id) }.collectAsState(initial = null)
+            if (storedLike ?: mediaMetadata.liked) {
+                Icon.Favorite()
+            }
         }
         if (showInLibraryIcon && mediaMetadata.isLocal) {
             Icon.FolderCopy()
