@@ -59,8 +59,10 @@ fun toggleDontPlay(context: Context, database: MusicDatabase, song: MediaMetadat
         Toaster.show(context, R.string.dont_play_lifted, Toast.LENGTH_LONG)
         return
     }
-    val row = ExclusionsViewModel.dontPlay(song.id, song.title, System.currentTimeMillis())
+    val at = System.currentTimeMillis()
     database.transaction {
+        // Set over Not this song, it keeps the ban for when it is lifted.
+        val row = ExclusionsViewModel.dontPlay(song.id, song.title, at, exclusion(ExclusionsViewModel.KIND_SONG, song.id))
         insert(song)
         insertExclusion(row)
     }

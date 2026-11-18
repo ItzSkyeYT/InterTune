@@ -26,7 +26,8 @@ data class RecommendationExclusion(
     val targetId: String,
     val label: String,
     /**
-     * 1 ban, 2 snooze, 3 automatic rest, 4 gone from YouTube (GoneSongs), 5 don't play (DontPlay).
+     * 1 ban, 2 snooze, 3 automatic rest, 4 gone from YouTube (GoneSongs), 5 don't play (DontPlay),
+     * 6 don't play set over a ban, which lifted is the ban again.
      * The strongest reason wins on conflict.
      */
     val reason: Int,
