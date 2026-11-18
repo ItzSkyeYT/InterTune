@@ -991,7 +991,10 @@ fun Lyrics(
                     .padding(end = 12.dp, bottom = bottomPadding)
             ) {
                 IconButton(
-                    onClick = { onShowLyricsChange(false) }
+                    onClick = {
+                        haptic.tapTick()
+                        onShowLyricsChange(false)
+                    }
                 ) {
                     Icon(
                         imageVector = Icons.Rounded.Close,
@@ -1001,6 +1004,7 @@ fun Lyrics(
                 }
                 IconButton(
                     onClick = {
+                        haptic.tapTick()
                         menuState.show {
                             LyricsMenu(
                                 lyricsProvider = {

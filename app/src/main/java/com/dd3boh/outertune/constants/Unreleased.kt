@@ -1051,4 +1051,18 @@ object Unreleased {
      * Metrolist 14.0 backup over on the emulator (15 Nov 2026), so on for everyone in 0.13 (his yes of 14 Nov 2026).
      */
     val METROLIST_IMPORT = true
+
+    /**
+     * More haptics (Ti-Die's #176; his pick of 14 Nov 2026: "buttons and a light seek bar rumble, not the
+     * snapping queue"). A tap's tick where the player had none (MoreHaptics.tapTick): the song's title and its
+     * artists, the buttons beside the title and in the row under it, the lyrics' buttons (and the bar that
+     * shares picked lines), and every entry of a three-dot menu. And a faint rumble on the seek bar while it
+     * is dragged, one light tick each fortieth of the bar the finger travels (SeekRumble), the way the Pixel's
+     * own volume slider ticks. The player sheet's drag and the snapping queue are not part of it. Android's
+     * Touch feedback setting turns all of it off, as it does for every app. It has no text.
+     *
+     * Held back as the line's held features are: the debug app, the Preview and the Tester app have it; a
+     * release only on his word. Without it the app gives the haptics it always gave, the queue's button its own.
+     */
+    val HAPTICS_MORE = BuildConfig.PREVIEW_FEATURES
 }
