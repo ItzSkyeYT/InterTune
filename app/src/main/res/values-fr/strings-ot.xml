@@ -2693,5 +2693,5 @@
     <string name="metrolist_import_failed">Impossible de lire cette sauvegarde</string>
     <string name="menu_dislike" translatable="false">Je n\'aime pas</string>
     <string name="menu_dislike_lift" translatable="false">Retirer « Je n\'aime pas »</string>
-    <string name="dislike_done" translatable="false">C\'est noté, ici et sur YouTube Music. Il n\'est joué que si vous le choisissez.</string>
+    <string name="dislike_done" translatable="false">Noté, ici et sur YouTube Music. Il n\'est joué qu\'à votre demande.</string>
 </resources>
