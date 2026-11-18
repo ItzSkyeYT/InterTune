@@ -55,18 +55,42 @@ class DislikeWiringTest {
     @Test
     fun `the tap follows the plan, and a like is taken back here without a removelike beside the thumbs down`() {
         val dontPlay = source("ui/menu/DontPlaySong.kt")
-        assertTrue("val plan = DislikePlan.of(Unreleased.DISLIKE, held, song.isLocal, liked, context.mayPushToYouTube())" in dontPlay)
-        assertTrue("DislikePlan.Tell.DISLIKE -> RatingWrites.send(song.id) { YouTube.dislikeVideo(song.id) }" in dontPlay)
-        assertTrue("DislikePlan.Tell.REMOVE -> RatingWrites.send(song.id) { YouTube.likeVideo(song.id, false) }" in dontPlay)
+        assertTrue("val plan = DislikePlan.of(Unreleased.DISLIKE, held, song.isLocal, liked, context.mayPushToYouTube(), context.isUserLoggedIn())" in dontPlay)
         val toggle = dontPlay.substringAfter("fun toggleDontPlay(")
         // localToggleLike sends nothing; toggleLike would send removelike, which could land after the thumbs down.
-        assertTrue("songRow(song.id)?.takeIf { it.liked }?.localToggleLike()?.let { unliked ->" in toggle)
+        assertTrue("songRow(id)?.takeIf { it.liked }?.localToggleLike()?.let { unliked ->" in toggle)
         assertFalse(".toggleLike()" in toggle)
         assertTrue("downloadUtil?.autoDownloadOnLike(unliked)" in toggle)
+        // Signed out at once, with the row; with sync on read and write only once the thumbs down landed.
+        assertTrue("if (plan.unlike == DislikePlan.Unlike.NOW) takeLikeBack(song.id, downloadUtil)" in toggle)
+        assertTrue("if (sent && kept && plan.unlike == DislikePlan.Unlike.AFTER_DISLIKE) takeLikeBack(song.id, downloadUtil)" in toggle)
         // Dislike's words, its thumbs down, and Don't play this song's as they were.
         assertTrue("title = if (held) R.string.menu_dislike_lift else R.string.menu_dislike," in dontPlay)
         assertTrue("icon = if (held) Icons.Rounded.ThumbDown else Icons.Rounded.ThumbDownOffAlt," in dontPlay)
         assertTrue("title = if (held) R.string.menu_dont_play_lift else R.string.menu_dont_play_song," in dontPlay)
+    }
+
+    @Test
+    fun `the toast says what YouTube Music did, once it has answered`() {
+        val toggle = source("ui/menu/DontPlaySong.kt").substringAfter("fun toggleDontPlay(")
+        // The thumbs down: sent after the row is written, so a fast failure reads this tap's row.
+        val sent = toggle.indexOf("val sent = YouTube.dislikeVideo(song.id).isSuccess")
+        assertTrue(sent > 0)
+        assertTrue(toggle.indexOf("withTimeoutOrNull(10_000) { written.await() }") in 0 until sent)
+        // Taken or not, said from the answer, and nothing said before it.
+        val told = toggle.indexOf("Toaster.show(app, if (sent) R.string.dislike_done else R.string.dislike_not_sent, Toast.LENGTH_LONG)")
+        assertTrue(told > sent)
+        assertEquals(1, toggle.split("R.string.dislike_done").size - 1)
+        // Remove dislike the same way.
+        assertTrue("val sent = YouTube.likeVideo(song.id, false).isSuccess" in toggle)
+        assertTrue("Toaster.show(app, if (sent) R.string.dont_play_lifted else R.string.dislike_lift_not_sent, Toast.LENGTH_LONG)" in toggle)
+        // Lifted again before the answer: no word after its own, and a like still here goes back to YouTube Music.
+        assertTrue("val stillHeld = database.transactionNow {" in toggle)
+        assertTrue("if (sent && likedHere) RatingWrites.send(song.id) { YouTube.likeVideo(song.id, true) }" in toggle)
+        // Lifted on the queue the row was written on, so a quick Dislike after it cannot land first.
+        assertTrue("database.transaction { liftDontPlay(song.id) }" in toggle)
+        val dao = File(sources, "db/daos/ListenDao.kt").readText()
+        assertTrue("@Query(\"SELECT EXISTS(SELECT 1 FROM recommendation_exclusion WHERE kind = 1 AND reason = 5 AND targetId = :songId)\")\n    fun isDontPlay(songId: String): Boolean" in dao)
     }
 
     @Test
@@ -110,7 +134,7 @@ class DislikeWiringTest {
     fun `its words are held from translators, with French beside them`() {
         val english = File("src/main/res/values/strings-ot.xml").readText()
         val french = File("src/main/res/values-fr/strings-ot.xml").readText()
-        for (name in listOf("menu_dislike", "menu_dislike_lift", "dislike_done")) {
+        for (name in listOf("menu_dislike", "menu_dislike_lift", "dislike_done", "dislike_not_sent", "dislike_lift_not_sent")) {
             assertTrue("$name is not held in English", "<string name=\"$name\" translatable=\"false\">" in english)
             assertTrue("$name has no French", "<string name=\"$name\" translatable=\"false\">" in french)
         }

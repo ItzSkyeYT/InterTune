@@ -286,6 +286,10 @@ interface ListenDao {
     @Query("DELETE FROM recommendation_exclusion WHERE kind = 1 AND reason = 5 AND targetId = :songId")
     fun liftDontPlay(songId: String)
 
+    /** Whether [songId] is kept from playing by Don't play this song (or Dislike) now, read at once. */
+    @Query("SELECT EXISTS(SELECT 1 FROM recommendation_exclusion WHERE kind = 1 AND reason = 5 AND targetId = :songId)")
+    fun isDontPlay(songId: String): Boolean
+
     @Query("SELECT * FROM recommendation_exclusion ORDER BY createdAt DESC")
     fun exclusions(): Flow<List<RecommendationExclusion>>
 

@@ -2694,4 +2694,6 @@
     <string name="menu_dislike" translatable="false">Je n\'aime pas</string>
     <string name="menu_dislike_lift" translatable="false">Retirer « Je n\'aime pas »</string>
     <string name="dislike_done" translatable="false">Noté, ici et sur YouTube Music. Il n\'est joué qu\'à votre demande.</string>
+    <string name="dislike_not_sent" translatable="false">Noté ici seulement : YouTube Music ne l\'a pas reçu.</string>
+    <string name="dislike_lift_not_sent" translatable="false">Retiré ici seulement : YouTube Music ne l\'a pas reçu.</string>
 </resources>

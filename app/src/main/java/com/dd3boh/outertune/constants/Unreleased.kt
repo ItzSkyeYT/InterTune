@@ -1056,12 +1056,13 @@ object Unreleased {
      * Dislike (#171, the half #78 left; his pick of 14 Nov 2026: "Dislike in the menu blocks here and tells
      * YouTube, then a notification button"). In a song's menus, a song from YouTube Music has Dislike where Don't
      * play this song was, the same entry for the menu's choices: it keeps the song from playing as Don't play
-     * this song does, takes back its like here if it had one, and, signed in with sync on read and write, gives
-     * it YouTube Music's own thumbs down, which takes the place of a like there as the button does. Remove
-     * dislike lifts both, and never takes away a like YouTube Music holds for a song still liked here. A local
-     * file keeps Don't play this song, which YouTube cannot hear. The phone's media controls can have Dislike
-     * as one of their two buttons (MediaControlButton.DISLIKE), doing the same to the song playing, which is
-     * then passed over (DislikePlan, toggleDontPlay).
+     * this song does, and, signed in with sync on read and write, gives it YouTube Music's own thumbs down,
+     * which takes the place of a like there as the button does; a like here goes once YouTube Music has taken
+     * it (signed out at once, never with sync on read only, whose next sync would bring it back), and the toast
+     * says whether YouTube Music got it. Remove dislike lifts both, and never takes away a like YouTube Music
+     * holds for a song still liked here. A local file keeps Don't play this song, which YouTube cannot hear.
+     * The phone's media controls can have Dislike as one of their two buttons (MediaControlButton.DISLIKE),
+     * doing the same to the song playing, which is then passed over (DislikePlan, toggleDontPlay).
      *
      * Held back as the line's held features are: the debug app, the Preview and the Tester app have it; a
      * release only on his word. Its texts are held from translators, French beside them. Without it the menus

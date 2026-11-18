@@ -2884,4 +2884,6 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="menu_dislike" translatable="false">Dislike</string>
     <string name="menu_dislike_lift" translatable="false">Remove dislike</string>
     <string name="dislike_done" translatable="false">Disliked here and on YouTube Music. It plays only when you pick it.</string>
+    <string name="dislike_not_sent" translatable="false">Disliked here only. YouTube Music didn\'t get it.</string>
+    <string name="dislike_lift_not_sent" translatable="false">Dislike removed here only. YouTube Music didn\'t get it.</string>
 </resources>
