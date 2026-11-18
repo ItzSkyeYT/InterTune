@@ -112,6 +112,24 @@ class TogetherLinkTest {
         assertTrue("$joins", joins == listOf("TogetherDialog.kt"))
     }
 
+    /**
+     * A name cleared in Settings after joining fell back to the phone's own name from Android's settings, often its
+     * owner's, and went to the room unasked (review 2, 18 Nov 2026). The fallback is the phone's model now.
+     */
+    @Test
+    fun `with no name set a room gets the phone's model, never its name from Android's settings`() {
+        val dialog = File("src/main/java/com/dd3boh/outertune/ui/dialog/TogetherDialog.kt").readText()
+        val settings = File("src/main/java/com/dd3boh/outertune/ui/screens/settings/ListenTogetherSettings.kt").readText()
+        assertTrue("?: phoneModel()" in dialog.substringAfter("suspend fun togetherName(").substringBefore("\n\n"))
+        assertTrue("fun phoneModel(): String = Build.MODEL" in dialog)
+        // the setting shows what is sent, and the sheet's own circle too
+        assertTrue("value = name.ifBlank { phoneModel() }," in settings)
+        assertTrue("produceState(phoneModel()) { value = togetherName(context) }" in dialog)
+        // nothing in rooms reads the phone's own name
+        val rooms = File("src/main/java/com/dd3boh/outertune/together").walkTopDown().filter { it.extension == "kt" }.map { it.readText() }.toList()
+        assertTrue((rooms + dialog + settings).none { "DEVICE_NAME" in it })
+    }
+
     @Test
     fun `an invite to the room this phone is in opens that room, it does not join again`() {
         val code = RoomCode.generate()

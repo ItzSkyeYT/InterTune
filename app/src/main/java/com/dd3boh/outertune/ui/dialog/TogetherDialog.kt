@@ -10,7 +10,6 @@ import android.content.ClipData
 import android.content.Context
 import android.content.Intent
 import android.os.Build
-import android.provider.Settings
 import android.widget.Toast
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
@@ -988,7 +987,7 @@ private fun People(
 ) {
     val context = LocalContext.current
     val haptics = LocalHapticFeedback.current
-    val myName by produceState(phoneName(context)) { value = togetherName(context) }
+    val myName by produceState(phoneModel()) { value = togetherName(context) }
     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Person(stringResource(R.string.together_you), myName, initials(myName), owner = meOwner, leader = meLeading, you = true)
         members.forEach { member ->
@@ -1160,17 +1159,16 @@ suspend fun togetherRelays(context: Context): List<String> =
         ?.split(',')?.map { it.trim() }?.filter { it.isNotEmpty() }?.takeIf { it.isNotEmpty() }
         ?: TogetherSession.PUBLIC_RELAYS
 
-/** The name the others see: the one set in Settings > Listen together, else the phone's own. */
+/** The name the others see: the one set in Settings > Listen together, else the phone's model. */
 suspend fun togetherName(context: Context): String =
-    context.dataStore.data.first()[TogetherNameKey]?.trim()?.takeIf { it.isNotEmpty() }?.take(40) ?: phoneName(context)
+    context.dataStore.data.first()[TogetherNameKey]?.trim()?.takeIf { it.isNotEmpty() }?.take(40) ?: phoneModel()
 
-/** The phone's own name from its settings ("Galaxy S25 Ultra"), else its model. */
-fun phoneName(context: Context): String {
-    val named = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N_MR1) {
-        Settings.Global.getString(context.contentResolver, Settings.Global.DEVICE_NAME)
-    } else null
-    return named?.trim()?.takeIf { it.isNotEmpty() }?.take(40) ?: Build.MODEL
-}
+/**
+ * What a phone with no name set is called in a room: its model ("Pixel 5", "SM-S938B"), never its own name from
+ * Android's settings, which people often set to their own. A name cleared in Settings after joining sent that name
+ * unasked (review 2, 18 Nov 2026).
+ */
+fun phoneModel(): String = Build.MODEL?.trim()?.takeIf { it.isNotEmpty() }?.take(40) ?: "Android"
 
 /** Up to two letters for someone's circle: the first of each of the first two words of their phone's name. */
 internal fun initials(name: String): String =
