@@ -23,9 +23,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onPlaced
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
+import com.dd3boh.outertune.constants.Unreleased
 
 @Composable
 fun BigSeekBar(
@@ -45,6 +48,7 @@ fun BigSeekBar(
     var width by remember {
         mutableFloatStateOf(0f)
     }
+    val haptic = LocalHapticFeedback.current
 
     Canvas(
         modifier
@@ -55,11 +59,29 @@ fun BigSeekBar(
                 width = it.size.width.toFloat()
             }
             .pointerInput(progressProvider) {
-                detectHorizontalDragGestures { _, dragAmount ->
+                // The drag's own value, apart from what the bar shows while the line holds it (VolumeSnap), and what
+                // this drag last showed: the volume comes back through a flow a frame late, and must not tick twice.
+                var dragged = Float.NaN
+                var shown = Float.NaN
+                detectHorizontalDragGestures(
+                    onDragStart = { dragged = progressProvider(); shown = dragged },
+                    onDragEnd = { dragged = Float.NaN; shown = Float.NaN },
+                    onDragCancel = { dragged = Float.NaN; shown = Float.NaN },
+                ) { _, dragAmount ->
                     // Drag distance maps to the whole range, so a wider range is not slower to
                     // traverse; it just packs more value into the same sweep.
                     val delta = dragAmount * 1.2f / width * maxProgress
-                    onProgressChange((progressProvider() + delta).coerceIn(0f, maxProgress))
+                    if (!Unreleased.HAPTICS_MORE) {
+                        onProgressChange((progressProvider() + delta).coerceIn(0f, maxProgress))
+                        return@detectHorizontalDragGestures
+                    }
+                    // Near the line where boost begins the bar rests on it, with one tick as it lands.
+                    val before = if (shown.isNaN()) progressProvider() else shown
+                    dragged = ((if (dragged.isNaN()) before else dragged) + delta).coerceIn(0f, maxProgress)
+                    val now = VolumeSnap.shown(dragged, maxProgress)
+                    if (VolumeSnap.lands(before, now)) haptic.performHapticFeedback(HapticFeedbackType.SegmentTick)
+                    shown = now
+                    onProgressChange(now)
                 }
             }
     ) {
