@@ -91,9 +91,11 @@ class DownloadsSimpleTest {
         // Today's row first in the file, as the tests of the folder that cannot be opened read it.
         assertTrue(frag.indexOf("settingRow(R.string.dl_main_path_title)") in 0 until frag.indexOf("WhereDownloadsGoRow("))
         val row = frag.substringAfter("WhereDownloadsGoRow(").substringBefore("\n        )\n")
-        assertTrue("found in Settings' search as today's row is", simple.contains("modifier = Modifier.settingRow(R.string.dl_main_path_title),"))
-        // The tour's mark is written once, on today's row (SettingsCloserLookTest): it moves with the look that is chosen.
-        assertFalse(simple.contains("tourTarget("))
+        assertTrue("found in Settings' search as today's row is", simple.contains(".settingRow(R.string.dl_main_path_title),"))
+        // The tour's mark is written once (SettingsCloserLookTest), and on the row that is drawn: C's, the look chosen.
+        // Left on today's row, What's new's "Show me" for the folder and the tour's closer pointed at nothing.
+        assertTrue(simple.contains("modifier = Modifier.tourTarget(Tour.SETTING_DOWNLOAD_FOLDER).settingRow(R.string.dl_main_path_title),"))
+        assertFalse(frag.contains("tourTarget(Tour.SETTING_DOWNLOAD_FOLDER)"))
         assertTrue("the choice of two in place of the folder dialog", row.contains("onClick = { showWhereChoice = true },"))
         assertTrue("the move, with the question of today before it", row.contains("onMove = askToMove"))
     }

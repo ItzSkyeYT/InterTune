@@ -184,7 +184,8 @@ class DownloadFormatsWiringTest {
     @Test
     fun `File format is under the download folder, behind the flag, and Bitrate is inside it and shown for MP3 and M4A only`() {
         val frag = fileCode("ui/screens/settings/fragments/DownloadsFrag.kt")
-        val folder = frag.indexOf("Tour.SETTING_DOWNLOAD_FOLDER")
+        // The folder's row: today's, and the simpler page's one row after it (its tour mark is on that one now).
+        val folder = frag.indexOf("WhereDownloadsGoRow(")
         val start = frag.indexOf("if (Unreleased.DOWNLOAD_FORMATS) {")
         assertTrue("the rows are not behind the flag", start > 0)
         assertTrue("under the folder row", start > folder)

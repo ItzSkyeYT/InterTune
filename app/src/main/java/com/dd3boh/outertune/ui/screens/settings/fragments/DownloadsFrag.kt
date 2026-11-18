@@ -361,7 +361,8 @@ fun ColumnScope.DownloadsFrag() {
         ?.let { absoluteFilePathFromUri(context, it) } ?: downloadPath else null
     if (!look.oneRow) {
         PreferenceEntry(
-            modifier = Modifier.tourTarget(Tour.SETTING_DOWNLOAD_FOLDER).settingRow(R.string.dl_main_path_title),
+            // The tour's mark is on the simpler page's one row, drawn wherever this one is not (WhereDownloadsGoRow).
+            modifier = Modifier.settingRow(R.string.dl_main_path_title),
             title = { Text(stringResource(R.string.dl_main_path_title)) },
             // An icon like the rows around it: without one the row sat flush left, out of line with them.
             icon = { Icon(Icons.Rounded.Folder, null) },
