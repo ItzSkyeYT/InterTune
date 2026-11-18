@@ -167,6 +167,11 @@ object AppLanguage {
     /**
      * Before Android 13: [base] in the chosen language, for attachBaseContext. Later Androids
      * hand over a context that already is, and get it back untouched.
+     *
+     * The override names the language and nothing else. A copy of the whole configuration froze
+     * everything in it (which way up the phone was, the screen's size): MainActivity is not made
+     * again when the phone turns, so on Android 7 to 9 the screen kept its portrait shape on its
+     * side and the landscape player never showed.
      */
     fun wrap(base: Context): Context {
         if (Build.VERSION.SDK_INT >= 33) return base
@@ -174,7 +179,7 @@ object AppLanguage {
         if (tag.isEmpty()) return base
         val locale = Locale.forLanguageTag(tag)
         Locale.setDefault(locale)
-        val config = Configuration(base.resources.configuration).apply { setLocale(locale) }
+        val config = Configuration().apply { setLocale(locale) }
         return base.createConfigurationContext(config)
     }
 

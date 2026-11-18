@@ -177,4 +177,14 @@ class AppLanguageTest {
         assertTrue("ContentLocale.of(" in source("ui/screens/settings/fragments/InterfaceFrag.kt"))
         assertTrue("use(of(" in source("utils/ContentLocale.kt"))
     }
+
+    @Test
+    fun `a screen's language is the only thing its override names, so it still turns with the phone`() {
+        // A copy of the whole configuration froze the orientation and the screen's size in it: MainActivity handles a
+        // turn itself, so on Android 7 to 9 with a language picked it kept its portrait shape on its side.
+        val wrap = source("utils/AppLanguage.kt").substringAfter("fun wrap(base: Context): Context {").substringBefore("\n    }\n")
+        assertTrue(wrap, "val config = Configuration().apply { setLocale(locale) }" in wrap)
+        assertFalse(wrap, "Configuration(base.resources.configuration)" in wrap)
+        assertTrue("base.createConfigurationContext(config)" in wrap)
+    }
 }
