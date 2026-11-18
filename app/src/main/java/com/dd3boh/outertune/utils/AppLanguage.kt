@@ -160,6 +160,14 @@ object AppLanguage {
         applyInPlace(context.resources, LocaleList(Locale.forLanguageTag(tag)))
     }
 
+    /**
+     * Before Android 13, right after a WebView is made (the two sign-in pages, the web client's
+     * token and its challenge): the first one of the process adds WebView's own resources to the
+     * app's, which makes them again in the phone's language, so the notifications and the widgets
+     * spoke it until the screen turned. The app's language is put back at once.
+     */
+    fun afterWebView(context: Context) = applyToProcess(context.applicationContext)
+
     @Suppress("DEPRECATION")
     private fun applyInPlace(resources: Resources, locales: LocaleList) {
         if (!locales.isEmpty) LocaleList.setDefault(locales)

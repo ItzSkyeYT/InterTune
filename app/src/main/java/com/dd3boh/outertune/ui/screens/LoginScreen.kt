@@ -75,6 +75,7 @@ import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.constants.VisitorDataKey
 import com.dd3boh.outertune.ui.component.FloatingTopBar
 import com.dd3boh.outertune.utils.WhyStopped
+import com.dd3boh.outertune.utils.AppLanguage
 import com.dd3boh.outertune.utils.dataStore
 import com.dd3boh.outertune.utils.rememberPreference
 import com.dd3boh.outertune.utils.reportException
@@ -266,6 +267,9 @@ fun LoginScreen(
                     modifier = Modifier.fillMaxSize(),
                     factory = { context ->
                         WebView(context).apply {
+                            // Before Android 13 the first WebView of the process puts the app's words
+                            // back in the phone's language.
+                            AppLanguage.afterWebView(context)
                             // App links taken to YouTube Music's page instead, for this page.
                             var appLinksTaken = 0
                             webViewClient = object : WebViewClient() {

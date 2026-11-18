@@ -199,4 +199,16 @@ class AppLanguageTest {
         val inPlace = language.substringAfter("private fun applyInPlace(resources: Resources, locales: LocaleList) {").substringBefore("\n    }\n")
         assertTrue(inPlace, "LocaleList.setDefault(locales)" in inPlace && "setLocales(locales)" in inPlace)
     }
+
+    @Test
+    fun `every WebView made puts the app's language back before Android 13`() {
+        // The first WebView of the process makes the app's resources again in the phone's language (WebView adds its
+        // own to them): after a sign-in the notifications and the widgets spoke it until the screen turned.
+        val makers = sources.walkTopDown()
+            .filter { it.extension == "kt" && Regex("""(?<![\w.])WebView\(context\)""").containsMatchIn(it.readText()) }
+            .associate { it.name to it.readText() }
+        assertTrue(makers.keys.toString(), makers.keys.containsAll(listOf("LoginScreen.kt", "LastFmLoginScreen.kt", "WebViewChallengeSolver.kt", "PoTokenWebView.kt")))
+        for ((name, text) in makers) assertTrue(name, "AppLanguage.afterWebView(context)" in text)
+        assertTrue("fun afterWebView(context: Context) = applyToProcess(context.applicationContext)" in source("utils/AppLanguage.kt"))
+    }
 }
