@@ -9,6 +9,8 @@
 
 package com.dd3boh.outertune.ui.player
 
+import com.dd3boh.outertune.ui.component.ProblemReportDialog
+import com.dd3boh.outertune.ui.component.PlayerErrorReport
 import com.dd3boh.outertune.ui.dialog.TogetherSheet
 import androidx.compose.material.icons.rounded.Group
 import com.dd3boh.outertune.playback.PlayerConnection
@@ -305,6 +307,13 @@ fun BottomSheetPlayer(
             state.collapseSoft()
         }
     }
+    // Report a problem opened from the error screen, kept here, where the player held either way reads it.
+    // The error screen kept it itself, and that screen sits at another place on a phone on its side, so
+    // turning the phone while the page was open closed it. Open until it is closed, with the error it was
+    // opened for, even if the player has moved on from that error meanwhile.
+    var errorReport by remember { mutableStateOf<PlayerErrorReport?>(null) }
+    val reportError: (PlayerErrorReport) -> Unit = remember { { report: PlayerErrorReport -> errorReport = report } }
+    errorReport?.let { report -> ProblemReportDialog(onDismiss = { errorReport = null }, playerError = report) }
 
     // Focus follows the sheet for the keys: opened from the mini player, it lands on play and
     // pause; closed again, it goes back to the mini player's title. Left alone it vanished with
@@ -1810,6 +1819,7 @@ fun BottomSheetPlayer(
                                 lyricsBottomPadding = queueClearance,
                                 onSignIn = leaveForSignIn,
                                 onProxy = leaveForProxy,
+                                onReport = reportError,
                             )
                         } else {
                             SwipeableArtwork(
@@ -1831,6 +1841,7 @@ fun BottomSheetPlayer(
                                     lyricsBottomPadding = queueClearance,
                                     onSignIn = leaveForSignIn,
                                     onProxy = leaveForProxy,
+                                    onReport = reportError,
                                 )
                             }
                         }
@@ -1935,6 +1946,7 @@ fun BottomSheetPlayer(
                                 customMediaMetadata = mediaMetadata,
                                 onSignIn = leaveForSignIn,
                                 onProxy = leaveForProxy,
+                                onReport = reportError,
                             )
                         } else {
                             SwipeableArtwork(
@@ -1955,6 +1967,7 @@ fun BottomSheetPlayer(
                                     customMediaMetadata = it,
                                     onSignIn = leaveForSignIn,
                                     onProxy = leaveForProxy,
+                                    onReport = reportError,
                                 )
                             }
                         }

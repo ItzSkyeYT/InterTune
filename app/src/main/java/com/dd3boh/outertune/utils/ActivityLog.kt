@@ -25,4 +25,16 @@ object ActivityLog {
                 .onFailure { Log.w("ActivityLog", "Could not record activity", it) }
         }
     }
+
+    /**
+     * Takes back what [note] wrote of [kind] about [songId] at [since] or later, the newest only: the
+     * queue sheet's Undo of a removal, a tap on the message the removal showed, so the note has long been
+     * written by then.
+     */
+    fun takeBack(database: MusicDatabase, songId: String, kind: Int, since: Long) {
+        database.query {
+            runCatching { dropLastSignal(songId, kind, since) }
+                .onFailure { Log.w("ActivityLog", "Could not take back activity", it) }
+        }
+    }
 }

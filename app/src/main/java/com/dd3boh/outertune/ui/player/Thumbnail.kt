@@ -9,6 +9,7 @@
 
 package com.dd3boh.outertune.ui.player
 
+import com.dd3boh.outertune.ui.component.PlayerErrorReport
 import com.dd3boh.outertune.extensions.playSafe
 import com.dd3boh.outertune.LocalDatabase
 import com.dd3boh.outertune.constants.SignalKind
@@ -111,6 +112,8 @@ fun Thumbnail(
      */
     onSignIn: () -> Unit = {},
     onProxy: () -> Unit = {},
+    /** Where the error screen's Report opens Report a problem, kept by the player (ThumbnailPlaybackError). */
+    onReport: ((PlayerErrorReport) -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val database = LocalDatabase.current
@@ -288,6 +291,7 @@ fun Thumbnail(
                     retry = playerConnection.player::playSafe,
                     onSignIn = onSignIn,
                     onProxy = onProxy,
+                    onReport = onReport,
                 )
             }
         }

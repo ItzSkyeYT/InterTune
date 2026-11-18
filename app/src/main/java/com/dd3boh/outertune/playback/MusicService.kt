@@ -2970,9 +2970,19 @@ class MusicService : MediaLibraryService(),
         adaptiveChanged()
     }
 
-    /** [song] was swiped out of the queue sheet. See AdaptiveQueue.Heard.removedByHand. Main thread. */
-    fun noteRemovedByHand(song: MediaMetadata) {
-        heard.removedByHand(song.id, song.title, song.artists.map { it.name })
+    /**
+     * [song] was swiped out of the queue sheet. See AdaptiveQueue.Heard.removedByHand. What it changed
+     * comes back for the sheet's Undo ([notePutBackByHand]). Main thread.
+     */
+    fun noteRemovedByHand(song: MediaMetadata): AdaptiveQueue.Heard.Removal {
+        val removal = heard.removedByHand(song.id, song.title, song.artists.map { it.name })
+        adaptiveChanged()
+        return removal
+    }
+
+    /** Undo put the song of [removal] back: the run takes back what the removal said. Main thread. */
+    fun notePutBackByHand(removal: AdaptiveQueue.Heard.Removal) {
+        heard.putBackByHand(removal)
         adaptiveChanged()
     }
 

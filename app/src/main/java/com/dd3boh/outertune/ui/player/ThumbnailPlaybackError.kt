@@ -86,6 +86,13 @@ fun ThumbnailPlaybackError(
      */
     onSignIn: () -> Unit = {},
     onProxy: () -> Unit = {},
+    /**
+     * Where Report opens Report a problem with this error, when the caller keeps that page open itself:
+     * the player does, so a phone turned while the page is open keeps it (this screen sits at another
+     * place on a phone on its side, and what it remembers starts again there). Null, the screen opens
+     * the page itself.
+     */
+    onReport: ((PlayerErrorReport) -> Unit)? = null,
 ) {
     val clipboardManager = LocalClipboard.current
     val context = LocalContext.current
@@ -231,7 +238,7 @@ fun ThumbnailPlaybackError(
                     style = MaterialTheme.typography.labelLarge,
                 )
             }
-            TextButton(onClick = { reporting = true }) {
+            TextButton(onClick = { if (onReport != null) onReport(playerErrorReport(error, song)) else reporting = true }) {
                 Icon(
                     imageVector = Icons.Rounded.BugReport,
                     contentDescription = null,

@@ -429,14 +429,90 @@ object AdaptiveQueue {
 
         /**
          * [id] was swiped out of the queue: its other versions go with it, and its artists take a
-         * skip each. A pick the listener took out is never picked again in this run.
+         * skip each. A pick the listener took out is never picked again in this run. What it changed
+         * comes back, for the queue sheet's Undo to take back with [putBackByHand].
          */
-        fun removedByHand(id: String, title: String?, artists: List<String>) {
-            skipped(Song(id, title, artists, -1))
-            run.recent.filter { it.song.id == id }.forEach { it.removed = true }
-            if (run.picks.remove(id) != null) run.dismissed.add(id)
-            run.byHand.remove(id)
+        fun removedByHand(id: String, title: String?, artists: List<String>): Removal {
+            val r = run
+            val song = Song(id, title, artists, -1)
+            val skippedBefore = r.skippedSongs.toList()
+            val base = title?.let { SongVersions.baseTitle(it, artists.firstOrNull()) }?.takeIf { it.isNotBlank() }
+            val marked = r.recent.filter { it.song.id == id && !it.removed }
+            val seed = r.picks[id]
+            val removal = TakenOut(
+                id = id, run = r,
+                artists = artists.map { it.trim().lowercase() }.distinct(),
+                base = base?.takeIf { it !in r.skippedSongs },
+                marked = marked,
+                pickSeed = seed,
+                wasDismissed = id in r.dismissed,
+                wasByHand = id in r.byHand,
+            )
+            skipped(song)
+            removal.crowdedOut = skippedBefore.filter { it !in r.skippedSongs }
+            marked.forEach { it.removed = true }
+            if (r.picks.remove(id) != null) r.dismissed.add(id)
+            r.byHand.remove(id)
             touch()
+            return removal
+        }
+
+        /**
+         * Undo of [removal] in the queue sheet: the song is back where it was, and the run takes back
+         * all the removal said about it, as if it had stayed: its artists' skip, its title turned
+         * down, its mark as taken out, its place among the picks or the songs put in by hand. Without
+         * this the next pass found the song turned down and put a fresh pick in its place, and two
+         * removals of one artist undone still cleared that artist from the queue. Applied to the run
+         * it came out of, as a change on top of what that run has learned since: a skip of the same
+         * artist meanwhile still counts.
+         */
+        fun putBackByHand(removal: Removal) {
+            val taken = removal as? TakenOut ?: return
+            val r = taken.run
+            for (artist in taken.artists) {
+                val left = (r.skipsByArtist[artist] ?: 0) - 1
+                if (left > 0) r.skipsByArtist[artist] = left else r.skipsByArtist.remove(artist)
+            }
+            taken.base?.let { r.skippedSongs.remove(it) }
+            // A title pushed out of the list of songs turned down to make room for this one is let back
+            // in, as the oldest, while there is room.
+            val back = taken.crowdedOut.filter { it !in r.skippedSongs }
+            if (back.isNotEmpty()) {
+                val now = r.skippedSongs.toList()
+                r.skippedSongs.clear()
+                r.skippedSongs.addAll((back + now).takeLast(recentCap))
+            }
+            taken.marked.forEach { it.removed = false }
+            taken.pickSeed?.let { seed ->
+                r.picks[taken.id] = seed
+                if (!taken.wasDismissed) r.dismissed.remove(taken.id)
+            }
+            if (taken.wasByHand) r.byHand.add(taken.id)
+            r.changedAt = clock()
+        }
+
+        /** What one [removedByHand] changed in a run, for [putBackByHand]. */
+        interface Removal {
+            /** The song taken out. */
+            val id: String
+        }
+
+        private class TakenOut(
+            override val id: String,
+            val run: Run,
+            /** Its artists, lower-cased, each of which took a skip. */
+            val artists: List<String>,
+            /** Its base title, turned down by the removal: null when it was turned down before. */
+            val base: String?,
+            /** Its entries among the songs heard, marked as taken out by the removal. */
+            val marked: List<Entry>,
+            /** The seed it was picked for, when it was a pass's pick. */
+            val pickSeed: String?,
+            val wasDismissed: Boolean,
+            val wasByHand: Boolean,
+        ) : Removal {
+            /** The titles turned down that the cap pushed out to make room for [base]. */
+            var crowdedOut: List<String> = emptyList()
         }
 
         /**
