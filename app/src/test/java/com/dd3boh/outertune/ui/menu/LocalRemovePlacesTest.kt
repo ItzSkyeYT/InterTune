@@ -98,6 +98,18 @@ class LocalRemovePlacesTest {
     }
 
     @Test
+    fun `a folder emptied in place by a removal still goes up by its two dots`() {
+        // Found 18 Nov 2026 (the review of local-remove, L2): removing the last song of the folder on screen reads it
+        // again in place, empty, and ".." went up only for a folder with songs in it, so it did nothing; Back worked.
+        val screen = code("ui/screens/library/FolderScreen.kt")
+        val up = screen.substringAfter("folderTitle = \"..\",").substringBefore("navController.navigateUp()")
+        assertTrue(up, "if (!currDir.isSkeleton || currDir.culmSongs.value > 0) {" in up)
+        // Read in place: the tree the folder shows is no skeleton once read, empty or not.
+        val model = code("viewmodels/LibraryViewModels.kt").substringAfter("suspend fun getLocalSongs(")
+        assertTrue("dt.isSkeleton = false" in model.substringBefore("localSongDirectoryTree.value = dt"))
+    }
+
+    @Test
     fun `a song goes with its like, as a YouTube song's Remove from library has it, and a folder's songs keep theirs`() {
         val removal = code("utils/scanners/LocalRemoval.kt")
         val song = removal.substringAfter("suspend fun removeSong(").substringBefore("suspend fun excludeFolder(")

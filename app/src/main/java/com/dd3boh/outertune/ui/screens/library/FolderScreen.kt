@@ -495,7 +495,9 @@ fun FolderScreen(
                             subtitle = "Previous folder",
                             modifier = Modifier
                                 .clickable {
-                                    if (currDir.culmSongs.value > 0) {
+                                    // Once the folder is read, also when nothing is left in it: removing its last
+                                    // song from its menu empties it in place (LocalRemoval), and ".." did nothing.
+                                    if (!currDir.isSkeleton || currDir.culmSongs.value > 0) {
                                         navController.navigateUp()
                                     }
                                 }
