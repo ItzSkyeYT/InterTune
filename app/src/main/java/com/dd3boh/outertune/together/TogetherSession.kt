@@ -18,6 +18,7 @@ import com.dd3boh.outertune.constants.PlayOrigin
 import com.dd3boh.outertune.constants.TogetherCatchUpKey
 import com.dd3boh.outertune.constants.TogetherDelayKey
 import com.dd3boh.outertune.constants.TogetherToleranceKey
+import com.dd3boh.outertune.extensions.metadata
 import com.dd3boh.outertune.extensions.toMediaItem
 import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.playback.MusicService
@@ -29,6 +30,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -72,6 +74,11 @@ class TogetherSession(
      * that a host that returns is the same owner to the guests (RoomMemory).
      */
     identity: ByteArray = Secp256k1.newSecretKey(),
+    /**
+     * For a guest's room that comes back: when it last heard the host before this session, or came if it never did, as
+     * RoomMemory kept it. The host's absence goes on counting from then. 0 for a room joined now.
+     */
+    hostHeardAt: Long = 0L,
 ) {
     data class Status(
         val relaysConnected: Int = 0,
@@ -129,6 +136,9 @@ class TogetherSession(
 
     private val startedAt = System.currentTimeMillis()
 
+    /** Where a guest counts the host's absence from until it hears it: see [hostHeardAt]. */
+    private val hostSince = if (hostHeardAt > 0) hostHeardAt else startedAt
+
     /** When the owner was last heard, 0 before it is. */
     private var ownerHeardAt = 0L
     private val pool = RelayPool(
@@ -160,6 +170,10 @@ class TogetherSession(
     private val greeted = mutableSetOf<String>()
     /** Sent out by the owner: their messages are not read. */
     private val sentOut = mutableSetOf<String>()
+    /** The sealed words taken, so that a copy is not taken twice (TakenSeals). */
+    private val seals = TakenSeals()
+    /** Wakes the room's look before its time is up: what needs one soon (lookEveryMs). */
+    private val wake = Channel<Unit>(Channel.CONFLATED)
     private val speedBefore = service.exoPlayer.playbackParameters.speed
     private val repeatBefore = service.exoPlayer.repeatMode
     private var repeatTaken = false
@@ -192,6 +206,7 @@ class TogetherSession(
         // A follower's own pause, song or seek, as against the session's own commands (mine()).
         override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
             if (!leading) listenerPlayed(playWhenReady)
+            wake.trySend(Unit)
         }
 
         override fun onMediaItemTransition(mediaItem: androidx.media3.common.MediaItem?, reason: Int) {
@@ -267,7 +282,9 @@ class TogetherSession(
                     stop()
                     break
                 }
-                service.roomAlive()
+                // A guest's room is alive while its host is heard, not while the guest is on: one whose host closed it
+                // while this phone was off came back at every start (HostAbsence.aliveAt).
+                HostAbsence.aliveAt(owner, System.currentTimeMillis(), ownerHeardAt)?.let(service::roomAlive)
                 sayHere()
                 delay(TogetherMessage.HERE_MS)
             }
@@ -298,7 +315,10 @@ class TogetherSession(
             while (isActive) {
                 if (!leading) follow()
                 watchHost()
-                delay(SYNC_TICK_MS)
+                // Four looks a second while the room plays; one every two seconds while it is paused there and here, or
+                // while this phone leads. A word from the leader, a play or a pause here, a new lead or Catch up wakes it.
+                val every = lookEveryMs(leading, lastState?.playing, service.exoPlayer.playWhenReady)
+                withTimeoutOrNull(every) { wake.receive() }
             }
         }
         publish()
@@ -326,7 +346,7 @@ class TogetherSession(
         if (owner) {
             runCatching {
                 pool.publish(
-                    NostrEvent.signed(secret, TogetherMessage.KIND, listOf(listOf("t", code.tag)), code.seal(TogetherMessage.encode(TogetherMessage.End)))
+                    NostrEvent.signed(secret, TogetherMessage.KIND, listOf(listOf("t", code.tag)), code.seal(TogetherMessage.encode(TogetherMessage.End, sender = me)))
                 )
             }.onFailure { Log.w(TAG, "The end of the room could not be sent", it) }
         }
@@ -343,13 +363,14 @@ class TogetherSession(
     private fun watchHost() {
         if (owner) return
         val now = System.currentTimeMillis()
-        val lastSign = maxOf(ownerHeardAt, startedAt)
-        val away = (leaderKey == null || leaderKey == ownerKey) && HostAbsence.away(now, lastSign)
+        // Away once not heard for a while in this session: a phone that has just come back has not heard it yet.
+        val away = (leaderKey == null || leaderKey == ownerKey) && HostAbsence.away(now, maxOf(ownerHeardAt, startedAt))
         if (away != _status.value.hostAway) {
             Log.i(TAG, if (away) "The host is away" else "The host is back")
             _status.value = _status.value.copy(hostAway = away)
         }
-        if (HostAbsence.gone(now, lastSign)) closed(R.string.together_host_gone)
+        // Gone counted from the host's last word, before this session too for a room that comes back (hostSince).
+        if (HostAbsence.gone(now, HostAbsence.lastSign(ownerHeardAt, hostSince))) closed(R.string.together_host_gone)
     }
 
     private fun sayHere() = send(TogetherMessage.Here(name, owner, lead = if (owner) leaderKey else null))
@@ -389,7 +410,11 @@ class TogetherSession(
         send(TogetherMessage.Queue(ownQueue(), player.repeatMode, player.shuffleModeEnabled))
     }
 
-    /** This phone's queue from the song playing on, in the order it plays. */
+    /**
+     * This phone's queue from the song playing on, in the order it plays, without the songs from files on this phone: no
+     * other phone can play them, and an untagged file's name was its title, shown in every guest's queue (review 2,
+     * 18 Nov 2026). The song playing still says its own name in the State: the room shows what the host plays.
+     */
     private fun ownQueue(): List<TogetherMessage.Song> {
         val player = service.exoPlayer
         val timeline = player.currentTimeline
@@ -399,13 +424,16 @@ class TogetherSession(
         var index = player.currentMediaItemIndex
         while (index != C.INDEX_UNSET && songs.size < TogetherMessage.QUEUE_SONGS) {
             val item = timeline.getWindow(index, window).mediaItem
-            val metadata = item.mediaMetadata
-            songs += TogetherMessage.Song(
-                id = item.mediaId,
-                title = metadata.title?.toString().orEmpty(),
-                artist = metadata.artist?.toString().orEmpty(),
-                thumbnail = metadata.artworkUri?.toString().orEmpty(),
-            )
+            if (!fromThisPhone(item.metadata?.isLocal, item.mediaId)) {
+                val metadata = item.mediaMetadata
+                songs += TogetherMessage.Song(
+                    id = item.mediaId,
+                    title = metadata.title?.toString().orEmpty(),
+                    artist = metadata.artist?.toString().orEmpty(),
+                    // Never a file's path: a song from the phone has it as its picture (TogetherMessage.thumbnailFor).
+                    thumbnail = TogetherMessage.thumbnailFor(metadata.artworkUri?.toString()),
+                )
+            }
             index = timeline.getNextWindowIndex(index, Player.REPEAT_MODE_OFF, player.shuffleModeEnabled)
         }
         return songs
@@ -414,7 +442,7 @@ class TogetherSession(
     private fun send(message: TogetherMessage) {
         scope.launch {
             val event = withContext(Dispatchers.Default) {
-                NostrEvent.signed(secret, TogetherMessage.KIND, listOf(listOf("t", code.tag)), code.seal(TogetherMessage.encode(message)))
+                NostrEvent.signed(secret, TogetherMessage.KIND, listOf(listOf("t", code.tag)), code.seal(TogetherMessage.encode(message, sender = me)))
             }
             pool.publish(event)
         }
@@ -423,7 +451,11 @@ class TogetherSession(
     private fun onEvent(event: NostrEvent) {
         val from = event.pubkey
         if (from == me || event.kind != TogetherMessage.KIND || from in sentOut) return
-        val message = code.open(event.content)?.let(TogetherMessage::decode) ?: return
+        // Only a word its signer sealed: anyone who sees the room's sealed words on a public relay could sign one again
+        // with a key of their own (TogetherMessage.decodeFrom).
+        val message = code.open(event.content)?.let { TogetherMessage.decodeFrom(it, from) } ?: return
+        // And each sealed word once, whatever event carries it again.
+        if (!seals.take(event.content)) return
         val now = System.currentTimeMillis()
         // A newcomer gets where the leader is and its queue at once, not at the next beat two
         // seconds on: a guest who joined waited seconds for the song (his ask of 26 Oct 2026). The
@@ -461,6 +493,7 @@ class TogetherSession(
                 if (from == leaderKey && hostLine.hear(message)) {
                     lastState = message
                     lastStateAt = now
+                    wake.trySend(Unit)
                     // The leader said yes to this phone's song: back with the room, where it already is.
                     if (ownWay && message.songId == proposedSongId) {
                         Log.i(TAG, "The leader plays the song proposed from here: back with the room")
@@ -552,6 +585,7 @@ class TogetherSession(
             _status.value = _status.value.copy(driftMs = null, waitingForHost = true, locked = false)
         }
         publish()
+        wake.trySend(Unit)
     }
 
     private fun publish() {
@@ -622,7 +656,7 @@ class TogetherSession(
 
     /** A follower's song for the leader to play next. */
     fun suggest(song: MediaMetadata) {
-        send(TogetherMessage.Suggest(song.id, song.title, song.artists.joinToString { it.name }, song.thumbnailUrl.orEmpty(), name))
+        send(TogetherMessage.Suggest(song.id, song.title, song.artists.joinToString { it.name }, TogetherMessage.thumbnailFor(song.thumbnailUrl), name))
         Log.i(TAG, "Suggested ${song.id} to the room")
     }
 
@@ -632,7 +666,9 @@ class TogetherSession(
      */
     fun propose() {
         if (leading || !ownWay) return
-        val songs = ownQueue().takeIf { it.isNotEmpty() } ?: return
+        // Its own song first, or nothing: a song from a file on this phone is left out (ownQueue), and the leader could
+        // not play it anyway. The sheet does not offer it then (canPropose).
+        val songs = ownQueue().takeIf { it.isNotEmpty() && it.first().id == service.exoPlayer.currentMediaItem?.mediaId } ?: return
         proposedSongId = songs.first().id
         send(TogetherMessage.Propose(songs, service.exoPlayer.currentPosition, name))
         _status.value = _status.value.copy(proposed = true)
@@ -674,6 +710,7 @@ class TogetherSession(
         roomQueue?.let { takeRepeat(it.repeat) }
         _status.value = _status.value.copy(ownWay = false, pausedHere = false, locked = false, proposed = false)
         Log.i(TAG, "Catching up with the leader")
+        wake.trySend(Unit)
     }
 
     /**
@@ -1009,7 +1046,6 @@ class TogetherSession(
 
     companion object {
         private const val TAG = "Together"
-        private const val SYNC_TICK_MS = 250L
         /** After a seek, time for the player to land before the next look. */
         private const val SETTLE_MS = 500L
         private const val MEMBER_TIMEOUT_MS = 45_000L
@@ -1046,3 +1082,27 @@ class TogetherSession(
         )
     }
 }
+
+/** A local song's id: "LS" and eight more (SongEntity.generateSongId), never a YouTube id's eleven characters. */
+private val LOCAL_SONG_ID = Regex("LS[A-Za-z0-9]{8}")
+
+/**
+ * Whether a song in the player is from a file on this phone: by what the app knows of it ([isLocal], from the item's
+ * metadata), or failing that by its id. No other phone can play it, so a room never carries it in a queue.
+ */
+internal fun fromThisPhone(isLocal: Boolean?, mediaId: String): Boolean = isLocal == true || LOCAL_SONG_ID.matches(mediaId)
+
+/** The room's look while it plays: four times a second, for a follower's sync. */
+private const val LOOK_MS = 250L
+
+/** And while it is paused there and here, or this phone leads. */
+private const val IDLE_LOOK_MS = 2_000L
+
+/**
+ * How long a room waits between its looks (TogetherSession's follow and watchHost): a quarter of a second while the
+ * room plays; two seconds while it is paused both there and here, or while this phone leads, which has nothing to
+ * follow. Four main-thread wake-ups a second went on for a paused room left open (performance review, 18 Nov 2026).
+ * What needs a look sooner wakes it: a word from the leader, a play or a pause here, a new lead, Catch up.
+ */
+internal fun lookEveryMs(leading: Boolean, roomPlaying: Boolean?, playingHere: Boolean): Long =
+    if (leading || (roomPlaying != true && !playingHere)) IDLE_LOOK_MS else LOOK_MS

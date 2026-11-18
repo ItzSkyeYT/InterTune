@@ -21,15 +21,19 @@ import java.io.File
  * In the app's no-backup storage: the key must never be restored on another phone.
  */
 class RoomMemory(private val file: File) {
+    // One at a time: the service touches the file off the main thread (MusicService.roomAlive), and saves, loads and
+    // forgets it on the main one.
 
-    /** What is kept, and when the room was last alive. */
+    /** What is kept, and when the room was last alive: for a guest, when it last heard the host (HostAbsence.aliveAt). */
     data class Saved(val code: String, val owner: Boolean, val identity: String, val aliveAt: Long)
 
+    @Synchronized
     fun save(code: RoomCode, owner: Boolean, identity: String, now: Long) {
         write(Saved(code.raw, owner, identity, now))
     }
 
     /** The room that is kept, or null: none, one that was last alive more than [FORGET_AFTER_MS] ago, or a file that cannot be read. */
+    @Synchronized
     fun load(now: Long): Saved? {
         val saved = read() ?: return null
         if (now - saved.aliveAt > FORGET_AFTER_MS) {
@@ -39,11 +43,17 @@ class RoomMemory(private val file: File) {
         return saved
     }
 
-    /** The room is alive at [now]: a long absence is counted from the last time it was. */
-    fun touch(now: Long) {
-        read()?.let { write(it.copy(aliveAt = now)) }
+    /**
+     * The room [code] is alive at [now]: a long absence is counted from the last time it was. Only if it is still the room
+     * kept: a touch that comes late, off the main thread, leaves alone a room joined meanwhile, and keeps nothing after a
+     * leave.
+     */
+    @Synchronized
+    fun touch(code: RoomCode, now: Long) {
+        read()?.takeIf { it.code == code.raw }?.let { write(it.copy(aliveAt = now)) }
     }
 
+    @Synchronized
     fun forget() {
         runCatching { file.delete() }
     }
@@ -89,4 +99,18 @@ internal object HostAbsence {
 
     fun away(now: Long, lastSign: Long): Boolean = now - lastSign > AWAY_MS
     fun gone(now: Long, lastSign: Long): Boolean = now - lastSign > GONE_MS
+
+    /**
+     * The host's last sign for a guest: its last word ([ownerHeardAt], 0 before it is heard), else [since], when the guest
+     * came, or for a room that comes back the time it kept. Counted from the session's own start, a room whose host had
+     * closed it while the guest's app was off came back for six more hours at every start (18 Nov 2026).
+     */
+    fun lastSign(ownerHeardAt: Long, since: Long): Long = maxOf(ownerHeardAt, since)
+
+    /**
+     * What a room keeps as its last sign of life (RoomMemory.touch), or null for nothing: [now] for its host, and for a
+     * guest the last time it heard the host. Never a guest's own beat: that kept a dead room alive for as long as the
+     * guest opened the app.
+     */
+    fun aliveAt(owner: Boolean, now: Long, ownerHeardAt: Long): Long? = if (owner) now else ownerHeardAt.takeIf { it > 0 }
 }

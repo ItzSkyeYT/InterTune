@@ -8,6 +8,7 @@ package com.dd3boh.outertune.together
 
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.addJsonObject
 import kotlinx.serialization.json.boolean
 import kotlinx.serialization.json.buildJsonObject
@@ -19,6 +20,7 @@ import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.long
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.buildJsonArray
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import kotlin.math.abs
 
 /**
@@ -90,7 +92,29 @@ sealed interface TogetherMessage {
         /** How many songs of the leader's queue travel, the one playing first. */
         const val QUEUE_SONGS = 30
 
-        fun encode(message: TogetherMessage): String = when (message) {
+        /**
+         * What a room carries of a song's picture: an address on YouTube's own picture servers, and nothing else. A song
+         * from a file on the phone has the file's full path there (/storage/emulated/0/Music/<folders>/<file>, the
+         * folders often named after people), and it went to everyone with the room's code (review of 0.13, 18 Nov 2026);
+         * any other web address had every guest's phone fetch it, so whoever has the code could learn each guest's
+         * address from a server of their own (review 2). Applied as a message is made and as one is read, and given as
+         * OkHttp reads it, the reader the pictures are loaded with, so what is loaded is what was looked at.
+         */
+        fun thumbnailFor(uri: String?): String {
+            val url = uri?.trim()?.toHttpUrlOrNull() ?: return ""
+            return if (url.isHttps && PICTURE_HOSTS.any { it.matches(url.host) }) url.toString() else ""
+        }
+
+        /**
+         * [message] as text to seal. The room's own messages carry the key of the phone that sends them, [sender], inside
+         * the seal ("k"): see [decodeFrom].
+         */
+        fun encode(message: TogetherMessage, sender: String? = null): String {
+            val o = encodeObject(message)
+            return if (sender == null) o.toString() else JsonObject(o + ("k" to JsonPrimitive(sender))).toString()
+        }
+
+        private fun encodeObject(message: TogetherMessage): JsonObject = when (message) {
             is State -> buildJsonObject {
                 put("t", "state"); put("song", message.songId); put("title", message.title); put("artist", message.artist)
                 put("pos", message.positionMs); put("playing", message.playing); put("speed", message.speed); put("at", message.atMs)
@@ -103,7 +127,7 @@ sealed interface TogetherMessage {
             }
             is Suggest -> buildJsonObject {
                 put("t", "suggest"); put("song", message.songId); put("title", message.title); put("artist", message.artist)
-                put("thumb", message.thumbnail); put("by", message.by)
+                put("thumb", thumbnailFor(message.thumbnail)); put("by", message.by)
             }
             is Queue -> buildJsonObject {
                 put("t", "queue"); put("repeat", message.repeat); put("shuffle", message.shuffle)
@@ -116,30 +140,44 @@ sealed interface TogetherMessage {
             is Kick -> buildJsonObject { put("t", "kick"); put("to", message.to) }
             is Move -> buildJsonObject { put("t", "move"); put("to", message.to); put("code", message.sealedCode) }
             End -> buildJsonObject { put("t", "end") }
-        }.toString()
+        }
 
         private fun songsJson(songs: List<Song>) = buildJsonArray {
             songs.forEach { song ->
-                addJsonObject { put("id", song.id); put("title", song.title); put("artist", song.artist); put("thumb", song.thumbnail) }
+                addJsonObject { put("id", song.id); put("title", song.title); put("artist", song.artist); put("thumb", thumbnailFor(song.thumbnail)) }
             }
         }
 
         private fun songsOf(o: JsonObject) = o["songs"]!!.jsonArray.map { item ->
             val song = item.jsonObject
             fun f(key: String) = song[key]!!.jsonPrimitive.content
-            Song(f("id"), f("title"), f("artist"), f("thumb"))
+            Song(f("id"), f("title"), f("artist"), thumbnailFor(f("thumb")))
         }
 
-        fun decode(text: String): TogetherMessage? = runCatching {
+        fun decode(text: String): TogetherMessage? = runCatching { decodeObject(Json.parseToJsonElement(text) as JsonObject) }.getOrNull()
+
+        /**
+         * The message in [text] when the phone whose key is [sender], the event's own signer, sealed it; null for anything
+         * else. The seal knows only the room, so anyone who sees the room's sealed words on a public relay could sign one
+         * again with a key of their own: its signature is then good and it opens. The key inside names the phone that
+         * sealed it, and a copy signed by any other key is refused: a suggestion queued again, a proposal asked again, a
+         * stranger listed, or taken for the owner by a guest that had not heard the owner yet (review 2, 18 Nov 2026). A
+         * message with no key inside, from a build before this one, is refused too.
+         */
+        fun decodeFrom(text: String, sender: String): TogetherMessage? = runCatching {
             val o = Json.parseToJsonElement(text) as JsonObject
+            if (o["k"]?.jsonPrimitive?.content == sender) decodeObject(o) else null
+        }.getOrNull()
+
+        private fun decodeObject(o: JsonObject): TogetherMessage? {
             fun s(key: String) = o[key]!!.jsonPrimitive.content
             fun l(key: String) = o[key]!!.jsonPrimitive.long
-            when (s("t")) {
+            return when (s("t")) {
                 "state" -> State(s("song"), s("title"), s("artist"), l("pos"), o["playing"]!!.jsonPrimitive.boolean, o["speed"]!!.jsonPrimitive.double, l("at"))
                 "ping" -> Ping(l("c"), s("to"))
                 "pong" -> Pong(l("c"), l("h"), s("to"))
                 "here" -> Here(s("name"), o["owner"]!!.jsonPrimitive.boolean, o["lead"]?.jsonPrimitive?.content)
-                "suggest" -> Suggest(s("song"), s("title"), s("artist"), s("thumb"), s("by"))
+                "suggest" -> Suggest(s("song"), s("title"), s("artist"), thumbnailFor(s("thumb")), s("by"))
                 "queue" -> Queue(
                     songs = songsOf(o),
                     repeat = o["repeat"]!!.jsonPrimitive.int,
@@ -151,7 +189,30 @@ sealed interface TogetherMessage {
                 "end" -> End
                 else -> null
             }
-        }.getOrNull()
+        }
+    }
+}
+
+/** YouTube's picture servers as the app knows them: i.ytimg.com (i1 to i9 too), lh3 and yt3.googleusercontent.com, yt3.ggpht.com. */
+private val PICTURE_HOSTS = listOf(
+    Regex("""i\d?\.ytimg\.com"""),
+    Regex("""(lh|yt)\d+\.googleusercontent\.com"""),
+    Regex("""yt\d+\.ggpht\.com"""),
+)
+
+/**
+ * The room's sealed words already taken, by their hash, the latest [kept]. A seal is made once (a fresh IV every time),
+ * so the same sealed text again is a copy, whatever event carries it. Asked only for a word whose key inside matched its
+ * signer (TogetherMessage.decodeFrom): before that, a stranger's copy arriving first could have shut out the real one.
+ */
+internal class TakenSeals(private val kept: Int = 2_000) {
+    private val taken = LinkedHashSet<String>()
+
+    /** True the first time [sealed] is seen. */
+    fun take(sealed: String): Boolean {
+        if (!taken.add(Secp256k1.sha256(sealed.toByteArray()).toHex())) return false
+        if (taken.size > kept) taken.iterator().run { next(); remove() }
+        return true
     }
 }
 

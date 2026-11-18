@@ -11,7 +11,9 @@ import com.dd3boh.outertune.ui.dialog.CodeDashes
 import com.dd3boh.outertune.ui.dialog.codeTyped
 import com.dd3boh.outertune.ui.dialog.initials
 import com.dd3boh.outertune.ui.dialog.meterPlace
+import com.dd3boh.outertune.ui.dialog.meterX
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
 
@@ -59,6 +61,56 @@ class TogetherScreenTest {
         assertEquals(0.25f, meterPlace(25), 1e-4f)                    // in step fills a quarter of each side
         assertEquals(-0.5f, meterPlace(-100), 1e-4f)
         assertEquals(1f, meterPlace(900), 0f)
+    }
+
+    /**
+     * The meter's dot was drawn on a Canvas, which does not turn round in a right-to-left layout, while the "Behind" and
+     * "Ahead" under it do: in Arabic, Hebrew or Persian a phone behind showed its dot under "Ahead" (review of 0.13,
+     * 18 Nov 2026).
+     */
+    @Test
+    fun `the meter's dot is behind on the side Behind is written, right to left included`() {
+        val behind = meterPlace(120)     // this phone 120 ms behind the host
+        // left to right: "Behind" at the left, and the dot with it
+        assertTrue(meterX(behind, rtl = false) < 0f)
+        assertTrue(meterX(-behind, rtl = false) > 0f)
+        // right to left: the row of words turns round, "Behind" at the right, and the dot follows it
+        assertTrue(meterX(behind, rtl = true) > 0f)
+        assertTrue(meterX(-behind, rtl = true) < 0f)
+        assertEquals(0f, meterX(meterPlace(0), rtl = true), 0f)
+        // drawn from it with the layout's own direction, "Behind" being the row's first word (its start side)
+        val dialog = File("src/main/java/com/dd3boh/outertune/ui/dialog/TogetherDialog.kt").readText()
+        val meter = dialog.substringAfter("private fun SyncMeter(").substringBefore("@Composable")
+        assertTrue("val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl" in meter)
+        assertTrue("center = Offset(half + meterX(place, rtl) * reach, y)" in meter)
+        val labels = meter.substringAfter("Row(Modifier.fillMaxWidth())")
+        assertTrue(labels.indexOf("R.string.together_behind") in 0 until labels.indexOf("R.string.together_ahead"))
+    }
+
+    /**
+     * The sheet's picture passed its animated playhead to both phones as a number, so they composed again on every frame,
+     * covers included, for as long as it showed (performance review, 18 Nov 2026). Read only where it is drawn now.
+     */
+    @Test
+    fun `the picture's playhead is read only where it is drawn`() {
+        val dialog = File("src/main/java/com/dd3boh/outertune/ui/dialog/TogetherDialog.kt").readText()
+        val picture = dialog.substringAfter("private fun InStepPicture(").substringBefore("@Composable")
+        assertEquals(2, Regex("""PhoneSketch\(cover\) \{ head \}""").findAll(picture).count())
+        val sketch = dialog.substringAfter("private fun PhoneSketch(").substringBefore("@Composable")
+        assertTrue(sketch.startsWith("cover: String?, head: () -> Float)"))
+        assertTrue("val x = size.width * head()" in sketch.substringAfter("Canvas(Modifier.width(46.dp).height(8.dp)) {"))
+        assertEquals("read once, in the playhead's own canvas", 1, Regex("""head\(\)""").findAll(sketch).count())
+    }
+
+    /** The room's live dot pulsed whether or not a relay answered: still while none does (performance review). */
+    @Test
+    fun `the live dot is still while no relay answers`() {
+        val dialog = File("src/main/java/com/dd3boh/outertune/ui/dialog/TogetherDialog.kt").readText()
+        val dot = dialog.substringAfter("private fun LiveDot(").substringBefore("@Composable")
+        val still = dot.substringAfter("if (!connected) {").substringBefore("} else {")
+        assertTrue("drawCircle(grey, radius = size.minDimension / 2)" in still)
+        assertTrue("rememberInfiniteTransition" !in still)
+        assertTrue(dot.indexOf("rememberInfiniteTransition") > dot.indexOf("} else {"))
     }
 
     @Test

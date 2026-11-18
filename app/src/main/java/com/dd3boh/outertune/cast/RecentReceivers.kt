@@ -136,8 +136,13 @@ object RecentReceivers {
         }.filter { castable(it, airPlay) }.take(MOST)
     }
 
-    /** Whether this build casts to [device]: an AirPlay speaker only with [airPlay] (Unreleased.CAST_AIRPLAY). */
-    private fun castable(device: CastDevice, airPlay: Boolean) = airPlay || device.protocol != CastProtocol.AIRPLAY
+    /**
+     * Whether this build casts to [device]: an AirPlay speaker only with [airPlay] (Unreleased.CAST_AIRPLAY), and never
+     * one of Apple's own that refuses AirPlay 1 whatever is sent (AirPlayTxt.appleOnly: HomePods, Apple TVs on tvOS,
+     * Macs). Those were listed by the search and failed only once tapped (review of 0.13, 18 Nov 2026).
+     */
+    private fun castable(device: CastDevice, airPlay: Boolean) =
+        device.protocol != CastProtocol.AIRPLAY || (airPlay && AirPlayTxt.appleOnly(AirPlayDevices.txtOf(device).model) == null)
 
     /** Whether anything takes a connection at [device]'s address. Nothing is sent. It blocks: never on the main thread. */
     fun answers(device: CastDevice, timeoutMs: Int = PROBE_MS): Boolean = runCatching {
