@@ -5907,6 +5907,10 @@ class MusicService : MediaLibraryService(),
             scope.launch(SilentHandler) {
                 // or else race condition: Assertions.checkArgument(eventTime.realtimeMs >= currentPlaybackStateStartTimeMs) fails in updatePlaybackState()
                 delay(200)
+                // The song playing goes first, so the player never comes back to the queue's first
+                // song by itself: a sleep timer set to the end of the queue or the album is told
+                // that this song's end is the queue starting over, or it would wait all night.
+                sleepTimer.queueStartsOverAfterThisSong()
                 queueBoard.shuffleCurrent()
                 queueBoard.setCurrQueue()
             }
