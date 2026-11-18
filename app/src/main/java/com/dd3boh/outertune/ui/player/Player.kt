@@ -2341,7 +2341,9 @@ private fun CentredRow(
     /**
      * Whether the first button hangs off the start of the others, which are centred as they are
      * without it (quickRowPositionsHanging): a listening room's, so that the others never move as a
-     * room starts and ends. In a row with no room left for it, it is centred with them after all.
+     * room starts and ends. It takes no width from them, and hangs at an icon's width where its own
+     * reaches too far (quickRowWidths). In a row with no room even for that, it is centred with
+     * them after all.
      */
     hangingFirst: Boolean = false,
     buttons: @Composable () -> Unit,
@@ -2358,14 +2360,16 @@ private fun CentredRow(
         val width = if (constraints.hasBoundedWidth) constraints.maxWidth
         else natural.sum() + gapPx * (natural.size - 1).coerceAtLeast(0)
 
-        // Only a row too wide for its room gives other widths, and only to the buttons that give way.
-        val widths = fitQuickActionWidths(natural, gapPx, quickRowRoom(width, gutter), QuickActionIconOnlyWidth.roundToPx())
+        // Only a row too wide for its room gives other widths, and only to the buttons that give way. A
+        // hung first button takes nothing from the others, and hangs at an icon's width where its own
+        // reaches too far: see quickRowWidths.
+        val fitted = quickRowWidths(natural, gap, width, gutter, hangingFirst)
+        val widths = fitted.widths
         val placeables = measurables.mapIndexed { i, measurable ->
             measurable.measure(if (widths[i] == natural[i]) loose else loose.copy(minWidth = widths[i], maxWidth = widths[i]))
         }
         val placed = IntArray(placeables.size) { placeables[it].width }
-        // Hung only from a row that kept its widths: one that gave way has no room to leave the others as they were.
-        val positions = (if (hangingFirst && widths.contentEquals(natural)) quickRowPositionsHanging(placed, gap, width, gutter, layoutDirection) else null)
+        val positions = (if (fitted.hung) quickRowPositionsHanging(placed, gap, width, gutter, layoutDirection) else null)
             ?: quickRowPositions(placed, gap, width, layoutDirection)
         val height = constraints.constrainHeight(placeables.maxOfOrNull { it.height } ?: 0)
 

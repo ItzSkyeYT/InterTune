@@ -16,6 +16,7 @@ import com.dd3boh.outertune.ui.player.PlayerPin.SHARE
 import com.dd3boh.outertune.ui.player.PlayerPin.TIMER
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -155,5 +156,75 @@ class RoomButtonStaysTest {
         val row = px(300.dp - gutter * 2)
         assertNull(quickRowPositionsHanging(IntArray(7) { px(56.dp) }, gap, row, gutter, LayoutDirection.Ltr))
         assertNull(quickRowPositionsHanging(intArrayOf(px(56.dp)), gap, row, gutter, LayoutDirection.Ltr))
+    }
+
+    // The widths: the others are fitted without the room's segment, and it hangs at an icon's width
+    // before it gives up. Numbers at 3x, a phone 360dp wide: 888px between its gutters, and the hung
+    // segment may start 72px into the left one (the gutter less the 8dp margin).
+
+    private val at3x = Density(3f)
+    private val phone360 = with(at3x) { (360.dp - 32.dp * 2).roundToPx() }
+
+    @Test
+    fun `where its own width fits, the room hangs at it`() = with(at3x) {
+        // Lyrics, the timer and the menu, the row as it comes: the others start at 174px, the room at -12px.
+        val three = IntArray(3) { 56.dp.roundToPx() }
+        val fitted = quickRowWidths(intArrayOf(56.dp.roundToPx()) + three, 6.dp, phone360, 32.dp, true)
+        assertTrue(fitted.hung)
+        assertArrayEquals(IntArray(4) { 56.dp.roundToPx() }, fitted.widths)
+    }
+
+    @Test
+    fun `on a 360dp phone with four others the room hangs at an icon's width and moves none of them`() = with(at3x) {
+        // The others start at 81px. At its own 56dp the room would start at -105px, past the -72px it may
+        // reach, and the row was centred with it in, the others moved 31dp. At 42dp it starts at -63px.
+        val others = IntArray(4) { 56.dp.roundToPx() }
+        val fitted = quickRowWidths(intArrayOf(56.dp.roundToPx()) + others, 6.dp, phone360, 32.dp, true)
+        assertTrue(fitted.hung)
+        assertEquals(QuickActionIconOnlyWidth.roundToPx(), fitted.widths[0])
+        assertArrayEquals("the others keep their widths", others, fitted.widths.copyOfRange(1, fitted.widths.size))
+        val alone = quickRowPositions(others, 6.dp, phone360, LayoutDirection.Ltr)
+        for (direction in LayoutDirection.entries) {
+            val hung = quickRowPositionsHanging(fitted.widths, 6.dp, phone360, 32.dp, direction)!!
+            assertArrayEquals("and their places, $direction", quickRowPositions(others, 6.dp, phone360, direction), hung.copyOfRange(1, hung.size))
+        }
+        assertEquals(-63, quickRowPositionsHanging(fitted.widths, 6.dp, phone360, 32.dp, LayoutDirection.Ltr)!![0])
+        assertEquals(81, alone[0])
+    }
+
+    @Test
+    fun `a sleep timer over an hour leaves the others where they are, the room at an icon's width`() = with(at3x) {
+        // "1:00:00" makes the timer's segment about 98dp: the room at 56dp would start 1dp past its reach,
+        // and the row was centred with it in, then jumped back at 59:59. Now only the room is narrower.
+        val others = intArrayOf(56.dp.roundToPx(), 98.dp.roundToPx(), 56.dp.roundToPx())
+        val fitted = quickRowWidths(intArrayOf(56.dp.roundToPx()) + others, 6.dp, phone360, 32.dp, true)
+        assertTrue(fitted.hung)
+        assertEquals(QuickActionIconOnlyWidth.roundToPx(), fitted.widths[0])
+        assertArrayEquals(others, fitted.widths.copyOfRange(1, fitted.widths.size))
+    }
+
+    @Test
+    fun `a full row on a 360dp phone has no room for it and is centred with it in, as next-013 does`() = with(at3x) {
+        // The queue, three pins and the menu: even at 42dp the room would start at -156px. What this row
+        // should do is his word (into the margin, or a place by the title); until then, as a release does.
+        val natural = IntArray(6) { 56.dp.roundToPx() }
+        val fitted = quickRowWidths(natural, 6.dp, phone360, 32.dp, true)
+        assertFalse(fitted.hung)
+        assertArrayEquals(fitQuickActionWidths(natural, 6.dp.roundToPx(), quickRowRoom(phone360, 32.dp), QuickActionIconOnlyWidth.roundToPx()), fitted.widths)
+    }
+
+    @Test
+    fun `held back, Connected's row gets next-013's widths`() {
+        // Without ROOM_AT_FREE_END nothing hangs, and the widths are what CentredRow gave on next-013.
+        for (scale in listOf(2f, 2.75f, 3f)) with(Density(scale)) {
+            for (screen in listOf(320.dp, 360.dp, 393.dp, 411.dp, 600.dp)) for (count in 1..6) for (time in listOf(false, true)) {
+                val natural = IntArray(count) { if (time && it == count - 2) 88.dp.roundToPx() else 56.dp.roundToPx() }
+                val width = (screen - 32.dp * 2).roundToPx()
+                val fitted = quickRowWidths(natural, 6.dp, width, 32.dp, false)
+                assertFalse(fitted.hung)
+                val next013 = fitQuickActionWidths(natural, 6.dp.roundToPx(), quickRowRoom(width, 32.dp), QuickActionIconOnlyWidth.roundToPx())
+                assertArrayEquals("$scale, $screen, $count, time $time", next013, fitted.widths)
+            }
+        }
     }
 }
