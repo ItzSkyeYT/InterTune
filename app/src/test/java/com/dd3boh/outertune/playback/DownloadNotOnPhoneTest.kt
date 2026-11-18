@@ -91,10 +91,18 @@ class DownloadNotOnPhoneTest {
     @Test
     fun `its words are in English and French, two short sentences`() {
         for (path in listOf("src/main/res/values/strings-ot.xml", "src/main/res/values-fr/strings-ot.xml")) {
-            val text = Regex("""<string name="err_download_not_on_phone">([^<]+)</string>""").find(File(path).readText())?.groupValues?.get(1)
+            val text = Regex("""<string name="err_download_not_on_phone"[^>]*>([^<]+)</string>""").find(File(path).readText())?.groupValues?.get(1)
             assertTrue(path, text != null)
             assertEquals(path, 2, text!!.count { it == '.' })
             assertTrue(path, text.length < 170)
+        }
+    }
+
+    @Test
+    fun `its words wait for the next push to translators, like every new text of 0_13`() {
+        for (path in listOf("src/main/res/values/strings-ot.xml", "src/main/res/values-fr/strings-ot.xml")) {
+            assertTrue("$path: not held from translators",
+                "<string name=\"err_download_not_on_phone\" translatable=\"false\">" in File(path).readText())
         }
     }
 }
