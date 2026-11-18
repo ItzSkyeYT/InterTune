@@ -79,6 +79,26 @@ class LongPressLabelTest {
     }
 
     @Test
+    fun `the label shows on a long press, not at each button a keypad or a keyboard moves to`() {
+        // material3 1.4.0 shows a TooltipBox's label when the button in it takes key focus: its keyboardBehavior
+        // reads the focus it sees with isFocused. Behind a focus group that focus is the group's, which only has
+        // a child focused, so a keypad phone moving along the queue's bar pops no label at each button.
+        val start = label.indexOf("fun LongPressLabel(")
+        val bodyAt = label.indexOf('{', label.indexOf(")", label.indexOf("content: @Composable () -> Unit", start)))
+        val body = inside(label, bodyAt)
+        val tooltip = body.substring(body.indexOf("TooltipBox("))
+        val anchor = inside(tooltip, tooltip.indexOf('{', tooltip.indexOf(')', tooltip.indexOf("state = rememberTooltipState()"))))
+        assertTrue("the button sits in a focus group inside the tooltip's anchor: $anchor", anchor.trim().endsWith("Box(Modifier.focusGroup()) { content() }"))
+        assertFalse("Material's own input stays on, for the long press", label.contains("enableUserInput = false"))
+        // What the group answers: the library asks isFocused, which a group with a focused child is not.
+        val shows = javaClass.classLoader!!.getResourceAsStream("androidx/compose/material3/internal/BasicTooltipKt\$keyboardBehavior\$1\$1.class")
+        assertTrue("material3's tooltip has changed: look at how it shows on focus again", shows != null)
+        val code = String(shows!!.use { it.readBytes() }, Charsets.ISO_8859_1)
+        assertTrue(code.contains("isFocused"))
+        assertFalse("hasFocus would see through the group", code.contains("hasFocus"))
+    }
+
+    @Test
     fun `the queue's seven buttons sit in the middle of their slots, as before 13 Nov`() {
         // His rule: the player's controls keep their place and size. Before the labels came, each button
         // had align(Center) in a slot of equal width; now the align is the label's, on the box the slot places.

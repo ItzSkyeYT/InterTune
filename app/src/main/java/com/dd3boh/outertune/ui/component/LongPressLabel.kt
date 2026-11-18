@@ -6,6 +6,7 @@
 
 package com.dd3boh.outertune.ui.component
 
+import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.Box
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.PlainTooltip
@@ -37,7 +38,12 @@ fun LongPressLabel(label: String, modifier: Modifier = Modifier, content: @Compo
             positionProvider = TooltipDefaults.rememberTooltipPositionProvider(TooltipAnchorPosition.Above),
             tooltip = { PlainTooltip { Text(label) } },
             state = rememberTooltipState(),
-            content = content,
-        )
+        ) {
+            // On a long press (and a mouse's hover), as Android's own tooltips are, not at each button a keypad
+            // or a keyboard moves to: material3 1.4.0 also shows the label when the button inside takes key focus
+            // (its keyboardBehavior asks the focus it sees whether it is focused), and through a focus group it
+            // sees only that something inside has focus. The keys still move from button to button as before.
+            Box(Modifier.focusGroup()) { content() }
+        }
     }
 }
