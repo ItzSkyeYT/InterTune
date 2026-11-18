@@ -56,6 +56,13 @@ object PlaylistSql {
     const val SET_COVER = "UPDATE playlist SET thumbnailUrl = :thumbnailUrl WHERE id = :playlistId"
 
     /**
+     * Renames a playlist: this one column and no other. Edit playlist wrote back the whole row it
+     * was opened with, so a cover picked in the same dialog went back to the old one on OK, and a
+     * photo it had replaced, already deleted, was named again (review of 18 Nov 2026).
+     */
+    const val SET_NAME = "UPDATE playlist SET name = :name WHERE id = :playlistId"
+
+    /**
      * The playlists a song sits in, for offering to take it back out again. Local playlists and
      * synced playlists the app can actually edit only, since a followed playlist would offer a
      * remove that YouTube refused and the next sync undid. PlayerMenu also leaves out synced ones

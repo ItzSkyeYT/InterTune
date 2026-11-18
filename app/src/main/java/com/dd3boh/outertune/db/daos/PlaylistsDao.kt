@@ -263,6 +263,10 @@ interface PlaylistsDao {
     @Query(PlaylistSql.SET_COVER)
     fun setPlaylistCover(playlistId: String, thumbnailUrl: String?): Int
 
+    /** Renames a playlist and writes nothing else, the cover above all (see [PlaylistSql.SET_NAME]). */
+    @Query(PlaylistSql.SET_NAME)
+    fun setPlaylistName(playlistId: String, name: String): Int
+
     @Transaction
     @Query(PlaylistSql.MOVE)
     fun move(playlistId: String, fromPosition: Int, toPosition: Int)

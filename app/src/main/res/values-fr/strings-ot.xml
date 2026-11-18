@@ -2691,7 +2691,7 @@
     <string name="metrolist_import_description">Titres aimés, playlists et écoutes d\'une sauvegarde Metrolist</string>
     <string name="metrolist_import_reading">Lecture de la sauvegarde</string>
     <string name="search_words_metrolist">Metrolist, changer, transférer, sauvegarde</string>
-    <string name="metrolist_import_summary">Titres de sa bibliothèque : %1$d\nTitres aimés : %2$d\nPlaylists : %3$d\nÉcoutes : %4$d\n\nRien de ce que vous avez déjà n\'est changé ni supprimé.</string>
+    <string name="metrolist_import_summary" translatable="false">Titres de sa bibliothèque : %1$d\nTitres aimés : %2$d\nPlaylists : %3$d\nÉcoutes : %4$d\n\nRien n\'est supprimé. Les titres que vous avez déjà reçoivent ses j\'aime, ses dates d\'ajout à la bibliothèque, ses artistes et albums, et le plus grand nombre d\'écoutes.</string>
     <string name="metrolist_import_confirm">Importer</string>
     <string name="metrolist_import_done_title">Importé depuis Metrolist</string>
     <string name="metrolist_import_done">Nouveaux titres : %1$d\nNouveaux titres aimés : %2$d\nAjoutés à votre bibliothèque : %3$d\nNouvelles playlists : %4$d\nÉcoutes ajoutées : %5$d</string>
