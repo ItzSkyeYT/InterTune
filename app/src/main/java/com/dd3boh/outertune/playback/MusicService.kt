@@ -527,7 +527,10 @@ class MusicService : MediaLibraryService(),
     fun roomAlive(at: Long) {
         if (at - roomTouchedAt < 60_000L) return
         roomTouchedAt = at
-        roomMemory.touch(at)
+        val room = together.value?.code ?: return
+        // Off the main thread: a file read and written while the music plays. RoomMemory takes one at a time, and leaves
+        // a room that is no longer the one kept alone.
+        scope.launch(Dispatchers.IO) { roomMemory.touch(room, at) }
     }
 
     /**

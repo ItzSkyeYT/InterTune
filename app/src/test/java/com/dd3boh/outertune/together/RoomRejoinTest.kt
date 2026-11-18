@@ -73,7 +73,7 @@ class RoomRejoinTest {
     fun `a room is alive as long as it is on, so six hours are counted from the last time it was`() {
         // a guest's room only as long as its host is heard: GuestDeadRoomTest
         assertTrue("?.let(service::roomAlive)" in session.substringAfter("fun start()").substringBefore("fun stop()"))
-        assertTrue("roomMemory.touch(at)" in body(service, "fun roomAlive("))
+        assertTrue("roomMemory.touch(room, at)" in body(service, "fun roomAlive("))
         assertTrue("60_000L" in body(service, "fun roomAlive("))
     }
 

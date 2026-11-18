@@ -32,12 +32,12 @@ class GuestDeadRoomTest {
     private val minute = 60_000L
     private val hour = 60 * minute
 
-    /** The service's roomAlive: at most once a minute, the time it is given. */
-    private class Service(val memory: RoomMemory, var touchedAt: Long) {
+    /** The service's roomAlive: at most once a minute, the time it is given, for this room. */
+    private inner class Service(val memory: RoomMemory, var touchedAt: Long) {
         fun roomAlive(at: Long) {
             if (at - touchedAt < 60_000L) return
             touchedAt = at
-            memory.touch(at)
+            memory.touch(code, at)
         }
     }
 
@@ -117,7 +117,7 @@ class GuestDeadRoomTest {
         assertTrue("HostAbsence.away(now, maxOf(ownerHeardAt, startedAt))" in watch)
         // the service keeps the time it is given, and a guest's room that comes back keeps its own
         val alive = service.substringAfter("fun roomAlive(at: Long)").substringBefore("fun startTogether(")
-        assertTrue("roomMemory.touch(at)" in alive)
+        assertTrue("scope.launch(Dispatchers.IO) { roomMemory.touch(room, at) }" in alive)
         val start = service.substringAfter("fun startTogether(").substringBefore("fun moveTogether(")
         assertTrue(start.indexOf("roomTouchedAt = hostHeardAt ?: System.currentTimeMillis()") in 0 until start.indexOf("roomMemory.save("))
         assertTrue("hostHeardAt = hostHeardAt ?: 0L" in start)

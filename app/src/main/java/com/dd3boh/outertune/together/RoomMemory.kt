@@ -21,15 +21,19 @@ import java.io.File
  * In the app's no-backup storage: the key must never be restored on another phone.
  */
 class RoomMemory(private val file: File) {
+    // One at a time: the service touches the file off the main thread (MusicService.roomAlive), and saves, loads and
+    // forgets it on the main one.
 
     /** What is kept, and when the room was last alive: for a guest, when it last heard the host (HostAbsence.aliveAt). */
     data class Saved(val code: String, val owner: Boolean, val identity: String, val aliveAt: Long)
 
+    @Synchronized
     fun save(code: RoomCode, owner: Boolean, identity: String, now: Long) {
         write(Saved(code.raw, owner, identity, now))
     }
 
     /** The room that is kept, or null: none, one that was last alive more than [FORGET_AFTER_MS] ago, or a file that cannot be read. */
+    @Synchronized
     fun load(now: Long): Saved? {
         val saved = read() ?: return null
         if (now - saved.aliveAt > FORGET_AFTER_MS) {
@@ -39,11 +43,17 @@ class RoomMemory(private val file: File) {
         return saved
     }
 
-    /** The room is alive at [now]: a long absence is counted from the last time it was. */
-    fun touch(now: Long) {
-        read()?.let { write(it.copy(aliveAt = now)) }
+    /**
+     * The room [code] is alive at [now]: a long absence is counted from the last time it was. Only if it is still the room
+     * kept: a touch that comes late, off the main thread, leaves alone a room joined meanwhile, and keeps nothing after a
+     * leave.
+     */
+    @Synchronized
+    fun touch(code: RoomCode, now: Long) {
+        read()?.takeIf { it.code == code.raw }?.let { write(it.copy(aliveAt = now)) }
     }
 
+    @Synchronized
     fun forget() {
         runCatching { file.delete() }
     }
