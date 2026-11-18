@@ -6,6 +6,7 @@
 
 package com.dd3boh.outertune.search
 
+import com.dd3boh.outertune.viewmodels.LocalFilter
 import java.io.File
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -175,5 +176,23 @@ class LibrarySearchTest {
             val button = com.dd3boh.outertune.ui.screens.search.searchOnlineLabel(label)
             assertTrue(label, button.isNotBlank() && !button.endsWith("…") && !button.endsWith("."))
         }
+    }
+
+    @Test
+    fun `Not in your library only where it is true, under All and Songs`() {
+        // Under Albums, Artists or Playlists a song that is in the library is not found ("c" under
+        // Albums): "No results found" alone there.
+        assertTrue(com.dd3boh.outertune.ui.screens.search.saysNotInLibrary(LocalFilter.ALL))
+        assertTrue(com.dd3boh.outertune.ui.screens.search.saysNotInLibrary(LocalFilter.SONG))
+        for (filter in listOf(LocalFilter.ALBUM, LocalFilter.ARTIST, LocalFilter.PLAYLIST)) {
+            assertFalse(filter.name, com.dd3boh.outertune.ui.screens.search.saysNotInLibrary(filter))
+        }
+        val screen = File("src/main/java/com/dd3boh/outertune/ui/screens/search/LocalSearchScreen.kt").readText()
+        val empty = screen.substringAfter("key = \"no_result\"").substringBefore("LazyColumnScrollbar(")
+        val line = empty.substringAfter("if (saysNotInLibrary(result.filter)) {").substringBefore("}")
+        assertTrue("the line is the one under that test", line.contains("text = stringResource(R.string.library_search_none),"))
+        assertEquals(1, Regex("""R\.string\.library_search_none""").findAll(empty).count())
+        // The button stays under every chip.
+        assertFalse(empty.substringBefore("Text(searchOnlineLabel(").substringAfter("if (onSearchOnline != null) {").contains("filter"))
     }
 }

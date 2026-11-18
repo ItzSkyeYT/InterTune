@@ -271,8 +271,9 @@ fun LocalSearchScreen(
                     // Says where it looked, and offers the other search for the same words: with the
                     // bar on the library, a song that is not saved was only ever "No results found"
                     // (#200), and nothing on the page said that YouTube Music was not asked. That line
-                    // stays, in the 41 languages it has; the place it looked goes under it, a new text
-                    // as nothing translated says it, and the button wears the bar's own translated words.
+                    // stays, in the 41 languages it has; the place it looked goes under it under All and
+                    // Songs (saysNotInLibrary), a new text as nothing translated says it, and the button
+                    // wears the bar's own translated words.
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier
@@ -283,13 +284,15 @@ fun LocalSearchScreen(
                             icon = Icons.Rounded.Search,
                             text = stringResource(R.string.no_results_found),
                         )
-                        Text(
-                            text = stringResource(R.string.library_search_none),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.padding(horizontal = 12.dp)
-                        )
+                        if (saysNotInLibrary(result.filter)) {
+                            Text(
+                                text = stringResource(R.string.library_search_none),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.padding(horizontal = 12.dp)
+                            )
+                        }
                         if (onSearchOnline != null) {
                             TextButton(onClick = { onSearchOnline(result.query) }) {
                                 Icon(
@@ -328,3 +331,10 @@ fun LocalSearchScreen(
  * nothing more is asked.
  */
 internal fun searchOnlineLabel(barText: String): String = barText.trimEnd('…', '.', ' ', '\u00A0')
+
+/**
+ * Whether an empty search under [filter] says the song is not in the library: under All and Songs
+ * only. Under Albums, Artists or Playlists it finds nothing for a song that is in the library ("c"
+ * under Albums), and saying it is not there was untrue.
+ */
+internal fun saysNotInLibrary(filter: LocalFilter): Boolean = filter == LocalFilter.ALL || filter == LocalFilter.SONG
