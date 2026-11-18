@@ -22,7 +22,8 @@ class QueueSwipeBeforePlayTest {
 
     @Test
     fun `the swipe is there before play, on the queue that will play`() {
-        assertTrue(queue.contains("if (!lockQueue && !inSelectMode && (!detachedHead || movesStoredQueue)) {\n                            SwipeToRemoveBox("))
+        // While songs are picked only with the swipe of a whole selection (#141, QueueSwipePickedTest).
+        assertTrue(queue.contains("if (!lockQueue && (!inSelectMode || Unreleased.QUEUE_SWIPE_PICKED) && (!detachedHead || movesStoredQueue)) {\n                            SwipeToRemoveBox("))
     }
 
     @Test

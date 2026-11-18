@@ -145,6 +145,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
@@ -258,6 +259,7 @@ import com.dd3boh.outertune.ui.screens.isAccountCookie
 import com.dd3boh.outertune.ui.screens.catchUpOwed
 import com.dd3boh.outertune.ui.screens.Screens
 import com.dd3boh.outertune.ui.screens.search.SearchBarContainer
+import com.dd3boh.outertune.ui.screens.search.KEPT_SEARCH
 import com.dd3boh.outertune.ui.theme.ColorSaver
 import com.dd3boh.outertune.ui.theme.DefaultThemeColor
 import com.dd3boh.outertune.ui.theme.PlayerTheme
@@ -1333,10 +1335,23 @@ class MainActivity : ComponentActivity() {
                  * like the tap did nothing.
                  */
                 var searchActive by rememberSaveable { mutableStateOf(false) }
-                // A tap on the tab that is showing clears what was typed in the search bar over it, as
-                // closing the search there does; a tap on another tab keeps it (#166, after #143's rule:
-                // the same tab closes, another keeps). Counted, so each tap asks once.
-                var searchCleared by rememberSaveable { mutableIntStateOf(0) }
+                // What is typed in the search bar, held here beside searchActive so that the tabs can act on
+                // it (#166, after #143's rule: the same tab closes, another keeps). A tap on the tab that is
+                // showing clears it, as closing the search there does; a tap on another tab takes it away
+                // with the page it was typed over (searchGoesWithPage).
+                val searchQuery = rememberSaveable(stateSaver = TextFieldValue.Saver) { mutableStateOf(TextFieldValue()) }
+
+                /**
+                 * A tap on another tab: the words go with the page they were typed over (#166, Ti-Die). A
+                 * search open over the page ([wasOpen]) is kept on it, which its tab keeps while another is
+                 * shown, and comes back open, with its words and what they found, when the page is back
+                 * (SearchBarContainer). The bar over the other tab starts clear.
+                 */
+                fun searchGoesWithPage(wasOpen: Boolean) {
+                    val words = searchQuery.value.text
+                    if (wasOpen && words.isNotEmpty()) navBackStackEntry?.savedStateHandle?.set(KEPT_SEARCH, words)
+                    searchQuery.value = TextFieldValue()
+                }
 
                 BoxWithConstraints(
                     modifier = Modifier
@@ -1439,9 +1454,9 @@ class MainActivity : ComponentActivity() {
 
                     // The Search shortcut. Search is the overlay over the current destination, not
                     // a destination, so it is opened the way tapping the bar opens it, and not over
-                    // setup, which comes first. It waits for the first destination and then a frame:
-                    // the overlay shuts itself whenever the destination under it changes, and at
-                    // launch that includes the first one arriving.
+                    // setup, which comes first. It waits for the first destination and then a frame,
+                    // so that it opens over the page it belongs to: the overlay shuts itself whenever
+                    // the destination under it changes.
                     var searchFromShortcut by rememberSaveable {
                         mutableStateOf(intent?.action == ACTION_SEARCH && oobeStatus >= OOBE_VERSION)
                     }
@@ -2322,12 +2337,13 @@ class MainActivity : ComponentActivity() {
                                                 // one, so while it is open the checks below still
                                                 // see the destination underneath it and would just
                                                 // scroll that to top, leaving search on screen.
+                                                val searchWasOpen = searchActive
                                                 if (searchActive) {
                                                     searchActive = false
                                                 }
 
                                                 if (navBackStackEntry?.destination?.hierarchy?.any { it.route == screen.route } == true) {
-                                                    searchCleared++
+                                                    searchQuery.value = TextFieldValue()
                                                     if (!searchActive) {
                                                         navBackStackEntry?.savedStateHandle?.set(
                                                             "scrollToTop",
@@ -2335,6 +2351,7 @@ class MainActivity : ComponentActivity() {
                                                         )
                                                     }
                                                 } else {
+                                                    searchGoesWithPage(searchWasOpen)
                                                     navigateToNavTab(navController, screen.route, navigationItems, navBackStackEntry)
                                                 }
 
@@ -2426,12 +2443,13 @@ class MainActivity : ComponentActivity() {
                                                 // one, so while it is open the checks below still
                                                 // see the destination underneath it and would just
                                                 // scroll that to top, leaving search on screen.
+                                                val searchWasOpen = searchActive
                                                 if (searchActive) {
                                                     searchActive = false
                                                 }
 
                                                 if (navBackStackEntry?.destination?.hierarchy?.any { it.route == screen.route } == true) {
-                                                    searchCleared++
+                                                    searchQuery.value = TextFieldValue()
                                                     if (!searchActive) {
                                                         navBackStackEntry?.savedStateHandle?.set(
                                                             "scrollToTop",
@@ -2439,6 +2457,7 @@ class MainActivity : ComponentActivity() {
                                                         )
                                                     }
                                                 } else {
+                                                    searchGoesWithPage(searchWasOpen)
                                                     navigateToNavTab(navController, screen.route, navigationItems, navBackStackEntry)
                                                 }
 
@@ -2525,7 +2544,7 @@ class MainActivity : ComponentActivity() {
                                 CompositionLocalProvider(
                                     LocalSearchBarGlass provides if (navGlass) GlassSpec(navHostBackdrop, glassIntensity.coerceIn(0f, 1f), still = glassStill) else null
                                 ) {
-                                    SearchBarContainer(navController, scrollBehavior, searchActive, onActiveChange = { searchActive = it }, clearQuery = searchCleared)
+                                    SearchBarContainer(navController, scrollBehavior, searchActive, queryState = searchQuery, onActiveChange = { searchActive = it })
                                 }
                             }
 

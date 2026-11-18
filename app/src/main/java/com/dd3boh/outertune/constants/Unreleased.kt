@@ -1069,4 +1069,14 @@ object Unreleased {
      * Debug builds only, kept out of the previews that testers get.
      */
     val LYRICS_WORDS_LOOKS = BuildConfig.DEBUG && BuildConfig.BUILD_TYPE == "debug"
+
+    /**
+     * A swipe on a picked song in the queue takes every picked song out of it (#141, Ti-Die's extra of 11 Nov 2026:
+     * "allow swiping away an entire selection, the same way you'd do with one song"). The picked rows on screen move
+     * under the finger as one, each with the bin behind it, and go only when the finger lets go past the line, as one
+     * song does; the bar after it offers Undo for all of them, as the selection menu's Remove from queue does. While
+     * songs are picked, a row not picked does not swipe. Without the flag no row swipes while songs are picked, as
+     * before. Held back as the line's held features are; to ship: set this to true and add it to ReleasedFlagsTest.
+     */
+    val QUEUE_SWIPE_PICKED = BuildConfig.PREVIEW_FEATURES
 }

@@ -33,6 +33,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -53,6 +54,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastAny
 import androidx.core.net.toUri
+import androidx.lifecycle.Lifecycle
 import androidx.navigation.NavController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -108,13 +110,22 @@ fun searchPillLeadsBack(searchActive: Boolean, route: String?): Boolean =
 fun searchPillShown(searchActive: Boolean, route: String?, tabs: List<Screens>): Boolean =
     searchActive || tabs.fastAny { it.route == route } || route?.startsWith("search/") == true
 
+/**
+ * Where a page keeps the words of a search left open over it when another tab was tapped (#166): in
+ * its saved state, which goes away and comes back with the page as its tab does. MainActivity puts
+ * them there, and [SearchBarContainer] takes them back, opening the search again, once the page is
+ * on screen again.
+ */
+const val KEPT_SEARCH = "keptSearch"
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SearchBarContainer(
     navController: NavController,
     scrollBehavior: TopAppBarScrollBehavior,
     searchActive: Boolean,
-    clearQuery: Int = 0,
+    // What is typed. Held by the caller when its tabs act on it (MainActivity, #166).
+    queryState: MutableState<TextFieldValue> = rememberSaveable(stateSaver = TextFieldValue.Saver) { mutableStateOf(TextFieldValue()) },
     onActiveChange: (Boolean) -> Unit,
 ) {
     Log.v("SearchBarContainer", "SB-1")
@@ -136,12 +147,7 @@ fun SearchBarContainer(
     // The app's own, the one on screen: a link that opened nothing said why on a host of its own that nothing showed.
     val snackbarHostState = LocalSnackbarHostState.current
 
-    val (query, onQueryChange) = rememberSaveable(stateSaver = TextFieldValue.Saver) {
-        mutableStateOf(TextFieldValue())
-    }
-    // A tap on the tab the bar is over clears what was typed, as closing the search there does
-    // (#166): it used to close the search and leave its words in the bar with nothing found under them.
-    LaunchedEffect(clearQuery) { if (clearQuery > 0) onQueryChange(TextFieldValue()) }
+    val (query, onQueryChange) = queryState
 
 
     val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -206,17 +212,40 @@ fun SearchBarContainer(
         searchPillShown(searchActive, navBackStackEntry?.destination?.route, navigationItems)
     }
 
+    // The page the bar was over when it last looked, in this composition. The search closes when the
+    // page under it changes, not when the bar is composed again over the same page: a search open when
+    // the app was recreated (a dark mode switch, a language or font change, the app back after Android
+    // closed it in the background) stays open with its words and what they find. It closed there, and
+    // the words typed over a tab went with it (18 Nov 2026).
+    var lastPage by remember { mutableStateOf<String?>(null) }
+
     LaunchedEffect(navBackStackEntry) {
-        if (searchActive) {
+        val page = navBackStackEntry
+        val moved = page != null && lastPage != null && page.id != lastPage
+        if (page != null) lastPage = page.id
+        if (searchActive && moved) {
             onSearchActiveChange(false)
         }
         // A results page shows its own query in the bar. Searching from a tab clears the bar on
         // the way (closing the overlay there does), and going back to earlier results left the
-        // later query in it. As OnlineSearchViewModel, a null argument is the word "null".
-        if (navBackStackEntry?.destination?.route == SearchFilters.ROUTE) {
+        // later query in it. As OnlineSearchViewModel, a null argument is the word "null". Not
+        // over a search still open from before the bar was composed again: its words are the typed ones.
+        if (navBackStackEntry?.destination?.route == SearchFilters.ROUTE && (moved || !searchActive)) {
             val searchQuery = navBackStackEntry?.arguments?.getString("query") ?: "null"
             if (query.text != searchQuery) {
                 onQueryChange(TextFieldValue(searchQuery, TextRange(searchQuery.length)))
+            }
+        }
+        // A search left open on this page when another tab was tapped comes back open, with its words
+        // and what they find, now the page is back (#166, KEPT_SEARCH). Only where the bar is: the pages
+        // a search can be left open on.
+        if (page != null && page.lifecycle.currentState.isAtLeast(Lifecycle.State.CREATED) &&
+            (navigationItems.fastAny { it.route == page.destination.route } || page.destination.route == SearchFilters.ROUTE)
+        ) {
+            val kept = page.savedStateHandle.remove<String>(KEPT_SEARCH)
+            if (!kept.isNullOrEmpty()) {
+                onQueryChange(TextFieldValue(kept, TextRange(kept.length)))
+                onSearchActiveChange(true)
             }
         }
     }
