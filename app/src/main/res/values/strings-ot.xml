@@ -2043,6 +2043,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="problem_report_title">Report a problem</string>
     <string name="problem_report_found">This is the last thing that went wrong, as the app noted it, with what led up to it. It names the songs that were playing. Nothing leaves the phone unless you send it.</string>
     <string name="problem_report_latest_problem">Latest session with a problem</string>
+    <string name="problem_report_older_problem">Older version, with a problem</string>
     <string name="problem_report_player">This is the player\'s error, with what the app noted before it. It names the songs that were playing. Nothing leaves the phone unless you send it.</string>
     <string name="problem_report_none">Nothing that looks like a fault has been noted since the app was opened. These are its last lines.</string>
     <string name="problem_report_empty">The phone\'s log could not be read. The form still opens with the version and the phone filled in.</string>
@@ -2787,6 +2788,8 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="version_card_number">No.</string>
     <!-- The notification a headset or widget press shows for the moment between the app starting and the song's own notification (MediaButtonStart, issue #98). -->
     <string name="media_button_resuming">Resuming your queue</string>
+    <string name="together_host_away">The host is away</string>
+    <string name="together_host_gone">The host didn\'t come back, so the room ended.</string>
     <!-- Choose what's in the three-dot menus (MENU_CHOICES): a menu being edited, and the line under a trimmed one. -->
     <string name="menu_hidden">Hidden</string>
     <string name="menu_hidden_hint">Tap an entry to move it here, or back.</string>

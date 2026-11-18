@@ -195,7 +195,13 @@ fun TogetherSheet(onDismiss: () -> Unit) {
     val haptics = LocalHapticFeedback.current
     val landscape = LocalLandscape.current
 
+    // The service the app held before it came back from another app has stopped, and a room made on it would be held
+    // by nothing (MusicService.startTogether). Its room is on its way back with the next one, which the sheet is
+    // drawn again with: until then it shows neither a start page nor a room.
+    val ready = playerConnection.isAlive
+
     fun open(code: RoomCode, owner: Boolean) {
+        if (!playerConnection.isAlive) return
         haptics.performHapticFeedback(HapticFeedbackType.Confirm)
         scope.launch { service.startTogether(code, owner, togetherRelays(context), togetherName(context)) }
     }
@@ -223,7 +229,9 @@ fun TogetherSheet(onDismiss: () -> Unit) {
             if (landscape.active) WindowInsets.safeDrawing.only(WindowInsetsSides.Vertical) else WindowInsets.safeDrawing
         },
     ) {
-        AnimatedContent(
+        if (!ready) Box(Modifier.fillMaxWidth().padding(vertical = 56.dp), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator()
+        } else AnimatedContent(
             targetState = session,
             contentKey = { it?.code?.raw },
             transitionSpec = {
@@ -411,9 +419,21 @@ private fun RoomPage(room: TogetherSession, song: MediaMetadata?, onLeave: () ->
             }
         }
 
+        // A guest that has heard nothing of the host for a while says so, in one line, where it said who has control or
+        // that it waits; the others come back as the host does (HostAbsence).
+        val hostAway = !room.owner && status.hostAway
+        if (hostAway) {
+            Spacer(Modifier.height(14.dp))
+            Text(
+                stringResource(R.string.together_host_away),
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+
         // Someone else leads: who, and for the owner the way back.
         val leaderName = status.leaderName
-        if (!status.leading && leaderName != null) {
+        if (!hostAway && !status.leading && leaderName != null) {
             Spacer(Modifier.height(14.dp))
             ControlRow(leaderName, canTakeBack = room.owner, onTakeBack = {
                 haptics.performHapticFeedback(HapticFeedbackType.Confirm)
@@ -467,7 +487,7 @@ private fun RoomPage(room: TogetherSession, song: MediaMetadata?, onLeave: () ->
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        if (!status.leading) {
+        if (!status.leading && !hostAway) {
             Spacer(Modifier.height(16.dp))
             when {
                 status.waitingForHost -> Waiting()
@@ -1195,7 +1215,8 @@ fun TogetherInviteDialog(code: RoomCode, playerConnection: PlayerConnection?, on
         // Held to a width: chips that fill the dialog stretched it to the edges of the screen.
         text = { CodeChips(code, Modifier.widthIn(max = 320.dp)) },
         confirmButton = {
-            TextButton(onClick = {
+            // Not on a service that has stopped: see MusicService.startTogether.
+            TextButton(enabled = playerConnection.isAlive, onClick = {
                 haptics.performHapticFeedback(HapticFeedbackType.Confirm)
                 scope.launch {
                     playerConnection.service.startTogether(code, owner = false, relays = togetherRelays(context), name = togetherName(context))

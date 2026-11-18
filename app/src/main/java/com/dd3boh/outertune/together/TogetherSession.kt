@@ -67,6 +67,11 @@ class TogetherSession(
     val owner: Boolean,
     val relays: List<String>,
     val name: String,
+    /**
+     * The key this phone signs as in the room. A new one for a new room; the one it had for a room that comes back, so
+     * that a host that returns is the same owner to the guests (RoomMemory).
+     */
+    identity: ByteArray = Secp256k1.newSecretKey(),
 ) {
     data class Status(
         val relaysConnected: Int = 0,
@@ -100,6 +105,8 @@ class TogetherSession(
         val proposal: Proposal? = null,
         /** The host's song fails on this phone (YouTube refuses it here): it waits on it, and takes the next one by itself. */
         val songUnavailable: Boolean = false,
+        /** A guest that has heard nothing of the host for a while: it says the host is away (HostAbsence). */
+        val hostAway: Boolean = false,
     )
 
     /** A guest's own song and the queue after it, proposed to this phone as the leader: see [propose]. */
@@ -114,8 +121,16 @@ class TogetherSession(
     val relayCount: Int get() = relays.size
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
-    private val secret = Secp256k1.newSecretKey()
+    private val secret = identity
     private val me = Secp256k1.publicKey(secret).toHex()
+
+    /** The key as text, for RoomMemory. */
+    val identityHex: String get() = secret.toHex()
+
+    private val startedAt = System.currentTimeMillis()
+
+    /** When the owner was last heard, 0 before it is. */
+    private var ownerHeardAt = 0L
     private val pool = RelayPool(
         urls = relays,
         filter = buildJsonObject {
@@ -250,6 +265,14 @@ class TogetherSession(
         }
         scope.launch {
             while (isActive) {
+                // A room never outlives the service that holds it. One made on a service that has stopped has nothing
+                // that will stop it, and it went on saying it was the host to a screen that was no longer there.
+                if (service.isDestroyed) {
+                    Log.w(TAG, "The service of room ${code.pretty} has stopped: the room stops with it")
+                    stop()
+                    break
+                }
+                service.roomAlive()
                 sayHere()
                 delay(TogetherMessage.HERE_MS)
             }
@@ -279,6 +302,7 @@ class TogetherSession(
         scope.launch {
             while (isActive) {
                 if (!leading) follow()
+                watchHost()
                 delay(SYNC_TICK_MS)
             }
         }
@@ -298,12 +322,51 @@ class TogetherSession(
     }
 
     fun stop() {
-        service.exoPlayer.removeListener(listener)
-        speed(service.exoPlayer, speedBefore.toDouble())
-        if (repeatTaken) service.exoPlayer.repeatMode = repeatBefore
+        // A service that has stopped has let its player go: nothing of the room's is put back on it.
+        if (!service.isDestroyed) {
+            service.exoPlayer.removeListener(listener)
+            speed(service.exoPlayer, speedBefore.toDouble())
+            if (repeatTaken) service.exoPlayer.repeatMode = repeatBefore
+        }
         pool.stop()
         scope.cancel()
         Log.i(TAG, "Left the room")
+    }
+
+    /**
+     * This phone's end of the room, said to the others first when it made it: for a room that another one replaces, and
+     * so that nobody is left waiting on a host that chose to go. The word is made and handed to the relays here and
+     * now, not through [send], whose coroutine the stop would cancel; the sockets close after what was handed to them,
+     * so it leaves before they do. A room that is only paused with its service says nothing: it comes back.
+     */
+    fun closeNow() {
+        if (owner) {
+            runCatching {
+                pool.publish(
+                    NostrEvent.signed(secret, TogetherMessage.KIND, listOf(listOf("t", code.tag)), code.seal(TogetherMessage.encode(TogetherMessage.End)))
+                )
+            }.onFailure { Log.w(TAG, "The end of the room could not be sent", it) }
+        }
+        stop()
+    }
+
+    /**
+     * A guest looks at whether the host is about. Not heard for [HostAbsence.AWAY_MS] it is away: the guest says so, in
+     * place of who has control or that it waits, and goes back to normal as the host is heard again. Away for
+     * [HostAbsence.GONE_MS] the room is over for the guest, with a line. Only while the host is the one who leads, or
+     * nobody does (the silence itself takes the lead from whoever had it, see follow): a guest that was given the lead
+     * is followed, and the host's silence is no matter then.
+     */
+    private fun watchHost() {
+        if (owner) return
+        val now = System.currentTimeMillis()
+        val lastSign = maxOf(ownerHeardAt, startedAt)
+        val away = (leaderKey == null || leaderKey == ownerKey) && HostAbsence.away(now, lastSign)
+        if (away != _status.value.hostAway) {
+            Log.i(TAG, if (away) "The host is away" else "The host is back")
+            _status.value = _status.value.copy(hostAway = away)
+        }
+        if (HostAbsence.gone(now, lastSign)) closed(R.string.together_host_gone)
     }
 
     private fun sayHere() = send(TogetherMessage.Here(name, owner, lead = if (owner) leaderKey else null))
@@ -400,6 +463,7 @@ class TogetherSession(
             if (owner && greeted.add(from)) sayHere()
         }
         said.keys.retainAll(heard.keys)
+        if (from == ownerKey) ownerHeardAt = now
         when (message) {
             is TogetherMessage.Ping -> if (leading && message.to == me) {
                 send(TogetherMessage.Pong(message.askedAtMs, System.currentTimeMillis(), from))
