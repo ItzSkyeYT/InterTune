@@ -95,4 +95,11 @@ class PagesFollowYouTubeLanguageTest {
         }
         assertTrue("if (blockedNamed == null) load(filter.value)" in watch)
     }
+
+    @Test
+    fun `a playlist loaded again stops a load all still walking its pages first`() {
+        // Its pages went after the new first page, and its old continuation came back at its end: songs were lost.
+        val load = source("viewmodels/OnlinePlaylistViewModel.kt").substringAfter("private fun load() {").substringBefore("\n    }\n")
+        assertTrue(load, load.indexOf("loadJob?.cancel()") in 0 until load.indexOf("viewModelScope.launch"))
+    }
 }

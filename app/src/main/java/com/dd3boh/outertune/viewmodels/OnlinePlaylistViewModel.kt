@@ -113,6 +113,9 @@ class OnlinePlaylistViewModel @Inject constructor(
     }
 
     private fun load() {
+        // A "load all" still walking the pages would add the old ones after the new first page and
+        // put its old continuation back at its end, so a reload (a new language) lost songs: it stops.
+        loadJob?.cancel()
         viewModelScope.launch(Dispatchers.IO) {
             isLoading.value = true
             failedKind.value = null
