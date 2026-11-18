@@ -17,6 +17,7 @@ import com.dd3boh.outertune.ui.screens.search.SearchFilters
 import com.dd3boh.outertune.utils.WhyStopped
 import com.dd3boh.outertune.utils.YouTubeTrouble
 import com.dd3boh.outertune.utils.reportException
+import com.dd3boh.outertune.utils.ContentLocale
 import com.zionhuang.innertube.YouTube
 import com.zionhuang.innertube.pages.SearchSummaryPage
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -88,6 +89,20 @@ class OnlineSearchViewModel @Inject constructor(
         // An artist marked from its menu here, or the setting changed, shows at once.
         viewModelScope.launch {
             AiFilter.changes.map { Triple(it.mode, it.markedAi, it.notAi) }.distinctUntilChanged().drop(1).collect { showAll() }
+        }
+        // Another language for YouTube (the app's, or the YouTube Music rows): the results are asked
+        // again in it. What was kept goes; the chip on screen loads now, the others when picked.
+        viewModelScope.launch {
+            ContentLocale.changes.collect {
+                summaryAsSent = null
+                summaryAll = null
+                summaryPage = null
+                pagesAsSent.clear()
+                itemsAll.clear()
+                viewStateMap.clear()
+                aiHidden.clear()
+                if (blockedNamed == null) load(filter.value)
+            }
         }
     }
 

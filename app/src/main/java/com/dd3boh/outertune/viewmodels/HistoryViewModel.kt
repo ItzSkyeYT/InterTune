@@ -11,6 +11,7 @@ import com.dd3boh.outertune.history.HistoryDayGroup
 import com.dd3boh.outertune.history.HistoryDays
 import com.dd3boh.outertune.history.HistoryEntry
 import com.dd3boh.outertune.utils.reportException
+import com.dd3boh.outertune.utils.ContentLocale
 import com.zionhuang.innertube.YouTube
 import com.zionhuang.innertube.pages.HistoryPage
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -49,6 +50,8 @@ class HistoryViewModel @Inject constructor(
 
     init {
         fetchRemoteHistory()
+        // Another language for YouTube (the app's, or the YouTube Music rows): the page loads again in it.
+        viewModelScope.launch { ContentLocale.changes.collect { fetchRemoteHistory() } }
     }
 
     fun fetchRemoteHistory() {

@@ -175,6 +175,6 @@ class AppLanguageTest {
             assertFalse("$file works out YouTube's locale itself", "YouTubeLocale(" in t || "Locale.getDefault()" in t)
         }
         assertTrue("ContentLocale.of(" in source("ui/screens/settings/fragments/InterfaceFrag.kt"))
-        assertTrue("YouTube.locale = of(" in source("utils/ContentLocale.kt"))
+        assertTrue("use(of(" in source("utils/ContentLocale.kt"))
     }
 }

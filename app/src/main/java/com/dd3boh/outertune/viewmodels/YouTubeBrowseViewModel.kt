@@ -5,6 +5,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.dd3boh.outertune.utils.reportException
+import com.dd3boh.outertune.utils.ContentLocale
 import com.zionhuang.innertube.YouTube
 import com.zionhuang.innertube.pages.BrowseResult
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -22,6 +23,12 @@ class YouTubeBrowseViewModel @Inject constructor(
     val result = MutableStateFlow<BrowseResult?>(null)
 
     init {
+        load()
+        // Another language for YouTube (the app's, or the YouTube Music rows): the page loads again in it.
+        viewModelScope.launch { ContentLocale.changes.collect { load() } }
+    }
+
+    private fun load() {
         viewModelScope.launch {
             YouTube.browse(browseId, params).onSuccess {
                 // Without a blocked artist's songs, albums and face (ArtistBlock); a shelf left empty goes.

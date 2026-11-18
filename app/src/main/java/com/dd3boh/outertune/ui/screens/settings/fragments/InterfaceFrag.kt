@@ -521,9 +521,9 @@ fun ColumnScope.LocalizationFrag() {
         },
         onValueSelected = { newValue ->
             // Worked out from the pick itself: the stored value is written a moment later.
-            YouTube.locale = YouTube.locale.copy(
+            ContentLocale.use(YouTube.locale.copy(
                 hl = ContentLocale.of(newValue, null, ContentLocale.appLocale(context), ContentLocale.phoneLocale(context)).hl
-            )
+            ))
 
             onContentLanguageChange(newValue)
         }
@@ -540,9 +540,9 @@ fun ColumnScope.LocalizationFrag() {
             }
         },
         onValueSelected = { newValue ->
-            YouTube.locale = YouTube.locale.copy(
+            ContentLocale.use(YouTube.locale.copy(
                 gl = ContentLocale.of(null, newValue, ContentLocale.appLocale(context), ContentLocale.phoneLocale(context)).gl
-            )
+            ))
 
             onContentCountryChange(newValue)
         }

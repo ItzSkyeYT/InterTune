@@ -19,6 +19,9 @@ import com.dd3boh.outertune.constants.SYSTEM_DEFAULT
 import com.zionhuang.innertube.YouTube
 import com.zionhuang.innertube.models.YouTubeLocale
 import com.zionhuang.kugou.KuGou
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import java.util.Locale
 
 /**
@@ -34,6 +37,23 @@ import java.util.Locale
  * is switched to plain "English", which has no country of its own.
  */
 object ContentLocale {
+
+    private val changed = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+
+    /**
+     * Said each time YouTube is asked in another language or country than a moment ago, whatever
+     * changed it (the app's language, the two YouTube Music rows). A page loaded from YouTube loads
+     * again in the new one, so a page left open below Settings is not in the old one when it is
+     * gone back to. Home and Explore have their own watch (HomeViewModel).
+     */
+    val changes: SharedFlow<Unit> = changed.asSharedFlow()
+
+    /** Asks YouTube in [locale] from now on, and says so in [changes] when that is not what it was. */
+    fun use(locale: YouTubeLocale) {
+        if (locale == YouTube.locale) return
+        YouTube.locale = locale
+        changed.tryEmit(Unit)
+    }
 
     /**
      * What YouTube is asked in. [contentLanguage] and [contentCountry] are the two rows as they
@@ -91,7 +111,7 @@ object ContentLocale {
     fun setUpFor(context: Context, spoken: Locale) {
         val store = context.dataStore
         val phone = phoneLocale(context)
-        YouTube.locale = of(store[ContentLanguageKey], store[ContentCountryKey], spoken, phone)
+        use(of(store[ContentLanguageKey], store[ContentCountryKey], spoken, phone))
         KuGou.useTraditionalChinese = traditionalChinese(spoken)
         Log.i(TAG, "YouTube in ${YouTube.locale.hl}, ${YouTube.locale.gl}: the app speaks ${spoken.toLanguageTag()}, " +
             "the phone ${phone.toLanguageTag()}, the process ${Resources.getSystem().configuration.locales.toLanguageTags()}")
