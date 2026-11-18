@@ -14,6 +14,8 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.longOrNull
+import java.time.LocalDateTime
+import java.time.ZoneOffset
 
 /**
  * Bringing a Metrolist library over (his word of 14 Nov 2026, for 0.13). A Metrolist backup is a zip holding its
@@ -168,7 +170,7 @@ object MetrolistImport {
      * Copies [theirs] into [ours], which the caller holds in one transaction, then likes the new app's [liked] songs,
      * newest first: they are given liked dates a second apart from [now] back, so Liked keeps their order.
      */
-    fun merge(theirs: Db, ours: Db, liked: List<LikedSong> = emptyList(), now: Long = System.currentTimeMillis()): Result {
+    fun merge(theirs: Db, ours: Db, liked: List<LikedSong> = emptyList(), now: Long = storedNow()): Result {
         refusal(theirs)?.let { throw IllegalArgumentException("not a Metrolist database: $it") }
         val before = counts(ours)
         val both = theirs.tables() intersect ours.tables()
@@ -341,6 +343,13 @@ object MetrolistImport {
      */
     private fun local(theirs: Db) = (if ("isLocal" in theirs.columns("song")) "isLocal IN (1, 'true') OR " else "") +
             "substr(id, 1, ${LOCAL_ID.length}) = '$LOCAL_ID'"
+
+    /**
+     * Now, as the database keeps a date: the phone's wall clock written as if it were UTC, as Converters writes a
+     * LocalDateTime. True UTC (System.currentTimeMillis) put the new app's likes an hour behind a like made here a
+     * minute before, in France, so Liked did not show them first; in the Americas, hours ahead, in the future.
+     */
+    internal fun storedNow(): Long = LocalDateTime.now().atZone(ZoneOffset.UTC).toInstant().toEpochMilli()
 
     /** How the new Metrolist app's local songs' ids begin. */
     private const val LOCAL_ID = "local_"

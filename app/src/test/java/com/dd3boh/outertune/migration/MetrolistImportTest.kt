@@ -22,6 +22,10 @@ import org.junit.Test
 import java.io.File
 import java.sql.Connection
 import java.sql.DriverManager
+import java.time.LocalDateTime
+import java.time.ZoneOffset
+import java.util.TimeZone
+import kotlin.math.abs
 
 /**
  * Bringing a Metrolist library over (MetrolistImport), on real databases built from both apps' own exported schemas:
@@ -318,6 +322,25 @@ class MetrolistImportTest {
 
             assertEquals("$version", listOf("S4", "S5"), o.all("SELECT id FROM lyrics ORDER BY id"))
             assertEquals("[00:01.00] found", o.one("SELECT lyrics FROM lyrics WHERE id = 'S4'"))
+        }
+    }
+
+    @Test
+    fun `likes from the new app's list are dated as the app dates a like, the phone's clock written as UTC`() {
+        val zone = TimeZone.getDefault()
+        // Five hours behind UTC in November: true UTC would date these likes five hours in the future.
+        TimeZone.setDefault(TimeZone.getTimeZone("America/New_York"))
+        try {
+            val m = theirs(65)
+            val o = ours()
+            val liked = listOf(MetrolistImport.LikedSong("S6", "Only in the list", null, emptyList(), null, null, 245))
+            val asTheAppWrites = LocalDateTime.now().atZone(ZoneOffset.UTC).toInstant().toEpochMilli()
+            MetrolistImport.merge(JdbcDb(m), JdbcDb(o), liked)
+            val stored = (o.one("SELECT likedDate FROM song WHERE id = 'S6'") as Number).toLong()
+            assertTrue("$stored against $asTheAppWrites", abs(stored - asTheAppWrites) < 60_000)
+            assertTrue("not true UTC", abs(stored - System.currentTimeMillis()) > 3_600_000)
+        } finally {
+            TimeZone.setDefault(zone)
         }
     }
 
