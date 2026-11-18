@@ -41,9 +41,11 @@ class DownloadQualityWiringTest {
     @Test
     fun `the resolver asks for one quality, read once, and its three uses go through it`() {
         assertTrue("the resolver was not found", "isStaleQualityTier(" in resolver)
-        assertEquals(1, Regex("""\bval quality = qualityNow\(\)""").findAll(resolver).count())
-        // The cached copy is judged by it, the stream is picked by it, and the copy is recorded at it.
-        assertTrue("isStaleQualityTier(stored?.qualityTier, quality, metered = metered(), storedBitrate = stored?.bitrate)" in resolver)
+        assertEquals(1, Regex("""\bval \(asked, playing\) = qualitiesNow\(\)""").findAll(resolver).count())
+        // The cached copy is judged by it, the stream is picked by it, and the copy is recorded at it: the one
+        // asked for, or for the song the player still has open past its wait, the one played (HeldWhilePlayingTest).
+        assertTrue("isStaleQualityTier(stored?.qualityTier, asked, metered = metered(), storedBitrate = stored?.bitrate)" in resolver)
+        assertTrue("val quality = if (asPlayed) playing else asked" in resolver)
         assertTrue("YTPlayerUtils.playerResponseForPlayback(id, audioQuality = quality, connectivityManager = connectivityManager, forDownload = true)" in resolver)
         assertTrue("qualityTier = cacheTier(quality, metered())" in resolver)
         // And the Audio quality setting itself is not read in the resolver: only its name as the walk's argument is left.
@@ -53,7 +55,7 @@ class DownloadQualityWiringTest {
 
     @Test
     fun `the quality is read before the resolver looks at the cached copy, so a change in the middle splits nothing`() {
-        val read = resolver.indexOf("val quality = qualityNow()")
+        val read = resolver.indexOf("val (asked, playing) = qualitiesNow()")
         assertTrue(read in 0 until resolver.indexOf("isStaleQualityTier("))
         assertTrue(read < resolver.indexOf("YTPlayerUtils.playerResponseForPlayback("))
         assertTrue(read < resolver.indexOf("qualityTier = cacheTier("))
@@ -61,9 +63,10 @@ class DownloadQualityWiringTest {
 
     @Test
     fun `the playback setting is read in one place only, to be given to qualityForDownload with the Download quality`() {
-        assertEquals(1, Regex("""qualityForDownload\(downloadQuality, audioQuality\)""").findAll(util).count())
+        // Read with what the player plays, in the same moment, for the song the player has open (HeldWhilePlaying).
+        assertEquals(1, Regex("""qualityForDownload\(downloadQuality, played\)""").findAll(util).count())
         assertTrue("private val downloadQuality by enumPreference(context, DownloadQualityKey, DownloadQuality.SAME)" in util)
-        assertTrue("private fun qualityNow(): AudioQuality = qualityForDownload(downloadQuality, audioQuality)" in util)
+        assertTrue("private fun qualitiesNow(): Pair<AudioQuality, AudioQuality> = audioQuality.let { played -> qualityForDownload(downloadQuality, played) to played }" in util)
         // The declaration, that one read, and the name of the walk's argument in the resolver.
         assertEquals(3, Regex("""\baudioQuality\b""").findAll(util).count())
     }

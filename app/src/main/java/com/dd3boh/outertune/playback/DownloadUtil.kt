@@ -181,8 +181,12 @@ class DownloadUtil @Inject constructor(
         SongConverter(File(context.filesDir, "convert"), MediaCodecPcmDecoder(), hold) { Log.i(TAG, it) }
     }
 
-    /** The quality a download asks for now: the Download quality, or Audio quality for Same as playback (see [qualityForDownload]). */
-    private fun qualityNow(): AudioQuality = qualityForDownload(downloadQuality, audioQuality)
+    /**
+     * What a download asks for now, the Download quality or Audio quality for Same as playback (see
+     * [qualityForDownload]), and what the player plays, the Audio quality, read in the same moment:
+     * a download of the song the player still has open past its wait asks for that (waitWhileOpen).
+     */
+    private fun qualitiesNow(): Pair<AudioQuality, AudioQuality> = audioQuality.let { played -> qualityForDownload(downloadQuality, played) to played }
 
     // Concurrent, because media3 runs each download on its own thread and this is read and written
     // from all of them. An unsynchronised HashMap can corrupt its table under concurrent put.
@@ -231,10 +235,14 @@ class DownloadUtil @Inject constructor(
         val mediaId = dataSpec.key ?: error("No media id")
         val length = if (dataSpec.length >= 0) dataSpec.length else 1
         // What this download asks for (Unreleased.DOWNLOAD_QUALITY): the Download quality, or Audio
-        // quality for Same as playback. Read once, so that the cached copy is judged by it, the
-        // stream is picked by it and the copy is recorded at it, even if a setting changes meanwhile.
-        val quality = qualityNow()
+        // quality for Same as playback, and what the player plays. Read once, so that the cached copy
+        // is judged by it, the stream is picked by it and the copy is recorded at it, even if a
+        // setting changes meanwhile.
+        val (asked, playing) = qualitiesNow()
         var staleCopy = false
+        // The song the player still has open past the wait (waitWhileOpen) is asked for as the player
+        // plays it, as every download was before 0.13: the stream it reads, never another.
+        var asPlayed = false
         if (dataSpec.position == 0L) {
             // From the start, the player's copy is read through only when it holds the whole
             // song. A part of one used to be read through as soon as its first byte was there,
@@ -255,16 +263,18 @@ class DownloadUtil @Inject constructor(
                 // download takes it as it is. Given up: the better copy for this download, where
                 // the wait used to hold one of the three download threads for good.
                 val stored = runCatching { database.readOrNull { formatRow(mediaId) } }.getOrNull()
-                if (!isStaleQualityTier(stored?.qualityTier, quality, metered = metered(), storedBitrate = stored?.bitrate)) return@Factory dataSpec
-                // The copy goes below, and the player may be reading it: not while it has the song open.
-                waitWhileOpen(mediaId)
+                if (!isStaleQualityTier(stored?.qualityTier, asked, metered = metered(), storedBitrate = stored?.bitrate)) return@Factory dataSpec
+                // The copy goes below, and the player may be reading it: not while it has the song
+                // open. Still open past the wait, the copy being read is taken as it is.
+                if (!waitWhileOpen(mediaId)) return@Factory dataSpec
                 staleCopy = true
             }
             // A Download quality of its own fetches another stream than the one the player reads,
             // which the player would read on from the download at its next seek: for the song the
-            // player has open, not until it lets it go (HeldWhilePlaying). A copy taken as it is,
-            // above, is the very bytes the player reads, and waits for nothing.
-            if (quality != audioQuality) waitWhileOpen(mediaId)
+            // player has open, not until it lets it go (HeldWhilePlaying). Still open past the wait,
+            // the download asks for what the player plays. A copy taken as it is, above, is the very
+            // bytes the player reads, and waits for nothing.
+            if (asked != playing && !waitWhileOpen(mediaId)) asPlayed = true
             if (playerCache.holdsPartFromStart(mediaId)) {
                 runCatching { playerCache.removeResource(mediaId) }
                     .onFailure { Log.w(TAG, "Could not drop the partial copy of $mediaId", it) }
@@ -274,10 +284,12 @@ class DownloadUtil @Inject constructor(
             // player's may be another quality than the part already downloaded, and the file would be both.
             return@Factory dataSpec
         }
+        val quality = if (asPlayed) playing else asked
 
         // Not for a stale copy: the cache serves by the song's id whatever address comes back, so
-        // a remembered url would still read the old bytes.
-        songUrlCache[mediaId]?.takeIf { !staleCopy && stillUsable(it.first, it.second) }?.let {
+        // a remembered url would still read the old bytes. Nor for a download asked for as the
+        // player plays it: a remembered url was resolved at the Download quality.
+        songUrlCache[mediaId]?.takeIf { !staleCopy && !asPlayed && stillUsable(it.first, it.second) }?.let {
             return@Factory dataSpec.withUri(it.first.toUri())
         }
 
@@ -464,14 +476,18 @@ class DownloadUtil @Inject constructor(
     }
 
     /**
-     * Waits on the download's own thread while the player has [id] open: what the download does
-     * next would replace the bytes it reads (HeldWhilePlaying). A download stopped meanwhile ends
-     * the wait, media3 interrupts its thread.
+     * Waits on the download's own thread while the player has [id] open, [OPEN_SONG_WAIT_MS] at
+     * most: what the download does next would replace the bytes it reads (HeldWhilePlaying). True
+     * once the player has let the song go; false when it still has it then (paused for long, the
+     * queue ended on it, a long song), and the download goes on without replacing the copy being
+     * read. A download stopped meanwhile ends the wait, media3 interrupts its thread.
      */
-    private fun waitWhileOpen(id: String) {
-        if (!inPlay.isOpen(id)) return
-        Log.i(TAG, "The download of $id waits until the player lets the song go: it would replace the copy being played")
-        while (inPlay.isOpen(id)) Thread.sleep(OPEN_SONG_POLL_MS)
+    private fun waitWhileOpen(id: String): Boolean {
+        if (!inPlay.isOpen(id)) return true
+        Log.i(TAG, "The download of $id waits, ${OPEN_SONG_WAIT_MS / 60_000} minutes at most, until the player lets the song go: it would replace the copy being played")
+        val letGo = inPlay.awaitLetGo(id, OPEN_SONG_WAIT_MS, OPEN_SONG_POLL_MS, now = { SystemClock.elapsedRealtime() }, sleep = { Thread.sleep(it) })
+        if (!letGo) Log.i(TAG, "The player still has $id open: its download takes what the player plays and replaces nothing")
+        return letGo
     }
 
     /**
@@ -1750,6 +1766,13 @@ class DownloadUtil @Inject constructor(
 
         /** How often a download held for the song the player has open asks whether it is let go (waitWhileOpen). */
         private const val OPEN_SONG_POLL_MS = 1_000L
+
+        /**
+         * How long a download waits for the player to let go of the song it has open (waitWhileOpen):
+         * about what is left of a song heard to its end. Past it the download takes what the player
+         * plays, so a song paused or ended holds no download thread, no move and no foreground time.
+         */
+        private const val OPEN_SONG_WAIT_MS = 3 * 60_000L
 
         /**
          * How long Remove download waits for the song's removal to reach the map before it asks

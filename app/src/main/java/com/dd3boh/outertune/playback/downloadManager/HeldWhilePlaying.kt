@@ -50,4 +50,23 @@ class HeldWhilePlaying {
         held -= free
         return free
     }
+
+    /**
+     * Waits while the player has [id] open, [limitMs] at most, asking every [pollMs]: true once it
+     * is let go, false when it still has it then. Never longer: a song paused for the night, or the
+     * last of a queue that ended, stays open for as long as the app does, and a download waiting on
+     * it held one of the three download threads, the move of every other song of its batch (the
+     * manager is idle only once none runs) and the download service in the foreground, whose
+     * dataSync time Android 15 counts. [sleep] throws when the waiting thread is interrupted (media3
+     * stops a download so), which ends the wait as well.
+     */
+    fun awaitLetGo(id: String, limitMs: Long, pollMs: Long, now: () -> Long, sleep: (Long) -> Unit): Boolean {
+        val start = now()
+        while (isOpen(id)) {
+            val left = limitMs - (now() - start)
+            if (left <= 0) return false
+            sleep(minOf(pollMs, left))
+        }
+        return true
+    }
 }
