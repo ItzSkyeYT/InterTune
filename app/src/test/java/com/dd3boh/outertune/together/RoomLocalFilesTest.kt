@@ -128,6 +128,19 @@ class RoomLocalFilesTest {
     }
 
     @Test
+    fun `a guest waits for no queue when the host plays a song from its phone`() {
+        val session = File("src/main/java/com/dd3boh/outertune/together/TogetherSession.kt").readText()
+        // That song is never first in the host's queue, so a wait only played the next song's start.
+        assertTrue("if (queue == null && !fromThisPhone(null, state.songId)) {" in session)
+        // A song from a phone is told by its id alone, as the host's State carries it.
+        assertTrue(fromThisPhone(null, "LS0a1B2c3D"))
+        assertFalse(fromThisPhone(null, "s7-B-JXmhOs"))
+        // The leader's queue wakes the look, so a song waiting for it is taken at once.
+        val queueBranch = session.substringAfter("is TogetherMessage.Queue -> if (!leading) {").substringBefore("is TogetherMessage.")
+        assertTrue("wake.trySend(Unit)" in queueBranch.substringAfter("roomQueue = message"))
+    }
+
+    @Test
     fun `the session makes its queue and its suggestions with it`() {
         val session = File("src/main/java/com/dd3boh/outertune/together/TogetherSession.kt").readText()
         val own = session.substringAfter("private fun ownQueue()").substringBefore("private fun send(")

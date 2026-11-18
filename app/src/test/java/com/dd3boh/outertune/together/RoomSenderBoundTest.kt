@@ -93,6 +93,7 @@ class RoomSenderBoundTest {
         assertTrue("code.seal(TogetherMessage.encode(message, sender = me))" in session.substringAfter("private fun send("))
         assertTrue("code.seal(TogetherMessage.encode(TogetherMessage.End, sender = me))" in session.substringAfter("fun closeNow()"))
         assertFalse("TogetherMessage::decode" in session)
+        assertFalse("TogetherMessage.decode(" in session)
         val onEvent = session.substringAfter("private fun onEvent(").substringBefore("val now = System.currentTimeMillis()")
         val opened = onEvent.indexOf("code.open(event.content)?.let { TogetherMessage.decodeFrom(it, from) } ?: return")
         val once = onEvent.indexOf("if (!seals.take(event.content)) return")

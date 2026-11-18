@@ -514,6 +514,9 @@ class TogetherSession(
                 if (leaderKey == null) lead(from)
                 if (from == leaderKey) {
                     roomQueue = message
+                    // A song that waits for this queue (toLeadersSong) is taken at once, not at the
+                    // next look, two seconds away in a paused room.
+                    wake.trySend(Unit)
                     if (!ownWay) {
                         takeRepeat(message.repeat)
                         matchQueue()
@@ -908,7 +911,9 @@ class TogetherSession(
         // Never a radio of this phone's own: that played other songs next than the leader did,
         // more of them, and nothing ever put it right (his find of 17 Oct 2026).
         val queue = roomQueue?.songs?.takeIf { it.firstOrNull()?.id == state.songId }
-        if (queue == null) {
+        // A song from the host's phone is never first in its queue (ownQueue leaves those out), so
+        // no queue is waited for: waiting played the next song's start here (review 3, 18 Nov 2026).
+        if (queue == null && !fromThisPhone(null, state.songId)) {
             if (waitingFor != state.songId) {
                 waitingFor = state.songId
                 waitingSince = now
