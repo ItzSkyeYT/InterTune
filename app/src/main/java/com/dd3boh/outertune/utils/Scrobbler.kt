@@ -4,6 +4,7 @@ import android.util.Log
 import com.dd3boh.lastfm.LastFm
 import com.dd3boh.lastfm.LastFmException
 import com.dd3boh.lastfm.SimilarTrack
+import com.dd3boh.outertune.constants.LastFmRefusedAtKey
 import com.dd3boh.outertune.constants.LastFmScrobbleKey
 import com.dd3boh.outertune.constants.LastFmSessionKey
 import com.dd3boh.outertune.constants.LastFmUsernameKey
@@ -61,10 +62,24 @@ class Scrobbler internal constructor(
         return settings.get(LastFmSessionKey, "").takeIf { it.isNotBlank() }
     }
 
+    /**
+     * Last.fm refusing the key itself closes it here and now, before 1 December too: written
+     * down once (LastFmEnd), so the key reads as empty from the next call on, after a restart as
+     * well, and nothing more is sent. Every answer from Last.fm passes through here.
+     */
+    private suspend fun <T> Result<T>.noted(): Result<T> {
+        val failure = exceptionOrNull() ?: return this
+        if (LastFmEnd.refusesKey(failure) && settings[LastFmRefusedAtKey] == null) {
+            Log.w(TAG, "Last.fm refused the key (code ${(failure as LastFmException).code}), closing it")
+            settings.edit { it[LastFmRefusedAtKey] = LastFmEnd.clock() }
+        }
+        return this
+    }
+
     /** Step one of connecting: the token, and where to send the user to approve it. */
     suspend fun beginLogin(): Result<Pair<String, String>> {
         if (!configured) return Result.failure(IllegalStateException("No Last.fm API key in this build"))
-        return api.requestToken().map { token -> token to api.authorizeUrl(token) }
+        return api.requestToken().noted().map { token -> token to api.authorizeUrl(token) }
     }
 
     /**
@@ -73,7 +88,7 @@ class Scrobbler internal constructor(
      */
     suspend fun completeLogin(token: String): Result<String> {
         if (!configured) return Result.failure(IllegalStateException("No Last.fm API key in this build"))
-        return api.session(token).onSuccess { session ->
+        return api.session(token).noted().onSuccess { session ->
             settings.edit {
                 it[LastFmSessionKey] = session.key
                 it[LastFmUsernameKey] = session.name
@@ -93,7 +108,7 @@ class Scrobbler internal constructor(
             track = metadata.title,
             album = metadata.album?.title,
             durationSeconds = metadata.duration.takeIf { it > 0 },
-        ).onFailure { handleFailure("now playing", it) }
+        ).noted().onFailure { handleFailure("now playing", it) }
     }
 
     /**
@@ -121,13 +136,13 @@ class Scrobbler internal constructor(
             timestampSeconds = startedAtSeconds,
             album = metadata.album?.title,
             durationSeconds = duration.takeIf { it > 0 },
-        ).onFailure { handleFailure("scrobble", it) }
+        ).noted().onFailure { handleFailure("scrobble", it) }
     }
 
     /** Last.fm's tracks most like this one, most similar first. */
     suspend fun similar(artist: String, track: String): Result<List<SimilarTrack>> {
         if (!canFindSimilar) return Result.failure(IllegalStateException("No Last.fm API key in this build"))
-        return api.similar(artist, track)
+        return api.similar(artist, track).noted()
     }
 
     private suspend fun handleFailure(what: String, t: Throwable) {

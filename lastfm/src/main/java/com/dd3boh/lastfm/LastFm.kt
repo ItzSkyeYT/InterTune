@@ -1,7 +1,9 @@
 package com.dd3boh.lastfm
 
 import io.ktor.client.HttpClient
+import io.ktor.client.HttpClientConfig
 import io.ktor.client.call.body
+import io.ktor.client.engine.HttpClientEngine
 import io.ktor.client.engine.okhttp.OkHttp
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.request.forms.submitForm
@@ -198,7 +200,12 @@ class LastFm(
             return playedMs >= target
         }
 
-        fun defaultClient() = HttpClient(OkHttp) {
+        fun defaultClient() = HttpClient(OkHttp) { readsJson() }
+
+        /** The same client over another engine: a test's fake network. */
+        fun clientOver(engine: HttpClientEngine) = HttpClient(engine) { readsJson() }
+
+        private fun HttpClientConfig<*>.readsJson() {
             install(ContentNegotiation) {
                 json(Json { ignoreUnknownKeys = true })
             }

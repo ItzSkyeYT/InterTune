@@ -12,8 +12,10 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.mutablePreferencesOf
 import com.dd3boh.lastfm.LastFm
+import com.dd3boh.lastfm.LastFmException
 import com.dd3boh.outertune.BuildConfig
 import com.dd3boh.outertune.constants.LastFmActAsEndedKey
+import com.dd3boh.outertune.constants.LastFmRefusedAtKey
 import com.dd3boh.outertune.constants.LastFmScrobbleKey
 import com.dd3boh.outertune.constants.LastFmSessionKey
 import com.dd3boh.outertune.constants.LastFmUsernameKey
@@ -22,6 +24,9 @@ import com.dd3boh.outertune.models.MediaMetadata
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
+import io.ktor.http.HttpHeaders
+import io.ktor.http.HttpStatusCode
+import io.ktor.http.headersOf
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -47,6 +52,9 @@ import java.util.concurrent.atomic.AtomicInteger
  * Last.fm from 1 December 2026, when it starts refusing InterTune's key (LastFmEnd): from that
  * moment the key reads as empty, every way to Last.fm takes the path a build without a key takes,
  * and nothing is sent. Moved through on a clock of the test's own, either side of the date.
+ *
+ * And before the date, should Last.fm refuse the key early: the first refusal closes it the same
+ * way, written down so that it holds after a restart.
  */
 class LastFmEndTest {
 
@@ -210,6 +218,101 @@ class LastFmEndTest {
         assertTrue(keys.substringAfter("fun verify(").substringBefore("\n    }").contains("LastFmEnd.attach(context)"))
         val app = File("src/main/java/com/dd3boh/outertune/App.kt").readText()
         assertTrue("Scrobbler.forgetIfClosed(dataStore)" in app)
+    }
+
+    @Test
+    fun `only Last-fm refusing the key itself closes it`() {
+        // 10 "Invalid API key" and 26 "API Key Suspended", from last.fm/api/errorcodes.
+        assertTrue(LastFmEnd.refusesKey(LastFmException(10, "Invalid API key - You must be granted a valid key by last.fm")))
+        assertTrue(LastFmEnd.refusesKey(LastFmException(26, "Suspended API key - Access for your account has been suspended, please contact Last.fm")))
+        // 4 comes back for a login token not approved yet, 9 is the account's session, 6 a song
+        // Last.fm does not know, and the rest are the service or the network having a bad minute.
+        for (code in listOf(2, 3, 4, 5, 6, 7, 8, 9, 11, 13, 14, 15, 16, 29)) {
+            assertFalse("error $code", LastFmEnd.refusesKey(LastFmException(code, "something")))
+        }
+        assertFalse(LastFmEnd.refusesKey(java.io.IOException("timeout")))
+        assertFalse(LastFmEnd.refusesKey(IllegalStateException("No Last.fm API key in this build")))
+    }
+
+    /** A Last.fm that answers every request with this error, as it does: a JSON body, here with a 403. */
+    private fun refusing(settings: SettingsSnapshot, code: Int, requests: AtomicInteger) = Scrobbler(settings) { key, secret ->
+        LastFm(key, secret, LastFm.clientOver(MockEngine {
+            requests.incrementAndGet()
+            respond(
+                content = """{"error":$code,"message":"Refused"}""",
+                status = HttpStatusCode.Forbidden,
+                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+            )
+        }))
+    }
+
+    @Test
+    fun `a refused key closes Last-fm at once, before the date too, and nothing more is sent`() = runBlocking {
+        assumeTheBuildHasAKey()
+        val settings = settings(LastFmSessionKey to "session", LastFmUsernameKey to "someone", SimilarSourceKey to "BOTH")
+        LastFmEnd.attach(settings)
+        LastFmEnd.clock = { dayBefore }
+        val requests = AtomicInteger()
+        val scrobbler = refusing(settings, code = 10, requests)
+
+        scrobbler.nowPlaying(song)
+        assertEquals(1, requests.get())
+        assertEquals("written down, with when", dayBefore, settings[LastFmRefusedAtKey])
+        assertTrue(LastFmEnd.closed())
+        assertFalse(scrobbler.isAvailable)
+        assertEquals("", BuiltInKeys.lastFmApiKey)
+
+        repeat(3) { askEverything(scrobbler) }
+        assertEquals("no retry, nothing queued, nothing more at all", 1, requests.get())
+
+        // A restart reads it back, and forgets the account as from the date.
+        Scrobbler.forgetIfClosed(settings)
+        assertNull(settings[LastFmSessionKey])
+        assertEquals("BOTH", settings[SimilarSourceKey])
+    }
+
+    @Test
+    fun `a suspended key met by similar songs or by a login closes it the same way`() = runBlocking {
+        assumeTheBuildHasAKey()
+        LastFmEnd.clock = { dayBefore }
+        for (ask in listOf<suspend (Scrobbler) -> Unit>({ it.similar("Somebody", "A song") }, { it.beginLogin() })) {
+            // A phone of its own each time: the first one is closed for good.
+            val settings = SettingsSnapshot(PreferenceDataStoreFactory.create(scope = storeScope) { dir.newFolder().resolve("settings.preferences_pb") })
+            LastFmEnd.attach(settings)
+            val requests = AtomicInteger()
+            val scrobbler = refusing(settings, code = 26, requests)
+            ask(scrobbler)
+            assertNotNull(settings[LastFmRefusedAtKey])
+            repeat(2) { askEverything(scrobbler) }
+            assertEquals(1, requests.get())
+        }
+    }
+
+    @Test
+    fun `any other error leaves Last-fm open`() = runBlocking {
+        assumeTheBuildHasAKey()
+        val settings = settings(LastFmSessionKey to "session", LastFmUsernameKey to "someone")
+        LastFmEnd.attach(settings)
+        LastFmEnd.clock = { dayBefore }
+        val requests = AtomicInteger()
+        val scrobbler = refusing(settings, code = 29, requests)
+        askEverything(scrobbler)
+        askEverything(scrobbler)
+        assertEquals("a rate limit is not the end: each went out", 10, requests.get())
+        assertNull(settings[LastFmRefusedAtKey])
+        assertFalse(LastFmEnd.closed())
+        // An expired session disconnects the account, as before, and closes nothing.
+        refusing(settings, code = 9, requests).nowPlaying(song)
+        assertNull(settings[LastFmSessionKey])
+        assertNull(settings[LastFmRefusedAtKey])
+        assertFalse(LastFmEnd.closed())
+    }
+
+    @Test
+    fun `a login that runs into the refusal says why in the card's words`() {
+        val screen = File("src/main/java/com/dd3boh/outertune/ui/screens/LastFmLoginScreen.kt").readText()
+        assertTrue("closed = LastFmEnd.closed()" in screen)
+        assertTrue("if (closed) stringResource(R.string.lastfm_ended_description)" in screen)
     }
 
     @Test

@@ -27,6 +27,7 @@ import com.dd3boh.outertune.R
 import com.dd3boh.outertune.LocalScrobbler
 import com.dd3boh.outertune.ui.component.FloatingTopBar
 import com.dd3boh.outertune.utils.ErrorText
+import com.dd3boh.outertune.utils.LastFmEnd
 import kotlinx.coroutines.launch
 
 /**
@@ -52,6 +53,9 @@ fun LastFmLoginScreen(
     var authorizeUrl by remember { mutableStateOf<String?>(null) }
     var finishing by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
+    // Last.fm closed by the time the login failed (LastFmEnd): the refusal of the key was the
+    // reason, and the card's own words say it better than Last.fm's.
+    var closed by remember { mutableStateOf(false) }
 
     // Ask for the token before showing anything, since the page to load is built from it.
     LaunchedEffect(Unit) {
@@ -60,7 +64,10 @@ fun LastFmLoginScreen(
                 token = t
                 authorizeUrl = url
             }
-            .onFailure { error = ErrorText.withoutAddresses(it.message ?: "") }
+            .onFailure {
+                closed = LastFmEnd.closed()
+                error = ErrorText.withoutAddresses(it.message ?: "")
+            }
     }
 
     val message = error
@@ -76,7 +83,8 @@ fun LastFmLoginScreen(
             contentAlignment = Alignment.Center,
         ) {
             Text(
-                text = stringResource(R.string.lastfm_login_failed, message),
+                text = if (closed) stringResource(R.string.lastfm_ended_description)
+                else stringResource(R.string.lastfm_login_failed, message),
                 textAlign = TextAlign.Center,
             )
         }

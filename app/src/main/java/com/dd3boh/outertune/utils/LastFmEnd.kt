@@ -8,8 +8,10 @@ package com.dd3boh.outertune.utils
 
 import android.content.Context
 import androidx.datastore.preferences.core.Preferences
+import com.dd3boh.lastfm.LastFmException
 import com.dd3boh.outertune.BuildConfig
 import com.dd3boh.outertune.constants.LastFmActAsEndedKey
+import com.dd3boh.outertune.constants.LastFmRefusedAtKey
 
 /**
  * The end of Last.fm in this app. From 1 December 2026 an API key needs Last.fm Pro, paid by
@@ -24,17 +26,33 @@ import com.dd3boh.outertune.constants.LastFmActAsEndedKey
  * where they come from is kept as it was, and so are Last.fm's lists already on the phone.
  *
  * Read at each use, so an app left open over midnight stops as well.
+ *
+ * Should Last.fm refuse the key before the date, the first refusal closes it the same way, at
+ * once ([refusesKey], written down in [LastFmRefusedAtKey] by the Scrobbler).
  */
 object LastFmEnd {
     /** 1 December 2026, 00:00 UTC. */
     const val END_MS = 1_796_083_200_000L
 
     /**
-     * Whether Last.fm is closed at [nowMs], with these [settings]: from [END_MS] on, and in a
-     * debug build told to act as after it (Developer, to walk all of this before the date).
+     * Last.fm's errors that refuse the key itself, whatever was asked (last.fm/api/errorcodes):
+     * 10 "Invalid API key" and 26 "API Key Suspended". Not 4 "Authentication Failed": Last.fm
+     * also gives it for a login token not approved yet, which the login screen asks with on
+     * every page it loads. Not 9 either: that is the account's session, and only disconnects it.
+     */
+    val KEY_REFUSED = setOf(10, 26)
+
+    /** Whether [failure] is Last.fm refusing the key itself: from then it takes nothing more from this app. */
+    fun refusesKey(failure: Throwable): Boolean = (failure as? LastFmException)?.let { it.code in KEY_REFUSED } == true
+
+    /**
+     * Whether Last.fm is closed at [nowMs], with these [settings]: from [END_MS] on, once it has
+     * refused the key, and in a debug build told to act as after the date (Developer, to walk all
+     * of this before then).
      */
     fun closed(nowMs: Long, settings: Preferences?): Boolean =
         nowMs >= END_MS ||
+            settings?.get(LastFmRefusedAtKey) != null ||
             (BuildConfig.DEBUG && settings?.get(LastFmActAsEndedKey) == true)
 
     /** The same now, with these [settings]: for a screen that holds them as a state. */

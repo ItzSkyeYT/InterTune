@@ -125,6 +125,8 @@ val LastFmUsernameKey = stringPreferencesKey("lastFmUsername")
 val LastFmScrobbleKey = booleanPreferencesKey("lastFmScrobble")
 /** Debug builds only: Last.fm acts as it will from 1 December 2026 (LastFmEnd), to walk that before the date. */
 val LastFmActAsEndedKey = booleanPreferencesKey("lastFmActAsEnded")
+/** When Last.fm refused the app's key itself (LastFmEnd.refusesKey): from then it is closed, as from 1 December. */
+val LastFmRefusedAtKey = longPreferencesKey("lastFmRefusedAt")
 val AudioGaplessOffloadKey = booleanPreferencesKey("enableGaplessOffload")
 
 val MaxQueuesKey = intPreferencesKey("maxQueues")
