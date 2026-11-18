@@ -125,6 +125,84 @@ class YouTubeLinkTest {
         assertTrue("or no browser hands it over", filter.contains("android.intent.category.BROWSABLE"))
     }
 
+    @Test
+    fun `a Short, a live's page, a video in another site's page and the old player's address open the video`() {
+        // The manifest hands the app /v/ and /embed/ links, and people paste Shorts and lives: all of them opened Home and
+        // nothing else (link-download check, 15 Nov 2026).
+        assertEquals(Video("UZg10O3pY_o", null), YouTubeLink.parse("https://www.youtube.com/shorts/UZg10O3pY_o"))
+        assertEquals(Video("UZg10O3pY_o", null), YouTubeLink.parse("https://youtube.com/shorts/UZg10O3pY_o?feature=share"))
+        assertEquals(Video("UZg10O3pY_o", null), YouTubeLink.parse("https://m.youtube.com/shorts/UZg10O3pY_o"))
+        assertEquals(Video("rFZHOHl-L8A", null), YouTubeLink.parse("https://www.youtube.com/live/rFZHOHl-L8A?si=AbCdEfGhIjKlMnOp"))
+        assertEquals(Video("C34LVzYgMuc", null), YouTubeLink.parse("https://www.youtube.com/embed/C34LVzYgMuc"))
+        assertEquals(Video("C34LVzYgMuc", null), YouTubeLink.parse("https://www.youtube.com/embed/C34LVzYgMuc?start=30&autoplay=1"))
+        assertEquals(Video("dQw4w9WgXcQ", null), YouTubeLink.parse("http://www.youtube.com/v/dQw4w9WgXcQ"))
+        assertEquals(Video("dQw4w9WgXcQ", null), YouTubeLink.parse("http://www.youtube.com/v/dQw4w9WgXcQ&hl=en_US&fs=1"))
+        // A whole list played in another site's page is the list.
+        assertEquals(
+            Playlist("PLUl4u3cNGP60g8vnEsLGuA4Kt-d5vNqy9"),
+            YouTubeLink.parse("https://www.youtube.com/embed/videoseries?list=PLUl4u3cNGP60g8vnEsLGuA4Kt-d5vNqy9"),
+        )
+        // The page with no video named, an id that is not one, another site, the app's own scheme: nothing.
+        for (text in listOf(
+            "https://www.youtube.com/shorts", "https://www.youtube.com/shorts/", "https://www.youtube.com/live",
+            "https://www.youtube.com/embed/", "https://www.youtube.com/v/", "https://www.youtube.com/shorts/abc",
+            "https://www.youtube.com/live/not-a-video-id-at-all", "https://www.youtube.com/embed/videoseries",
+            "https://example.com/shorts/UZg10O3pY_o", "intertune://shorts/UZg10O3pY_o", "intertune://embed/C34LVzYgMuc",
+        )) {
+            assertNull(text, YouTubeLink.parse(text))
+        }
+    }
+
+    @Test
+    fun `the YouTube app's own links, which the manifest takes, open the video`() {
+        val song = Video("dQw4w9WgXcQ", null)
+        assertEquals(song, YouTubeLink.parse("vnd.youtube:dQw4w9WgXcQ"))
+        assertEquals(song, YouTubeLink.parse("vnd.youtube://dQw4w9WgXcQ"))
+        assertEquals(song, YouTubeLink.parse("vnd.youtube:dQw4w9WgXcQ?t=42"))
+        assertEquals(song, YouTubeLink.parse("VND.YOUTUBE:dQw4w9WgXcQ"))
+        assertEquals(song, YouTubeLink.parse("vnd.youtube.launch:dQw4w9WgXcQ"))
+        assertEquals(song, YouTubeLink.parse("vnd.youtube://www.youtube.com/watch?v=dQw4w9WgXcQ"))
+        for (text in listOf("vnd.youtube:", "vnd.youtube:watch", "vnd.youtube://example.com/watch?v=dQw4w9WgXcQ", "vnd.other:dQw4w9WgXcQ")) {
+            assertNull(text, YouTubeLink.parse(text))
+        }
+    }
+
+    @Test
+    fun `a link with words around it, as another app's Share sends it, opens what it links to`() {
+        // Shared with its title before it, the whole text was taken for the address and nothing opened (15 Nov 2026).
+        val lecture = Video("C34LVzYgMuc", null)
+        assertEquals(lecture, YouTubeLink.parse("Great lecture https://youtu.be/C34LVzYgMuc"))
+        assertEquals(lecture, YouTubeLink.parse("Beyond the Steppe Frontier\nhttps://youtu.be/C34LVzYgMuc"))
+        assertEquals(lecture, YouTubeLink.parse("Watch this: https://www.youtube.com/watch?v=C34LVzYgMuc."))
+        assertEquals(lecture, YouTubeLink.parse("https://youtu.be/C34LVzYgMuc."))
+        assertEquals(lecture, YouTubeLink.parse("(https://youtu.be/C34LVzYgMuc)"))
+        assertEquals(lecture, YouTubeLink.parse("<https://youtu.be/C34LVzYgMuc>"))
+        // The first link that opens something: another site's before it is passed over.
+        assertEquals(lecture, YouTubeLink.parse("see https://example.com/page and https://youtu.be/C34LVzYgMuc?si=AbCdEf"))
+        assertEquals(
+            Playlist("PLx0sYbCqOb8TBPRdmBHs5Iftvv9TPboYG"),
+            YouTubeLink.parse("my mix https://music.youtube.com/playlist?list=PLx0sYbCqOb8TBPRdmBHs5Iftvv9TPboYG !"),
+        )
+        // Words with no YouTube link in them are words to search for.
+        for (text in listOf(
+            "never gonna give you up", "youtu.be is down", "see https://example.com/watch?v=C34LVzYgMuc",
+            "watch?v=C34LVzYgMuc tonight", "music.youtube.com/watch?v=C34LVzYgMuc please",
+        )) {
+            assertNull(text, YouTubeLink.parse(text))
+        }
+    }
+
+    @Test
+    fun `every YouTube address the manifest hands the app with a video in it opens something`() {
+        // The paths of the YouTube filter (AndroidManifest.xml), each with a video: none may open Home and nothing else.
+        for (link in listOf(
+            "https://www.youtube.com/v/C34LVzYgMuc", "https://www.youtube.com/embed/C34LVzYgMuc",
+            "https://www.youtube.com/watch?v=C34LVzYgMuc", "https://youtu.be/C34LVzYgMuc", "vnd.youtube:C34LVzYgMuc",
+        )) {
+            assertEquals(link, Video("C34LVzYgMuc", null), YouTubeLink.parse(link))
+        }
+    }
+
     private val bohemian = Video("BSTsnWoslP4", null)
     private val fiveMoreHours = Playlist("OLAK5uy_nHlcGzMzrlzyjd82XbcfULZKFjHuNNC_8")
 

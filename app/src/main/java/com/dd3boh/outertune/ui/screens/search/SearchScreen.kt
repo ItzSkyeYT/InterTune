@@ -29,7 +29,6 @@ import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
@@ -62,6 +61,7 @@ import com.dd3boh.outertune.LocalDatabase
 import com.dd3boh.outertune.LocalMenuState
 import com.dd3boh.outertune.LocalPlayerAwareWindowInsets
 import com.dd3boh.outertune.LocalPlayerConnection
+import com.dd3boh.outertune.LocalSnackbarHostState
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.DEFAULT_ENABLED_TABS
 import com.dd3boh.outertune.constants.EnabledTabsKey
@@ -78,6 +78,7 @@ import com.dd3boh.outertune.utils.get
 import com.dd3boh.outertune.utils.rememberEnumPreference
 import com.dd3boh.outertune.utils.rememberPreference
 import com.dd3boh.outertune.utils.urlEncode
+import com.dd3boh.outertune.utils.YouTubeLink
 import com.dd3boh.outertune.youtubeNavigator
 import androidx.compose.foundation.layout.Row
 import com.dd3boh.outertune.ui.screens.walkthrough.Tour
@@ -132,7 +133,8 @@ fun SearchBarContainer(
     // pill over it (searchPillShown).
     val navigationItems = remember(enabledTabs) { Screens.getScreens(enabledTabs) }
     val searchBarFocusRequester = remember { FocusRequester() }
-    val snackbarHostState = remember { SnackbarHostState() }
+    // The app's own, the one on screen: a link that opened nothing said why on a host of its own that nothing showed.
+    val snackbarHostState = LocalSnackbarHostState.current
 
     val (query, onQueryChange) = rememberSaveable(stateSaver = TextFieldValue.Saver) {
         mutableStateOf(TextFieldValue())
@@ -164,7 +166,8 @@ fun SearchBarContainer(
 
     val onSearch: (String) -> Unit = {
         if (it.isNotEmpty()) {
-            if (searchSource == SearchSource.LOCAL) {
+            // A link opens what it links to in either search: in the library's, it searched the library for the address.
+            if (searchSource == SearchSource.LOCAL && YouTubeLink.parse(it) == null) {
                 focusManager.clearFocus(true)
             } else {
                 onSearchActiveChange(false)
