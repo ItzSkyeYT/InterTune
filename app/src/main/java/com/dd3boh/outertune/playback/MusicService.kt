@@ -64,6 +64,7 @@ import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.ResolvingDataSource
 import androidx.media3.datasource.cache.CacheDataSource
 import androidx.media3.datasource.cache.CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR
+import androidx.media3.datasource.cache.ContentMetadata
 import androidx.media3.datasource.cache.SimpleCache
 import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.DefaultLoadControl
@@ -216,6 +217,7 @@ import com.dd3boh.outertune.extensions.findNextMediaItemById
 import com.dd3boh.outertune.extensions.isUserLoggedIn
 import com.dd3boh.outertune.extensions.joinWithin
 import com.dd3boh.outertune.extensions.metadata
+import com.dd3boh.outertune.extensions.playSafe
 import com.dd3boh.outertune.extensions.setOffloadEnabled
 import com.dd3boh.outertune.extensions.shouldShowPlayButton
 import com.dd3boh.outertune.lyrics.LyricsHelper
@@ -3175,6 +3177,33 @@ class MusicService : MediaLibraryService(),
     }
 
     /**
+     * The saved queue into the player and played, when the player holds nothing: what [what], a
+     * media button's play/pause or hook, asks of an empty player (EmptyPlayerPress). Done as the
+     * app's own play button does it after a cold start (PlayerConnection.loadQueueIfEmpty) and as
+     * Resume playback on launch does above: the board's current queue at its place, then
+     * prepared and played. On the main thread, where the board loads the player.
+     */
+    fun playSavedQueue(what: String) {
+        scope.launch {
+            // Not before the saved queues are read: a press as the service starts would find the
+            // board empty. Bounded, as for a request to play from the car (resolvePlayRequest).
+            kotlinx.coroutines.withTimeoutOrNull(SAVED_QUEUES_WAIT_MS) { queuesLoadedOnce.await() }
+            // The mini player swiped away since: the board is read again, as playQueue does.
+            if (!qbInit.value) initQueue(onlyIfNeeded = true)
+            // Something may have been loaded meanwhile, a tap in the app: that one plays as it is.
+            if (activePlayer.mediaItemCount == 0) {
+                val loaded = queueBoard.setCurrQueue(shouldResume = true)
+                if (loaded == null || activePlayer.mediaItemCount == 0) {
+                    Log.i(TAG, "$what with nothing loaded, and no saved queue to play")
+                    return@launch
+                }
+            }
+            Log.i(TAG, "$what with nothing loaded: the saved queue plays, as the app's play button plays it")
+            activePlayer.playSafe()
+        }
+    }
+
+    /**
      * @param waitForSave True for onDestroy, where teardown continues right after and the save
      * has to have landed before the process can die. False for a swipe of the mini player, which
      * calls this on the UI thread: blocking it here for the same write would freeze the swipe
@@ -3493,7 +3522,9 @@ class MusicService : MediaLibraryService(),
          */
         fun resolve(mediaId: String, position: Long, length: Long, ahead: Boolean = false): ResolvedSong {
             val said = if (ahead) "AHEAD" else "PLAYING"
-            Log.i(TAG, "$said: song id = $mediaId")
+            // Where in the song the read starts: a read begun near the end found a song kept on the
+            // phone wanting, and nothing in the log said so (#179).
+            Log.i(TAG, if (position > 0L) "$said: song id = $mediaId, from byte $position" else "$said: song id = $mediaId")
 
             val queued = queueBoard.getCurrentQueue()?.findSong(mediaId)
             // in the case of resumption, queueBoard may not be ready yet
@@ -3630,6 +3661,20 @@ class MusicService : MediaLibraryService(),
         }
 
         /**
+         * What a song the app counts as downloaded failed with when the player could not read it from
+         * the phone and fetching it failed to connect ([failure]): see DownloadNotOnPhone. Says in the
+         * log which of its causes it is, read from the download cache and the download folders, and
+         * whether the phone was online: a refused connection or a timeout is no proof there is no network.
+         */
+        private fun downloadNotOnPhone(mediaId: String, position: Long, failure: Throwable, said: String): DownloadNotOnPhone {
+            val length = runCatching { ContentMetadata.getContentLength(downloadCache.getContentMetadata(mediaId)) }.getOrDefault(C.LENGTH_UNSET.toLong())
+            val held = runCatching { downloadCache.getCachedBytes(mediaId, 0, C.LENGTH_UNSET.toLong()) }.getOrDefault(0L)
+            val inFolder = runCatching { downloadUtil.localMgr.isExists(mediaId)?.exists() == true }.getOrDefault(false)
+            Log.w(TAG, "$said: ${DownloadNotOnPhone.said(mediaId, position, held, length, inFolder, failure.javaClass.simpleName, online = isNetworkConnected.value)}")
+            return DownloadNotOnPhone(failure)
+        }
+
+        /**
          * The song's stream fetched from YouTube, its row and its address kept, with what a copy
          * already here needs done about it: [staleQuality] and [partialCopy] as [resolve] found
          * them, for a read from [position]. [said] names the resolve in the log, AHEAD or PLAYING.
@@ -3673,7 +3718,14 @@ class MusicService : MediaLibraryService(),
                 val error = when (throwable) {
                     is PlaybackException -> throwable
 
-                    is ConnectException, is UnknownHostException -> PlaybackException(
+                    // A song counted as downloaded comes here only when the phone has not got what the
+                    // player asked for: said so, not "No network connection", which was true and told
+                    // nothing (#179). Still a network failure, so the network is waited for as before.
+                    is ConnectException, is UnknownHostException -> if (downloadUtil.isDownloaded(mediaId)) PlaybackException(
+                        getString(R.string.err_download_not_on_phone),
+                        downloadNotOnPhone(mediaId, position, throwable, said),
+                        PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED
+                    ) else PlaybackException(
                         getString(R.string.error_no_internet),
                         throwable,
                         PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED
@@ -7221,6 +7273,9 @@ class MusicService : MediaLibraryService(),
 
         /** The longest a request is held back while a new song loads: see afterSongStarts. */
         private const val NEW_SONG_WAIT_MS = 20_000L
+
+        /** The longest a media button's play on an empty player waits for the saved queues to be read: see playSavedQueue. */
+        private const val SAVED_QUEUES_WAIT_MS = 5_000L
 
         /** How much of the next song is loaded ahead while one plays: 5 s, enough to start it at once. */
         private const val PRELOAD_AHEAD_US = 5_000_000L
