@@ -1061,8 +1061,9 @@ object Unreleased {
      * the seek bar while it is dragged, one light tick each fortieth of the bar the finger travels (SeekRumble),
      * the way the Pixel's own volume slider ticks. And the volume bar in the player's menu rests on the line where
      * boost begins when a drag comes within 3% of the bar above it, with one tick as it lands, and follows the
-     * finger below it (VolumeSnap; asked in #general, 18 Nov 2026, coming back down from boost). The player sheet's drag and the snapping queue are not part of it. Android's Touch
-     * feedback setting turns the ticks off, as it does for every app. It has no text.
+     * finger below it (VolumeSnap; asked in #general, 18 Nov 2026, coming back down from boost). The player
+     * sheet's drag and the snapping queue are not part of it. Android's Touch feedback setting turns the ticks
+     * off, as it does for every app. It has no text.
      *
      * Held back as the line's held features are: the debug app, the Preview and the Tester app have it; a
      * release only on his word. Without it the app gives the haptics it always gave, the queue's button its own,

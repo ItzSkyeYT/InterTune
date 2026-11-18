@@ -134,7 +134,7 @@ class VolumeSnapTest {
         assertTrue("onDragCancel = { dragged = Float.NaN; held = false }," in bar)
         // Whether it rests is the drag's own, not read back from the volume, which comes back a frame late.
         assertTrue("val was = held\n                    held = VolumeSnap.holds(dragged, maxProgress, was)" in bar)
-        assertTrue("if (VolumeSnap.lands(was, held)) haptic.performHapticFeedback(HapticFeedbackType.SegmentTick)" in bar)
+        assertTrue("if (VolumeSnap.lands(was, held)) haptic.segmentTick(view, tickLive)" in bar)
         assertTrue("onProgressChange(VolumeSnap.shown(dragged, held))" in bar)
         // It is the player menu's volume bar.
         assertTrue("BigSeekBar(" in source("ui/menu/PlayerMenu.kt"))

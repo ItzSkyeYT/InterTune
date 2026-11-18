@@ -23,10 +23,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onPlaced
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
 import com.dd3boh.outertune.constants.Unreleased
 
@@ -49,6 +50,10 @@ fun BigSeekBar(
         mutableFloatStateOf(0f)
     }
     val haptic = LocalHapticFeedback.current
+    // The landing's tick, and below Android 14 its stand-in (segmentTick).
+    val view = LocalView.current
+    val context = LocalContext.current
+    val tickLive = remember { hapticsLive(context) }
 
     Canvas(
         modifier
@@ -80,7 +85,7 @@ fun BigSeekBar(
                     dragged = ((if (dragged.isNaN()) progressProvider() else dragged) + delta).coerceIn(0f, maxProgress)
                     val was = held
                     held = VolumeSnap.holds(dragged, maxProgress, was)
-                    if (VolumeSnap.lands(was, held)) haptic.performHapticFeedback(HapticFeedbackType.SegmentTick)
+                    if (VolumeSnap.lands(was, held)) haptic.segmentTick(view, tickLive)
                     onProgressChange(VolumeSnap.shown(dragged, held))
                 }
             }

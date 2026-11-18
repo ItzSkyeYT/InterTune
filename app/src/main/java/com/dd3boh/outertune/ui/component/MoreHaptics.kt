@@ -6,6 +6,12 @@
 
 package com.dd3boh.outertune.ui.component
 
+import android.content.Context
+import android.os.Build
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.view.HapticFeedbackConstants
+import android.view.View
 import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import com.dd3boh.outertune.constants.Unreleased
@@ -18,6 +24,45 @@ import kotlin.math.abs
  */
 fun HapticFeedback.tapTick() {
     if (Unreleased.HAPTICS_MORE) performHapticFeedback(HapticFeedbackType.ContextClick)
+}
+
+/**
+ * Whether Compose gives haptics on this phone at all. Compose 1.9 hands every haptic to one that does nothing unless the
+ * phone runs Android 12 or later with a vibrator that plays the click, tick and thud primitives (its HapticDefaults,
+ * read in its 1.9.4 jar): the app's ticks are felt only there, and [segmentTick]'s stand-in follows the same rule
+ * rather than tick on a phone where nothing else does.
+ */
+fun hapticsLive(context: Context): Boolean {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return false
+    val vibrator = context.getSystemService(Vibrator::class.java) ?: return false
+    return vibrator.areAllPrimitivesSupported(
+        VibrationEffect.Composition.PRIMITIVE_CLICK,
+        VibrationEffect.Composition.PRIMITIVE_TICK,
+        VibrationEffect.Composition.PRIMITIVE_THUD,
+    )
+}
+
+/** How a segment's tick reaches the finger on Android [sdk]: see [segmentTick]. */
+enum class TickWay { COMPOSE, CLOCK, NONE }
+
+fun tickWay(sdk: Int, live: Boolean): TickWay = when {
+    sdk >= 34 -> TickWay.COMPOSE
+    live -> TickWay.CLOCK
+    else -> TickWay.NONE
+}
+
+/**
+ * A segment's tick: the seek bar's rumble ([frequent], the lighter one) and the volume bar landing on 100%. Android
+ * knows these from 14 on (HapticFeedbackConstants.SEGMENT_TICK is API 34); below, Compose hands them to the view all
+ * the same and nothing is felt, so the view's CLOCK_TICK, which every Android has, takes their place there, on a
+ * phone where Compose gives haptics at all ([live], from [hapticsLive]).
+ */
+fun HapticFeedback.segmentTick(view: View, live: Boolean, frequent: Boolean = false) {
+    when (tickWay(Build.VERSION.SDK_INT, live)) {
+        TickWay.COMPOSE -> performHapticFeedback(if (frequent) HapticFeedbackType.SegmentFrequentTick else HapticFeedbackType.SegmentTick)
+        TickWay.CLOCK -> view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+        TickWay.NONE -> Unit
+    }
 }
 
 /**
