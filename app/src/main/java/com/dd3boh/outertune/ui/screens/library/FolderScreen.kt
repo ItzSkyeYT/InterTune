@@ -507,7 +507,8 @@ fun FolderScreen(
                     ) {
                         SongFolderItem(
                             folderTitle = "..",
-                            subtitle = "Previous folder",
+                            // In the phone's language: it was English in every one.
+                            subtitle = stringResource(R.string.previous_folder),
                             modifier = Modifier
                                 .clickable {
                                     if (currDir.culmSongs.value > 0) {

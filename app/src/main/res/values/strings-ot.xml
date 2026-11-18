@@ -2026,6 +2026,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="view_as_list">Shown as a list</string>
     <string name="view_as_grid">Shown as a grid</string>
     <string name="view_as_tree">Shown as a tree</string>
+    <string name="previous_folder">Previous folder</string>
     <string name="playlist_order_locked">Order locked</string>
     <string name="playlist_order_unlocked">Order unlocked</string>
     <string name="cancel_download">Cancel download</string>

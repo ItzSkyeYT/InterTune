@@ -140,6 +140,10 @@ class FoldersTabTidyTest {
     fun `the Folders tab's rows are those, the previous folder's too`() {
         // The folders and the way up, both through SongFolderItem, so both have it.
         assertEquals(2, Regex("""SongFolderItem\(""").findAll(screen).count())
-        assertTrue(screen.contains("subtitle = \"Previous folder\""))
+        // The way up says so in the phone's language: it was English in every one.
+        assertTrue(screen.contains("subtitle = stringResource(R.string.previous_folder)"))
+        assertFalse(screen.contains("\"Previous folder\""))
+        assertTrue(File("src/main/res/values/strings-ot.xml").readText().contains("<string name=\"previous_folder\">Previous folder</string>"))
+        assertTrue(File("src/main/res/values-fr/strings-ot.xml").readText().contains("<string name=\"previous_folder\">Dossier parent</string>"))
     }
 }
