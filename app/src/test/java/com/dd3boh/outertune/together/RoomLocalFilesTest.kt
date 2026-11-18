@@ -26,7 +26,7 @@ class RoomLocalFilesTest {
     @Test
     fun `a song's picture travels only as a web address`() {
         assertEquals(web, TogetherMessage.thumbnailFor(web))
-        assertEquals("HTTPS://lh3.googleusercontent.com/a", TogetherMessage.thumbnailFor(" HTTPS://lh3.googleusercontent.com/a "))
+        assertEquals("https://lh3.googleusercontent.com/a", TogetherMessage.thumbnailFor(" HTTPS://lh3.googleusercontent.com/a "))
         for (local in listOf(path, "file://$path", "content://media/external/audio/albumart/12", "http://192.168.1.20:8080/cover.jpg", "", " ", null)) {
             assertEquals("for $local", "", TogetherMessage.thumbnailFor(local))
         }
@@ -64,6 +64,38 @@ class RoomLocalFilesTest {
         assertEquals("", (TogetherMessage.decode(raw) as TogetherMessage.Queue).songs.single().thumbnail)
         val suggest = """{"t":"suggest","song":"x","title":"t","artist":"a","thumb":"file:///sdcard/a.jpg","by":"b"}"""
         assertEquals("", (TogetherMessage.decode(suggest) as TogetherMessage.Suggest).thumbnail)
+    }
+
+    /**
+     * Any https address was kept, and every guest's phone loads the pictures of the room's queue and suggestions: whoever
+     * has the code could learn each guest's address from a server of their own (review 2, 18 Nov 2026). Only YouTube's
+     * own picture servers now, read as the picture loader reads them.
+     */
+    @Test
+    fun `a picture travels only from YouTube's own picture servers`() {
+        for (kept in listOf(
+            "https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg",
+            "https://i9.ytimg.com/vi/dQw4w9WgXcQ/mqdefault.jpg",
+            "https://lh3.googleusercontent.com/abc=w544-h544-l90-rj",
+            "https://yt3.googleusercontent.com/abc=s176-c-k",
+            "https://yt3.ggpht.com/abc=s88-c-k",
+        )) {
+            assertEquals(kept, TogetherMessage.thumbnailFor(kept))
+        }
+        for (refused in listOf(
+            "https://their.server.example/cover.jpg",
+            "https://i.ytimg.com.their.server.example/vi/x/hqdefault.jpg",
+            "https://i.ytimg.com@their.server.example/vi/x/hqdefault.jpg",
+            "https://their.server.example\\@i.ytimg.com/vi/x/hqdefault.jpg",
+            "https://their.server.example/?u=https://i.ytimg.com/vi/x/hqdefault.jpg",
+            "https://doc-0s-1c-docs.googleusercontent.com/x",
+            "http://i.ytimg.com/vi/x/hqdefault.jpg",
+        )) {
+            assertEquals(refused, "", TogetherMessage.thumbnailFor(refused))
+        }
+        // and as it is read from a room
+        val raw = """{"t":"suggest","song":"x","title":"t","artist":"a","thumb":"https://their.server.example/a.jpg","by":"b"}"""
+        assertEquals("", (TogetherMessage.decode(raw) as TogetherMessage.Suggest).thumbnail)
     }
 
     /**

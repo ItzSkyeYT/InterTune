@@ -20,6 +20,7 @@ import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.long
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.buildJsonArray
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import kotlin.math.abs
 
 /**
@@ -92,12 +93,17 @@ sealed interface TogetherMessage {
         const val QUEUE_SONGS = 30
 
         /**
-         * What a room carries of a song's picture: a web address any phone can load, and nothing else. A song from a
-         * file on the phone has the file's full path there (/storage/emulated/0/Music/<folders>/<file>, the folders
-         * often named after people), and it went to everyone with the room's code, who cannot play that song anyway
-         * (review of 0.13, 18 Nov 2026). Applied as a message is made and as one is read.
+         * What a room carries of a song's picture: an address on YouTube's own picture servers, and nothing else. A song
+         * from a file on the phone has the file's full path there (/storage/emulated/0/Music/<folders>/<file>, the
+         * folders often named after people), and it went to everyone with the room's code (review of 0.13, 18 Nov 2026);
+         * any other web address had every guest's phone fetch it, so whoever has the code could learn each guest's
+         * address from a server of their own (review 2). Applied as a message is made and as one is read, and given as
+         * OkHttp reads it, the reader the pictures are loaded with, so what is loaded is what was looked at.
          */
-        fun thumbnailFor(uri: String?): String = uri?.trim()?.takeIf { it.startsWith("https://", ignoreCase = true) }.orEmpty()
+        fun thumbnailFor(uri: String?): String {
+            val url = uri?.trim()?.toHttpUrlOrNull() ?: return ""
+            return if (url.isHttps && PICTURE_HOSTS.any { it.matches(url.host) }) url.toString() else ""
+        }
 
         /**
          * [message] as text to seal. The room's own messages carry the key of the phone that sends them, [sender], inside
@@ -186,6 +192,13 @@ sealed interface TogetherMessage {
         }
     }
 }
+
+/** YouTube's picture servers as the app knows them: i.ytimg.com (i1 to i9 too), lh3 and yt3.googleusercontent.com, yt3.ggpht.com. */
+private val PICTURE_HOSTS = listOf(
+    Regex("""i\d?\.ytimg\.com"""),
+    Regex("""(lh|yt)\d+\.googleusercontent\.com"""),
+    Regex("""yt\d+\.ggpht\.com"""),
+)
 
 /**
  * The room's sealed words already taken, by their hash, the latest [kept]. A seal is made once (a fresh IV every time),
