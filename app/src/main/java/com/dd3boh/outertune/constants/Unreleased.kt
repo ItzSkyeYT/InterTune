@@ -662,9 +662,10 @@ object Unreleased {
 
     /**
      * A small dialog, twice at most, when the phone's battery saver puts the app on Saver: what
-     * pauses and the way to Battery use (SaverNote). His ask of 18 Nov 2026.
+     * pauses and the way to Battery use (SaverNote). His ask of 18 Nov 2026, on for everyone in 0.13
+     * (his yes the same evening, after 9 of 9 on the emulator).
      */
-    val SAVER_NOTE = BuildConfig.PREVIEW_FEATURES
+    val SAVER_NOTE = true
 
     /**
      * Saved twice (issue #47, for 0.13): a round button with a count beside Play and Shuffle in

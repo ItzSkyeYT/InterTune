@@ -39,8 +39,8 @@ class SaverNoteTest {
     }
 
     @Test
-    fun `held back, said from the app's root, and waiting for every other screen`() {
-        assertTrue("val SAVER_NOTE = BuildConfig.PREVIEW_FEATURES" in source("constants/Unreleased.kt"))
+    fun `on for everyone from 0_13, said from the app's root, and waiting for every other screen`() {
+        assertTrue("val SAVER_NOTE = true" in source("constants/Unreleased.kt"))
         val main = source("MainActivity.kt")
         assertTrue("if (Unreleased.SAVER_NOTE) {" in main)
         val block = main.substringAfter("if (Unreleased.SAVER_NOTE) {").substringBefore("SaverNoteDialog(")
