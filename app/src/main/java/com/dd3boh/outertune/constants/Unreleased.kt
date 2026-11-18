@@ -1051,4 +1051,21 @@ object Unreleased {
      * Metrolist 14.0 backup over on the emulator (15 Nov 2026), so on for everyone in 0.13 (his yes of 14 Nov 2026).
      */
     val METROLIST_IMPORT = true
+
+    /**
+     * Better word by word lyrics (his line on the Roadmap for 0.13; #94, #145), as looks of the
+     * line being sung to choose from (LyricsWordsLook): A lights each word where it stands, with a
+     * soft edge; B lifts each word as it is sung and lets a held one swell and glow; C carries the
+     * lines along one after the other, the sung one at full size, each word nodding by as much as
+     * the music is strong. Only with word by word on in the lyrics settings, and only for lyrics
+     * that have word times.
+     *
+     * Looks to judge on a screen, none of them chosen: the app's own way stays until one is picked
+     * in the developer options ("DEBUG: Word by word look"), and they have no text of their own.
+     * Without the flag the choice is never read and the line is drawn as it was. To be removed,
+     * with the looks not kept, once he has chosen.
+     *
+     * Debug builds only, kept out of the previews that testers get.
+     */
+    val LYRICS_WORDS_LOOKS = BuildConfig.DEBUG && BuildConfig.BUILD_TYPE == "debug"
 }

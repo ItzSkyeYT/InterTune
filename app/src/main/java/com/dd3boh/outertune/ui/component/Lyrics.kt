@@ -15,6 +15,8 @@ import android.content.res.Configuration
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.animate
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.clickable
@@ -72,6 +74,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -115,6 +118,7 @@ import com.dd3boh.outertune.constants.LyricKaraokeEnable
 import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.constants.LyricLatinKey
 import com.dd3boh.outertune.constants.LyricsBlurKey
+import com.dd3boh.outertune.constants.LyricsWordsLookKey
 import com.dd3boh.outertune.constants.LyricUpdateSpeed
 import com.dd3boh.outertune.constants.LyricsPosition
 import com.dd3boh.outertune.constants.LyricsTextPositionKey
@@ -130,6 +134,7 @@ import com.dd3boh.outertune.lyrics.LyricsLatin
 import com.dd3boh.outertune.lyrics.latinTools
 import com.dd3boh.outertune.lyrics.LyricsVideoPlan
 import com.dd3boh.outertune.models.MediaMetadata
+import com.dd3boh.outertune.playback.MusicLevels
 import com.dd3boh.outertune.ui.component.button.IconButton
 import com.dd3boh.outertune.ui.component.shimmer.ShimmerHost
 import com.dd3boh.outertune.ui.component.shimmer.TextPlaceholder
@@ -203,6 +208,9 @@ fun Lyrics(
     // Progressive blur, the debug app's trial (LyricsBlur): how strong, or null for the lines as they are.
     val blurStored by rememberPreference(LyricsBlurKey, "")
     val blur = if (Unreleased.LYRICS_BLUR) LyricsBlur.strengthOf(blurStored) else null
+    // The looks of the line sung word by word that are being compared, the debug app's (LyricsWordsLook): one, or null for the app's own way.
+    val wordsLookStored by rememberPreference(LyricsWordsLookKey, "")
+    val wordsLook = if (Unreleased.LYRICS_WORDS_LOOKS) LyricsWordsLook.of(wordsLookStored) else null
 
     val mediaMetadata by playerConnection.mediaMetadata.collectAsState()
 
@@ -511,6 +519,17 @@ fun Lyrics(
     val lazyListState = rememberLazyListState()
     val scope = rememberCoroutineScope()
 
+    // Look C: the lines under the one being sung follow it one after the other (LyricsCarry), and
+    // the music is measured while the look is up, for the words' nod, as the Living blur has it measured.
+    val carried = wordsLook == LyricsWordsLook.C && isSynced && lyricsFancy && !context.isPowerSaver()
+    val carry = remember { LyricsCarry() }
+    val levels = remember { FloatArray(MusicLevels.VALUES) }
+    DisposableEffect(carried, playerConnection) {
+        val tap = playerConnection.service.levelTap
+        if (carried) tap.watch()
+        onDispose { if (carried) tap.unwatch() }
+    }
+
     // The blur is there only while the view follows the song: a scroll by hand clears it at its
     // first move, until the view goes back to the song's line, and so does picking lines.
     val blurFollows by remember { derivedStateOf { lastPreviewTime == 0L && !keep.picking } }
@@ -623,7 +642,8 @@ fun Lyrics(
                 } else {
                     lazyListState.glideToItem(
                         currentLineIndex,
-                        with(density) { 36.dp.toPx().toInt() } + calculateOffset())
+                        with(density) { 36.dp.toPx().toInt() } + calculateOffset(),
+                        carry.takeIf { carried })
                 }
             }
         } else if (lastPreviewTime == 0L) {
@@ -636,7 +656,7 @@ fun Lyrics(
             if (isSeeking) {
                 lazyListState.scrollToItem(0, with(density) { 36.dp.toPx().toInt() })
             } else {
-                lazyListState.glideToItem(0, with(density) { 36.dp.toPx().toInt() })
+                lazyListState.glideToItem(0, with(density) { 36.dp.toPx().toInt() }, carry.takeIf { carried })
             }
         }
     }
@@ -740,6 +760,12 @@ fun Lyrics(
                     val inLine by remember(item) { derivedStateOf { currentPos.toULong() in item.start..item.end + 100.toULong() } }
                     val doneWith by remember(item) { derivedStateOf { currentPos.toULong() > (item.end + 100.toULong()) } }
 
+                    // Look C: the line being sung at full size and the others a little smaller.
+                    val aroundSize = if (!carried) null else animateFloatAsState(
+                        targetValue = if (index == displayedCurrentLineIndex || (index == displayedCurrentLineIndex + 1 && item.isTranslated)) 1f else LyricsWords.AROUND,
+                        animationSpec = tween(LyricsWords.AROUND_MS),
+                        label = "lyricsLineSize",
+                    )
                     val isPicked = picking && index in picked
                     // Unsynced lines touch, so picked ones side by side are lit as one block.
                     val joinsAbove = isPicked && !isSynced && (index - 1) in picked
@@ -762,6 +788,24 @@ fun Lyrics(
                         },
                         modifier = Modifier
                             .fillMaxWidth()
+                            .then(
+                                if (aroundSize == null) Modifier else Modifier.graphicsLayer {
+                                    scaleX = aroundSize.value
+                                    scaleY = aroundSize.value
+                                    // From the side the lines are set on, where their text starts.
+                                    val side = 24.dp.toPx() / size.width.coerceAtLeast(1f)
+                                    transformOrigin = TransformOrigin(
+                                        when (lyricsTextPosition) {
+                                            LyricsPosition.LEFT -> side
+                                            LyricsPosition.CENTER -> 0.5f
+                                            LyricsPosition.RIGHT -> 1f - side
+                                        },
+                                        0.5f,
+                                    )
+                                    // A line under the one being sung follows the view a little later than the line above it.
+                                    translationY = carry.lag(index - displayedCurrentLineIndex, carry.frame)
+                                }
+                            )
                             .padding(
                                 start = 24.dp,
                                 // Unsynced lines touch, with the room above and below them that the
@@ -851,16 +895,37 @@ fun Lyrics(
                             // Lit as the frames are drawn, at where the song is at each one: the line
                             // asks for every frame while it is being sung and the music plays. Started
                             // again with each player connection, as the lines' own clock above is.
-                            LaunchedEffect(playerConnection) {
+                            // The looks being compared (LyricsWordsLook): the line's words with their times, and
+                            // for C how far each nods, weighed against the music as the word starts.
+                            val pieces = remember(item, wordsLook) { if (wordsLook == null) emptyList() else LyricsWords.pieces(item.text, item.words) }
+                            val nods = remember(pieces, wordsLook) { if (wordsLook == LyricsWordsLook.C) FloatArray(pieces.size) { -1f } else null }
+                            LaunchedEffect(playerConnection, nods) {
                                 lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                                     while (isActive) {
                                         if (!playerConnection.isPlaying.value) playerConnection.isPlaying.first { it }
                                         withFrameNanos { frame -> drawnPos = lyricsAt(frame, sliderPositionProvider()) }
+                                        if (nods != null) LyricsWords.weigh(pieces, nods, drawnPos) {
+                                            levels.takeIf { playerConnection.service.levelTap.now(it) }
+                                        }
                                     }
                                 }
                             }
 
-                            lyricLines.forEach {
+                            if (wordsLook != null && pieces.isNotEmpty()) LyricsWordsLine(
+                                look = wordsLook,
+                                text = item.text,
+                                pieces = pieces,
+                                lineEndMs = item.end.toLong(),
+                                fontSize = lyricFontSizeAdjusted.sp,
+                                color = textColor,
+                                textAlign = when (lyricsTextPosition) {
+                                    LyricsPosition.LEFT -> TextAlign.Left
+                                    LyricsPosition.CENTER -> TextAlign.Center
+                                    LyricsPosition.RIGHT -> TextAlign.Right
+                                },
+                                at = { drawnPos },
+                                weights = nods,
+                            ) else lyricLines.forEach {
                                 HorizontalReveal(
                                     progress = { calculateLineProgress(it, drawnPos) },
                                     modifier = Modifier
@@ -1344,15 +1409,31 @@ private suspend fun Context.keepLyricsShift(song: String, shiftMs: Long) {
  * it; one moved this way is never scrolling, so a touch is a touch on what it lands on. An item
  * that is not laid out is jumped to.
  */
-private suspend fun LazyListState.glideToItem(index: Int, offset: Int) {
+private suspend fun LazyListState.glideToItem(index: Int, offset: Int, carry: LyricsCarry? = null) {
     val item = layoutInfo.visibleItemsInfo.firstOrNull { it.index == index }
     if (item == null) {
         scrollToItem(index, offset)
         return
     }
     var moved = 0f
-    animate(0f, (item.offset + offset).toFloat(), animationSpec = spring()) { value, _ ->
-        moved += dispatchRawDelta(value - moved)
+    if (carry == null) {
+        animate(0f, (item.offset + offset).toFloat(), animationSpec = spring()) { value, _ ->
+            moved += dispatchRawDelta(value - moved)
+        }
+        return
+    }
+    // Look C: each step is told to [carry], which holds the lines under the sung one back by it for a moment.
+    try {
+        animate(0f, (item.offset + offset).toFloat(), animationSpec = spring()) { value, _ ->
+            val by = dispatchRawDelta(value - moved)
+            moved += by
+            carry.moved(System.nanoTime(), by)
+        }
+    } finally {
+        // Those lines are still on their way once the view has arrived, or was stopped on its way.
+        withContext(NonCancellable) {
+            while (carry.busy(System.nanoTime())) withFrameNanos { carry.moved(System.nanoTime(), 0f) }
+        }
     }
 }
 
