@@ -7,6 +7,12 @@
 package com.dd3boh.outertune.utils.scanners
 
 import com.dd3boh.outertune.utils.scanners.LocalRemoval.Volume
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -122,6 +128,26 @@ class LocalRemovalTest {
         assertEquals("$a\n$c", LocalRemoval.withoutEntry("$a\n$c", b))
         // As stringFromUriList and uriListFromString read and write the list: one address a line.
         assertEquals(listOf(a, b), "$a\n$b".split("\n"))
+    }
+
+    @Test
+    fun `a removal or an Undo waits for a scan running to end, all its phases`() = runBlocking {
+        // A scan finding its files (1); idle is -1, or 0 for an instant between two phases of the same scan.
+        val state = MutableStateFlow(1)
+        val done = CompletableDeferred<Unit>()
+        launch { LocalRemoval.afterScan(state, settle = 200); done.complete(Unit) }
+        delay(100)
+        assertFalse("waits while the scan runs", done.isCompleted)
+        state.value = 0
+        delay(50)
+        state.value = 3
+        delay(300)
+        assertFalse("the next phase of the same scan", done.isCompleted)
+        state.value = 0
+        withTimeout(2000) { done.await() }
+        // With no scan running it goes on at once, and the artists' linking after a scan (5) is no scan of files.
+        for (idle in listOf(-1, 0, 4, 5)) withTimeout(100) { LocalRemoval.afterScan(MutableStateFlow(idle), settle = 10_000) }
+        assertEquals(listOf(1, 2, 3), (-1..5).filter { LocalRemoval.scanning(it) })
     }
 
     @Test

@@ -46,7 +46,7 @@ class LocalRemovePlacesTest {
     @Test
     fun `a local song's menu has Remove from library after Details, where and as a YouTube song has it, under the flag`() {
         val grid = grid("ui/menu/SongMenu.kt")
-        val local = grid.indexOf("if (Unreleased.LOCAL_REMOVE && song.song.isLocal && song.song.inLibrary != null && localAddress != null) {")
+        val local = grid.indexOf("if (Unreleased.LOCAL_REMOVE && song.song.isLocal && song.song.inLibrary != null && localAddress != null && !scanBusy) {")
         assertTrue("no Remove from library for a local song", local > 0)
         val entry = grid.substring(local, grid.indexOf("}", grid.indexOf("LocalRemoveMenu.removeSong(", local)) + 1)
         assertTrue(entry, "icon = Icons.Rounded.LibraryAddCheck" in entry && "title = R.string.remove_from_library" in entry)
@@ -70,7 +70,7 @@ class LocalRemovePlacesTest {
         val grid = grid("ui/menu/FolderMenu.kt")
         assertEquals("local_exclude_folder", titles(grid).last())
         assertEquals("m3u_export", titles(grid).dropLast(1).last())
-        val entry = grid.substring(grid.indexOf("if (excludeAddress != null) {"))
+        val entry = grid.substring(grid.indexOf("if (excludeAddress != null && !scanBusy) {"))
         assertTrue(entry, "icon = Icons.Rounded.FolderOff" in entry && "LocalRemoveMenu.excludeFolder(" in entry)
         assertTrue(entry, "folder.getFullSquashedDir()" in entry)
         val menu = code("ui/menu/FolderMenu.kt")
@@ -95,6 +95,27 @@ class LocalRemovePlacesTest {
         val removal = code("utils/scanners/LocalRemoval.kt")
         // The trees kept for the Folders tab are dropped first: a folder opened later reads the table again.
         assertTrue("clearDtCache()\n        changed.value++" in removal)
+    }
+
+    @Test
+    fun `neither is offered while a scan runs, and a tap or an Undo that meets one waits for its end`() {
+        // Found 18 Nov 2026 (the review of local-remove, L3): a scan reads Excluded scan paths when it starts, so a
+        // full rescan or MediaStore's sync already running put a removed song back, and any scan's disable pass took
+        // an Undo out again.
+        for (menu in listOf("ui/menu/SongMenu.kt", "ui/menu/FolderMenu.kt")) {
+            val text = code(menu)
+            assertTrue(menu, "val scanBusy = LocalRemoval.scanning(LocalMediaScanner.scannerState.collectAsState().value)" in text)
+            assertEquals(menu, 1, Regex("""!scanBusy\)""").findAll(text).count())
+        }
+        val removal = code("utils/scanners/LocalRemoval.kt")
+        for (work in listOf("suspend fun removeSong(", "suspend fun excludeFolder(", "suspend fun undo(")) {
+            val body = removal.substringAfter(work).substringAfter("{\n").trimStart()
+            assertTrue(work, body.startsWith("afterScan()\n"))
+        }
+        assertTrue("internal suspend fun afterScan(state: StateFlow<Int> = LocalMediaScanner.scannerState, settle: Long = 1000) {" in removal)
+        // The scanner's own states: finding the files 1, reading them 2, writing the library 3, linking artists 5.
+        val states = code("utils/scanners/LocalMediaScanner.kt").substringAfter("-1: Inactive").substringBefore("*/")
+        for (state in listOf("1: Discovering", "2: Scanning", "3: Syncing", "5: Ytm artist linking")) assertTrue(state in states)
     }
 
     @Test

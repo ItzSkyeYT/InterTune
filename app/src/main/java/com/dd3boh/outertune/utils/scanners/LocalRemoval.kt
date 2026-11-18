@@ -16,8 +16,10 @@ import com.dd3boh.outertune.db.MusicDatabase
 import com.dd3boh.outertune.db.entities.SongEntity
 import com.dd3boh.outertune.ui.utils.clearDtCache
 import com.dd3boh.outertune.utils.dataStore
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
 import java.time.LocalDateTime
 
 /**
@@ -140,8 +142,28 @@ object LocalRemoval {
      */
     val changes: StateFlow<Int> = changed
 
+    /**
+     * Whether a scan is at work on the files and the library (LocalMediaScanner.scannerState): finding them (1), reading
+     * them (2) or writing the library (3). The artists' linking after a scan (5) touches neither, and can take long.
+     */
+    fun scanning(state: Int): Boolean = state in 1..3
+
+    /**
+     * Waits while a scan runs ([scanning]). A scan reads Excluded scan paths when it starts, so one already running put
+     * a removal back (a full rescan, MediaStore's sync) and its disable pass took an Undo out again. The menus hide
+     * both entries during a scan; this covers a tap that meets one, and an Undo. The phases of one scan follow one
+     * another through an instant at 0: idle is idle for [settle] ms.
+     */
+    internal suspend fun afterScan(state: StateFlow<Int> = LocalMediaScanner.scannerState, settle: Long = 1000) {
+        while (scanning(state.value)) {
+            state.first { !scanning(it) }
+            delay(settle)
+        }
+    }
+
     /** Takes [song], a file of the phone's, out of the library, and its path out of every scan. Off the main thread. */
     suspend fun removeSong(context: Context, database: MusicDatabase, song: SongEntity, address: String): Change {
+        afterScan()
         val added = addEntry(context, address)
         val row = Row(song.id, song.inLibrary, song.liked, song.likedDate)
         // As SongEntity.toggleLibrary, which a YouTube song's Remove from library writes: the like goes too.
@@ -152,6 +174,7 @@ object LocalRemoval {
 
     /** Takes every song under [folder] out of the library, and the folder out of every scan. Off the main thread. */
     suspend fun excludeFolder(context: Context, database: MusicDatabase, folder: String, address: String): Change {
+        afterScan()
         // The query's LIKE takes "_" and "%" in a name for any letter; the folder is checked again here.
         val rows = database.localSongsInDirDeep(folder)
             .map { it.song }
@@ -166,6 +189,7 @@ object LocalRemoval {
 
     /** Puts back what [change] did: the songs as they were, and the line off Excluded scan paths if it added it. */
     suspend fun undo(context: Context, database: MusicDatabase, change: Change) {
+        afterScan()
         change.entry?.let { removeEntry(context, it) }
         database.transactionNow {
             change.rows.forEach { r ->

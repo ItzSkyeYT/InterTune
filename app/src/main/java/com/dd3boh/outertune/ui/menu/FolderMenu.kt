@@ -18,6 +18,7 @@ import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
@@ -36,6 +37,7 @@ import com.dd3boh.outertune.LocalPlayerConnection
 import com.dd3boh.outertune.LocalSnackbarHostState
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.Unreleased
+import com.dd3boh.outertune.utils.scanners.LocalMediaScanner
 import com.dd3boh.outertune.utils.scanners.LocalRemoval
 import com.dd3boh.outertune.constants.FolderSongSortDescendingKey
 import com.dd3boh.outertune.constants.FolderSongSortType
@@ -84,6 +86,8 @@ fun FolderMenu(
     val excludeAddress = remember(folder) {
         if (Unreleased.LOCAL_REMOVE && excludable) LocalRemoval.addressOf(context, folder.getFullSquashedDir()) else null
     }
+    // Not while a scan runs: it read Excluded scan paths at its start and would bring the songs back (LocalRemoval.afterScan).
+    val scanBusy = LocalRemoval.scanning(LocalMediaScanner.scannerState.collectAsState().value)
 
     val allFolderSongs = remember { mutableStateListOf<Song>() }
     // The sort of the Folders tab, which a folder played from here follows: the songs' sort, and
@@ -239,7 +243,7 @@ fun FolderMenu(
         }
         // Last, so that nothing anyone knows the place of moves: onto Excluded scan paths, and its songs out of the
         // library at once; the files stay. Said in a snackbar with Undo (LocalRemoveMenu).
-        if (excludeAddress != null) {
+        if (excludeAddress != null && !scanBusy) {
             GridMenuItem(
                 icon = Icons.Rounded.FolderOff,
                 title = R.string.local_exclude_folder

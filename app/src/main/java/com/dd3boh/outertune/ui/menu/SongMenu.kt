@@ -60,6 +60,7 @@ import com.dd3boh.outertune.LocalDownloadUtil
 import com.dd3boh.outertune.LocalPlayerConnection
 import com.dd3boh.outertune.LocalSnackbarHostState
 import com.dd3boh.outertune.R
+import com.dd3boh.outertune.utils.scanners.LocalMediaScanner
 import com.dd3boh.outertune.utils.scanners.LocalRemoval
 import androidx.compose.material.icons.rounded.Group
 import android.widget.Toast
@@ -174,6 +175,8 @@ fun SongMenu(
     val localAddress = remember(song.song.localPath) {
         if (Unreleased.LOCAL_REMOVE && song.song.isLocal) song.song.localPath?.let { LocalRemoval.addressOf(context, it) } else null
     }
+    // Not while a scan runs: it read Excluded scan paths at its start and would bring the song back (LocalRemoval.afterScan).
+    val scanBusy = LocalRemoval.scanning(LocalMediaScanner.scannerState.collectAsState().value)
 
     ListItem(
         title = song.song.title,
@@ -397,7 +400,7 @@ fun SongMenu(
         }
         // A file of the phone's, in the same place and with the same words as a YouTube song's: out of the library,
         // and kept out of every scan; the file stays. Said in a snackbar with Undo (LocalRemoveMenu).
-        if (Unreleased.LOCAL_REMOVE && song.song.isLocal && song.song.inLibrary != null && localAddress != null) {
+        if (Unreleased.LOCAL_REMOVE && song.song.isLocal && song.song.inLibrary != null && localAddress != null && !scanBusy) {
             GridMenuItem(
                 icon = Icons.Rounded.LibraryAddCheck,
                 title = R.string.remove_from_library
