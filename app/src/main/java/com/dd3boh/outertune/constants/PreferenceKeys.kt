@@ -580,6 +580,9 @@ val LibraryCustomOrderKey = stringPreferencesKey("libraryCustomOrder")
 val MenuHiddenEntriesKey = stringPreferencesKey("menuHiddenEntries")
 
 val SearchSourceKey = stringPreferencesKey("searchSource")
+// Where a playlist's search looks (Unreleased.PLAYLIST_YT_SEARCH): LOCAL the playlist, ONLINE YouTube Music, kept
+// as the library search keeps its own.
+val PlaylistSearchSourceKey = stringPreferencesKey("playlistSearchSource")
 
 val VisitorDataKey = stringPreferencesKey("visitorData")
 

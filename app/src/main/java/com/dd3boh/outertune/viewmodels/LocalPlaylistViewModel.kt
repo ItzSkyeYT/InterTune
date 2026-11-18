@@ -16,6 +16,7 @@ import com.dd3boh.outertune.extensions.toEnum
 import com.dd3boh.outertune.db.entities.Playlist
 import com.dd3boh.outertune.models.toMediaMetadata
 import com.dd3boh.outertune.utils.PlaylistCovers
+import com.dd3boh.outertune.utils.WhyStopped
 import com.dd3boh.outertune.utils.dataStore
 import com.zionhuang.innertube.YouTube
 import com.zionhuang.innertube.models.SongItem
@@ -25,6 +26,8 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asStateFlow
@@ -104,20 +107,48 @@ class LocalPlaylistViewModel @Inject constructor(
     private val _justAdded = MutableStateFlow<Set<String>>(emptySet())
     val justAdded = _justAdded.asStateFlow()
 
+    /**
+     * What the last search came to when YouTube did not answer it, for the playlist's search on YouTube Music to
+     * say why and offer the fix (FailedNote); null after one that was answered, however few songs it found.
+     */
+    private val _addFailed = MutableStateFlow<WhyStopped.Kind?>(null)
+    val addFailed = _addFailed.asStateFlow()
+
+    /**
+     * The words [addResults] answer. Until they are the words in the field, the search is still to come or on its
+     * way, and the playlist's search on YouTube Music turns its wheel rather than say nothing was found.
+     */
+    private val _addAnswered = MutableStateFlow("")
+    val addAnswered = _addAnswered.asStateFlow()
+
+    /** Goes up for Retry, so the same words are asked again. */
+    private val addRetries = MutableStateFlow(0)
+
+    fun retryAdd() {
+        addRetries.value++
+    }
+
     @OptIn(FlowPreview::class)
     private fun watchAddQuery() {
         viewModelScope.launch {
             // Debounced, because this fires per keystroke and each one is a search request.
-            addQuery.debounce(350).collectLatest { query ->
+            combine(addQuery, addRetries) { query, _ -> query }.debounce(350).collectLatest { query ->
                 if (query.isBlank()) {
                     _addResults.value = emptyList()
                     _addSearching.value = false
+                    _addFailed.value = null
+                    _addAnswered.value = query
                     return@collectLatest
                 }
                 _addSearching.value = true
-                val result = YouTube.search(query, YouTube.SearchFilter.FILTER_SONG).getOrNull()
+                val answer = YouTube.search(query, YouTube.SearchFilter.FILTER_SONG)
+                // A search the next words cut short comes back as a failure (runCatching): it says nothing.
+                currentCoroutineContext().ensureActive()
+                val result = answer.getOrNull()
+                _addFailed.value = answer.exceptionOrNull()?.let { WhyStopped.kindOf(it) }
                 // Each song once: YouTube's results can list one twice, and the rows are keyed by song (#105).
                 _addResults.value = result?.items?.filterIsInstance<SongItem>().orEmpty().distinctBy { it.id }
+                _addAnswered.value = query
                 _addSearching.value = false
             }
         }

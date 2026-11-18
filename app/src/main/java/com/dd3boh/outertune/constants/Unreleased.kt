@@ -1051,4 +1051,18 @@ object Unreleased {
      * Metrolist 14.0 backup over on the emulator (15 Nov 2026), so on for everyone in 0.13 (his yes of 14 Nov 2026).
      */
     val METROLIST_IMPORT = true
+
+    /**
+     * A playlist's search looks on YouTube Music too (his pick of 15 Nov 2026 for 0.13,
+     * experiments/mocks-1115/2-playlist-search, A: "same as the library search, you can toggle between the playlist
+     * search and ytm search"): a switch at the end of the search pill, the playlist's own icon or YouTube Music's
+     * globe, as the library search has it, and remembered as it is (PlaylistSearchSourceKey). On YouTube Music each
+     * song found has the add button the search of an empty playlist has, a tick once the song is in the playlist,
+     * beside its three dots (PlaylistYouTubeSearch). Only on a playlist that can be changed, never while it is the
+     * search of an empty playlist, which looks on YouTube Music already.
+     *
+     * No new texts: the pill says "Search YouTube Music…" there, as the library search does. Without the flag the
+     * search is the playlist's alone, as it was. To ship: set this to true and add its name to ReleasedFlagsTest.
+     */
+    val PLAYLIST_YT_SEARCH = BuildConfig.PREVIEW_FEATURES
 }
