@@ -57,6 +57,19 @@ fun anotherUpload(partItag: Int?, partLength: Long?, itag: Int, length: Long): B
  */
 fun partIsAnotherStream(partLength: Long, length: Long): Boolean = partLength > 0L && length > 0L && partLength != length
 
+/**
+ * Whether the address a player kept for a song (from an earlier play: StreamAddresses keeps them for
+ * hours) may carry on a read past the start of a song it began from a download under way. The player
+ * then holds the download's stream, header and index, and the address goes on with it only when it
+ * streams the same file, as far as the song's format row ([rowItag], [rowLength], written by the
+ * download as it began; null when it cannot be read, which says nothing against it) and the length the
+ * download's cache recorded ([downloadLength], C.LENGTH_UNSET when it has none) can tell. With a
+ * Download quality of its own the two differ, and the song was two streams joined where the
+ * download's part ended.
+ */
+fun keptAddressGoesOn(rowItag: Int?, rowLength: Long?, downloadLength: Long, itag: Int, length: Long): Boolean =
+    (rowItag == null || sameStream(rowItag, rowLength, itag, length)) && !partIsAnotherStream(downloadLength, length)
+
 /** Whether two caches hold the same stream of a song, by the lengths each recorded: both known and equal. */
 fun sameRecordedStream(a: Long, b: Long): Boolean = a > 0L && b > 0L && a == b
 

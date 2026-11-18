@@ -42,8 +42,11 @@ import java.util.EnumMap
  * Kept cheap. Each step but the first has a time of its own ([Wire.capMs]); the first is asked as
  * it always was. A step YouTube refused (401, 403, 429) is not asked again for [REFUSED_MS], so a
  * radio's top-ups go straight to the step that answered last, and when every step was refused they
- * ask nothing until then and the radio goes on from the phone (LocalRadio). No answer at all is the
- * network's, which every step shares, and ends the walk at once. The visitorData that got an
+ * ask nothing until then and the radio goes on from the phone (LocalRadio). Only a song's radio
+ * passes over YouTube Music's own step that way: a playlist, an album or an artist's shuffle played
+ * from its menu has no other door (a private list answers the account alone), so it asks YouTube
+ * Music, signed in, every time, and one refused radio no longer fails them for ten minutes. No
+ * answer at all is the network's, which every step shares, and ends the walk at once. The visitorData that got an
  * answer is kept for the next walks, and a mint that failed is not tried again for [REFUSED_MS].
  * [forget] starts over: another network, another sign-in.
  *
@@ -135,13 +138,19 @@ internal class RadioLadder(
         var alone: NextResult? = null
         var firstFailure: Throwable? = null
         var musicFailure: Throwable? = null
+        // YouTube Music refused lately is passed over for a song's radio only, which has other
+        // doors. A playlist, an album, an artist's shuffle or a mix asked for by its own id has
+        // none worth the name (a private list answers the account alone): YouTube Music is asked,
+        // signed in, every time, as before the ladder, and its refusals there are not kept.
+        val songRadio = isSongRadio(endpoint)
 
         /** A radio: a song besides [seed]; without a seed, any song. */
         fun holdsMore(r: NextResult) = r.items.any { it.id != seed }
 
         suspend fun step(rung: Rung, capped: Boolean, ask: suspend () -> Result<NextResult>): NextResult? {
             val now = clock()
-            if (refused(rung, now)) {
+            val remembered = rung != Rung.MUSIC || songRadio
+            if (remembered && refused(rung, now)) {
                 trail += "${rung.label}: refused lately, not asked"
                 return null
             }
@@ -165,7 +174,7 @@ internal class RadioLadder(
                 if (firstFailure == null) firstFailure = failure
                 if (rung == Rung.MUSIC) musicFailure = failure
                 trail += "${rung.label}: ${describe(failure)}"
-                if (isRefusal(failure)) noteRefused(rung, clock())
+                if (remembered && isRefusal(failure)) noteRefused(rung, clock())
             }
             return null
         }
