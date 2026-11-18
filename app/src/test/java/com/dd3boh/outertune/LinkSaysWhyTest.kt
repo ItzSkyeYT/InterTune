@@ -54,6 +54,12 @@ class LinkSaysWhyTest {
     }
 
     @Test
+    fun `a link opens what it links to in the library's search too`() {
+        // It searched the library for the address, and found nothing.
+        assertTrue("if (searchSource == SearchSource.LOCAL && YouTubeLink.parse(it) == null)" in search)
+    }
+
+    @Test
     fun `the words are short and plain, in English and French`() {
         fun texts(folder: String): Map<String, String> {
             val file = File("src/main/res/$folder/strings-ot.xml").readText()

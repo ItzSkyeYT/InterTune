@@ -78,6 +78,7 @@ import com.dd3boh.outertune.utils.get
 import com.dd3boh.outertune.utils.rememberEnumPreference
 import com.dd3boh.outertune.utils.rememberPreference
 import com.dd3boh.outertune.utils.urlEncode
+import com.dd3boh.outertune.utils.YouTubeLink
 import com.dd3boh.outertune.youtubeNavigator
 import androidx.compose.foundation.layout.Row
 import com.dd3boh.outertune.ui.screens.walkthrough.Tour
@@ -152,7 +153,8 @@ fun SearchBarContainer(
 
     val onSearch: (String) -> Unit = {
         if (it.isNotEmpty()) {
-            if (searchSource == SearchSource.LOCAL) {
+            // A link opens what it links to in either search: in the library's, it searched the library for the address.
+            if (searchSource == SearchSource.LOCAL && YouTubeLink.parse(it) == null) {
                 focusManager.clearFocus(true)
             } else {
                 onSearchActiveChange(false)
