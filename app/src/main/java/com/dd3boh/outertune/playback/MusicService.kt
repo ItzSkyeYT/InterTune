@@ -2787,6 +2787,17 @@ class MusicService : MediaLibraryService(),
     })
 
     /**
+     * Whether [s] plays with no network: a local file, a download, or a whole copy in either cache.
+     * A download in a folder is in neither cache: the downloads say it has landed. The song cache's
+     * copy of it used to answer for it, and a download is no longer copied there (KeptOnce). The
+     * download cache too, for the moment at start before the map is read. One rule for the adaptive
+     * pass and the app's own radio: the radio had its own without the downloads, and offline it
+     * never picked a song downloaded into a folder.
+     */
+    private fun playsOffline(s: MediaMetadata): Boolean =
+        s.isLocal || downloadUtil.isDownloaded(s.id) || downloadCache.holdsWhole(s.id) || playerCache.holdsWhole(s.id)
+
+    /**
      * The app's own radio from [seed], for when YouTube gives it nothing however it is asked
      * (LocalRadio, RadioLadder): read from the phone, never the network. None in a build without
      * Unreleased.RADIO_FALLBACK, and none when the database does not answer.
@@ -2814,7 +2825,8 @@ class MusicService : MediaLibraryService(),
                 val inForce = database.readOrNull { exclusionsInForce(now) }.orEmpty()
                 val gone = inForce.filter { it.kind == ExclusionsViewModel.KIND_SONG && it.reason == ExclusionsViewModel.REASON_GONE }
                     .mapTo(HashSet()) { it.targetId }
-                val onPhone = { s: MediaMetadata -> s.isLocal || downloadCache.holdsWhole(s.id) || playerCache.holdsWhole(s.id) }
+                // A song downloaded into a folder too: it is in neither cache (playsOffline).
+                val onPhone = { s: MediaMetadata -> playsOffline(s) }
                 val rules = LocalRadio.Rules(
                     keptOut = inForce.filter { it.kind == ExclusionsViewModel.KIND_SONG && it.reason != ExclusionsViewModel.REASON_GONE }
                         .mapTo(HashSet()) { it.targetId },
@@ -4625,10 +4637,7 @@ class MusicService : MediaLibraryService(),
         fun input(sources: List<AdaptivePass.Source>) = AdaptivePass.Input(
             kind = snap.kind, tail = snap.tail, head = snap.head, queue = snap.queue, view = snap.view, taste = taste,
             sources = sources, skippedRelated = skippedRelated, skippedLists = skippedLists, similar = similar, offline = !snap.online,
-            // A download in a folder is in neither cache: the downloads say it has landed. The song
-            // cache's copy of it used to answer for it, and a download is no longer copied there
-            // (KeptOnce). The download cache too, for the moment at start before the map is read.
-            playsOffline = { s -> s.isLocal || downloadUtil.isDownloaded(s.id) || downloadCache.holdsWhole(s.id) || playerCache.holdsWhole(s.id) },
+            playsOffline = { s -> playsOffline(s) },
         )
         val first = input(sources())
         if (similar && skippedLists.isNotEmpty()) {
