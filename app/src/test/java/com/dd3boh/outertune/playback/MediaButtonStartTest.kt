@@ -322,6 +322,35 @@ class MediaButtonStartTest {
     }
 
     @Test
+    fun `the notification's plain play press owes Android nothing and is left out of the guard`() {
+        // The review of 18 Nov: the press became a plain start (PlainPlayNotifications) but still
+        // went through the guard, which held the foreground with the plain notification over a
+        // paused player whose song did not start (a call holding the audio focus), and after a
+        // cold start with nothing loaded could give up the resumption and stop the service.
+        val service = source("MusicService.kt")
+        val start = body(service, "override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {")
+        val plain = start.indexOf("else if (intent.action == Intent.ACTION_MEDIA_BUTTON && !MediaButtonStart.isPlain(intent))")
+        val press = start.indexOf("holdForegroundForMediaButton(MediaButtonStart.keyOf(intent), MediaButtonStart.handedAtOf(intent, flags))")
+        assertTrue(start, plain >= 0 && plain < press)
+        // Nothing else in the service starts the guard, so the plain press reaches media3 alone.
+        assertEquals("one caller", 2, Regex("""holdForegroundForMediaButton\(""").findAll(service).count())
+        // Still the start the service may have been created for: the next one is not counted from the process.
+        val first = start.indexOf("firstStart = false")
+        assertTrue(start, first > press && first < start.indexOf("return super.onStartCommand("))
+        // The mark, read where it is put.
+        val marks = source("MediaButtonStart.kt")
+        assertTrue(marks, "intent?.getBooleanExtra(EXTRA_PLAIN, false) == true" in marks)
+        val play = source("PlainPlayNotifications.kt").substringAfter("fun playPauseIntent(service: Service): Intent = ")
+        assertTrue(play, ".putExtra(MediaButtonStart.EXTRA_PLAIN, true)" in play.substringBefore("\n    }\n"))
+        // Put once, on the play press: media3's own buttons (pause, next, previous, the dismissal)
+        // and the receiver's and the widget's starts, which Android does wait on, carry no mark.
+        val puts = listOf("ResumingMediaButtonReceiver.kt", "PlainPlayNotifications.kt", "MusicService.kt", "MediaButtonStart.kt")
+            .sumOf { Regex("""EXTRA_PLAIN, true""").findAll(source(it)).count() }
+        assertEquals("put once, on the play press", 1, puts)
+        assertFalse("EXTRA_PLAIN" in File("src/main/java/com/dd3boh/outertune/widget/WidgetActions.kt").readText())
+    }
+
+    @Test
     fun `swiped away while a press is owed, the demand is met before the service stops`() {
         // Android closes the app at once when a service it waits on stops before startForeground
         // (ActiveServices.bringDownServiceLocked), and both ways out of onTaskRemoved may stop it.

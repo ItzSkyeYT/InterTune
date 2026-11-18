@@ -91,8 +91,10 @@ internal class PlainPlayActions(
     )
 
     companion object {
+        /** Marked as the plain press it is ([MediaButtonStart.EXTRA_PLAIN]), which the service's guard leaves alone. */
         fun playPauseIntent(service: Service): Intent = Intent(Intent.ACTION_MEDIA_BUTTON)
             .setComponent(ComponentName(service, service.javaClass))
             .putExtra(Intent.EXTRA_KEY_EVENT, KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE))
+            .putExtra(MediaButtonStart.EXTRA_PLAIN, true)
     }
 }

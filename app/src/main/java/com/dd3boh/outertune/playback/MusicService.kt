@@ -6887,12 +6887,15 @@ class MusicService : MediaLibraryService(),
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (BuildConfig.BUILD_TYPE == "debug" && Unreleased.AUTOMIX_EDITOR) intent?.getStringExtra("mixtrial")?.let { mixTrial(it) }
         // media3's media button receiver starts the service with startForegroundService, whether
-        // it was running or not, and so does the widget (MediaButtonStart); the play button of
-        // media3's notification is a plain start now (PlainPlayNotifications), looked at the same
-        // way since it cannot be told apart. No intent at all is Android bringing the service back
-        // after the app's process died, with what the old process still owed it.
+        // it was running or not, and so does the widget (MediaButtonStart). The play button of
+        // media3's notification is a plain start (PlainPlayNotifications) that owes Android
+        // nothing, marked so the guard leaves it alone: if its song does not start, or there is no
+        // saved queue, the service just stays started (from Android 8, Android stops it once the
+        // app is idle). No intent at all is Android bringing the service back after the app's
+        // process died, with what the old process still owed it.
         if (intent == null) settleAfterRestart()
-        else if (intent.action == Intent.ACTION_MEDIA_BUTTON) holdForegroundForMediaButton(MediaButtonStart.keyOf(intent), MediaButtonStart.handedAtOf(intent, flags))
+        else if (intent.action == Intent.ACTION_MEDIA_BUTTON && !MediaButtonStart.isPlain(intent))
+            holdForegroundForMediaButton(MediaButtonStart.keyOf(intent), MediaButtonStart.handedAtOf(intent, flags))
         // Only the start the service was created for began with the process.
         firstStart = false
         return super.onStartCommand(intent, flags, startId)

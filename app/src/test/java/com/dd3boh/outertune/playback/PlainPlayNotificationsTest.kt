@@ -50,6 +50,8 @@ class PlainPlayNotificationsTest {
         assertTrue(intent, intent.startsWith("Intent(Intent.ACTION_MEDIA_BUTTON)"))
         assertTrue(intent, ".setComponent(ComponentName(service, service.javaClass))" in intent)
         assertTrue(intent, "KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE)" in intent)
+        // Marked as the plain press it is, so the service's guard leaves it alone (MediaButtonStartTest).
+        assertTrue(intent, ".putExtra(MediaButtonStart.EXTRA_PLAIN, true)" in intent.substringBefore("\n    }\n"))
     }
 
     @Test

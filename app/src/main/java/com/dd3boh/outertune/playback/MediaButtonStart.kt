@@ -37,7 +37,7 @@ import com.dd3boh.outertune.R
  * way: from the widget and from the receiver. media3 then plays and shows at once, unless the song
  * does not start (Android refuses the audio focus during a call, say), so the guard looks at that
  * start too. The play button of media3's notification came this way as well until it became a
- * plain start, which owes Android nothing (PlainPlayNotifications).
+ * plain start, which owes Android nothing (PlainPlayNotifications) and is left alone ([EXTRA_PLAIN]).
  *
  * And when the app's process dies while Android still waits, Android brings the service back in
  * a new process, with no intent, and waits again there: issue #137, a trace with no caller in the
@@ -134,6 +134,17 @@ internal object MediaButtonStart {
         if (flags and (Service.START_FLAG_RETRY or Service.START_FLAG_REDELIVERY) != 0) return null
         return runCatching { intent?.takeIf { it.hasExtra(EXTRA_HANDED_AT) }?.getLongExtra(EXTRA_HANDED_AT, 0L) }.getOrNull()
     }
+
+    /**
+     * Put on the play button of the player's notification (PlainPlayNotifications), a plain start
+     * that owes Android nothing: the guard leaves it alone. Looked at as a press Android waits on,
+     * it held the foreground with the plain notification over a paused player whose song did not
+     * start, and after a cold start with nothing loaded it could give up the resumption.
+     */
+    const val EXTRA_PLAIN = "media_button_plain"
+
+    /** Whether [intent] is the notification's plain play press ([EXTRA_PLAIN]). */
+    fun isPlain(intent: Intent?): Boolean = runCatching { intent?.getBooleanExtra(EXTRA_PLAIN, false) == true }.getOrDefault(false)
 
     /**
      * How long since the app's process started, for the guard of the first start of a service
