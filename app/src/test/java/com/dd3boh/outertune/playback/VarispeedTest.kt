@@ -94,6 +94,24 @@ class VarispeedTest {
     }
 
     @Test
+    fun `in a Listen together room the speed plays in the song's own key, and the linked speed comes back after`() {
+        // A guest with Varispeed on at x1.25 heard the host's songs four semitones high: the room set its speed and
+        // kept the linked pitch.
+        val session = source("together/TogetherSession.kt")
+        assertTrue("private fun linked() = Unreleased.VARISPEED && service.varispeedOn" in session)
+        val speed = session.substringAfter("private fun speed(player: Player, speed: Double) {").substringBefore("\n    }\n")
+        assertTrue(speed, "val pitch = if (linked()) 1f else player.playbackParameters.pitch" in speed)
+        assertTrue(speed, "PlaybackParameters(speed.toFloat(), pitch)" in speed)
+        assertFalse("a restore still keeps the room's pitch", "speed(service.exoPlayer, speedBefore.toDouble())" in session)
+        // Room stopped, own way, paused here, made the leader, the leader gone quiet: five, besides its own line.
+        assertEquals(5, Regex("""\bownSpeed\(\)""").findAll(session).count() - 1)
+        val own = session.substringAfter("private fun ownSpeed() {").substringBefore("\n    }\n")
+        assertTrue(own, "Varispeed.parameters(speedBefore, 0, linked = true)" in own)
+        assertTrue(own, "if (!linked()) return speed(player, speedBefore.toDouble())" in own)
+        assertTrue("varispeedOn = linked" in source("playback/MusicService.kt"))
+    }
+
+    @Test
     fun `Settings search finds it by the words people use`() {
         val index = source("ui/screens/settings/SettingsIndex.kt")
         assertTrue(

@@ -463,6 +463,13 @@ class MusicService : MediaLibraryService(),
     /** Set at the top of onDestroy; see the checks in playQueue's resolve coroutine below. */
     @Volatile private var destroyed = false
 
+    /**
+     * Varispeed's switch as it stands (Unreleased.VARISPEED; false without the flag), for a Listen together
+     * room, which plays the room's speed in the song's own key while it is on (TogetherSession.speed).
+     */
+    @Volatile var varispeedOn = false
+        private set
+
     /** Whether this service has been torn down: anything asked of it then does nothing. See PlayerConnection.isAlive. */
     val isDestroyed: Boolean get() = destroyed
 
@@ -1705,6 +1712,7 @@ class MusicService : MediaLibraryService(),
                     .distinctUntilChanged()
                     .collectLatest(scope) { linked ->
                         withContext(Dispatchers.Main) {
+                            varispeedOn = linked
                             exoPlayer.playbackParameters = Varispeed.switched(exoPlayer.playbackParameters, linked)
                         }
                     }

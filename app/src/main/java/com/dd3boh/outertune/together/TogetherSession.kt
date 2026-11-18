@@ -18,9 +18,11 @@ import com.dd3boh.outertune.constants.PlayOrigin
 import com.dd3boh.outertune.constants.TogetherCatchUpKey
 import com.dd3boh.outertune.constants.TogetherDelayKey
 import com.dd3boh.outertune.constants.TogetherToleranceKey
+import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.extensions.toMediaItem
 import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.playback.MusicService
+import com.dd3boh.outertune.playback.Varispeed
 import com.dd3boh.outertune.playback.queues.ListQueue
 import com.dd3boh.outertune.utils.dataStore
 import com.dd3boh.outertune.utils.Toaster
@@ -308,7 +310,7 @@ class TogetherSession(
         // A service that has stopped has let its player go: nothing of the room's is put back on it.
         if (!service.isDestroyed) {
             service.exoPlayer.removeListener(listener)
-            speed(service.exoPlayer, speedBefore.toDouble())
+            ownSpeed()
             if (repeatTaken) service.exoPlayer.repeatMode = repeatBefore
         }
         pool.stop()
@@ -544,7 +546,7 @@ class TogetherSession(
             // Its own playing is the room's now: no more nudging, and its own repeat mode.
             ownWay = false
             pausedHere = false
-            speed(service.exoPlayer, speedBefore.toDouble())
+            ownSpeed()
             _status.value = _status.value.copy(driftMs = null, ownWay = false, waitingForHost = false, locked = false, pausedHere = false)
             sendState()
             sendQueue()
@@ -686,7 +688,7 @@ class TogetherSession(
         ownWay = true
         pausedHere = false
         lock.reset()
-        speed(service.exoPlayer, speedBefore.toDouble())
+        ownSpeed()
         _status.value = _status.value.copy(ownWay = true, driftMs = null, locked = false, pausedHere = false)
         Log.i(TAG, "The listener chose $what: playing on their own until Catch up")
     }
@@ -703,7 +705,7 @@ class TogetherSession(
         if (ownWay) return
         pausedHere = PauseHere.after(pausedHere, playWhenReady, room.playing) ?: return
         lock.reset()
-        if (pausedHere) speed(service.exoPlayer, speedBefore.toDouble())
+        if (pausedHere) ownSpeed()
         _status.value = _status.value.copy(pausedHere = pausedHere, driftMs = null, locked = false)
         Log.i(TAG, if (pausedHere) "Paused here; the room plays on" else "Playing again: back to where the leader is")
     }
@@ -740,7 +742,7 @@ class TogetherSession(
             lastState = null
             hostLine.clear()
             leaderKey = null
-            speed(service.exoPlayer, speedBefore.toDouble())
+            ownSpeed()
             _status.value = _status.value.copy(waitingForHost = true, driftMs = null)
             return
         }
@@ -1002,9 +1004,26 @@ class TogetherSession(
         settleUntil = System.currentTimeMillis() + SETTLE_MS
     }
 
+    /** Varispeed on (Settings > Player and audio): this phone's own speed came with its pitch. */
+    private fun linked() = Unreleased.VARISPEED && service.varispeedOn
+
+    /**
+     * The room's speed on this phone. With Varispeed on, the listener's pitch only went with their own speed, so
+     * the room's speed plays in the song's own key and the nudges never move it: a guest at x1.25 heard the
+     * host's songs four semitones high. Otherwise a pitch set by hand stays, as it always has.
+     */
     private fun speed(player: Player, speed: Double) {
-        if (abs(player.playbackParameters.speed - speed) < 0.001) return
-        player.playbackParameters = PlaybackParameters(speed.toFloat(), player.playbackParameters.pitch)
+        val pitch = if (linked()) 1f else player.playbackParameters.pitch
+        if (abs(player.playbackParameters.speed - speed) < 0.001 && player.playbackParameters.pitch == pitch) return
+        player.playbackParameters = PlaybackParameters(speed.toFloat(), pitch)
+    }
+
+    /** This phone's own speed back, as before the room: with Varispeed on, with its pitch linked again. */
+    private fun ownSpeed() {
+        val player = service.exoPlayer
+        if (!linked()) return speed(player, speedBefore.toDouble())
+        val own = Varispeed.parameters(speedBefore, 0, linked = true)
+        if (player.playbackParameters != own) player.playbackParameters = own
     }
 
     companion object {
