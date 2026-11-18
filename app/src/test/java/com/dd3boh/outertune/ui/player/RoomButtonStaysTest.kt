@@ -21,6 +21,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
+import kotlin.math.abs
 
 /**
  * In a room, the room's button moves no other button: his rule of 15 Nov 2026, after it joined the
@@ -124,6 +125,29 @@ class RoomButtonStaysTest {
             assertEquals("$pins", right, roomRight - SideCircle.Room)
             assertEquals("$pins", 1, (roomLeft + roomRight).count { it == SideCircle.Room })
             assertTrue("$pins: on top of its column", roomLeft.first() == SideCircle.Room || roomRight.first() == SideCircle.Room)
+        }
+    }
+
+    @Test
+    fun `with the flag, a room's circle goes on top of the shorter column`() {
+        // One pin: the queue and the pin on the left, the menu alone on the right, so the room joins the menu.
+        // Two and two fit the 88dp the columns are drawn from, where three beside one squashed a circle.
+        assertEquals(
+            listOf(SideCircle.Queue, SideCircle.Pin(LIKE)) to listOf(SideCircle.Room, SideCircle.Menu),
+            classicSideColumns(listOf(LIKE), inRoom = true, roomAtFreeEnd = true),
+        )
+        // As long as each other, the left one, above the queue.
+        assertEquals(
+            listOf(SideCircle.Room, SideCircle.Queue, SideCircle.Pin(TIMER)) to listOf(SideCircle.Pin(LIKE), SideCircle.Menu),
+            classicSideColumns(listOf(TIMER, LIKE), inRoom = true, roomAtFreeEnd = true),
+        )
+        assertEquals(
+            listOf(SideCircle.Room, SideCircle.Queue) to listOf(SideCircle.Menu),
+            classicSideColumns(emptyList(), inRoom = true, roomAtFreeEnd = true),
+        )
+        for (pins in pinSets.plusElement(listOf(SHARE, TIMER, LIKE))) {
+            val (left, right) = classicSideColumns(pins, inRoom = true, roomAtFreeEnd = true)
+            assertTrue("$pins: ${left.size} and ${right.size}", abs(left.size - right.size) <= 1)
         }
     }
 
