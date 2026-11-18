@@ -138,6 +138,7 @@ import androidx.media3.common.Timeline
 import androidx.navigation.NavController
 import com.dd3boh.outertune.LocalMenuState
 import com.dd3boh.outertune.LocalSnackbarHostState
+import com.dd3boh.outertune.LocalAppScope
 import com.dd3boh.outertune.LocalPlayerAwareWindowInsets
 import com.dd3boh.outertune.LocalPlayerConnection
 import com.dd3boh.outertune.R
@@ -212,6 +213,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import androidx.compose.runtime.DisposableEffect
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import sh.calvin.reorderable.ReorderableItem
@@ -572,6 +574,15 @@ fun BoxScope.QueueContent(
     // as songs come in above it, and the queue keeps its place on the song it was on.
     val snackbarHostState = LocalSnackbarHostState.current
     val undoLabel = stringResource(R.string.undo)
+    // The message is the app's (MainActivity draws it over the player) and is shown from the app's scope. From
+    // this sheet's own scope it went with the sheet: the sheet's content is there only while it is open, so
+    // putting the queue down (a drag, Back, closing the player) cancelled the scope, Material cleared the message
+    // at once, ten seconds early, and the songs could no longer be put back. So Undo works on the queue board and
+    // the player, which the sheet reads its rows from when it opens again; this sheet's own copy of the rows is
+    // kept in step only while the sheet is still there.
+    val appScope = LocalAppScope.current
+    val sheetHere = remember { booleanArrayOf(true) }
+    DisposableEffect(Unit) { onDispose { sheetHere[0] = false } }
     // The removal also told the adaptive queue (its artists a skip, its title turned down, its mark as put in
     // by hand gone) and the listening log (REMOVED_FROM_QUEUE): Undo takes those back too, or in a radio the
     // next pass found the song turned down and put a fresh pick in its place.
@@ -581,7 +592,7 @@ fun BoxScope.QueueContent(
         for (at in QueueUndo.insertions(taken, queue.getSize())) {
             val held = qb.putBack(queue, at.place, at.song)
             if (loaded) playerConnection.player.addMediaItem(at.place, held.toMediaItem())
-            mutableSongs.add(at.place.coerceIn(0, mutableSongs.size), held)
+            if (sheetHere[0]) mutableSongs.add(at.place.coerceIn(0, mutableSongs.size), held)
         }
         for (removal in notes.removals.asReversed()) playerConnection.service.notePutBackByHand(removal)
         for (t in taken) ActivityLog.takeBack(database, t.song.id, SignalKind.REMOVED_FROM_QUEUE, notes.at)
@@ -597,7 +608,7 @@ fun BoxScope.QueueContent(
         } else {
             context.resources.getQuantityString(R.plurals.queue_removed_songs, taken.size, taken.size)
         }
-        coroutineScope.launch {
+        appScope.launch {
             // A second removal while the bar shows replaces it: only the last can be undone.
             snackbarHostState.currentSnackbarData?.dismiss()
             val result = snackbarHostState.showSnackbar(

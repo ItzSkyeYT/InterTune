@@ -1564,6 +1564,7 @@ class MainActivity : ComponentActivity() {
                         LocalActiveCount providesComputed { activeCount },
                         LocalNetworkConnected provides isNetworkConnected,
                         LocalSnackbarHostState provides snackbarHostState,
+                        LocalAppScope provides coroutineScope,
                         LocalAppBackdrop provides (if (navGlass) appBackdrop else null),
                         LocalAppBackdropAvailable provides backdropAvailable,
                         LocalPlainDock provides plainDock,
@@ -2776,6 +2777,12 @@ val LocalPollChecker = staticCompositionLocalOf<PollChecker> { error("No PollChe
 val LocalActiveCount = staticCompositionLocalOf<ActiveCount> { error("No ActiveCount provided") }
 val LocalNetworkConnected = staticCompositionLocalOf<Boolean> { error("No Network Status provided") }
 val LocalSnackbarHostState = staticCompositionLocalOf<SnackbarHostState> { error("No SnackbarHostState provided") }
+
+/**
+ * The activity's own scope, the one the nav graph gets as appScope: for what must outlive the sheet or screen
+ * that started it, as the queue's Undo message does (it went with the queue sheet when that was put down).
+ */
+val LocalAppScope = staticCompositionLocalOf<CoroutineScope> { error("No app scope provided") }
 
 /**
  * The songs the listener chose not to play (DontPlay, Unreleased.ARTIST_BLOCK), for the rows of
