@@ -100,7 +100,8 @@ class FoldersTabTidyTest {
         assertFalse("the unnamed picture button", tools.contains("ResizableIconButton"))
         for (folder in listOf("values", "values-fr")) {
             val words = File("src/main/res/$folder/strings-ot.xml").readText()
-            assertTrue(folder, words.contains("<string name=\"view_as_tree\">"))
+            // A new 0.13 text, held from translators until the release (its attribute goes then).
+            assertTrue(folder, Regex("""<string name="view_as_tree"( translatable="false")?>""").containsMatchIn(words))
             assertTrue(folder, words.contains("<string name=\"view_as_list\">"))
         }
     }
@@ -143,7 +144,9 @@ class FoldersTabTidyTest {
         // The way up says so in the phone's language: it was English in every one.
         assertTrue(screen.contains("subtitle = stringResource(R.string.previous_folder)"))
         assertFalse(screen.contains("\"Previous folder\""))
-        assertTrue(File("src/main/res/values/strings-ot.xml").readText().contains("<string name=\"previous_folder\">Previous folder</string>"))
-        assertTrue(File("src/main/res/values-fr/strings-ot.xml").readText().contains("<string name=\"previous_folder\">Dossier parent</string>"))
+        // Held from translators until the release, like every new 0.13 text: English and French until then.
+        val held = """( translatable="false")?"""
+        assertTrue(Regex("""<string name="previous_folder"$held>Previous folder</string>""").containsMatchIn(File("src/main/res/values/strings-ot.xml").readText()))
+        assertTrue(Regex("""<string name="previous_folder"$held>Dossier parent</string>""").containsMatchIn(File("src/main/res/values-fr/strings-ot.xml").readText()))
     }
 }
