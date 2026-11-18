@@ -130,9 +130,6 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.util.fastAny
-import androidx.media3.common.Player.REPEAT_MODE_ALL
-import androidx.media3.common.Player.REPEAT_MODE_OFF
-import androidx.media3.common.Player.REPEAT_MODE_ONE
 import androidx.media3.common.Player.STATE_ENDED
 import androidx.media3.common.Timeline
 import androidx.navigation.NavController
@@ -1921,19 +1918,14 @@ fun BoxScope.QueueContent(
 
                         Box(modifier = Modifier.weight(1f)) {
                             LongPressLabel(repeatName(repeatMode), Modifier.align(Alignment.Center)) {
-                                ResizableIconButton(
-                                    icon = when (repeatMode) {
-                                        // Off is the repeat icon greyed out, as the notification draws it (his word, 5 Nov 2026).
-                                        REPEAT_MODE_OFF -> R.drawable.repeat_on
-                                        REPEAT_MODE_ALL -> R.drawable.repeat_on
-                                        REPEAT_MODE_ONE -> R.drawable.repeat_one
-                                        else -> throw IllegalStateException()
-                                    },
+                                // The player's lit box, the same in the queue's own buttons (his pick 3B, 15 Nov 2026).
+                                RepeatButton(
+                                    mode = repeatMode,
                                     modifier = Modifier
                                         .size(32.dp)
                                         .padding(4.dp)
                                         .named(repeatName(repeatMode)),
-                                    color = if (repeatMode == REPEAT_MODE_OFF) iconButtonColor.copy(alpha = REPEAT_OFF_ALPHA) else iconButtonColor,
+                                    color = iconButtonColor,
                                     enabled = barWorks,
                                     onClick = {
                                         playerConnection.player.toggleRepeatMode()
