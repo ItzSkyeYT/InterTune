@@ -64,16 +64,17 @@ class RoomRejoinTest {
         val rejoin = body(service, "private fun rejoinSavedRoom()")
         assertTrue("if (!togetherAvailable) return" in rejoin)
         assertTrue("roomMemory.load(System.currentTimeMillis())" in rejoin)
-        assertTrue("startTogether(code, saved.owner, relays, name, identity = saved.identity.hexToBytes())" in rejoin)
+        assertTrue("startTogether(\n                code, saved.owner, relays, name,\n                identity = saved.identity.hexToBytes()," in rejoin)
         // nothing is asked of anyone, and a room already there is left alone
         assertTrue("if (together.value != null || destroyed) return@launch" in rejoin)
     }
 
     @Test
     fun `a room is alive as long as it is on, so six hours are counted from the last time it was`() {
-        assertTrue("service.roomAlive()" in session.substringAfter("fun start()").substringBefore("fun stop()"))
-        assertTrue("roomMemory.touch(now)" in body(service, "fun roomAlive()"))
-        assertTrue("60_000L" in body(service, "fun roomAlive()"))
+        // a guest's room only as long as its host is heard: GuestDeadRoomTest
+        assertTrue("?.let(service::roomAlive)" in session.substringAfter("fun start()").substringBefore("fun stop()"))
+        assertTrue("roomMemory.touch(at)" in body(service, "fun roomAlive("))
+        assertTrue("60_000L" in body(service, "fun roomAlive("))
     }
 
     @Test
@@ -115,12 +116,13 @@ class RoomRejoinTest {
         assertTrue("watchHost()" in tick)
         val watch = body(session, "private fun watchHost()")
         assertTrue("if (owner) return" in watch)
-        assertTrue("HostAbsence.away(now, lastSign)" in watch)
+        assertTrue("HostAbsence.away(now, maxOf(ownerHeardAt, startedAt))" in watch)
         assertTrue("(leaderKey == null || leaderKey == ownerKey)" in watch)
         assertTrue("closed(R.string.together_host_gone)" in watch)
-        // every word from the owner counts, and a guest with no word yet counts from when it came
+        // every word from the owner counts, and a guest with no word yet counts from when it came; the room's end, for
+        // a room that comes back, from the host's last word before it (GuestDeadRoomTest)
         assertTrue("if (from == ownerKey) ownerHeardAt = now" in session)
-        assertTrue("maxOf(ownerHeardAt, startedAt)" in watch)
+        assertTrue("HostAbsence.gone(now, HostAbsence.lastSign(ownerHeardAt, hostSince))" in watch)
     }
 
     @Test

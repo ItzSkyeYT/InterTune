@@ -72,6 +72,11 @@ class TogetherSession(
      * that a host that returns is the same owner to the guests (RoomMemory).
      */
     identity: ByteArray = Secp256k1.newSecretKey(),
+    /**
+     * For a guest's room that comes back: when it last heard the host before this session, or came if it never did, as
+     * RoomMemory kept it. The host's absence goes on counting from then. 0 for a room joined now.
+     */
+    hostHeardAt: Long = 0L,
 ) {
     data class Status(
         val relaysConnected: Int = 0,
@@ -128,6 +133,9 @@ class TogetherSession(
     val identityHex: String get() = secret.toHex()
 
     private val startedAt = System.currentTimeMillis()
+
+    /** Where a guest counts the host's absence from until it hears it: see [hostHeardAt]. */
+    private val hostSince = if (hostHeardAt > 0) hostHeardAt else startedAt
 
     /** When the owner was last heard, 0 before it is. */
     private var ownerHeardAt = 0L
@@ -267,7 +275,9 @@ class TogetherSession(
                     stop()
                     break
                 }
-                service.roomAlive()
+                // A guest's room is alive while its host is heard, not while the guest is on: one whose host closed it
+                // while this phone was off came back at every start (HostAbsence.aliveAt).
+                HostAbsence.aliveAt(owner, System.currentTimeMillis(), ownerHeardAt)?.let(service::roomAlive)
                 sayHere()
                 delay(TogetherMessage.HERE_MS)
             }
@@ -343,13 +353,14 @@ class TogetherSession(
     private fun watchHost() {
         if (owner) return
         val now = System.currentTimeMillis()
-        val lastSign = maxOf(ownerHeardAt, startedAt)
-        val away = (leaderKey == null || leaderKey == ownerKey) && HostAbsence.away(now, lastSign)
+        // Away once not heard for a while in this session: a phone that has just come back has not heard it yet.
+        val away = (leaderKey == null || leaderKey == ownerKey) && HostAbsence.away(now, maxOf(ownerHeardAt, startedAt))
         if (away != _status.value.hostAway) {
             Log.i(TAG, if (away) "The host is away" else "The host is back")
             _status.value = _status.value.copy(hostAway = away)
         }
-        if (HostAbsence.gone(now, lastSign)) closed(R.string.together_host_gone)
+        // Gone counted from the host's last word, before this session too for a room that comes back (hostSince).
+        if (HostAbsence.gone(now, HostAbsence.lastSign(ownerHeardAt, hostSince))) closed(R.string.together_host_gone)
     }
 
     private fun sayHere() = send(TogetherMessage.Here(name, owner, lead = if (owner) leaderKey else null))

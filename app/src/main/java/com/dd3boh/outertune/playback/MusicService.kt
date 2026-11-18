@@ -519,12 +519,15 @@ class MusicService : MediaLibraryService(),
     private val roomMemory by lazy { RoomMemory(File(noBackupFilesDir, RoomMemory.FILE)) }
     private var roomTouchedAt = 0L
 
-    /** A room that is on says so every few seconds: remembered as alive, at most once a minute. */
-    fun roomAlive() {
-        val now = System.currentTimeMillis()
-        if (now - roomTouchedAt < 60_000L) return
-        roomTouchedAt = now
-        roomMemory.touch(now)
+    /**
+     * A room that is on says so every few seconds: remembered as alive [at] that time, at most once a minute. A guest's
+     * time is the last time it heard its host (HostAbsence.aliveAt), so a room the host has closed is not kept going by
+     * the guest alone.
+     */
+    fun roomAlive(at: Long) {
+        if (at - roomTouchedAt < 60_000L) return
+        roomTouchedAt = at
+        roomMemory.touch(at)
     }
 
     /**
@@ -533,7 +536,9 @@ class MusicService : MediaLibraryService(),
      * was the host to a screen that was no longer there. The app keeps the stopped service for a moment after it comes
      * back from another app (PlayerConnection.isAlive), and a tap on Start in that moment made one (15 Nov 2026).
      *
-     * [identity] is the key a room that comes back signs with, the same as before (RoomMemory).
+     * [identity] is the key a room that comes back signs with, the same as before (RoomMemory). [hostHeardAt] is, for a
+     * guest's room that comes back, when it last heard the host: kept as the room's time, and the host's absence counted
+     * from it.
      */
     fun startTogether(
         code: RoomCode,
@@ -542,6 +547,7 @@ class MusicService : MediaLibraryService(),
         name: String,
         moving: Boolean = false,
         identity: ByteArray? = null,
+        hostHeardAt: Long? = null,
     ): TogetherSession? {
         if (destroyed) {
             Log.w(TAG, "No room is made on a service that has stopped")
@@ -552,11 +558,13 @@ class MusicService : MediaLibraryService(),
         // Another room in its place: the one it replaces ends, and an owner's says so. Not when the room carries on under
         // a new code (moveTogether): its people have moved with it.
         together.value?.let { if (moving) it.stop() else it.closeNow() }
-        val session = if (identity != null) TogetherSession(this, code, owner, relays, name, identity)
-        else TogetherSession(this, code, owner, relays, name)
+        val session = if (identity != null) TogetherSession(this, code, owner, relays, name, identity, hostHeardAt = hostHeardAt ?: 0L)
+        else TogetherSession(this, code, owner, relays, name, hostHeardAt = hostHeardAt ?: 0L)
         together.value = session
         session.start()
-        roomTouchedAt = System.currentTimeMillis()
+        // Not now for a guest's room that comes back: saved as now, a room its host had closed was kept six more hours
+        // by every start.
+        roomTouchedAt = hostHeardAt ?: System.currentTimeMillis()
         roomMemory.save(code, owner, session.identityHex, roomTouchedAt)
         return session
     }
@@ -594,7 +602,12 @@ class MusicService : MediaLibraryService(),
             val name = togetherName(this@MusicService)
             if (together.value != null || destroyed) return@launch
             Log.i(TAG, "A room this phone was in comes back, as ${if (saved.owner) "its host" else "a guest"}")
-            startTogether(code, saved.owner, relays, name, identity = saved.identity.hexToBytes())
+            startTogether(
+                code, saved.owner, relays, name,
+                identity = saved.identity.hexToBytes(),
+                // A guest goes on from the last time it heard the host, not from now.
+                hostHeardAt = saved.aliveAt.takeIf { !saved.owner },
+            )
         }
     }
 
