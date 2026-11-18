@@ -128,6 +128,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.dd3boh.outertune.LocalPlayerConnection
+import com.dd3boh.outertune.BuildConfig
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.TogetherNameKey
 import com.dd3boh.outertune.constants.TogetherRelaysKey
@@ -1124,9 +1125,14 @@ private fun NameBeforeRoomDialog(onDismiss: () -> Unit, onContinue: (String) -> 
     )
 }
 
-/** The relays a room uses: the public ones, or in a debug build those of TogetherRelaysKey when set. */
+/**
+ * The relays a room uses: the public ones, or in a debug build those of TogetherRelaysKey when set (the test kit's own
+ * relay). Read in every build, a key restored from a debug build's backup pointed a release at a relay it refuses, and
+ * its rooms never connected (18 Nov 2026).
+ */
 suspend fun togetherRelays(context: Context): List<String> =
     context.dataStore.data.first()[TogetherRelaysKey]
+        ?.takeIf { BuildConfig.DEBUG }
         ?.split(',')?.map { it.trim() }?.filter { it.isNotEmpty() }?.takeIf { it.isNotEmpty() }
         ?: TogetherSession.PUBLIC_RELAYS
 
