@@ -10,6 +10,7 @@
 package com.dd3boh.outertune
 
 import com.dd3boh.outertune.utils.AppLanguage
+import com.dd3boh.outertune.utils.ChannelNames
 import com.dd3boh.outertune.utils.AppProxySelector
 import com.dd3boh.outertune.utils.ProxyAddress
 import com.dd3boh.outertune.utils.ProxyAtStart
@@ -168,10 +169,16 @@ class App : Application(), SingletonImageLoader.Factory {
         // What YouTube is asked in: the two content rows, else the language the app speaks. Again
         // whenever that changes (AppLanguage.follow), so a new app language shows on Home at once.
         AppLanguage.follow(this)
-        // The widgets keep the words they were last drawn with: drawn again in a new language.
+        // The widgets keep the words they were last drawn with: drawn again in a new language. So do
+        // the names of the notification channels in Android's own settings (ChannelNames).
         GlobalScope.launch(Dispatchers.IO) {
-            AppLanguage.changes.collect { runCatching { MusicWidget().updateAll(this@App) } }
+            AppLanguage.changes.collect {
+                runCatching { MusicWidget().updateAll(this@App) }
+                ChannelNames.follow(this@App)
+            }
         }
+        // And at every start, for a language changed while the app was not running.
+        GlobalScope.launch(Dispatchers.IO) { ChannelNames.follow(this@App) }
 
         // The proxy every client takes once, here: the settings page offers a restart while the one
         // set there differs (#68). See ProxyAtStart.

@@ -154,15 +154,14 @@ class RecogniseLaterWorker(
         // without one there.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val manager = context.getSystemService(NotificationManager::class.java)
-            if (manager.getNotificationChannel(CHANNEL_ID) == null) {
-                manager.createNotificationChannel(
-                    NotificationChannel(
-                        CHANNEL_ID,
-                        context.getString(R.string.recognise_later_channel),
-                        NotificationManager.IMPORTANCE_LOW,
-                    )
+            // Made each time, so its name in Android's settings is in the app's language now (ChannelNames).
+            manager.createNotificationChannel(
+                NotificationChannel(
+                    CHANNEL_ID,
+                    context.getString(R.string.recognise_later_channel),
+                    NotificationManager.IMPORTANCE_LOW,
                 )
-            }
+            )
         }
         val open = PendingIntent.getActivity(
             context, NOTIFICATION_ID,
@@ -193,7 +192,7 @@ class RecogniseLaterWorker(
     companion object {
         private const val TAG = "RecogniseLater"
         private const val WORK_NAME = "recognise_later"
-        private const val CHANNEL_ID = "song_recognition_later"
+        internal const val CHANNEL_ID = "song_recognition_later"
         private const val NOTIFICATION_ID = 4246
 
         /** Between two requests to Shazam: Listen once asks about one window every twelve seconds and is never refused. */
