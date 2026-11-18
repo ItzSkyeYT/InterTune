@@ -265,6 +265,41 @@ class MetrolistImportTest {
     }
 
     @Test
+    fun `their downloads come over as songs to stream, and their local files stay out with all that hangs on them`() {
+        for (version in listOf(36, 65)) {
+            val m = theirs(version)
+            m.row("artist", "id" to "A1", "name" to "DJ Snake", "lastUpdateTime" to 1L)
+            m.row("song", "id" to "S1", "title" to "Downloaded there", "duration" to 176, "inLibrary" to 1_000L, "dateDownload" to 5_000L, "liked" to 1, "likedDate" to 1_000L)
+            m.row("song", "id" to "L1", "title" to "A file there", "duration" to 100, "isLocal" to 1, "inLibrary" to 2_000L, "liked" to 1)
+            m.row("song", "id" to "L2", "title" to "A file, from an old Android", "duration" to 100, "isLocal" to "true", "inLibrary" to 3_000L)
+            m.row("song", "id" to "local_abc", "title" to "A file of the new app", "duration" to 100, "inLibrary" to 4_000L)
+            m.row("song_artist_map", "songId" to "L1", "artistId" to "A1", "position" to 0)
+            m.row("song_artist_map", "songId" to "S1", "artistId" to "A1", "position" to 0)
+            m.row("playlist", "id" to "P1", "name" to "Mine there")
+            m.row("playlist_song_map", "playlistId" to "P1", "songId" to "L1", "position" to 0)
+            m.row("playlist_song_map", "playlistId" to "P1", "songId" to "S1", "position" to 1)
+            m.row("event", "songId" to "L1", "timestamp" to 10_000L, "playTime" to 100_000L)
+            m.row("event", "songId" to "S1", "timestamp" to 20_000L, "playTime" to 176_000L)
+            m.row("lyrics", "id" to "L1", "lyrics" to "[00:01.00] mine")
+            val o = ours()
+
+            assertEquals("$version", MetrolistImport.Summary(inLibrary = 1, liked = 1, playlists = 1, plays = 1), MetrolistImport.summary(JdbcDb(m)))
+            val result = MetrolistImport.merge(JdbcDb(m), JdbcDb(o))
+            assertEquals("$version", MetrolistImport.Result(songs = 1, liked = 1, inLibrary = 1, playlists = 1, plays = 1), result)
+            assertEquals(listOf("S1"), o.all("SELECT id FROM song"))
+            assertNull("downloaded there is not downloaded here", o.one("SELECT dateDownload FROM song WHERE id = 'S1'"))
+            assertEquals(listOf("S1"), o.all("SELECT songId FROM playlist_song_map"))
+            assertEquals(listOf("S1"), o.all("SELECT songId FROM song_artist_map"))
+            assertEquals(listOf("S1"), o.all("SELECT songId FROM event"))
+            assertEquals(emptyList<String>(), o.all("SELECT id FROM lyrics"))
+        }
+        // The new app's liked list leaves its local files out too.
+        val songs = """[{"id":"local_abc","title":"A file"},{"id":"S9","title":"Streamed"}]"""
+        val settings = """{"entries":[{"key":"likedSongsJson","type":"STRING","value":${Json.encodeToString(String.serializer(), songs)}}]}"""
+        assertEquals(listOf("S9"), MetrolistImport.likedFromSettings(settings).map { it.id })
+    }
+
+    @Test
     fun `every table the import writes rows to that point elsewhere has each of our foreign keys looked at first`() {
         val schema = Json.parseToJsonElement(File("schemas/com.dd3boh.outertune.db.InternalDatabase/$MUSIC_DATABASE_VERSION.json").readText())
             .jsonObject["database"]!!.jsonObject

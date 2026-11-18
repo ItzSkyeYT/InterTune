@@ -21,6 +21,7 @@ import kotlinx.serialization.json.longOrNull
  * 14 Nov). Metrolist and InterTune both come from InnerTune, so the tables both databases have keep the same keys and
  * the same meaning, and dates are stored alike: epoch milliseconds in UTC on both sides. What is copied is every
  * column both tables have, read from the two databases themselves, so a later Metrolist version is read the same way.
+ * Their download dates and their songs that are files on their phone or computer stay out: neither plays here.
  *
  * Nothing of ours is replaced or removed. A row we already have stays as it is, except that a song liked or added to
  * the library there is liked or added here too. A play we already have is not added twice, a month's play count is
@@ -139,6 +140,7 @@ object MetrolistImport {
                 .orEmpty()
             val rank = HashMap<String, Int>().apply { order.forEachIndexed { i, id -> putIfAbsent(id, i) } }
             songs.withIndex().sortedBy { (i, song) -> rank[song.id] ?: (order.size + i) }.map { it.value }.distinctBy { it.id }
+                .filterNot { it.id.startsWith(LOCAL_ID) }
         }.getOrDefault(emptyList())
     }
 
@@ -147,13 +149,14 @@ object MetrolistImport {
 
     fun summary(theirs: Db, liked: List<LikedSong> = emptyList()): Summary {
         val likedIds = HashSet<Any?>()
-        theirs.query("SELECT id FROM song WHERE liked = 1") { r -> likedIds += r[0] }
+        val local = local(theirs)
+        theirs.query("SELECT id FROM song WHERE liked = 1 AND NOT ($local)") { r -> likedIds += r[0] }
         liked.forEach { likedIds += it.id }
         return Summary(
-            inLibrary = count(theirs, "SELECT COUNT(*) FROM song WHERE inLibrary IS NOT NULL"),
+            inLibrary = count(theirs, "SELECT COUNT(*) FROM song WHERE inLibrary IS NOT NULL AND NOT ($local)"),
             liked = likedIds.size,
             playlists = count(theirs, "SELECT COUNT(*) FROM playlist"),
-            plays = count(theirs, "SELECT COUNT(*) FROM event" + playsOnly(theirs)),
+            plays = count(theirs, "SELECT COUNT(*) FROM event" + plays(theirs)),
         )
     }
 
@@ -171,9 +174,15 @@ object MetrolistImport {
 
         copy(theirs, ours, "artist")
         copy(theirs, ours, "album")
-        copy(theirs, ours, "song")
+        // Not the songs that are files on their phone or computer, which only Metrolist can read: here they would be
+        // songs on the phone with no file, that never play. Nor their download dates: a date here means downloaded
+        // here (DownloadSql), while their downloads are in Metrolist's own storage, so their songs were listed under
+        // Downloaded, offline too, until the next start found no file. Their rows (links, plays, lyrics) stay out with
+        // them, as rows with no song (PARENTS).
+        val local = local(theirs)
+        copy(theirs, ours, "song", leaveOut = setOf("dateDownload"), where = " WHERE NOT ($local)")
         // A song both have: liked or in the library there is liked or in the library here. Ours stays otherwise.
-        theirs.query("SELECT id, liked, likedDate, inLibrary FROM song WHERE liked = 1 OR inLibrary IS NOT NULL") { r ->
+        theirs.query("SELECT id, liked, likedDate, inLibrary FROM song WHERE (liked = 1 OR inLibrary IS NOT NULL) AND NOT ($local)") { r ->
             if (truthy(r[1])) ours.exec("UPDATE song SET liked = 1, likedDate = COALESCE(likedDate, ?) WHERE id = ? AND liked = 0", listOf(r[2], r[0]))
             if (r[3] != null) ours.exec("UPDATE song SET inLibrary = ? WHERE id = ? AND inLibrary IS NULL", listOf(r[3], r[0]))
         }
@@ -190,7 +199,7 @@ object MetrolistImport {
 
         // Plays: theirs that we do not have already. The new app's plays fetched from YouTube's history are left out:
         // they were not played in Metrolist, and their length is not known.
-        theirs.query("SELECT songId, timestamp, playTime FROM event" + playsOnly(theirs)) { r ->
+        theirs.query("SELECT songId, timestamp, playTime FROM event" + plays(theirs)) { r ->
             ours.exec(
                 "INSERT INTO event (songId, timestamp, playTime) SELECT ?, ?, ? " +
                         "WHERE NOT EXISTS (SELECT 1 FROM event WHERE songId = ? AND timestamp = ?) AND EXISTS (SELECT 1 FROM song WHERE id = ?)",
@@ -262,13 +271,16 @@ object MetrolistImport {
         }
     }
 
-    /** Every row of theirs we do not have, by key, with the columns both tables have. */
-    private fun copy(theirs: Db, ours: Db, table: String) {
-        val columns = shared(theirs, ours, table)
+    /**
+     * Every row of theirs we do not have, by key, with the columns both tables have but [leaveOut], and of their rows
+     * only those [where] (an SQL WHERE clause, with its leading space) takes.
+     */
+    private fun copy(theirs: Db, ours: Db, table: String, leaveOut: Set<String> = emptySet(), where: String = "") {
+        val columns = shared(theirs, ours, table) - leaveOut
         if (columns.isEmpty()) return
         val toOurs = numbers(ours, table, columns)
         val (sql, args) = insertIfParents(table, columns)
-        theirs.query("SELECT ${list(columns)} FROM \"$table\"") { r -> ours.exec(sql, args(toOurs(r))) }
+        theirs.query("SELECT ${list(columns)} FROM \"$table\"$where") { r -> ours.exec(sql, args(toOurs(r))) }
     }
 
     /**
@@ -314,8 +326,23 @@ object MetrolistImport {
     private fun list(columns: List<String>) = columns.joinToString(",") { "\"$it\"" }
     private fun marks(columns: List<String>) = columns.joinToString(",") { "?" }
 
-    /** The new app keeps plays fetched from YouTube's history beside its own: only its own count as plays here. */
-    private fun playsOnly(theirs: Db) = if ("source" in theirs.columns("event")) " WHERE source != 'YOUTUBE'" else ""
+    /**
+     * The plays that come over, as a WHERE clause: not those of their local songs, which stay out, and not the new
+     * app's plays fetched from YouTube's history, kept beside its own: only its own count as plays here.
+     */
+    private fun plays(theirs: Db) = " WHERE songId NOT IN (SELECT id FROM song WHERE ${local(theirs)})" +
+            if ("source" in theirs.columns("event")) " AND source != 'YOUTUBE'" else ""
+
+    /**
+     * Their songs that are files on their phone or computer, as an SQL condition on their song table: Metrolist marks
+     * them with isLocal (1, or the text 'true' from an old Android, see [numbers]) and the new app also by an id that
+     * starts with "local_".
+     */
+    private fun local(theirs: Db) = (if ("isLocal" in theirs.columns("song")) "isLocal IN (1, 'true') OR " else "") +
+            "substr(id, 1, ${LOCAL_ID.length}) = '$LOCAL_ID'"
+
+    /** How the new Metrolist app's local songs' ids begin. */
+    private const val LOCAL_ID = "local_"
 
     private fun truthy(value: Any?) = when (value) {
         is Number -> value.toLong() != 0L
