@@ -226,10 +226,17 @@ object MetrolistImport {
         val id = columns.indexOf("id")
         val browseId = columns.indexOf("browseId")
         val made = ArrayList<Any>()
+        val toOurs = numbers(ours, "playlist", columns)
         theirs.query("SELECT ${list(columns)} FROM playlist") { r ->
             val browse = if (browseId >= 0) r[browseId] else null
             if (r[id] in ids || (browse != null && browse in followed)) return@query
-            if (ours.exec(insert("playlist", columns), r) > 0) made += r[id]!!
+            if (ours.exec(insert("playlist", columns), toOurs(r)) > 0) {
+                made += r[id]!!
+                // One of their own, with no YouTube playlist behind it: Metrolist leaves isLocal false for those
+                // (its own reading is "isLocal or no browseId"), ours says it with isLocal. Without it the playlist
+                // could not be edited, nor offered in Add to playlist, while sync is Read only.
+                ours.exec("UPDATE playlist SET isLocal = 1 WHERE id = ? AND browseId IS NULL", listOf(r[id]))
+            }
         }
         val songs = shared(theirs, ours, "playlist_song_map") - "id"
         for (playlist in made) theirs.query("SELECT ${list(songs)} FROM playlist_song_map WHERE playlistId = ? ORDER BY position, id", listOf(playlist)) { r ->
@@ -241,7 +248,29 @@ object MetrolistImport {
     private fun copy(theirs: Db, ours: Db, table: String) {
         val columns = shared(theirs, ours, table)
         if (columns.isEmpty()) return
-        theirs.query("SELECT ${list(columns)} FROM \"$table\"") { r -> ours.exec(insert(table, columns), r) }
+        val toOurs = numbers(ours, table, columns)
+        theirs.query("SELECT ${list(columns)} FROM \"$table\"") { r -> ours.exec(insert(table, columns), toOurs(r)) }
+    }
+
+    /**
+     * What turns a row of theirs into one ours reads right: a 'true' or 'false' text in a column of ours that holds a
+     * number becomes 1 or 0. Metrolist added true/false columns with DEFAULT true or DEFAULT false, which SQLite before
+     * 3.23 (Android 7 to 10) stores as that text for the rows there were then. Metrolist rewrites them itself from its
+     * version 59 (its BooleanDefaultsMigration), which a backup of its Android app (36 to 39) has not been through.
+     * Room reads such a text as 0, 'true' included, and an SQL test like isLocal = 0 misses it.
+     */
+    private fun numbers(ours: Db, table: String, columns: List<String>): (List<Any?>) -> List<Any?> {
+        val integer = HashSet<String>()
+        ours.query("PRAGMA table_info(\"$table\")") { r -> if ("${r[2]}".equals("INTEGER", ignoreCase = true)) integer += "${r[1]}" }
+        val at = columns.indices.filterTo(HashSet()) { columns[it] in integer }
+        return { row -> if (at.none { row[it] is String }) row else row.mapIndexed { i, v -> if (i in at) number(v) else v } }
+    }
+
+    private fun number(value: Any?): Any? = when {
+        value !is String -> value
+        value.equals("true", ignoreCase = true) -> 1L
+        value.equals("false", ignoreCase = true) -> 0L
+        else -> value
     }
 
     private fun shared(theirs: Db, ours: Db, table: String): List<String> {

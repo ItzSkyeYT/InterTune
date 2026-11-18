@@ -202,6 +202,30 @@ class MetrolistImportTest {
     fun `a backup from Metrolist's new app comes over once, and its YouTube history stays out`() = bringsEverythingOverOnce(65)
 
     @Test
+    fun `playlists of their own come over as ours, and a true or false kept as text comes over as a number`() {
+        val m = theirs(36)
+        // How SQLite before 3.23 (Android 7 to 10) stored DEFAULT false and DEFAULT true for rows older than the column.
+        m.row("song", "id" to "S1", "title" to "Lean On", "duration" to 176, "isLocal" to "false")
+        m.row("playlist", "id" to "P1", "name" to "Mine there")
+        m.row("playlist", "id" to "P2", "name" to "Mine since Android 10", "isLocal" to "false", "isEditable" to "true")
+        m.row("playlist", "id" to "P3", "name" to "Followed on YouTube", "browseId" to "VLPLabc", "isLocal" to "false", "isEditable" to "false")
+        m.row("playlist", "id" to "P4", "name" to "Mine on YouTube", "browseId" to "VLPLmine", "isEditable" to "true")
+        m.row("playlist", "id" to "P5", "name" to "true", "isEditable" to "true")
+        val o = ours()
+
+        MetrolistImport.merge(JdbcDb(m), JdbcDb(o))
+
+        // Ours says "not on YouTube" with isLocal: their own playlists are editable here whatever the sync does.
+        assertEquals(listOf("P1", "P2", "P5"), o.all("SELECT id FROM playlist WHERE isLocal ORDER BY id"))
+        assertEquals(listOf("P1", "P2", "P4", "P5"), o.all("SELECT id FROM playlist WHERE isEditable ORDER BY id"))
+        assertEquals(0L, (o.one("SELECT COUNT(*) FROM playlist WHERE typeof(isLocal) != 'integer' OR typeof(isEditable) != 'integer'") as Number).toLong())
+        assertEquals("integer", o.one("SELECT typeof(isLocal) FROM song WHERE id = 'S1'"))
+        assertEquals(0, o.one("SELECT isLocal FROM song WHERE id = 'S1'"))
+        // A text column keeps its text.
+        assertEquals("true", o.one("SELECT name FROM playlist WHERE id = 'P5'"))
+    }
+
+    @Test
     fun `the new app's liked songs in its settings come over, newest first`() {
         val m = theirs(65)
         m.row("song", "id" to "S3", "title" to "Only played", "duration" to 100)
