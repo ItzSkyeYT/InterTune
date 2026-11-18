@@ -216,16 +216,18 @@ object MetrolistImport {
         if ("search_history" in both) theirs.query("SELECT query FROM search_history ORDER BY id") { r ->
             ours.exec("INSERT INTO search_history (query) SELECT ? WHERE NOT EXISTS (SELECT 1 FROM search_history WHERE query = ?)", listOf(r[0], r[0]))
         }
+        // isLocal is written, not left to its DEFAULT false, which SQLite before 3.23 (Android 7 to 10) stores as the
+        // text 'false': every isLocal = 0 test then misses the row (LgAlbumRepair works round the same).
         liked.forEachIndexed { i, song ->
             val at = now - i * 1_000L
             ours.exec(
-                "INSERT OR IGNORE INTO song (id, title, duration, thumbnailUrl, albumId, albumName, liked, likedDate) VALUES (?, ?, ?, ?, ?, ?, 1, ?)",
+                "INSERT OR IGNORE INTO song (id, title, duration, thumbnailUrl, albumId, albumName, liked, likedDate, isLocal) VALUES (?, ?, ?, ?, ?, ?, 1, ?, 0)",
                 listOf(song.id, song.title, song.durationSeconds ?: -1L, song.thumbnail, song.albumId, song.albumName, at),
             )
             ours.exec("UPDATE song SET liked = 1, likedDate = COALESCE(likedDate, ?) WHERE id = ? AND liked = 0", listOf(at, song.id))
             song.artists.forEachIndexed { position, (artistId, name) ->
                 if (artistId == null) return@forEachIndexed
-                ours.exec("INSERT OR IGNORE INTO artist (id, name, lastUpdateTime) VALUES (?, ?, 0)", listOf(artistId, name))
+                ours.exec("INSERT OR IGNORE INTO artist (id, name, lastUpdateTime, isLocal) VALUES (?, ?, 0, 0)", listOf(artistId, name))
                 ours.exec("INSERT OR IGNORE INTO song_artist_map (songId, artistId, position) VALUES (?, ?, ?)", listOf(song.id, artistId, position))
             }
         }

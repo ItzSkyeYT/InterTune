@@ -40,8 +40,11 @@ class MetrolistImportTest {
     @After
     fun close() = open.forEach { it.close() }
 
-    /** A database with [schemaFile]'s tables, as Room would make them, at [version]. */
-    private fun database(schemaFile: String, version: Int): Connection {
+    /**
+     * A database with [schemaFile]'s tables, as Room would make them, at [version]. [oldSqlite]: as SQLite before 3.23
+     * (Android 7 to 10) keeps them, a DEFAULT false or DEFAULT true read as the text 'false' or 'true'.
+     */
+    private fun database(schemaFile: String, version: Int, oldSqlite: Boolean = false): Connection {
         val c = DriverManager.getConnection("jdbc:sqlite::memory:")
         open += c
         val schema = Json.parseToJsonElement(File(schemaFile).readText()).jsonObject["database"]!!.jsonObject
@@ -49,7 +52,8 @@ class MetrolistImportTest {
             st.execute("PRAGMA foreign_keys = ON")
             for (entity in schema["entities"]!!.jsonArray.map { it.jsonObject }) {
                 val table = entity["tableName"]!!.jsonPrimitive.content
-                st.execute(entity["createSql"]!!.jsonPrimitive.content.replace("\${TABLE_NAME}", table))
+                val create = entity["createSql"]!!.jsonPrimitive.content.replace("\${TABLE_NAME}", table)
+                st.execute(if (oldSqlite) create.replace("DEFAULT false", "DEFAULT 'false'").replace("DEFAULT true", "DEFAULT 'true'") else create)
                 entity["indices"]?.jsonArray?.forEach { index ->
                     st.execute(index.jsonObject["createSql"]!!.jsonPrimitive.content.replace("\${TABLE_NAME}", table))
                 }
@@ -64,7 +68,8 @@ class MetrolistImportTest {
 
     private val fields = HashMap<Connection, Map<String, List<JsonObject>>>()
 
-    private fun ours() = database("schemas/com.dd3boh.outertune.db.InternalDatabase/$MUSIC_DATABASE_VERSION.json", MUSIC_DATABASE_VERSION)
+    private fun ours(oldSqlite: Boolean = false) =
+        database("schemas/com.dd3boh.outertune.db.InternalDatabase/$MUSIC_DATABASE_VERSION.json", MUSIC_DATABASE_VERSION, oldSqlite)
     private fun theirs(version: Int) = database("src/test/resources/metrolist/schema-$version.json", version)
 
     /** A row with [values], every other column that must have a value given an empty one of its kind. */
@@ -342,6 +347,21 @@ class MetrolistImportTest {
         } finally {
             TimeZone.setDefault(zone)
         }
+    }
+
+    @Test
+    fun `the new app's liked songs and their artists come in as songs from YouTube on an old Android too`() {
+        val m = theirs(65)
+        val o = ours(oldSqlite = true)
+        // How such a phone keeps a row that leaves isLocal to its default.
+        o.createStatement().use { it.execute("INSERT INTO artist (id, name, lastUpdateTime) VALUES ('A0', 'Left to the default', 0)") }
+        assertEquals("text", o.one("SELECT typeof(isLocal) FROM artist WHERE id = 'A0'"))
+
+        val liked = listOf(MetrolistImport.LikedSong("S6", "Only in the list", null, listOf("A3" to "Justice"), null, null, 245))
+        MetrolistImport.merge(JdbcDb(m), JdbcDb(o), liked, now = 1_000_000L)
+
+        assertEquals(listOf("S6"), o.all("SELECT id FROM song WHERE isLocal = 0"))
+        assertEquals(listOf("A3"), o.all("SELECT id FROM artist WHERE isLocal = 0"))
     }
 
     @Test
