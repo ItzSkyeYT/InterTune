@@ -21,6 +21,7 @@ import com.dd3boh.outertune.models.AiFilter
 import com.dd3boh.outertune.models.AiFilterMode
 import androidx.glance.appwidget.updateAll
 import com.dd3boh.outertune.widget.MusicWidget
+import com.dd3boh.outertune.widget.RecognitionWidgetReceiver
 import com.dd3boh.outertune.widget.WidgetEntryPoint
 import dagger.hilt.android.EntryPointAccessors
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -174,11 +175,13 @@ class App : Application(), SingletonImageLoader.Factory {
         GlobalScope.launch(Dispatchers.IO) {
             AppLanguage.changes.collect {
                 runCatching { MusicWidget().updateAll(this@App) }
+                runCatching { RecognitionWidgetReceiver.redraw(this@App) }
                 ChannelNames.follow(this@App)
             }
         }
         // And at every start, for a language changed while the app was not running.
         GlobalScope.launch(Dispatchers.IO) { ChannelNames.follow(this@App) }
+        GlobalScope.launch(Dispatchers.IO) { runCatching { RecognitionWidgetReceiver.redraw(this@App) } }
 
         // The proxy every client takes once, here: the settings page offers a restart while the one
         // set there differs (#68). See ProxyAtStart.
