@@ -124,6 +124,20 @@ class PlaylistSqlTest {
         assertEquals(listOf("A" to 0, "Y" to 1, "B" to 2, "Z" to 3), playlist())
     }
 
+    private fun one(sql: String): String? = db.createStatement().use { st -> st.executeQuery(sql).use { if (it.next()) it.getString(1) else null } }
+
+    @Test
+    fun `a rename writes the name alone, and the cover picked before OK stays`() {
+        // Edit playlist: the cover is picked in the dialog and written at once, then OK renames.
+        exec(PlaylistSql.SET_COVER.replace(":thumbnailUrl", "'song-cover:new'").replace(":playlistId", "'P'"))
+        exec(PlaylistSql.SET_NAME.replace(":name", "'Renamed'").replace(":playlistId", "'P'"))
+        assertEquals("Renamed", one("SELECT name FROM playlist WHERE id = 'P'"))
+        assertEquals("song-cover:new", one("SELECT thumbnailUrl FROM playlist WHERE id = 'P'"))
+        // A playlist that is gone is not made again by a late rename.
+        exec(PlaylistSql.SET_NAME.replace(":name", "'Late'").replace(":playlistId", "'gone'"))
+        assertEquals(null, one("SELECT name FROM playlist WHERE id = 'gone'"))
+    }
+
     private companion object {
         val SONGS = listOf("X", "A", "Y", "B", "Z", "W")
     }

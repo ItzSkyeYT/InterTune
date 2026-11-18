@@ -356,8 +356,9 @@ fun LocalPlaylistScreen(
                 onDismiss = { showEditDialog = false },
                 initialTextFieldValue = TextFieldValue(playlistEntity.name, TextRange(playlistEntity.name.length)),
                 onDone = { name ->
+                    // The name alone, so that a cover still being written as OK is tapped stays.
                     database.query {
-                        update(playlistEntity.copy(name = name))
+                        setPlaylistName(playlistEntity.id, name)
                     }
 
                     viewModel.viewModelScope.launch(syncCoroutine) {

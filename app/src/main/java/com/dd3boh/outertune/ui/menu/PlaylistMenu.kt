@@ -387,13 +387,16 @@ fun PlaylistMenu(
             ),
             onDone = { name ->
                 onDismiss()
+                // The name alone. [playlist] is the row as it was when the menu opened: written whole,
+                // it put back the cover picked in this dialog a moment before.
                 database.query {
-                    update(playlist.playlist.copy(name = name))
+                    setPlaylistName(playlist.id, name)
                 }
 
+                val browseId = dbPlaylist?.playlist?.browseId
                 coroutineScope.launch(syncCoroutine) {
                     if (context.mayPushToYouTube()) {
-                        playlist.playlist.browseId?.let { YouTube.renamePlaylist(it, name) }
+                        browseId?.let { YouTube.renamePlaylist(it, name) }
                     }
                 }
             }

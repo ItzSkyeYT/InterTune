@@ -161,6 +161,24 @@ class PlaylistCoverWiringTest {
     }
 
     @Test
+    fun `Edit playlist writes the name alone, so the cover picked in the dialog stays`() {
+        // OK wrote back the whole row the Library's menu was opened with, and the cover just
+        // picked in the same dialog went back to the old one (review of 18 Nov 2026).
+        val rename = kotlin("db/PlaylistSql.kt").substringAfter("const val SET_NAME = \"").substringBefore("\"")
+        assertEquals("UPDATE playlist SET name = :name WHERE id = :playlistId", rename)
+        for (file in listOf("ui/menu/PlaylistMenu.kt", "ui/screens/playlist/LocalPlaylistScreen.kt")) {
+            val source = kotlin(file)
+            val done = source.substring(source.indexOf("if (showEditDialog) {")).substringAfter("onDone = {").substringBefore("YouTube.renamePlaylist(")
+            assertTrue(file, "setPlaylistName(" in done)
+            assertFalse(file, "update(" in done)
+        }
+        // And no screen writes a playlist's row whole from a copy: the copy is a snapshot, its cover may be an old one.
+        val wholeRow = Regex("""update\(\s*[\w.!?]*[pP]laylist[\w.!?]*\.copy\(""")
+        val screens = all.filterKeys { it.startsWith("ui/") || it.startsWith("viewmodels/") }
+        assertEquals(emptySet<String>(), screens.filterValues { wholeRow.containsMatchIn(it) }.keys)
+    }
+
+    @Test
     fun `a replaced photo is deleted after the new cover is written, never before`() {
         val model = kotlin("utils/PlaylistCovers.kt")
         val write = model.substring(model.indexOf("private fun write("))
