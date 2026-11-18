@@ -6,7 +6,9 @@
 
 package com.dd3boh.outertune.widget
 
+import com.dd3boh.outertune.R
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
@@ -26,12 +28,26 @@ class RecognitionWidgetLanguageTest {
     fun `the words are put in by the app when it has a language of its own`() {
         assertTrue("android:id=\"@+id/widget_recognition_label\"" in layout)
         val views = receiver.substringAfter("private fun views(context: Context): RemoteViews {").substringBefore("fun redraw(")
-        val own = views.substringAfter("if (AppLanguage.current(context) != SYSTEM_DEFAULT) {")
+        assertTrue(views, "val own = AppLanguage.current(context) != SYSTEM_DEFAULT" in views)
+        val own = views.substringAfter("if (own) {")
         assertTrue(views, own != views)
         assertTrue("val words = context.getString(R.string.recognise)" in own)
         assertTrue("setTextViewText(R.id.widget_recognition_label, words)" in own)
         assertTrue("setContentDescription(R.id.widget_recognition_button, words)" in own)
         assertTrue("the tap was lost", "setOnClickPendingIntent(R.id.widget_recognition_button, tap)" in views)
+    }
+
+    @Test
+    fun `back to the phone's language the launcher builds the button afresh, so none of the app's words stay`() {
+        // Given the layout it shows, the launcher only runs the new steps on the button it has: the words the app put
+        // in stayed after going back to System default. With a language of its own the button is the same layout
+        // under another id, so each way across the launcher makes it again.
+        val views = receiver.substringAfter("private fun views(context: Context): RemoteViews {").substringBefore("fun redraw(")
+        assertTrue(views, "val layout = if (own) R.layout.widget_recognition_app_language else R.layout.widget_recognition" in views)
+        assertTrue(views, "RemoteViews(context.packageName, layout)" in views)
+        val alias = File("src/main/res/values/layouts_recognition_widget.xml").readText()
+        assertTrue(alias, "<item name=\"widget_recognition_app_language\" type=\"layout\">@layout/widget_recognition</item>" in alias)
+        assertNotEquals(R.layout.widget_recognition, R.layout.widget_recognition_app_language)
     }
 
     @Test

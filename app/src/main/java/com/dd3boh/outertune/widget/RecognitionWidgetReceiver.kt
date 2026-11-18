@@ -45,11 +45,16 @@ class RecognitionWidgetReceiver : AppWidgetProvider() {
                 RecognitionShortcut.intent(context),
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
             )
-            return RemoteViews(context.packageName, R.layout.widget_recognition).apply {
+            // On the phone's language the launcher's own look-up is right, and follows the phone by
+            // itself; a language of the app's own is put in here, on the same layout under another id
+            // (layouts_recognition_widget.xml). Given the layout it shows, the launcher only runs the
+            // new steps on the button it has, so going back to the phone's language kept the app's
+            // words on it: a change of id makes it build the button afresh.
+            val own = AppLanguage.current(context) != SYSTEM_DEFAULT
+            val layout = if (own) R.layout.widget_recognition_app_language else R.layout.widget_recognition
+            return RemoteViews(context.packageName, layout).apply {
                 setOnClickPendingIntent(R.id.widget_recognition_button, tap)
-                // On the phone's language the launcher's own look-up is right, and follows the
-                // phone by itself; a language of the app's own is put in here.
-                if (AppLanguage.current(context) != SYSTEM_DEFAULT) {
+                if (own) {
                     val words = context.getString(R.string.recognise)
                     setTextViewText(R.id.widget_recognition_label, words)
                     setContentDescription(R.id.widget_recognition_button, words)
