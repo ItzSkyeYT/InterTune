@@ -676,17 +676,24 @@ private fun Hairline() {
     HorizontalDivider(Modifier.padding(vertical = 20.dp), color = MaterialTheme.colorScheme.outlineVariant)
 }
 
-/** On while a relay answers, with a slow pulse; grey while none does. */
+/** On while a relay answers, with a slow pulse; grey and still while none does. */
 @Composable
 private fun LiveDot(connected: Boolean) {
-    val color = if (connected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
-    val pulse by rememberInfiniteTransition(label = "live")
-        .animateFloat(0f, 1f, infiniteRepeatable(tween(1600, easing = LinearOutSlowInEasing)), label = "pulse")
     // As wide as the dot, so that it lines up with the text above and below; the pulse spills over.
-    Canvas(Modifier.size(8.dp)) {
-        val r = size.minDimension / 2
-        if (connected) drawCircle(color.copy(alpha = 0.35f * (1f - pulse)), radius = r + pulse * 5.dp.toPx())
-        drawCircle(color, radius = r)
+    if (!connected) {
+        // No animation at all then: one ran anyway and drew the same grey dot on every frame (performance review,
+        // 18 Nov 2026).
+        val grey = MaterialTheme.colorScheme.outline
+        Canvas(Modifier.size(8.dp)) { drawCircle(grey, radius = size.minDimension / 2) }
+    } else {
+        val color = MaterialTheme.colorScheme.primary
+        val pulse by rememberInfiniteTransition(label = "live")
+            .animateFloat(0f, 1f, infiniteRepeatable(tween(1600, easing = LinearOutSlowInEasing)), label = "pulse")
+        Canvas(Modifier.size(8.dp)) {
+            val r = size.minDimension / 2
+            drawCircle(color.copy(alpha = 0.35f * (1f - pulse)), radius = r + pulse * 5.dp.toPx())
+            drawCircle(color, radius = r)
+        }
     }
 }
 

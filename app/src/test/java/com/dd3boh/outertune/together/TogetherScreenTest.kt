@@ -102,6 +102,17 @@ class TogetherScreenTest {
         assertEquals("read once, in the playhead's own canvas", 1, Regex("""head\(\)""").findAll(sketch).count())
     }
 
+    /** The room's live dot pulsed whether or not a relay answered: still while none does (performance review). */
+    @Test
+    fun `the live dot is still while no relay answers`() {
+        val dialog = File("src/main/java/com/dd3boh/outertune/ui/dialog/TogetherDialog.kt").readText()
+        val dot = dialog.substringAfter("private fun LiveDot(").substringBefore("@Composable")
+        val still = dot.substringAfter("if (!connected) {").substringBefore("} else {")
+        assertTrue("drawCircle(grey, radius = size.minDimension / 2)" in still)
+        assertTrue("rememberInfiniteTransition" !in still)
+        assertTrue(dot.indexOf("rememberInfiniteTransition") > dot.indexOf("} else {"))
+    }
+
     @Test
     fun `a guest can suggest from both song menus`() {
         // Quick picks and search results open YouTubeSongMenu, the library SongMenu: the item was in one only.
