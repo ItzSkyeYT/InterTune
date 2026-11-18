@@ -133,6 +133,27 @@ class RecentReceiversTest {
     }
 
     @Test
+    fun `Apple's own receivers that never play AirPlay 1 are not listed`() {
+        // As the search finds them: the model (am) rides in the device's location with the rest of the TXT record.
+        fun found(mac: String, name: String, model: String) =
+            AirPlayDevices.of("$mac@$name", "192.168.1.${mac.takeLast(2).toInt(16)}", 7000, mapOf("am" to model, "et" to "0,4", "cn" to "0,1"))
+        val homePod = found("AABBCCDDEE01", "Kitchen", "AudioAccessory5,1")
+        val appleTv = found("AABBCCDDEE02", "Living room", "AppleTV11,1")
+        val mac = found("AABBCCDDEE03", "Mel's MacBook", "MacBookPro18,3")
+        val express = found("AABBCCDDEE04", "Hall", "AirPort10,115")
+        val oldTv = found("AABBCCDDEE05", "Den", "AppleTV3,2")
+        val zeppelin = found("AABBCCDDEE06", "Zeppelin", "Zeppelin1,2")
+        val all = listOf(homePod, appleTv, mac, express, oldTv, zeppelin)
+        // found, typed in, or remembered: the ones that would refuse are left out, the others stay
+        val listed = RecentReceivers.listed(all, emptyList(), listOf(homePod, mac), setOf(homePod, mac), emptySet(), airPlay = true)
+        assertEquals(listOf("Den", "Hall", "Zeppelin"), listed.map { it.name })
+        assertEquals(listOf(express), RecentReceivers.decode(RecentReceivers.encode(listOf(homePod, express, appleTv)), airPlay = true))
+        // a speaker typed in by address says nothing of itself until it answers: listed
+        val typed = AirPlayDevices.typed("192.168.1.90", 7000)
+        assertEquals(listOf(typed), RecentReceivers.listed(emptyList(), listOf(typed), emptyList(), emptySet(), emptySet(), airPlay = true))
+    }
+
+    @Test
     fun `the app reads the list and the picker lists it with AirPlay only where its flag is on`() {
         val code = java.io.File("src/main/java/com/dd3boh/outertune/cast/RecentReceivers.kt").readText()
         assertEquals(2, Regex("""\bairPlay: Boolean = Unreleased\.CAST_AIRPLAY\b""").findAll(code).count())
