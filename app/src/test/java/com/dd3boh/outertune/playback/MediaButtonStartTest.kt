@@ -233,4 +233,19 @@ class MediaButtonStartTest {
         val first = start.indexOf("firstStart = false")
         assertTrue(start, first > start.indexOf("holdForegroundForMediaButton(MediaButtonStart.keyOf(intent))") && first < start.indexOf("return super.onStartCommand("))
     }
+
+    @Test
+    fun `swiped away while a press is owed, the demand is met before the service stops`() {
+        // Android closes the app at once when a service it waits on stops before startForeground
+        // (ActiveServices.bringDownServiceLocked), and both ways out of onTaskRemoved may stop it.
+        val service = source("MusicService.kt")
+        val removed = body(service, "override fun onTaskRemoved(rootIntent: Intent?)")
+        val meet = removed.indexOf("meetMediaButtonStartBeforeStop()")
+        assertTrue(removed, meet >= 0 && meet < removed.indexOf("pauseAllPlayersAndStopSelf()") && meet < removed.indexOf("super.onTaskRemoved(rootIntent)"))
+        val settle = body(service, "private fun meetMediaButtonStartBeforeStop()")
+        assertTrue(settle, "if (!mediaButtonPending) return" in settle)
+        assertTrue("nothing to meet when media3 or the plain notification holds the foreground", "if (holdingForMediaButton || foregroundNow()) return" in settle)
+        val hold = settle.indexOf("if (holdForeground()) ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)")
+        assertTrue(settle, hold > settle.indexOf("mediaButtonHandler.removeCallbacks(mediaButtonGuard)"))
+    }
 }

@@ -6656,6 +6656,21 @@ class MusicService : MediaLibraryService(),
     }
 
     /**
+     * The service is about to stop while a media button's start may still be owed: Android closes
+     * the app at once when a service it waits on stops before startForeground
+     * (ActiveServices.bringDownServiceLocked), so the demand is met first. The app swiped away in
+     * the seconds after a play press whose song had not started yet was such a stop.
+     */
+    private fun meetMediaButtonStartBeforeStop() {
+        if (!mediaButtonPending) return
+        mediaButtonPending = false
+        mediaButtonHandler.removeCallbacks(mediaButtonGuard)
+        if (holdingForMediaButton || foregroundNow()) return
+        if (holdForeground()) ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
+        holdingForMediaButton = false
+    }
+
+    /**
      * Android brought the service back by itself, with no intent, after the app's process died.
      * If it died while Android still waited for the notification of a media button's start,
      * Android waits again, on the new process, which knows nothing of the press and has nothing
@@ -7044,6 +7059,8 @@ class MusicService : MediaLibraryService(),
 
     override fun onTaskRemoved(rootIntent: Intent?) {
         Log.i(TAG, "onTaskRemoved called")
+        // Both ways below may stop the service: not while Android still waits on a media button's start.
+        meetMediaButtonStartBeforeStop()
         if (dataStore.get(StopMusicOnTaskClearKey, true) && !dataStore.get(KeepAliveKey, false)) {
             Log.i(TAG, "onTaskRemoved kill")
             pauseAllPlayersAndStopSelf()
