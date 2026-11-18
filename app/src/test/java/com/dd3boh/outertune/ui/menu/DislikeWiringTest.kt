@@ -86,7 +86,7 @@ class DislikeWiringTest {
         assertTrue("Toaster.show(app, if (sent) R.string.dont_play_lifted else R.string.dislike_lift_not_sent, Toast.LENGTH_LONG)" in toggle)
         // Lifted again before the answer: no word after its own, and a like still here goes back to YouTube Music.
         assertTrue("val stillHeld = database.transactionNow {" in toggle)
-        assertTrue("if (sent && likedHere) RatingWrites.send(song.id) { YouTube.likeVideo(song.id, true) }" in toggle)
+        assertTrue("if (sent && likedHere && app.mayPushToYouTube()) RatingWrites.send(song.id) { YouTube.likeVideo(song.id, true) }" in toggle)
         // Lifted on the queue the row was written on, so a quick Dislike after it cannot land first.
         assertTrue("database.transaction { liftDontPlay(song.id) }" in toggle)
         val dao = File(sources, "db/daos/ListenDao.kt").readText()

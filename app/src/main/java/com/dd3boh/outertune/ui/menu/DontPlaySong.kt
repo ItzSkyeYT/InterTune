@@ -139,7 +139,8 @@ fun toggleDontPlay(
             }
         }
         if (!stillHeld) {
-            if (sent && likedHere) RatingWrites.send(song.id) { YouTube.likeVideo(song.id, true) }
+            // Asked again: signed out or set to read only meanwhile, the like stays on this phone.
+            if (sent && likedHere && app.mayPushToYouTube()) RatingWrites.send(song.id) { YouTube.likeVideo(song.id, true) }
             return@send
         }
         withContext(Dispatchers.Main) {
