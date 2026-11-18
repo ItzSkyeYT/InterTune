@@ -18,6 +18,7 @@ import com.dd3boh.outertune.constants.PlayOrigin
 import com.dd3boh.outertune.constants.TogetherCatchUpKey
 import com.dd3boh.outertune.constants.TogetherDelayKey
 import com.dd3boh.outertune.constants.TogetherToleranceKey
+import com.dd3boh.outertune.extensions.metadata
 import com.dd3boh.outertune.extensions.toMediaItem
 import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.playback.MusicService
@@ -402,7 +403,11 @@ class TogetherSession(
         send(TogetherMessage.Queue(ownQueue(), player.repeatMode, player.shuffleModeEnabled))
     }
 
-    /** This phone's queue from the song playing on, in the order it plays. */
+    /**
+     * This phone's queue from the song playing on, in the order it plays, without the songs from files on this phone: no
+     * other phone can play them, and an untagged file's name was its title, shown in every guest's queue (review 2,
+     * 18 Nov 2026). The song playing still says its own name in the State: the room shows what the host plays.
+     */
     private fun ownQueue(): List<TogetherMessage.Song> {
         val player = service.exoPlayer
         val timeline = player.currentTimeline
@@ -412,14 +417,16 @@ class TogetherSession(
         var index = player.currentMediaItemIndex
         while (index != C.INDEX_UNSET && songs.size < TogetherMessage.QUEUE_SONGS) {
             val item = timeline.getWindow(index, window).mediaItem
-            val metadata = item.mediaMetadata
-            songs += TogetherMessage.Song(
-                id = item.mediaId,
-                title = metadata.title?.toString().orEmpty(),
-                artist = metadata.artist?.toString().orEmpty(),
-                // Never a file's path: a song from the phone has it as its picture (TogetherMessage.thumbnailFor).
-                thumbnail = TogetherMessage.thumbnailFor(metadata.artworkUri?.toString()),
-            )
+            if (!fromThisPhone(item.metadata?.isLocal, item.mediaId)) {
+                val metadata = item.mediaMetadata
+                songs += TogetherMessage.Song(
+                    id = item.mediaId,
+                    title = metadata.title?.toString().orEmpty(),
+                    artist = metadata.artist?.toString().orEmpty(),
+                    // Never a file's path: a song from the phone has it as its picture (TogetherMessage.thumbnailFor).
+                    thumbnail = TogetherMessage.thumbnailFor(metadata.artworkUri?.toString()),
+                )
+            }
             index = timeline.getNextWindowIndex(index, Player.REPEAT_MODE_OFF, player.shuffleModeEnabled)
         }
         return songs
@@ -650,7 +657,9 @@ class TogetherSession(
      */
     fun propose() {
         if (leading || !ownWay) return
-        val songs = ownQueue().takeIf { it.isNotEmpty() } ?: return
+        // Its own song first, or nothing: a song from a file on this phone is left out (ownQueue), and the leader could
+        // not play it anyway. The sheet does not offer it then (canPropose).
+        val songs = ownQueue().takeIf { it.isNotEmpty() && it.first().id == service.exoPlayer.currentMediaItem?.mediaId } ?: return
         proposedSongId = songs.first().id
         send(TogetherMessage.Propose(songs, service.exoPlayer.currentPosition, name))
         _status.value = _status.value.copy(proposed = true)
@@ -1064,3 +1073,12 @@ class TogetherSession(
         )
     }
 }
+
+/** A local song's id: "LS" and eight more (SongEntity.generateSongId), never a YouTube id's eleven characters. */
+private val LOCAL_SONG_ID = Regex("LS[A-Za-z0-9]{8}")
+
+/**
+ * Whether a song in the player is from a file on this phone: by what the app knows of it ([isLocal], from the item's
+ * metadata), or failing that by its id. No other phone can play it, so a room never carries it in a queue.
+ */
+internal fun fromThisPhone(isLocal: Boolean?, mediaId: String): Boolean = isLocal == true || LOCAL_SONG_ID.matches(mediaId)

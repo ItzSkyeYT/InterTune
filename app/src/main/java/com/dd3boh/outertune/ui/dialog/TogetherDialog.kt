@@ -509,6 +509,8 @@ private fun RoomPage(room: TogetherSession, song: MediaMetadata?, onLeave: () ->
                 status.waitingForHost -> Waiting()
                 status.ownWay -> OwnWay(
                     proposed = status.proposed,
+                    // A song from a file on this phone: the leader could never play it.
+                    canPropose = song?.isLocal != true,
                     onPropose = {
                         haptics.performHapticFeedback(HapticFeedbackType.Confirm)
                         room.propose()
@@ -913,7 +915,7 @@ private fun PausedHere() {
 }
 
 @Composable
-private fun OwnWay(proposed: Boolean, onPropose: () -> Unit, onCatchUp: () -> Unit) {
+private fun OwnWay(proposed: Boolean, canPropose: Boolean, onPropose: () -> Unit, onCatchUp: () -> Unit) {
     Column(Modifier.fillMaxWidth()) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
             Text(stringResource(R.string.together_own_way), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
@@ -924,13 +926,16 @@ private fun OwnWay(proposed: Boolean, onPropose: () -> Unit, onCatchUp: () -> Un
                 Text(stringResource(R.string.together_catch_up))
             }
         }
-        Spacer(Modifier.height(10.dp))
         // What this phone plays on its own, offered to the one who leads, queue and all (his ask of
-        // 17 Oct 2026). Sent once; another song of its own can be proposed again.
-        OutlinedButton(onClick = onPropose, enabled = !proposed, modifier = Modifier.fillMaxWidth()) {
-            Icon(Icons.AutoMirrored.Rounded.QueueMusic, contentDescription = null, modifier = Modifier.size(ButtonDefaults.IconSize))
-            Spacer(Modifier.width(ButtonDefaults.IconSpacing))
-            Text(stringResource(if (proposed) R.string.together_proposed else R.string.together_propose))
+        // 17 Oct 2026). Sent once; another song of its own can be proposed again. Not for a song from a file on this
+        // phone, which no other phone can play (TogetherSession.propose).
+        if (canPropose) {
+            Spacer(Modifier.height(10.dp))
+            OutlinedButton(onClick = onPropose, enabled = !proposed, modifier = Modifier.fillMaxWidth()) {
+                Icon(Icons.AutoMirrored.Rounded.QueueMusic, contentDescription = null, modifier = Modifier.size(ButtonDefaults.IconSize))
+                Spacer(Modifier.width(ButtonDefaults.IconSpacing))
+                Text(stringResource(if (proposed) R.string.together_proposed else R.string.together_propose))
+            }
         }
     }
 }

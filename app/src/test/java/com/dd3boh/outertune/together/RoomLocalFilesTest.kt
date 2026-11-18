@@ -66,6 +66,35 @@ class RoomLocalFilesTest {
         assertEquals("", (TogetherMessage.decode(suggest) as TogetherMessage.Suggest).thumbnail)
     }
 
+    /**
+     * The path was gone, but a local song still went to the room by name, and an untagged file's name is its title
+     * ("Recording 2026-11-18 call with Jane"): in the queue every 30 s and in a guest's proposal, shown in every guest's
+     * queue though no guest can play it (review 2, 18 Nov 2026). Now local songs stay out of both.
+     */
+    @Test
+    fun `songs from files on the phone stay out of the room's queue and a guest's proposal`() {
+        // by what the app knows of the song, or failing that by a local id's shape
+        assertTrue(fromThisPhone(isLocal = true, mediaId = "LSabcdefgh"))
+        assertTrue(fromThisPhone(isLocal = null, mediaId = "LSabcdefgh"))
+        assertTrue(fromThisPhone(isLocal = null, mediaId = "LSab12efgh"))
+        assertFalse(fromThisPhone(isLocal = false, mediaId = "dQw4w9WgXcQ"))
+        assertFalse(fromThisPhone(isLocal = null, mediaId = "dQw4w9WgXcQ"))
+        // a YouTube id may start with LS, but it has eleven characters
+        assertFalse(fromThisPhone(isLocal = null, mediaId = "LSabcdefghi"))
+        val session = File("src/main/java/com/dd3boh/outertune/together/TogetherSession.kt").readText()
+        val own = session.substringAfter("private fun ownQueue()").substringBefore("private fun send(")
+        assertTrue("if (!fromThisPhone(item.metadata?.isLocal, item.mediaId)) {" in own)
+        assertTrue(own.indexOf("if (!fromThisPhone(") < own.indexOf("songs += TogetherMessage.Song("))
+        // a guest proposes its own song first or nothing (the proposal is built from ownQueue)
+        val propose = session.substringAfter("fun propose()").substringBefore("\n    }\n")
+        assertTrue("it.isNotEmpty() && it.first().id == service.exoPlayer.currentMediaItem?.mediaId" in propose)
+        // and the sheet does not offer Propose for a song from this phone
+        val sheet = File("src/main/java/com/dd3boh/outertune/ui/dialog/TogetherDialog.kt").readText()
+        assertTrue("canPropose = song?.isLocal != true," in sheet)
+        val ownWay = sheet.substringAfter("private fun OwnWay(").substringBefore("\n}\n")
+        assertTrue(ownWay.indexOf("if (canPropose) {") in 0 until ownWay.indexOf("OutlinedButton(onClick = onPropose"))
+    }
+
     @Test
     fun `the session makes its queue and its suggestions with it`() {
         val session = File("src/main/java/com/dd3boh/outertune/together/TogetherSession.kt").readText()
