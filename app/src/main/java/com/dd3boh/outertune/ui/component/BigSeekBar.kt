@@ -59,14 +59,15 @@ fun BigSeekBar(
                 width = it.size.width.toFloat()
             }
             .pointerInput(progressProvider) {
-                // The drag's own value, apart from what the bar shows while the line holds it (VolumeSnap), and what
-                // this drag last showed: the volume comes back through a flow a frame late, and must not tick twice.
+                // The drag's own value, apart from what the bar shows while the line holds it (VolumeSnap), and whether
+                // it rests there: both kept by the drag, never read back from the volume, which comes back through a
+                // flow a frame late.
                 var dragged = Float.NaN
-                var shown = Float.NaN
+                var held = false
                 detectHorizontalDragGestures(
-                    onDragStart = { dragged = progressProvider(); shown = dragged },
-                    onDragEnd = { dragged = Float.NaN; shown = Float.NaN },
-                    onDragCancel = { dragged = Float.NaN; shown = Float.NaN },
+                    onDragStart = { dragged = progressProvider(); held = VolumeSnap.holds(dragged, maxProgress, held = false) },
+                    onDragEnd = { dragged = Float.NaN; held = false },
+                    onDragCancel = { dragged = Float.NaN; held = false },
                 ) { _, dragAmount ->
                     // Drag distance maps to the whole range, so a wider range is not slower to
                     // traverse; it just packs more value into the same sweep.
@@ -76,12 +77,11 @@ fun BigSeekBar(
                         return@detectHorizontalDragGestures
                     }
                     // Near the line where boost begins the bar rests on it, with one tick as it lands.
-                    val before = if (shown.isNaN()) progressProvider() else shown
-                    dragged = ((if (dragged.isNaN()) before else dragged) + delta).coerceIn(0f, maxProgress)
-                    val now = VolumeSnap.shown(dragged, maxProgress)
-                    if (VolumeSnap.lands(before, now)) haptic.performHapticFeedback(HapticFeedbackType.SegmentTick)
-                    shown = now
-                    onProgressChange(now)
+                    dragged = ((if (dragged.isNaN()) progressProvider() else dragged) + delta).coerceIn(0f, maxProgress)
+                    val was = held
+                    held = VolumeSnap.holds(dragged, maxProgress, was)
+                    if (VolumeSnap.lands(was, held)) haptic.performHapticFeedback(HapticFeedbackType.SegmentTick)
+                    onProgressChange(VolumeSnap.shown(dragged, held))
                 }
             }
     ) {

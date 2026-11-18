@@ -65,15 +65,32 @@ class SeekRumble(private val steps: Int = STEPS) {
  * back down from boost): below 100% the bar follows the finger, so 88% to 99% can still be set. The drag's own value is
  * kept apart from what the bar shows, so that a slow drag is never held at the line for good. Only on a bar that goes
  * past 1: on Saver it stops at 1 and has no line to snap to.
+ *
+ * Once it rests there, a drag leaves only [MARGIN] of the bar past the zone's edges, so a finger resting at an edge,
+ * whose tiny moves cross it back and forth, neither flips the volume nor ticks again on every other move.
  */
 object VolumeSnap {
     /** A few percent of the bar above the line: 3% of its range, 0.12 on the bar that goes to 4. */
     const val ZONE = 0.03f
 
-    /** What the bar shows for a drag whose own value is [dragged], on a bar that goes from 0 to [max]. */
-    fun shown(dragged: Float, max: Float, on: Boolean = Unreleased.HAPTICS_MORE): Float =
-        if (on && max > 1f && dragged >= 1f && dragged - 1f <= ZONE * max) 1f else dragged
+    /** How far past the zone's edges a drag goes before it leaves the line: a quarter of the zone. */
+    const val MARGIN = ZONE / 4
 
-    /** Whether the bar, showing [before] and now [now], has just landed on the line: one tick then. */
-    fun lands(before: Float, now: Float): Boolean = now == 1f && before != 1f
+    /**
+     * Whether the bar rests on the line after a move to [dragged], the drag's own value, on a bar that goes from 0 to
+     * [max], when it did before the move or not ([held]).
+     */
+    fun holds(dragged: Float, max: Float, held: Boolean, on: Boolean = Unreleased.HAPTICS_MORE): Boolean {
+        if (!on || max <= 1f) return false
+        val top = 1f + ZONE * max
+        if (!held) return dragged >= 1f && dragged <= top
+        val margin = MARGIN * max
+        return dragged >= 1f - margin && dragged <= top + margin
+    }
+
+    /** What the bar shows: the line while it rests there, and below the line the finger, margin included. */
+    fun shown(dragged: Float, held: Boolean): Float = if (held && dragged >= 1f) 1f else dragged
+
+    /** One tick as the bar comes to rest on the line, none while it stays. */
+    fun lands(was: Boolean, now: Boolean): Boolean = now && !was
 }
