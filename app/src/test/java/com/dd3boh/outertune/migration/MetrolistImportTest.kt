@@ -300,6 +300,28 @@ class MetrolistImportTest {
     }
 
     @Test
+    fun `their marks for a song with no lyrics stay out, so ours still look its lyrics up`() {
+        for (version in listOf(36, 65)) {
+            val m = theirs(version)
+            for (id in listOf("S1", "S2", "S3", "S4", "S5")) m.row("song", "id" to id, "title" to id, "duration" to 100)
+            // The Android app's miss, written offline and on a timeout too.
+            m.row("lyrics", "id" to "S1", "lyrics" to "LYRICS_NOT_FOUND")
+            // The new app's miss: an empty text, with its own provider.
+            m.row("lyrics", "id" to "S2", "lyrics" to "", "provider" to "LYRICS_NOT_FOUND_V2")
+            m.row("lyrics", "id" to "S3", "lyrics" to "   ")
+            m.row("lyrics", "id" to "S4", "lyrics" to "[00:01.00] found", "provider" to "LrcLib")
+            m.row("lyrics", "id" to "S5", "lyrics" to "Words with no times")
+            val o = ours()
+            o.row("song", "id" to "S1", "title" to "S1", "duration" to 100)
+
+            MetrolistImport.merge(JdbcDb(m), JdbcDb(o))
+
+            assertEquals("$version", listOf("S4", "S5"), o.all("SELECT id FROM lyrics ORDER BY id"))
+            assertEquals("[00:01.00] found", o.one("SELECT lyrics FROM lyrics WHERE id = 'S4'"))
+        }
+    }
+
+    @Test
     fun `every table the import writes rows to that point elsewhere has each of our foreign keys looked at first`() {
         val schema = Json.parseToJsonElement(File("schemas/com.dd3boh.outertune.db.InternalDatabase/$MUSIC_DATABASE_VERSION.json").readText())
             .jsonObject["database"]!!.jsonObject

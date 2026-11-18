@@ -194,7 +194,7 @@ object MetrolistImport {
         theirs.query("SELECT id, bookmarkedAt FROM artist WHERE bookmarkedAt IS NOT NULL") { r ->
             ours.exec("UPDATE artist SET bookmarkedAt = ? WHERE id = ? AND bookmarkedAt IS NULL", listOf(r[1], r[0]))
         }
-        for (table in PER_SONG) if (table in both) copy(theirs, ours, table)
+        for (table in PER_SONG) if (table in both) copy(theirs, ours, table, where = if (table == "lyrics") lyricsFound(theirs) else "")
 
         playlists(theirs, ours)
 
@@ -344,6 +344,15 @@ object MetrolistImport {
 
     /** How the new Metrolist app's local songs' ids begin. */
     private const val LOCAL_ID = "local_"
+
+    /**
+     * Their lyrics that are lyrics, as a WHERE clause: not their marks for a song with none. Here any stored row is the
+     * song's lyrics for good (LyricsHelper asks again only on Refetch), so a mark would hide lyrics another source has.
+     * Metrolist's Android app writes the text LYRICS_NOT_FOUND for a miss, offline and on a timeout too; the new app an
+     * empty text with the provider LYRICS_NOT_FOUND_V2.
+     */
+    private fun lyricsFound(theirs: Db) = " WHERE trim(lyrics) != '' AND lyrics != 'LYRICS_NOT_FOUND'" +
+            if ("provider" in theirs.columns("lyrics")) " AND provider IS NOT 'LYRICS_NOT_FOUND_V2'" else ""
 
     private fun truthy(value: Any?) = when (value) {
         is Number -> value.toLong() != 0L
