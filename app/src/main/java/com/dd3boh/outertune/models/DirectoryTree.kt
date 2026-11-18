@@ -17,6 +17,7 @@ import com.dd3boh.outertune.db.entities.Song
 import com.dd3boh.outertune.ui.utils.uninitializedDirectoryTree
 import com.dd3boh.outertune.utils.fixFilePath
 import java.time.ZoneOffset
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * A tree representation of local audio files
@@ -26,7 +27,14 @@ import java.time.ZoneOffset
 class DirectoryTree(path: String, var culmSongs: CulmSongs) {
     companion object {
         const val TAG = "DirectoryTree"
-        var directoryUID = 0
+
+        /**
+         * Where each folder's number, the key of its row on the Folders tab, comes from: taken in one step and never
+         * reset. Trees are built on several threads at once (every folder on the back stack reads itself again after
+         * a removal, LocalRemoval), and a count set back to 0 or lost between two threads numbered two folders of one
+         * list alike, which closes the app ("Key was already used").
+         */
+        private val nextUid = AtomicInteger(0)
         private val SLASHES = Regex("/{2,}")
     }
 
@@ -44,14 +52,9 @@ class DirectoryTree(path: String, var culmSongs: CulmSongs) {
     var subdirs = ArrayList<DirectoryTree>()
     var files = ArrayList<Song>()
 
-    val uid = directoryUID
+    val uid = nextUid.getAndIncrement()
 
     var isSkeleton = true
-
-    init {
-        // increment uid
-        directoryUID++
-    }
 
     /**
      * Instantiate a directory tree directly with songs

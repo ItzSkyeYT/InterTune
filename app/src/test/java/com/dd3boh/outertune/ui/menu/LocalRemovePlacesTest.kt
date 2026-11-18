@@ -89,8 +89,8 @@ class LocalRemovePlacesTest {
         assertTrue("LocalRemoval.changes.drop(1).collect {" in model)
         val after = model.substringAfter("LocalRemoval.changes.drop(1).collect {").substringBefore("}\n        }")
         assertTrue(after, "getLocalSongs()" in after && "getSongCount()" in after)
-        // One at a time: the folders on the back stack all read again at the one signal, and their keys come from a
-        // counter DirectoryTree shares.
+        // One at a time: the folders on the back stack all read again at the one signal (their keys no longer depend
+        // on it: DirectoryTreeKeysTest).
         assertTrue(after, "removalReloads.withLock {" in after)
         val removal = code("utils/scanners/LocalRemoval.kt")
         // The trees kept for the Folders tab are dropped first: a folder opened later reads the table again.

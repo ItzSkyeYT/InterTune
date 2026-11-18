@@ -139,8 +139,7 @@ class LibrarySongsViewModel @Inject constructor(
 
 /**
  * One folder at a time after a removal (LocalRemoval): every folder on the back stack reads itself again at the same
- * signal, and DirectoryTree numbers its folders, the keys of the list, from one counter they share, which two trees
- * built at once could give the same number twice.
+ * signal, and they need not all ask the database at once. Their rows' keys no longer depend on it (DirectoryTree.uid).
  */
 private val removalReloads = Mutex()
 
