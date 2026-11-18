@@ -661,6 +661,12 @@ object Unreleased {
     val BATTERY_MODES = true
 
     /**
+     * A small dialog, twice at most, when the phone's battery saver puts the app on Saver: what
+     * pauses and the way to Battery use (SaverNote). His ask of 18 Nov 2026.
+     */
+    val SAVER_NOTE = BuildConfig.PREVIEW_FEATURES
+
+    /**
      * Saved twice (issue #47, for 0.13): a round button with a count beside Play and Shuffle in
      * Liked songs, in the library's songs list and in a playlist the app lets you change, shown
      * only when a song is in there more than once; it opens a screen that lists each song's copies

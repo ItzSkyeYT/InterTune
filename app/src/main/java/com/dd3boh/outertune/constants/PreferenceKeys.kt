@@ -457,6 +457,14 @@ val FirstSetupKey = booleanPreferencesKey("firstSetup")
  * anything is told once, in a dialog, on opening the app (accountNoticeOwed).
  */
 val AccountNoticeSeenKey = booleanPreferencesKey("accountNoticeSeen")
+
+/**
+ * The battery saver note (SaverNote): how many times this install has been told that the phone's
+ * battery saver puts the app on Saver, and whether it was told during this time the saver is on
+ * (cleared once the app sees the saver off).
+ */
+val SaverNoteShownKey = intPreferencesKey("saverNoteShown")
+val SaverNoteWaitingKey = booleanPreferencesKey("saverNoteWaiting")
 val SwipeToSkipKey = booleanPreferencesKey("swipeToSkip")
 
 /**

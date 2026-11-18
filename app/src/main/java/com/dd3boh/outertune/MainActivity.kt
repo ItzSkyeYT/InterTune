@@ -77,6 +77,8 @@ import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.datastore.preferences.core.edit
+import com.dd3boh.outertune.constants.SaverNoteShownKey
+import com.dd3boh.outertune.constants.SaverNoteWaitingKey
 import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.constants.UpdateCheckEnabledKey
 import com.dd3boh.outertune.constants.UsageCountEnabledKey
@@ -244,6 +246,8 @@ import com.dd3boh.outertune.engine.SimilarSources
 import com.dd3boh.outertune.utils.lastFmQuestionAskable
 import com.dd3boh.outertune.ui.screens.AccountNoticeDialog
 import com.dd3boh.outertune.ui.screens.OptInCatchUp
+import com.dd3boh.outertune.ui.screens.SaverNote
+import com.dd3boh.outertune.ui.screens.SaverNoteDialog
 import com.dd3boh.outertune.ui.screens.accountNoticeOwed
 import com.dd3boh.outertune.ui.screens.isAccountCookie
 import com.dd3boh.outertune.ui.screens.catchUpOwed
@@ -1943,6 +1947,44 @@ class MainActivity : ComponentActivity() {
                             !catchUpOpen && !welcomeOpen && !tourState.running && !tourFromWelcome && !updatePromptVisible
                         ) {
                             AccountNoticeDialog(onDone = { setAccountNoticeSeen(true) })
+                        }
+
+                        /*
+                         * A word when the phone's battery saver puts the app on Saver (SaverNote): what
+                         * pauses, and the way to Battery use. Twice at most, once each time the saver
+                         * comes on, and never over something else: it waits for what the account
+                         * notice waits for, and for the account notice itself.
+                         */
+                        if (Unreleased.SAVER_NOTE) {
+                            val (saverNoteShown, setSaverNoteShown) = rememberPreference(SaverNoteShownKey, defaultValue = 0)
+                            val (saverNoteWaiting, setSaverNoteWaiting) = rememberPreference(SaverNoteWaitingKey, defaultValue = false)
+                            var saverNoteUp by rememberSaveable { mutableStateOf(false) }
+                            // The saver seen off: the next time it comes on may be told.
+                            LaunchedEffect(phoneSaverOn, saverNoteWaiting) {
+                                if (!phoneSaverOn && saverNoteWaiting) setSaverNoteWaiting(false)
+                            }
+                            val saverFromPhone = Unreleased.BATTERY_MODES &&
+                                BatteryUse.saverFromPhone(chosenBatteryMode, followPhoneSaver, phoneSaverOn)
+                            val saverNoteClear = oobeStatus >= OOBE_VERSION && !catchUpOpen && !welcomeOpen &&
+                                !tourState.running && !tourFromWelcome && !updatePromptVisible &&
+                                !accountNoticeOwed(setupDone = oobeStatus >= OOBE_VERSION, signedIn = signedIn, seen = accountNoticeSeen)
+                            LaunchedEffect(saverFromPhone, saverNoteShown, saverNoteWaiting, saverNoteClear) {
+                                if (saverNoteClear && !saverNoteUp && SaverNote.owed(saverFromPhone, saverNoteShown, saverNoteWaiting)) {
+                                    saverNoteUp = true
+                                    // Waiting first: the count changing relaunches this, and must find it said.
+                                    setSaverNoteWaiting(true)
+                                    setSaverNoteShown(saverNoteShown + 1)
+                                }
+                            }
+                            if (saverNoteUp) {
+                                SaverNoteDialog(
+                                    onBatteryUse = {
+                                        saverNoteUp = false
+                                        navController.navigate("settings/battery")
+                                    },
+                                    onDone = { saverNoteUp = false },
+                                )
+                            }
                         }
 
                         /*
