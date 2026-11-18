@@ -40,9 +40,10 @@ object ListenRules {
      *
      * @param startedAtSeconds when the play started, as Last.fm gets it; null for playing now.
      */
-    fun listenOf(client: ListenBrainz, metadata: MediaMetadata, startedAtSeconds: Long?, durationSeconds: Int): Listen? =
-        client.listen(
-            artist = Scrobbler.primaryArtist(metadata.artists.map { it.name }) ?: return null,
+    fun listenOf(client: ListenBrainz, metadata: MediaMetadata, startedAtSeconds: Long?, durationSeconds: Int): Listen? {
+        val artist = Scrobbler.primaryArtist(metadata.artists.map { it.name }) ?: return null
+        return client.listen(
+            artist = artist,
             track = metadata.title,
             release = metadata.album?.title,
             durationMs = durationSeconds.takeIf { it > 0 }?.let { it * 1000L },
@@ -50,4 +51,5 @@ object ListenRules {
             trackNumber = metadata.trackNumber,
             youTubeId = metadata.id.takeUnless { metadata.isLocal },
         )
+    }
 }

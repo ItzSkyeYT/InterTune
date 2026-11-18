@@ -186,10 +186,11 @@ class ListenOutbox internal constructor(private val file: File) {
             emptyList()
         }
 
-        private fun waiting(o: JsonObject): WaitingListen? = WaitingListen(
-            user = o["user"]?.jsonPrimitive?.contentOrNull ?: return null,
-            json = o["listen"]?.jsonPrimitive?.contentOrNull ?: return null,
-            keptAt = o["keptAt"]?.jsonPrimitive?.longOrNull ?: return null,
-        )
+        private fun waiting(o: JsonObject): WaitingListen? {
+            val user = o["user"]?.jsonPrimitive?.contentOrNull ?: return null
+            val json = o["listen"]?.jsonPrimitive?.contentOrNull ?: return null
+            val keptAt = o["keptAt"]?.jsonPrimitive?.longOrNull ?: return null
+            return WaitingListen(user = user, json = json, keptAt = keptAt)
+        }
     }
 }
