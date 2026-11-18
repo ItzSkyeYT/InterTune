@@ -3580,14 +3580,15 @@ class MusicService : MediaLibraryService(),
 
         /**
          * What a song the app counts as downloaded failed with when the player could not read it from
-         * the phone and there was no network to fetch it from ([failure]): see DownloadNotOnPhone. Says
-         * in the log which of its causes it is, read from the download cache and the download folders.
+         * the phone and fetching it failed to connect ([failure]): see DownloadNotOnPhone. Says in the
+         * log which of its causes it is, read from the download cache and the download folders, and
+         * whether the phone was online: a refused connection or a timeout is no proof there is no network.
          */
         private fun downloadNotOnPhone(mediaId: String, position: Long, failure: Throwable, said: String): DownloadNotOnPhone {
             val length = runCatching { ContentMetadata.getContentLength(downloadCache.getContentMetadata(mediaId)) }.getOrDefault(C.LENGTH_UNSET.toLong())
             val held = runCatching { downloadCache.getCachedBytes(mediaId, 0, C.LENGTH_UNSET.toLong()) }.getOrDefault(0L)
             val inFolder = runCatching { downloadUtil.localMgr.isExists(mediaId)?.exists() == true }.getOrDefault(false)
-            Log.w(TAG, "$said: ${DownloadNotOnPhone.said(mediaId, position, held, length, inFolder)}")
+            Log.w(TAG, "$said: ${DownloadNotOnPhone.said(mediaId, position, held, length, inFolder, failure.javaClass.simpleName, online = isNetworkConnected.value)}")
             return DownloadNotOnPhone(failure)
         }
 

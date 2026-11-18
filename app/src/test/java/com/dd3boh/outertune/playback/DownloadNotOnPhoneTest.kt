@@ -31,13 +31,25 @@ class DownloadNotOnPhoneTest {
     @Test
     fun `the log line says how much of the song the phone has and where`() {
         assertEquals(
-            "[aaaaaaaaaaa] counted as downloaded, but not read from the phone from byte 0, and there is no network: " +
-                "the download cache holds 1048576 of its 3412000 bytes, no download folder has a file for it",
-            DownloadNotOnPhone.said("aaaaaaaaaaa", 0, 1_048_576, 3_412_000, inFolder = false),
+            "[aaaaaaaaaaa] counted as downloaded, but not read from the phone from byte 0, and fetching it failed (UnknownHostException) " +
+                "while the phone was offline: the download cache holds 1048576 of its 3412000 bytes, no download folder has a file for it",
+            DownloadNotOnPhone.said("aaaaaaaaaaa", 0, 1_048_576, 3_412_000, inFolder = false, "UnknownHostException", online = false),
         )
-        assertTrue(DownloadNotOnPhone.said("aaaaaaaaaaa", 3_300_000, 0, -1, inFolder = true)
-            .endsWith("from byte 3300000, and there is no network: the download cache holds none of it, a download folder has a file for it now"))
-        assertTrue(DownloadNotOnPhone.said("aaaaaaaaaaa", 0, 500, -1, inFolder = false).contains("holds 500 bytes of it, its length not known"))
+        assertTrue(DownloadNotOnPhone.said("aaaaaaaaaaa", 3_300_000, 0, -1, inFolder = true, "UnknownHostException", online = false)
+            .endsWith("from byte 3300000, and fetching it failed (UnknownHostException) while the phone was offline: " +
+                "the download cache holds none of it, a download folder has a file for it now"))
+        assertTrue(DownloadNotOnPhone.said("aaaaaaaaaaa", 0, 500, -1, inFolder = false, "UnknownHostException", online = false)
+            .contains("holds 500 bytes of it, its length not known"))
+    }
+
+    @Test
+    fun `the log line says what is known of the network, never that there is none when the phone was online`() {
+        // A refused connection or one that timed out comes on a phone that is online too: a VPN, a blocked network (#77).
+        val online = DownloadNotOnPhone.said("aaaaaaaaaaa", 0, 0, -1, inFolder = false, "ConnectException", online = true)
+        assertTrue(online, online.contains(", and fetching it failed (ConnectException) while the phone was online: "))
+        val offline = DownloadNotOnPhone.said("aaaaaaaaaaa", 0, 0, -1, inFolder = false, "ConnectTimeoutException", online = false)
+        assertTrue(offline, offline.contains(", and fetching it failed (ConnectTimeoutException) while the phone was offline: "))
+        for (line in listOf(online, offline)) assertFalse(line, "there is no network" in line)
     }
 
     @Test
@@ -71,7 +83,8 @@ class DownloadNotOnPhoneTest {
         assertTrue(helper, "ContentMetadata.getContentLength(downloadCache.getContentMetadata(mediaId))" in helper)
         assertTrue(helper, "downloadCache.getCachedBytes(mediaId, 0, C.LENGTH_UNSET.toLong())" in helper)
         assertTrue(helper, "downloadUtil.localMgr.isExists(mediaId)?.exists() == true" in helper)
-        assertTrue(helper, "Log.w(TAG, \"\$said: \${DownloadNotOnPhone.said(mediaId, position, held, length, inFolder)}\")" in helper)
+        assertTrue(helper, "Log.w(TAG, \"\$said: \${DownloadNotOnPhone.said(mediaId, position, held, length, inFolder, " +
+            "failure.javaClass.simpleName, online = isNetworkConnected.value)}\")" in helper)
         // Reading the caches never fails the song a second time.
         assertEquals(3, Regex("runCatching \\{").findAll(helper).count())
     }
