@@ -8,7 +8,6 @@ package com.dd3boh.outertune.ui.player
 
 import android.content.Intent
 import android.media.audiofx.AudioEffect
-import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
@@ -84,6 +83,7 @@ import com.dd3boh.outertune.ui.menu.removeFromPlaylist
 import com.dd3boh.outertune.utils.ActivityLog
 import com.dd3boh.outertune.utils.getDownloadState
 import com.dd3boh.outertune.utils.rememberEnumPreference
+import com.dd3boh.outertune.utils.Toaster
 import com.zionhuang.innertube.YouTube
 import kotlinx.coroutines.flow.flowOf
 import java.time.LocalDateTime
@@ -387,7 +387,7 @@ internal fun PinGreyed(why: Int?, content: @Composable () -> Unit) {
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
                     onClickLabel = reason,
-                ) { Toast.makeText(context, reason, Toast.LENGTH_SHORT).show() }
+                ) { Toaster.show(context, reason) }
         )
     }
 }
