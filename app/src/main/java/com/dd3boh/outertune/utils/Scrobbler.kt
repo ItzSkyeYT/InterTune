@@ -8,17 +8,21 @@ import com.dd3boh.outertune.constants.LastFmScrobbleKey
 import com.dd3boh.outertune.constants.LastFmSessionKey
 import com.dd3boh.outertune.constants.LastFmUsernameKey
 import com.dd3boh.outertune.constants.PauseListenHistoryKey
+import com.dd3boh.outertune.listenbrainz.ListenBrainzSender
 import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.playback.ListenReporting
 import com.dd3boh.outertune.playback.ListenRules
 import android.content.Context
 import androidx.datastore.preferences.core.edit
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Sends plays to Last.fm, if the user has connected an account.
+ * Sends plays to Last.fm, if the user has connected an account, and hands each to ListenBrainz
+ * beside it ([ListenBrainzSender], Unreleased.LISTENBRAINZ), on the same rules.
  *
  * Deliberately quiet. A scrobble that fails is not worth a message: the user did not ask for one at
  * that moment, the cause is almost always the network, and the play is already counted in
@@ -31,6 +35,8 @@ import javax.inject.Singleton
 @Singleton
 class Scrobbler @Inject constructor(
     @ApplicationContext private val context: Context,
+    /** ListenBrainz's own sending, which the settings card connects and disconnects. */
+    val listenBrainz: ListenBrainzSender,
 ) {
     // Empty in a build without them and in any copy not signed with the release key. See BuiltInKeys.
     private val apiKey get() = BuiltInKeys.lastFmApiKey
@@ -73,10 +79,12 @@ class Scrobbler @Inject constructor(
         }
     }
 
-    suspend fun nowPlaying(metadata: MediaMetadata) {
-        if (!ListenReporting.sendsNowPlaying(context.dataStore.get(PauseListenHistoryKey, false))) return
-        val session = sessionOrNull() ?: return
-        val artist = primaryArtist(metadata.artists.map { it.name }) ?: return
+    suspend fun nowPlaying(metadata: MediaMetadata): Unit = coroutineScope {
+        if (!ListenReporting.sendsNowPlaying(context.dataStore.get(PauseListenHistoryKey, false))) return@coroutineScope
+        // ListenBrainz beside Last.fm, neither waiting for the other's answer.
+        launch { listenBrainz.nowPlaying(metadata) }
+        val session = sessionOrNull() ?: return@coroutineScope
+        val artist = primaryArtist(metadata.artists.map { it.name }) ?: return@coroutineScope
         api.updateNowPlaying(
             sessionKey = session,
             artist = artist,
@@ -99,12 +107,13 @@ class Scrobbler @Inject constructor(
         playedMs: Long,
         startedAtSeconds: Long,
         durationSeconds: Int = metadata.duration,
-    ) {
-        val session = sessionOrNull() ?: return
+    ): Unit = coroutineScope {
         val duration = durationSeconds
         // One rule for Last.fm and ListenBrainz, so a play does not count for one and not the other.
-        if (!ListenRules.qualifies(playedMs, duration)) return
-        val artist = primaryArtist(metadata.artists.map { it.name }) ?: return
+        if (!ListenRules.qualifies(playedMs, duration)) return@coroutineScope
+        launch { listenBrainz.scrobble(metadata, startedAtSeconds, duration) }
+        val session = sessionOrNull() ?: return@coroutineScope
+        val artist = primaryArtist(metadata.artists.map { it.name }) ?: return@coroutineScope
         api.scrobble(
             sessionKey = session,
             artist = artist,
