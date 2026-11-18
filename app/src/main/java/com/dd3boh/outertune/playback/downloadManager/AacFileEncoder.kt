@@ -78,11 +78,18 @@ internal class AacFileEncoder(
         val codec = codec!!
         var at = 0
         val frameBytes = channels * 2
+        var idle = System.nanoTime()
         while (at < total * 2) {
             val index = codec.dequeueInputBuffer(WAIT_US)
             if (index < 0) {
-                // No room: the encoder wants its output taken before it takes more.
+                // No room: the encoder wants its output taken before it takes more. One that takes
+                // nothing and gives nothing for STALL_NS has stopped, and is given up as finish gives
+                // up: waited for, it held the conversions' one-at-a-time lock and the hold that keeps
+                // the app up for good, and Cancel, asked between pieces, never came to be asked.
+                val before = count
                 drain()
+                if (count != before) idle = System.nanoTime()
+                else if (System.nanoTime() - idle > STALL_NS) throw IOException("the AAC encoder stopped taking audio")
                 continue
             }
             val buffer = codec.getInputBuffer(index) ?: throw IOException("the AAC encoder has no input buffer")
@@ -92,6 +99,7 @@ internal class AacFileEncoder(
             codec.queueInputBuffer(index, 0, n, queued * 1_000_000L / rate, 0)
             queued += n / frameBytes
             at += n
+            idle = System.nanoTime()
             drain()
         }
     }

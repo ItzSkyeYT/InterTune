@@ -42,6 +42,14 @@ class DownloadSays(private val context: Context) {
     }
 
     /**
+     * The download of [id] failed or was removed: it is no longer waited for. Kept, a song that
+     * landed much later by a like or a sync was said as if asked for just then.
+     */
+    fun forget(id: String) {
+        asked.remove(id)
+    }
+
+    /**
      * The downloads [just] are finished, and moved into the folder where there is one: said for
      * the ones asked for by hand, with how many are files in the folder now ([inFolder]) or, when
      * none is, that they are kept inside the app.

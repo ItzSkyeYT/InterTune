@@ -2653,6 +2653,11 @@
         <item quantity="many">%d titres n\'ont pas pu être déplacés et restent dans l\'application</item>
         <item quantity="other">%d titres n\'ont pas pu être déplacés et restent dans l\'application</item>
     </plurals>
+    <plurals name="dl_move_notice_held" translatable="false">
+        <item quantity="one">%d titre sera déplacé dès qu\'il ne sera plus en lecture</item>
+        <item quantity="many">%d titres seront déplacés dès qu\'ils ne seront plus en lecture</item>
+        <item quantity="other">%d titres seront déplacés dès qu\'ils ne seront plus en lecture</item>
+    </plurals>
     <string name="dl_simple_size_folder">Dans votre dossier : %s</string>
     <string name="dl_simple_clear_confirm">Supprimer les téléchargements gardés dans l\'application ? Les titres de votre dossier restent.</string>
     <string name="dl_simple_nothing_to_move">Rien à déplacer : aucun téléchargement dans l\'application.</string>

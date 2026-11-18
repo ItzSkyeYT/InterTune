@@ -98,6 +98,7 @@ import com.dd3boh.outertune.playback.DownloadUtil
 import com.dd3boh.outertune.playback.downloadManager.DownloadFolderState
 import com.dd3boh.outertune.playback.downloadManager.DownloadFormats
 import com.dd3boh.outertune.playback.downloadManager.DownloadsSimpleLook
+import com.dd3boh.outertune.playback.downloadManager.InsideKeepsFolder
 import com.dd3boh.outertune.playback.hasLanded
 import com.dd3boh.outertune.utils.Toaster
 import com.dd3boh.outertune.ui.component.EnumListPreference
@@ -360,7 +361,8 @@ fun ColumnScope.DownloadsFrag() {
         ?.let { absoluteFilePathFromUri(context, it) } ?: downloadPath else null
     if (!look.oneRow) {
         PreferenceEntry(
-            modifier = Modifier.tourTarget(Tour.SETTING_DOWNLOAD_FOLDER).settingRow(R.string.dl_main_path_title),
+            // The tour's mark is on the simpler page's one row, drawn wherever this one is not (WhereDownloadsGoRow).
+            modifier = Modifier.settingRow(R.string.dl_main_path_title),
             title = { Text(stringResource(R.string.dl_main_path_title)) },
             // An icon like the rows around it: without one the row sat flush left, out of line with them.
             icon = { Icon(Icons.Rounded.Folder, null) },
@@ -716,7 +718,14 @@ fun ColumnScope.DownloadsFrag() {
                 showWhereChoice = false
                 whereChoiceRefused = false
                 // The folder dialog's Reset then OK: no folder saved, and the download manager told.
+                // The songs already in the folder stay in Downloads and play offline: the folder is
+                // kept as one of the extra folders the app reads (InsideKeepsFolder).
                 if (downloadPath != "") {
+                    val kept = InsideKeepsFolder.extras(
+                        uriListFromString(downloadPath).firstOrNull()?.toString().orEmpty(),
+                        uriListFromString(dlPathExtra).map { it.toString() },
+                    )
+                    onDlPathExtraChange(stringFromUriList(kept.map { it.toUri() }))
                     onDownloadPathChange("")
                     coroutineScope.launch {
                         delay(1000)
