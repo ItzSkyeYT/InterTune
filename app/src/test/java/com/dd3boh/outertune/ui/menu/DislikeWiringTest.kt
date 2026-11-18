@@ -94,6 +94,19 @@ class DislikeWiringTest {
     }
 
     @Test
+    fun `the media controls' Dislike is drawn again once the songs not to play change, never from the list before the tap`() {
+        val service = source("playback/MusicService.kt")
+        // The collector that passes over the song playing: every change redraws the buttons, before it
+        // looks at what plays, so a lift from a menu or from Exclusions shows on the button too.
+        val collector = service.substringAfter("dontPlaySongs.collect { now ->").substringBefore("val playing = ")
+        assertTrue("if (::mediaSession.isInitialized) updateNotification()" in collector)
+        // Drawn by the tap itself, it read the list as it was: the button kept its old look, and a
+        // second tap did the opposite of what it showed.
+        val toggle = service.substringAfter("fun toggleDislike() {").substringBefore("\n    fun ")
+        assertFalse("updateNotification()" in toggle)
+    }
+
+    @Test
     fun `its words are held from translators, with French beside them`() {
         val english = File("src/main/res/values/strings-ot.xml").readText()
         val french = File("src/main/res/values-fr/strings-ot.xml").readText()
