@@ -87,6 +87,21 @@ class TogetherScreenTest {
         assertTrue(labels.indexOf("R.string.together_behind") in 0 until labels.indexOf("R.string.together_ahead"))
     }
 
+    /**
+     * The sheet's picture passed its animated playhead to both phones as a number, so they composed again on every frame,
+     * covers included, for as long as it showed (performance review, 18 Nov 2026). Read only where it is drawn now.
+     */
+    @Test
+    fun `the picture's playhead is read only where it is drawn`() {
+        val dialog = File("src/main/java/com/dd3boh/outertune/ui/dialog/TogetherDialog.kt").readText()
+        val picture = dialog.substringAfter("private fun InStepPicture(").substringBefore("@Composable")
+        assertEquals(2, Regex("""PhoneSketch\(cover\) \{ head \}""").findAll(picture).count())
+        val sketch = dialog.substringAfter("private fun PhoneSketch(").substringBefore("@Composable")
+        assertTrue(sketch.startsWith("cover: String?, head: () -> Float)"))
+        assertTrue("val x = size.width * head()" in sketch.substringAfter("Canvas(Modifier.width(46.dp).height(8.dp)) {"))
+        assertEquals("read once, in the playhead's own canvas", 1, Regex("""head\(\)""").findAll(sketch).count())
+    }
+
     @Test
     fun `a guest can suggest from both song menus`() {
         // Quick picks and search results open YouTubeSongMenu, the library SongMenu: the item was in one only.

@@ -583,7 +583,9 @@ private fun InStepPicture(cover: String?, modifier: Modifier = Modifier) {
     val wave by motion.animateFloat(0f, 1f, infiniteRepeatable(tween(2100, easing = LinearEasing)), label = "wave")
     val waveColor = MaterialTheme.colorScheme.primary
     Row(modifier, verticalAlignment = Alignment.CenterVertically) {
-        PhoneSketch(cover, head)
+        // The playhead as a function, read only where it is drawn: as a number it made both phones, their covers
+        // included, compose again on every frame for as long as the picture showed (performance review, 18 Nov 2026).
+        PhoneSketch(cover) { head }
         Canvas(Modifier.size(width = 56.dp, height = 72.dp)) {
             for (i in 0 until 3) {
                 val p = (wave + i / 3f) % 1f
@@ -599,12 +601,12 @@ private fun InStepPicture(cover: String?, modifier: Modifier = Modifier) {
                 )
             }
         }
-        PhoneSketch(cover, head)
+        PhoneSketch(cover) { head }
     }
 }
 
 @Composable
-private fun PhoneSketch(cover: String?, head: Float) {
+private fun PhoneSketch(cover: String?, head: () -> Float) {
     val primary = MaterialTheme.colorScheme.primary
     val track = MaterialTheme.colorScheme.outlineVariant
     val lines = MaterialTheme.colorScheme.onSurfaceVariant
@@ -642,7 +644,7 @@ private fun PhoneSketch(cover: String?, head: Float) {
         Spacer(Modifier.height(10.dp))
         Canvas(Modifier.width(46.dp).height(8.dp)) {
             val y = size.height / 2
-            val x = size.width * head
+            val x = size.width * head()
             drawLine(track, Offset(0f, y), Offset(size.width, y), strokeWidth = 2.dp.toPx(), cap = StrokeCap.Round)
             drawLine(primary, Offset(0f, y), Offset(x, y), strokeWidth = 2.dp.toPx(), cap = StrokeCap.Round)
             drawCircle(primary, radius = 3.5.dp.toPx(), center = Offset(x, y))
