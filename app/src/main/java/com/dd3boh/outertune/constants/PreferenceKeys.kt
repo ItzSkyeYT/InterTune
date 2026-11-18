@@ -123,6 +123,8 @@ val LastFmUsernameKey = stringPreferencesKey("lastFmUsername")
 
 /** Scrobbling can be paused without disconnecting the account. */
 val LastFmScrobbleKey = booleanPreferencesKey("lastFmScrobble")
+/** Debug builds only: Last.fm acts as it will from 1 December 2026 (LastFmEnd), to walk that before the date. */
+val LastFmActAsEndedKey = booleanPreferencesKey("lastFmActAsEnded")
 val AudioGaplessOffloadKey = booleanPreferencesKey("enableGaplessOffload")
 
 val MaxQueuesKey = intPreferencesKey("maxQueues")

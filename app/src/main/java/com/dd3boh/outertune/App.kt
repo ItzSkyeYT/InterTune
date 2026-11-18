@@ -81,6 +81,7 @@ import com.dd3boh.outertune.utils.CrashLog
 import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.utils.ReportFeed
 import com.dd3boh.outertune.utils.RunLogs
+import com.dd3boh.outertune.utils.Scrobbler
 import com.dd3boh.outertune.utils.LocalArtworkPathKeyer
 import com.dd3boh.outertune.utils.dataStore
 import com.dd3boh.outertune.utils.get
@@ -137,6 +138,9 @@ class App : Application(), SingletonImageLoader.Factory {
         // 0.11 and 0.11.1 showed a test row that wrote the Bluetooth devices nearby to files in
         // this folder, which Android backs up. Nothing ever read them, so they go.
         GlobalScope.launch(Dispatchers.IO) { ProximityProbe.forgetOldLogs(getExternalFilesDir(null)) }
+        // From 1 December 2026 Last.fm takes nothing from this app (LastFmEnd), so its account
+        // goes too, once: a sign-in nobody can use stays out of the settings and of backups.
+        GlobalScope.launch(Dispatchers.IO) { Scrobbler.forgetIfClosed(dataStore) }
 
         instance = this;
         // Every request that changes the account asks this first, so "Read only" and signed out

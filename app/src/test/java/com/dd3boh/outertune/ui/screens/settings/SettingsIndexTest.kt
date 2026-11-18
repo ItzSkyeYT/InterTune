@@ -177,6 +177,7 @@ class SettingsIndexTest {
         val LEFT_OUT = mapOf(
             "automix" to "The AutoMix prototype's one switch, drawn only with AUTOMIX on and Mix (AUTOMIX_EDITOR) off, which no build has: each playlist's Mix switch stands in for it.",
             "lastfm_unavailable" to "Says that this build has no Last.fm; there is nothing to set.",
+            "lastfm_ended" to "Says that Last.fm no longer works in the app (LastFmEnd); there is nothing to set.",
             "lastfm_connected_as" to "The connected account, named: \"Connect a Last.fm account\" lights the Scrobble switch beside it instead.",
             "polls_unavailable" to "Says that this build has no questions; there is nothing to set.",
             "polls_one_waiting" to "A question waiting, shown only then.",

@@ -26,12 +26,23 @@ import javax.inject.Singleton
  * There is no offline queue yet. That is the obvious next step and is noted in the TODO rather
  * than half built here, because a queue that survives restarts needs a table, and adding one means
  * a database migration.
+ *
+ * Every call checks the key first, and from 1 December 2026 the key reads as empty (LastFmEnd),
+ * so from then nothing here reaches Last.fm.
+ *
+ * @param settings the app's settings, read from memory.
+ * @param connect Last.fm's client for a key and its secret. A test hands in one over a fake network.
  */
 @Singleton
-class Scrobbler @Inject constructor(
-    @ApplicationContext private val context: Context,
+class Scrobbler internal constructor(
+    private val settings: SettingsSnapshot,
+    private val connect: (apiKey: String, apiSecret: String) -> LastFm,
 ) {
-    // Empty in a build without them and in any copy not signed with the release key. See BuiltInKeys.
+    @Inject
+    constructor(@ApplicationContext context: Context) : this(context.dataStore, { key, secret -> LastFm(key, secret) })
+
+    // Empty in a build without them, in any copy not signed with the release key, and from
+    // 1 December 2026 on. See BuiltInKeys and LastFmEnd.
     private val apiKey get() = BuiltInKeys.lastFmApiKey
     private val apiSecret get() = BuiltInKeys.lastFmApiSecret
 
@@ -42,12 +53,12 @@ class Scrobbler @Inject constructor(
     /** Similar tracks are a public read: the key is enough, with or without an account. */
     val canFindSimilar get() = apiKey.isNotEmpty()
 
-    private val api by lazy { LastFm(apiKey, apiSecret) }
+    private val api by lazy { connect(apiKey, apiSecret) }
 
     private fun sessionOrNull(): String? {
         if (!configured) return null
-        if (!context.dataStore.get(LastFmScrobbleKey, true)) return null
-        return context.dataStore.get(LastFmSessionKey, "").takeIf { it.isNotBlank() }
+        if (!settings.get(LastFmScrobbleKey, true)) return null
+        return settings.get(LastFmSessionKey, "").takeIf { it.isNotBlank() }
     }
 
     /** Step one of connecting: the token, and where to send the user to approve it. */
@@ -56,24 +67,24 @@ class Scrobbler @Inject constructor(
         return api.requestToken().map { token -> token to api.authorizeUrl(token) }
     }
 
-    /** Step two, after the user has approved in the browser. */
-    suspend fun completeLogin(token: String): Result<String> =
-        api.session(token).onSuccess { session ->
-            context.dataStore.edit {
+    /**
+     * Step two, after the user has approved in the browser. Checks the key like every other call:
+     * without that the login screen, still open when Last.fm closed, went on asking it.
+     */
+    suspend fun completeLogin(token: String): Result<String> {
+        if (!configured) return Result.failure(IllegalStateException("No Last.fm API key in this build"))
+        return api.session(token).onSuccess { session ->
+            settings.edit {
                 it[LastFmSessionKey] = session.key
                 it[LastFmUsernameKey] = session.name
             }
         }.map { it.name }
-
-    suspend fun logout() {
-        context.dataStore.edit {
-            it.remove(LastFmSessionKey)
-            it.remove(LastFmUsernameKey)
-        }
     }
 
+    suspend fun logout() = forget(settings)
+
     suspend fun nowPlaying(metadata: MediaMetadata) {
-        if (!ListenReporting.sendsNowPlaying(context.dataStore.get(PauseListenHistoryKey, false))) return
+        if (!ListenReporting.sendsNowPlaying(settings.get(PauseListenHistoryKey, false))) return
         val session = sessionOrNull() ?: return
         val artist = primaryArtist(metadata.artists.map { it.name }) ?: return
         api.updateNowPlaying(
@@ -136,6 +147,25 @@ class Scrobbler @Inject constructor(
 
     companion object {
         private const val TAG = "Scrobbler"
+
+        /**
+         * Once Last.fm has closed (LastFmEnd), forgets the account: a sign-in nobody can use any
+         * more stays out of the settings and out of a backup's sign-ins. Run at each start, it has
+         * something to do once. The scrobble switch and the choice of similar songs are kept.
+         */
+        suspend fun forgetIfClosed(settings: SettingsSnapshot) {
+            if (!LastFmEnd.closed()) return
+            if (settings[LastFmSessionKey] == null && settings[LastFmUsernameKey] == null) return
+            Log.i(TAG, "Last.fm has closed, forgetting the account")
+            forget(settings)
+        }
+
+        private suspend fun forget(settings: SettingsSnapshot) {
+            settings.edit {
+                it.remove(LastFmSessionKey)
+                it.remove(LastFmUsernameKey)
+            }
+        }
 
         /** Last.fm's "Invalid session key - Please re-authenticate". */
         const val ERROR_INVALID_SESSION = 9
