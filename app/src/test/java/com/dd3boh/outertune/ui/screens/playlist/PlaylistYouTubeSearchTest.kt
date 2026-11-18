@@ -112,6 +112,31 @@ class PlaylistYouTubeSearchTest {
     }
 
     @Test
+    fun `no selection while YouTube Music's songs are listed, so its bar never acts on the playlist's hidden rows`() {
+        // Found 18 Nov 2026: a song picked, then the search opened on YouTube Music (the remembered choice), and the
+        // bar stayed up over YouTube's songs: Select all took every row of the playlist, and Remove from playlist
+        // emptied it, on YouTube Music too when synced.
+        val screen = code("ui/screens/playlist/LocalPlaylistScreen.kt")
+        // Opening the search there ends it, and so does a screen brought back after Android closed the app: both the
+        // selection and the open search are saved with the screen.
+        assertTrue("LaunchedEffect(searchOnline, inSelectMode) {\n        if (searchOnline && inSelectMode) onExitSelectionMode()\n    }" in screen)
+        assertTrue("var inSelectMode by rememberSaveable { mutableStateOf(false) }" in screen)
+        assertTrue("var isSearching by rememberSaveable { mutableStateOf(false) }" in screen)
+        // The bar is not drawn for the frame before the effect runs, and there is no other bar.
+        assertTrue("FloatingFooter(inSelectMode && !searchOnline) {" in screen)
+        assertEquals(1, Regex("""FloatingFooter\(""").findAll(screen).count())
+        // Nor can its Select all reach a row while it slides away over them.
+        assertTrue("val shownSongs = if (searchOnline) emptyList<PlaylistSong>() else if (isSearching) mutableSongs else playlistWithSongs.second" in screen)
+        // The switch's own tap ends it, as it did.
+        val switch = screen.substringAfter("PlaylistSearchSwitch(online = ").substringBefore("}) else null,")
+        assertTrue(switch, "onExitSelectionMode()" in switch)
+        // And YouTube Music's rows have no way into it: a long press opens the song's menu.
+        val params = code("ui/screens/playlist/PlaylistYouTubeSearch.kt")
+            .substringAfter("fun LazyListScope.playlistYouTubeResults(").substringBefore(") {")
+        assertTrue(params, listOf("inSelectMode", "onSelect", "selection").none { it in params })
+    }
+
+    @Test
     fun `a search YouTube did not answer says why with the fix, and one with nothing found says so`() {
         val rows = code("ui/screens/playlist/PlaylistYouTubeSearch.kt").substringAfter("fun LazyListScope.playlistYouTubeResults(")
         val after = rows.substringAfter("if (!waiting && results.isEmpty() && query.isNotBlank()) {")
