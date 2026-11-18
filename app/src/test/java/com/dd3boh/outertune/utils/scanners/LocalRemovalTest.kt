@@ -18,6 +18,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.File
 
 /**
  * The part of Remove from library and Exclude folder with no Android in it (LocalRemoval): the line Excluded scan
@@ -148,6 +149,22 @@ class LocalRemovalTest {
         // With no scan running it goes on at once, and the artists' linking after a scan (5) is no scan of files.
         for (idle in listOf(-1, 0, 4, 5)) withTimeout(100) { LocalRemoval.afterScan(MutableStateFlow(idle), settle = 10_000) }
         assertEquals(listOf(1, 2, 3), (-1..5).filter { LocalRemoval.scanning(it) })
+    }
+
+    @Test
+    fun `a file whose name holds a colon maps back to its own path, before Android 11 too`() {
+        // Found 18 Nov 2026 (the review of local-remove, L6): before Android 11 fileFromUri split a document id at
+        // every ':', so with the MediaStore scanner a removed "Live: Paris.mp3" read as "Music/Live" and came back
+        // at the next scan, and a folder named like the part before the ':' was left out instead.
+        val id = LocalRemoval.documentId("/storage/emulated/0/Music/Live: Paris.mp3", phone)
+        assertEquals("primary:Music/Live: Paris.mp3", id)
+        assertEquals("primary" to "Music/Live: Paris.mp3", volumeAndPath(id!!))
+        assertEquals("1A2B-3C4D" to "Sets/a:b:c.flac", volumeAndPath("1A2B-3C4D:Sets/a:b:c.flac"))
+        assertEquals("primary" to "", volumeAndPath("primary:"))
+        assertNull(volumeAndPath("primary"))
+        val utils = File("src/main/java/com/dd3boh/outertune/utils/scanners/UriFileUtils.kt").readText()
+        assertFalse("no document id is split at every ':'", "split(\":\")" in utils)
+        assertTrue("val (type, relativePath) = volumeAndPath(docId) ?: return null" in utils)
     }
 
     @Test
