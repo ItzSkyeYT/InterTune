@@ -63,10 +63,10 @@ class MediaButtonStartTest {
 
     @Test
     fun `a play press on a player that has a song is looked at again, and no other key`() {
-        // The widget's play button, the play button of media3's notification (a
-        // PendingIntent.getForegroundService) and the receiver reach a paused service this way,
-        // and a song that then does not start left Android waiting. Next, previous and pause come
-        // by startService, with no demand.
+        // The widget's play button and the receiver reach a paused service this way (and the play
+        // button of media3's notification did, as a PendingIntent.getForegroundService, until
+        // PlainPlayNotifications), and a song that then does not start left Android waiting. Next,
+        // previous and pause come by startService, with no demand.
         assertTrue(MediaButtonStart.startsPlayback(android.view.KeyEvent.KEYCODE_MEDIA_PLAY))
         assertTrue(MediaButtonStart.startsPlayback(android.view.KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE))
         assertTrue(MediaButtonStart.startsPlayback(android.view.KeyEvent.KEYCODE_HEADSETHOOK))
@@ -186,6 +186,7 @@ class MediaButtonStartTest {
         assertTrue("R.string.music_player" in start)
         val service = source("MusicService.kt")
         assertTrue("media3's notification uses the same channel and its name",
-            Regex("""DefaultMediaNotificationProvider\(\s*this@MusicService,\s*\{ NOTIFICATION_ID },\s*CHANNEL_ID,\s*R\.string\.music_player""").containsMatchIn(service))
+            Regex("""PlainPlayNotifications\(\s*this@MusicService,\s*\{ NOTIFICATION_ID },\s*CHANNEL_ID,\s*R\.string\.music_player""").containsMatchIn(service))
+        assertTrue("which is media3's own provider", ") : DefaultMediaNotificationProvider(service, notificationIdProvider, channelId, channelNameResourceId) {" in source("PlainPlayNotifications.kt"))
     }
 }

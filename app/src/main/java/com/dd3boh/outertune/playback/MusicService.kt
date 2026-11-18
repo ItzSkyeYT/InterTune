@@ -79,7 +79,6 @@ import androidx.media3.exoplayer.audio.SilenceSkippingAudioProcessor
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.exoplayer.source.ShuffleOrder
 import androidx.media3.session.CommandButton
-import androidx.media3.session.DefaultMediaNotificationProvider
 import androidx.media3.session.MediaController
 import androidx.media3.session.MediaLibraryService
 import androidx.media3.session.MediaSession
@@ -1594,8 +1593,10 @@ class MusicService : MediaLibraryService(),
         // The widget's heart shows the like as stored, wherever it was given or taken back.
         WidgetStore.followLikes(this, scope) { id -> database.songLiked(id) }
 
+        // media3's own notification, whose play button no longer demands the foreground of a
+        // service that may not reach it (PlainPlayNotifications).
         setMediaNotificationProvider(
-            DefaultMediaNotificationProvider(
+            PlainPlayNotifications(
                 this@MusicService,
                 { NOTIFICATION_ID },
                 CHANNEL_ID,
@@ -6833,8 +6834,9 @@ class MusicService : MediaLibraryService(),
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (BuildConfig.BUILD_TYPE == "debug" && Unreleased.AUTOMIX_EDITOR) intent?.getStringExtra("mixtrial")?.let { mixTrial(it) }
         // media3's media button receiver starts the service with startForegroundService, whether
-        // it was running or not, and so do the widget and the play button of media3's own
-        // notification (MediaButtonStart). No intent at all is Android bringing the service back
+        // it was running or not, and so does the widget (MediaButtonStart); the play button of
+        // media3's notification is a plain start now (PlainPlayNotifications), looked at the same
+        // way since it cannot be told apart. No intent at all is Android bringing the service back
         // after the app's process died, with what the old process still owed it.
         if (intent == null) settleAfterRestart()
         else if (intent.action == Intent.ACTION_MEDIA_BUTTON) holdForegroundForMediaButton(MediaButtonStart.keyOf(intent))

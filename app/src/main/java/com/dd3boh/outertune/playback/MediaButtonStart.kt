@@ -32,9 +32,10 @@ import com.dd3boh.outertune.R
  * shown and taken away at once and the service stops.
  *
  * A play press also reaches a service that is running, paused and out of the foreground, the same
- * way: from the widget, from the play button of media3's notification, from the receiver. media3
- * then plays and shows at once, unless the song does not start (Android refuses the audio focus
- * during a call, say), so the guard looks at that start too.
+ * way: from the widget and from the receiver. media3 then plays and shows at once, unless the song
+ * does not start (Android refuses the audio focus during a call, say), so the guard looks at that
+ * start too. The play button of media3's notification came this way as well until it became a
+ * plain start, which owes Android nothing (PlainPlayNotifications).
  *
  * And when the app's process dies while Android still waits, Android brings the service back in
  * a new process, with no intent, and waits again there: issue #137, a trace with no caller in the
@@ -72,8 +73,8 @@ internal object MediaButtonStart {
     const val LET_GO_MS = 60_000L
 
     /**
-     * Whether a media key asks to play: the keys that media3's receiver, the widget and the play
-     * button of media3's notification send with startForegroundService.
+     * Whether a media key asks to play: the keys that media3's receiver and the widget send with
+     * startForegroundService (and that media3's notification sent so, before PlainPlayNotifications).
      */
     fun startsPlayback(keyCode: Int?): Boolean =
         keyCode == KeyEvent.KEYCODE_MEDIA_PLAY || keyCode == KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE || keyCode == KeyEvent.KEYCODE_HEADSETHOOK
