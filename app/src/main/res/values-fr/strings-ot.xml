@@ -2691,4 +2691,7 @@
     <string name="metrolist_import_too_old">Cette sauvegarde vient d\'InnerTune ou d\'un ancien Metrolist. Restaurer prend celles d\'InnerTune ; pour Metrolist, mettez-le à jour et faites une nouvelle sauvegarde.</string>
     <string name="metrolist_import_other_file">Choisir un autre fichier</string>
     <string name="metrolist_import_failed">Impossible de lire cette sauvegarde</string>
+    <!-- The library search when it finds nothing (#200), held from translators. -->
+    <string name="library_search_none" translatable="false">Pas dans votre bibliothèque</string>
+    <string name="library_search_online" translatable="false">Rechercher sur YouTube Music</string>
 </resources>

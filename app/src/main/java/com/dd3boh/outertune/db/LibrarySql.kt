@@ -72,7 +72,28 @@ object LibrarySql {
      * ask for a song in the library as well, so a saved album or artist with none, a synced
      * playlist (its songs are stored outside the library), an empty playlist or one filled from
      * search could never be found, though Library listed them.
+     *
+     * Each puts first what is named exactly as typed, then what starts with it, then a name with a
+     * word that starts with it, then the rest, A to Z (LibrarySearch.rank says the same once the
+     * kinds are put together). With no order the rows came as stored, so the overview's first three
+     * could leave out a song called just what was typed: "c" came ninth among the songs with a c
+     * (Ti-Die, 18 Nov 2026).
      */
+
+    /** Songs in the library or downloaded, by title. */
+    const val SEARCH_SONGS = """
+        SELECT * FROM song
+        WHERE title LIKE '%' || :query || '%' AND (inLibrary IS NOT NULL OR dateDownload IS NOT NULL)
+        ORDER BY
+            CASE
+                WHEN lower(title) = lower(:query) THEN 0
+                WHEN title LIKE :query || '%' THEN 1
+                WHEN title LIKE '% ' || :query || '%' THEN 2
+                ELSE 3
+            END,
+            title COLLATE NOCASE
+        LIMIT :previewSize
+    """
 
     /** The playlists Library lists: saved ones and the app's own. */
     const val SEARCH_PLAYLISTS = """
@@ -86,6 +107,14 @@ object LibrarySql {
         WHERE p.name LIKE '%' || :query || '%'
             AND (p.bookmarkedAt IS NOT NULL OR p.isLocal = 1)
         GROUP BY p.id
+        ORDER BY
+            CASE
+                WHEN lower(p.name) = lower(:query) THEN 0
+                WHEN p.name LIKE :query || '%' THEN 1
+                WHEN p.name LIKE '% ' || :query || '%' THEN 2
+                ELSE 3
+            END,
+            p.name COLLATE NOCASE
         LIMIT :previewSize
     """
 
@@ -97,6 +126,14 @@ object LibrarySql {
         WHERE album.title LIKE '%' || :query || '%'
             AND (song.inLibrary IS NOT NULL OR song.dateDownload IS NOT NULL OR album.bookmarkedAt IS NOT NULL)
         GROUP BY album.id
+        ORDER BY
+            CASE
+                WHEN lower(album.title) = lower(:query) THEN 0
+                WHEN album.title LIKE :query || '%' THEN 1
+                WHEN album.title LIKE '% ' || :query || '%' THEN 2
+                ELSE 3
+            END,
+            album.title COLLATE NOCASE
         LIMIT :previewSize
     """
 
@@ -115,7 +152,14 @@ object LibrarySql {
         WHERE artist.name LIKE '%' || :query || '%'
         GROUP BY artist.id
         HAVING songCount > 0 OR artist.bookmarkedAt IS NOT NULL
-        ORDER BY artist.bookmarkedAt ASC
+        ORDER BY
+            CASE
+                WHEN lower(artist.name) = lower(:query) THEN 0
+                WHEN artist.name LIKE :query || '%' THEN 1
+                WHEN artist.name LIKE '% ' || :query || '%' THEN 2
+                ELSE 3
+            END,
+            artist.bookmarkedAt ASC
         LIMIT :previewSize
     """
 

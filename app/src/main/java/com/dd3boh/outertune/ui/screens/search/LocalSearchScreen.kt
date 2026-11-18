@@ -18,6 +18,11 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.NavigateNext
 import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.Language
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
@@ -75,6 +80,8 @@ fun LocalSearchScreen(
     query: String,
     navController: NavController,
     onDismiss: () -> Unit,
+    /** The same words searched on YouTube Music, offered when the library has nothing for them. */
+    onSearchOnline: ((String) -> Unit)? = null,
     viewModel: LocalSearchViewModel = hiltViewModel(),
 ) {
     val context = LocalContext.current
@@ -260,11 +267,31 @@ fun LocalSearchScreen(
                 item(
                     key = "no_result"
                 ) {
-                    EmptyPlaceholder(
-                        icon = Icons.Rounded.Search,
-                        text = stringResource(R.string.no_results_found),
-                        modifier = Modifier.animateItem()
-                    )
+                    // Says where it looked, and offers the other search for the same words: with the
+                    // bar on the library, a song that is not saved was only ever "No results found"
+                    // (#200), and nothing on the page said that YouTube Music was not asked.
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .animateItem()
+                    ) {
+                        EmptyPlaceholder(
+                            icon = Icons.Rounded.Search,
+                            text = stringResource(R.string.library_search_none),
+                        )
+                        if (onSearchOnline != null) {
+                            TextButton(onClick = { onSearchOnline(result.query) }) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Language,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                Text(stringResource(R.string.library_search_online))
+                            }
+                        }
+                    }
                 }
             }
         }

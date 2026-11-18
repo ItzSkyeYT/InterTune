@@ -149,31 +149,38 @@ fun SearchBarContainer(
         }
     }
 
+    // The words searched on YouTube Music: a link opens what it points to, anything else the page of
+    // results. Also offered by the library's search when it finds nothing there, without changing
+    // which search the bar opens on.
+    val searchOnline: (String) -> Unit = {
+        onSearchActiveChange(false)
+        if (youtubeNavigator(
+                context,
+                navController,
+                coroutineScope,
+                playerConnection,
+                snackbarHostState,
+                it.toUri(),
+                menuState,
+            )
+        ) {
+            // don't do anything
+        } else {
+            navController.navigate("search/${it.urlEncode()}" + SearchFilters.routeSuffix(resultsFilter))
+            if (context.dataStore[PauseSearchHistoryKey] != true) {
+                database.query {
+                    insert(SearchHistory(query = it))
+                }
+            }
+        }
+    }
+
     val onSearch: (String) -> Unit = {
         if (it.isNotEmpty()) {
             if (searchSource == SearchSource.LOCAL) {
                 focusManager.clearFocus(true)
             } else {
-                onSearchActiveChange(false)
-                if (youtubeNavigator(
-                        context,
-                        navController,
-                        coroutineScope,
-                        playerConnection,
-                        snackbarHostState,
-                        it.toUri(),
-                        menuState,
-                    )
-                ) {
-                    // don't do anything
-                } else {
-                    navController.navigate("search/${it.urlEncode()}" + SearchFilters.routeSuffix(resultsFilter))
-                    if (context.dataStore[PauseSearchHistoryKey] != true) {
-                        database.query {
-                            insert(SearchHistory(query = it))
-                        }
-                    }
-                }
+                searchOnline(it)
             }
         }
     }
@@ -333,6 +340,7 @@ fun SearchBarContainer(
                         query = query.text,
                         navController = navController,
                         onDismiss = { onSearchActiveChange(false) },
+                        onSearchOnline = searchOnline,
                     )
 
                     SearchSource.ONLINE -> OnlineSearchScreen(
