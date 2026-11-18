@@ -85,7 +85,8 @@ class ListenBrainzRowsTest {
         assertTrue("check == null -> problem = R.string.listenbrainz_unreachable" in dialog)
         assertTrue("else -> problem = R.string.listenbrainz_token_unknown" in dialog)
         assertTrue("Links.LISTENBRAINZ_SETTINGS" in dialog)
-        assertTrue("const val LISTENBRAINZ_SETTINGS = \"https://listenbrainz.org/settings/\"" in fileCode("constants/Links.kt"))
+        // Read whole: code() cuts a line at its first //, which an address has.
+        assertTrue("const val LISTENBRAINZ_SETTINGS = \"https://listenbrainz.org/settings/\"" in File(sources, "constants/Links.kt").readText())
     }
 
     @Test
