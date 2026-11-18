@@ -77,6 +77,7 @@ import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.datastore.preferences.core.edit
+import com.dd3boh.outertune.constants.BatteryMode
 import com.dd3boh.outertune.constants.SaverNoteShownKey
 import com.dd3boh.outertune.constants.SaverNoteWaitingKey
 import com.dd3boh.outertune.constants.Unreleased
@@ -1963,7 +1964,8 @@ class MainActivity : ComponentActivity() {
                             LaunchedEffect(phoneSaverOn, saverNoteWaiting) {
                                 if (!phoneSaverOn && saverNoteWaiting) setSaverNoteWaiting(false)
                             }
-                            val saverFromPhone = Unreleased.BATTERY_MODES &&
+                            // Saver in force (where this build offers Battery use), and because of the phone.
+                            val saverFromPhone = batteryMode == BatteryMode.SAVER &&
                                 BatteryUse.saverFromPhone(chosenBatteryMode, followPhoneSaver, phoneSaverOn)
                             val saverNoteClear = oobeStatus >= OOBE_VERSION && !catchUpOpen && !welcomeOpen &&
                                 !tourState.running && !tourFromWelcome && !updatePromptVisible &&
