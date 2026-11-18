@@ -16,6 +16,8 @@ import com.dd3boh.outertune.constants.DataSyncIdKey
 import com.dd3boh.outertune.constants.InnerTubeCookieKey
 import com.dd3boh.outertune.constants.LastFmSessionKey
 import com.dd3boh.outertune.constants.LastFmUsernameKey
+import com.dd3boh.outertune.constants.ListenBrainzTokenKey
+import com.dd3boh.outertune.constants.ListenBrainzUserKey
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -38,8 +40,16 @@ class BackupSignInsTest {
     private val prefs = mutablePreferencesOf(
         InnerTubeCookieKey to "SID=secret", DataSyncIdKey to "sync", AccountNameKey to "Mel",
         AccountEmailKey to "mel@example.com", AccountChannelHandleKey to "@mel",
-        LastFmSessionKey to "lastfm-session", LastFmUsernameKey to "mel", other to "kept",
+        LastFmSessionKey to "lastfm-session", LastFmUsernameKey to "mel",
+        ListenBrainzTokenKey to "listenbrainz-token", ListenBrainzUserKey to "mel", other to "kept",
     )
+
+    @Test
+    fun `the ListenBrainz token is a sign-in, so it is left out with the others`() {
+        // It opens the whole ListenBrainz account (sending and deleting listens), as the cookie opens YouTube's.
+        assertTrue(ListenBrainzTokenKey in SignIns.KEYS && ListenBrainzUserKey in SignIns.KEYS)
+        assertNull(SignIns.without(prefs)[ListenBrainzTokenKey])
+    }
 
     @Test
     fun `a backup's settings leave every sign-in out and keep the rest`() {
