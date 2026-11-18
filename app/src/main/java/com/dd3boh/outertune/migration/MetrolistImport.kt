@@ -23,8 +23,9 @@ import kotlinx.serialization.json.longOrNull
  * column both tables have, read from the two databases themselves, so a later Metrolist version is read the same way.
  * Their download dates and their songs that are files on their phone or computer stay out: neither plays here.
  *
- * Nothing of ours is replaced or removed. A row we already have stays as it is, except that a song liked or added to
- * the library there is liked or added here too. A play we already have is not added twice, a month's play count is
+ * Nothing of ours is removed. A row we already have stays as it is, except that a song liked or added to the library
+ * there is liked or added here too, with its date, and gets their artist and album links beside ours; the import's
+ * question says so (metrolist_import_summary). A play we already have is not added twice, a month's play count is
  * the larger of the two, and a playlist we already have, or already follow on YouTube, is not made again: the same
  * backup brought over twice changes nothing the second time.
  *

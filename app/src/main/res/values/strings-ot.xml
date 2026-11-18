@@ -2872,7 +2872,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="metrolist_import_description">Likes, playlists and plays from a Metrolist backup</string>
     <string name="metrolist_import_reading">Reading the backup</string>
     <string name="search_words_metrolist">Metrolist, switch, move, transfer, backup</string>
-    <string name="metrolist_import_summary">Songs in its library: %1$d\nLiked songs: %2$d\nPlaylists: %3$d\nPlays: %4$d\n\nNothing you already have is changed or removed.</string>
+    <string name="metrolist_import_summary" translatable="false">Songs in its library: %1$d\nLiked songs: %2$d\nPlaylists: %3$d\nPlays: %4$d\n\nNothing is removed. Songs you already have get its likes, library dates, artists and albums, and the higher play count.</string>
     <string name="metrolist_import_confirm">Import</string>
     <string name="metrolist_import_done_title">Imported from Metrolist</string>
     <string name="metrolist_import_done">New songs: %1$d\nNewly liked: %2$d\nNew in your library: %3$d\nNew playlists: %4$d\nPlays added: %5$d</string>
