@@ -590,6 +590,15 @@ fun BottomSheetPlayer(
      */
     val tabletTwoPane = tabMode
 
+    /**
+     * A phone on its side in a window under 600dp wide: split screen on its side, a 16:9 phone with
+     * its navigation bar beside the screen, a floating window. It has the stacked layout with the
+     * buttons above the title, and its cover only gets the height the controls leave, often none. So
+     * the cast button never goes at the cover's top right there, and the pill that names where music
+     * plays stays in the bottom right corner whatever the Output button says, as in a release.
+     */
+    val narrowSide = isLandscape && !tabMode && !wideScreen
+
 
     // ignoringVisibility so hiding the bars in immersive landscape does not change this bound and
     // rebuild the sheet state mid-gesture. See the matching note in MainActivity.
@@ -1992,8 +2001,9 @@ fun BottomSheetPlayer(
                         // else on the player moves or changes size for it. On a tablet's two panes,
                         // and everywhere else while the output button is off (his pick of 15 Nov
                         // 2026: the cast button at the top right, nothing under the controls). Not
-                        // in a small player, whose top right is the cover's or its circles'.
-                        if (tabletTwoPane || (!outputPill && !compactPlayer)) {
+                        // in a small player, whose top right is the cover's or its circles', nor in a
+                        // narrow window on its side, whose cover has no height to give it (narrowSide).
+                        if (tabletTwoPane || (!outputPill && !compactPlayer && !narrowSide)) {
                             CastButton(
                                 tint = onBackgroundColor,
                                 modifier = Modifier
@@ -2160,8 +2170,9 @@ fun BottomSheetPlayer(
         // Drawn after the queue's sheet. Its collapsed strip lies across the bottom of the window,
         // and under it the pill was seen and could not be pressed: the tap opened the queue. Gone
         // once the queue is most of the way up. Not on a small upright window, where that corner
-        // is the play row's.
-        if (outputPill && isLandscape && queueLayout.outputRoom == 0.dp && !tabletTwoPane && mediaMetadata != null && !queueCovers) {
+        // is the play row's. With the Output button off, still in a narrow window on its side, which
+        // has no cast button at the top right (narrowSide): the pill is its only way to the cast sheet.
+        if ((outputPill || narrowSide) && isLandscape && queueLayout.outputRoom == 0.dp && !tabletTwoPane && mediaMetadata != null && !queueCovers) {
             OutputButton(
                 tint = onBackgroundColor,
                 wide = false,

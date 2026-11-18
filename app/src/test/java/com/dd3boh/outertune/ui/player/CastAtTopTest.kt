@@ -45,7 +45,7 @@ class CastAtTopTest {
     }
 
     @Test
-    fun `the pill is drawn only with the switch on, upright and on its side`() {
+    fun `the pill is drawn with the switch on, upright and on its side`() {
         val pills = Regex("""\bOutputButton\(""").findAll(player).count()
         assertEquals(2, pills)
         var from = 0
@@ -63,11 +63,27 @@ class CastAtTopTest {
         // What each is drawn under: upright, in narrow landscape and on a tablet, the cover's top right
         // under the status bar; on its side, the top right of the cover's pane.
         val conditions = calls.map { at -> player.substring(player.lastIndexOf("if (", at), at).lines().first().trim() }.toSet()
-        assertEquals(setOf("if (tabletTwoPane || (!outputPill && !compactPlayer)) {", "if (!outputPill) {"), conditions)
+        assertEquals(setOf("if (tabletTwoPane || (!outputPill && !compactPlayer && !narrowSide)) {", "if (!outputPill) {"), conditions)
         for (at in calls) {
             val call = player.substring(at, player.indexOf("\n                            )", at))
             assertTrue(call, ".align(Alignment.TopEnd)" in call && ".padding(end = 4.dp)" in call)
         }
+    }
+
+    @Test
+    fun `a narrow window on its side keeps the pill in its corner and gets no cast button at the top`() {
+        // Under 600dp wide on its side (split screen, a 16:9 phone with its navigation bar beside the screen, a
+        // floating window) the stacked layout's cover gets what the controls leave, often no height at all: a cast
+        // button at its top right had none either, and with the pill gone there was no way to the cast sheet. So
+        // that window stays as a release has it, the switch or not.
+        assertTrue("val narrowSide = isLandscape && !tabMode && !wideScreen" in player)
+        val corner = player.lastIndexOf("OutputButton(")
+        val condition = player.substring(player.lastIndexOf("if (", corner), corner).lines().first().trim()
+        assertEquals(
+            "if ((outputPill || narrowSide) && isLandscape && queueLayout.outputRoom == 0.dp && !tabletTwoPane && mediaMetadata != null && !queueCovers) {",
+            condition,
+        )
+        assertTrue("if (tabletTwoPane || (!outputPill && !compactPlayer && !narrowSide)) {" in player)
     }
 
     @Test
