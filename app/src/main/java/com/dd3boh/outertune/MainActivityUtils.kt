@@ -6,6 +6,7 @@ import android.net.Uri
 import android.util.Log
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.datastore.preferences.core.edit
 import androidx.navigation.NavController
 import com.dd3boh.outertune.constants.PlayOrigin
@@ -30,6 +31,7 @@ import com.dd3boh.outertune.constants.ScannerStrictExtKey
 import com.dd3boh.outertune.constants.ScannerStrictFilePathsKey
 import com.dd3boh.outertune.constants.UpdateAvailableKey
 import com.dd3boh.outertune.db.MusicDatabase
+import com.dd3boh.outertune.extensions.isInternetConnected
 import com.dd3boh.outertune.models.toMediaMetadata
 import com.dd3boh.outertune.playback.DownloadUtil
 import com.dd3boh.outertune.playback.PlayerConnection
@@ -75,16 +77,33 @@ fun youtubeNavigator(
     menuState: MenuState? = null,
 ): Boolean {
     // Only a YouTube address, and true only when something was opened: see YouTubeLink.parse.
-    when (val link = YouTubeLink.parse(uri.toString()) ?: return false) {
+    val link = YouTubeLink.parse(uri.toString()) ?: return false
+
+    // No answer from YouTube: the link looked like it did nothing, offline above all. Said, with Retry.
+    fun failed(error: Throwable) {
+        reportException(error)
+        coroutineScope.launch {
+            val offline = !context.isInternetConnected()
+            val answer = snackbarHostState.showSnackbar(
+                message = context.getString(if (offline) R.string.error_no_internet else R.string.link_open_failed),
+                actionLabel = context.getString(R.string.retry),
+                withDismissAction = true,
+                duration = SnackbarDuration.Long,
+            )
+            if (answer == SnackbarResult.ActionPerformed) {
+                youtubeNavigator(context, navController, coroutineScope, playerConnection, snackbarHostState, uri, menuState)
+            }
+        }
+    }
+
+    when (link) {
         is YouTubeLink.Playlist -> if (link.id.startsWith("OLAK5uy_")) {
             coroutineScope.launch {
                 YouTube.albumSongs(link.id).onSuccess { songs ->
                     songs.firstOrNull()?.album?.id?.let { browseId ->
                         navController.navigate("album/$browseId")
                     }
-                }.onFailure {
-                    reportException(it)
-                }
+                }.onFailure(::failed)
             }
         } else {
             navController.navigate("online_playlist/${link.id}")
@@ -100,6 +119,8 @@ fun youtubeNavigator(
             }.onSuccess {
                 val s = it.firstOrNull()
                 if (s == null) {
+                    // YouTube Music answers for a video it doesn't carry (a lecture, a Short, a live) with no title, artist
+                    // or length, and there is no song to open: said in plain words.
                     coroutineScope.launch {
                         snackbarHostState.showSnackbar(
                             message = context.getString(R.string.err_invalid_ytm_song),
@@ -126,9 +147,7 @@ fun youtubeNavigator(
                         origin = PlayOrigin.EXTERNAL,
                     )
                 }
-            }.onFailure {
-                reportException(it)
-            }
+            }.onFailure(::failed)
         }
     }
 

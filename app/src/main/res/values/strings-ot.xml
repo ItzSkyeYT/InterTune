@@ -46,7 +46,9 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="tap_show_more">Tap to show more information</string>
 
 <!-- Player -->
-    <string name="err_invalid_ytm_song">Failed to play song. Only content accessible on YouTube Music can be played</string>
+    <!-- A YouTube link pasted in the search or shared to the app (youtubeNavigator): a video that is no song on YouTube Music, and no answer at all (with Retry; offline it says error_no_internet). For 0.13, the French beside them in values-fr. -->
+    <string name="err_invalid_ytm_song">InterTune can\'t play this video. It isn\'t a song on YouTube Music.</string>
+    <string name="link_open_failed">Couldn\'t open this link. Try again in a moment.</string>
     <string name="err_play_next_on_error">Error occurred. Playing next</string>
     <string name="err_stop_on_error">Error occurred. Playback stopped</string>
     <string name="err_stop_on_too_many_errors">Too many errors. Playback stopped</string>

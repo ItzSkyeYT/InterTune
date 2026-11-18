@@ -248,7 +248,8 @@
     <string name="help_contact_email_inquiries">Autres demandes (Appuyez pour copier l\'adresse e-mail)</string>
     <string name="help_support_forum">Aide et support (via GitHub)</string>
     <string name="wiki">Wiki</string>
-    <string name="err_invalid_ytm_song">Impossible de lire le titre. Seuls les contenus accessibles sur YouTube Music peuvent être lus.</string>
+    <string name="err_invalid_ytm_song">InterTune ne peut pas lire cette vidéo. Ce n\'est pas un titre de YouTube Music.</string>
+    <string name="link_open_failed">Impossible d\'ouvrir ce lien. Réessayez dans un moment.</string>
     <string name="err_restore_incompatible_database">Impossible de restaurer une base de données incompatible</string>
     <string name="m3u_import_failed">Aucun titre trouvé. Fichier M3U non valide ou aucun titre correspondant n\'a été trouvé.</string>
     <string name="tap_show_more">Appuyez pour afficher plus d\'informations</string>
