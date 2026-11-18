@@ -79,6 +79,18 @@ class DownloadDirectoryManagerOt(private var context: Context, private var dir: 
         this.context = context
         this.dir = dir
         configuredExtraDirs = extraDirs
+        // No folder of the person's own (the default, or Inside the app chosen): downloads stay
+        // inside the app, and the extra folders are read all the same. They used to go with the
+        // main folder, and the next start's scan took every song in them out of Downloads.
+        if (dir.toString().isBlank()) {
+            mainDir = null
+            val (opened, unreadable) = openExtras(context, extraDirs)
+            allDirs = opened
+            unreadableExtraDirs = unreadable
+            _folderState.value = DownloadFolderState.of(pathSaved = false, opened = false)
+            Log.i(TAG, "No download folder of its own, ${allDirs.size} extra folders read")
+            return
+        }
         try {
             mainDir = documentFileFromUri(context, dir)
             if (mainDir == null || !mainDir!!.isDirectory) {
@@ -90,18 +102,8 @@ class DownloadDirectoryManagerOt(private var context: Context, private var dir: 
 //                documentFileFromUri(context, dir)?.createFile("audio/mka", ".nomedia")
 //            }
 
-            val newAllDirs = mutableListOf<DocumentFile>()
-            newAllDirs.add(mainDir!!)
-            val unreadable = mutableListOf<Uri>()
-            for (extraUri in extraDirs.filterNot { it == dir }) {
-                val extraDf = documentFileFromUri(context, extraUri)
-                if (extraDf != null && extraDf.isDirectory) {
-                    newAllDirs.add(extraDf)
-                } else {
-                    unreadable.add(extraUri)
-                }
-            }
-            allDirs = newAllDirs.toList()
+            val (extras, unreadable) = openExtras(context, extraDirs.filterNot { it == dir })
+            allDirs = listOf(mainDir!!) + extras
             unreadableExtraDirs = unreadable
             Log.i(TAG, "Download manager initialized successfully. ${allDirs.size}")
             _folderState.value = DownloadFolderState.of(pathSaved = dir.toString().isNotBlank(), opened = true)
@@ -123,6 +125,21 @@ class DownloadDirectoryManagerOt(private var context: Context, private var dir: 
             // it once (DownloadUtil).
             _folderState.value = DownloadFolderState.of(pathSaved = dir.toString().isNotBlank(), opened = false)
         }
+    }
+
+    /** The extra folders [extraDirs] opened, and the ones that would not open. */
+    private fun openExtras(context: Context, extraDirs: List<Uri>): Pair<List<DocumentFile>, List<Uri>> {
+        val opened = mutableListOf<DocumentFile>()
+        val unreadable = mutableListOf<Uri>()
+        for (extraUri in extraDirs) {
+            val extraDf = runCatching { documentFileFromUri(context, extraUri) }.getOrNull()
+            if (extraDf != null && extraDf.isDirectory) {
+                opened.add(extraDf)
+            } else {
+                unreadable.add(extraUri)
+            }
+        }
+        return opened to unreadable
     }
 
     /**
@@ -430,10 +447,11 @@ fun fileRemoval(deleted: Boolean, fileThere: () -> Boolean, folderThere: () -> B
  *
  * A main folder that is set but could not be opened means nothing was walked, the extra folders
  * included, since doInit gives up on all of them together, so every one of them counts. A blank
- * main folder means nothing is set up (the default, or right after Reset), which is not a folder
- * that failed: counting it would make its unknown path cover every downloaded song, and nothing
- * downloaded could ever be cleared again. Otherwise the extras that could not be opened and the
- * folders that opened but could not be listed.
+ * main folder means none of the person's own (the default, Reset, or Inside the app chosen), which
+ * is not a folder that failed: counting it would make its unknown path cover every downloaded song,
+ * and nothing downloaded could ever be cleared again. The extra folders are read without one all
+ * the same, so theirs count as with one: the extras that could not be opened and the folders that
+ * opened but could not be listed.
  */
 fun unlistedDownloadDirs(
     main: String,
@@ -442,7 +460,7 @@ fun unlistedDownloadDirs(
     unopenedExtras: List<String>,
     unlistable: List<String>,
 ): List<String> = when {
-    main.isBlank() -> emptyList()
+    main.isBlank() -> unopenedExtras + unlistable
     !mainOpened -> listOf(main) + extras.filterNot { it == main }
     else -> unopenedExtras + unlistable
 }

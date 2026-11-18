@@ -69,12 +69,20 @@ class DownloadScanRescanTest {
     }
 
     @Test
-    fun `no main folder set means nothing counts as unlisted`() {
+    fun `no main folder set never counts itself, and its extra folders count as with one`() {
+        // The extra folders are read without a main folder now (Inside the app keeps the folder
+        // as one of them, InsideKeepsFolder): one that would not open spares its songs as it
+        // would with a main folder, rather than every one of them leaving Downloads.
         val dirs = unlistedDownloadDirs(
             main = "", mainOpened = false,
             extras = listOf(e1), unopenedExtras = listOf(e1), unlistable = listOf(e2)
         )
-        assertEquals(emptyList<String>(), dirs)
+        assertEquals(listOf(e1, e2), dirs)
+        val none = unlistedDownloadDirs(
+            main = "", mainOpened = false,
+            extras = emptyList(), unopenedExtras = emptyList(), unlistable = emptyList()
+        )
+        assertEquals(emptyList<String>(), none)
     }
 
     @Test
