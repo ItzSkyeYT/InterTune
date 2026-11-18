@@ -2880,7 +2880,6 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="metrolist_import_too_old">This backup comes from InnerTune or an older Metrolist. Restore takes InnerTune\'s; for Metrolist, update it and make a new backup.</string>
     <string name="metrolist_import_other_file">Choose another file</string>
     <string name="metrolist_import_failed">Couldn\'t read this backup</string>
-    <!-- The library search when it finds nothing (#200), held from translators like the other new 0.13 texts. -->
+    <!-- The library search when it finds nothing (#200), under "No results found": held from translators like the other new 0.13 texts. Its button wears search_yt_music, translated. -->
     <string name="library_search_none" translatable="false">Not in your library</string>
-    <string name="library_search_online" translatable="false">Search YouTube Music</string>
 </resources>

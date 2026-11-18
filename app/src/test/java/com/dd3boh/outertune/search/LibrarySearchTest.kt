@@ -148,4 +148,32 @@ class LibrarySearchTest {
         val online = bar.substringAfter("val searchOnline: (String) -> Unit = {").substringBefore("val onSearch")
         assertFalse(online.contains("searchSource ="))
     }
+
+    @Test
+    fun `an empty library search keeps No results found in every language, and its button is translated too`() {
+        // "No results found" is in 41 languages: replaced by a text held from translators, 40 of them
+        // read English. It stays the line; the place it looked goes under it.
+        val screen = File("src/main/java/com/dd3boh/outertune/ui/screens/search/LocalSearchScreen.kt").readText()
+        val empty = screen.substringAfter("key = \"no_result\"").substringBefore("LazyColumnScrollbar(")
+        assertTrue(empty.contains("EmptyPlaceholder(\n                            icon = Icons.Rounded.Search,\n                            text = stringResource(R.string.no_results_found),"))
+        assertTrue(empty.indexOf("R.string.no_results_found") < empty.indexOf("R.string.library_search_none"))
+        // The button in the search bar's own words, translated wherever the bar is.
+        assertTrue(empty.contains("Text(searchOnlineLabel(stringResource(R.string.search_yt_music)))"))
+        val res = File("src/main/res")
+        val held = File(res, "values/strings-ot.xml").readText()
+        assertFalse("no held text where a translated one says the same", held.contains("name=\"library_search_online\""))
+        assertEquals("Search YouTube Music", com.dd3boh.outertune.ui.screens.search.searchOnlineLabel("Search YouTube Music…"))
+        assertEquals("Søk gjennom YouTube Music", com.dd3boh.outertune.ui.screens.search.searchOnlineLabel("Søk gjennom YouTube Music …"))
+        assertEquals("Search YouTube Music", com.dd3boh.outertune.ui.screens.search.searchOnlineLabel("Search YouTube Music..."))
+        // Every translation of the bar's words makes a whole button.
+        val bar = Regex("""<string name="search_yt_music">([^<]+)</string>""")
+        val labels = res.listFiles { f -> f.isDirectory && f.name.startsWith("values") }!!
+            .mapNotNull { File(it, "strings.xml").takeIf { f -> f.isFile } }
+            .mapNotNull { bar.find(it.readText())?.groupValues?.get(1) }
+        assertTrue(labels.size > 40)
+        for (label in labels) {
+            val button = com.dd3boh.outertune.ui.screens.search.searchOnlineLabel(label)
+            assertTrue(label, button.isNotBlank() && !button.endsWith("…") && !button.endsWith("."))
+        }
+    }
 }

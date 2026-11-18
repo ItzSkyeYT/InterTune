@@ -38,6 +38,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.navigation.NavController
@@ -269,7 +270,9 @@ fun LocalSearchScreen(
                 ) {
                     // Says where it looked, and offers the other search for the same words: with the
                     // bar on the library, a song that is not saved was only ever "No results found"
-                    // (#200), and nothing on the page said that YouTube Music was not asked.
+                    // (#200), and nothing on the page said that YouTube Music was not asked. That line
+                    // stays, in the 41 languages it has; the place it looked goes under it, a new text
+                    // as nothing translated says it, and the button wears the bar's own translated words.
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier
@@ -278,7 +281,14 @@ fun LocalSearchScreen(
                     ) {
                         EmptyPlaceholder(
                             icon = Icons.Rounded.Search,
+                            text = stringResource(R.string.no_results_found),
+                        )
+                        Text(
                             text = stringResource(R.string.library_search_none),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(horizontal = 12.dp)
                         )
                         if (onSearchOnline != null) {
                             TextButton(onClick = { onSearchOnline(result.query) }) {
@@ -288,7 +298,7 @@ fun LocalSearchScreen(
                                     modifier = Modifier.size(18.dp)
                                 )
                                 Spacer(Modifier.width(8.dp))
-                                Text(stringResource(R.string.library_search_online))
+                                Text(searchOnlineLabel(stringResource(R.string.search_yt_music)))
                             }
                         }
                     }
@@ -311,3 +321,10 @@ fun LocalSearchScreen(
         )
     }
 }
+
+/**
+ * The button that searches YouTube Music for the same words, in the words the search bar shows for
+ * it, translated in some 40 languages, without the bar's trailing "…": the button searches at once,
+ * nothing more is asked.
+ */
+internal fun searchOnlineLabel(barText: String): String = barText.trimEnd('…', '.', ' ', '\u00A0')
