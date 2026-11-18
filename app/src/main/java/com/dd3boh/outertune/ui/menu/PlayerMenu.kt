@@ -116,6 +116,33 @@ import java.time.LocalDateTime
 import kotlin.math.log2
 import kotlin.math.pow
 import kotlin.math.round
+import kotlin.math.roundToInt
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.painterResource
+import com.dd3boh.outertune.constants.ThumbnailCornerRadius
+import com.dd3boh.outertune.playback.PlayerConnection
+import com.dd3boh.outertune.ui.component.items.ItemThumbnail
+import com.dd3boh.outertune.ui.player.likeName
+import com.dd3boh.outertune.utils.joinByBullet
+import com.dd3boh.outertune.utils.makeTimeString
+
+/**
+ * A song of the queue liked, or its like taken back, from its menu (#219), the way the player's
+ * heart does it: MusicService.toggleLike, which sends the like to YouTube Music, downloads a liked
+ * song when that is set, and tells the adaptive queue when it is the song playing. A song first met
+ * in a radio may have no row yet, so it is stored first, in the same job: the like then never lands
+ * on a row that is not there.
+ */
+internal fun likeFromQueue(database: MusicDatabase, playerConnection: PlayerConnection, song: MediaMetadata) {
+    val service = playerConnection.service
+    database.query {
+        insert(song)
+        service.toggleLike(song.id)
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -124,6 +151,13 @@ fun PlayerMenu(
     navController: NavController,
     playerBottomSheetState: BottomSheetState,
     onDismiss: () -> Unit,
+    /**
+     * The song's own row on top, with its heart, as every other song menu has: for the menu of a
+     * song in the queue, which may not be the one playing (#219: no way to like the song before
+     * from the queue, and nothing in the menu said which song it was for). The player's own menu
+     * leaves it out: the heart is on the player beside it.
+     */
+    songHeader: Boolean = false,
 ) {
     mediaMetadata ?: return
     val context = LocalContext.current
@@ -221,6 +255,42 @@ fun PlayerMenu(
             clipboardManager = clipboardManager,
             setVisibility = { showDetailsDialog = it }
         )
+    }
+
+    if (songHeader) {
+        // The like as stored, so the heart turns as soon as the row is written, and the snapshot
+        // the queue holds until the song has a row of its own.
+        val liked = librarySong?.song?.liked ?: mediaMetadata.liked
+        ListItem(
+            title = mediaMetadata.title,
+            subtitle = joinByBullet(
+                mediaMetadata.artists.joinToString { it.name },
+                makeTimeString(mediaMetadata.duration * 1000L)
+            ),
+            thumbnailContent = {
+                ItemThumbnail(
+                    thumbnailUrl = mediaMetadata.thumbnailUrl,
+                    preferredSize = (ListThumbnailSize.value * LocalDensity.current.density).roundToInt(),
+                    isActive = false,
+                    isPlaying = false,
+                    shape = RoundedCornerShape(ThumbnailCornerRadius),
+                    modifier = Modifier.size(ListThumbnailSize)
+                )
+            },
+            trailingContent = {
+                IconButton(
+                    onClick = { likeFromQueue(database, playerConnection, mediaMetadata) }
+                ) {
+                    Icon(
+                        painter = painterResource(if (liked) R.drawable.favorite else R.drawable.favorite_border),
+                        tint = if (liked) MaterialTheme.colorScheme.error else LocalContentColor.current,
+                        contentDescription = likeName(liked)
+                    )
+                }
+            }
+        )
+
+        HorizontalDivider()
     }
 
     Row(
