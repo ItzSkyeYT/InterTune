@@ -69,3 +69,21 @@ internal fun Density.quickRowPositions(widths: IntArray, gap: Dp, width: Int, la
         if (layoutDirection == LayoutDirection.Ltr) start else width - (start + widths[index])
     }
 }
+
+/**
+ * Where each of [widths] starts in a row [width] wide when the first of them hangs off the start of
+ * the others: they are placed where [quickRowPositions] puts them without it, and it goes [gap]
+ * before the first of them. A button that comes and goes, a listening room's, then moves none of the
+ * others (his rule of 15 Nov 2026). Null when it would come nearer than [QuickRowEdgeMargin] to the
+ * edge of the screen, past the [gutter] beside the row: the row is then centred with it in, as any.
+ */
+internal fun Density.quickRowPositionsHanging(widths: IntArray, gap: Dp, width: Int, gutter: Dp, layoutDirection: LayoutDirection): IntArray? {
+    if (widths.size < 2) return null
+    val rest = quickRowPositions(widths.copyOfRange(1, widths.size), gap, width, LayoutDirection.Ltr)
+    val start = rest[0] - gap.roundToPx() - widths[0]
+    if (start < -(gutter - QuickRowEdgeMargin).coerceAtLeast(0.dp).roundToPx()) return null
+    val ltr = intArrayOf(start) + rest
+    // Start is on the left in a left-to-right layout and on the right otherwise.
+    return if (layoutDirection == LayoutDirection.Ltr) ltr else IntArray(ltr.size) { width - (ltr[it] + widths[it]) }
+}
+

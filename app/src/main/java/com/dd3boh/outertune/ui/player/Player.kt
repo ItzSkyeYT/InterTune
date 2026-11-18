@@ -1003,8 +1003,9 @@ fun BottomSheetPlayer(
                 SleepTimerDialog(playerConnection) { showSleepTimerDialog = false }
             }
 
-            // A listening room's button, only while one is on. In both styles it comes right before
-            // the menu, so that the menu stays last (his word of 17 Oct 2026). It opens the room.
+            // A listening room's button, only while one is on. It opens the room. It goes at the free
+            // end of its row, where nothing is pushed: the buttons never move when a room starts or
+            // ends (his rule of 15 Nov 2026), and the menu stays last (his word of 17 Oct 2026).
             val room by playerConnection.service.together.collectAsState()
             val inRoom = room != null
             var showRoom by rememberSaveable { mutableStateOf(false) }
@@ -1133,16 +1134,19 @@ fun BottomSheetPlayer(
                 Log.v(TAG, "PLR-3.xa")
                 Spacer(modifier = Modifier.width(10.dp))
 
+                // First: the row stands at the end of its line, beside the title or at the top of
+                // the column, so its first place is the free end, and the room's circle there
+                // leaves the timer, the heart and the menu where they were.
+                if (inRoom) {
+                    roomCircle()
+                    Spacer(modifier = Modifier.width(7.dp))
+                }
                 if (queueLayout.queueButton) {
                     queueCircle()
                     Spacer(modifier = Modifier.width(7.dp))
                 }
                 classicPins(queueCircle = queueLayout.queueButton).forEach { pin ->
                     pinCircle(pin)
-                    Spacer(modifier = Modifier.width(7.dp))
-                }
-                if (inRoom) {
-                    roomCircle()
                     Spacer(modifier = Modifier.width(7.dp))
                 }
                 menuCircle()
@@ -1161,17 +1165,18 @@ fun BottomSheetPlayer(
                     verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterVertically),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    // The queue first and the menu last with the pins between, half on each side; a
-                    // listening room's circle, while one is on, right before the menu.
+                    // The queue first and the menu last with the pins between, half on each side. The
+                    // halves are counted without a listening room's circle, so no circle changes
+                    // side when a room starts: it goes first on the left, above the queue.
                     val pinned = classicPins(queueCircle = true)
-                    val count = pinned.size + 2 + (if (inRoom) 1 else 0)
+                    val count = pinned.size + 2
                     val onLeft = (count + 1) / 2
+                    if (left && inRoom) roomCircle()
                     for (i in 0 until count) {
                         if ((i < onLeft) != left) continue
                         when {
                             i == 0 -> queueCircle()
                             i == count - 1 -> menuCircle()
-                            inRoom && i == count - 2 -> roomCircle()
                             else -> pinCircle(pinned[i - 1])
                         }
                     }
@@ -1294,7 +1299,7 @@ fun BottomSheetPlayer(
                     PlayerActionSegment(
                         painter = rememberVectorPainter(Icons.AutoMirrored.Rounded.QueueMusic),
                         contentDescription = stringResource(R.string.queue),
-                        shape = connectedShape(first = true, last = false),
+                        shape = connectedShape(first = !inRoom, last = false),
                         container = inactive,
                         filled = false,
                         content = onBackgroundColor,
@@ -1304,17 +1309,36 @@ fun BottomSheetPlayer(
                         onClick = openQueue,
                     )
                 }
+                // A room's segment comes first and hangs off the start of the others, which stay where
+                // they are without it (CentredRow's hangingFirst). A small player counts it in its
+                // widths, so there it is one of the row like the rest.
+                val roomHangs = inRoom && !compactPlayer
                 CentredRow(
                     gap = ConnectedButtonGap,
                     gutter = hPadding,
+                    hangingFirst = roomHangs,
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = hPadding)
                         .padding(top = 16.dp)
                 ) {
+                    if (inRoom) {
+                        PlayerActionSegment(
+                            painter = rememberVectorPainter(Icons.Rounded.Group),
+                            contentDescription = stringResource(R.string.together_in_room),
+                            shape = connectedShape(first = true, last = false),
+                            container = MaterialTheme.colorScheme.primary,
+                            filled = true,
+                            content = MaterialTheme.colorScheme.onPrimary,
+                            width = actionWidth,
+                            backdrop = buttonBackdrop,
+                            glassIntensity = glassIntensity,
+                            onClick = { showRoom = true },
+                        )
+                    }
                     if (queueLayout.queueButton) queueSegment()
                     rowPins.forEachIndexed { i, pin ->
-                        val shape = connectedShape(first = i == 0 && !queueLayout.queueButton, last = false)
+                        val shape = connectedShape(first = i == 0 && !queueLayout.queueButton && !inRoom, last = false)
                         val liked = currentSong?.song?.liked == true
                         when (pin) {
                             PlayerPin.LYRICS -> PlayerActionSegment(
@@ -1368,20 +1392,6 @@ fun BottomSheetPlayer(
                                 onClick = playerConnection::toggleLike,
                             )
                         }
-                    }
-                    if (inRoom) {
-                        PlayerActionSegment(
-                            painter = rememberVectorPainter(Icons.Rounded.Group),
-                            contentDescription = stringResource(R.string.together_in_room),
-                            shape = connectedShape(first = rowPins.isEmpty() && !queueLayout.queueButton, last = false),
-                            container = MaterialTheme.colorScheme.primary,
-                            filled = true,
-                            content = MaterialTheme.colorScheme.onPrimary,
-                            width = actionWidth,
-                            backdrop = buttonBackdrop,
-                            glassIntensity = glassIntensity,
-                            onClick = { showRoom = true },
-                        )
                     }
                     PlayerActionSegment(
                         painter = rememberVectorPainter(Icons.Rounded.MoreVert),
@@ -1830,7 +1840,6 @@ fun BottomSheetPlayer(
                                 )
                             }
                         }
-
                     }
 
                     Column(
@@ -2291,6 +2300,12 @@ private fun CentredRow(
     gap: Dp,
     gutter: Dp,
     modifier: Modifier = Modifier,
+    /**
+     * Whether the first button hangs off the start of the others, which are centred as they are
+     * without it (quickRowPositionsHanging): a listening room's, so that the others never move as a
+     * room starts and ends. In a row with no room left for it, it is centred with them after all.
+     */
+    hangingFirst: Boolean = false,
     buttons: @Composable () -> Unit,
 ) {
     Layout(content = buttons, modifier = modifier) { measurables, constraints ->
@@ -2310,7 +2325,10 @@ private fun CentredRow(
         val placeables = measurables.mapIndexed { i, measurable ->
             measurable.measure(if (widths[i] == natural[i]) loose else loose.copy(minWidth = widths[i], maxWidth = widths[i]))
         }
-        val positions = quickRowPositions(IntArray(placeables.size) { placeables[it].width }, gap, width, layoutDirection)
+        val placed = IntArray(placeables.size) { placeables[it].width }
+        // Hung only from a row that kept its widths: one that gave way has no room to leave the others as they were.
+        val positions = (if (hangingFirst && widths.contentEquals(natural)) quickRowPositionsHanging(placed, gap, width, gutter, layoutDirection) else null)
+            ?: quickRowPositions(placed, gap, width, layoutDirection)
         val height = constraints.constrainHeight(placeables.maxOfOrNull { it.height } ?: 0)
 
         layout(width, height) {
