@@ -205,16 +205,25 @@ fun TogetherSheet(onDismiss: () -> Unit) {
         scope.launch { service.startTogether(code, owner, togetherRelays(context), togetherName(context)) }
     }
 
-    // Starting a room with no name set asks for one first; Continue keeps it in the setting.
+    // Starting or joining a room with no name set asks for one first; Continue keeps it in the setting. A guest is asked
+    // as a host is: without a name, the phone's own went to everyone in the room, and people often give it theirs
+    // (18 Nov 2026).
     var askingName by rememberSaveable { mutableStateOf(false) }
+    // The room joined once the name is given, by its code; none for a room of one's own.
+    var joinAfterName by rememberSaveable { mutableStateOf<String?>(null) }
     if (askingName) {
         NameBeforeRoomDialog(
-            onDismiss = { askingName = false },
+            onDismiss = {
+                askingName = false
+                joinAfterName = null
+            },
             onContinue = { name ->
                 askingName = false
+                val join = joinAfterName?.let(RoomCode::parse)
+                joinAfterName = null
                 scope.launch {
                     context.dataStore.edit { it[TogetherNameKey] = name }
-                    open(RoomCode.generate(), owner = true)
+                    if (join != null) open(join, owner = false) else open(RoomCode.generate(), owner = true)
                 }
             },
         )
@@ -254,7 +263,14 @@ fun TogetherSheet(onDismiss: () -> Unit) {
                                 else open(RoomCode.generate(), owner = true)
                             }
                         },
-                        onJoin = { open(it, owner = false) },
+                        onJoin = { code ->
+                            scope.launch {
+                                if (needsName(context.dataStore.data.first()[TogetherNameKey])) {
+                                    joinAfterName = code.raw
+                                    askingName = true
+                                } else open(code, owner = false)
+                            }
+                        },
                     )
                 } else {
                     RoomPage(room, song, onLeave = {
@@ -1095,13 +1111,13 @@ private fun ControlRow(name: String, canTakeBack: Boolean, onTakeBack: () -> Uni
     }
 }
 
-/** Whether a room's owner is asked for a name first: none is set in Settings > Listen together. */
+/** Whether someone starting or joining a room is asked for a name first: none is set in Settings > Listen together. */
 internal fun needsName(stored: String?): Boolean = stored.isNullOrBlank()
 
 /** The most a name can be, as in Settings > Listen together. */
 private const val NAME_LENGTH = 40
 
-/** Asked when someone starts a room and has no name set: one field, Continue saves it and starts the room. */
+/** Asked when someone starts or joins a room and has no name set: one field, Continue saves it and goes on. */
 @Composable
 private fun NameBeforeRoomDialog(onDismiss: () -> Unit, onContinue: (String) -> Unit) {
     var name by rememberSaveable { mutableStateOf("") }
@@ -1210,7 +1226,24 @@ fun TogetherInviteDialog(code: RoomCode, playerConnection: PlayerConnection?, on
     playerConnection ?: return
     val scope = rememberCoroutineScope()
     val haptics = LocalHapticFeedback.current
-    AlertDialog(
+    suspend fun join() {
+        playerConnection.service.startTogether(code, owner = false, relays = togetherRelays(context), name = togetherName(context))
+        onDone()
+    }
+    // With no name set, one is asked for first, as in the sheet; Cancel there goes back to the invite.
+    var askingName by rememberSaveable { mutableStateOf(false) }
+    if (askingName) {
+        NameBeforeRoomDialog(
+            onDismiss = { askingName = false },
+            onContinue = { name ->
+                askingName = false
+                scope.launch {
+                    context.dataStore.edit { it[TogetherNameKey] = name }
+                    join()
+                }
+            },
+        )
+    } else AlertDialog(
         onDismissRequest = onDone,
         icon = { Icon(Icons.Rounded.Group, contentDescription = null) },
         title = { Text(stringResource(R.string.together_join_title)) },
@@ -1221,8 +1254,7 @@ fun TogetherInviteDialog(code: RoomCode, playerConnection: PlayerConnection?, on
             TextButton(enabled = playerConnection.isAlive, onClick = {
                 haptics.performHapticFeedback(HapticFeedbackType.Confirm)
                 scope.launch {
-                    playerConnection.service.startTogether(code, owner = false, relays = togetherRelays(context), name = togetherName(context))
-                    onDone()
+                    if (needsName(context.dataStore.data.first()[TogetherNameKey])) askingName = true else join()
                 }
             }) { Text(stringResource(R.string.together_join)) }
         },

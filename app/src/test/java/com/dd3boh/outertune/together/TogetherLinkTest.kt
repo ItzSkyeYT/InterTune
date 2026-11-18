@@ -82,11 +82,34 @@ class TogetherLinkTest {
         assertTrue(com.dd3boh.outertune.ui.dialog.needsName("  "))
         assertTrue(!com.dd3boh.outertune.ui.dialog.needsName("Mel"))
         assertTrue("if (needsName(context.dataStore.data.first()[TogetherNameKey])) askingName = true" in dialog.replace(Regex("\\s+"), " "))
-        // Joining is left as it was: no ask.
-        assertTrue("onJoin = { open(it, owner = false) }" in dialog)
         // The field is the setting's own title, and Continue saves into the same setting.
         assertTrue("title = { Text(stringResource(R.string.together_name_setting)) }" in dialog)
         assertTrue("it[TogetherNameKey] = name" in dialog)
+    }
+
+    /**
+     * A guest with no name set sent the phone's own name to everyone in the room, unasked: Android's device name, which
+     * people often set to their own (review of 0.13, 18 Nov 2026). A guest is now asked as a host is, by code, by QR
+     * code and by link, and the room is joined once the name is given.
+     */
+    @Test
+    fun `joining a room with no name asks for one first, by code, by QR code and by link`() {
+        val dialog = File("src/main/java/com/dd3boh/outertune/ui/dialog/TogetherDialog.kt").readText()
+        val flat = dialog.replace(Regex("\\s+"), " ")
+        // the sheet: a code typed or pasted, and a QR code read, both come through onJoin
+        assertTrue("onFound = { scanning = false onJoin(it) }" in flat)
+        val join = flat.substringAfter("onJoin = { code ->").substringBefore("}, ) } else {")
+        assertTrue(join, "if (needsName(context.dataStore.data.first()[TogetherNameKey])) { joinAfterName = code.raw askingName = true } else open(code, owner = false)" in join)
+        assertTrue("if (join != null) open(join, owner = false) else open(RoomCode.generate(), owner = true)" in flat)
+        assertTrue("onDismiss = { askingName = false joinAfterName = null }" in flat)
+        // the link's own question: Join asks first, and Continue saves the name and joins
+        val invite = flat.substringAfter("fun TogetherInviteDialog(")
+        assertTrue("if (needsName(context.dataStore.data.first()[TogetherNameKey])) askingName = true else join()" in invite)
+        assertTrue("context.dataStore.edit { it[TogetherNameKey] = name } join()" in invite)
+        // and nothing else in the app makes a guest join with a name of its own choosing
+        val sources = File("src/main/java").walkTopDown().filter { it.extension == "kt" }
+        val joins = sources.flatMap { file -> Regex("""startTogether\([^)]*owner = false""").findAll(file.readText()).map { file.name } }.toList()
+        assertTrue("$joins", joins == listOf("TogetherDialog.kt"))
     }
 
     @Test
