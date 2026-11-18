@@ -72,16 +72,28 @@ class AirPlayAes(key: ByteArray, iv: ByteArray) {
  * is heard [latencyFrames] plus the speaker's own [outputLatencyFrames] later. As that point moves
  * from silence into a song or out of one, [events] hears of it, which is how the link knows what
  * the speaker is playing without asking.
+ *
+ * Only the speaker is answered. A resend request from anything else on the network would hand it
+ * the last seconds of audio, which goes unencrypted, and with a forged source address would make
+ * the phone send a burst of packets wherever it named; so a clock question or a resend request
+ * from any other address than [speaker]'s is dropped.
  */
 class AirPlayStream(
     private val clock: AirPlayClock,
     private val feed: Feed,
     private val events: Events,
+    /**
+     * The speaker's address, the RTSP connection's: the one whose questions are answered. Known
+     * from the start, since a speaker can ask about the clock before its answer to SETUP arrives.
+     */
+    private val speaker: InetAddress,
     private val codec: AirPlayCodec = AirPlayCodec.ALAC,
     private val aes: AirPlayAes? = null,
     private val latencyFrames: Int = AirPlay.LATENCY_FRAMES,
     private val leadNanos: Long = LEAD_NANOS,
     bind: (DatagramSocket) -> Unit = {},
+    /** The debug app only: answers any address too, for a speaker behind the emulator's NAT. */
+    private val anyAddress: Boolean = false,
     rtpStart: Long = (Math.random() * 0xFFFFFFFFL).toLong(),
     private val ssrc: Int = (Math.random() * Int.MAX_VALUE).toInt(),
     firstSeq: Int = (Math.random() * 0xFFFF).toInt(),
@@ -165,6 +177,10 @@ class AirPlayStream(
     @Volatile
     var resendMisses: Int = 0
         private set
+
+    /** Whether a request from another address has come yet; the first is logged, once. */
+    @Volatile
+    private var strangerSeen = false
 
     // The last packets sent, by sequence number, for resend requests.
     private val backlog = Array(BACKLOG) { ByteArray(AirPlayRtp.HEADER_BYTES + AirPlayAudio.alacBytes(AirPlay.FRAMES_PER_PACKET, AirPlay.CHANNELS)) }
@@ -361,7 +377,7 @@ class AirPlayStream(
             try {
                 val question = DatagramPacket(buffer, buffer.size)
                 timing.receive(question)
-                answer(timing, question)
+                if (fromSpeaker(question)) answer(timing, question)
             } catch (e: SocketException) {
                 if (timing.isClosed) return
             } catch (e: IOException) {
@@ -370,13 +386,14 @@ class AirPlayStream(
         }
     }
 
-    /** Resend requests on the control port: each lost packet still kept goes again, to whoever asked. */
+    /** Resend requests on the control port: each lost packet still kept goes again, where the request came from. */
     private fun answerControl() {
         val buffer = ByteArray(128)
         while (!control.isClosed) {
             try {
                 val request = DatagramPacket(buffer, buffer.size)
                 control.receive(request)
+                if (!fromSpeaker(request)) continue
                 // A speaker reached through NAT (the emulator's) can only be answered where it wrote from.
                 if (AirPlayRtp.isTimingRequest(buffer, request.length)) {
                     answer(control, request)
@@ -390,6 +407,19 @@ class AirPlayStream(
                 Log.d(TAG, "Control: ${e.message}")
             }
         }
+    }
+
+    /**
+     * Whether [request] came from the speaker. Anything else is dropped, but in the debug app
+     * ([anyAddress]); the first such request is logged, without its address.
+     */
+    private fun fromSpeaker(request: DatagramPacket): Boolean {
+        if (request.address == speaker) return true
+        if (!strangerSeen) {
+            strangerSeen = true
+            Log.w(TAG, if (anyAddress) "Answering a request from another address than the speaker's (debug app)" else "Not answering requests from other addresses than the speaker's")
+        }
+        return anyAddress
     }
 
     private fun answer(socket: DatagramSocket, question: DatagramPacket) {
