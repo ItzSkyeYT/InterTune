@@ -2884,6 +2884,12 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="open_file_location" translatable="false">Open file location</string>
     <string name="open_file_location_failed" translatable="false">Couldn\'t open the folder</string>
     <string name="no_artist_found" translatable="false">No artist found</string>
+    <!-- A pinned player button that cannot act for the song playing, greyed: what a tap on it says (PinGreyed). -->
+    <string name="pin_not_for_local" translatable="false">Not for a local file</string>
+    <string name="pin_no_album" translatable="false">No album for this song</string>
+    <string name="pin_only_local" translatable="false">Only for a file on this phone</string>
+    <string name="pin_not_in_playlist" translatable="false">Not in one of your playlists</string>
+    <string name="pin_head_tracking_off" translatable="false">Head tracking is off</string>
     <string name="metrolist_import">Import from Metrolist</string>
     <string name="metrolist_import_description">Likes, playlists and plays from a Metrolist backup</string>
     <string name="metrolist_import_reading">Reading the backup</string>

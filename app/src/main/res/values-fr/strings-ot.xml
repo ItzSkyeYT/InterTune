@@ -2684,6 +2684,12 @@
     <string name="open_file_location" translatable="false">Ouvrir l\'emplacement</string>
     <string name="open_file_location_failed" translatable="false">Impossible d\'ouvrir le dossier</string>
     <string name="no_artist_found" translatable="false">Aucun artiste trouvé</string>
+    <!-- A pinned player button that cannot act for the song playing, greyed: what a tap on it says (PinGreyed). -->
+    <string name="pin_not_for_local" translatable="false">Pas pour un fichier local</string>
+    <string name="pin_no_album" translatable="false">Pas d\'album pour ce titre</string>
+    <string name="pin_only_local" translatable="false">Seulement pour un fichier du téléphone</string>
+    <string name="pin_not_in_playlist" translatable="false">Dans aucune de vos playlists</string>
+    <string name="pin_head_tracking_off" translatable="false">Le suivi de la tête est désactivé</string>
     <string name="metrolist_import">Importer depuis Metrolist</string>
     <string name="metrolist_import_description">Titres aimés, playlists et écoutes d\'une sauvegarde Metrolist</string>
     <string name="metrolist_import_reading">Lecture de la sauvegarde</string>
