@@ -268,7 +268,7 @@ class TogetherSession(
                 // A room never outlives the service that holds it. One made on a service that has stopped has nothing
                 // that will stop it, and it went on saying it was the host to a screen that was no longer there.
                 if (service.isDestroyed) {
-                    Log.w(TAG, "The service of room ${code.pretty} has stopped: the room stops with it")
+                    Log.w(TAG, "The room's service has stopped: the room stops with it")
                     stop()
                     break
                 }
