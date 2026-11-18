@@ -30,6 +30,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
@@ -55,6 +56,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.isUnspecified
 import androidx.compose.ui.platform.LocalView
 import coil3.compose.AsyncImage
 import com.dd3boh.outertune.LocalPlayerConnection
@@ -97,6 +99,12 @@ fun Thumbnail(
      * artwork itself does not need the room, and passes its own queue clearance through here.
      */
     lyricsBottomPadding: Dp = 0.dp,
+    /**
+     * The most the cover's side may be, where it is to be held to a size of its own (the phone on
+     * its side, see landscapeCoverSide). The room it is given still limits it if that is less.
+     * Unspecified, the cover takes all the room it has, as everywhere else.
+     */
+    maxSide: Dp = Dp.Unspecified,
     /**
      * Where the player's error screen leads when YouTube wants a sign-in: the login page and the
      * proxy setting. The player takes its sheet down on the way (BottomSheetPlayer).
@@ -156,11 +164,14 @@ fun Thumbnail(
                     else Alignment.CenterHorizontally,
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(horizontal = if (isLandscape) 8.dp else PlayerHorizontalPadding)
+                    // Held to a size of its own (the phone on its side), the cover keeps the margin it has upright,
+                    // the same at the left as above and below it; hugging the edge was for a cover that filled the height.
+                    .padding(horizontal = if (isLandscape && maxSide.isUnspecified) 8.dp else PlayerHorizontalPadding)
             ) {
                 BoxWithConstraints(
                     modifier = Modifier
                         .weight(1f, false)
+                        .sizeIn(maxWidth = maxSide, maxHeight = maxSide)
                 ) {
                     // Ask the CDN for an image the size we are actually going to draw. The box is
                     // square (aspectRatio(1f) below), so the shorter side wins. Without this the

@@ -22,10 +22,16 @@ import androidx.compose.animation.core.snap
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.DraggableState
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.statusBarsIgnoringVisibility
+import androidx.compose.foundation.layout.systemGestures
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -50,16 +56,20 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.input.pointer.util.addPointerInputChange
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.coerceAtLeast
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.layout
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.unit.lerp
 import androidx.compose.ui.unit.min
 import com.dd3boh.outertune.constants.BottomSheetAnimationSpec
@@ -72,12 +82,14 @@ import com.dd3boh.outertune.constants.NavigationBarAnimationSpec
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import kotlin.coroutines.cancellation.CancellationException
+import kotlin.math.max
 import kotlin.math.pow
 
 /**
  * Bottom Sheet
  * Modified from [ViMusic](https://github.com/vfsfitvnm/ViMusic)
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun BottomSheet(
     state: BottomSheetState,
@@ -136,6 +148,16 @@ fun BottomSheet(
     // clamp stale even though the dismiss itself had correctly switched off.
     val currentPinAtCollapsed by rememberUpdatedState(pinAtCollapsed)
 
+    // The strips along the top and the bottom of the window that Android keeps for its own gestures: the swipe down
+    // from the top edge that pulls the shade, the swipe up from the bottom edge that goes home. A touch that comes
+    // down in one of them is Android's, and this sheet takes no part in it: it used to follow the finger as well, so
+    // reaching for the shade closed the player and reaching for the home bar pulled the queue up (15 Nov 2026).
+    val gestureInsets = WindowInsets.systemGestures
+    val statusBarInsets = WindowInsets.statusBarsIgnoringVisibility
+    val window = LocalWindowInfo.current
+    val sheetPlace = remember { arrayOfNulls<LayoutCoordinates>(1) }
+    val startedInGestureStrip = remember { booleanArrayOf(false) }
+
     Box(
         modifier = modifier
             .graphicsLayer {
@@ -167,11 +189,29 @@ fun BottomSheet(
                     .coerceAtLeast(0)
                 IntOffset(x = 0, y = y)
             }
+            .onGloballyPositioned { sheetPlace[0] = it }
+            // Looks at where each touch comes down, before anything else does, and takes no part in it.
+            .pointerInput(Unit) {
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                    val at = sheetPlace[0]?.takeIf { it.isAttached }?.localToWindow(down.position)
+                    startedInGestureStrip[0] = at != null && inSystemGestureStrip(
+                        y = at.y,
+                        windowHeight = window.containerSize.height.toFloat(),
+                        top = max(gestureInsets.getTop(this), statusBarInsets.getTop(this)).toFloat(),
+                        bottom = gestureInsets.getBottom(this).toFloat(),
+                    )
+                    do {
+                        val event = awaitPointerEvent(PointerEventPass.Initial)
+                    } while (event.changes.any { it.pressed })
+                }
+            }
             .pointerInput(state) {
                 val velocityTracker = VelocityTracker()
 
                 detectVerticalDragGestures(
                     onVerticalDrag = { change, dragAmount ->
+                        if (startedInGestureStrip[0]) return@detectVerticalDragGestures
                         velocityTracker.addPointerInputChange(change)
                         // Pinned: downward travel is capped at collapsedBound so the sheet does
                         // not slide away under the finger at all. Upward drags are untouched.
@@ -185,6 +225,8 @@ fun BottomSheet(
                     },
                     onDragCancel = {
                         velocityTracker.resetTracking()
+                        // Android took the gesture: it is the one that decides what happens, not this.
+                        if (startedInGestureStrip[0]) return@detectVerticalDragGestures
                         // At once, as a snap, and recorded as collapsed where it lands. A bare
                         // snap left its anchor where the drag began: a queue put down this way
                         // was still kept as open, and came back open after a restart.
@@ -193,6 +235,7 @@ fun BottomSheet(
                     onDragEnd = {
                         val velocity = -velocityTracker.calculateVelocity().y
                         velocityTracker.resetTracking()
+                        if (startedInGestureStrip[0]) return@detectVerticalDragGestures
                         state.performFling(velocity, currentOnDismiss)
                     }
                 )
@@ -304,6 +347,14 @@ fun BottomSheet(
         }
     }
 }
+
+/**
+ * Whether a touch that comes down at [y] in the window starts in a strip Android keeps for its own gestures: the [top]
+ * of the window, where its swipe down pulls the shade, and the [bottom], where its swipe up goes home. A strip of no
+ * height (the bars hidden, three buttons for navigation) is no strip.
+ */
+internal fun inSystemGestureStrip(y: Float, windowHeight: Float, top: Float, bottom: Float): Boolean =
+    (top > 0f && y < top) || (bottom > 0f && y > windowHeight - bottom)
 
 /**
  * How far down a Back's preview takes the sheet it moves while the finger is still on the glass:
