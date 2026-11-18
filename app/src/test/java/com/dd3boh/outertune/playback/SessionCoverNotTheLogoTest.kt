@@ -65,7 +65,8 @@ class SessionCoverNotTheLogoTest {
     @Test
     fun `where there is no cover the system is shown a music note, and the real one when it comes`() {
         val loader = code("utils/SessionBitmapLoader.kt")
-        assertTrue(loader.contains("R.drawable.music_note"))
+        // The note of the app's own cover for a song without one (#150), never the logo.
+        assertTrue(loader.contains("R.drawable.note_rounded"))
         assertTrue("the stand-in is what LastAsked hands out when nothing could be had", Regex("""instead = \{ noCover\(""").containsMatchIn(loader))
         assertTrue("a picture that cannot be decoded is no cover either", Regex("""decodeBitmap[\s\S]*?\?: noCover\(""").containsMatchIn(loader))
         // and the connection coming back has the cover tried for at once

@@ -366,7 +366,8 @@ internal fun noCover(context: Context, px: Int): Bitmap {
     val bitmap = Bitmap.createBitmap(side, side, Bitmap.Config.ARGB_8888)
     val canvas = Canvas(bitmap)
     canvas.drawColor(ground)
-    ContextCompat.getDrawable(context, R.drawable.music_note)?.mutate()?.let { note ->
+    // The rounded note of the app's own cover for a song without one (#150), not Material's square-flagged one.
+    ContextCompat.getDrawable(context, R.drawable.note_rounded)?.mutate()?.let { note ->
         val n = (side * NO_COVER_NOTE).roundToInt()
         val at = (side - n) / 2
         note.setTint(ink)
