@@ -183,7 +183,8 @@ class AppLanguageTest {
         // A copy of the whole configuration froze the orientation and the screen's size in it: MainActivity handles a
         // turn itself, so on Android 7 to 9 with a language picked it kept its portrait shape on its side.
         val wrap = source("utils/AppLanguage.kt").substringAfter("fun wrap(base: Context): Context {").substringBefore("\n    }\n")
-        assertTrue(wrap, "val config = Configuration().apply { setLocale(locale) }" in wrap)
+        // fontScale 0 is "not set": Android 7's new Configuration() starts at 1.0, which would undo the phone's Font size.
+        assertTrue(wrap, "val config = Configuration().apply { fontScale = 0f; setLocale(locale) }" in wrap)
         assertFalse(wrap, "Configuration(base.resources.configuration)" in wrap)
         assertTrue("base.createConfigurationContext(config)" in wrap)
     }

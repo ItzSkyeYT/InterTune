@@ -182,7 +182,8 @@ object AppLanguage {
      * The override names the language and nothing else. A copy of the whole configuration froze
      * everything in it (which way up the phone was, the screen's size): MainActivity is not made
      * again when the phone turns, so on Android 7 to 9 the screen kept its portrait shape on its
-     * side and the landscape player never showed.
+     * side and the landscape player never showed. Its font scale is set to 0, "not set": on
+     * Android 7 a new Configuration starts at 1.0, which would undo a larger Font size.
      */
     fun wrap(base: Context): Context {
         if (Build.VERSION.SDK_INT >= 33) return base
@@ -190,7 +191,7 @@ object AppLanguage {
         if (tag.isEmpty()) return base
         val locale = Locale.forLanguageTag(tag)
         Locale.setDefault(locale)
-        val config = Configuration().apply { setLocale(locale) }
+        val config = Configuration().apply { fontScale = 0f; setLocale(locale) }
         return base.createConfigurationContext(config)
     }
 
