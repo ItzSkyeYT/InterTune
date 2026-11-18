@@ -3414,6 +3414,13 @@ class MusicService : MediaLibraryService(),
          */
         var fetches: OneFetchAtATime? = null
 
+        /**
+         * The songs whose start this resolver last gave from the download cache: a download under
+         * way, whose stream the reader then holds. Past the download's part an address kept from an
+         * earlier play goes on only when it is that stream (keptAddressGoesOn).
+         */
+        private val startedInDownload: MutableSet<String> = ConcurrentHashMap.newKeySet()
+
         /** Drops the address kept for [mediaId], after it was refused, so the next resolve asks for one afresh. */
         fun forgetStream(mediaId: String) {
             addresses.playerFailedOn(mediaId)
@@ -3475,6 +3482,10 @@ class MusicService : MediaLibraryService(),
 
             val isDownload =
                 downloadCache.holdsFrom(mediaId, position, if (length >= 0) length else 1)
+            // What the song's start is read from, for a read further in (see the kept address below).
+            if (position == 0L) {
+                if (isDownload) startedInDownload.add(mediaId) else startedInDownload.remove(mediaId)
+            }
             // A song moved into the download folder after the queue was made: the queue's copy of
             // the song has no path, nor has a row read before the move recorded its file, and its
             // copy in the app is gone. The folder is asked whatever they say; it used to be asked
@@ -3514,8 +3525,24 @@ class MusicService : MediaLibraryService(),
 
             // The address the song was given earlier, unless the player has failed on it since:
             // onPlayerError forgets it, and the try after that asks afresh below.
+            //
+            // Past the start of a song begun from a download under way, only while it streams the
+            // download's file: with a Download quality of its own the player's address, kept from an
+            // earlier play, is another stream, and the song was the download's bytes up to where its
+            // part ended and that stream's after. fetch() asks for the download's stream instead,
+            // the one the format row names (RouteWish).
             val known = addresses.of(mediaId, System.currentTimeMillis())
-            known?.takeIf { !staleQuality }?.let { address ->
+            val notTheDownloads = position > 0L && mediaId in startedInDownload && formats[mediaId]?.let { format ->
+                val row = runCatching { database.readOrNull { formatRow(mediaId) } }.getOrNull()
+                !keptAddressGoesOn(row?.itag, row?.contentLength, recordedLength(downloadCache, mediaId), format.itag, format.contentLengthOrZero())
+            } == true
+            if (notTheDownloads) {
+                // Asked once: whatever the fetch below brings is what the song goes on with, or a
+                // walk that cannot offer the download's stream would be walked at every reopen.
+                startedInDownload.remove(mediaId)
+                if (known != null) Log.i(TAG, "$said: remote song (the address kept is another stream than the download this song began from, not taken)")
+            }
+            known?.takeIf { !staleQuality && !notTheDownloads }?.let { address ->
                 formats[mediaId]?.let { format ->
                     Log.i(TAG, "$said: remote song (temp cache)")
                     recoverWhenPlaying(mediaId, null)
@@ -3525,7 +3552,7 @@ class MusicService : MediaLibraryService(),
             // Read ahead over SABR and held from here, its address forgotten since: a change of
             // network forgets them all, and the song needs no network to play. The start of the
             // format the player was given, whose file the bytes are. See SabrAhead.
-            formats[mediaId]?.takeIf { !staleQuality }?.let { format ->
+            formats[mediaId]?.takeIf { !staleQuality && !notTheDownloads }?.let { format ->
                 SabrStarts.heldAt(mediaId, position, format.itag, format.lastModified)?.let { address ->
                     Log.i(TAG, "$said: remote song (held, read ahead over SABR)")
                     return ResolvedSong.KnownStream(address, format)
