@@ -1389,9 +1389,9 @@ class MainActivity : ComponentActivity() {
 
                     // The Search shortcut. Search is the overlay over the current destination, not
                     // a destination, so it is opened the way tapping the bar opens it, and not over
-                    // setup, which comes first. It waits for the first destination and then a frame:
-                    // the overlay shuts itself whenever the destination under it changes, and at
-                    // launch that includes the first one arriving.
+                    // setup, which comes first. It waits for the first destination and then a frame,
+                    // so that it opens over the page it belongs to: the overlay shuts itself whenever
+                    // the destination under it changes.
                     var searchFromShortcut by rememberSaveable {
                         mutableStateOf(intent?.action == ACTION_SEARCH && oobeStatus >= OOBE_VERSION)
                     }

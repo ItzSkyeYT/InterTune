@@ -190,14 +190,25 @@ fun SearchBarContainer(
                 navBackStackEntry?.destination?.route?.startsWith("search/") == true)
     }
 
+    // The page the bar was over when it last looked, in this composition. The search closes when the
+    // page under it changes, not when the bar is composed again over the same page: a search open when
+    // the app was recreated (a dark mode switch, a language or font change, the app back after Android
+    // closed it in the background) stays open with its words and what they find. It closed there, and
+    // the words typed over a tab went with it (18 Nov 2026).
+    var lastPage by remember { mutableStateOf<String?>(null) }
+
     LaunchedEffect(navBackStackEntry) {
-        if (searchActive) {
+        val page = navBackStackEntry
+        val moved = page != null && lastPage != null && page.id != lastPage
+        if (page != null) lastPage = page.id
+        if (searchActive && moved) {
             onSearchActiveChange(false)
         }
         // A results page shows its own query in the bar. Searching from a tab clears the bar on
         // the way (closing the overlay there does), and going back to earlier results left the
-        // later query in it. As OnlineSearchViewModel, a null argument is the word "null".
-        if (navBackStackEntry?.destination?.route == SearchFilters.ROUTE) {
+        // later query in it. As OnlineSearchViewModel, a null argument is the word "null". Not
+        // over a search still open from before the bar was composed again: its words are the typed ones.
+        if (navBackStackEntry?.destination?.route == SearchFilters.ROUTE && (moved || !searchActive)) {
             val searchQuery = navBackStackEntry?.arguments?.getString("query") ?: "null"
             if (query.text != searchQuery) {
                 onQueryChange(TextFieldValue(searchQuery, TextRange(searchQuery.length)))
@@ -206,7 +217,6 @@ fun SearchBarContainer(
         // A search left open on this page when another tab was tapped comes back open, with its words
         // and what they find, now the page is back (#166, KEPT_SEARCH). Only where the bar is: the pages
         // a search can be left open on.
-        val page = navBackStackEntry
         if (page != null && page.lifecycle.currentState.isAtLeast(Lifecycle.State.CREATED) &&
             (navigationItems.fastAny { it.route == page.destination.route } || page.destination.route == SearchFilters.ROUTE)
         ) {
