@@ -39,4 +39,32 @@ class LocalSongCoverTest {
         assertEquals(2, colours.size)
         assertTrue("every colour of the square is opaque: $colours", colours.all { it.startsWith("FF", ignoreCase = true) })
     }
+
+    /**
+     * The system's media controls and the lock screen get their stand-in from the media session's own loader
+     * (SessionBitmapLoader.noCover), not from Coil. It kept Material's note with a square flag while the app
+     * showed Ti-Die's rounded one (#150, 18 Nov 2026: "it's still showing the old icon in the notifications").
+     */
+    @Test
+    fun `the notification's stand-in has the same note as the cover`() {
+        val session = File("src/main/java/com/dd3boh/outertune/utils/SessionBitmapLoader.kt").readText()
+        val noCover = session.substringAfter("internal fun noCover(").substringBefore("return bitmap")
+        assertTrue(noCover.contains("R.drawable.note_rounded"))
+        assertTrue(!noCover.contains("R.drawable.music_note"))
+        val pathData = Regex("""android:pathData="([^"]+)"""")
+        val coverNote = pathData.find(cover.substringAfter("<group"))!!.groupValues[1]
+        val note = pathData.find(File("src/main/res/drawable/note_rounded.xml").readText())!!.groupValues[1]
+        assertEquals(coverNote, note)
+    }
+
+    /** The widget draws its own note while a cover loads and when nothing plays: the same rounded one (#150). */
+    @Test
+    fun `the widget's stand-in note is the cover's note too`() {
+        val widget = File("src/main/java/com/dd3boh/outertune/widget/MusicWidget.kt").readText()
+        val pictures = File("src/main/java/com/dd3boh/outertune/widget/WidgetPictures.kt").readText()
+        val note = widget.substringAfter("private fun Note(").substringBefore("\n}\n")
+        assertTrue(note.contains("R.drawable.note_rounded"))
+        assertTrue(!pictures.contains("R.drawable.music_note"))
+        assertTrue(pictures.contains("R.drawable.note_rounded"))
+    }
 }
