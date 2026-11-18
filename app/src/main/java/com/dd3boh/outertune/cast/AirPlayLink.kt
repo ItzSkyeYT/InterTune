@@ -225,6 +225,7 @@ class AirPlayLink(
                 feed = ::fill,
                 events = events,
                 speaker = rtsp.remote,
+                local = rtsp.local,
                 codec = plan.codec,
                 aes = aes?.let { AirPlayAes(it.key, it.iv) },
                 latencyFrames = latencyFrames,

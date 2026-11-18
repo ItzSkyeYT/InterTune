@@ -622,6 +622,25 @@ class AirPlayLinkTest {
     }
 
     @Test
+    fun `the phone listens for its speaker only at its own address on the speaker's network`() = runBlocking {
+        val speaker = FakeSpeaker()
+        val link = link(speaker)
+        link.connect()
+        eventually(what = "a clock answer") { speaker.timingReplies.isNotEmpty() }
+        // From the speaker's own address, a clock question to the phone's timing port at another of its
+        // addresses (on a phone: mobile data, a VPN, a global IPv6 address) finds nothing listening there.
+        val asking = DatagramSocket(0, loopback).also { closing += it }
+        asking.send(DatagramPacket(clockQuestion(2L), 32, elsewhere, speaker.senderTimingPort))
+        assertNull("an answer at another address", receiveWithin(asking, 600)?.toList())
+        // At the address the phone reached the speaker from, the same question is answered.
+        asking.send(DatagramPacket(clockQuestion(3L), 32, loopback, speaker.senderTimingPort))
+        val answer = receiveWithin(asking, 2_000)
+        assertNotNull("no answer at the phone's own address", answer)
+        assertEquals(0xD3, answer!![1].toInt() and 0xFF)
+        assertEquals(3L, AirPlayRtp.get64(answer, 8))
+    }
+
+    @Test
     fun `only the debug app answers other addresses than the speaker's, for the emulator's NAT`() {
         // The Preview is debuggable too (initWith debug), so BuildConfig.DEBUG alone would let it answer anyone.
         val links = File("src/main/java/com/dd3boh/outertune/cast/CastLinks.kt").readText()

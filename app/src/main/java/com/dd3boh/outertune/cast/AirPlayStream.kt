@@ -76,7 +76,9 @@ class AirPlayAes(key: ByteArray, iv: ByteArray) {
  * Only the speaker is answered. A resend request from anything else on the network would hand it
  * the last seconds of audio, which goes unencrypted, and with a forged source address would make
  * the phone send a burst of packets wherever it named; so a clock question or a resend request
- * from any other address than [speaker]'s is dropped.
+ * from any other address than [speaker]'s is dropped. The sockets listen on one address, [local],
+ * as the cast server does: not on mobile data, nor behind a VPN, nor at a global IPv6 address
+ * that a router may let the internet reach.
  */
 class AirPlayStream(
     private val clock: AirPlayClock,
@@ -87,6 +89,11 @@ class AirPlayStream(
      * from the start, since a speaker can ask about the clock before its answer to SETUP arrives.
      */
     private val speaker: InetAddress,
+    /**
+     * The phone's own address on the speaker's network, the RTSP connection's (made on the Wi-Fi):
+     * the address the speaker writes to, and the only one the sockets listen on.
+     */
+    private val local: InetAddress,
     private val codec: AirPlayCodec = AirPlayCodec.ALAC,
     private val aes: AirPlayAes? = null,
     private val latencyFrames: Int = AirPlay.LATENCY_FRAMES,
@@ -120,12 +127,12 @@ class AirPlayStream(
     private val timing = udp(bind)
     private val audio = udp(bind)
 
-    /** A UDP socket on a port of the system's choosing, bound to the Wi-Fi network first by [prepare]. */
+    /** A UDP socket at [local], on a port of the system's choosing, bound to the Wi-Fi network first by [prepare]. */
     private fun udp(prepare: (DatagramSocket) -> Unit): DatagramSocket {
         val socket = DatagramSocket(null as java.net.SocketAddress?)
         try {
             prepare(socket)
-            socket.bind(InetSocketAddress(0))
+            socket.bind(InetSocketAddress(local, 0))
         } catch (e: IOException) {
             socket.close()
             throw e
