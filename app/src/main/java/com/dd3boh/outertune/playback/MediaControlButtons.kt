@@ -10,6 +10,7 @@ import com.dd3boh.outertune.playback.MediaControlButton.LIKE
 import com.dd3boh.outertune.playback.MediaControlButton.RADIO
 import com.dd3boh.outertune.playback.MediaControlButton.REPEAT
 import com.dd3boh.outertune.playback.MediaControlButton.SHUFFLE
+import com.dd3boh.outertune.constants.Unreleased
 
 /**
  * A button the session offers the phone's media controls, beside previous, play and next.
@@ -18,7 +19,10 @@ import com.dd3boh.outertune.playback.MediaControlButton.SHUFFLE
  * dialog lists them in.
  */
 enum class MediaControlButton {
-    LIKE, RADIO, SHUFFLE, REPEAT, LIBRARY
+    LIKE, RADIO, SHUFFLE, REPEAT, LIBRARY,
+
+    /** YouTube Music's thumbs down on the song playing, which is then passed over (Unreleased.DISLIKE). */
+    DISLIKE,
 }
 
 /**
@@ -40,7 +44,7 @@ object MediaControlButtons {
     /**
      * The layout as it was before this was a setting. Whatever was not picked follows the picked
      * two in this order. Add to library was never part of it, so it joins only when picked, and
-     * the default gives exactly the layout the app always sent.
+     * the default gives exactly the layout the app always sent. Dislike joins the same way.
      */
     private val BEFORE: List<MediaControlButton> = listOf(SHUFFLE, REPEAT, LIKE, RADIO)
 
@@ -57,14 +61,19 @@ object MediaControlButtons {
         return first + BEFORE.filterNot { it in first }
     }
 
+    /** The buttons this build offers: Dislike only with its flag. */
+    val offered: List<MediaControlButton>
+        get() = MediaControlButton.entries.filter { it != MediaControlButton.DISLIKE || Unreleased.DISLIKE }
+
     /**
      * Reads the saved setting. Always two different buttons: a name this version does not know,
      * from a later one or a backup edited by hand, is skipped, and a gap is filled from [DEFAULT].
+     * So is a button this build does not offer, Dislike without its flag.
      */
     fun parse(raw: String?): List<MediaControlButton> {
         val read = raw.orEmpty()
             .split(',')
-            .mapNotNull { name -> MediaControlButton.entries.firstOrNull { it.name == name.trim() } }
+            .mapNotNull { name -> offered.firstOrNull { it.name == name.trim() } }
             .distinct()
             .take(SLOTS)
         return (read + DEFAULT.filterNot { it in read }).take(SLOTS)

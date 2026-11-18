@@ -27,6 +27,7 @@ import androidx.compose.material.icons.rounded.Radio
 import androidx.compose.material.icons.rounded.Repeat
 import androidx.compose.material.icons.rounded.ScreenLockPortrait
 import androidx.compose.material.icons.rounded.Shuffle
+import androidx.compose.material.icons.rounded.ThumbDownOffAlt
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -95,7 +96,8 @@ fun ColumnScope.MediaControlButtonsFrag() {
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.padding(top = 8.dp, bottom = 12.dp)
             )
-            MediaControlButton.entries.forEach { button ->
+            // Dislike only where its flag is on (MediaControlButtons.offered).
+            MediaControlButtons.offered.forEach { button ->
                 val slot = picked.indexOf(button)
                 val canTap = slot >= 0 || picked.size < MediaControlButtons.SLOTS
                 Row(
@@ -159,6 +161,7 @@ private fun mediaControlLabel(button: MediaControlButton): String = stringResour
         MediaControlButton.SHUFFLE -> R.string.shuffle
         MediaControlButton.REPEAT -> R.string.media_control_repeat
         MediaControlButton.LIBRARY -> R.string.add_to_library
+        MediaControlButton.DISLIKE -> R.string.menu_dislike
     }
 )
 
@@ -168,4 +171,5 @@ private fun mediaControlIcon(button: MediaControlButton): ImageVector = when (bu
     MediaControlButton.SHUFFLE -> Icons.Rounded.Shuffle
     MediaControlButton.REPEAT -> Icons.Rounded.Repeat
     MediaControlButton.LIBRARY -> Icons.Rounded.LibraryAdd
+    MediaControlButton.DISLIKE -> Icons.Rounded.ThumbDownOffAlt
 }

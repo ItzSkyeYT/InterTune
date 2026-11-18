@@ -2880,4 +2880,8 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="metrolist_import_too_old">This backup comes from InnerTune or an older Metrolist. Restore takes InnerTune\'s; for Metrolist, update it and make a new backup.</string>
     <string name="metrolist_import_other_file">Choose another file</string>
     <string name="metrolist_import_failed">Couldn\'t read this backup</string>
+    <!-- Dislike (Unreleased.DISLIKE, #171): Don't play this song for a song from YouTube Music, which YouTube Music hears too when the account can be changed, and the same for the media controls. Held from translators until his go, French beside them in values-fr. -->
+    <string name="menu_dislike" translatable="false">Dislike</string>
+    <string name="menu_dislike_lift" translatable="false">Remove dislike</string>
+    <string name="dislike_done" translatable="false">Disliked here and on YouTube Music. It plays only when you pick it.</string>
 </resources>

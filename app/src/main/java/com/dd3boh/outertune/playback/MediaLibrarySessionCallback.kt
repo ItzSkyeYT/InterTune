@@ -95,6 +95,7 @@ class MediaLibrarySessionCallback @Inject constructor(
     var toggleLike: () -> Unit = {}
     var toggleStartRadio: () -> Unit = {}
     var toggleLibrary: () -> Unit = {}
+    var toggleDislike: () -> Unit = {}
 
     override fun onConnect(
         session: MediaSession,
@@ -108,6 +109,7 @@ class MediaLibrarySessionCallback @Inject constructor(
                 .add(MediaSessionConstants.CommandToggleStartRadio)
                 .add(MediaSessionConstants.CommandToggleShuffle)
                 .add(MediaSessionConstants.CommandToggleRepeatMode)
+                .add(MediaSessionConstants.CommandToggleDislike)
                 .add(SessionCommand(MusicService.COMMAND_GET_BINDER, Bundle.EMPTY))
                 .build(),
             connectionResult.availablePlayerCommands
@@ -126,6 +128,7 @@ class MediaLibrarySessionCallback @Inject constructor(
             MediaSessionConstants.ACTION_TOGGLE_LIBRARY -> toggleLibrary()
             MediaSessionConstants.ACTION_TOGGLE_SHUFFLE -> session.player.toggleShuffleMode()
             MediaSessionConstants.ACTION_TOGGLE_REPEAT_MODE -> session.player.toggleRepeatMode()
+            MediaSessionConstants.ACTION_TOGGLE_DISLIKE -> toggleDislike()
             MusicService.COMMAND_GET_BINDER -> return Futures.immediateFuture(
                 SessionResult(SessionResult.RESULT_SUCCESS).apply {
                     extras.putBinder("music_binder", service.MusicBinder())

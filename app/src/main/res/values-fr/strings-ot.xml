@@ -2691,4 +2691,7 @@
     <string name="metrolist_import_too_old">Cette sauvegarde vient d\'InnerTune ou d\'un ancien Metrolist. Restaurer prend celles d\'InnerTune ; pour Metrolist, mettez-le à jour et faites une nouvelle sauvegarde.</string>
     <string name="metrolist_import_other_file">Choisir un autre fichier</string>
     <string name="metrolist_import_failed">Impossible de lire cette sauvegarde</string>
+    <string name="menu_dislike" translatable="false">Je n\'aime pas</string>
+    <string name="menu_dislike_lift" translatable="false">Retirer « Je n\'aime pas »</string>
+    <string name="dislike_done" translatable="false">C\'est noté, ici et sur YouTube Music. Il n\'est joué que si vous le choisissez.</string>
 </resources>
