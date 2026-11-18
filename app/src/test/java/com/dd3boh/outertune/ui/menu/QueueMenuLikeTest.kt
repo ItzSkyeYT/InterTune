@@ -50,6 +50,22 @@ class QueueMenuLikeTest {
     }
 
     @Test
+    fun `a like from the menu shows on the song's row in the queue at once`() {
+        // The rows drew the heart from the queue's own copy of each song, which nothing refreshes
+        // after a like: the menu's heart turned and the row's did not, and a second tap took it back.
+        val items = source("ui/component/items/Items.kt")
+        val row = items.substringAfter("fun MediaMetadataListItem(").substringBefore("thumbnailContent = {")
+        assertTrue(row.contains("val storedLike by remember(mediaMetadata.id) { database.songLiked(mediaMetadata.id) }.collectAsState(initial = null)"))
+        assertTrue("the queue's copy only for a song with no row yet", row.contains("if (storedLike ?: mediaMetadata.liked) {"))
+        assertFalse(row.contains("showLikedIcon && mediaMetadata.liked"))
+        // The like alone, as it changes, null for a song not stored.
+        assertTrue(source("db/daos/SongsDao.kt").contains("@Query(\"SELECT liked FROM song WHERE id = :songId\")\n    fun songLiked(songId: String): Flow<Boolean?>"))
+        // Every row of the queue, and the playing song's row held at its edge.
+        assertTrue(source("ui/player/Queue.kt").contains("MediaMetadataListItem("))
+        assertTrue(source("ui/player/QueueHeldRow.kt").contains("MediaMetadataListItem("))
+    }
+
+    @Test
     fun `the row goes above the volume and the buttons, so none of them moves`() {
         val body = menu.substringAfter("fun PlayerMenu(")
         val header = body.indexOf("if (songHeader) {")
