@@ -112,7 +112,7 @@ class RoomRejoinTest {
     fun `a guest says the host is away, and is back to normal as it is heard`() {
         assertTrue("val hostAway: Boolean = false" in session)
         // looked at on every tick, as the follower's own look is
-        val tick = session.substringAfter("if (!leading) follow()").substringBefore("delay(SYNC_TICK_MS)")
+        val tick = session.substringAfter("if (!leading) follow()").substringBefore("withTimeoutOrNull(every) { wake.receive() }")
         assertTrue("watchHost()" in tick)
         val watch = body(session, "private fun watchHost()")
         assertTrue("if (owner) return" in watch)

@@ -30,6 +30,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -171,6 +172,8 @@ class TogetherSession(
     private val sentOut = mutableSetOf<String>()
     /** The sealed words taken, so that a copy is not taken twice (TakenSeals). */
     private val seals = TakenSeals()
+    /** Wakes the room's look before its time is up: what needs one soon (lookEveryMs). */
+    private val wake = Channel<Unit>(Channel.CONFLATED)
     private val speedBefore = service.exoPlayer.playbackParameters.speed
     private val repeatBefore = service.exoPlayer.repeatMode
     private var repeatTaken = false
@@ -203,6 +206,7 @@ class TogetherSession(
         // A follower's own pause, song or seek, as against the session's own commands (mine()).
         override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
             if (!leading) listenerPlayed(playWhenReady)
+            wake.trySend(Unit)
         }
 
         override fun onMediaItemTransition(mediaItem: androidx.media3.common.MediaItem?, reason: Int) {
@@ -311,7 +315,10 @@ class TogetherSession(
             while (isActive) {
                 if (!leading) follow()
                 watchHost()
-                delay(SYNC_TICK_MS)
+                // Four looks a second while the room plays; one every two seconds while it is paused there and here, or
+                // while this phone leads. A word from the leader, a play or a pause here, a new lead or Catch up wakes it.
+                val every = lookEveryMs(leading, lastState?.playing, service.exoPlayer.playWhenReady)
+                withTimeoutOrNull(every) { wake.receive() }
             }
         }
         publish()
@@ -486,6 +493,7 @@ class TogetherSession(
                 if (from == leaderKey && hostLine.hear(message)) {
                     lastState = message
                     lastStateAt = now
+                    wake.trySend(Unit)
                     // The leader said yes to this phone's song: back with the room, where it already is.
                     if (ownWay && message.songId == proposedSongId) {
                         Log.i(TAG, "The leader plays the song proposed from here: back with the room")
@@ -577,6 +585,7 @@ class TogetherSession(
             _status.value = _status.value.copy(driftMs = null, waitingForHost = true, locked = false)
         }
         publish()
+        wake.trySend(Unit)
     }
 
     private fun publish() {
@@ -701,6 +710,7 @@ class TogetherSession(
         roomQueue?.let { takeRepeat(it.repeat) }
         _status.value = _status.value.copy(ownWay = false, pausedHere = false, locked = false, proposed = false)
         Log.i(TAG, "Catching up with the leader")
+        wake.trySend(Unit)
     }
 
     /**
@@ -1036,7 +1046,6 @@ class TogetherSession(
 
     companion object {
         private const val TAG = "Together"
-        private const val SYNC_TICK_MS = 250L
         /** After a seek, time for the player to land before the next look. */
         private const val SETTLE_MS = 500L
         private const val MEMBER_TIMEOUT_MS = 45_000L
@@ -1082,3 +1091,18 @@ private val LOCAL_SONG_ID = Regex("LS[A-Za-z0-9]{8}")
  * metadata), or failing that by its id. No other phone can play it, so a room never carries it in a queue.
  */
 internal fun fromThisPhone(isLocal: Boolean?, mediaId: String): Boolean = isLocal == true || LOCAL_SONG_ID.matches(mediaId)
+
+/** The room's look while it plays: four times a second, for a follower's sync. */
+private const val LOOK_MS = 250L
+
+/** And while it is paused there and here, or this phone leads. */
+private const val IDLE_LOOK_MS = 2_000L
+
+/**
+ * How long a room waits between its looks (TogetherSession's follow and watchHost): a quarter of a second while the
+ * room plays; two seconds while it is paused both there and here, or while this phone leads, which has nothing to
+ * follow. Four main-thread wake-ups a second went on for a paused room left open (performance review, 18 Nov 2026).
+ * What needs a look sooner wakes it: a word from the leader, a play or a pause here, a new lead, Catch up.
+ */
+internal fun lookEveryMs(leading: Boolean, roomPlaying: Boolean?, playingHere: Boolean): Long =
+    if (leading || (roomPlaying != true && !playingHere)) IDLE_LOOK_MS else LOOK_MS
