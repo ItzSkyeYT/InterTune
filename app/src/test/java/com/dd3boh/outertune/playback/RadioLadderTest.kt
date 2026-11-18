@@ -255,6 +255,58 @@ class RadioLadderTest {
     }
 
     @Test
+    fun `a song's radio refused keeps YouTube Music from the next radios only, never from a playlist, an album or an artist's shuffle`() = runBlocking {
+        val wire = Wire().apply {
+            music = Result.failure(refusal(HttpStatusCode.TooManyRequests))
+            visitor = Result.success(answer("A", "B"))
+        }
+        val ladder = ladder(wire)
+        assertEquals(Rung.MUSIC_AS_VISITOR, ladder.radio(radioOfA).from)
+
+        // A minute later, a private playlist played from its menu, an album, an artist's shuffle and
+        // a playlist's next page: each asks YouTube Music, signed in, first, and it answers now.
+        wire.music = Result.success(answer("P1", "P2"))
+        now += 60_000
+        for (list in listOf(
+            WatchEndpoint(playlistId = "PLmine"),
+            WatchEndpoint(videoId = "P1", playlistId = "PLmine", index = 0),
+            WatchEndpoint(playlistId = "OLAK5uy_album"),
+            WatchEndpoint(playlistId = "RDAOartist", params = "wAEB"),
+        )) {
+            wire.asked.clear()
+            val answer = ladder.radio(list)
+            assertEquals("$list", Rung.MUSIC, answer.from)
+            assertEquals("$list", listOf("music"), wire.asked)
+        }
+        wire.asked.clear()
+        assertEquals(Rung.MUSIC, ladder.radio(WatchEndpoint(playlistId = "PLmine"), continuation = "page2").from)
+        assertEquals(listOf("music page2"), wire.asked)
+
+        // A song's radio still goes straight to the visitor for the rest of the ten minutes.
+        wire.asked.clear()
+        assertEquals(Rung.MUSIC_AS_VISITOR, ladder.radio(WatchEndpoint(videoId = "B")).from)
+        assertEquals(listOf("visitor with fresh-1"), wire.asked)
+    }
+
+    @Test
+    fun `a playlist refused is not kept against the song radios that come after it`() = runBlocking {
+        val wire = Wire().apply {
+            music = Result.failure(refusal(HttpStatusCode.Forbidden))
+            visitor = Result.failure(refusal(HttpStatusCode.Forbidden))
+        }
+        val ladder = ladder(wire)
+        val list = ladder.radio(WatchEndpoint(playlistId = "PLmine"))
+        assertNull(list.from)
+        assertEquals(listOf("music", "visitor with null"), wire.asked)
+
+        wire.asked.clear()
+        wire.music = Result.success(answer("A", "B"))
+        now += 60_000
+        assertEquals(Rung.MUSIC, ladder.radio(radioOfA).from)
+        assertEquals(listOf("music"), wire.asked)
+    }
+
+    @Test
     fun `the debug switch's refusal is taken as YouTube's`() {
         assertTrue(RadioLadder.isRefusal(RadioLadder.TestRefusal(401)))
         assertEquals("HTTP 401 (debug switch)", RadioLadder.describe(RadioLadder.TestRefusal(401)))
