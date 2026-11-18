@@ -72,10 +72,59 @@ class LibrarySearchTest {
         assertEquals(listOf("c"), LibrarySearch.asked("c"))
         assertEquals(listOf("toe"), LibrarySearch.asked("c toe"))
         assertEquals(listOf("good", "kid"), LibrarySearch.asked("good kid"))
-        assertEquals(listOf("a"), LibrarySearch.asked("a b"))
         assertFalse(LibrarySearch.apart("cicada"))
         assertFalse("a word twice is one word", LibrarySearch.apart("go Go"))
         assertTrue(LibrarySearch.apart("cicada  good"))
+    }
+
+    @Test
+    fun `lone letters are asked together, as typed, not the first letter alone`() {
+        // "a" alone is in most of a library: every title with an a and every song of an artist with one.
+        // "c t" is on the way to "c toe" for anyone who stops typing for a moment after the t.
+        assertEquals(listOf("a b"), LibrarySearch.asked("a b"))
+        assertEquals(listOf("c t"), LibrarySearch.asked("c t"))
+        assertFalse(LibrarySearch.apart("c t"))
+        assertEquals("the overview's three, as for one word", 3, LibrarySearch.limit("c t", 3))
+        // One more letter and the words go apart again, the lone letter kept for the filter.
+        assertEquals(listOf("to"), LibrarySearch.asked("c to"))
+        assertTrue(LibrarySearch.apart("c to"))
+        // What the phrase finds has every letter, so the filter drops none of it.
+        val phrase = listOf(Row("Magic Touch", listOf("Someone")), Row("Electric Tears", listOf("Toe")))
+        assertEquals(listOf("Electric Tears", "Magic Touch"), search("c t", phrase).sorted())
+    }
+
+    @Test
+    fun `each word apart comes back a few hundred rows at most, words together as before`() {
+        val cap = LibrarySearch.ROWS_PER_WORD
+        assertTrue("a few hundred", cap in 100..500)
+        assertEquals(cap, LibrarySearch.limit("c toe", 3))
+        assertEquals(cap, LibrarySearch.limit("never gonna give you up", Int.MAX_VALUE))
+        assertEquals("one word: the overview's three", 3, LibrarySearch.limit("c", 3))
+        assertEquals("one word: a chip's whole list, as before", Int.MAX_VALUE, LibrarySearch.limit("c", Int.MAX_VALUE))
+        // The view model asks every query with a limit from there: none asks for every row of a word.
+        val model = File("src/main/java/com/dd3boh/outertune/viewmodels/LocalSearchViewModel.kt").readText()
+        assertTrue(model.contains("val preview = LibrarySearch.limit(query, PREVIEW_SIZE)"))
+        assertTrue(model.contains("val listed = LibrarySearch.limit(query, Int.MAX_VALUE)"))
+        val asks = Regex("""found \{ database\.search\w+\(([^)]*)\) \}""").findAll(model).map { it.groupValues[1] }.toList()
+        assertEquals("the overview's five, the chips' five", 10, asks.size)
+        for (ask in asks) assertTrue(ask, ask == "it, preview" || ask == "it, listed")
+    }
+
+    @Test
+    fun `each result is ranked once, and off the main thread`() {
+        var named = 0
+        LibrarySearch.order("c", shown, { named++; it.title }, { it.artists })
+        assertEquals(shown.size, named)
+        named = 0
+        val forToe = listOf(Row("Tiptoe Cricket", listOf("Someone")), Row("Goon", listOf("Toe")), Row("c", listOf("Toe")))
+        LibrarySearch.order("c toe", forToe, { named++; it.title }, { it.artists })
+        assertEquals(forToe.size, named)
+        // The queries' rows put together and ranked on Dispatchers.Default, not on the main thread
+        // that collects the result.
+        val model = File("src/main/java/com/dd3boh/outertune/viewmodels/LocalSearchViewModel.kt").readText()
+        val flowOn = model.indexOf(".flowOn(Dispatchers.Default)")
+        assertTrue(flowOn > model.indexOf("LibrarySearch.order(query, items"))
+        assertTrue(flowOn in 0 until model.indexOf(".stateIn(viewModelScope"))
     }
 
     @Test

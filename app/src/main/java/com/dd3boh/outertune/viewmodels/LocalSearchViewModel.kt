@@ -11,6 +11,7 @@ import com.dd3boh.outertune.db.entities.Playlist
 import com.dd3boh.outertune.db.entities.Song
 import com.dd3boh.outertune.search.LibrarySearch
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -18,6 +19,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import javax.inject.Inject
@@ -36,11 +38,13 @@ class LocalSearchViewModel @Inject constructor(
         if (query.isEmpty()) {
             flowOf(LocalSearchResult("", filter, emptyMap()))
         } else {
-            // Several words are looked for apart (LibrarySearch): each asked of the database, all of
-            // what comes back, and only what has every word kept, so none can be cut short here.
+            // Several words are looked for apart (LibrarySearch): each asked of the database, the best
+            // few hundred rows of each, and only what has every word kept, so the overview cuts them
+            // short here. Lone letters are asked together, as typed, like one word.
             val apart = LibrarySearch.apart(query)
-            val preview = if (apart) Int.MAX_VALUE else PREVIEW_SIZE
             val asked = LibrarySearch.asked(query)
+            val preview = LibrarySearch.limit(query, PREVIEW_SIZE)
+            val listed = LibrarySearch.limit(query, Int.MAX_VALUE)
             fun found(search: (String) -> Flow<List<LocalItem>>): Flow<List<LocalItem>> =
                 if (asked.size == 1) search(asked.single())
                 else combine(asked.map(search)) { lists -> lists.flatMap { it } }
@@ -56,15 +60,15 @@ class LocalSearchViewModel @Inject constructor(
                     list.distinctBy { it.id }
                 }
                 LocalFilter.SONG -> combine(
-                    found { database.searchSongs(it) },
-                    found { database.searchArtistSongs(it) },
+                    found { database.searchSongs(it, listed) },
+                    found { database.searchArtistSongs(it, listed) },
                 ) { songs, artistSongs ->
                     val list = songs + artistSongs
                     list.distinctBy { it.id }
                 }
-                LocalFilter.ALBUM -> found { database.searchAlbums(it) }.map { list -> list.distinctBy { it.id } }
-                LocalFilter.ARTIST -> found { database.searchArtists(it) }.map { list -> list.distinctBy { it.id } }
-                LocalFilter.PLAYLIST -> found { database.searchPlaylists(it) }.map { list -> list.distinctBy { it.id } }
+                LocalFilter.ALBUM -> found { database.searchAlbums(it, listed) }.map { list -> list.distinctBy { it.id } }
+                LocalFilter.ARTIST -> found { database.searchArtists(it, listed) }.map { list -> list.distinctBy { it.id } }
+                LocalFilter.PLAYLIST -> found { database.searchPlaylists(it, listed) }.map { list -> list.distinctBy { it.id } }
             }.withoutBlocked().map { list ->
                 LocalSearchResult(
                     query = query,
@@ -73,15 +77,20 @@ class LocalSearchViewModel @Inject constructor(
                     // matches best first (LibrarySearch.rank).
                     map = list.groupBy { kindOf(it) }.mapValues { (kind, items) ->
                         val ordered = LibrarySearch.order(query, items, { it.title }, { othersOf(it) })
-                        // With words apart nothing was cut short by the database: the overview
-                        // shows as many of each kind as one word does (three, and up to six songs
-                        // between their titles and their artists).
+                        // With words apart the database hands back up to a few hundred of each: the
+                        // overview shows as many of each kind as one word does (three, and up to six
+                        // songs between their titles and their artists).
                         if (filter == LocalFilter.ALL && apart) ordered.take(if (kind == LocalFilter.SONG) PREVIEW_SIZE * 2 else PREVIEW_SIZE)
                         else ordered
                     }.filterValues { it.isNotEmpty() })
             }
         }
-    }.stateIn(viewModelScope, SharingStarted.Lazily, LocalSearchResult("", filter.value, emptyMap()))
+    }
+        // What comes back, put together, filtered and ranked off the main thread: on a big library
+        // that work held the screen up after each pause in typing, and again at each change to the
+        // library while the page was open (a song stored, a like).
+        .flowOn(Dispatchers.Default)
+        .stateIn(viewModelScope, SharingStarted.Lazily, LocalSearchResult("", filter.value, emptyMap()))
 
     companion object {
         const val PREVIEW_SIZE = 3
