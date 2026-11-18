@@ -91,19 +91,58 @@ class OnlineSearchViewModel @Inject constructor(
             AiFilter.changes.map { Triple(it.mode, it.markedAi, it.notAi) }.distinctUntilChanged().drop(1).collect { showAll() }
         }
         // Another language for YouTube (the app's, or the YouTube Music rows): the results are asked
-        // again in it. What was kept goes; the chip on screen loads now, the others when picked.
+        // again in it, and replace the ones shown only once they come (askAgain).
         viewModelScope.launch {
-            ContentLocale.changes.collect {
-                summaryAsSent = null
-                summaryAll = null
-                summaryPage = null
-                pagesAsSent.clear()
-                itemsAll.clear()
-                viewStateMap.clear()
-                aiHidden.clear()
-                if (blockedNamed == null) load(filter.value)
-            }
+            ContentLocale.changes.collect { if (blockedNamed == null) askAgain(filter.value) }
         }
+    }
+
+    /**
+     * The chip on screen asked again in YouTube's new language. Only an answer replaces what is
+     * shown, and then what was kept for the other chips goes too, to be asked again when picked.
+     * A failure (offline) leaves the page as it was: it used to empty it first and show the
+     * failure in its place.
+     */
+    private suspend fun askAgain(filter: YouTube.SearchFilter?) {
+        if (filter == null) {
+            YouTube.searchSummary(query)
+                .onSuccess {
+                    YouTubeTrouble.answered(asAccount = YouTube.useLoginForBrowse)
+                    forgetKept()
+                    summaryAsSent = it
+                    summaryAll = ContentFilter.current.search(it)
+                    showSummary()
+                }
+                .onFailure {
+                    reportException(it)
+                    YouTubeTrouble.failed(it)
+                }
+        } else {
+            YouTube.search(query, filter)
+                .onSuccess { result ->
+                    YouTubeTrouble.answered(asAccount = YouTube.useLoginForBrowse)
+                    forgetKept()
+                    val sent = ItemsPage(result.items.distinctBy { it.id }, result.continuation)
+                    pagesAsSent[filter.value] = sent
+                    itemsAll[filter.value] = sent.copy(items = ContentFilter.current.apply(sent.items))
+                    showItems(filter.value)
+                }
+                .onFailure {
+                    reportException(it)
+                    YouTubeTrouble.failed(it)
+                }
+        }
+    }
+
+    /** What was kept of YouTube's answers for every chip, gone: each is asked again when picked. */
+    private fun forgetKept() {
+        summaryAsSent = null
+        summaryAll = null
+        summaryPage = null
+        pagesAsSent.clear()
+        itemsAll.clear()
+        viewStateMap.clear()
+        aiHidden.clear()
     }
 
     private fun namedHere(): BlockedArtist? = if (Unreleased.ARTIST_BLOCK) ContentFilter.current.blocked.named(query) else null

@@ -87,13 +87,28 @@ class PagesFollowYouTubeLanguageTest {
     }
 
     @Test
-    fun `search results drop what they kept and ask again for the chip on screen`() {
+    fun `search results ask again for the chip on screen, and drop what they kept for the others`() {
         val search = source("viewmodels/OnlineSearchViewModel.kt")
-        val watch = search.substringAfter("ContentLocale.changes.collect {").substringBefore("\n            }\n")
+        assertTrue("ContentLocale.changes.collect { if (blockedNamed == null) askAgain(filter.value) }" in search)
+        val forget = search.substringAfter("private fun forgetKept() {").substringBefore("\n    }\n")
         for (kept in listOf("summaryAsSent = null", "summaryAll = null", "summaryPage = null", "pagesAsSent.clear()", "itemsAll.clear()", "viewStateMap.clear()")) {
-            assertTrue("$kept: $watch", kept in watch)
+            assertTrue("$kept: $forget", kept in forget)
         }
-        assertTrue("if (blockedNamed == null) load(filter.value)" in watch)
+    }
+
+    @Test
+    fun `offline, a search left open keeps its results when the language changes`() {
+        // It emptied the page first and asked after: offline nothing came, and the results that were there were gone.
+        val askAgain = File(sources, "viewmodels/OnlineSearchViewModel.kt").readText()
+            .substringAfter("private suspend fun askAgain(filter: YouTube.SearchFilter?) {").substringBefore("\n    }\n")
+        val forgets = Regex("""forgetKept\(\)""").findAll(askAgain).map { it.range.first }.toList()
+        assertEquals("the summary and a chip", 2, forgets.size)
+        for (at in forgets) {
+            val before = askAgain.substring(0, at)
+            assertTrue("forgotten outside an answer: $askAgain", before.lastIndexOf(".onSuccess") > before.lastIndexOf(".onFailure"))
+        }
+        val failures = askAgain.split(".onFailure").drop(1)
+        assertTrue(failures.all { "failed[" !in it.substringBefore(".onSuccess") && "forgetKept()" !in it.substringBefore(".onSuccess") })
     }
 
     @Test
