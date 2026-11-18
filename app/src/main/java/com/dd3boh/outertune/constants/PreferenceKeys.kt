@@ -268,6 +268,13 @@ val LyricUpdateSpeed = stringPreferencesKey("lyricUpdateSpeed")
 val LyricsBlurKey = stringPreferencesKey("lyricsBlur")
 
 /**
+ * The debug app's looks of the line sung word by word (Unreleased.LYRICS_WORDS_LOOKS): one by its
+ * name in LyricsWordsLook, or absent for the app's own way. Read only with the flag on, so a backup
+ * from a debug build changes nothing in a release.
+ */
+val LyricsWordsLookKey = stringPreferencesKey("lyricsWordsLook")
+
+/**
  * Show in Latin letters: a line in Japanese, Korean, Chinese, Cyrillic, Greek or an Indian script
  * gets its Latin version under it (LyricsLatin). Off by default, and not offered below Android 10.
  */

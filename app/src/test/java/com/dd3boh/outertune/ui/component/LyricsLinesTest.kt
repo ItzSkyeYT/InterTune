@@ -61,6 +61,13 @@ class LyricsLinesTest {
         assertFalse("eased behind the song", reveal.contains("animateFloatAsState"))
         // The words light by the song as it plays; still where it stopped while paused.
         assertTrue(line.contains("if (!playerConnection.isPlaying.value) playerConnection.isPlaying.first { it }"))
+        // A line whose words stand in its text is lit where each one stands (LyricsWords, #165): read where it is
+        // drawn too, its words placed once for the line as it was laid out, not at each frame.
+        assertTrue(line.contains("at = { drawnPos },"))
+        val words = File("src/main/java/com/dd3boh/outertune/ui/component/LyricsWords.kt").readText()
+        assertTrue(words.contains("if (layout == null) drawContent() else with(drawing) { drawWords(layout, look, color, at(), lineEndMs, weights) }"))
+        assertTrue(words.contains("if (layout === laidOut) return boxes"))
+        assertFalse("eased behind the song", words.contains("animateFloatAsState"))
     }
 
     @Test
