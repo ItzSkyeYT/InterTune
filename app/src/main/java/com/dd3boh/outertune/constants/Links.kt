@@ -32,4 +32,7 @@ object Links {
     /** The project's own address, for whatever is not a bug or a translation. */
     const val EMAIL = "intertune.dev@gmail.com"
 
+    /** Where a ListenBrainz account's user token is, for pasting into the app (ListenBrainzFrag). */
+    const val LISTENBRAINZ_SETTINGS = "https://listenbrainz.org/settings/"
+
 }

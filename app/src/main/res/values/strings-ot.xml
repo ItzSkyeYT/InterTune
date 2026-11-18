@@ -2881,4 +2881,23 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="metrolist_import_too_old">This backup comes from InnerTune or an older Metrolist. Restore takes InnerTune\'s; for Metrolist, update it and make a new backup.</string>
     <string name="metrolist_import_other_file">Choose another file</string>
     <string name="metrolist_import_failed">Couldn\'t read this backup</string>
+    <!-- ListenBrainz in place of Last.fm (Unreleased.LISTENBRAINZ): held from translators, French beside them. Words from experiments/features/listenbrainz/PLAN.md. -->
+    <string name="grp_listenbrainz" translatable="false">ListenBrainz</string>
+    <string name="listenbrainz_connect" translatable="false">Connect a ListenBrainz account</string>
+    <string name="listenbrainz_connect_description" translatable="false">Paste the user token from your ListenBrainz settings.</string>
+    <string name="listenbrainz_dialog_title" translatable="false">Connect ListenBrainz</string>
+    <string name="listenbrainz_dialog_body" translatable="false">Each song you finish is added to your ListenBrainz profile, and the one playing shows as playing now. Your listens there are public.</string>
+    <string name="listenbrainz_token" translatable="false">User token</string>
+    <string name="listenbrainz_get_token" translatable="false">Get my token</string>
+    <string name="listenbrainz_connect_button" translatable="false">Connect</string>
+    <string name="listenbrainz_token_unknown" translatable="false">ListenBrainz doesn\'t know this token. Copy it again from your settings page.</string>
+    <string name="listenbrainz_unreachable" translatable="false">Couldn\'t reach ListenBrainz. Check your connection and try again.</string>
+    <string name="listenbrainz_connected_as" translatable="false">Connected as %1$s</string>
+    <string name="listenbrainz_disconnect_description" translatable="false">Tap to disconnect. Nothing already sent is removed.</string>
+    <string name="listenbrainz_scrobble" translatable="false">Scrobble what I play</string>
+    <string name="listenbrainz_scrobble_description" translatable="false">Off, you stay connected and nothing is sent.</string>
+    <string name="listenbrainz_scrobble_explain" translatable="false">For each song you finish, ListenBrainz gets its title, artist, album, length, when you played it and its YouTube Music link, plus InterTune\'s name and version. The song playing now goes too, without the time. Your listens are public there, and nothing goes while \"Pause listen history\" is on.</string>
+    <string name="listenbrainz_refused" translatable="false">ListenBrainz no longer accepts your token</string>
+    <string name="listenbrainz_refused_description" translatable="false">Paste the new one from your settings page. Listens waiting here go out once it works.</string>
+    <string name="search_words_listenbrainz" translatable="false">listenbrainz, scrobble, scrobbling</string>
 </resources>

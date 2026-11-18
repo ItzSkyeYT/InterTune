@@ -2692,4 +2692,23 @@
     <string name="metrolist_import_too_old">Cette sauvegarde vient d\'InnerTune ou d\'un ancien Metrolist. Restaurer prend celles d\'InnerTune ; pour Metrolist, mettez-le à jour et faites une nouvelle sauvegarde.</string>
     <string name="metrolist_import_other_file">Choisir un autre fichier</string>
     <string name="metrolist_import_failed">Impossible de lire cette sauvegarde</string>
+    <!-- ListenBrainz in place of Last.fm (Unreleased.LISTENBRAINZ): held from translators. -->
+    <string name="grp_listenbrainz" translatable="false">ListenBrainz</string>
+    <string name="listenbrainz_connect" translatable="false">Connecter un compte ListenBrainz</string>
+    <string name="listenbrainz_connect_description" translatable="false">Collez le jeton utilisateur de vos paramètres ListenBrainz.</string>
+    <string name="listenbrainz_dialog_title" translatable="false">Connecter ListenBrainz</string>
+    <string name="listenbrainz_dialog_body" translatable="false">Chaque titre que vous terminez s\'ajoute à votre profil ListenBrainz, et celui en cours s\'affiche en écoute. Vos écoutes y sont publiques.</string>
+    <string name="listenbrainz_token" translatable="false">Jeton utilisateur</string>
+    <string name="listenbrainz_get_token" translatable="false">Obtenir mon jeton</string>
+    <string name="listenbrainz_connect_button" translatable="false">Connecter</string>
+    <string name="listenbrainz_token_unknown" translatable="false">ListenBrainz ne reconnaît pas ce jeton. Copiez-le à nouveau depuis votre page de paramètres.</string>
+    <string name="listenbrainz_unreachable" translatable="false">Impossible de joindre ListenBrainz. Vérifiez votre connexion et réessayez.</string>
+    <string name="listenbrainz_connected_as" translatable="false">Connecté en tant que %1$s</string>
+    <string name="listenbrainz_disconnect_description" translatable="false">Appuyez pour vous déconnecter. Rien de ce qui a déjà été envoyé n\'est supprimé.</string>
+    <string name="listenbrainz_scrobble" translatable="false">Scrobbler ce que j\'écoute</string>
+    <string name="listenbrainz_scrobble_description" translatable="false">Désactivé, vous restez connecté et rien n\'est envoyé.</string>
+    <string name="listenbrainz_scrobble_explain" translatable="false">Pour chaque titre que vous terminez, ListenBrainz reçoit son nom, son artiste, son album, sa durée, l\'heure d\'écoute et son lien YouTube Music, ainsi que le nom et la version d\'InterTune. Le titre en cours est envoyé aussi, sans l\'heure. Vos écoutes y sont publiques, et rien ne part tant que « Suspendre l\'historique d\'écoute » est activé.</string>
+    <string name="listenbrainz_refused" translatable="false">ListenBrainz n\'accepte plus votre jeton</string>
+    <string name="listenbrainz_refused_description" translatable="false">Collez le nouveau depuis votre page de paramètres. Les écoutes en attente partiront dès que ça fonctionnera.</string>
+    <string name="search_words_listenbrainz" translatable="false">listenbrainz, scrobble, scrobbling</string>
 </resources>
