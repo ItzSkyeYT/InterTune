@@ -64,7 +64,8 @@ class LinkSaysWhyTest {
         fun texts(folder: String): Map<String, String> {
             val file = File("src/main/res/$folder/strings-ot.xml").readText()
             return listOf("err_invalid_ytm_song", "link_open_failed").associateWith { name ->
-                val found = Regex("""<string name="$name">([^<]*)</string>""").find(file)
+                // link_open_failed is new in 0.13 and held from translators until the release; err_invalid_ytm_song is not.
+                val found = Regex("""<string name="$name"(?: translatable="false")?>([^<]*)</string>""").find(file)
                 assertNotNull("$folder: $name", found)
                 found!!.groupValues[1]
             }
