@@ -2870,6 +2870,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="lyrics_word_by_word_saver" translatable="false">Off while Android\'s battery saver is on.</string>
     <string name="order_move_up" translatable="false">Move up</string>
     <string name="order_move_down" translatable="false">Move down</string>
+    <string name="dont_play_state" translatable="false">Plays only when you pick it</string>
     <string name="metrolist_import">Import from Metrolist</string>
     <string name="metrolist_import_description">Likes, playlists and plays from a Metrolist backup</string>
     <string name="metrolist_import_reading">Reading the backup</string>
