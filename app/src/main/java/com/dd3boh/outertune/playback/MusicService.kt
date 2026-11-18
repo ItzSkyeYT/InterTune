@@ -1413,7 +1413,9 @@ class MusicService : MediaLibraryService(),
                         ).also { addListener(it) }
                     }
                 }
-                addAnalyticsListener(PlaybackStatsListener(false, this@MusicService))
+                // media3's play-time counter, which closed the app when it tripped on its own
+                // bookkeeping: now made again instead (GuardedPlaybackStats).
+                addAnalyticsListener(GuardedPlaybackStats(this@MusicService))
                 // A song whose cached copy cannot be read is given up, so a retry reads it whole. See BadCachedCopy.
                 addAnalyticsListener(object : AnalyticsListener {
                     /** When each song's last failed load was written down: the player retries every few seconds. */
