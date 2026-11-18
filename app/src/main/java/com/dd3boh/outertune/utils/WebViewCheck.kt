@@ -37,6 +37,9 @@ object WebViewCheck {
         works = runCatching { WebView(context).destroy() }
             .onFailure { Log.w(TAG, "This phone cannot start a web view", it) }
             .isSuccess
+        // Before Android 13 the first WebView of the process puts the app's words back in the
+        // phone's language, even one made only to see that it can be (AppLanguage.afterWebView).
+        AppLanguage.afterWebView(context)
         return works
     }
 
