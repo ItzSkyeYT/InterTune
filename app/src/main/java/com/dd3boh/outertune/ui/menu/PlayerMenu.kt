@@ -49,6 +49,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -67,12 +68,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastSumBy
 import androidx.compose.ui.window.DialogProperties
-import androidx.media3.common.PlaybackParameters
 import androidx.navigation.NavController
 import com.dd3boh.outertune.LocalBatteryMode
 import com.dd3boh.outertune.LocalDatabase
 import com.dd3boh.outertune.LocalDownloadUtil
 import com.dd3boh.outertune.playback.BatteryUse
+import com.dd3boh.outertune.playback.Varispeed
 import com.dd3boh.outertune.LocalPlayerConnection
 import androidx.compose.foundation.lazy.items
 import com.dd3boh.outertune.ui.dialog.ListDialog
@@ -92,6 +93,7 @@ import com.dd3boh.outertune.ui.screens.mix.rememberMixMenuEntry
 import com.dd3boh.outertune.constants.MAX_PLAYER_VOLUME
 import com.dd3boh.outertune.constants.ShowLyricsKey
 import com.dd3boh.outertune.constants.SyncMode
+import com.dd3boh.outertune.constants.VarispeedKey
 import com.dd3boh.outertune.constants.YtmSyncModeKey
 import com.dd3boh.outertune.models.DontPlay
 import com.dd3boh.outertune.models.MediaMetadata
@@ -114,7 +116,6 @@ import com.zionhuang.innertube.YouTube
 import kotlinx.coroutines.launch
 import java.time.LocalDateTime
 import kotlin.math.log2
-import kotlin.math.pow
 import kotlin.math.round
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -573,6 +574,10 @@ fun PitchTempoDialog(
     onDismiss: () -> Unit,
 ) {
     val playerConnection = LocalPlayerConnection.current ?: return
+    // Varispeed (Settings > Player and audio): the pitch follows the speed, so the speed is the one row, as in
+    // Metrolist, where the ask comes from.
+    val (varispeed) = rememberPreference(VarispeedKey, defaultValue = false)
+    val linked = Unreleased.VARISPEED && varispeed
     var tempo by remember {
         mutableFloatStateOf(playerConnection.player.playbackParameters.speed)
     }
@@ -580,7 +585,11 @@ fun PitchTempoDialog(
         mutableIntStateOf(round(12 * log2(playerConnection.player.playbackParameters.pitch)).toInt())
     }
     val updatePlaybackParameters = {
-        playerConnection.player.playbackParameters = PlaybackParameters(tempo, 2f.pow(transposeValue.toFloat() / 12))
+        playerConnection.player.playbackParameters = Varispeed.parameters(tempo, transposeValue, linked)
+    }
+    // A speed set from somewhere else (a media controller) kept its pitch: linked again when the dialog opens.
+    LaunchedEffect(linked) {
+        if (linked && playerConnection.player.playbackParameters.pitch != tempo) updatePlaybackParameters()
     }
 
     AlertDialog(
@@ -615,9 +624,9 @@ fun PitchTempoDialog(
                         updatePlaybackParameters()
                     },
                     valueText = { "x$it" },
-                    modifier = Modifier.padding(bottom = 12.dp)
+                    modifier = if (linked) Modifier else Modifier.padding(bottom = 12.dp)
                 )
-                ValueAdjuster(
+                if (!linked) ValueAdjuster(
                     icon = Icons.Rounded.Tune,
                     currentValue = transposeValue,
                     values = (-12..12).toList(),

@@ -1051,4 +1051,17 @@ object Unreleased {
      * Metrolist 14.0 backup over on the emulator (15 Nov 2026), so on for everyone in 0.13 (his yes of 14 Nov 2026).
      */
     val METROLIST_IMPORT = true
+
+    /**
+     * Varispeed (#225, asked on Discord as Metrolist has it): the pitch follows the speed, as on a record player.
+     * Named and placed as Metrolist does it, the app the ask copies: a switch in the player's settings (here in
+     * Settings > Player and audio, beside Skip silence), and with it on, Tempo and Pitch shows the speed alone
+     * and every speed it sets carries the same pitch (playback/Varispeed). Turned on, the song playing is linked
+     * at once; turned off, a pitch that followed the speed goes back to the song's own key, as a DJ app's key lock
+     * does. Its texts (varispeed, varispeed_description, search_words_varispeed) are held from translators, French
+     * beside them. Without the flag the switch is not drawn, nothing reads it, and the dialog is as it was.
+     *
+     * Held back as the line's held features are: the debug app, the Preview and the Tester app have it.
+     */
+    val VARISPEED = BuildConfig.PREVIEW_FEATURES
 }

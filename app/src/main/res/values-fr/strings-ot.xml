@@ -2692,4 +2692,7 @@
     <string name="metrolist_import_too_old">Cette sauvegarde vient d\'InnerTune ou d\'un ancien Metrolist. Restaurer prend celles d\'InnerTune ; pour Metrolist, mettez-le à jour et faites une nouvelle sauvegarde.</string>
     <string name="metrolist_import_other_file">Choisir un autre fichier</string>
     <string name="metrolist_import_failed">Impossible de lire cette sauvegarde</string>
+    <string name="varispeed">Varispeed</string>
+    <string name="varispeed_description">Accélérer rend le son plus aigu et ralentir plus grave, comme un tourne-disque.</string>
+    <string name="search_words_varispeed">hauteur, vitesse, tempo, tourne-disque, vinyle, cassette, verrouillage de tonalité, nightcore, slowed</string>
 </resources>

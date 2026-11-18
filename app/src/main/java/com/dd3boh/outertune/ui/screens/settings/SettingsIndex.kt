@@ -166,6 +166,7 @@ val SETTINGS_INDEX: List<SettingEntry> = listOf(
     SettingEntry(Tour.ROUTE_PLAYER, R.string.proximity_volume, R.string.proximity_volume_description),
     SettingEntry(Tour.ROUTE_PLAYER, R.string.audio_normalization, R.string.audio_normalization_description, words = listOf(R.string.search_words_normalization)),
     SettingEntry(Tour.ROUTE_PLAYER, R.string.skip_silence),
+    SettingEntry(Tour.ROUTE_PLAYER, R.string.varispeed, R.string.varispeed_description, words = listOf(R.string.search_words_varispeed), there = Unreleased.VARISPEED),
     SettingEntry(Tour.ROUTE_PLAYER, R.string.loudness_repair, words = listOf(R.string.search_words_normalization)),
     SettingEntry(Tour.ROUTE_PLAYER, R.string.equalizer, words = listOf(R.string.search_words_equalizer)),
     SettingEntry(Tour.ROUTE_PLAYER, R.string.auto_skip_next_on_error),
