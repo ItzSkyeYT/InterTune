@@ -183,6 +183,7 @@ import com.dd3boh.outertune.playback.QueueStart
 import com.dd3boh.outertune.ui.component.FloatingFooter
 import com.dd3boh.outertune.ui.component.SelectHeader
 import com.dd3boh.outertune.ui.component.SwipeToRemoveBox
+import com.dd3boh.outertune.ui.component.SwipeToRemoveState
 import com.dd3boh.outertune.ui.component.button.IconButton
 import com.dd3boh.outertune.ui.component.LongPressLabel
 import com.dd3boh.outertune.ui.component.button.ResizableIconButton
@@ -196,6 +197,7 @@ import com.dd3boh.outertune.utils.rememberEnumPreference
 import com.dd3boh.outertune.utils.rememberPreference
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.delay
 import com.dd3boh.outertune.ui.utils.GlassSpec
 import com.dd3boh.outertune.ui.utils.LocalGlassStill
 import com.dd3boh.outertune.ui.utils.STILL_ALPHA
@@ -531,6 +533,16 @@ fun BoxScope.QueueContent(
         inSelectMode = false
         selectedItems.clear()
     }
+    // A swipe on a picked song moves every picked row on screen as one, and they go together (#141, Ti-Die's
+    // extra: "allow swiping away an entire selection, the same way you'd do with one song"). The rows it took
+    // stay slid out while the list lets them go: the selection is cleared as they leave, which must not bring
+    // them back to rest on their way out. Back at rest for the next selection, or an Undo.
+    val pickedSwipe = remember { SwipeToRemoveState() }
+    var pickedLeaving by remember { mutableStateOf(emptySet<Int>()) }
+    val pickedSwipeRests = {
+        pickedLeaving = emptySet()
+        pickedSwipe.rest()
+    }
 
     fun exitDetachHead() {
         detachedHead = false
@@ -565,6 +577,8 @@ fun BoxScope.QueueContent(
     val undoLabel = stringResource(R.string.undo)
     val putBackTaken: (Long, List<QueueUndo.Taken<MediaMetadata>>) -> Unit = put@{ queueId, taken ->
         val queue = qb.getCurrentQueue()?.takeIf { it.id == queueId } ?: return@put
+        // Songs a swipe of the picked ones took come back at rest, not slid out.
+        pickedSwipeRests()
         val loaded = playerConnection.player.mediaItemCount > 0
         for (at in QueueUndo.insertions(taken, queue.getSize())) {
             val held = qb.putBack(queue, at.place, at.song)
@@ -627,6 +641,23 @@ fun BoxScope.QueueContent(
             offerUndo(queueId, taken)
             onExitSelectionMode()
         }
+    }
+    // A picked row swiped away (#141): the picked songs go as the menu's Remove from queue takes them, with its
+    // Undo. It says yes when songs went, and the rows stay slid out; when none could go, they slide back.
+    val removePickedSwiped: () -> Boolean = swipe@{
+        val remove = removeSelected ?: return@swipe false
+        val before = mutableSongs.size
+        pickedLeaving = selectedItems.toSet()
+        remove()
+        val went = mutableSongs.size < before
+        if (!went) pickedLeaving = emptySet()
+        went
+    }
+    // The rows it took are gone from the list well within a second; then it rests for the next selection.
+    LaunchedEffect(pickedLeaving) {
+        if (pickedLeaving.isEmpty()) return@LaunchedEffect
+        delay(1_000)
+        pickedSwipeRests()
     }
 
     // search
@@ -1427,6 +1458,8 @@ fun BoxScope.QueueContent(
                                     },
                                     onLongClick = {
                                         if (!inSelectMode) {
+                                            // From rest, wherever the last selection's swipe left it.
+                                            pickedSwipeRests()
                                             inSelectMode = true
                                             selectedItems.add(window.hashCode())
                                         }
@@ -1435,14 +1468,21 @@ fun BoxScope.QueueContent(
                         )
                     }
 
+                    // While songs are picked, a picked row swipes them all away together, every picked row on
+                    // screen moving under the finger (#141), and a row not picked does not swipe.
+                    val swipesPicked = Unreleased.QUEUE_SWIPE_PICKED && inSelectMode && window.hashCode() in selectedItems
+                    val ownSwipe = remember { SwipeToRemoveState() }
+
                     // A column, as the item lays its content over itself: under the song playing
                     // in a Mix queue, the next change in a line that is not swiped with the row.
                     Column {
                         // Before play after a restart too (movesStoredQueue), as Remove from queue is: the songs
                         // leave the saved queue alone, the player holding nothing yet.
-                        if (!lockQueue && !inSelectMode && (!detachedHead || movesStoredQueue)) {
+                        if (!lockQueue && (!inSelectMode || Unreleased.QUEUE_SWIPE_PICKED) && (!detachedHead || movesStoredQueue)) {
                             SwipeToRemoveBox(
-                                onRemove = removeSwiped,
+                                onRemove = if (swipesPicked) removePickedSwiped else removeSwiped,
+                                state = if (swipesPicked || window.hashCode() in pickedLeaving) pickedSwipe else ownSwipe,
+                                enabled = !inSelectMode || swipesPicked,
                                 content = { content() }
                             )
                         } else {
@@ -1954,7 +1994,7 @@ fun BoxScope.QueueContent(
     // of the bar. The bar keeps the queue's title, its place and its length while songs are picked.
     // Upright it floats over the bar; on its side at the foot of the songs, on their half of the
     // screen; searching there is no bar, and it floats at the foot of the window. Remove from queue
-    // is a button of its own on it, beside the menu's item.
+    // is an item of its menu, and a swipe on a picked row takes them too (#141).
     val selectionPill: @Composable () -> Unit = {
         // Searching, it counts and selects the results, as the headers under the search field did.
         val counted = if (isSearching) filteredSongs else (detachedQueue?.getCurrentQueueShuffled() ?: mutableSongs)
