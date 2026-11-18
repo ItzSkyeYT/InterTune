@@ -1647,6 +1647,8 @@
     <string name="home_play_at_random">Lancer quelque chose au hasard</string>
     <string name="view_as_list">Affiché en liste</string>
     <string name="view_as_grid">Affiché en grille</string>
+    <string name="view_as_tree" translatable="false">Affiché en arborescence</string>
+    <string name="previous_folder" translatable="false">Dossier parent</string>
     <string name="playlist_order_locked">Ordre verrouillé</string>
     <string name="playlist_order_unlocked">Ordre déverrouillé</string>
     <string name="cancel_download">Annuler le téléchargement</string>
