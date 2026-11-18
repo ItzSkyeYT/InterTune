@@ -226,6 +226,60 @@ class MetrolistImportTest {
     }
 
     @Test
+    fun `a row of theirs whose song, artist, album or playlist is missing is left out, and the rest comes over`() {
+        val m = theirs(36)
+        m.row("artist", "id" to "A1", "name" to "DJ Snake", "lastUpdateTime" to 1L)
+        m.row("album", "id" to "AL1", "title" to "Encore", "songCount" to 1, "duration" to 200, "lastUpdateTime" to 1L)
+        m.row("song", "id" to "S1", "title" to "Lean On", "duration" to 176, "inLibrary" to 1_000L)
+        m.row("playlist", "id" to "P1", "name" to "Mine there")
+        // Rows whose parent their own database does not have: nothing in Metrolist looks for them.
+        m.createStatement().use { it.execute("PRAGMA foreign_keys = OFF") }
+        m.row("song_artist_map", "songId" to "S1", "artistId" to "A1", "position" to 0)
+        m.row("song_artist_map", "songId" to "S1", "artistId" to "GONE", "position" to 1)
+        m.row("song_artist_map", "songId" to "GONE", "artistId" to "A1", "position" to 0)
+        m.row("song_album_map", "songId" to "S1", "albumId" to "AL1", "index" to 0)
+        m.row("song_album_map", "songId" to "S1", "albumId" to "GONE", "index" to 1)
+        m.row("album_artist_map", "albumId" to "AL1", "artistId" to "A1", "order" to 0)
+        m.row("album_artist_map", "albumId" to "AL1", "artistId" to "GONE", "order" to 1)
+        m.row("playlist_song_map", "playlistId" to "P1", "songId" to "GONE", "position" to 0)
+        m.row("playlist_song_map", "playlistId" to "P1", "songId" to "S1", "position" to 1)
+        m.row("event", "songId" to "GONE", "timestamp" to 10_000L, "playTime" to 1_000L)
+        m.row("event", "songId" to "S1", "timestamp" to 20_000L, "playTime" to 176_000L)
+        m.row("playCount", "song" to "GONE", "year" to 2026, "month" to 11, "count" to 3)
+        m.row("playCount", "song" to "S1", "year" to 2026, "month" to 11, "count" to 2)
+        m.row("lyrics", "id" to "GONE", "lyrics" to "[00:01.00] gone")
+        m.row("format", "id" to "GONE", "itag" to 251, "mimeType" to "audio/webm", "codecs" to "opus", "bitrate" to 128_000, "contentLength" to 1L)
+        val o = ours()
+
+        val result = MetrolistImport.merge(JdbcDb(m), JdbcDb(o))
+
+        assertEquals(MetrolistImport.Result(songs = 1, liked = 0, inLibrary = 1, playlists = 1, plays = 1), result)
+        assertEquals(listOf("A1"), o.all("SELECT artistId FROM song_artist_map"))
+        assertEquals(listOf("AL1"), o.all("SELECT albumId FROM song_album_map"))
+        assertEquals(listOf("A1"), o.all("SELECT artistId FROM album_artist_map"))
+        assertEquals(listOf("S1"), o.all("SELECT songId FROM playlist_song_map WHERE playlistId = 'P1'"))
+        assertEquals(listOf("S1"), o.all("SELECT songId FROM event"))
+        assertEquals(listOf("S1"), o.all("SELECT song FROM playCount"))
+        assertEquals(emptyList<String>(), o.all("SELECT id FROM lyrics UNION ALL SELECT id FROM format"))
+        assertTrue("every row has its parent", o.all("PRAGMA foreign_key_check").isEmpty())
+    }
+
+    @Test
+    fun `every table the import writes rows to that point elsewhere has each of our foreign keys looked at first`() {
+        val schema = Json.parseToJsonElement(File("schemas/com.dd3boh.outertune.db.InternalDatabase/$MUSIC_DATABASE_VERSION.json").readText())
+            .jsonObject["database"]!!.jsonObject
+        val keys = schema["entities"]!!.jsonArray.map { it.jsonObject }.associate { e ->
+            e["tableName"]!!.jsonPrimitive.content to e["foreignKeys"]?.jsonArray.orEmpty().map { fk ->
+                val key = fk.jsonObject
+                assertEquals("id", key["referencedColumns"]!!.jsonArray.single().jsonPrimitive.content)
+                key["columns"]!!.jsonArray.single().jsonPrimitive.content to key["table"]!!.jsonPrimitive.content
+            }
+        }
+        assertTrue(MetrolistImport.PARENTS.keys.containsAll(MetrolistImport.PER_SONG + listOf("playlist_song_map", "event", "playCount")))
+        for ((table, parents) in MetrolistImport.PARENTS) assertTrue(table, parents.containsAll(keys.getValue(table)))
+    }
+
+    @Test
     fun `the new app's liked songs in its settings come over, newest first`() {
         val m = theirs(65)
         m.row("song", "id" to "S3", "title" to "Only played", "duration" to 100)

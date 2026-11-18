@@ -53,7 +53,24 @@ object MetrolistImport {
     private val OURS_ONLY = setOf("queue", "queue_song_map")
 
     /** The maps and the per-song tables, copied as they are once their songs, artists and albums are in. */
-    private val PER_SONG = listOf("song_artist_map", "song_album_map", "album_artist_map", "format", "lyrics")
+    internal val PER_SONG = listOf("song_artist_map", "song_album_map", "album_artist_map", "format", "lyrics")
+
+    /**
+     * What a row of these tables points to, as (its column, our table), found there by id. A row of theirs whose song,
+     * artist, album or playlist is not in ours is left out. Room turns foreign keys on for ours, and OR IGNORE does not
+     * cover a foreign key, so one such row (an orphan, which nothing in Metrolist looks for) failed the whole import,
+     * every time. The per-song tables with no foreign key (format, lyrics, playCount) keep to our songs the same way.
+     */
+    internal val PARENTS: Map<String, List<Pair<String, String>>> = mapOf(
+        "song_artist_map" to listOf("songId" to "song", "artistId" to "artist"),
+        "song_album_map" to listOf("songId" to "song", "albumId" to "album"),
+        "album_artist_map" to listOf("albumId" to "album", "artistId" to "artist"),
+        "playlist_song_map" to listOf("playlistId" to "playlist", "songId" to "song"),
+        "event" to listOf("songId" to "song"),
+        "format" to listOf("id" to "song"),
+        "lyrics" to listOf("id" to "song"),
+        "playCount" to listOf("song" to "song"),
+    )
 
     enum class Refusal {
         /** Not a database Metrolist wrote. */
@@ -176,12 +193,12 @@ object MetrolistImport {
         theirs.query("SELECT songId, timestamp, playTime FROM event" + playsOnly(theirs)) { r ->
             ours.exec(
                 "INSERT INTO event (songId, timestamp, playTime) SELECT ?, ?, ? " +
-                        "WHERE NOT EXISTS (SELECT 1 FROM event WHERE songId = ? AND timestamp = ?)",
-                listOf(r[0], r[1], r[2], r[0], r[1]),
+                        "WHERE NOT EXISTS (SELECT 1 FROM event WHERE songId = ? AND timestamp = ?) AND EXISTS (SELECT 1 FROM song WHERE id = ?)",
+                listOf(r[0], r[1], r[2], r[0], r[1], r[0]),
             )
         }
         if ("playCount" in both) theirs.query("SELECT song, year, month, count FROM playCount") { r ->
-            if (ours.exec("INSERT OR IGNORE INTO playCount (song, year, month, count) VALUES (?, ?, ?, ?)", r) == 0)
+            if (ours.exec("INSERT OR IGNORE INTO playCount (song, year, month, count) SELECT ?, ?, ?, ? WHERE EXISTS (SELECT 1 FROM song WHERE id = ?)", r + listOf(r[0])) == 0)
                 ours.exec("UPDATE playCount SET count = MAX(count, ?) WHERE song = ? AND year = ? AND month = ?", listOf(r[3], r[0], r[1], r[2]))
         }
         if ("search_history" in both) theirs.query("SELECT query FROM search_history ORDER BY id") { r ->
@@ -239,8 +256,9 @@ object MetrolistImport {
             }
         }
         val songs = shared(theirs, ours, "playlist_song_map") - "id"
+        val (insertSong, songArgs) = insertIfParents("playlist_song_map", songs)
         for (playlist in made) theirs.query("SELECT ${list(songs)} FROM playlist_song_map WHERE playlistId = ? ORDER BY position, id", listOf(playlist)) { r ->
-            ours.exec("INSERT INTO playlist_song_map (${list(songs)}) VALUES (${marks(songs)})", r)
+            ours.exec(insertSong, songArgs(r))
         }
     }
 
@@ -249,7 +267,21 @@ object MetrolistImport {
         val columns = shared(theirs, ours, table)
         if (columns.isEmpty()) return
         val toOurs = numbers(ours, table, columns)
-        theirs.query("SELECT ${list(columns)} FROM \"$table\"") { r -> ours.exec(insert(table, columns), toOurs(r)) }
+        val (sql, args) = insertIfParents(table, columns)
+        theirs.query("SELECT ${list(columns)} FROM \"$table\"") { r -> ours.exec(sql, args(toOurs(r))) }
+    }
+
+    /**
+     * [insert] for a row of [table] all of whose [PARENTS] are in ours, and nothing for one that has a parent missing:
+     * the statement, and what makes its arguments from a row (its values, then the id of each parent).
+     */
+    private fun insertIfParents(table: String, columns: List<String>): Pair<String, (List<Any?>) -> List<Any?>> {
+        val parents = PARENTS[table].orEmpty().filter { (column, _) -> column in columns }
+        if (parents.isEmpty()) return insert(table, columns) to { row: List<Any?> -> row }
+        val at = parents.map { (column, _) -> columns.indexOf(column) }
+        val sql = "INSERT OR IGNORE INTO \"$table\" (${list(columns)}) SELECT ${marks(columns)} WHERE " +
+                parents.joinToString(" AND ") { (_, parent) -> "EXISTS (SELECT 1 FROM \"$parent\" WHERE id = ?)" }
+        return sql to { row: List<Any?> -> row + at.map { row[it] } }
     }
 
     /**
