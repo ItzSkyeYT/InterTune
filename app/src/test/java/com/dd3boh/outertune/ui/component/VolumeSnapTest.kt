@@ -26,38 +26,58 @@ class VolumeSnapTest {
         (1..steps).map { VolumeSnap.shown(from + (to - from) * it / steps, max, on = true) }
 
     @Test
-    fun `near the line the bar rests on it, a few percent of the bar either side`() {
+    fun `just above the line the bar rests on it, a few percent of the bar`() {
         assertEquals(0.03f, VolumeSnap.ZONE)
+        assertEquals(1f, VolumeSnap.shown(1f, max, on = true))
         assertEquals(1f, VolumeSnap.shown(1.1f, max, on = true))
-        assertEquals(1f, VolumeSnap.shown(0.9f, max, on = true))
         assertEquals(1f, VolumeSnap.shown(1.11f, max, on = true))
         // Past the zone, the bar is where the finger put it.
         assertEquals(1.2f, VolumeSnap.shown(1.2f, max, on = true))
-        assertEquals(0.8f, VolumeSnap.shown(0.8f, max, on = true))
     }
 
     @Test
-    fun `a slow drag goes through the line and out the other side, held only inside the zone`() {
-        val shown = drag(0.6f, 1.6f)
-        assertTrue(1f in shown)
-        assertEquals(1.6f, shown.last(), 1e-4f)
-        val held = shown.count { it == 1f }
-        // 0.24 of the drag's 1.0 lies in the zone: about a quarter of the moves rest on the line, no more.
-        assertTrue("held for $held of 200 moves", held in 44..52)
+    fun `below the line the bar follows the finger, so 88% to 99% can still be set`() {
+        for (percent in 80..99) {
+            val volume = percent / 100f
+            assertEquals(volume, VolumeSnap.shown(volume, max, on = true))
+        }
+        // A drag from a saved 90% that moves down first goes down, never up to 100%.
+        assertEquals(0.89f, VolumeSnap.shown(0.89f, max, on = true))
+    }
+
+    @Test
+    fun `a slow drag goes through the line and out the other side, held only above it`() {
+        val up = drag(0.6f, 1.6f)
+        assertTrue(1f in up)
+        assertEquals(1.6f, up.last(), 1e-4f)
+        val held = up.count { it == 1f }
+        // 0.12 of the drag's 1.0 lies in the zone: about an eighth of the moves rest on the line, no more.
+        assertTrue("held for $held of 200 moves", held in 20..28)
         // And never back below the line once past it, on the way up.
-        val firstAbove = shown.indexOfFirst { it > 1f }
-        assertTrue(shown.drop(firstAbove).all { it > 1f })
+        val firstAbove = up.indexOfFirst { it > 1f }
+        assertTrue(up.drop(firstAbove).all { it > 1f })
+        // Coming back down from boost it rests on the line, then follows the finger below it, step by step.
+        val down = drag(1.6f, 0.6f)
+        val lastHeld = down.lastIndexOf(1f)
+        assertTrue(lastHeld > 0)
+        val below = down.drop(lastHeld + 1)
+        assertTrue(below.all { it < 1f })
+        assertTrue(1f - below.first() < 0.01f)
+        assertTrue(below.zipWithNext().all { (a, b) -> b < a && a - b < 0.01f })
+        assertEquals(0.6f, down.last(), 1e-4f)
     }
 
     @Test
     fun `one tick as it lands, none while it rests there or leaves`() {
-        var before = 0.6f
-        var ticks = 0
-        for (now in drag(0.6f, 1.6f)) {
-            if (VolumeSnap.lands(before, now)) ticks++
-            before = now
+        for ((from, to) in listOf(0.6f to 1.6f, 1.6f to 0.6f)) {
+            var before = from
+            var ticks = 0
+            for (now in drag(from, to)) {
+                if (VolumeSnap.lands(before, now)) ticks++
+                before = now
+            }
+            assertEquals("from $from to $to", 1, ticks)
         }
-        assertEquals(1, ticks)
         assertFalse(VolumeSnap.lands(1f, 1f))
         assertFalse(VolumeSnap.lands(1f, 1.2f))
     }

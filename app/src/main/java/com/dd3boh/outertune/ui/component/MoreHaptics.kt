@@ -60,18 +60,19 @@ class SeekRumble(private val steps: Int = STEPS) {
 
 /**
  * The volume bar's pull towards the line where boost begins (Unreleased.HAPTICS_MORE; asked in #general on 18 Nov 2026,
- * "does it magnetize / snap if i drag it back to the line"): a drag that comes within [ZONE] of the bar of 1 (100%)
- * rests on it, and one that goes on past that leaves it again. The drag's own value is kept apart from what the bar
- * shows, so that a slow drag is never held at the line for good. Only on a bar that goes past 1: on Saver it stops at 1
- * and has no line to snap to.
+ * "does it magnetize / snap if i drag it back to the line"): a drag that comes within [ZONE] of the bar above 1 (100%)
+ * rests on it, and one that goes on past that leaves it again. Only on the boost side, where the ask came from (coming
+ * back down from boost): below 100% the bar follows the finger, so 88% to 99% can still be set. The drag's own value is
+ * kept apart from what the bar shows, so that a slow drag is never held at the line for good. Only on a bar that goes
+ * past 1: on Saver it stops at 1 and has no line to snap to.
  */
 object VolumeSnap {
-    /** A few percent of the bar on each side of the line: 3% of its range, 0.12 on the bar that goes to 4. */
+    /** A few percent of the bar above the line: 3% of its range, 0.12 on the bar that goes to 4. */
     const val ZONE = 0.03f
 
     /** What the bar shows for a drag whose own value is [dragged], on a bar that goes from 0 to [max]. */
     fun shown(dragged: Float, max: Float, on: Boolean = Unreleased.HAPTICS_MORE): Float =
-        if (on && max > 1f && abs(dragged - 1f) <= ZONE * max) 1f else dragged
+        if (on && max > 1f && dragged >= 1f && dragged - 1f <= ZONE * max) 1f else dragged
 
     /** Whether the bar, showing [before] and now [now], has just landed on the line: one tick then. */
     fun lands(before: Float, now: Float): Boolean = now == 1f && before != 1f
