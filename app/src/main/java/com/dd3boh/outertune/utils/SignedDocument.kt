@@ -23,7 +23,7 @@ import java.security.spec.X509EncodedKeySpec
  * A document only the maintainer can have written: the news and questions, the donors, the newest version.
  *
  * Each is signed with his key, ECDSA on P-256 with SHA-256, which java.security has on every Android this
- * app runs on. So the app can take it from any host (the gist, intertune.app, the counter worker, Codeberg):
+ * app runs on. So the app can take it from any host (the gist, intertune.app, the counter worker, GitLab):
  * a host that is taken over, or a copy somebody else puts up, can only serve what he signed. The file:
  *
  * ```

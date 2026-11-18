@@ -26,7 +26,7 @@ import java.util.concurrent.TimeUnit
  *
  * Until 0.13 the news came from one gist, and the update check and the donors from GitHub alone, so one ban of
  * one GitHub account took every way of reaching the app's users at once. More gists on the same account would
- * not help: the other hosts are other companies (Netlify, Cloudflare, Codeberg).
+ * not help: the other hosts are other companies (Netlify, Cloudflare, GitLab).
  */
 object SignedSources {
     private const val TAG = "SignedSources"
@@ -85,7 +85,7 @@ object SignedSources {
      * (not signed, signed by someone else, older than one taken, expired), counts for nothing.
      *
      * [lastResort] is asked, the same way, only when [sources] give nothing to believe: a host that is there
-     * for the day the others are gone, not for every check (Codeberg is not a CDN). Its hosts are numbered on
+     * for the day the others are gone, not for every check (GitLab is not a CDN). Its hosts are numbered on
      * from [sources]' in the log.
      */
     suspend fun best(

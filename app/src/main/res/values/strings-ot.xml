@@ -375,7 +375,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="grp_polls">Questions and news</string>
     <string name="polls_enabled">Ask me the occasional question</string>
     <string name="polls_enabled_description">A short question on Home now and then, about what to build next.</string>
-    <string name="polls_enabled_info">Now and then InterTune fetches a short question from GitHub, intertune.app and Cloudflare (Codeberg when those are down), and shows it on Home. Answering sends the question, your answer and the app version, and opening it sends its title and the app version. Never your account, device or library.</string>
+    <string name="polls_enabled_info">Now and then InterTune fetches a short question from GitHub, intertune.app and Cloudflare (GitLab when those are down), and shows it on Home. Answering sends the question, your answer and the app version, and opening it sends its title and the app version. Never your account, device or library.</string>
     <string name="polls_none">No question right now</string>
     <string name="polls_one_waiting">There is a question waiting</string>
     <string name="news_one_waiting">There is news waiting</string>
@@ -401,7 +401,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="polls_opt_in_no">No thanks</string>
     <string name="news_enabled">News from InterTune</string>
     <string name="news_enabled_description">An announcement on Home now and then, like a new feature.</string>
-    <string name="news_enabled_info">Now and then InterTune fetches news from GitHub, intertune.app and Cloudflare (Codeberg when those are down), and shows it on Home. Opening one sends its title and the app version, to count readers. Never your account, device or library.</string>
+    <string name="news_enabled_info">Now and then InterTune fetches news from GitHub, intertune.app and Cloudflare (GitLab when those are down), and shows it on Home. Opening one sends its title and the app version, to count readers. Never your account, device or library.</string>
     <string name="news_opt_in_title">Get news from InterTune?</string>
     <string name="news_opt_in_body">Now and then InterTune can show a short announcement on Home, like a new feature. Opening one is counted anonymously, and you can turn this off in Settings any time.</string>
     <string name="news_opt_in_yes">Yes, show me</string>

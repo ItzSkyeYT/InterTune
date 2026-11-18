@@ -133,7 +133,7 @@ class SignedFallbacksTest {
             val strings = File(path).readText()
             for (name in listOf("polls_enabled_info", "news_enabled_info")) {
                 val text = Regex("""<string name="$name">(.*?)</string>""").find(strings)!!.groupValues[1]
-                for (host in listOf("GitHub", "intertune.app", "Cloudflare", "Codeberg")) assertTrue("$name in $path: $host", host in text)
+                for (host in listOf("GitHub", "intertune.app", "Cloudflare", "GitLab")) assertTrue("$name in $path: $host", host in text)
             }
             for (name in listOf(
                 "update_check_description", "update_check_description_fdroid", "oobe_update_check_description",

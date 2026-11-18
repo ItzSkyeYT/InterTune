@@ -27,17 +27,17 @@ class CheckedPicturesTest {
     private val sha = CheckedPictures.sha256(picture)
     private val url = "https://raw.githubusercontent.com/ItzSkyeYT/InterTune/v0.13/docs/announcements/release-0.13.webp"
 
-    private fun document(sha256: String = sha, mirrors: String = """["https://intertune.app/news/p/$sha.webp","javascript:alert(1)","https://codeberg.org/x/p/$sha.webp"]""") =
+    private fun document(sha256: String = sha, mirrors: String = """["https://intertune.app/news/p/$sha.webp","javascript:alert(1)","https://gitlab.com/x/p/$sha.webp"]""") =
         """{"announcements":[],"pictures":{"$url":{"sha256":"$sha256","mirrors":$mirrors}}}"""
 
     @Test
     fun `the document's pictures are read with their hash and their other hosts, web addresses only`() {
         val read = CheckedPictures.read(document())
         assertEquals(
-            CheckedPicture(url, sha, listOf("https://intertune.app/news/p/$sha.webp", "https://codeberg.org/x/p/$sha.webp")),
+            CheckedPicture(url, sha, listOf("https://intertune.app/news/p/$sha.webp", "https://gitlab.com/x/p/$sha.webp")),
             read[url],
         )
-        assertEquals(listOf(url, "https://intertune.app/news/p/$sha.webp", "https://codeberg.org/x/p/$sha.webp"), read[url]!!.sources)
+        assertEquals(listOf(url, "https://intertune.app/news/p/$sha.webp", "https://gitlab.com/x/p/$sha.webp"), read[url]!!.sources)
     }
 
     @Test
@@ -59,7 +59,7 @@ class CheckedPicturesTest {
 
     @Test
     fun `a host with other bytes is passed over for the next, and none matching gives nothing`() {
-        val hosts = listOf("https://raw.githubusercontent.com/a.webp", "https://intertune.app/news/p/a.webp", "https://codeberg.org/a.webp")
+        val hosts = listOf("https://raw.githubusercontent.com/a.webp", "https://intertune.app/news/p/a.webp", "https://gitlab.com/a.webp")
         val notes = mutableListOf<String>()
         val served = mapOf(hosts[0] to "a swapped picture".toByteArray(), hosts[1] to picture)
         assertArrayEquals(picture, CheckedPictures.firstMatching(hosts, sha, { served[it] }, notes))
@@ -90,7 +90,7 @@ class CheckedPicturesTest {
             listOf(
                 "https://intertune.app/news/p/${known.sha256}.webp",
                 "https://intertune-count.intertune.workers.dev/news/p/${known.sha256}.webp",
-                "https://codeberg.org/ItzSkyeYT/intertune-news/raw/branch/main/news/p/${known.sha256}.webp",
+                "https://gitlab.com/itzskyeyt/intertune-news/-/raw/main/news/p/${known.sha256}.webp",
             ),
             known.mirrors,
         )

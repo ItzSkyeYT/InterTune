@@ -52,7 +52,7 @@ import javax.inject.Singleton
  * WHAT LEAVES THE DEVICE, in full, because this is the part that has to be true when the modal
  * says the answer is anonymous:
  *  - a GET for the poll list, which reveals only that some InterTune install looked: to the gist,
- *    intertune.app and the counter worker at once, and to Codeberg only when those three give
+ *    intertune.app and the counter worker at once, and to GitLab only when those three give
  *    nothing to believe (Polls.SOURCES, Polls.LAST_RESORT, SignedDocument)
  *  - on answering, one POST carrying the poll id and its question, the chosen options' ids and
  *    labels, the words typed into an "Other" box when there are some, and the app version;
@@ -182,7 +182,7 @@ class PollChecker @Inject constructor(
         }
 
         // The gist, intertune.app and the counter worker at once, the newest document the maintainer signed
-        // winning wherever it is, and Codeberg only when those give nothing (SignedDocument). Only the signed
+        // winning wherever it is, and GitLab only when those give nothing (SignedDocument). Only the signed
         // part is read.
         val highest = store.get(SignedNewsSeqKey, 0L)
         val revoked = store.get(RevokedSigningKeysKey, emptySet())

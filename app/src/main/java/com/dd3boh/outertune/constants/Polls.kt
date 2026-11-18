@@ -43,7 +43,7 @@ object Polls {
         get() = words(POLLS_URL + " " + BuiltInKeys.pollsMirrors)
 
     /**
-     * Asked only when [SOURCES] give nothing to believe: Codeberg (polls.lastResort), which hosts code,
+     * Asked only when [SOURCES] give nothing to believe: GitLab (polls.lastResort), which hosts code,
      * not a CDN for every phone's every check.
      */
     val LAST_RESORT: List<String>
