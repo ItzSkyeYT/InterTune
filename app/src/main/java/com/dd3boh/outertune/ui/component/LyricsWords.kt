@@ -30,7 +30,6 @@ import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
-import androidx.compose.ui.text.style.ResolvedTextDirection
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.TextUnit
 import com.dd3boh.outertune.playback.MusicLevels
@@ -294,18 +293,15 @@ internal object LyricsWords {
             val lastRow = rows.rowOf((to - 1).coerceAtLeast(piece.from))
             val mine = ArrayList<WordBox>(1)
             for (row in firstRow..lastRow) {
-                val rowStart = rows.start(row)
-                val rowEnd = rows.visibleEnd(row)
-                val a = max(piece.from, rowStart)
-                val b = min(to, rowEnd)
+                val a = max(piece.from, rows.start(row))
+                val b = min(to, rows.visibleEnd(row))
                 if (b <= a) continue
-                val rowRtl = rows.rtl(row)
-                // The row's own ends where the word reaches them: the place of a letter at a row's
-                // end can be given as the start of the next row.
-                val xa = if (a <= rowStart) (if (rowRtl) rows.right(row) else rows.left(row)) else rows.x(a)
-                val xb = if (b >= rowEnd) (if (rowRtl) rows.left(row) else rows.right(row)) else rows.x(b)
-                if (xa == xb) continue
-                mine += WordBox(index, row, min(xa, xb), max(xa, xb), rows.top(row), rows.bottom(row))
+                // Where its own letters stand, whichever way they are read: never worked out from the way the row is
+                // read, which can be the other one (19 Nov 2026: Compose lays a line out the app's way, so in an
+                // English app an Arabic line is a row read from the left whose letters run from the right).
+                val across = rows.across(a, b)
+                if (across.endInclusive <= across.start) continue
+                mine += WordBox(index, row, across.start, across.endInclusive, rows.top(row), rows.bottom(row))
                 covered[row] = true
             }
             val width = mine.sumOf { (it.right - it.left).toDouble() }.toFloat().coerceAtLeast(1f)
@@ -492,10 +488,12 @@ internal interface WordRows {
     fun right(row: Int): Float
     fun top(row: Int): Float
     fun bottom(row: Int): Float
-    fun rtl(row: Int): Boolean
 
-    /** Where the letter at [offset] starts, across. */
-    fun x(offset: Int): Float
+    /**
+     * Where the letters [from] up to [to], all on one row, stand across: from the left of the
+     * leftmost to the right of the rightmost, whichever way they and the row are read.
+     */
+    fun across(from: Int, to: Int): ClosedFloatingPointRange<Float>
 }
 
 /** The rows of a line as Compose laid it out. */
@@ -509,8 +507,19 @@ private class LaidOutRows(private val layout: TextLayoutResult) : WordRows {
     override fun right(row: Int) = layout.getLineRight(row)
     override fun top(row: Int) = layout.getLineTop(row)
     override fun bottom(row: Int) = layout.getLineBottom(row)
-    override fun rtl(row: Int) = layout.getParagraphDirection(layout.getLineStart(row)) == ResolvedTextDirection.Rtl
-    override fun x(offset: Int) = layout.getHorizontalPosition(offset, true)
+
+    // Each letter's own box: Compose places it by the letter's way and the row's (Layout.isRtlCharAt), and a letter at a
+    // row's end by that row, never the next.
+    override fun across(from: Int, to: Int): ClosedFloatingPointRange<Float> {
+        var left = Float.POSITIVE_INFINITY
+        var right = Float.NEGATIVE_INFINITY
+        for (offset in from until to) {
+            val box = layout.getBoundingBox(offset)
+            left = min(left, box.left)
+            right = max(right, box.right)
+        }
+        return if (left <= right) left..right else 0f..0f
+    }
 }
 
 /**
