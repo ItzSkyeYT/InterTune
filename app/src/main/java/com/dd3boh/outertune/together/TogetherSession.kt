@@ -814,6 +814,16 @@ class TogetherSession(
             refusal.played()
             _status.value = _status.value.copy(songUnavailable = false)
         }
+        // Ended here on the leader's song while the leader is still in it (back in the room after this phone played it
+        // to its end, or the leader went back in it): an ended player never plays again by itself, so a seek to the
+        // leader's spot wakes it; near the end the leader's next song is on the way (Follow.wake).
+        if (player.playbackState == Player.STATE_ENDED) {
+            val spot = Follow.wake(leaderAt(state, now) + delayMs, player.duration.takeIf { it != C.TIME_UNSET }) ?: return
+            Log.i(TAG, "Ended here while the leader is ${spot / 1000} s in: back to the leader's spot")
+            seek(player, spot)
+            if (player.playWhenReady != state.playing) player.playWhenReady = state.playing
+            return
+        }
         if (player.playbackState != Player.STATE_READY && player.playbackState != Player.STATE_BUFFERING) return
         if (arriving) arrive(player, state, now)
         if (roomQueue !== matchedQueue) matchQueue()
