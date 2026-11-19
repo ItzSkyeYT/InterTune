@@ -1,5 +1,10 @@
 package com.dd3boh.outertune.ui.screens.settings.fragments
 
+import com.dd3boh.outertune.utils.ContentLocale
+import com.dd3boh.outertune.utils.AppLanguage
+import androidx.compose.material.icons.rounded.Translate
+import android.content.ContextWrapper
+import android.app.Activity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -89,7 +94,6 @@ import com.zionhuang.innertube.YouTube
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
 import com.dd3boh.outertune.ui.screens.settings.settingRow
-import java.util.Locale
 
 @Composable
 fun ColumnScope.TabArrangementFrag() {
@@ -453,8 +457,51 @@ fun ColumnScope.SwipeGesturesFrag() {
     )
 }
 
+/**
+ * "App language": the language of the app's own words, where the two rows under it are the
+ * language and country YouTube Music answers in. System default, then every language the app
+ * is translated into, each in its own words. A pick switches the whole app at once (AppLanguage):
+ * the screen stays, the music goes on. The value is read from where the platform keeps it each
+ * time the screen is made, so it agrees with Android's own App languages page.
+ */
+@Composable
+fun ColumnScope.AppLanguageFrag() {
+    val context = LocalContext.current
+    var choice by remember { mutableStateOf(AppLanguage.current(context)) }
+    val choices = remember {
+        listOf(SYSTEM_DEFAULT) + AppLanguage.TAGS.sortedBy { AppLanguage.nameOf(it).lowercase() }
+    }
+
+    ListPreference(
+        modifier = Modifier.settingRow(R.string.app_language),
+        title = { Text(stringResource(R.string.app_language)) },
+        icon = { Icon(Icons.Rounded.Translate, null) },
+        selectedValue = choice,
+        values = choices,
+        valueText = {
+            if (it == SYSTEM_DEFAULT) stringResource(R.string.system_default) else AppLanguage.nameOf(it)
+        },
+        onValueSelected = { picked ->
+            var holder = context
+            while (holder !is Activity && holder is ContextWrapper) holder = holder.baseContext
+            (holder as? Activity)?.let { activity ->
+                choice = picked
+                AppLanguage.set(activity, picked)
+            }
+        }
+    )
+}
+
+/**
+ * "YouTube Music language" and "YouTube Music country": what YouTube answers in (the titles of the
+ * rows on Home, song and artist names, the charts). Not the app's own words, which "App language"
+ * above them sets: the labels say so, because the old "Default content language" was taken for the
+ * app's language and left a Dutch phone half Dutch. Left on System default they follow the app
+ * ([ContentLocale]).
+ */
 @Composable
 fun ColumnScope.LocalizationFrag() {
+    val context = LocalContext.current
     val (contentLanguage, onContentLanguageChange) = rememberPreference(
         key = ContentLanguageKey,
         defaultValue = "system"
@@ -462,8 +509,8 @@ fun ColumnScope.LocalizationFrag() {
     val (contentCountry, onContentCountryChange) = rememberPreference(key = ContentCountryKey, defaultValue = "system")
 
     ListPreference(
-        modifier = Modifier.tourTarget(Tour.SETTING_CONTENT_LANGUAGE).settingRow(R.string.content_language),
-        title = { Text(stringResource(R.string.content_language)) },
+        modifier = Modifier.tourTarget(Tour.SETTING_CONTENT_LANGUAGE).settingRow(R.string.youtube_language),
+        title = { Text(stringResource(R.string.youtube_language)) },
         icon = { Icon(Icons.Rounded.Language, null) },
         selectedValue = contentLanguage,
         values = listOf(SYSTEM_DEFAULT) + LanguageCodeToName.keys.toList(),
@@ -473,22 +520,17 @@ fun ColumnScope.LocalizationFrag() {
             }
         },
         onValueSelected = { newValue ->
-            val locale = Locale.getDefault()
-            val languageTag = locale.toLanguageTag().replace("-Hant", "")
-
-            YouTube.locale = YouTube.locale.copy(
-                hl = newValue.takeIf { it != SYSTEM_DEFAULT }
-                    ?: locale.language.takeIf { it in LanguageCodeToName }
-                    ?: languageTag.takeIf { it in LanguageCodeToName }
-                    ?: "en"
-            )
+            // Worked out from the pick itself: the stored value is written a moment later.
+            ContentLocale.use(YouTube.locale.copy(
+                hl = ContentLocale.of(newValue, null, ContentLocale.appLocale(context), ContentLocale.phoneLocale(context)).hl
+            ))
 
             onContentLanguageChange(newValue)
         }
     )
     ListPreference(
-        modifier = Modifier.tourTarget(Tour.SETTING_CONTENT_COUNTRY).settingRow(R.string.content_country),
-        title = { Text(stringResource(R.string.content_country)) },
+        modifier = Modifier.tourTarget(Tour.SETTING_CONTENT_COUNTRY).settingRow(R.string.youtube_country),
+        title = { Text(stringResource(R.string.youtube_country)) },
         icon = { Icon(Icons.Rounded.LocationOn, null) },
         selectedValue = contentCountry,
         values = listOf(SYSTEM_DEFAULT) + CountryCodeToName.keys.toList(),
@@ -498,13 +540,9 @@ fun ColumnScope.LocalizationFrag() {
             }
         },
         onValueSelected = { newValue ->
-            val locale = Locale.getDefault()
-
-            YouTube.locale = YouTube.locale.copy(
-                gl = newValue.takeIf { it != SYSTEM_DEFAULT }
-                    ?: locale.country.takeIf { it in CountryCodeToName }
-                    ?: "US"
-            )
+            ContentLocale.use(YouTube.locale.copy(
+                gl = ContentLocale.of(null, newValue, ContentLocale.appLocale(context), ContentLocale.phoneLocale(context)).gl
+            ))
 
             onContentCountryChange(newValue)
         }

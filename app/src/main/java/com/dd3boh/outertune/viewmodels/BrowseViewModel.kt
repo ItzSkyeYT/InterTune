@@ -5,6 +5,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.dd3boh.outertune.utils.reportException
+import com.dd3boh.outertune.utils.ContentLocale
 import com.zionhuang.innertube.YouTube
 import com.zionhuang.innertube.models.YTItem
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -22,6 +23,12 @@ class BrowseViewModel @Inject constructor(
     val title = MutableStateFlow<String?>("")
 
     init {
+        load()
+        // Another language for YouTube (the app's, or the YouTube Music rows): the page loads again in it.
+        viewModelScope.launch { ContentLocale.changes.collect { load() } }
+    }
+
+    private fun load() {
         viewModelScope.launch {
             browseId?.let {
                 YouTube.browse(browseId, null).onSuccess { result ->

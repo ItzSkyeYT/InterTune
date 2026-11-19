@@ -38,6 +38,7 @@ import android.os.Build
 import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.Hearing
 import androidx.compose.material.icons.rounded.SkipNext
+import androidx.compose.material.icons.rounded.SlowMotionVideo
 import androidx.compose.material.icons.rounded.SurroundSound
 import androidx.compose.material.icons.rounded.Bedtime
 import androidx.compose.material.icons.rounded.BluetoothAudio
@@ -94,6 +95,7 @@ import com.dd3boh.outertune.constants.SeekIncrement
 import com.dd3boh.outertune.constants.SeekIncrementKey
 import com.dd3boh.outertune.constants.SkipOnErrorKey
 import com.dd3boh.outertune.constants.SkipSilenceKey
+import com.dd3boh.outertune.constants.VarispeedKey
 import com.dd3boh.outertune.constants.ResumeOnBluetoothKey
 import com.dd3boh.outertune.constants.StopMusicOnTaskClearKey
 import com.dd3boh.outertune.constants.SleepTimerDefaults
@@ -1063,6 +1065,19 @@ fun ColumnScope.AudioEffectsFrag() {
         checked = skipSilence,
         onCheckedChange = onSkipSilenceChange
     )
+    // Varispeed (#225), where Metrolist keeps it, among the player's own settings: Tempo and Pitch then moves the
+    // pitch with the speed. The icon is the one of the speed row it changes.
+    if (Unreleased.VARISPEED) {
+        val (varispeed, onVarispeedChange) = rememberPreference(key = VarispeedKey, defaultValue = false)
+        SwitchPreference(
+            modifier = Modifier.settingRow(R.string.varispeed),
+            title = { Text(stringResource(R.string.varispeed)) },
+            description = stringResource(R.string.varispeed_description),
+            icon = { Icon(Icons.Rounded.SlowMotionVideo, null) },
+            checked = varispeed,
+            onCheckedChange = onVarispeedChange
+        )
+    }
 
     LoudnessRepairEntry()
 }

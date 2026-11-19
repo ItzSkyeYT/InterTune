@@ -37,8 +37,8 @@ class DownloadMoveNoticeTest {
     @Test
     fun `it ends by saying it is done or how many stay, even when the move fails halfway`() {
         assertTrue(migrate.contains("FolderMove.MOVED -> movedCount++"))
-        assertTrue(migrate.substringAfter("} finally {").contains("moveNotice?.finish(movedCount)"))
-        val finish = notice.substringAfter("fun finish(moved: Int) {").substringBefore("\n    }\n")
+        assertTrue(migrate.substringAfter("} finally {").contains("moveNotice?.finish(movedCount, held)"))
+        val finish = notice.substringAfter("fun finish(moved: Int, held: Int = 0) {").substringBefore("\n    }\n")
         assertTrue(finish.contains("manager.cancel(ConvertNotice.ONGOING_ID)"))
         assertTrue(finish.contains("val left = stayInside(total, moved)"))
         assertTrue(finish.contains("R.string.dl_move_notice_done"))

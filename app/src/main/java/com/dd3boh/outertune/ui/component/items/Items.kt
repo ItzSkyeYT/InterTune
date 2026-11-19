@@ -73,6 +73,8 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -136,6 +138,13 @@ const val DontPlayAlpha = 0.5f
 fun Modifier.dontPlayDim(on: Boolean): Modifier = if (on) alpha(DontPlayAlpha) else this
 
 /**
+ * [said] (R.string.dont_play_state) for a song not to play: what TalkBack says of it besides its title, since half
+ * strength is only seen. On the row or tile its tap is on, as a state, so nothing on screen changes. Nothing for any
+ * other song.
+ */
+fun Modifier.dontPlaySaid(said: String?): Modifier = if (said != null) semantics { stateDescription = said } else this
+
+/**
  * Whether the listener chose not to play this song, this upload or another of it (DontPlay),
  * asked of the set the whole app follows once (LocalDontPlay).
  */
@@ -161,9 +170,10 @@ inline fun ListItem(
 ) {
     // Picked by hand and playing, it is on: only a song waiting in the list is shown off.
     val switchedOff = isDontPlay && !isActive
+    val offSaid = if (switchedOff) stringResource(R.string.dont_play_state) else null
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        modifier = if (isActive) {
+        modifier = (if (isActive) {
             modifier // playing highlight
                 .height(ListItemHeight)
                 .padding(horizontal = 8.dp)
@@ -183,7 +193,7 @@ inline fun ListItem(
             modifier // default
                 .height(ListItemHeight)
                 .padding(horizontal = 8.dp)
-        }
+        }).dontPlaySaid(offSaid)
     ) {
         Box(
             modifier = Modifier.padding(6.dp).dontPlayDim(switchedOff),
@@ -286,6 +296,7 @@ fun GridItem(
     /** Under the line that holds the badges and the subtitle: what a tile says beyond them. */
     below: @Composable () -> Unit = {},
 ) {
+    val offSaid = if (isDontPlay) stringResource(R.string.dont_play_state) else null
     Column(
         modifier = if (fillMaxWidth) {
             modifier
@@ -295,7 +306,7 @@ fun GridItem(
             modifier
                 .padding(12.dp)
                 .width(GridThumbnailHeight * thumbnailRatio)
-        }.dontPlayDim(isDontPlay)
+        }.dontPlayDim(isDontPlay).dontPlaySaid(offSaid)
     ) {
         BoxWithConstraints(
             modifier = if (fillMaxWidth) {
@@ -433,8 +444,15 @@ fun MediaMetadataListItem(
         if (isNew) {
             Icon.NewPick()
         }
-        if (showLikedIcon && mediaMetadata.liked) {
-            Icon.Favorite()
+        if (showLikedIcon) {
+            // The like as stored, as it changes: a like from the queue's menu (#219) or the player's
+            // heart shows on the row at once. The queue's own copy of the song keeps the like it had
+            // when the queue was made, and only stands in for a song with no row yet.
+            val database = LocalDatabase.current
+            val storedLike by remember(mediaMetadata.id) { database.songLiked(mediaMetadata.id) }.collectAsState(initial = null)
+            if (storedLike ?: mediaMetadata.liked) {
+                Icon.Favorite()
+            }
         }
         if (showInLibraryIcon && mediaMetadata.isLocal) {
             Icon.FolderCopy()

@@ -8,6 +8,7 @@ package com.dd3boh.outertune.db.daos
 
 import com.dd3boh.outertune.db.entities.EngineWeight
 import com.dd3boh.outertune.db.ListenSql
+import com.dd3boh.outertune.db.RecommendationSql
 import com.dd3boh.outertune.db.RelatedSql
 import com.dd3boh.outertune.db.HistorySql
 import com.dd3boh.outertune.db.entities.HistoryPiece
@@ -68,6 +69,10 @@ interface ListenDao {
 
     @Insert
     fun insertSignal(signal: ListenSignal)
+
+    /** Takes back the newest signal of [kind] about [songId] noted at [since] or later (an Undo). */
+    @Query(ListenSql.DROP_LAST_SIGNAL)
+    fun dropLastSignal(songId: String, kind: Int, since: Long)
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     fun insertVersionMap(rows: List<SongVersionMap>)
@@ -270,22 +275,32 @@ interface ListenDao {
     fun deleteExclusion(id: Long)
 
     /**
-     * The songs the listener chose not to play (reason 5, ExclusionsViewModel.REASON_DONT_PLAY),
-     * each with its title and first artist as the library has them, so that its other uploads are
-     * known by them (DontPlay). Followed by App while Unreleased.ARTIST_BLOCK is on.
+     * The songs the listener chose not to play (ExclusionsViewModel.isDontPlay), each with its title
+     * and first artist as the library has them, so that its other uploads are known by them
+     * (DontPlay). Followed by App while Unreleased.ARTIST_BLOCK is on.
      */
-    @Query(
-        "SELECT x.targetId AS id, COALESCE(song.title, x.label) AS title, " +
-            "(SELECT artist.name FROM song_artist_map JOIN artist ON artist.id = song_artist_map.artistId " +
-            "WHERE song_artist_map.songId = x.targetId ORDER BY song_artist_map.position LIMIT 1) AS artist " +
-            "FROM recommendation_exclusion x LEFT JOIN song ON song.id = x.targetId " +
-            "WHERE x.kind = 1 AND x.reason = 5"
-    )
+    @Query(RecommendationSql.DONT_PLAY_SONGS)
     fun dontPlaySongs(): Flow<List<DontPlaySong>>
 
-    /** Lifts Don't play this song from [songId], from its menu: a row of another reason is left as it is. */
-    @Query("DELETE FROM recommendation_exclusion WHERE kind = 1 AND reason = 5 AND targetId = :songId")
-    fun liftDontPlay(songId: String)
+    /**
+     * Lifts Don't play this song from [songId], from its menu: set over Not this song, that ban is
+     * back; otherwise it goes. A row of another reason is left as it is.
+     */
+    @Transaction
+    fun liftDontPlay(songId: String) {
+        deleteDontPlay(songId)
+        banAgain(songId)
+    }
+
+    @Query(RecommendationSql.LIFT_DONT_PLAY)
+    fun deleteDontPlay(songId: String)
+
+    @Query(RecommendationSql.LIFT_DONT_PLAY_BANNED)
+    fun banAgain(songId: String)
+
+    /** Whether [songId] is kept from playing by Don't play this song (or Dislike) now, set over a ban or not, read at once. */
+    @Query(RecommendationSql.IS_DONT_PLAY)
+    fun isDontPlay(songId: String): Boolean
 
     @Query("SELECT * FROM recommendation_exclusion ORDER BY createdAt DESC")
     fun exclusions(): Flow<List<RecommendationExclusion>>

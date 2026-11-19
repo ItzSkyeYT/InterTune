@@ -89,6 +89,7 @@ import com.dd3boh.outertune.ui.component.LibraryArtistGridItem
 import com.dd3boh.outertune.ui.component.LibraryArtistListItem
 import com.dd3boh.outertune.ui.component.LibraryPlaylistGridItem
 import com.dd3boh.outertune.ui.component.LibraryPlaylistListItem
+import com.dd3boh.outertune.ui.component.OrderMoves
 import com.dd3boh.outertune.ui.component.ScrollToTopManager
 import com.dd3boh.outertune.ui.component.SortHeader
 import com.dd3boh.outertune.ui.component.StoragePermissionBanner
@@ -190,6 +191,25 @@ fun LibraryScreen(
     val reorderableListState = rememberReorderableLazyListState(lazyListState) { from, to -> moveItem(from.key, to.key) }
     val reorderableGridState = rememberReorderableLazyGridState(lazyGridState) { from, to -> moveItem(from.key, to.key) }
     val dragging = reorderableListState.isAnyItemDragging || reorderableGridState.isAnyItemDragging
+    // Where a drag ends, and after each Move up or Move down of TalkBack's: the order shown is kept, unless it is
+    // the one [kept] already.
+    fun keepShown(kept: List<Any>): Boolean {
+        val shown = dragged.map(::libraryKey)
+        if (!customOrder || shown == kept || shown.toSet() != kept.toSet()) return false
+        droppedOrder = shown
+        viewModel.saveCustomOrder(shown.map { it.toString() })
+        return true
+    }
+    // TalkBack's way to arrange them (OrderMoves): one place, as a drag over the neighbour, kept as a drop is.
+    val movesOf: (Any) -> OrderMoves = { key ->
+        OrderMoves.of(dragged.indexOfFirst { libraryKey(it) == key }, dragged.size) { places ->
+            val to = dragged.indexOfFirst { libraryKey(it) == key } + places
+            if (to in dragged.indices) {
+                moveItem(key, libraryKey(dragged[to]))
+                keepShown(droppedOrder ?: allItems.map(::libraryKey))
+            }
+        }
+    }
     LaunchedEffect(allItems, dragging) {
         if (dragging) {
             wasDragging = true
@@ -198,12 +218,7 @@ fun LibraryScreen(
         val keys = allItems.map(::libraryKey)
         if (wasDragging) {
             wasDragging = false
-            val shown = dragged.map(::libraryKey)
-            if (customOrder && shown != keys && shown.toSet() == keys.toSet()) {
-                droppedOrder = shown
-                viewModel.saveCustomOrder(shown.map { it.toString() })
-                return@LaunchedEffect
-            }
+            if (keepShown(keys)) return@LaunchedEffect
         }
         // The rows stay where they were dropped until the order kept comes back, not the old one.
         val waiting = droppedOrder
@@ -214,8 +229,8 @@ fun LibraryScreen(
     }
     val shownItems: List<Any> = if (customOrder && dragged.isNotEmpty()) dragged else allItems
 
-    // A row and a tile of the list of everything, with the handle each is dragged by in Custom order.
-    val libraryRow: @Composable (Any, Modifier, Modifier?) -> Unit = { item, modifier, dragHandle ->
+    // A row and a tile of the list of everything, with the handle each is dragged by in Custom order and its moves.
+    val libraryRow: @Composable (Any, Modifier, Modifier?, OrderMoves?) -> Unit = { item, modifier, dragHandle, moves ->
         when (item) {
             is Album -> LibraryAlbumListItem(
                 navController = navController,
@@ -225,6 +240,7 @@ fun LibraryScreen(
                 isPlaying = isPlaying,
                 modifier = modifier,
                 dragHandle = dragHandle,
+                moves = moves,
             )
 
             is Artist -> LibraryArtistListItem(
@@ -234,6 +250,7 @@ fun LibraryScreen(
                 modifier = modifier,
                 artist = item,
                 dragHandle = dragHandle,
+                moves = moves,
             )
 
             is Playlist -> LibraryPlaylistListItem(
@@ -243,12 +260,13 @@ fun LibraryScreen(
                 playlist = item,
                 modifier = modifier,
                 dragHandle = dragHandle,
+                moves = moves,
             )
 
             else -> {}
         }
     }
-    val libraryTile: @Composable (Any, Modifier, Modifier?) -> Unit = { item, modifier, dragHandle ->
+    val libraryTile: @Composable (Any, Modifier, Modifier?, OrderMoves?) -> Unit = { item, modifier, dragHandle, moves ->
         when (item) {
             is Album -> LibraryAlbumGridItem(
                 navController = navController,
@@ -259,6 +277,7 @@ fun LibraryScreen(
                 isPlaying = isPlaying,
                 modifier = modifier,
                 dragHandle = dragHandle,
+                moves = moves,
             )
 
             is Artist -> LibraryArtistGridItem(
@@ -268,6 +287,7 @@ fun LibraryScreen(
                 modifier = modifier,
                 artist = item,
                 dragHandle = dragHandle,
+                moves = moves,
             )
 
             is Playlist -> LibraryPlaylistGridItem(
@@ -277,6 +297,7 @@ fun LibraryScreen(
                 playlist = item,
                 modifier = modifier,
                 dragHandle = dragHandle,
+                moves = moves,
             )
 
             else -> {}
@@ -614,10 +635,10 @@ fun LibraryScreen(
                                         )
                                     } else if (canDrag && columns == 1) {
                                         ReorderableItem(state = reorderableListState, key = libraryKey(item)) {
-                                            libraryRow(item, Modifier, Modifier.draggableHandle())
+                                            libraryRow(item, Modifier, Modifier.draggableHandle(), movesOf(libraryKey(item)))
                                         }
                                     } else {
-                                        libraryRow(item, Modifier.animateItem(), null)
+                                        libraryRow(item, Modifier.animateItem(), null, null)
                                     }
                                 }
                             }
@@ -727,10 +748,10 @@ fun LibraryScreen(
                                 ) { item ->
                                     if (canDrag) {
                                         ReorderableItem(state = reorderableGridState, key = libraryKey(item)) {
-                                            libraryTile(item, Modifier, Modifier.draggableHandle())
+                                            libraryTile(item, Modifier, Modifier.draggableHandle(), movesOf(libraryKey(item)))
                                         }
                                     } else {
-                                        libraryTile(item, Modifier.animateItem(), null)
+                                        libraryTile(item, Modifier.animateItem(), null, null)
                                     }
                                 }
                             }

@@ -43,7 +43,22 @@ data class Spot(val x: Int, val y: Int, val w: Int, val h: Int) {
     fun grown(by: Int): Spot = Spot(x - by, y - by, w + 2 * by, h + 2 * by)
 
     fun at(dx: Int, dy: Int): Spot = Spot(x + dx, y + dy, w, h)
+
+    /**
+     * The padding on each side of a box [boxW] by [boxH] dp that leaves this spot and no more,
+     * mirrored where the language reads right to left: how MusicWidget's At puts each part of a
+     * look in its place. The room left is the spot itself, so a part its spot's size lands on it
+     * whichever corner the views put it in (Glance puts a box's child at its start, and right to
+     * left the start is the right).
+     */
+    fun around(boxW: Int, boxH: Int, rtl: Boolean): Around {
+        val left = if (rtl) boxW - right else x
+        return Around(left.coerceAtLeast(0), y.coerceAtLeast(0), (boxW - left - w).coerceAtLeast(0), (boxH - bottom).coerceAtLeast(0))
+    }
 }
+
+/** The padding round a [Spot] in the box it is placed in, in dp, on the screen's own sides: never a start and an end. */
+data class Around(val left: Int, val top: Int, val right: Int, val bottom: Int)
 
 /**
  * Where one of the looks puts what it draws, in dp from the widget's top start, decided with the

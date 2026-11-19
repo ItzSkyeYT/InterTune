@@ -78,7 +78,7 @@ class RoomMemoryTest {
     fun `a room still on is alive, so six hours are counted from the last time it was`() {
         val kept = memory()
         kept.save(code, owner = true, identity = key, now = 0L)
-        kept.touch(now = 5 * hour)
+        kept.touch(code, now = 5 * hour)
         val saved = memory().load(now = 10 * hour)
         assertNotNull(saved)
         assertEquals(5 * hour, saved!!.aliveAt)
@@ -89,8 +89,30 @@ class RoomMemoryTest {
     @Test
     fun `touching with nothing kept keeps nothing`() {
         val kept = memory()
-        kept.touch(now = 1L)
+        kept.touch(code, now = 1L)
         assertNull(kept.load(now = 2L))
+    }
+
+    /**
+     * The service touches the file off the main thread now (performance review, 18 Nov 2026), so a touch can come after
+     * the person left the room or joined another: it must not bring the old room back, nor make the new one older.
+     */
+    @Test
+    fun `a touch for a room that is no longer the one kept changes nothing`() {
+        val kept = memory()
+        val other = RoomCode.parse("ABCDEFGHJKLM")!!
+        kept.save(other, owner = false, identity = key, now = 7 * hour)
+        kept.touch(code, now = 8 * hour)
+        assertEquals(7 * hour, memory().load(now = 9 * hour)!!.aliveAt)
+        // and after a leave, a late touch keeps nothing
+        kept.forget()
+        kept.touch(other, now = 10 * hour)
+        assertNull(memory().load(now = 10 * hour))
+        // every access to the file one at a time
+        val source = File("src/main/java/com/dd3boh/outertune/together/RoomMemory.kt").readText()
+        for (f in listOf("fun save(", "fun load(", "fun touch(", "fun forget(")) {
+            assertTrue("$f is not synchronized", source.substringBefore(f).trimEnd().endsWith("@Synchronized"))
+        }
     }
 
     @Test

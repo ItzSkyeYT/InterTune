@@ -11,7 +11,6 @@ import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -30,6 +29,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.List
 import androidx.compose.material.icons.rounded.AccountTree
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.SdCard
@@ -102,6 +102,8 @@ import com.dd3boh.outertune.models.FolderOrder
 import com.dd3boh.outertune.models.FolderSongOrder
 import com.dd3boh.outertune.models.toMediaMetadata
 import com.dd3boh.outertune.playback.queues.ListQueue
+import com.dd3boh.outertune.ui.component.ActionChip
+import com.dd3boh.outertune.ui.component.ChipsRow
 import com.dd3boh.outertune.ui.component.FloatingFooter
 import com.dd3boh.outertune.ui.component.LazyColumnScrollbar
 import com.dd3boh.outertune.ui.component.ScrollToTopManager
@@ -109,8 +111,6 @@ import com.dd3boh.outertune.ui.component.SelectHeader
 import com.dd3boh.outertune.ui.component.SortHeader
 import com.dd3boh.outertune.ui.component.StoragePermissionBanner
 import com.dd3boh.outertune.ui.component.button.IconButton
-import com.dd3boh.outertune.ui.component.button.IconTextButton
-import com.dd3boh.outertune.ui.component.button.ResizableIconButton
 import com.dd3boh.outertune.ui.component.items.SongFolderItem
 import com.dd3boh.outertune.ui.component.items.SongListItem
 import com.dd3boh.outertune.ui.component.shimmer.ListItemPlaceHolder
@@ -191,6 +191,10 @@ fun FolderScreen(
         }
         if (!currDir.isSkeleton) {
             viewModel.uiInit = true
+            // The folder's songs came from the cache, its count did not: read it, or every visit after the first said
+            // "0 songs" over the folder's own list (the walks of 19 Nov 2026). Also read again on the way back from a
+            // folder inside, where a song may have been taken out.
+            coroutineScope.launch(Dispatchers.IO) { viewModel.getSongCount() }
         }
 
         if (!viewModel.uiInit) {
@@ -295,28 +299,18 @@ fun FolderScreen(
                 Column(
                     modifier = Modifier.background(MaterialTheme.colorScheme.background)
                 ) {
-                    // The search and the scanner, and under them the sort row. On a phone on its
-                    // side the two share a line, a half each (Landscape.kt).
+                    // The Local scanner and the two switches in a row of chips like the Library's, and
+                    // under it the sort row. On a phone on its side the two share a line, a half each
+                    // (Landscape.kt).
                     val tools = @Composable {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp)
+                            modifier = Modifier.fillMaxWidth()
                         ) {
-                            // search
-                            IconButton(
-                                onClick = {
-                                    isSearching = true
-                                }
-                            ) {
-                                Icon(
-                                    Icons.Rounded.Search,
-                                    contentDescription = null
-                                )
-                            }
                             if (isSearching) {
+                                // search: the row is the field, with the magnifier in front of it as it had,
+                                // and a button at its end to close it (the icon that opened it is not here
+                                // any more: the field has the row)
                                 TextField(
                                     value = query,
                                     onValueChange = { query = it },
@@ -325,6 +319,25 @@ fun FolderScreen(
                                             text = stringResource(R.string.search),
                                             style = MaterialTheme.typography.titleLarge
                                         )
+                                    },
+                                    leadingIcon = {
+                                        Icon(
+                                            Icons.Rounded.Search,
+                                            contentDescription = null
+                                        )
+                                    },
+                                    trailingIcon = {
+                                        IconButton(
+                                            onClick = {
+                                                isSearching = false
+                                                query = TextFieldValue()
+                                            }
+                                        ) {
+                                            Icon(
+                                                Icons.Rounded.Close,
+                                                contentDescription = stringResource(android.R.string.cancel)
+                                            )
+                                        }
                                     },
                                     singleLine = true,
                                     textStyle = MaterialTheme.typography.titleLarge,
@@ -337,30 +350,36 @@ fun FolderScreen(
                                         disabledIndicatorColor = Color.Transparent,
                                     ),
                                     modifier = Modifier
-                                        .fillMaxWidth()
+                                        .weight(1f)
                                         .focusRequester(focusRequester)
                                 )
                             } else {
-                                // scanner icon
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.padding(horizontal = 16.dp)
-                                ) {
-                                    IconTextButton(R.string.scanner_local_title, Icons.Rounded.SdCard) {
-                                        navController.navigate("settings/local")
-                                    }
-                                }
-                            }
-
-                            if (!isSearching) {
-                                // tree/list view
-                                ResizableIconButton(
-                                    icon = if (flatSubfolders) Icons.AutoMirrored.Rounded.List else Icons.Rounded.AccountTree,
-                                    onClick = {
-                                        onFlatSubfoldersChange(!flatSubfolders)
-                                    },
-                                    modifier = Modifier.padding(end = 4.dp)
+                                // scanner, a chip like the Library's
+                                ChipsRow(
+                                    chips = listOf(
+                                        ActionChip(stringResource(R.string.scanner_local_title), Icons.Rounded.SdCard) {
+                                            navController.navigate("settings/local")
+                                        }
+                                    ),
+                                    modifier = Modifier.weight(1f)
                                 )
+                                // search
+                                IconButton(onClick = { isSearching = true }) {
+                                    Icon(
+                                        Icons.Rounded.Search,
+                                        contentDescription = stringResource(R.string.search)
+                                    )
+                                }
+                                // tree/list view, at the end of the row as the Library's grid switch is
+                                IconButton(
+                                    onClick = { onFlatSubfoldersChange(!flatSubfolders) },
+                                    modifier = Modifier.padding(end = 6.dp)
+                                ) {
+                                    Icon(
+                                        if (flatSubfolders) Icons.AutoMirrored.Rounded.List else Icons.Rounded.AccountTree,
+                                        contentDescription = stringResource(if (flatSubfolders) R.string.view_as_list else R.string.view_as_tree)
+                                    )
+                                }
                             }
                         }
                     }
@@ -492,10 +511,13 @@ fun FolderScreen(
                     ) {
                         SongFolderItem(
                             folderTitle = "..",
-                            subtitle = "Previous folder",
+                            // In the phone's language: it was English in every one.
+                            subtitle = stringResource(R.string.previous_folder),
                             modifier = Modifier
                                 .clickable {
-                                    if (currDir.culmSongs.value > 0) {
+                                    // Once the folder is read, also when nothing is left in it: removing its last
+                                    // song from its menu empties it in place (LocalRemoval), and ".." did nothing.
+                                    if (!currDir.isSkeleton || currDir.culmSongs.value > 0) {
                                         navController.navigateUp()
                                     }
                                 }

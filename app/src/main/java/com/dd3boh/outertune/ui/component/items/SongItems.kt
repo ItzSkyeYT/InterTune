@@ -243,18 +243,36 @@ fun SongListItem(
     )
 }
 
+/**
+ * A folder's picture in its row: the folder in the accent colour on a square tinted with the same
+ * accent. The square is as big and as round as the cover in a song's row ([ListThumbnailSize],
+ * [ThumbnailCornerRadius]), so a folder and the songs under it line up, as they did not with a
+ * folder drawn bare.
+ */
+@Composable
+fun FolderThumbnail(modifier: Modifier = Modifier) {
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = modifier
+            .size(ListThumbnailSize)
+            .clip(RoundedCornerShape(ThumbnailCornerRadius))
+            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.18f))
+    ) {
+        Icon(
+            Icons.Rounded.Folder,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(ListThumbnailSize / 2 + 4.dp)
+        )
+    }
+}
+
 @Composable
 fun SongFolderItem(
     folderTitle: String,
     modifier: Modifier = Modifier,
 ) = ListItem(
-    title = folderTitle, thumbnailContent = {
-        Icon(
-            Icons.Rounded.Folder,
-            contentDescription = null,
-            modifier = modifier.size(48.dp)
-        )
-    },
+    title = folderTitle, thumbnailContent = { FolderThumbnail() },
     modifier = modifier
 )
 
@@ -266,13 +284,7 @@ fun SongFolderItem(
 ) = ListItem(
     title = folderTitle,
     subtitle = subtitle,
-    thumbnailContent = {
-        Icon(
-            Icons.Rounded.Folder,
-            contentDescription = null,
-            modifier = modifier.size(48.dp)
-        )
-    },
+    thumbnailContent = { FolderThumbnail() },
     modifier = modifier
 )
 
@@ -302,13 +314,7 @@ fun SongFolderItem(
     ListItem(
         title = folderTitle ?: folder.currentDir,
         subtitle = subtitle ?: pluralStringResource(R.plurals.n_song, subDirSongCount, subDirSongCount),
-        thumbnailContent = {
-            Icon(
-                Icons.Rounded.Folder,
-                contentDescription = null,
-                modifier = modifier.size(48.dp)
-            )
-        },
+        thumbnailContent = { FolderThumbnail() },
         trailingContent = {
             val haptic = LocalHapticFeedback.current
             IconButton(
@@ -318,7 +324,9 @@ fun SongFolderItem(
                             folder = folder,
                             coroutineScope = coroutineScope,
                             navController = navController,
-                            onDismiss = menuState::dismiss
+                            onDismiss = menuState::dismiss,
+                            // A folder's own row: its menu can exclude it (LocalRemoval).
+                            excludable = true,
                         )
                     }
                     haptic.performHapticFeedback(HapticFeedbackType.Companion.ContextClick)

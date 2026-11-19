@@ -465,6 +465,10 @@ dependencies {
 
     implementation(libs.activity)
     implementation(libs.hilt.navigation)
+    // hilt-navigation-compose 1.3.0 brings navigation-compose 2.9.0; 2.9.8 carries Google's later fixes to the
+    // back gesture in NavHost. #210 ("Cannot transition entry that is not in the back stack") may still happen:
+    // prepareForTransition, which throws it, is the same in 2.9.8.
+    implementation(libs.navigation.compose)
     implementation(libs.datastore)
 
     // compose

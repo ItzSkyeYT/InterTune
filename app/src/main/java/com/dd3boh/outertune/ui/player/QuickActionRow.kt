@@ -69,3 +69,49 @@ internal fun Density.quickRowPositions(widths: IntArray, gap: Dp, width: Int, la
         if (layoutDirection == LayoutDirection.Ltr) start else width - (start + widths[index])
     }
 }
+
+/**
+ * Where each of [widths] starts in a row [width] wide when the first of them hangs off the start of
+ * the others: they are placed where [quickRowPositions] puts them without it, and it goes [gap]
+ * before the first of them. A button that comes and goes, a listening room's, then moves none of the
+ * others (his rule of 15 Nov 2026). Null when it would come nearer than [QuickRowEdgeMargin] to the
+ * edge of the screen, past the [gutter] beside the row: the row is then centred with it in, as any.
+ */
+internal fun Density.quickRowPositionsHanging(widths: IntArray, gap: Dp, width: Int, gutter: Dp, layoutDirection: LayoutDirection): IntArray? {
+    if (widths.size < 2) return null
+    val rest = quickRowPositions(widths.copyOfRange(1, widths.size), gap, width, LayoutDirection.Ltr)
+    val start = rest[0] - gap.roundToPx() - widths[0]
+    if (start < -(gutter - QuickRowEdgeMargin).coerceAtLeast(0.dp).roundToPx()) return null
+    val ltr = intArrayOf(start) + rest
+    // Start is on the left in a left-to-right layout and on the right otherwise.
+    return if (layoutDirection == LayoutDirection.Ltr) ltr else IntArray(ltr.size) { width - (ltr[it] + widths[it]) }
+}
+
+/** The widths a row's buttons are drawn at, in px, and whether its first one hangs off the others. */
+internal class QuickRowWidths(val widths: IntArray, val hung: Boolean)
+
+/**
+ * The widths of Connected's row under the controls, [natural] widths in a row [width] wide between
+ * [gutter]s: what [fitQuickActionWidths] gives, unless [hangingFirst] asks for the first of them to
+ * hang off the start of the others (a listening room's) and there is room for it.
+ *
+ * Hung, the others keep the widths and places they have without it: they are fitted among
+ * themselves, so it never narrows them, and it goes a [gap] before the first of them at its own
+ * width or, where that reaches nearer the edge than [QuickRowEdgeMargin], at an icon's
+ * ([QuickActionIconOnlyWidth]). With no room even for that, the row is fitted and centred with it
+ * in, as any row.
+ */
+internal fun Density.quickRowWidths(natural: IntArray, gap: Dp, width: Int, gutter: Dp, hangingFirst: Boolean): QuickRowWidths {
+    val gapPx = gap.roundToPx()
+    val room = quickRowRoom(width, gutter)
+    val floor = QuickActionIconOnlyWidth.roundToPx()
+    if (hangingFirst && natural.size >= 2) {
+        val others = fitQuickActionWidths(natural.copyOfRange(1, natural.size), gapPx, room, floor)
+        for (first in intArrayOf(natural[0], minOf(natural[0], floor))) {
+            val widths = intArrayOf(first) + others
+            if (quickRowPositionsHanging(widths, gap, width, gutter, LayoutDirection.Ltr) != null) return QuickRowWidths(widths, hung = true)
+        }
+    }
+    return QuickRowWidths(fitQuickActionWidths(natural, gapPx, room, floor), hung = false)
+}
+

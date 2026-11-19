@@ -1,5 +1,12 @@
 package com.dd3boh.outertune.viewmodels
 
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.combine
+import dagger.hilt.android.qualifiers.ApplicationContext
+import com.dd3boh.outertune.utils.dataStore
+import com.dd3boh.outertune.constants.ContentLanguageKey
+import com.dd3boh.outertune.constants.ContentCountryKey
+import android.content.Context
 import com.dd3boh.outertune.models.ContentFilter
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -19,6 +26,7 @@ import javax.inject.Inject
 @OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class OnlineSearchSuggestionViewModel @Inject constructor(
+    @ApplicationContext context: Context,
     database: MusicDatabase,
 ) : ViewModel() {
     val query = MutableStateFlow("")
@@ -26,8 +34,13 @@ class OnlineSearchSuggestionViewModel @Inject constructor(
     val viewState = _viewState.asStateFlow()
 
     init {
+        // The language and the country YouTube answers in: a change asks again for what is typed,
+        // so the suggestions on screen are never left in the old language.
+        val contentLocale = context.dataStore.data
+            .map { it[ContentLanguageKey].orEmpty() to it[ContentCountryKey].orEmpty() }
+            .distinctUntilChanged()
         viewModelScope.launch {
-            query.flatMapLatest { query ->
+            combine(query, contentLocale) { query, _ -> query }.flatMapLatest { query ->
                 if (query.isEmpty()) {
                     database.searchHistory().map { history ->
                         SearchSuggestionViewState(

@@ -9,9 +9,11 @@ object MediaSessionConstants {
     const val ACTION_TOGGLE_START_RADIO = "TOGGLE_START_RADIO"
     const val ACTION_TOGGLE_SHUFFLE = "TOGGLE_SHUFFLE"
     const val ACTION_TOGGLE_REPEAT_MODE = "TOGGLE_REPEAT_MODE"
+    const val ACTION_TOGGLE_DISLIKE = "TOGGLE_DISLIKE"
     val CommandToggleLibrary = SessionCommand(ACTION_TOGGLE_LIBRARY, Bundle.EMPTY)
     val CommandToggleLike = SessionCommand(ACTION_TOGGLE_LIKE, Bundle.EMPTY)
     val CommandToggleStartRadio = SessionCommand(ACTION_TOGGLE_START_RADIO, Bundle.EMPTY)
     val CommandToggleShuffle = SessionCommand(ACTION_TOGGLE_SHUFFLE, Bundle.EMPTY)
     val CommandToggleRepeatMode = SessionCommand(ACTION_TOGGLE_REPEAT_MODE, Bundle.EMPTY)
+    val CommandToggleDislike = SessionCommand(ACTION_TOGGLE_DISLIKE, Bundle.EMPTY)
 }

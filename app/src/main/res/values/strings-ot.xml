@@ -46,7 +46,9 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="tap_show_more">Tap to show more information</string>
 
 <!-- Player -->
-    <string name="err_invalid_ytm_song">Failed to play song. Only content accessible on YouTube Music can be played</string>
+    <!-- A YouTube link pasted in the search or shared to the app (youtubeNavigator): a video that is no song on YouTube Music, and no answer at all (with Retry; offline it says error_no_internet). For 0.13, the French beside them in values-fr. -->
+    <string name="err_invalid_ytm_song">InterTune can\'t play this video. It isn\'t a song on YouTube Music.</string>
+    <string name="link_open_failed" translatable="false">Couldn\'t open this link. Try again in a moment.</string>
     <string name="err_play_next_on_error">Error occurred. Playing next</string>
     <string name="err_stop_on_error">Error occurred. Playback stopped</string>
     <string name="err_stop_on_too_many_errors">Too many errors. Playback stopped</string>
@@ -2025,6 +2027,8 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="home_play_at_random">Play something at random</string>
     <string name="view_as_list">Shown as a list</string>
     <string name="view_as_grid">Shown as a grid</string>
+    <string name="view_as_tree" translatable="false">Shown as a tree</string>
+    <string name="previous_folder" translatable="false">Previous folder</string>
     <string name="playlist_order_locked">Order locked</string>
     <string name="playlist_order_unlocked">Order unlocked</string>
     <string name="cancel_download">Cancel download</string>
@@ -2095,6 +2099,8 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="output_this_phone">This phone</string>
     <string name="output_wired">Wired headphones</string>
     <string name="output_cable">On a cable</string>
+    <string name="output_pill" translatable="false">Output button</string>
+    <string name="output_pill_description" translatable="false">Shows where music plays, under the controls.</string>
     <string name="cast_searching">Looking for receivers on this Wi-Fi</string>
     <string name="cast_about">Casts to FCast receivers, to Chromecast and Google TV devices, and to DLNA TVs and speakers on the same Wi-Fi. FCast needs the FCast Receiver app on the TV or computer. The phone stays awake and sends the music while it casts.</string>
     <string name="cast_add_by_address">Add by address</string>
@@ -2374,6 +2380,9 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="battery_follow_phone">Follow the phone\'s battery saver</string>
     <string name="battery_follow_phone_description">\"Saver\" while it is on.</string>
     <string name="battery_follow_phone_now">\"Saver\" now: the phone\'s battery saver is on.</string>
+    <!-- The note said twice at most when the phone's battery saver puts the app on Saver (SaverNote, Unreleased.SAVER_NOTE). -->
+    <string name="saver_note_title" translatable="false">Battery saver is on</string>
+    <string name="saver_note_body" translatable="false">InterTune saves battery along with it. Word-by-word lyrics, the player\'s moving background and sound effects (not the equalizer) pause, the theme turns black and syncs wait for Wi-Fi. It all comes back when the saver goes off.</string>
     <!-- The search at the top of Settings (SettingsSearch.kt, Unreleased.SETTINGS_SEARCH). %1$s is what was typed. -->
     <string name="search_settings">Search settings</string>
     <string name="search_settings_none">No setting matches \"%1$s\".</string>
@@ -2807,6 +2816,10 @@ while also allowing users to translate our app as well. New, specific strings to
     </plurals>
     <!-- A picker asked for on a device with none (#120, #121). -->
     <string name="no_app_to_pick">No file picker here. Install a file manager app.</string>
+    <!-- The sign-in page on a phone whose web view cannot start (#221). -->
+    <string name="no_web_view_title" translatable="false">The sign-in page can\'t open here</string>
+    <string name="no_web_view_body" translatable="false">Signing in happens on a web page, and this phone\'s web view won\'t start. Updating Android System WebView or Chrome from the Play Store usually fixes it.</string>
+    <string name="no_web_view_store" translatable="false">Open the Play Store</string>
     <!-- The sleep timer's sheet and its notification (SleepTimerDialog, SleepTimerNotification). -->
     <string name="sleep_row_in">In</string>
     <string name="sleep_row_at">At</string>
@@ -2834,6 +2847,11 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="sleep_notif_line_fade_after">Fades out %1$d&#160;s, after %2$s</string>
     <string name="sleep_notif_line_after">After %1$s</string>
     <string name="sleep_notif_stop">Stop</string>
+    <!-- The app's own language (AppLanguageFrag), above the content language. Held from translators until the next push of texts, the French beside it in values-fr. -->
+    <string name="app_language" translatable="false">App language</string>
+    <!-- The two rows under App language (LocalizationFrag): what YouTube Music writes in, which is not the app's own words (a Dutch phone set to "English" there was left half Dutch, 15 Nov 2026). They replace Default content language and Default content country. Held from translators until the next push of texts, the French beside it in values-fr. -->
+    <string name="youtube_language" translatable="false">YouTube Music language</string>
+    <string name="youtube_country" translatable="false">YouTube Music country</string>
     <!-- Said under the queue after songs were taken out of it by hand, with Undo beside it (QueueUndo): the song's title, or how many. -->
     <string name="queue_removed_one">Removed %1$s</string>
     <plurals name="queue_removed_songs">
@@ -2857,6 +2875,11 @@ while also allowing users to translate our app as well. New, specific strings to
     <plurals name="dl_move_notice_failed">
         <item quantity="one">%d song could not be moved and stays inside the app</item>
         <item quantity="other">%d songs could not be moved and stay inside the app</item>
+    </plurals>
+    <!-- The songs a move leaves for later because they are playing (HeldWhilePlaying): at the end of its notification, or in a toast where none shows (so 70 characters at most). -->
+    <plurals name="dl_move_notice_held" translatable="false">
+        <item quantity="one">%d song moves once it stops playing</item>
+        <item quantity="other">%d songs move once they stop playing</item>
     </plurals>
     <!-- Downloading songs, simpler (DownloadsSimpleLook): the words of the simpler page he chose, C (experiments/features/downloads-simple). The Storage page in plain words, the one row for where downloads go, the choice of two, and what Download says of where a song goes. The words of the ways not chosen go with the switch. -->
     <string name="dl_simple_size_folder">In your folder: %s</string>
@@ -2891,11 +2914,14 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="pin_only_local" translatable="false">Only for a file on this phone</string>
     <string name="pin_not_in_playlist" translatable="false">Not in one of your playlists</string>
     <string name="pin_head_tracking_off" translatable="false">Head tracking is off</string>
+    <string name="order_move_up" translatable="false">Move up</string>
+    <string name="order_move_down" translatable="false">Move down</string>
+    <string name="dont_play_state" translatable="false">Plays only when you pick it</string>
     <string name="metrolist_import">Import from Metrolist</string>
     <string name="metrolist_import_description">Likes, playlists and plays from a Metrolist backup</string>
     <string name="metrolist_import_reading">Reading the backup</string>
     <string name="search_words_metrolist">Metrolist, switch, move, transfer, backup</string>
-    <string name="metrolist_import_summary">Songs in its library: %1$d\nLiked songs: %2$d\nPlaylists: %3$d\nPlays: %4$d\n\nNothing you already have is changed or removed.</string>
+    <string name="metrolist_import_summary" translatable="false">Songs in its library: %1$d\nLiked songs: %2$d\nPlaylists: %3$d\nPlays: %4$d\n\nNothing is removed. Songs you already have get its likes, library dates, artists and albums, and the higher play count.</string>
     <string name="metrolist_import_confirm">Import</string>
     <string name="metrolist_import_done_title">Imported from Metrolist</string>
     <string name="metrolist_import_done">New songs: %1$d\nNewly liked: %2$d\nNew in your library: %3$d\nNew playlists: %4$d\nPlays added: %5$d</string>
@@ -2904,4 +2930,26 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="metrolist_import_too_old">This backup comes from InnerTune or an older Metrolist. Restore takes InnerTune\'s; for Metrolist, update it and make a new backup.</string>
     <string name="metrolist_import_other_file">Choose another file</string>
     <string name="metrolist_import_failed">Couldn\'t read this backup</string>
+    <string name="err_download_not_on_phone" translatable="false">This song is marked as downloaded, but its file is missing or incomplete on this phone. Download it again when you\'re online.</string>
+    <!-- The library search when it finds nothing (#200), under "No results found": held from translators like the other new 0.13 texts. Its button wears search_yt_music, translated. -->
+    <string name="library_search_none" translatable="false">Not in your library</string>
+    <!-- Dislike (Unreleased.DISLIKE, #171): Don't play this song for a song from YouTube Music, which YouTube Music hears too when the account can be changed, and the same for the media controls. Held from translators until his go, French beside them in values-fr. -->
+    <string name="menu_dislike" translatable="false">Dislike</string>
+    <string name="menu_dislike_lift" translatable="false">Remove dislike</string>
+    <string name="dislike_done" translatable="false">Disliked here and on YouTube Music. It plays only when you pick it.</string>
+    <string name="dislike_not_sent" translatable="false">Disliked here only. YouTube Music didn\'t get it.</string>
+    <string name="dislike_lift_not_sent" translatable="false">Dislike removed here only. YouTube Music didn\'t get it.</string>
+    <!-- Varispeed (Unreleased.VARISPEED, #225): held from translators until it ships, French beside them. -->
+    <string name="varispeed" translatable="false">Varispeed</string>
+    <string name="varispeed_description" translatable="false">Faster sounds higher and slower sounds lower, like a record player.</string>
+    <!-- What TalkBack says for the minus and plus of Tempo and Pitch (player menu > Advanced). -->
+    <string name="tempo_slower" translatable="false">Slower</string>
+    <string name="tempo_faster" translatable="false">Faster</string>
+    <string name="pitch_lower" translatable="false">Lower pitch</string>
+    <string name="pitch_higher" translatable="false">Higher pitch</string>
+    <string name="search_words_varispeed">pitch, speed, tempo, record player, vinyl, tape, key lock, nightcore, slowed</string>
+    <!-- Remove from library on a file of the phone's and Exclude folder on a folder's row of the Folders tab (LocalRemoval, Unreleased.LOCAL_REMOVE): the folder menu's entry (the song's is remove_from_library, as a YouTube song's), and what each says after, beside Undo. Held from translators. -->
+    <string name="local_exclude_folder" translatable="false">Exclude folder</string>
+    <string name="local_removed" translatable="false">Removed from your library. The file stays.</string>
+    <string name="local_folder_excluded" translatable="false">%1$s excluded. Its files stay.</string>
 </resources>

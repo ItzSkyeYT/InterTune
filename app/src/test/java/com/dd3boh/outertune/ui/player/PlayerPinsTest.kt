@@ -132,6 +132,8 @@ class PlayerPinsTest {
         assertTrue(player.contains("val pinned = classicPins(queueCircle = true)"))
         assertTrue(player.contains("pins[PinPlace.CONNECTED_TITLE].orEmpty()"))
         assertTrue(player.contains("pins[PinPlace.CONNECTED_ROW].orEmpty()"))
+        // A listening room's own button, while one is on and not pinned, comes first in the row with ROOM_AT_FREE_END and
+        // right before the menu without it (RoomButtonStaysTest); the menu stays last.
         assertTrue("the menu is round on its own when nothing is pinned", player.contains("connectedShape(first = rowPins.isEmpty() && !roomApart && !queueLayout.queueButton, last = true)"))
         assertFalse("no button by the title is drawn outside the pins", player.contains("shape = connectedShape(first = !canShare, last = true)"))
     }

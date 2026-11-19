@@ -64,6 +64,7 @@ import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.ResolvingDataSource
 import androidx.media3.datasource.cache.CacheDataSource
 import androidx.media3.datasource.cache.CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR
+import androidx.media3.datasource.cache.ContentMetadata
 import androidx.media3.datasource.cache.SimpleCache
 import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.DefaultLoadControl
@@ -79,7 +80,6 @@ import androidx.media3.exoplayer.audio.SilenceSkippingAudioProcessor
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.exoplayer.source.ShuffleOrder
 import androidx.media3.session.CommandButton
-import androidx.media3.session.DefaultMediaNotificationProvider
 import androidx.media3.session.MediaController
 import androidx.media3.session.MediaLibraryService
 import androidx.media3.session.MediaSession
@@ -114,6 +114,8 @@ import com.dd3boh.outertune.constants.MaxSongCacheSizeKey
 import com.dd3boh.outertune.constants.MediaControlButtonsKey
 import com.dd3boh.outertune.constants.MediaSessionConstants.CommandToggleLibrary
 import com.dd3boh.outertune.constants.MediaSessionConstants.CommandToggleLike
+import com.dd3boh.outertune.constants.MediaSessionConstants.CommandToggleDislike
+import com.dd3boh.outertune.ui.menu.toggleDontPlay
 import com.dd3boh.outertune.constants.MediaSessionConstants.CommandToggleRepeatMode
 import com.dd3boh.outertune.constants.MediaSessionConstants.CommandToggleShuffle
 import com.dd3boh.outertune.constants.MediaSessionConstants.CommandToggleStartRadio
@@ -170,6 +172,7 @@ import com.dd3boh.outertune.constants.SleepTimerFadeKey
 import com.dd3boh.outertune.constants.SleepTimerSongFinishKey
 import com.dd3boh.outertune.constants.ShareAudioFocusKey
 import com.dd3boh.outertune.constants.SkipSilenceKey
+import com.dd3boh.outertune.constants.VarispeedKey
 import com.dd3boh.outertune.constants.StopMusicOnTaskClearKey
 import com.dd3boh.outertune.constants.TransitionFadeKey
 import com.dd3boh.outertune.constants.AutomixKey
@@ -219,6 +222,7 @@ import com.dd3boh.outertune.extensions.findNextMediaItemById
 import com.dd3boh.outertune.extensions.isUserLoggedIn
 import com.dd3boh.outertune.extensions.joinWithin
 import com.dd3boh.outertune.extensions.metadata
+import com.dd3boh.outertune.extensions.playSafe
 import com.dd3boh.outertune.extensions.setOffloadEnabled
 import com.dd3boh.outertune.extensions.shouldShowPlayButton
 import com.dd3boh.outertune.lyrics.LyricsHelper
@@ -245,6 +249,7 @@ import com.dd3boh.outertune.together.hexToBytes
 import com.dd3boh.outertune.ui.dialog.togetherAvailable
 import com.dd3boh.outertune.ui.dialog.togetherName
 import com.dd3boh.outertune.ui.dialog.togetherRelays
+import com.dd3boh.outertune.utils.AppLanguage
 import com.dd3boh.outertune.utils.PhoneState
 import com.dd3boh.outertune.utils.SoundRoute
 import com.dd3boh.outertune.utils.SessionBitmapLoader
@@ -465,6 +470,13 @@ class MusicService : MediaLibraryService(),
     /** Set at the top of onDestroy; see the checks in playQueue's resolve coroutine below. */
     @Volatile private var destroyed = false
 
+    /**
+     * Varispeed's switch as it stands (Unreleased.VARISPEED; false without the flag), for a Listen together
+     * room, which plays the room's speed in the song's own key while it is on (TogetherSession.speed).
+     */
+    @Volatile var varispeedOn = false
+        private set
+
     /** Whether this service has been torn down: anything asked of it then does nothing. See PlayerConnection.isAlive. */
     val isDestroyed: Boolean get() = destroyed
 
@@ -522,12 +534,18 @@ class MusicService : MediaLibraryService(),
     private val roomMemory by lazy { RoomMemory(File(noBackupFilesDir, RoomMemory.FILE)) }
     private var roomTouchedAt = 0L
 
-    /** A room that is on says so every few seconds: remembered as alive, at most once a minute. */
-    fun roomAlive() {
-        val now = System.currentTimeMillis()
-        if (now - roomTouchedAt < 60_000L) return
-        roomTouchedAt = now
-        roomMemory.touch(now)
+    /**
+     * A room that is on says so every few seconds: remembered as alive [at] that time, at most once a minute. A guest's
+     * time is the last time it heard its host (HostAbsence.aliveAt), so a room the host has closed is not kept going by
+     * the guest alone.
+     */
+    fun roomAlive(at: Long) {
+        if (at - roomTouchedAt < 60_000L) return
+        roomTouchedAt = at
+        val room = together.value?.code ?: return
+        // Off the main thread: a file read and written while the music plays. RoomMemory takes one at a time, and leaves
+        // a room that is no longer the one kept alone.
+        scope.launch(Dispatchers.IO) { roomMemory.touch(room, at) }
     }
 
     /**
@@ -536,7 +554,9 @@ class MusicService : MediaLibraryService(),
      * was the host to a screen that was no longer there. The app keeps the stopped service for a moment after it comes
      * back from another app (PlayerConnection.isAlive), and a tap on Start in that moment made one (15 Nov 2026).
      *
-     * [identity] is the key a room that comes back signs with, the same as before (RoomMemory).
+     * [identity] is the key a room that comes back signs with, the same as before (RoomMemory). [hostHeardAt] is, for a
+     * guest's room that comes back, when it last heard the host: kept as the room's time, and the host's absence counted
+     * from it.
      */
     fun startTogether(
         code: RoomCode,
@@ -545,6 +565,7 @@ class MusicService : MediaLibraryService(),
         name: String,
         moving: Boolean = false,
         identity: ByteArray? = null,
+        hostHeardAt: Long? = null,
     ): TogetherSession? {
         if (destroyed) {
             Log.w(TAG, "No room is made on a service that has stopped")
@@ -555,11 +576,13 @@ class MusicService : MediaLibraryService(),
         // Another room in its place: the one it replaces ends, and an owner's says so. Not when the room carries on under
         // a new code (moveTogether): its people have moved with it.
         together.value?.let { if (moving) it.stop() else it.closeNow() }
-        val session = if (identity != null) TogetherSession(this, code, owner, relays, name, identity)
-        else TogetherSession(this, code, owner, relays, name)
+        val session = if (identity != null) TogetherSession(this, code, owner, relays, name, identity, hostHeardAt = hostHeardAt ?: 0L)
+        else TogetherSession(this, code, owner, relays, name, hostHeardAt = hostHeardAt ?: 0L)
         together.value = session
         session.start()
-        roomTouchedAt = System.currentTimeMillis()
+        // Not now for a guest's room that comes back: saved as now, a room its host had closed was kept six more hours
+        // by every start.
+        roomTouchedAt = hostHeardAt ?: System.currentTimeMillis()
         roomMemory.save(code, owner, session.identityHex, roomTouchedAt)
         return session
     }
@@ -597,7 +620,12 @@ class MusicService : MediaLibraryService(),
             val name = togetherName(this@MusicService)
             if (together.value != null || destroyed) return@launch
             Log.i(TAG, "A room this phone was in comes back, as ${if (saved.owner) "its host" else "a guest"}")
-            startTogether(code, saved.owner, relays, name, identity = saved.identity.hexToBytes())
+            startTogether(
+                code, saved.owner, relays, name,
+                identity = saved.identity.hexToBytes(),
+                // A guest goes on from the last time it heard the host, not from now.
+                hostHeardAt = saved.aliveAt.takeIf { !saved.owner },
+            )
         }
     }
 
@@ -1261,6 +1289,11 @@ class MusicService : MediaLibraryService(),
         super.onCreate()
         isRunning = true
         instance = WeakReference(this)
+        // For the guard of a media button's start from outside the app: Android's time for the first
+        // start of a service created with its process has run since the process began
+        // (MediaButtonStart.sinceStart). The app's own starts carry the moment they were handed on.
+        processStartedAt = android.os.Process.getStartUptimeMillis()
+        createdAt = SystemClock.uptimeMillis()
         // media3 writes this under its own name only, which Report a problem leaves out, and it is
         // the line that explains a song stopping a minute after the screen goes off (issue #26).
         setListener(object : Listener {
@@ -1272,6 +1305,11 @@ class MusicService : MediaLibraryService(),
         // The listening room on InterTune's own TV receiver while casting: its name, who is in it and its QR code.
         if (Unreleased.LISTEN_TOGETHER && Unreleased.CASTING) {
             RoomOnTv.follow(scope, together) { owner -> if (owner == null) getString(R.string.together_tv_room_plain) else getString(R.string.together_tv_room, owner) }
+        }
+        // The app's own language changing: the buttons of the media notification were named in the
+        // old one when their layout was last sent, which is not until the next song or press.
+        scope.launch {
+            AppLanguage.changes.collect { runCatching { updateNotification() } }
         }
         // An artist blocked while their song is the one playing: it is passed over at once.
         if (Unreleased.ARTIST_BLOCK) scope.launch {
@@ -1287,6 +1325,10 @@ class MusicService : MediaLibraryService(),
                 val was = before
                 before = now
                 if (now == was || !::exoPlayer.isInitialized) return@collect
+                // The media controls' Dislike reads this list: drawn again now, or a tap that lifted
+                // the song playing (or a lift in its menu or in Exclusions) left it filled until the
+                // next song, and a second tap on it disliked again.
+                if (::mediaSession.isInitialized) updateNotification()
                 val playing = activePlayer.currentMediaItem?.metadata ?: return@collect
                 if (now.covers(playing) && !was.covers(playing)) {
                     runCatching { passOverBlocked(dontPlay = true, asked = true) }.onFailure { Log.w(TAG, "Could not pass over a song not to play", it) }
@@ -1417,7 +1459,9 @@ class MusicService : MediaLibraryService(),
                         ).also { addListener(it) }
                     }
                 }
-                addAnalyticsListener(PlaybackStatsListener(false, this@MusicService))
+                // media3's play-time counter, which closed the app when it tripped on its own
+                // bookkeeping: now made again instead (GuardedPlaybackStats).
+                addAnalyticsListener(GuardedPlaybackStats(this@MusicService))
                 // A song whose cached copy cannot be read is given up, so a retry reads it whole. See BadCachedCopy.
                 addAnalyticsListener(object : AnalyticsListener {
                     /** When each song's last failed load was written down: the player retries every few seconds. */
@@ -1498,6 +1542,7 @@ class MusicService : MediaLibraryService(),
             toggleLike = ::toggleLike
             toggleStartRadio = ::toggleStartRadio
             toggleLibrary = ::toggleLibrary
+            toggleDislike = ::toggleDislike
         }
 
         // The session is first handed a smaller cover that is on the phone, so the lock screen is
@@ -1515,6 +1560,14 @@ class MusicService : MediaLibraryService(),
         // once a song.
         isNetworkConnected.collect(scope) { online ->
             if (online) covers.tryAgain()
+        }
+        // A session an earlier start of this service left registered in this process: media3
+        // refuses a second one with the same id, and the service could not start at all (#181,
+        // "Session ID must be unique", Android 12). onDestroy forgets the one it releases, so one
+        // still here was never released: released now, as that onDestroy should have.
+        leftSession?.get()?.let { left ->
+            Log.w(TAG, "A session from an earlier start of the service was never released: released now")
+            runCatching { left.release() }
         }
         mediaSession = MediaLibrarySession.Builder(this, sessionPlayer, mediaLibrarySessionCallback)
             .setSessionActivity(
@@ -1536,6 +1589,7 @@ class MusicService : MediaLibraryService(),
             // app's own screens read the player directly and never saw these.
             .setPeriodicPositionUpdateEnabled(false)
             .build()
+        leftSession = WeakReference(mediaSession)
 
         // In a car the player's row of buttons is laid out for a driver (MediaControlButtons.CAR).
         if (Unreleased.AUTO_REWORK) carType.observeForever(carWatch)
@@ -1601,8 +1655,10 @@ class MusicService : MediaLibraryService(),
         // The widget's heart shows the like as stored, wherever it was given or taken back.
         WidgetStore.followLikes(this, scope) { id -> database.songLiked(id) }
 
+        // media3's own notification, whose play button no longer demands the foreground of a
+        // service that may not reach it (PlainPlayNotifications).
         setMediaNotificationProvider(
-            DefaultMediaNotificationProvider(
+            PlainPlayNotifications(
                 this@MusicService,
                 { NOTIFICATION_ID },
                 CHANNEL_ID,
@@ -1701,6 +1757,21 @@ class MusicService : MediaLibraryService(),
                         applyOffload()
                     }
                 }
+
+            // Varispeed (#225): the switch acts on the song playing at once, the pitch linked to the speed when it
+            // turns on and back to the song's own key when it turns off. Tempo and Pitch keeps them linked after.
+            // A change of speed or pitch reaches applyOffload through onEvents.
+            if (Unreleased.VARISPEED) {
+                dataStore.data
+                    .map { it[VarispeedKey] ?: false }
+                    .distinctUntilChanged()
+                    .collectLatest(scope) { linked ->
+                        withContext(Dispatchers.Main) {
+                            varispeedOn = linked
+                            exoPlayer.playbackParameters = Varispeed.switched(exoPlayer.playbackParameters, linked)
+                        }
+                    }
+            }
 
             // The four the song-change path used to read blocking. Nothing here touches the
             // player, so they stay off the main thread; the fields are volatile because the
@@ -2557,6 +2628,21 @@ class MusicService : MediaLibraryService(),
         }
     }
 
+    /**
+     * Dislike on the phone's media controls (Unreleased.DISLIKE): what the menus' Dislike does, to the song
+     * playing, which is then passed over as any song kept from playing is (toggleDontPlay, DislikePlan).
+     * The button is drawn again by the songs-not-to-play collector in onCreate, once the database has the
+     * change: drawn here, it read the list as it was before the tap.
+     */
+    fun toggleDislike() {
+        if (!Unreleased.DISLIKE) return
+        val metadata = activePlayer.currentMetadata ?: return
+        if (metadata.isLocal) return
+        val held = ContentFilter.current.dontPlay.has(metadata.id)
+        val liked = currentSong.value?.song?.takeIf { it.id == metadata.id }?.liked == true
+        toggleDontPlay(this, database, metadata, held, downloadUtil, liked)
+    }
+
     fun toggleStartRadio() {
         val mediaMetadata = activePlayer.currentMetadata ?: return
         playQueue(YouTubeQueue.radio(mediaMetadata), isRadio = true)
@@ -2794,6 +2880,17 @@ class MusicService : MediaLibraryService(),
     })
 
     /**
+     * Whether [s] plays with no network: a local file, a download, or a whole copy in either cache.
+     * A download in a folder is in neither cache: the downloads say it has landed. The song cache's
+     * copy of it used to answer for it, and a download is no longer copied there (KeptOnce). The
+     * download cache too, for the moment at start before the map is read. One rule for the adaptive
+     * pass and the app's own radio: the radio had its own without the downloads, and offline it
+     * never picked a song downloaded into a folder.
+     */
+    private fun playsOffline(s: MediaMetadata): Boolean =
+        s.isLocal || downloadUtil.isDownloaded(s.id) || downloadCache.holdsWhole(s.id) || playerCache.holdsWhole(s.id)
+
+    /**
      * The app's own radio from [seed], for when YouTube gives it nothing however it is asked
      * (LocalRadio, RadioLadder): read from the phone, never the network. None in a build without
      * Unreleased.RADIO_FALLBACK, and none when the database does not answer.
@@ -2821,7 +2918,8 @@ class MusicService : MediaLibraryService(),
                 val inForce = database.readOrNull { exclusionsInForce(now) }.orEmpty()
                 val gone = inForce.filter { it.kind == ExclusionsViewModel.KIND_SONG && it.reason == ExclusionsViewModel.REASON_GONE }
                     .mapTo(HashSet()) { it.targetId }
-                val onPhone = { s: MediaMetadata -> s.isLocal || downloadCache.holdsWhole(s.id) || playerCache.holdsWhole(s.id) }
+                // A song downloaded into a folder too: it is in neither cache (playsOffline).
+                val onPhone = { s: MediaMetadata -> playsOffline(s) }
                 val rules = LocalRadio.Rules(
                     keptOut = inForce.filter { it.kind == ExclusionsViewModel.KIND_SONG && it.reason != ExclusionsViewModel.REASON_GONE }
                         .mapTo(HashSet()) { it.targetId },
@@ -2949,9 +3047,19 @@ class MusicService : MediaLibraryService(),
         adaptiveChanged()
     }
 
-    /** [song] was swiped out of the queue sheet. See AdaptiveQueue.Heard.removedByHand. Main thread. */
-    fun noteRemovedByHand(song: MediaMetadata) {
-        heard.removedByHand(song.id, song.title, song.artists.map { it.name })
+    /**
+     * [song] was swiped out of the queue sheet. See AdaptiveQueue.Heard.removedByHand. What it changed
+     * comes back for the sheet's Undo ([notePutBackByHand]). Main thread.
+     */
+    fun noteRemovedByHand(song: MediaMetadata): AdaptiveQueue.Heard.Removal {
+        val removal = heard.removedByHand(song.id, song.title, song.artists.map { it.name })
+        adaptiveChanged()
+        return removal
+    }
+
+    /** Undo put the song of [removal] back: the run takes back what the removal said. Main thread. */
+    fun notePutBackByHand(removal: AdaptiveQueue.Heard.Removal) {
+        heard.putBackByHand(removal)
         adaptiveChanged()
     }
 
@@ -3123,6 +3231,33 @@ class MusicService : MediaLibraryService(),
             Log.i(TAG, "Resuming playback on launch")
             activePlayer.prepare()
             activePlayer.play()
+        }
+    }
+
+    /**
+     * The saved queue into the player and played, when the player holds nothing: what [what], a
+     * media button's play/pause or hook, asks of an empty player (EmptyPlayerPress). Done as the
+     * app's own play button does it after a cold start (PlayerConnection.loadQueueIfEmpty) and as
+     * Resume playback on launch does above: the board's current queue at its place, then
+     * prepared and played. On the main thread, where the board loads the player.
+     */
+    fun playSavedQueue(what: String) {
+        scope.launch {
+            // Not before the saved queues are read: a press as the service starts would find the
+            // board empty. Bounded, as for a request to play from the car (resolvePlayRequest).
+            kotlinx.coroutines.withTimeoutOrNull(SAVED_QUEUES_WAIT_MS) { queuesLoadedOnce.await() }
+            // The mini player swiped away since: the board is read again, as playQueue does.
+            if (!qbInit.value) initQueue(onlyIfNeeded = true)
+            // Something may have been loaded meanwhile, a tap in the app: that one plays as it is.
+            if (activePlayer.mediaItemCount == 0) {
+                val loaded = queueBoard.setCurrQueue(shouldResume = true)
+                if (loaded == null || activePlayer.mediaItemCount == 0) {
+                    Log.i(TAG, "$what with nothing loaded, and no saved queue to play")
+                    return@launch
+                }
+            }
+            Log.i(TAG, "$what with nothing loaded: the saved queue plays, as the app's play button plays it")
+            activePlayer.playSafe()
         }
     }
 
@@ -3422,6 +3557,13 @@ class MusicService : MediaLibraryService(),
          */
         var fetches: OneFetchAtATime? = null
 
+        /**
+         * The songs whose start this resolver last gave from the download cache: a download under
+         * way, whose stream the reader then holds. Past the download's part an address kept from an
+         * earlier play goes on only when it is that stream (keptAddressGoesOn).
+         */
+        private val startedInDownload: MutableSet<String> = ConcurrentHashMap.newKeySet()
+
         /** Drops the address kept for [mediaId], after it was refused, so the next resolve asks for one afresh. */
         fun forgetStream(mediaId: String) {
             addresses.playerFailedOn(mediaId)
@@ -3439,7 +3581,9 @@ class MusicService : MediaLibraryService(),
          */
         fun resolve(mediaId: String, position: Long, length: Long, ahead: Boolean = false): ResolvedSong {
             val said = if (ahead) "AHEAD" else "PLAYING"
-            Log.i(TAG, "$said: song id = $mediaId")
+            // Where in the song the read starts: a read begun near the end found a song kept on the
+            // phone wanting, and nothing in the log said so (#179).
+            Log.i(TAG, if (position > 0L) "$said: song id = $mediaId, from byte $position" else "$said: song id = $mediaId")
 
             val queued = queueBoard.getCurrentQueue()?.findSong(mediaId)
             // in the case of resumption, queueBoard may not be ready yet
@@ -3483,6 +3627,10 @@ class MusicService : MediaLibraryService(),
 
             val isDownload =
                 downloadCache.holdsFrom(mediaId, position, if (length >= 0) length else 1)
+            // What the song's start is read from, for a read further in (see the kept address below).
+            if (position == 0L) {
+                if (isDownload) startedInDownload.add(mediaId) else startedInDownload.remove(mediaId)
+            }
             // A song moved into the download folder after the queue was made: the queue's copy of
             // the song has no path, nor has a row read before the move recorded its file, and its
             // copy in the app is gone. The folder is asked whatever they say; it used to be asked
@@ -3522,8 +3670,24 @@ class MusicService : MediaLibraryService(),
 
             // The address the song was given earlier, unless the player has failed on it since:
             // onPlayerError forgets it, and the try after that asks afresh below.
+            //
+            // Past the start of a song begun from a download under way, only while it streams the
+            // download's file: with a Download quality of its own the player's address, kept from an
+            // earlier play, is another stream, and the song was the download's bytes up to where its
+            // part ended and that stream's after. fetch() asks for the download's stream instead,
+            // the one the format row names (RouteWish).
             val known = addresses.of(mediaId, System.currentTimeMillis())
-            known?.takeIf { !staleQuality }?.let { address ->
+            val notTheDownloads = position > 0L && mediaId in startedInDownload && formats[mediaId]?.let { format ->
+                val row = runCatching { database.readOrNull { formatRow(mediaId) } }.getOrNull()
+                !keptAddressGoesOn(row?.itag, row?.contentLength, recordedLength(downloadCache, mediaId), format.itag, format.contentLengthOrZero())
+            } == true
+            if (notTheDownloads) {
+                // Asked once: whatever the fetch below brings is what the song goes on with, or a
+                // walk that cannot offer the download's stream would be walked at every reopen.
+                startedInDownload.remove(mediaId)
+                if (known != null) Log.i(TAG, "$said: remote song (the address kept is another stream than the download this song began from, not taken)")
+            }
+            known?.takeIf { !staleQuality && !notTheDownloads }?.let { address ->
                 formats[mediaId]?.let { format ->
                     Log.i(TAG, "$said: remote song (temp cache)")
                     recoverWhenPlaying(mediaId, null)
@@ -3533,7 +3697,7 @@ class MusicService : MediaLibraryService(),
             // Read ahead over SABR and held from here, its address forgotten since: a change of
             // network forgets them all, and the song needs no network to play. The start of the
             // format the player was given, whose file the bytes are. See SabrAhead.
-            formats[mediaId]?.takeIf { !staleQuality }?.let { format ->
+            formats[mediaId]?.takeIf { !staleQuality && !notTheDownloads }?.let { format ->
                 SabrStarts.heldAt(mediaId, position, format.itag, format.lastModified)?.let { address ->
                     Log.i(TAG, "$said: remote song (held, read ahead over SABR)")
                     return ResolvedSong.KnownStream(address, format)
@@ -3553,6 +3717,20 @@ class MusicService : MediaLibraryService(),
                     fetch(mediaId, position, staleQuality, partialCopy, said)
                 }
             }
+        }
+
+        /**
+         * What a song the app counts as downloaded failed with when the player could not read it from
+         * the phone and fetching it failed to connect ([failure]): see DownloadNotOnPhone. Says in the
+         * log which of its causes it is, read from the download cache and the download folders, and
+         * whether the phone was online: a refused connection or a timeout is no proof there is no network.
+         */
+        private fun downloadNotOnPhone(mediaId: String, position: Long, failure: Throwable, said: String): DownloadNotOnPhone {
+            val length = runCatching { ContentMetadata.getContentLength(downloadCache.getContentMetadata(mediaId)) }.getOrDefault(C.LENGTH_UNSET.toLong())
+            val held = runCatching { downloadCache.getCachedBytes(mediaId, 0, C.LENGTH_UNSET.toLong()) }.getOrDefault(0L)
+            val inFolder = runCatching { downloadUtil.localMgr.isExists(mediaId)?.exists() == true }.getOrDefault(false)
+            Log.w(TAG, "$said: ${DownloadNotOnPhone.said(mediaId, position, held, length, inFolder, failure.javaClass.simpleName, online = isNetworkConnected.value)}")
+            return DownloadNotOnPhone(failure)
         }
 
         /**
@@ -3599,7 +3777,14 @@ class MusicService : MediaLibraryService(),
                 val error = when (throwable) {
                     is PlaybackException -> throwable
 
-                    is ConnectException, is UnknownHostException -> PlaybackException(
+                    // A song counted as downloaded comes here only when the phone has not got what the
+                    // player asked for: said so, not "No network connection", which was true and told
+                    // nothing (#179). Still a network failure, so the network is waited for as before.
+                    is ConnectException, is UnknownHostException -> if (downloadUtil.isDownloaded(mediaId)) PlaybackException(
+                        getString(R.string.err_download_not_on_phone),
+                        downloadNotOnPhone(mediaId, position, throwable, said),
+                        PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED
+                    ) else PlaybackException(
                         getString(R.string.error_no_internet),
                         throwable,
                         PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED
@@ -4645,10 +4830,7 @@ class MusicService : MediaLibraryService(),
         fun input(sources: List<AdaptivePass.Source>) = AdaptivePass.Input(
             kind = snap.kind, tail = snap.tail, head = snap.head, queue = snap.queue, view = snap.view, taste = taste,
             sources = sources, skippedRelated = skippedRelated, skippedLists = skippedLists, similar = similar, offline = !snap.online,
-            // A download in a folder is in neither cache: the downloads say it has landed. The song
-            // cache's copy of it used to answer for it, and a download is no longer copied there
-            // (KeptOnce). The download cache too, for the moment at start before the map is read.
-            playsOffline = { s -> s.isLocal || downloadUtil.isDownloaded(s.id) || downloadCache.holdsWhole(s.id) || playerCache.holdsWhole(s.id) },
+            playsOffline = { s -> playsOffline(s) },
         )
         val first = input(sources())
         if (similar && skippedLists.isNotEmpty()) {
@@ -4883,8 +5065,19 @@ class MusicService : MediaLibraryService(),
      */
     fun updateNotification() {
         val buttons = if (inCar) MediaControlButtons.CAR else MediaControlButtons.layout(mediaControlButtons)
-        mediaSession.setCustomLayout(buttons.map(::mediaControlButton))
+        val layout = buttons.map(::mediaControlButton)
+        // Each send has media3 post the notification anew and the system draw it again, and this
+        // runs on every change to the playing song's row (a play counted, its format found), most
+        // of which change no button. A realme on Android 11 closed the app when its system failed
+        // to draw a notification posted several times in a moment (#206: "Couldn't inflate
+        // contentViews", a ConcurrentModificationException in the system's own drawing).
+        if (layout == sentLayout) return
+        sentLayout = layout
+        mediaSession.setCustomLayout(layout)
     }
+
+    /** The buttons last sent to the session by [updateNotification]. */
+    private var sentLayout: List<CommandButton>? = null
 
     private fun mediaControlButton(button: MediaControlButton): CommandButton {
         val song = currentSong.value
@@ -4957,6 +5150,18 @@ class MusicService : MediaLibraryService(),
                     .setSessionCommand(CommandToggleLibrary)
                     .setEnabled(song != null && !song.song.isLocal)
                     .build()
+
+            // YouTube Music's thumbs down (Unreleased.DISLIKE): filled for a song kept from playing that
+            // was picked anyway, where a tap lifts it. Off for a local file, which YouTube cannot hear;
+            // its Don't play this song is in the player's menu.
+            MediaControlButton.DISLIKE -> {
+                val held = song != null && ContentFilter.current.dontPlay.has(song.id)
+                CommandButton.Builder(if (held) CommandButton.ICON_THUMB_DOWN_FILLED else CommandButton.ICON_THUMB_DOWN_UNFILLED)
+                    .setDisplayName(getString(if (held) R.string.menu_dislike_lift else R.string.menu_dislike))
+                    .setSessionCommand(CommandToggleDislike)
+                    .setEnabled(Unreleased.DISLIKE && song != null && !song.song.isLocal)
+                    .build()
+            }
         }
     }
 
@@ -5935,6 +6140,10 @@ class MusicService : MediaLibraryService(),
             scope.launch(SilentHandler) {
                 // or else race condition: Assertions.checkArgument(eventTime.realtimeMs >= currentPlaybackStateStartTimeMs) fails in updatePlaybackState()
                 delay(200)
+                // The song playing goes first, so the player never comes back to the queue's first
+                // song by itself: a sleep timer set to the end of the queue or the album is told
+                // that this song's end is the queue starting over, or it would wait all night.
+                sleepTimer.queueStartsOverAfterThisSong()
                 queueBoard.shuffleCurrent()
                 queueBoard.setCurrQueue()
             }
@@ -6050,6 +6259,24 @@ class MusicService : MediaLibraryService(),
                 ?.let { runCatching { player.getMediaItemAt(it).mediaId }.getOrNull() }
             sabrAhead.queueAt(player.currentMediaItem?.mediaId, next)
         }
+        // The songs the player has open, the one playing and the next it may read ahead: the downloads
+        // neither move their files nor replace their bytes under it (HeldWhilePlaying). None once it
+        // has let go of its songs: stopped, or failed and waiting to be prepared again.
+        if (events.containsAny(
+                Player.EVENT_MEDIA_ITEM_TRANSITION, EVENT_TIMELINE_CHANGED, Player.EVENT_PLAYBACK_STATE_CHANGED,
+                Player.EVENT_SHUFFLE_MODE_ENABLED_CHANGED, Player.EVENT_REPEAT_MODE_CHANGED,
+            )
+        ) {
+            downloadUtil.playerHas(openSongs(player))
+        }
+    }
+
+    /** The songs [player] has open: none while it is idle, else the one playing and the next. */
+    private fun openSongs(player: Player): Set<String> {
+        if (player.playbackState == Player.STATE_IDLE) return emptySet()
+        val next = player.nextMediaItemIndex.takeIf { it != C.INDEX_UNSET }
+            ?.let { runCatching { player.getMediaItemAt(it).mediaId }.getOrNull() }
+        return setOfNotNull(player.currentMediaItem?.mediaId, next)
     }
 
     /** Whether Data Saver holds this app back on the network in use: nothing is read ahead then. */
@@ -6631,6 +6858,13 @@ class MusicService : MediaLibraryService(),
     /** The plain notification is up, holding the foreground for a media button's start. */
     private var holdingForMediaButton = false
 
+    /** When the app's process started and when this service was created, in uptime ([MediaButtonStart.sinceStart]). */
+    private var processStartedAt = 0L
+    private var createdAt = 0L
+
+    /** No start has reached the service yet: the first may be the one it was created for. */
+    private var firstStart = true
+
     private val mediaButtonHandler = Handler(Looper.getMainLooper())
 
     /** A resumption media3 asked for is being read (MediaLibrarySessionCallback). */
@@ -6650,8 +6884,11 @@ class MusicService : MediaLibraryService(),
      *
      * With a song in the player media3 plays and shows at once, so nothing is held: the guard
      * alone looks again, after a play press, in case the song did not start.
+     *
+     * [handedAt] is when the app handed Android this start, if it did (MediaButtonStart.markHanded):
+     * Android's time runs from there, not from the process's start.
      */
-    private fun holdForegroundForMediaButton(key: Int?) {
+    private fun holdForegroundForMediaButton(key: Int?, handedAt: Long?) {
         // Already seen to.
         if (mediaButtonPending || foregroundNow()) return
         val hasSong = ::player.isInitialized && player.mediaItemCount > 0
@@ -6666,7 +6903,23 @@ class MusicService : MediaLibraryService(),
         holdingForMediaButton = false
         mediaButtonHandler.removeCallbacks(mediaButtonLetGo)
         val held = !hasSong && Build.VERSION.SDK_INT < Build.VERSION_CODES.S && holdForeground()
-        mediaButtonHandler.postDelayed(mediaButtonGuard, MediaButtonStart.guardMs(Build.VERSION.SDK_INT, held))
+        val sinceStart = MediaButtonStart.sinceStart(handedAt, firstStart, processStartedAt, createdAt, SystemClock.uptimeMillis())
+        mediaButtonHandler.postDelayed(mediaButtonGuard, MediaButtonStart.guardDelayMs(Build.VERSION.SDK_INT, held, sinceStart))
+    }
+
+    /**
+     * The service is about to stop while a media button's start may still be owed: Android closes
+     * the app at once when a service it waits on stops before startForeground
+     * (ActiveServices.bringDownServiceLocked), so the demand is met first. The app swiped away in
+     * the seconds after a play press whose song had not started yet was such a stop.
+     */
+    private fun meetMediaButtonStartBeforeStop() {
+        if (!mediaButtonPending) return
+        mediaButtonPending = false
+        mediaButtonHandler.removeCallbacks(mediaButtonGuard)
+        if (holdingForMediaButton || foregroundNow()) return
+        if (holdForeground()) ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
+        holdingForMediaButton = false
     }
 
     /**
@@ -6861,11 +7114,17 @@ class MusicService : MediaLibraryService(),
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (BuildConfig.BUILD_TYPE == "debug" && Unreleased.AUTOMIX_EDITOR) intent?.getStringExtra("mixtrial")?.let { mixTrial(it) }
         // media3's media button receiver starts the service with startForegroundService, whether
-        // it was running or not, and so do the widget and the play button of media3's own
-        // notification (MediaButtonStart). No intent at all is Android bringing the service back
-        // after the app's process died, with what the old process still owed it.
+        // it was running or not, and so does the widget (MediaButtonStart). The play button of
+        // media3's notification is a plain start (PlainPlayNotifications) that owes Android
+        // nothing, marked so the guard leaves it alone: if its song does not start, or there is no
+        // saved queue, the service just stays started (from Android 8, Android stops it once the
+        // app is idle). No intent at all is Android bringing the service back after the app's
+        // process died, with what the old process still owed it.
         if (intent == null) settleAfterRestart()
-        else if (intent.action == Intent.ACTION_MEDIA_BUTTON) holdForegroundForMediaButton(MediaButtonStart.keyOf(intent))
+        else if (intent.action == Intent.ACTION_MEDIA_BUTTON && !MediaButtonStart.isPlain(intent))
+            holdForegroundForMediaButton(MediaButtonStart.keyOf(intent), MediaButtonStart.handedAtOf(intent, flags))
+        // Only the start the service was created for began with the process.
+        firstStart = false
         return super.onStartCommand(intent, flags, startId)
     }
 
@@ -6912,6 +7171,8 @@ class MusicService : MediaLibraryService(),
         // way it can find out the service is gone before touching the queue board or the player.
         destroyed = true
         mediaButtonHandler.removeCallbacksAndMessages(null)
+        // The player lets go of its songs with the service: a move held for one of them is made now.
+        if (::downloadUtil.isInitialized) runCatching { downloadUtil.playerHas(emptySet()) }
         // Back on the phone before anything is saved or released: the queue then saves the
         // receiver's song and position, and the release below reaches the phone's own player.
         castSession?.release()
@@ -6987,6 +7248,7 @@ class MusicService : MediaLibraryService(),
         effectsSession.close()
         mediaSession.player.stop()
         mediaSession.release()
+        if (leftSession?.get() === mediaSession) leftSession = null
         mediaSession.player.release()
         super.onDestroy()
         Log.i(TAG, "Terminated MusicService.")
@@ -7055,6 +7317,8 @@ class MusicService : MediaLibraryService(),
 
     override fun onTaskRemoved(rootIntent: Intent?) {
         Log.i(TAG, "onTaskRemoved called")
+        // Both ways below may stop the service: not while Android still waits on a media button's start.
+        meetMediaButtonStartBeforeStop()
         if (dataStore.get(StopMusicOnTaskClearKey, true) && !dataStore.get(KeepAliveKey, false)) {
             Log.i(TAG, "onTaskRemoved kill")
             pauseAllPlayersAndStopSelf()
@@ -7101,6 +7365,9 @@ class MusicService : MediaLibraryService(),
         /** The longest a request is held back while a new song loads: see afterSongStarts. */
         private const val NEW_SONG_WAIT_MS = 20_000L
 
+        /** The longest a media button's play on an empty player waits for the saved queues to be read: see playSavedQueue. */
+        private const val SAVED_QUEUES_WAIT_MS = 5_000L
+
         /** How much of the next song is loaded ahead while one plays: 5 s, enough to start it at once. */
         private const val PRELOAD_AHEAD_US = 5_000_000L
 
@@ -7120,6 +7387,12 @@ class MusicService : MediaLibraryService(),
          */
         @Volatile
         private var instance: WeakReference<MusicService>? = null
+
+        /**
+         * The session the service built last, until its onDestroy releases it: one still here when
+         * the service starts again was never released (#181).
+         */
+        private var leftSession: WeakReference<MediaLibrarySession>? = null
 
         /** See [instance]. */
         fun alive(): MusicService? = instance?.get()

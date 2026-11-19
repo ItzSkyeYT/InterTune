@@ -56,27 +56,33 @@ internal class MoveNotice(
         ConvertNotice.post(manager, ConvertNotice.ONGOING_ID, builder.build())
     }
 
-    /** The move is over, [moved] of the songs in the folder now: the ongoing line goes and the result stays. */
-    fun finish(moved: Int) {
+    /**
+     * The move is over, [moved] of the songs in the folder now: the ongoing line goes and the result
+     * stays. [held] songs were left out because the player has them open (HeldWhilePlaying): they
+     * move once they stop playing, and the result says so rather than that the move is done.
+     */
+    fun finish(moved: Int, held: Int = 0) {
         manager.cancel(ConvertNotice.ONGOING_ID)
         val left = stayInside(total, moved)
-        Log.i(TAG, "Moved $moved of $total downloads into the folder, $left stay inside the app")
+        Log.i(TAG, "Moved $moved of $total downloads into the folder, $left stay inside the app, $held move once they stop playing")
         val builder = NotificationCompat.Builder(context, ExoDownloadService.CHANNEL_ID)
             .setSmallIcon(R.drawable.download)
             .setAutoCancel(true)
             .setOnlyAlertOnce(true)
             .setSilent(true)
             .setContentIntent(DownloadsShortcut.pendingIntent(context))
-        if (left == 0) {
-            builder.setContentTitle(context.getString(R.string.dl_move_notice_done))
-        } else {
-            val text = context.resources.getQuantityString(R.plurals.dl_move_notice_failed, left, left)
-            builder.setContentTitle(context.getString(R.string.dl_move_notice_title))
-                .setContentText(text)
-                .setStyle(NotificationCompat.BigTextStyle().bigText(text))
-        }
+        val later = if (held > 0) context.resources.getQuantityString(R.plurals.dl_move_notice_held, held, held) else null
+        val text = listOfNotNull(
+            if (left > 0) context.resources.getQuantityString(R.plurals.dl_move_notice_failed, left, left) else null,
+            later,
+        ).joinToString(". ").ifEmpty { null }
+        builder.setContentTitle(context.getString(if (ending(left, held) == Ending.DONE) R.string.dl_move_notice_done else R.string.dl_move_notice_title))
+        if (text != null) builder.setContentText(text).setStyle(NotificationCompat.BigTextStyle().bigText(text))
         ConvertNotice.post(manager, RESULT_ID, builder.build())
     }
+
+    /** How a move ended, for its title: all in the folder, or not all (some stay inside the app, or move later). */
+    enum class Ending { DONE, NOT_ALL }
 
     companion object {
         private const val TAG = "MoveNotice"
@@ -92,6 +98,12 @@ internal class MoveNotice(
 
         /** How many of [total] songs stay inside the app when [moved] of them reached the folder. */
         fun stayInside(total: Int, moved: Int): Int = (total - moved).coerceAtLeast(0)
+
+        /**
+         * Done only when nothing stays inside the app ([left]) and nothing moves later ([held]): a
+         * move that left the song playing for later said it was done, though that song had not moved.
+         */
+        fun ending(left: Int, held: Int): Ending = if (left == 0 && held == 0) Ending.DONE else Ending.NOT_ALL
 
         /**
          * Whether the move says how far it is in a toast, [done] songs in: one way of telling, so

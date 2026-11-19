@@ -596,7 +596,11 @@ fun HomeScreen(
         // two side by side, which is what the 0.475 branch is for.
         val horizontalLazyGridItemWidthFactor = if (maxWidth * 0.475f >= 320.dp) 0.475f else 0.94f
         val horizontalLazyGridItemWidth = maxWidth * horizontalLazyGridItemWidthFactor
-        val quickPicksSnapLayoutInfoProvider = remember(quickPicksLazyGridState) {
+        // Each row's snap made again whenever a column's share of the width changes: kept from Home's first
+        // drawing, a Home first drawn on its side (two columns, 0.475) went on snapping upright as if the
+        // columns were half as wide, and a fling stopped a quarter column in, the first column cut at the
+        // left (his S25U, 15 and 18 Nov 2026). The realign below only fixed the position until the next fling.
+        val quickPicksSnapLayoutInfoProvider = remember(quickPicksLazyGridState, horizontalLazyGridItemWidthFactor) {
             SnapLayoutInfoProvider(
                 lazyGridState = quickPicksLazyGridState,
                 positionInLayout = { layoutSize, itemSize ->
@@ -604,7 +608,7 @@ fun HomeScreen(
                 }
             )
         }
-        val discoverSnapLayoutInfoProvider = remember(discoverLazyGridState) {
+        val discoverSnapLayoutInfoProvider = remember(discoverLazyGridState, horizontalLazyGridItemWidthFactor) {
             SnapLayoutInfoProvider(
                 lazyGridState = discoverLazyGridState,
                 positionInLayout = { layoutSize, itemSize ->
@@ -612,7 +616,7 @@ fun HomeScreen(
                 }
             )
         }
-        val forgottenFavoritesSnapLayoutInfoProvider = remember(forgottenFavoritesLazyGridState) {
+        val forgottenFavoritesSnapLayoutInfoProvider = remember(forgottenFavoritesLazyGridState, horizontalLazyGridItemWidthFactor) {
             SnapLayoutInfoProvider(
                 lazyGridState = forgottenFavoritesLazyGridState,
                 positionInLayout = { layoutSize, itemSize ->

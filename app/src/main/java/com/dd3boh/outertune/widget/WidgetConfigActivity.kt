@@ -6,6 +6,7 @@
 
 package com.dd3boh.outertune.widget
 
+import com.dd3boh.outertune.utils.AppLanguage
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.app.WallpaperColors
@@ -106,6 +107,11 @@ import androidx.compose.ui.semantics.Role
  * to the app's settings; it writes to this widget's Glance state and redraws that widget alone.
  */
 class WidgetConfigActivity : ComponentActivity() {
+
+    /** Before Android 13 the app's language is ours to apply (AppLanguage); later the platform has done it. */
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(AppLanguage.wrap(newBase))
+    }
 
     private var appWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
 

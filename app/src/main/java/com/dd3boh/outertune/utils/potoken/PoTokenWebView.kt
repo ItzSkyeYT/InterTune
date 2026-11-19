@@ -17,6 +17,7 @@ import androidx.collection.ArrayMap
 import androidx.webkit.WebSettingsCompat
 import androidx.webkit.WebViewFeature
 import com.dd3boh.outertune.BuildConfig
+import com.dd3boh.outertune.utils.AppLanguage
 import com.zionhuang.innertube.YouTube
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.Dispatchers
@@ -66,6 +67,8 @@ class PoTokenWebView private constructor(
 
     //region Initialization
     init {
+        // Before Android 13 the first WebView of the process puts the app's words back in the phone's language.
+        AppLanguage.afterWebView(context)
         val webViewSettings = webView.settings
         //noinspection SetJavaScriptEnabled we want to use JavaScript!
         webViewSettings.javaScriptEnabled = true

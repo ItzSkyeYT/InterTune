@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.dd3boh.outertune.utils.WhyStopped
 import com.dd3boh.outertune.utils.YouTubeTrouble
 import com.dd3boh.outertune.utils.reportException
+import com.dd3boh.outertune.utils.ContentLocale
 import com.zionhuang.innertube.YouTube
 import com.zionhuang.innertube.models.AlbumItem
 import com.zionhuang.innertube.models.ArtistItem
@@ -31,6 +32,8 @@ class AccountViewModel @Inject constructor() : ViewModel() {
 
     init {
         load()
+        // Another language for YouTube (the app's, or the YouTube Music rows): the page loads again in it.
+        viewModelScope.launch { ContentLocale.changes.collect { load() } }
     }
 
     /** Asks again once the three requests are done: the page's Retry. */

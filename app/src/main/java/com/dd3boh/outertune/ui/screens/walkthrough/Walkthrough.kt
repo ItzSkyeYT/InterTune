@@ -257,8 +257,8 @@ val SETTINGS_CLOSER_LOOK = listOf(
 
     closer("quick_picks_source", Tour.SETTING_QUICK_PICKS_SOURCE, Tour.ROUTE_LIBRARY, R.string.quick_picks_source, R.string.tour_closer_quick_picks_source),
     closer("share_links", Tour.SETTING_SHARE_LINKS, Tour.ROUTE_LIBRARY, R.string.share_link_kind_title, R.string.new_share_links_here),
-    closer("content_language", Tour.SETTING_CONTENT_LANGUAGE, Tour.ROUTE_LIBRARY, R.string.content_language, R.string.tour_closer_content_language),
-    closer("content_country", Tour.SETTING_CONTENT_COUNTRY, Tour.ROUTE_LIBRARY, R.string.content_country, R.string.tour_closer_content_country),
+    closer("content_language", Tour.SETTING_CONTENT_LANGUAGE, Tour.ROUTE_LIBRARY, R.string.youtube_language, R.string.tour_closer_content_language),
+    closer("content_country", Tour.SETTING_CONTENT_COUNTRY, Tour.ROUTE_LIBRARY, R.string.youtube_country, R.string.tour_closer_content_country),
 
     closer("local_media", Tour.SETTING_LOCAL_MEDIA, Tour.ROUTE_LOCAL, R.string.local_library_enable_title, R.string.tour_closer_local_media),
     closer("scan_paths", Tour.SETTING_SCAN_PATHS, Tour.ROUTE_LOCAL, R.string.scan_paths_title, R.string.tour_closer_scan_paths),

@@ -157,8 +157,10 @@ private fun LivingPicture(
         long = max(wide, tall).toFloat(), short = min(wide, tall).toFloat(),
         across = across, most = if (ribbons) LivingField.FLOW_MOST_ALONG else LivingField.MOST_ALONG,
     )
+    // The aura round the cover: a thin rim (issue #215) where the flag has it, the soft aura elsewhere.
     val motion = remember(upright, along, across) {
-        if (upright) LivingMotion(across, along) else LivingMotion(along, across)
+        val thin = Unreleased.LIVING_RIM_THIN
+        if (upright) LivingMotion(across, along, thinRim = thin) else LivingMotion(along, across, thinRim = thin)
     }
 
     // Whether there is a cover, and not where it is. Its place changes on every frame while the

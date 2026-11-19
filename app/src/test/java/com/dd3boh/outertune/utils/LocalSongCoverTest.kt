@@ -56,4 +56,15 @@ class LocalSongCoverTest {
         val note = pathData.find(File("src/main/res/drawable/note_rounded.xml").readText())!!.groupValues[1]
         assertEquals(coverNote, note)
     }
+
+    /** The widget draws its own note while a cover loads and when nothing plays: the same rounded one (#150). */
+    @Test
+    fun `the widget's stand-in note is the cover's note too`() {
+        val widget = File("src/main/java/com/dd3boh/outertune/widget/MusicWidget.kt").readText()
+        val pictures = File("src/main/java/com/dd3boh/outertune/widget/WidgetPictures.kt").readText()
+        val note = widget.substringAfter("private fun Note(").substringBefore("\n}\n")
+        assertTrue(note.contains("R.drawable.note_rounded"))
+        assertTrue(!pictures.contains("R.drawable.music_note"))
+        assertTrue(pictures.contains("R.drawable.note_rounded"))
+    }
 }

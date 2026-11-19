@@ -58,7 +58,10 @@ import com.dd3boh.outertune.LocalDatabase
 import com.dd3boh.outertune.constants.PlayOrigin
 import com.dd3boh.outertune.LocalDownloadUtil
 import com.dd3boh.outertune.LocalPlayerConnection
+import com.dd3boh.outertune.LocalSnackbarHostState
 import com.dd3boh.outertune.R
+import com.dd3boh.outertune.utils.scanners.LocalMediaScanner
+import com.dd3boh.outertune.utils.scanners.LocalRemoval
 import androidx.compose.material.icons.rounded.Group
 import android.widget.Toast
 import com.dd3boh.outertune.constants.ListThumbnailSize
@@ -70,6 +73,7 @@ import com.dd3boh.outertune.db.entities.Playlist
 import com.dd3boh.outertune.db.entities.PlaylistSong
 import com.dd3boh.outertune.db.entities.Song
 import com.dd3boh.outertune.extensions.toMediaItem
+import com.dd3boh.outertune.models.DislikePlan
 import com.dd3boh.outertune.models.DontPlay
 import com.dd3boh.outertune.models.toMediaMetadata
 import com.dd3boh.outertune.playback.downloadManager.ExportItem
@@ -95,6 +99,8 @@ import com.zionhuang.innertube.YouTube
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
+import androidx.compose.ui.platform.LocalHapticFeedback
+import com.dd3boh.outertune.ui.component.tapTick
 
 @Composable
 fun SongMenu(
@@ -166,6 +172,14 @@ fun SongMenu(
     var showBlockArtist by rememberSaveable { mutableStateOf(false) }
     val blockable = remember(song.artists) { blockChoices(song.artists) }
     val dontPlay = if (Unreleased.ARTIST_BLOCK) rememberDontPlay() else DontPlay.NONE
+    // A file of the phone's: the line Excluded scan paths gets for it, so that Remove from library holds through
+    // every scan (LocalRemoval). Null on a volume the folder picker does not know: then nothing is offered.
+    val snackbarHostState = LocalSnackbarHostState.current
+    val localAddress = remember(song.song.localPath) {
+        if (Unreleased.LOCAL_REMOVE && song.song.isLocal) song.song.localPath?.let { LocalRemoval.addressOf(context, it) } else null
+    }
+    // Not while a scan runs: it read Excluded scan paths at its start and would bring the song back (LocalRemoval.afterScan).
+    val scanBusy = LocalRemoval.scanning(LocalMediaScanner.scannerState.collectAsState().value)
 
     ListItem(
         title = song.song.title,
@@ -184,8 +198,10 @@ fun SongMenu(
             )
         },
         trailingContent = {
+            val haptic = LocalHapticFeedback.current
             IconButton(
                 onClick = {
+                    haptic.tapTick()
                     // toggleLike sends the like to YouTube itself. A likeSong here sent it again.
                     val s = song.song.toggleLike()
                     database.query {
@@ -387,6 +403,17 @@ fun SongMenu(
                 }
             }
         }
+        // A file of the phone's, in the same place and with the same words as a YouTube song's: out of the library,
+        // and kept out of every scan; the file stays. Said in a snackbar with Undo (LocalRemoveMenu).
+        if (Unreleased.LOCAL_REMOVE && song.song.isLocal && song.song.inLibrary != null && localAddress != null && !scanBusy) {
+            GridMenuItem(
+                icon = Icons.Rounded.LibraryAddCheck,
+                title = R.string.remove_from_library
+            ) {
+                onDismiss()
+                LocalRemoveMenu.removeSong(context, database, snackbarHostState, song.song, localAddress)
+            }
+        }
         if (event != null) {
             GridMenuItem(
                 icon = Icons.Rounded.Delete,
@@ -402,8 +429,8 @@ fun SongMenu(
         // anyone knows the place of (DontPlay).
         if (Unreleased.ARTIST_BLOCK) {
             val held = dontPlay.has(song.id)
-            dontPlayMenuItem(held) {
-                toggleDontPlay(context, database, song.toMediaMetadata(), held)
+            dontPlayMenuItem(held, dislike = DislikePlan.shown(Unreleased.DISLIKE, song.song.isLocal)) {
+                toggleDontPlay(context, database, song.toMediaMetadata(), held, downloadUtil, liked = song.song.liked)
                 onDismiss()
             }
         }

@@ -26,7 +26,6 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.longOrNull
 import kotlinx.serialization.json.put
-import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
 import okhttp3.WebSocket
@@ -130,7 +129,8 @@ data class NostrEvent(
 class RelayPool(
     private val urls: List<String>,
     private val filter: JsonObject,
-    private val client: OkHttpClient,
+    /** An OkHttpClient, or a test's own. */
+    private val client: WebSocket.Factory,
     private val scope: CoroutineScope,
 ) {
     private val sockets = ConcurrentHashMap<String, WebSocket>()
@@ -143,7 +143,13 @@ class RelayPool(
     val connected: StateFlow<Int> = _connected
 
     @Volatile private var running = false
-    private val retries = mutableListOf<Job>()
+
+    /**
+     * The reconnect each dropped relay waits for, one at most. Set from OkHttp's threads and cancelled from the main one:
+     * a plain list there could throw on the main thread as a relay failed during a stop, and it kept one job for every
+     * reconnect for as long as the room lasted.
+     */
+    private val retries = ConcurrentHashMap<String, Job>()
 
     fun start() {
         running = true
@@ -152,7 +158,8 @@ class RelayPool(
 
     fun stop() {
         running = false
-        retries.forEach { it.cancel() }
+        retries.values.forEach { it.cancel() }
+        retries.clear()
         sockets.values.forEach { it.close(1000, null) }
         sockets.clear()
         _connected.value = 0
@@ -176,6 +183,14 @@ class RelayPool(
         val socket = client.newWebSocket(Request.Builder().url(url).build(), object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) {
                 sockets[url] = webSocket
+                // Opened after the room stopped (still connecting as it did, so the stop never saw it): closed now. Kept,
+                // it went on receiving the room and showing the relay this phone, with nothing left to end it. Looked
+                // at after it is in [sockets], so that a stop at this very moment closes it either here or there.
+                if (!running) {
+                    sockets.remove(url, webSocket)
+                    webSocket.close(1000, null)
+                    return
+                }
                 _connected.value = sockets.size
                 webSocket.send(buildJsonArray { add(JsonPrimitive("REQ")); add(JsonPrimitive(SUB)); add(filter) }.toString())
                 Log.i(TAG, "Connected to $url")
@@ -185,6 +200,13 @@ class RelayPool(
                 val message = runCatching { Json.parseToJsonElement(text) as JsonArray }.getOrNull() ?: return
                 if (message.size >= 3 && message[0].jsonPrimitive.content == "EVENT") {
                     val event = (message[2] as? JsonObject)?.let(NostrEvent::parse) ?: return
+                    // Every relay passes each event on: a copy of one already taken is not checked again.
+                    if (event.id in seen) return
+                    // Only what its author signed, as itself: a relay could resend any member's sealed word under a new
+                    // id or another key, and a suggestion was queued again, a proposal asked again, someone gone kept on
+                    // the list (review of 0.13, 18 Nov 2026). Before it is remembered, so a forged copy cannot shut
+                    // out the real one.
+                    if (!event.valid()) return
                     if (remember(event.id)) _events.tryEmit(event)
                 } else if (message.isNotEmpty() && message[0].jsonPrimitive.content == "NOTICE") {
                     Log.i(TAG, "$url says: ${message.getOrNull(1)?.jsonPrimitive?.content}")
@@ -204,10 +226,10 @@ class RelayPool(
         if (sockets[url] === socket) sockets.remove(url)
         _connected.value = sockets.size
         if (!running) return
-        retries += scope.launch {
+        retries.put(url, scope.launch {
             delay(minOf(30_000L, 1_000L shl minOf(attempt, 5)))
             connect(url, attempt + 1)
-        }
+        })?.cancel()
     }
 
     companion object {

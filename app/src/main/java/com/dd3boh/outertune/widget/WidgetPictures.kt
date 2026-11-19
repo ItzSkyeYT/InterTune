@@ -300,7 +300,7 @@ object WidgetPictures {
     }
 
     private fun note(context: Context?, canvas: Canvas, rect: RectF) {
-        val drawable = context?.let { ContextCompat.getDrawable(it, R.drawable.music_note) } ?: return
+        val drawable = context?.let { ContextCompat.getDrawable(it, R.drawable.note_rounded) } ?: return
         val side = minOf(rect.width(), rect.height()) * 0.42f
         drawable.setBounds(
             (rect.centerX() - side / 2).roundToInt(), (rect.centerY() - side / 2).roundToInt(),

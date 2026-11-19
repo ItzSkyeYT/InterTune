@@ -132,7 +132,7 @@ object QueueFit {
                 // A song the listener chose not to play is never a pick either, nor kept ahead (DontPlay).
                 val bans = inForce.filter {
                     it.reason == ExclusionsViewModel.REASON_BAN || it.reason == ExclusionsViewModel.REASON_SNOOZE ||
-                        it.reason == ExclusionsViewModel.REASON_DONT_PLAY
+                        ExclusionsViewModel.isDontPlay(it.reason)
                 }
                 val bannedSongIds = bans.filter { it.kind == ExclusionsViewModel.KIND_SONG }.mapTo(HashSet()) { it.targetId }
                 // A song ban's label is the song's title; its artist comes from the song itself

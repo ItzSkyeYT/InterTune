@@ -156,6 +156,8 @@ val ResumeOnBluetoothKey = booleanPreferencesKey("resumeOnBluetooth")
 
 val SeekIncrementKey = stringPreferencesKey("seekIncrement")
 val SkipSilenceKey = booleanPreferencesKey("skipSilence")
+/** Varispeed (Unreleased.VARISPEED): the pitch follows the speed in Tempo and Pitch. Off by default. */
+val VarispeedKey = booleanPreferencesKey("varispeed")
 val SkipOnErrorKey = booleanPreferencesKey("skipOnError")
 val AudioNormalizationKey = booleanPreferencesKey("audioNormalization")
 val AutoLoadMoreKey = booleanPreferencesKey("autoLoadMore")
@@ -266,6 +268,13 @@ val LyricUpdateSpeed = stringPreferencesKey("lyricUpdateSpeed")
  * so a backup from a debug build blurs nothing in a release.
  */
 val LyricsBlurKey = stringPreferencesKey("lyricsBlur")
+
+/**
+ * The debug app's looks of the line sung word by word (Unreleased.LYRICS_WORDS_LOOKS): one by its
+ * name in LyricsWordsLook, or absent for the app's own way. Read only with the flag on, so a backup
+ * from a debug build changes nothing in a release.
+ */
+val LyricsWordsLookKey = stringPreferencesKey("lyricsWordsLook")
 
 /**
  * Show in Latin letters: a line in Japanese, Korean, Chinese, Cyrillic, Greek or an Indian script
@@ -464,6 +473,14 @@ val FirstSetupKey = booleanPreferencesKey("firstSetup")
  * anything is told once, in a dialog, on opening the app (accountNoticeOwed).
  */
 val AccountNoticeSeenKey = booleanPreferencesKey("accountNoticeSeen")
+
+/**
+ * The battery saver note (SaverNote): how many times this install has been told that the phone's
+ * battery saver puts the app on Saver, and whether it was told during this time the saver is on
+ * (cleared once the app sees the saver off).
+ */
+val SaverNoteShownKey = intPreferencesKey("saverNoteShown")
+val SaverNoteWaitingKey = booleanPreferencesKey("saverNoteWaiting")
 val SwipeToSkipKey = booleanPreferencesKey("swipeToSkip")
 
 /**
@@ -530,6 +547,14 @@ val QueueBackClosesPlayerKey = booleanPreferencesKey("queueBackClosesPlayer")
 val QueueLeftOpenKey = booleanPreferencesKey("queueLeftOpen")
 
 /**
+ * Whether the player shows the output button under its controls, the pill that names where the music
+ * plays (this phone, the headphones, a TV) and opens the cast sheet. Off by default since his pick of
+ * 15 Nov 2026: the cast button at the player's top right instead, and nothing under the controls. On
+ * gives back the pill, and the top right stays empty ("the pill should be toggleable").
+ */
+val OutputPillKey = booleanPreferencesKey("outputPill")
+
+/**
  * The two buttons the phone's media controls show beside previous, play and next, in order, as
  * names joined by a comma. Missing means shuffle then repeat, which is what they always showed.
  * See [com.dd3boh.outertune.playback.MediaControlButtons].
@@ -587,6 +612,9 @@ val LibraryCustomOrderKey = stringPreferencesKey("libraryCustomOrder")
 val MenuHiddenEntriesKey = stringPreferencesKey("menuHiddenEntries")
 
 val SearchSourceKey = stringPreferencesKey("searchSource")
+// Where a playlist's search looks (Unreleased.PLAYLIST_YT_SEARCH): LOCAL the playlist, ONLINE YouTube Music, kept
+// as the library search keeps its own.
+val PlaylistSearchSourceKey = stringPreferencesKey("playlistSearchSource")
 
 val VisitorDataKey = stringPreferencesKey("visitorData")
 

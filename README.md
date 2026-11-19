@@ -176,7 +176,7 @@ What's being worked on, roughly in order. `[x]` is done, `[~]` is built and bein
 `[~]` Casting to speakers that only take uncompressed audio, like a Zeppelin Wireless\
 `[~]` Don't play this song: radios, autoplay and Shuffle never bring it back ([#78](https://github.com/ItzSkyeYT/InterTune/issues/78))\
 `[~]` Pick several songs in the queue and remove them at once\
-`[~]` Swipe a song out of the queue, and Undo brings it back ([#141](https://github.com/ItzSkyeYT/InterTune/issues/141))\
+`[~]` Swipe a song, or all the songs you picked, out of the queue, and Undo brings them back ([#141](https://github.com/ItzSkyeYT/InterTune/issues/141))\
 `[~]` Android Auto's search finds songs on YouTube Music, not only in your library ([#112](https://github.com/ItzSkyeYT/InterTune/issues/112))\
 `[~]` Block an artist\
 `[~]` Your playlists in your own order, dragged where you want them\

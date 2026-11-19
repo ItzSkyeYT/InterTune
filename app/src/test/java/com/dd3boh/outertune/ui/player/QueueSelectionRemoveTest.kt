@@ -119,6 +119,6 @@ class QueueSelectionRemoveTest {
         val item = menu.substring(menu.indexOf("title = R.string.remove_from_queue"))
         assertTrue("onRemoveFromQueue()" in item.substringBefore("}"))
         val queue = File("src/main/java/com/dd3boh/outertune/ui/player/Queue.kt").readText()
-        assertTrue("offerUndo(queueId, taken)" in queue.substringAfter("val removeSelected").substringBefore("// search"))
+        assertTrue("offerUndo(queueId, taken, notes)" in queue.substringAfter("val removeSelected").substringBefore("// search"))
     }
 }

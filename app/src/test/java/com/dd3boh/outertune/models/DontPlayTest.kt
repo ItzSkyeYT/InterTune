@@ -153,9 +153,12 @@ class DontPlayTest {
         assertTrue("val dontPlay = if (!Unreleased.ARTIST_BLOCK) flowOf(DontPlay.NONE) else {" in app)
         assertTrue(".dontPlaySongs()" in app)
         assertTrue("filter.copy(dontPlay = songs)" in app)
-        // The reason the database keeps it under, and nothing else: Not this song stays on Home.
+        // The reasons the database keeps it under, and nothing else: Not this song stays on Home.
+        // Its own, and its own set over Not this song, which a lift leaves a ban (DontPlayBanSqlTest).
         val dao = code("db/daos/ListenDao.kt")
-        assertTrue("WHERE x.kind = ${ExclusionsViewModel.KIND_SONG} AND x.reason = ${ExclusionsViewModel.REASON_DONT_PLAY}\"" in dao)
-        assertTrue("WHERE kind = ${ExclusionsViewModel.KIND_SONG} AND reason = ${ExclusionsViewModel.REASON_DONT_PLAY} AND targetId = :songId\"" in dao)
+        assertTrue("@Query(RecommendationSql.DONT_PLAY_SONGS)\n    fun dontPlaySongs()" in dao)
+        val sql = code("db/RecommendationSql.kt")
+        assertTrue("WHERE x.kind = ${ExclusionsViewModel.KIND_SONG} AND x.reason IN (${ExclusionsViewModel.REASON_DONT_PLAY}, ${ExclusionsViewModel.REASON_DONT_PLAY_BANNED})\"" in sql)
+        assertTrue("WHERE kind = ${ExclusionsViewModel.KIND_SONG} AND reason = ${ExclusionsViewModel.REASON_DONT_PLAY} AND targetId = :songId\"" in sql)
     }
 }

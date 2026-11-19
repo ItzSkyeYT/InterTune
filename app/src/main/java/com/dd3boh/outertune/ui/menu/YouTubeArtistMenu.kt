@@ -33,6 +33,8 @@ import com.dd3boh.outertune.utils.shareSheet
 import com.zionhuang.innertube.models.ArtistItem
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.launch
+import androidx.compose.ui.platform.LocalHapticFeedback
+import com.dd3boh.outertune.ui.component.tapTick
 
 @Composable
 fun YouTubeArtistMenu(
@@ -49,8 +51,10 @@ fun YouTubeArtistMenu(
     YouTubeListItem(
         item = artist,
         trailingContent = {
+            val haptic = LocalHapticFeedback.current
             IconButton(
                 onClick = {
+                    haptic.tapTick()
                     database.query {
                         val libraryArtistLocal = libraryArtist
                         if (libraryArtistLocal != null) {

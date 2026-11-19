@@ -9,6 +9,8 @@
 
 package com.dd3boh.outertune
 
+import com.dd3boh.outertune.utils.AppLanguage
+import com.dd3boh.outertune.utils.ChannelNames
 import com.dd3boh.outertune.utils.AppProxySelector
 import com.dd3boh.outertune.utils.ProxyAddress
 import com.dd3boh.outertune.utils.ProxyAtStart
@@ -17,6 +19,9 @@ import com.dd3boh.outertune.models.DontPlay
 import com.dd3boh.outertune.models.AiArtistList
 import com.dd3boh.outertune.models.AiFilter
 import com.dd3boh.outertune.models.AiFilterMode
+import androidx.glance.appwidget.updateAll
+import com.dd3boh.outertune.widget.MusicWidget
+import com.dd3boh.outertune.widget.RecognitionWidgetReceiver
 import com.dd3boh.outertune.widget.WidgetEntryPoint
 import dagger.hilt.android.EntryPointAccessors
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -48,12 +53,8 @@ import coil3.request.transitionFactory
 import com.dd3boh.outertune.constants.AccountChannelHandleKey
 import com.dd3boh.outertune.constants.AccountEmailKey
 import com.dd3boh.outertune.constants.AccountNameKey
-import com.dd3boh.outertune.constants.ContentCountryKey
-import com.dd3boh.outertune.constants.ContentLanguageKey
-import com.dd3boh.outertune.constants.CountryCodeToName
 import com.dd3boh.outertune.constants.DataSyncIdKey
 import com.dd3boh.outertune.constants.InnerTubeCookieKey
-import com.dd3boh.outertune.constants.LanguageCodeToName
 import com.dd3boh.outertune.constants.LastAlbumSyncKey
 import com.dd3boh.outertune.constants.LastArtistSyncKey
 import com.dd3boh.outertune.constants.LastFullSyncKey
@@ -65,7 +66,6 @@ import com.dd3boh.outertune.constants.MaxImageCacheSizeKey
 import com.dd3boh.outertune.constants.ProxyEnabledKey
 import com.dd3boh.outertune.constants.ProxyTypeKey
 import com.dd3boh.outertune.constants.ProxyUrlKey
-import com.dd3boh.outertune.constants.SYSTEM_DEFAULT
 import com.dd3boh.outertune.constants.StandInsKey
 import com.dd3boh.outertune.constants.StreamOrderKey
 import com.dd3boh.outertune.constants.UseLoginForBrowse
@@ -94,8 +94,6 @@ import com.dd3boh.outertune.constants.CachedPollsJsonKey
 import com.dd3boh.outertune.constants.LastPollFetchKey
 import com.dd3boh.outertune.utils.YTPlayerUtils
 import com.zionhuang.innertube.YouTube
-import com.zionhuang.innertube.models.YouTubeLocale
-import com.zionhuang.kugou.KuGou
 import dagger.hilt.android.HiltAndroidApp
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
@@ -107,12 +105,35 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import java.net.Proxy
 import java.net.ProxySelector
-import java.util.Locale
 import com.dd3boh.outertune.utils.Toaster
 
 @HiltAndroidApp
 class App : Application(), SingletonImageLoader.Factory {
     private val TAG = App::class.simpleName.toString()
+
+    /**
+     * Before Android 13 the app's language is ours to apply (AppLanguage): here for everything that
+     * is not a screen, the services, the widget's receivers, the workers and the notifications,
+     * which all read the app's own resources. Before the content providers are made, so the
+     * phone's search too.
+     */
+    override fun attachBaseContext(base: Context) {
+        super.attachBaseContext(base)
+        AppLanguage.applyToProcess(base)
+    }
+
+    /**
+     * A change of the phone's configuration puts the app's own resources back to the phone's
+     * language before Android 13 (AppLanguage.applyToProcess). From Android 13 it may be the moment
+     * the app's language changed under it, from Android's own App languages page, with no screen
+     * made again to say so (the music playing): AppLanguage.follow takes it from here. Before 13
+     * the language only changes through the row in Settings, which makes the screen again.
+     */
+    override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
+        super.onConfigurationChanged(newConfig)
+        AppLanguage.applyToProcess(this)
+        if (android.os.Build.VERSION.SDK_INT >= 33) AppLanguage.follow(this)
+    }
 
     @OptIn(DelicateCoroutinesApi::class, ExperimentalCoroutinesApi::class)
     override fun onCreate() {
@@ -146,20 +167,21 @@ class App : Application(), SingletonImageLoader.Factory {
         // process does not wait for it to be fetched again: see NewPipe.kt.
         YouTube.newPipeCacheDir = cacheDir.resolve("newpipe-http")
 
-        val locale = Locale.getDefault()
-        val languageTag = locale.toLanguageTag().replace("-Hant", "") // replace zh-Hant-* to zh-*
-        YouTube.locale = YouTubeLocale(
-            gl = dataStore[ContentCountryKey]?.takeIf { it != SYSTEM_DEFAULT }
-                ?: locale.country.takeIf { it in CountryCodeToName }
-                ?: "US",
-            hl = dataStore[ContentLanguageKey]?.takeIf { it != SYSTEM_DEFAULT }
-                ?: locale.language.takeIf { it in LanguageCodeToName }
-                ?: languageTag.takeIf { it in LanguageCodeToName }
-                ?: "en"
-        )
-        if (languageTag == "zh-TW") {
-            KuGou.useTraditionalChinese = true
+        // What YouTube is asked in: the two content rows, else the language the app speaks. Again
+        // whenever that changes (AppLanguage.follow), so a new app language shows on Home at once.
+        AppLanguage.follow(this)
+        // The widgets keep the words they were last drawn with: drawn again in a new language. So do
+        // the names of the notification channels in Android's own settings (ChannelNames).
+        GlobalScope.launch(Dispatchers.IO) {
+            AppLanguage.changes.collect {
+                runCatching { MusicWidget().updateAll(this@App) }
+                runCatching { RecognitionWidgetReceiver.redraw(this@App) }
+                ChannelNames.follow(this@App)
+            }
         }
+        // And at every start, for a language changed while the app was not running.
+        GlobalScope.launch(Dispatchers.IO) { ChannelNames.follow(this@App) }
+        GlobalScope.launch(Dispatchers.IO) { runCatching { RecognitionWidgetReceiver.redraw(this@App) } }
 
         // The proxy every client takes once, here: the settings page offers a restart while the one
         // set there differs (#68). See ProxyAtStart.

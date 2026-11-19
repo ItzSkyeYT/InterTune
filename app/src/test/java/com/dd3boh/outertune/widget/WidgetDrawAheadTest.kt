@@ -67,14 +67,24 @@ class WidgetDrawAheadTest {
         assertFalse("the glass cache is big enough for every widget's sizes", "LruCache<String, Bitmap>(6)" in glass)
     }
 
+    /**
+     * A part of a look is its spot's size, so nothing is stretched while the launcher shows a new
+     * size, and its box is padded on all four sides down to the spot, so it lands there whichever
+     * way the views read. Glance puts a box's child at its start, the right in a right to left
+     * language: with the left and the top alone (9 Nov), every part went to the right edge
+     * (WidgetRightToLeftTest places them as Android does).
+     */
     @Test
-    fun `nothing a look places is stretched to the room it is given`() {
+    fun `nothing a look places is stretched to the room it is given, nor pushed to its end right to left`() {
         val at = widget.substringAfter("private fun At(w: Int, h: Int").substringBefore("/** [At] in the widget itself. */")
-        assertTrue("absolutePadding(left = x.coerceAtLeast(0).dp, top = spot.y.coerceAtLeast(0).dp)" in at)
+        assertTrue(at, "val pad = spot.around(w, h, rtl)" in at)
+        for (side in listOf("left", "top", "right", "bottom")) assertTrue("padded on the $side: $at", "$side = pad.$side.dp" in at)
+        // The screen's own sides: Glance reads a start and an end its own way, which the views were seen not to share.
+        assertTrue(".absolutePadding(" in at)
+        assertFalse("start =" in at)
+        assertFalse("end =" in at)
         assertTrue("a thing is its spot's size", "modifier.size(spot.w.dp, spot.h.dp)" in at)
         assertFalse("it used to fill what the padding left", "modifier.fillMaxSize()" in at)
-        assertFalse("right =" in at)
-        assertFalse("bottom =" in at)
     }
 
     @Test

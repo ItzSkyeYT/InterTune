@@ -248,7 +248,8 @@
     <string name="help_contact_email_inquiries">Autres demandes (Appuyez pour copier l\'adresse e-mail)</string>
     <string name="help_support_forum">Aide et support (via GitHub)</string>
     <string name="wiki">Wiki</string>
-    <string name="err_invalid_ytm_song">Impossible de lire le titre. Seuls les contenus accessibles sur YouTube Music peuvent être lus.</string>
+    <string name="err_invalid_ytm_song">InterTune ne peut pas lire cette vidéo. Ce n\'est pas un titre de YouTube Music.</string>
+    <string name="link_open_failed" translatable="false">Impossible d\'ouvrir ce lien. Réessayez dans un moment.</string>
     <string name="err_restore_incompatible_database">Impossible de restaurer une base de données incompatible</string>
     <string name="m3u_import_failed">Aucun titre trouvé. Fichier M3U non valide ou aucun titre correspondant n\'a été trouvé.</string>
     <string name="tap_show_more">Appuyez pour afficher plus d\'informations</string>
@@ -1647,6 +1648,8 @@
     <string name="home_play_at_random">Lancer quelque chose au hasard</string>
     <string name="view_as_list">Affiché en liste</string>
     <string name="view_as_grid">Affiché en grille</string>
+    <string name="view_as_tree" translatable="false">Affiché en arborescence</string>
+    <string name="previous_folder" translatable="false">Dossier parent</string>
     <string name="playlist_order_locked">Ordre verrouillé</string>
     <string name="playlist_order_unlocked">Ordre déverrouillé</string>
     <string name="cancel_download">Annuler le téléchargement</string>
@@ -1905,6 +1908,8 @@
     <string name="output_this_phone">Ce téléphone</string>
     <string name="output_wired">Casque filaire</string>
     <string name="output_cable">Sur un câble</string>
+    <string name="output_pill" translatable="false">Bouton de sortie audio</string>
+    <string name="output_pill_description" translatable="false">Affiche où joue la musique, sous les commandes.</string>
     <string name="cast_searching">Recherche de récepteurs sur ce Wi-Fi</string>
     <string name="cast_about">Caste vers les récepteurs FCast, les appareils Chromecast et Google TV, et les téléviseurs et enceintes DLNA du même Wi-Fi. FCast demande l\'application FCast Receiver sur le téléviseur ou l\'ordinateur. Le téléphone reste allumé et envoie la musique pendant le cast.</string>
     <string name="cast_add_by_address">Ajouter par adresse</string>
@@ -2168,6 +2173,9 @@
     <string name="battery_follow_phone">Suivre l\'économiseur de batterie du téléphone</string>
     <string name="battery_follow_phone_description">« Économie » tant qu\'il est activé.</string>
     <string name="battery_follow_phone_now">« Économie » en ce moment : l\'économiseur du téléphone est activé.</string>
+    <!-- The note said twice at most when the phone's battery saver puts the app on Saver (SaverNote, Unreleased.SAVER_NOTE). -->
+    <string name="saver_note_title" translatable="false">L\'économiseur de batterie est activé</string>
+    <string name="saver_note_body" translatable="false">InterTune économise la batterie avec lui. Les paroles mot à mot, le fond animé du lecteur et les effets sonores (pas l\'égaliseur) se mettent en pause, le thème passe en noir et les synchronisations attendent le Wi-Fi. Tout revient quand l\'économiseur est désactivé.</string>
     <!-- The search at the top of Settings (SettingsSearch.kt). -->
     <string name="search_settings">Rechercher dans les paramètres</string>
     <string name="search_settings_none">Aucun paramètre ne correspond à «\u00A0%1$s\u00A0».</string>
@@ -2598,6 +2606,10 @@
     </plurals>
     <!-- A picker asked for on a device with none (#120, #121). -->
     <string name="no_app_to_pick">Pas de sélecteur de fichiers. Installez un gestionnaire de fichiers.</string>
+    <!-- The sign-in page on a phone whose web view cannot start (#221). -->
+    <string name="no_web_view_title" translatable="false">La page de connexion ne peut pas s\'ouvrir ici</string>
+    <string name="no_web_view_body" translatable="false">La connexion se fait sur une page web, et la vue web de ce téléphone ne démarre pas. Mettre à jour Android System WebView ou Chrome depuis le Play Store règle le problème la plupart du temps.</string>
+    <string name="no_web_view_store" translatable="false">Ouvrir le Play Store</string>
     <string name="sleep_row_in">Dans</string>
     <string name="sleep_row_at">À</string>
     <string name="sleep_row_end_of">Fin de</string>
@@ -2632,6 +2644,9 @@
         <item>To</item>
         <item>Po</item>
     </string-array>
+    <string name="app_language">Langue de l\'application</string>
+    <string name="youtube_language">Langue de YouTube Music</string>
+    <string name="youtube_country">Pays de YouTube Music</string>
     <string name="queue_removed_one">%1$s retiré</string>
     <plurals name="queue_removed_songs">
         <item quantity="one">%1$d titre retiré</item>
@@ -2655,6 +2670,11 @@
         <item quantity="one">%d titre n\'a pas pu être déplacé et reste dans l\'application</item>
         <item quantity="many">%d titres n\'ont pas pu être déplacés et restent dans l\'application</item>
         <item quantity="other">%d titres n\'ont pas pu être déplacés et restent dans l\'application</item>
+    </plurals>
+    <plurals name="dl_move_notice_held" translatable="false">
+        <item quantity="one">%d titre sera déplacé dès qu\'il ne sera plus en lecture</item>
+        <item quantity="many">%d titres seront déplacés dès qu\'ils ne seront plus en lecture</item>
+        <item quantity="other">%d titres seront déplacés dès qu\'ils ne seront plus en lecture</item>
     </plurals>
     <string name="dl_simple_size_folder">Dans votre dossier : %s</string>
     <string name="dl_simple_clear_confirm">Supprimer les téléchargements gardés dans l\'application ? Les titres de votre dossier restent.</string>
@@ -2691,11 +2711,14 @@
     <string name="pin_only_local" translatable="false">Seulement pour un fichier du téléphone</string>
     <string name="pin_not_in_playlist" translatable="false">Dans aucune de vos playlists</string>
     <string name="pin_head_tracking_off" translatable="false">Le suivi de la tête est désactivé</string>
+    <string name="order_move_up" translatable="false">Déplacer vers le haut</string>
+    <string name="order_move_down" translatable="false">Déplacer vers le bas</string>
+    <string name="dont_play_state" translatable="false">Joué seulement si vous le choisissez</string>
     <string name="metrolist_import">Importer depuis Metrolist</string>
     <string name="metrolist_import_description">Titres aimés, playlists et écoutes d\'une sauvegarde Metrolist</string>
     <string name="metrolist_import_reading">Lecture de la sauvegarde</string>
     <string name="search_words_metrolist">Metrolist, changer, transférer, sauvegarde</string>
-    <string name="metrolist_import_summary">Titres de sa bibliothèque : %1$d\nTitres aimés : %2$d\nPlaylists : %3$d\nÉcoutes : %4$d\n\nRien de ce que vous avez déjà n\'est changé ni supprimé.</string>
+    <string name="metrolist_import_summary" translatable="false">Titres de sa bibliothèque : %1$d\nTitres aimés : %2$d\nPlaylists : %3$d\nÉcoutes : %4$d\n\nRien n\'est supprimé. Les titres que vous avez déjà reçoivent ses j\'aime, ses dates d\'ajout à la bibliothèque, ses artistes et albums, et le plus grand nombre d\'écoutes.</string>
     <string name="metrolist_import_confirm">Importer</string>
     <string name="metrolist_import_done_title">Importé depuis Metrolist</string>
     <string name="metrolist_import_done">Nouveaux titres : %1$d\nNouveaux titres aimés : %2$d\nAjoutés à votre bibliothèque : %3$d\nNouvelles playlists : %4$d\nÉcoutes ajoutées : %5$d</string>
@@ -2704,4 +2727,23 @@
     <string name="metrolist_import_too_old">Cette sauvegarde vient d\'InnerTune ou d\'un ancien Metrolist. Restaurer prend celles d\'InnerTune ; pour Metrolist, mettez-le à jour et faites une nouvelle sauvegarde.</string>
     <string name="metrolist_import_other_file">Choisir un autre fichier</string>
     <string name="metrolist_import_failed">Impossible de lire cette sauvegarde</string>
+    <string name="err_download_not_on_phone" translatable="false">Ce titre est marqué comme téléchargé, mais son fichier manque ou est incomplet sur ce téléphone. Téléchargez-le à nouveau une fois en ligne.</string>
+    <!-- The library search when it finds nothing (#200), under "No results found", held from translators. -->
+    <string name="library_search_none" translatable="false">Pas dans votre bibliothèque</string>
+    <string name="menu_dislike" translatable="false">Je n\'aime pas</string>
+    <string name="menu_dislike_lift" translatable="false">Retirer « Je n\'aime pas »</string>
+    <string name="dislike_done" translatable="false">Noté, ici et sur YouTube Music. Il n\'est joué qu\'à votre demande.</string>
+    <string name="dislike_not_sent" translatable="false">Noté ici seulement : YouTube Music ne l\'a pas reçu.</string>
+    <string name="dislike_lift_not_sent" translatable="false">Retiré ici seulement : YouTube Music ne l\'a pas reçu.</string>
+    <string name="varispeed">Varispeed</string>
+    <string name="varispeed_description">Accélérer rend le son plus aigu et ralentir plus grave, comme un tourne-disque.</string>
+    <string name="tempo_slower">Plus lent</string>
+    <string name="tempo_faster">Plus rapide</string>
+    <string name="pitch_lower">Plus grave</string>
+    <string name="pitch_higher">Plus aigu</string>
+    <string name="search_words_varispeed">hauteur, vitesse, tempo, tonalité, tourne-disque, vinyle, nightcore, slowed</string>
+    <!-- Remove from library on a file of the phone's and Exclude folder on a folder's row of the Folders tab (LocalRemoval, Unreleased.LOCAL_REMOVE). Held from translators. -->
+    <string name="local_exclude_folder" translatable="false">Exclure le dossier</string>
+    <string name="local_removed" translatable="false">Retiré de votre bibliothèque. Le fichier reste.</string>
+    <string name="local_folder_excluded" translatable="false">%1$s exclu. Ses fichiers restent.</string>
 </resources>

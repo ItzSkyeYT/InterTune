@@ -91,9 +91,11 @@ class DownloadsSimpleTest {
         // Today's row first in the file, as the tests of the folder that cannot be opened read it.
         assertTrue(frag.indexOf("settingRow(R.string.dl_main_path_title)") in 0 until frag.indexOf("WhereDownloadsGoRow("))
         val row = frag.substringAfter("WhereDownloadsGoRow(").substringBefore("\n        )\n")
-        assertTrue("found in Settings' search as today's row is", simple.contains("modifier = Modifier.settingRow(R.string.dl_main_path_title),"))
-        // The tour's mark is written once, on today's row (SettingsCloserLookTest): it moves with the look that is chosen.
-        assertFalse(simple.contains("tourTarget("))
+        assertTrue("found in Settings' search as today's row is", simple.contains(".settingRow(R.string.dl_main_path_title),"))
+        // The tour's mark is written once (SettingsCloserLookTest), and on the row that is drawn: C's, the look chosen.
+        // Left on today's row, What's new's "Show me" for the folder and the tour's closer pointed at nothing.
+        assertTrue(simple.contains("modifier = Modifier.tourTarget(Tour.SETTING_DOWNLOAD_FOLDER).settingRow(R.string.dl_main_path_title),"))
+        assertFalse(frag.contains("tourTarget(Tour.SETTING_DOWNLOAD_FOLDER)"))
         assertTrue("the choice of two in place of the folder dialog", row.contains("onClick = { showWhereChoice = true },"))
         assertTrue("the move, with the question of today before it", row.contains("onMove = askToMove"))
     }
@@ -142,7 +144,8 @@ class DownloadsSimpleTest {
         // The three ways a download is asked for by hand, each before the song is queued.
         assertEquals(3, Regex("""rememberAskedByHand\(""").findAll(util.substringAfter("fun download(songs: List<MediaMetadata>) {").substringBefore("private val says = DownloadSays(context)")).count())
         val idle = util.substringAfter("override fun onIdle(downloadManager: DownloadManager) {").substringBefore("override fun onDownloadChanged(")
-        assertTrue("after the move, so that it says where the song is", idle.indexOf("migrateDownloads(quiet = true, only = just)") in 0 until idle.indexOf("says.whenDone(just) { localMgr.getFilePathIfExists(it) != null }"))
+        // Not of a song held while it plays: said once it has moved (HeldWhilePlayingTest).
+        assertTrue("after the move, so that it says where the song is", idle.indexOf("migrateDownloads(quiet = true, only = just)") in 0 until idle.indexOf("says.whenDone(just.filterTo(mutableSetOf()) { !inPlay.isHeld(it) }) { localMgr.getFilePathIfExists(it) != null }"))
         assertTrue("with no folder set too", idle.contains("says.whenDone(just) { false }"))
         // Remembered only on the simpler page, and only for songs that were asked for by hand.
         val asked = says.substringAfter("fun asked(").substringBefore("\n    }\n")

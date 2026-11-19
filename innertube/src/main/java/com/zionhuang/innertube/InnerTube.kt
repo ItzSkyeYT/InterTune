@@ -543,6 +543,23 @@ class InnerTube {
         )
     }
 
+    /**
+     * YouTube Music's thumbs down. It takes the place of a like the song had, as the button does on
+     * YouTube Music, and [unlikeVideo] (removelike) takes either away.
+     */
+    suspend fun dislikeVideo(
+        client: YouTubeClient,
+        videoId: String,
+    ) = httpClient.post("like/dislike") {
+        ytClient(client, setLogin = true)
+        setBody(
+            LikeBody(
+                context = client.toContext(locale, visitorData, accountId),
+                target = LikeBody.Target.VideoTarget(videoId)
+            )
+        )
+    }
+
     suspend fun subscribeChannel(
         client: YouTubeClient,
         channelId: String,

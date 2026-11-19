@@ -130,14 +130,12 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.util.fastAny
-import androidx.media3.common.Player.REPEAT_MODE_ALL
-import androidx.media3.common.Player.REPEAT_MODE_OFF
-import androidx.media3.common.Player.REPEAT_MODE_ONE
 import androidx.media3.common.Player.STATE_ENDED
 import androidx.media3.common.Timeline
 import androidx.navigation.NavController
 import com.dd3boh.outertune.LocalMenuState
 import com.dd3boh.outertune.LocalSnackbarHostState
+import com.dd3boh.outertune.LocalAppScope
 import com.dd3boh.outertune.LocalPlayerAwareWindowInsets
 import com.dd3boh.outertune.LocalPlayerConnection
 import com.dd3boh.outertune.R
@@ -183,6 +181,7 @@ import com.dd3boh.outertune.playback.QueueStart
 import com.dd3boh.outertune.ui.component.FloatingFooter
 import com.dd3boh.outertune.ui.component.SelectHeader
 import com.dd3boh.outertune.ui.component.SwipeToRemoveBox
+import com.dd3boh.outertune.ui.component.SwipeToRemoveState
 import com.dd3boh.outertune.ui.component.button.IconButton
 import com.dd3boh.outertune.ui.component.LongPressLabel
 import com.dd3boh.outertune.ui.component.button.ResizableIconButton
@@ -196,6 +195,7 @@ import com.dd3boh.outertune.utils.rememberEnumPreference
 import com.dd3boh.outertune.utils.rememberPreference
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.delay
 import com.dd3boh.outertune.ui.utils.GlassSpec
 import com.dd3boh.outertune.ui.utils.LocalGlassStill
 import com.dd3boh.outertune.ui.utils.STILL_ALPHA
@@ -212,6 +212,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import androidx.compose.runtime.DisposableEffect
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import sh.calvin.reorderable.ReorderableItem
@@ -237,6 +238,15 @@ private fun adaptiveNoteText(note: AdaptiveNote.Note): String = when (note.kind)
  * and nothing listed can be taken away while somebody is looking at it.
  */
 private const val ADAPTIVE_VISIBLE_AHEAD = 4
+
+/**
+ * What one removal by hand (a swipe, or the pill's Remove from queue) told the rest of the app, for its Undo to
+ * take back: the adaptive queue's note of each song taken out (MusicService.noteRemovedByHand), and the time
+ * the listening log's REMOVED_FROM_QUEUE rows were noted from.
+ */
+private class RemovalNotes(val at: Long) {
+    val removals = ArrayList<AdaptiveQueue.Heard.Removal>()
+}
 
 /**
  * How far the finger can go past the top of the queue, in a scroll that moved the list first,
@@ -531,6 +541,16 @@ fun BoxScope.QueueContent(
         inSelectMode = false
         selectedItems.clear()
     }
+    // A swipe on a picked song moves every picked row on screen as one, and they go together (#141, Ti-Die's
+    // extra: "allow swiping away an entire selection, the same way you'd do with one song"). The rows it took
+    // stay slid out while the list lets them go: the selection is cleared as they leave, which must not bring
+    // them back to rest on their way out. Back at rest for the next selection, or an Undo.
+    val pickedSwipe = remember { SwipeToRemoveState() }
+    var pickedLeaving by remember { mutableStateOf(emptySet<Int>()) }
+    val pickedSwipeRests = {
+        pickedLeaving = emptySet()
+        pickedSwipe.rest()
+    }
 
     fun exitDetachHead() {
         detachedHead = false
@@ -563,18 +583,34 @@ fun BoxScope.QueueContent(
     // as songs come in above it, and the queue keeps its place on the song it was on.
     val snackbarHostState = LocalSnackbarHostState.current
     val undoLabel = stringResource(R.string.undo)
-    val putBackTaken: (Long, List<QueueUndo.Taken<MediaMetadata>>) -> Unit = put@{ queueId, taken ->
+    // The message is the app's (MainActivity draws it over the player) and is shown from the app's scope. From
+    // this sheet's own scope it went with the sheet: the sheet's content is there only while it is open, so
+    // putting the queue down (a drag, Back, closing the player) cancelled the scope, Material cleared the message
+    // at once, ten seconds early, and the songs could no longer be put back. So Undo works on the queue board and
+    // the player, which the sheet reads its rows from when it opens again; this sheet's own copy of the rows is
+    // kept in step only while the sheet is still there.
+    val appScope = LocalAppScope.current
+    val sheetHere = remember { booleanArrayOf(true) }
+    DisposableEffect(Unit) { onDispose { sheetHere[0] = false } }
+    // The removal also told the adaptive queue (its artists a skip, its title turned down, its mark as put in
+    // by hand gone) and the listening log (REMOVED_FROM_QUEUE): Undo takes those back too, or in a radio the
+    // next pass found the song turned down and put a fresh pick in its place.
+    val putBackTaken: (Long, List<QueueUndo.Taken<MediaMetadata>>, RemovalNotes) -> Unit = put@{ queueId, taken, notes ->
         val queue = qb.getCurrentQueue()?.takeIf { it.id == queueId } ?: return@put
+        // Songs a swipe of the picked ones took come back at rest, not slid out.
+        pickedSwipeRests()
         val loaded = playerConnection.player.mediaItemCount > 0
         for (at in QueueUndo.insertions(taken, queue.getSize())) {
             val held = qb.putBack(queue, at.place, at.song)
             if (loaded) playerConnection.player.addMediaItem(at.place, held.toMediaItem())
-            mutableSongs.add(at.place.coerceIn(0, mutableSongs.size), held)
+            if (sheetHere[0]) mutableSongs.add(at.place.coerceIn(0, mutableSongs.size), held)
         }
+        for (removal in notes.removals.asReversed()) playerConnection.service.notePutBackByHand(removal)
+        for (t in taken) ActivityLog.takeBack(database, t.song.id, SignalKind.REMOVED_FROM_QUEUE, notes.at)
         if (!loaded) playerConnection.storedQueueEdited()
         haptic.performHapticFeedback(HapticFeedbackType.Confirm)
     }
-    val offerUndo: (Long?, List<QueueUndo.Taken<MediaMetadata>>) -> Unit = offer@{ queueId, taken ->
+    val offerUndo: (Long?, List<QueueUndo.Taken<MediaMetadata>>, RemovalNotes) -> Unit = offer@{ queueId, taken, notes ->
         if (queueId == null || taken.isEmpty()) return@offer
         // Not for a queue that went with its last songs (dropIfEmptied): there is nothing to put them back into.
         qb.getCurrentQueue()?.takeIf { it.id == queueId && it.getSize() > 0 } ?: return@offer
@@ -583,7 +619,7 @@ fun BoxScope.QueueContent(
         } else {
             context.resources.getQuantityString(R.plurals.queue_removed_songs, taken.size, taken.size)
         }
-        coroutineScope.launch {
+        appScope.launch {
             // A second removal while the bar shows replaces it: only the last can be undone.
             snackbarHostState.currentSnackbarData?.dismiss()
             val result = snackbarHostState.showSnackbar(
@@ -591,7 +627,7 @@ fun BoxScope.QueueContent(
                 actionLabel = undoLabel,
                 duration = SnackbarDuration.Long,
             )
-            if (result == SnackbarResult.ActionPerformed) putBackTaken(queueId, taken)
+            if (result == SnackbarResult.ActionPerformed) putBackTaken(queueId, taken, notes)
         }
     }
     // Undo ends here
@@ -611,10 +647,11 @@ fun BoxScope.QueueContent(
             val loaded = playerConnection.player.mediaItemCount > 0
             val queueId = qb.getCurrentQueue()?.id
             val taken = ArrayList<QueueUndo.Taken<MediaMetadata>>()
+            val notes = RemovalNotes(at = System.currentTimeMillis())
             for (place in places) {
                 val song = mutableSongs.getOrNull(place) ?: continue
                 if (qb.removeCurrentQueueSong(place)) {
-                    playerConnection.service.noteRemovedByHand(song)
+                    notes.removals += playerConnection.service.noteRemovedByHand(song)
                     ActivityLog.note(context, database, song.id, SignalKind.REMOVED_FROM_QUEUE)
                     if (loaded) playerConnection.player.removeMediaItem(place)
                     mutableSongs.removeAt(place)
@@ -624,9 +661,26 @@ fun BoxScope.QueueContent(
             dropIfEmptied()
             if (!loaded) playerConnection.storedQueueEdited()
             haptic.performHapticFeedback(HapticFeedbackType.Confirm)
-            offerUndo(queueId, taken)
+            offerUndo(queueId, taken, notes)
             onExitSelectionMode()
         }
+    }
+    // A picked row swiped away (#141): the picked songs go as the menu's Remove from queue takes them, with its
+    // Undo. It says yes when songs went, and the rows stay slid out; when none could go, they slide back.
+    val removePickedSwiped: () -> Boolean = swipe@{
+        val remove = removeSelected ?: return@swipe false
+        val before = mutableSongs.size
+        pickedLeaving = selectedItems.toSet()
+        remove()
+        val went = mutableSongs.size < before
+        if (!went) pickedLeaving = emptySet()
+        went
+    }
+    // The rows it took are gone from the list well within a second; then it rests for the next selection.
+    LaunchedEffect(pickedLeaving) {
+        if (pickedLeaving.isEmpty()) return@LaunchedEffect
+        delay(1_000)
+        pickedSwipeRests()
     }
 
     // search
@@ -1223,7 +1277,8 @@ fun BoxScope.QueueContent(
         }
     }
 
-    // A song's ⋮: in its row, and on the playing song's row held at the edge of the list (#81).
+    // A song's ⋮: in its row, and on the playing song's row held at the edge of the list (#81). It
+    // opens on the song's own row with its heart (#219): a song of the queue is liked from here.
     fun showSongMenu(song: MediaMetadata) {
         menuState.show {
             PlayerMenu(
@@ -1233,6 +1288,7 @@ fun BoxScope.QueueContent(
                 onDismiss = {
                     menuState.dismiss()
                 },
+                songHeader = true,
             )
         }
         haptic.performHapticFeedback(HapticFeedbackType.ContextClick)
@@ -1336,9 +1392,10 @@ fun BoxScope.QueueContent(
                         // and a swipe on it must not take another song with it.
                         if (mutableSongs.getOrNull(swipedIndex) != window) return@swipe false
                         val queueId = qb.getCurrentQueue()?.id
+                        val notes = RemovalNotes(at = System.currentTimeMillis())
                         val removed = qb.removeCurrentQueueSong(swipedIndex)
                         if (removed) {
-                            mutableSongs.getOrNull(swipedIndex)?.let { playerConnection.service.noteRemovedByHand(it) }
+                            mutableSongs.getOrNull(swipedIndex)?.let { notes.removals += playerConnection.service.noteRemovedByHand(it) }
                             mutableSongs.getOrNull(swipedIndex)?.id?.let { ActivityLog.note(context, database, it, SignalKind.REMOVED_FROM_QUEUE) }
                             val loaded = playerConnection.player.mediaItemCount > 0
                             if (loaded) playerConnection.player.removeMediaItem(swipedIndex)
@@ -1346,7 +1403,7 @@ fun BoxScope.QueueContent(
                             dropIfEmptied()
                             if (!loaded) playerConnection.storedQueueEdited()
                             haptic.performHapticFeedback(HapticFeedbackType.Confirm)
-                            offerUndo(queueId, listOf(QueueUndo.Taken(swipedIndex, window)))
+                            offerUndo(queueId, listOf(QueueUndo.Taken(swipedIndex, window)), notes)
                         }
                         removed
                     }
@@ -1427,6 +1484,8 @@ fun BoxScope.QueueContent(
                                     },
                                     onLongClick = {
                                         if (!inSelectMode) {
+                                            // From rest, wherever the last selection's swipe left it.
+                                            pickedSwipeRests()
                                             inSelectMode = true
                                             selectedItems.add(window.hashCode())
                                         }
@@ -1435,14 +1494,21 @@ fun BoxScope.QueueContent(
                         )
                     }
 
+                    // While songs are picked, a picked row swipes them all away together, every picked row on
+                    // screen moving under the finger (#141), and a row not picked does not swipe.
+                    val swipesPicked = Unreleased.QUEUE_SWIPE_PICKED && inSelectMode && window.hashCode() in selectedItems
+                    val ownSwipe = remember { SwipeToRemoveState() }
+
                     // A column, as the item lays its content over itself: under the song playing
                     // in a Mix queue, the next change in a line that is not swiped with the row.
                     Column {
                         // Before play after a restart too (movesStoredQueue), as Remove from queue is: the songs
                         // leave the saved queue alone, the player holding nothing yet.
-                        if (!lockQueue && !inSelectMode && (!detachedHead || movesStoredQueue)) {
+                        if (!lockQueue && (!inSelectMode || Unreleased.QUEUE_SWIPE_PICKED) && (!detachedHead || movesStoredQueue)) {
                             SwipeToRemoveBox(
-                                onRemove = removeSwiped,
+                                onRemove = if (swipesPicked) removePickedSwiped else removeSwiped,
+                                state = if (swipesPicked || window.hashCode() in pickedLeaving) pickedSwipe else ownSwipe,
+                                enabled = !inSelectMode || swipesPicked,
                                 content = { content() }
                             )
                         } else {
@@ -1921,19 +1987,14 @@ fun BoxScope.QueueContent(
 
                         Box(modifier = Modifier.weight(1f)) {
                             LongPressLabel(repeatName(repeatMode), Modifier.align(Alignment.Center)) {
-                                ResizableIconButton(
-                                    icon = when (repeatMode) {
-                                        // Off is the repeat icon greyed out, as the notification draws it (his word, 5 Nov 2026).
-                                        REPEAT_MODE_OFF -> R.drawable.repeat_on
-                                        REPEAT_MODE_ALL -> R.drawable.repeat_on
-                                        REPEAT_MODE_ONE -> R.drawable.repeat_one
-                                        else -> throw IllegalStateException()
-                                    },
+                                // The player's lit box, the same in the queue's own buttons (his pick 3B, 15 Nov 2026).
+                                RepeatButton(
+                                    mode = repeatMode,
                                     modifier = Modifier
                                         .size(32.dp)
                                         .padding(4.dp)
                                         .named(repeatName(repeatMode)),
-                                    color = if (repeatMode == REPEAT_MODE_OFF) iconButtonColor.copy(alpha = REPEAT_OFF_ALPHA) else iconButtonColor,
+                                    color = iconButtonColor,
                                     enabled = barWorks,
                                     onClick = {
                                         playerConnection.player.toggleRepeatMode()
@@ -1954,7 +2015,7 @@ fun BoxScope.QueueContent(
     // of the bar. The bar keeps the queue's title, its place and its length while songs are picked.
     // Upright it floats over the bar; on its side at the foot of the songs, on their half of the
     // screen; searching there is no bar, and it floats at the foot of the window. Remove from queue
-    // is a button of its own on it, beside the menu's item.
+    // is an item of its menu, and a swipe on a picked row takes them too (#141).
     val selectionPill: @Composable () -> Unit = {
         // Searching, it counts and selects the results, as the headers under the search field did.
         val counted = if (isSearching) filteredSongs else (detachedQueue?.getCurrentQueueShuffled() ?: mutableSongs)

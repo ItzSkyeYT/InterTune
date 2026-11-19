@@ -9,6 +9,10 @@
    and stay out: up to some megabytes, and of no use on another phone. So do the words typed on
    Report a problem or the crash page and not sent yet (ReportDraft), with the rest of datastore/.
 
+   So does the theme the window starts in (window_theme, WindowTheme): it follows the settings, which
+   stay out, so restored without them it opened the first window in the old phone's theme. On
+   Android 12 and later (data_extraction_rules) it also notes the splash told to this phone alone.
+
    The tester lock of a preview published for testers keeps the tester's code and the random install
    number the app made for itself in tester_lock.xml. The door holds a code for one install, so an app
    that is restored or transferred must make its own number and take the code again with /code on
@@ -21,6 +25,9 @@
     <exclude
         domain="file"
         path="datastore/" />
+    <exclude
+        domain="sharedpref"
+        path="window_theme.xml" />
     <exclude
         domain="root"
         path="app_webview/" />

@@ -27,7 +27,7 @@ import java.io.File
  */
 class ReleasedFlagsTest {
 
-    /** On in every build, and so in a release. The second line went on for 0.11.5, the third on 14 Oct, the fourth for 0.12, the fifth for 0.12.1, the sixth for 0.12.5 (its last four picked on 26 Oct 2026), the eighth for 0.13 (picked on 8 Nov 2026), the three after it for 0.13 too (picked on 14 Nov 2026), and Listen together and the Metrolist import for 0.13 (his word, 14 Nov 2026, late). */
+    /** On in every build, and so in a release. The second line went on for 0.11.5, the third on 14 Oct, the fourth for 0.12, the fifth for 0.12.1, the sixth for 0.12.5 (its last four picked on 26 Oct 2026), the eighth for 0.13 (picked on 8 Nov 2026), the three after it for 0.13 too (picked on 14 Nov 2026), Listen together and the Metrolist import for 0.13 (his word, 14 Nov 2026, late), and the battery saver note for 0.13 (his yes, 18 Nov 2026). */
     private val inEveryBuild = setOf(
         "ENGINE", "SHORT_SETUP", "LOGIN_RETURNS",
         "STAND_INS", "VISIONOS_IDENTITIES", "WEB_FALLBACK", "LANDSCAPE", "EXPLAIN_PICTURES", "LIBRARY_IMPORT",
@@ -40,7 +40,7 @@ class ReleasedFlagsTest {
         "PLAYLIST_ORDER", "PLAYLIST_COVER", "MENU_CHOICES", "WIDGETS_PAGE", "DOWNLOAD_QUALITY", "DOWNLOAD_FILES",
         "DOWNLOAD_FORMATS", "DOWNLOADS_SIMPLE", "LYRICS_SOURCES", "LYRICS_VIDEO_WORDS", "RADIO_FALLBACK", "CAST_AIRPLAY",
         "CAST_PCM", "REPORT_PLUS", "POLL_FOLLOW_UPS",
-        "LISTEN_TOGETHER", "METROLIST_IMPORT",
+        "LISTEN_TOGETHER", "METROLIST_IMPORT", "SAVER_NOTE",
     )
 
     private val sources = File("src/main/java/com/dd3boh/outertune")
@@ -271,13 +271,21 @@ class ReleasedFlagsTest {
                 "cast/CastLinks.kt",
                 // Its card on the page of what is new.
                 "ui/screens/walkthrough/Walkthrough.kt",
+                // The Output button's switch in Look and feel, there with CAST_AT_TOP as well (held).
+                "ui/screens/settings/fragments/PlayerButtonsFrag.kt",
             ),
             readers("CASTING"),
         )
         val english = File("src/main/res/values/strings-ot.xml").readText()
         val french = File("src/main/res/values-fr/strings-ot.xml").readText()
+        // The Output button's words are CAST_AT_TOP's: held from translators until it goes on, French beside them.
+        val heldWithCastAtTop = setOf("output_pill", "output_pill_description")
+        for (name in heldWithCastAtTop) {
+            assertTrue("$name is not held in English", "<string name=\"$name\" translatable=\"false\">" in english)
+            assertTrue("$name has no French", "<string name=\"$name\" translatable=\"false\">" in french)
+        }
         val names = Regex("""<string name="(cast|cast_[a-z_]+|output_[a-z_]+)"""")
-            .findAll(english).map { it.groupValues[1] }.toList()
+            .findAll(english).map { it.groupValues[1] }.filter { it !in heldWithCastAtTop }.toList()
         assertEquals("Casting's words could not all be found", 23, names.size)
         for (name in names) {
             assertTrue("$name is not open to translators", "<string name=\"$name\">" in english)

@@ -73,6 +73,7 @@ import com.dd3boh.outertune.playback.downloadManager.ExportResult
 import com.dd3boh.outertune.playback.downloadManager.ExportSkip
 import com.dd3boh.outertune.playback.downloadManager.ExportSources
 import com.dd3boh.outertune.playback.downloadManager.FileRemoval
+import com.dd3boh.outertune.playback.downloadManager.HeldWhilePlaying
 import com.dd3boh.outertune.playback.downloadManager.MoveNotice
 import com.dd3boh.outertune.playback.downloadManager.SkipReason
 import com.dd3boh.outertune.playback.downloadManager.SourceCodec
@@ -180,8 +181,12 @@ class DownloadUtil @Inject constructor(
         SongConverter(File(context.filesDir, "convert"), MediaCodecPcmDecoder(), hold) { Log.i(TAG, it) }
     }
 
-    /** The quality a download asks for now: the Download quality, or Audio quality for Same as playback (see [qualityForDownload]). */
-    private fun qualityNow(): AudioQuality = qualityForDownload(downloadQuality, audioQuality)
+    /**
+     * What a download asks for now, the Download quality or Audio quality for Same as playback (see
+     * [qualityForDownload]), and what the player plays, the Audio quality, read in the same moment:
+     * a download of the song the player still has open past its wait asks for that (waitWhileOpen).
+     */
+    private fun qualitiesNow(): Pair<AudioQuality, AudioQuality> = audioQuality.let { played -> qualityForDownload(downloadQuality, played) to played }
 
     // Concurrent, because media3 runs each download on its own thread and this is read and written
     // from all of them. An unsynchronised HashMap can corrupt its table under concurrent put.
@@ -192,6 +197,13 @@ class DownloadUtil @Inject constructor(
 
     /** The songs called gone in a row while downloading: see [GoneRun]. Apart from the player's. */
     private val goneRun = GoneRun()
+
+    /**
+     * The songs the player has open, whose files are not moved or replaced under it, and the moves
+     * held for them. Made before the downloads' resolver below, which media3 may call as soon as
+     * the manager is built.
+     */
+    private val inPlay = HeldWhilePlaying()
     private var lastResolveAt = 0L
     private val dataSourceFactory = ResolvingDataSource.Factory(
         // The song cache is read here, never written: a song it holds whole is copied from it (see
@@ -223,10 +235,14 @@ class DownloadUtil @Inject constructor(
         val mediaId = dataSpec.key ?: error("No media id")
         val length = if (dataSpec.length >= 0) dataSpec.length else 1
         // What this download asks for (Unreleased.DOWNLOAD_QUALITY): the Download quality, or Audio
-        // quality for Same as playback. Read once, so that the cached copy is judged by it, the
-        // stream is picked by it and the copy is recorded at it, even if a setting changes meanwhile.
-        val quality = qualityNow()
+        // quality for Same as playback, and what the player plays. Read once, so that the cached copy
+        // is judged by it, the stream is picked by it and the copy is recorded at it, even if a
+        // setting changes meanwhile.
+        val (asked, playing) = qualitiesNow()
         var staleCopy = false
+        // The song the player still has open past the wait (waitWhileOpen) is asked for as the player
+        // plays it, as every download was before 0.13: the stream it reads, never another.
+        var asPlayed = false
         if (dataSpec.position == 0L) {
             // From the start, the player's copy is read through only when it holds the whole
             // song. A part of one used to be read through as soon as its first byte was there,
@@ -247,9 +263,18 @@ class DownloadUtil @Inject constructor(
                 // download takes it as it is. Given up: the better copy for this download, where
                 // the wait used to hold one of the three download threads for good.
                 val stored = runCatching { database.readOrNull { formatRow(mediaId) } }.getOrNull()
-                if (!isStaleQualityTier(stored?.qualityTier, quality, metered = metered(), storedBitrate = stored?.bitrate)) return@Factory dataSpec
+                if (!isStaleQualityTier(stored?.qualityTier, asked, metered = metered(), storedBitrate = stored?.bitrate)) return@Factory dataSpec
+                // The copy goes below, and the player may be reading it: not while it has the song
+                // open. Still open past the wait, the copy being read is taken as it is.
+                if (!waitWhileOpen(mediaId)) return@Factory dataSpec
                 staleCopy = true
             }
+            // A Download quality of its own fetches another stream than the one the player reads,
+            // which the player would read on from the download at its next seek: for the song the
+            // player has open, not until it lets it go (HeldWhilePlaying). Still open past the wait,
+            // the download asks for what the player plays. A copy taken as it is, above, is the very
+            // bytes the player reads, and waits for nothing.
+            if (asked != playing && !waitWhileOpen(mediaId)) asPlayed = true
             if (playerCache.holdsPartFromStart(mediaId)) {
                 runCatching { playerCache.removeResource(mediaId) }
                     .onFailure { Log.w(TAG, "Could not drop the partial copy of $mediaId", it) }
@@ -259,10 +284,12 @@ class DownloadUtil @Inject constructor(
             // player's may be another quality than the part already downloaded, and the file would be both.
             return@Factory dataSpec
         }
+        val quality = if (asPlayed) playing else asked
 
         // Not for a stale copy: the cache serves by the song's id whatever address comes back, so
-        // a remembered url would still read the old bytes.
-        songUrlCache[mediaId]?.takeIf { !staleCopy && stillUsable(it.first, it.second) }?.let {
+        // a remembered url would still read the old bytes. Nor for a download asked for as the
+        // player plays it: a remembered url was resolved at the Download quality.
+        songUrlCache[mediaId]?.takeIf { !staleCopy && !asPlayed && stillUsable(it.first, it.second) }?.let {
             return@Factory dataSpec.withUri(it.first.toUri())
         }
 
@@ -433,6 +460,37 @@ class DownloadUtil @Inject constructor(
     fun isDownloaded(id: String): Boolean = hasLanded(downloads.value[id])
 
     /**
+     * The player has the songs [ids] open now (MusicService, on each change of song, queue or
+     * state; none once it stops). The moves held for songs it let go of are made now, quietly, as
+     * the move after a download is.
+     */
+    fun playerHas(ids: Set<String>) {
+        val free = inPlay.playerHas(ids)
+        if (free.isEmpty()) return
+        Log.i(TAG, "${free.size} downloads held while they played go into the folder now")
+        CoroutineScope(Dispatchers.IO).launch {
+            if (context.dataStore.get(DownloadPathKey, "").isEmpty()) return@launch
+            migrateDownloads(quiet = true, only = free)
+            says.whenDone(free) { localMgr.getFilePathIfExists(it) != null }
+        }
+    }
+
+    /**
+     * Waits on the download's own thread while the player has [id] open, [OPEN_SONG_WAIT_MS] at
+     * most: what the download does next would replace the bytes it reads (HeldWhilePlaying). True
+     * once the player has let the song go; false when it still has it then (paused for long, the
+     * queue ended on it, a long song), and the download goes on without replacing the copy being
+     * read. A download stopped meanwhile ends the wait, media3 interrupts its thread.
+     */
+    private fun waitWhileOpen(id: String): Boolean {
+        if (!inPlay.isOpen(id)) return true
+        Log.i(TAG, "The download of $id waits, ${OPEN_SONG_WAIT_MS / 60_000} minutes at most, until the player lets the song go: it would replace the copy being played")
+        val letGo = inPlay.awaitLetGo(id, OPEN_SONG_WAIT_MS, OPEN_SONG_POLL_MS, now = { SystemClock.elapsedRealtime() }, sleep = { Thread.sleep(it) })
+        if (!letGo) Log.i(TAG, "The player still has $id open: its download takes what the player plays and replaces nothing")
+        return letGo
+    }
+
+    /**
      * Opens once the download folders have been listed since the start (the rescan in init): until
      * then the folders' list is empty, and a song with its file in a folder is not found in it.
      */
@@ -452,10 +510,15 @@ class DownloadUtil @Inject constructor(
      * Drops the song cache's copy of [id] once its download holds the song whole: a song played
      * before it was downloaded was kept in both, and the download was copied from the song cache.
      * The player reads a download first, from the download cache or the folder, so the copy only
-     * took space. A copy the player is reading carries on from its open file; its next read comes
-     * from the download.
+     * took space. Not while the player has the song open: its next read would come from the
+     * download, which in a folder is another file than the one it is reading (HeldWhilePlaying).
+     * The sweep at the next start drops it then (dropSongCacheCopiesOfDownloads).
      */
     private fun dropSongCacheCopy(id: String, reason: String) {
+        if (inPlay.isOpen(id)) {
+            Log.d(TAG, "The song cache's copy of $id stays while the player has the song open")
+            return
+        }
         runCatching { playerCache.removeResource(id) }
             .onSuccess { Log.d(TAG, "The song cache's copy of $id goes, $reason") }
             .onFailure { Log.w(TAG, "Could not drop the song cache's copy of $id", it) }
@@ -515,7 +578,8 @@ class DownloadUtil @Inject constructor(
      */
     private val says = DownloadSays(context)
 
-    private fun rememberAskedByHand(ids: List<String>) = says.asked(ids)
+    /** Not a song already downloaded: no download lands for it, and its id waited for good. */
+    private fun rememberAskedByHand(ids: List<String>) = says.asked(ids.filterNot { isDownloaded(it) })
 
     /**
      * Where what the liked catch up remembers is read and changed: one thing at a time, in the
@@ -1145,12 +1209,24 @@ class DownloadUtil @Inject constructor(
      * downloaded, without a word ([quiet]).
      */
     suspend fun migrateDownloads(quiet: Boolean = false, only: Set<String>? = null) = scanLock.withLock {
+        // Nothing is converted, copied or dropped for a folder that does not open: the downloads stay
+        // inside the app, which is where the folder's refusal of each file left them, after minutes
+        // of conversion thrown away and a notice that said they were saved as they came. Said: once
+        // a start after a download (notifyIfFolderCannotOpen), and at once to a move asked for.
+        if (localMgr.folderState.value != DownloadFolderState.OPEN) {
+            Log.w(TAG, "The download folder does not open (${localMgr.folderState.value}): nothing moves, the downloads stay inside the app")
+            if (!quiet) withContext(Dispatchers.Main) { Toaster.show(context, R.string.dl_folder_cannot_open_notice, Toast.LENGTH_LONG) }
+            return@withLock
+        }
         isProcessingDownloads.value = true
 
         var runs = 0
         var notice: ConvertNotice? = null
         var moveNotice: MoveNotice? = null
         var movedCount = 0
+        // The songs left for later because the player has them open (HeldWhilePlaying): a move asked
+        // for says they come after, rather than that it is done.
+        var held = 0
         try {
             // What media3 holds, read from its index. A second DownloadManager over it, as this
             // used to make for the same list, started a thread of its own that was never let go.
@@ -1161,7 +1237,12 @@ class DownloadUtil @Inject constructor(
             }
 
             // copy all completed downloads
-            val toMigrate = downloadedSongs.filter { it.value.state == Download.STATE_COMPLETED && (only == null || it.key in only) }
+            val completed = downloadedSongs.filter { it.value.state == Download.STATE_COMPLETED && (only == null || it.key in only) }
+            // Not a song the player has open: its file would change under it. It goes once it is let go (playerHas).
+            val movable = inPlay.movableNow(completed.keys)
+            held = completed.size - movable.size
+            if (held > 0) Log.i(TAG, "$held downloads wait until they no longer play to move")
+            val toMigrate = completed.filterKeys { it in movable }
             // Songs made another format (Unreleased.DOWNLOAD_FORMATS) take a while each: the phone says so.
             val format = DownloadFormats.effective(downloadFormat, Unreleased.DOWNLOAD_FORMATS)
             if (Unreleased.DOWNLOAD_FILES && format != DownloadFormat.ORIGINAL && toMigrate.isNotEmpty()) {
@@ -1239,8 +1320,15 @@ class DownloadUtil @Inject constructor(
         } finally {
             notice?.finish()
             // Done, or how many stay inside the app: a song with nothing in the cache to copy, one
-            // the folder refused, or the rest of a move that failed halfway.
-            moveNotice?.finish(movedCount)
+            // the folder refused, or the rest of a move that failed halfway; and the songs that
+            // move once they stop playing.
+            moveNotice?.finish(movedCount, held)
+            // A move asked for with no notification to say it in (none can show, or every song it
+            // found plays): the songs that come after are said in a toast.
+            if (!quiet && held > 0 && moveNotice == null) {
+                val later = context.resources.getQuantityString(R.plurals.dl_move_notice_held, held, held)
+                CoroutineScope(Dispatchers.Main.immediate).launch { Toaster.show(context, later, Toast.LENGTH_LONG) }
+            }
             isProcessingDownloads.value = false
         }
     }
@@ -1270,7 +1358,12 @@ class DownloadUtil @Inject constructor(
         }.onFailure {
             if (it is CancellationException) throw it
             Log.w(TAG, "Could not save $id as a song file, it is saved as the stream", it)
-        }.getOrNull().also { if (conversion?.failure != null) notice?.fellBack() }
+        }.getOrNull().also { saved ->
+            // Said as saved as it came only when it was: a folder that refused the converted file
+            // refuses the song as it came too, and then nothing was saved at all (the song stays
+            // inside the app, which the move's own notice counts).
+            if (conversion?.failure != null && saved != null) notice?.fellBack()
+        }
     }
 
 
@@ -1682,6 +1775,16 @@ class DownloadUtil @Inject constructor(
         /** Minimum gap between the player requests downloads make. See the gate in the resolver. */
         private const val RESOLVE_GAP_MS = 700L
 
+        /** How often a download held for the song the player has open asks whether it is let go (waitWhileOpen). */
+        private const val OPEN_SONG_POLL_MS = 1_000L
+
+        /**
+         * How long a download waits for the player to let go of the song it has open (waitWhileOpen):
+         * about what is left of a song heard to its end. Past it the download takes what the player
+         * plays, so a song paused or ended holds no download thread, no move and no foreground time.
+         */
+        private const val OPEN_SONG_WAIT_MS = 3 * 60_000L
+
         /**
          * How long Remove download waits for the song's removal to reach the map before it asks
          * whether the cover is still shown: a bulk removal of a few hundred songs in the download
@@ -1759,7 +1862,8 @@ class DownloadUtil @Inject constructor(
                     CoroutineScope(Dispatchers.IO).launch {
                         migrateDownloads(quiet = true, only = just)
                         // Once the songs are where they stay (DownloadsSimpleLook): how many are in the folder.
-                        says.whenDone(just) { localMgr.getFilePathIfExists(it) != null }
+                        // A song held while it plays is said once it has moved (playerHas).
+                        says.whenDone(just.filterTo(mutableSetOf()) { !inPlay.isHeld(it) }) { localMgr.getFilePathIfExists(it) != null }
                     }
                 }
 
@@ -1804,6 +1908,8 @@ class DownloadUtil @Inject constructor(
                     // like (LikedDownloads, issue #64).
                     if (download.state == Download.STATE_FAILED || download.state == Download.STATE_REMOVING) {
                         forgetLikedDownload(download.request.id)
+                        // Nor is it waited for to be said where it went (DownloadSays).
+                        says.forget(download.request.id)
                     }
 
                     // Before the map changes, so a rescan merging at the same moment keeps this

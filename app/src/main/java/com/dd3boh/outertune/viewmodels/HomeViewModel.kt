@@ -1,5 +1,8 @@
 package com.dd3boh.outertune.viewmodels
 
+import com.dd3boh.outertune.utils.AppLanguage
+import com.dd3boh.outertune.constants.ContentLanguageKey
+import com.dd3boh.outertune.constants.ContentCountryKey
 import com.dd3boh.outertune.models.AiFilter
 import com.dd3boh.outertune.models.ContentFilter
 import com.dd3boh.outertune.engine.PastSeeds
@@ -1723,10 +1726,23 @@ class HomeViewModel @Inject constructor(
         // flow replays its current value the moment it is collected.
         viewModelScope.launch {
             context.dataStore.data
-                .map { it[InnerTubeCookieKey].orEmpty() to it[QuickPicksSourceKey].orEmpty() }
+                .map {
+                    // The language and the country YouTube answers in too: the feed and Explore on
+                    // screen are in the old one until they are asked for again.
+                    listOf(
+                        it[InnerTubeCookieKey].orEmpty(), it[QuickPicksSourceKey].orEmpty(),
+                        it[ContentLanguageKey].orEmpty(), it[ContentCountryKey].orEmpty(),
+                    )
+                }
                 .distinctUntilChanged()
                 .drop(1)
                 .collect { refresh(force = true) }
+        }
+        // The app's own language changing, which no setting stored here tells of: the titles of
+        // the rows are made from its words (Quick picks) and YouTube's from the language it was
+        // just set to answer in (AppLanguage.follow), so both are asked for again.
+        viewModelScope.launch {
+            AppLanguage.changes.collect { refresh(force = true) }
         }
         // Where similar songs come from changes the engine's whole graph; the input cache notices
         // the mode by itself, and these are the rebuilds, at once for any change, so the row on

@@ -154,10 +154,11 @@ fun exclusionReason(e: RecommendationExclusion, dontPlayOn: Boolean = Unreleased
     ExclusionsViewModel.REASON_BAN -> if (e.kind == ExclusionsViewModel.KIND_SONG) R.string.exclusion_reason_song_ban else R.string.exclusion_reason_artist_ban
     ExclusionsViewModel.REASON_SNOOZE -> R.string.exclusion_reason_snooze
     ExclusionsViewModel.REASON_GONE -> R.string.exclusion_reason_gone
-    ExclusionsViewModel.REASON_DONT_PLAY -> if (dontPlayOn) R.string.exclusion_reason_dont_play else R.string.exclusion_reason_song_ban
+    ExclusionsViewModel.REASON_DONT_PLAY, ExclusionsViewModel.REASON_DONT_PLAY_BANNED ->
+        if (dontPlayOn) R.string.exclusion_reason_dont_play else R.string.exclusion_reason_song_ban
     else -> R.string.exclusion_reason_rest
 }
 
 /** Whether the page says what Don't play this song does beyond the rows: with the feature, and one in force. */
 fun showsDontPlayNote(active: List<RecommendationExclusion>, dontPlayOn: Boolean = Unreleased.ARTIST_BLOCK): Boolean =
-    dontPlayOn && active.any { it.reason == ExclusionsViewModel.REASON_DONT_PLAY }
+    dontPlayOn && active.any { ExclusionsViewModel.isDontPlay(it.reason) }

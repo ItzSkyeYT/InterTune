@@ -74,7 +74,10 @@ import com.dd3boh.outertune.constants.LoginPickerDeclinedKey
 import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.constants.VisitorDataKey
 import com.dd3boh.outertune.ui.component.FloatingTopBar
+import com.dd3boh.outertune.ui.component.NoWebViewNote
+import com.dd3boh.outertune.utils.WebViewCheck
 import com.dd3boh.outertune.utils.WhyStopped
+import com.dd3boh.outertune.utils.AppLanguage
 import com.dd3boh.outertune.utils.dataStore
 import com.dd3boh.outertune.utils.rememberPreference
 import com.dd3boh.outertune.utils.reportException
@@ -96,6 +99,21 @@ fun LoginScreen(
     navController: NavController,
 ) {
     val context = LocalContext.current
+    // The page is a web view, and a phone whose web view cannot start threw while drawing it,
+    // which closed the app (#221). Said there, with the fix, and nothing else is opened: no
+    // account picker for a page that cannot come.
+    val webViewWorks = remember { WebViewCheck.works(context) }
+    if (!webViewWorks) {
+        Box(
+            modifier = Modifier
+                .windowInsetsPadding(LocalPlayerAwareWindowInsets.current)
+                .fillMaxSize(),
+        ) {
+            NoWebViewNote()
+        }
+        FloatingTopBar(title = stringResource(R.string.login), navController = navController)
+        return
+    }
     // What the page keeps is written outside the screen's own scope. A rememberPreference setter
     // writes in that scope, and a write still on its way when the screen is left is dropped: the
     // account's name, which arrives a moment after the cookie, was lost that way by anybody quick
@@ -266,6 +284,9 @@ fun LoginScreen(
                     modifier = Modifier.fillMaxSize(),
                     factory = { context ->
                         WebView(context).apply {
+                            // Before Android 13 the first WebView of the process puts the app's words
+                            // back in the phone's language.
+                            AppLanguage.afterWebView(context)
                             // App links taken to YouTube Music's page instead, for this page.
                             var appLinksTaken = 0
                             webViewClient = object : WebViewClient() {

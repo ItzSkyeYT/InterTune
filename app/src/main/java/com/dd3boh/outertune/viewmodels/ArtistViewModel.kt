@@ -10,6 +10,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.dd3boh.outertune.db.MusicDatabase
 import com.dd3boh.outertune.utils.reportException
+import com.dd3boh.outertune.utils.ContentLocale
 import com.zionhuang.innertube.YouTube
 import com.zionhuang.innertube.pages.ArtistPage
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -48,6 +49,8 @@ class ArtistViewModel @Inject constructor(
                 .collect { artistPage = it }
         }
         fetchArtistsFromYTM()
+        // Another language for YouTube (the app's, or the YouTube Music rows): the page loads again in it.
+        viewModelScope.launch { ContentLocale.changes.collect { fetchArtistsFromYTM() } }
     }
 
     fun fetchArtistsFromYTM() {

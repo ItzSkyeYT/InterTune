@@ -5,10 +5,28 @@
         <item name="android:windowMinWidthMinor">100%</item>
         <item name="android:windowMinWidthMajor">100%</item>
         <item name="android:windowNoTitle">true</item>
-        <item name="android:windowBackground">#ffffff</item>
+        <!-- Light, or dark when the phone is (values-night): the splash, the edges the launcher paints
+             round the app as it opens from a widget or closes into it (the task's colour comes from
+             colorBackground), and what stands behind the pages before they are drawn (#213).
+             WindowTheme then gives the window and the task the pages' own colour. -->
+        <item name="android:windowBackground">@color/window_background</item>
+        <item name="android:colorBackground">@color/window_background</item>
         <item name="android:enforceNavigationBarContrast" tools:ignore="NewApi">false</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
+    </style>
+
+    <!--
+      The splash of a cold start when the app's theme is picked in the app rather than following the
+      phone (WindowTheme.startWith). Android keeps the name, so it must never change.
+    -->
+    <style name="Theme.OuterTune.StartLight">
+        <item name="android:windowBackground">@color/window_background_light</item>
+        <item name="android:colorBackground">@color/window_background_light</item>
+    </style>
+    <style name="Theme.OuterTune.StartDark">
+        <item name="android:windowBackground">@color/window_background_dark</item>
+        <item name="android:colorBackground">@color/window_background_dark</item>
     </style>
 
     <!--

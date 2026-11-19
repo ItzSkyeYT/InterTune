@@ -52,6 +52,8 @@ import com.dd3boh.outertune.utils.reportException
 import com.zionhuang.innertube.YouTube
 import com.zionhuang.innertube.models.AlbumItem
 import kotlinx.coroutines.flow.first
+import androidx.compose.ui.platform.LocalHapticFeedback
+import com.dd3boh.outertune.ui.component.tapTick
 
 @Composable
 fun YouTubeAlbumMenu(
@@ -118,8 +120,10 @@ fun YouTubeAlbumMenu(
         item = albumItem,
         badges = {},
         trailingContent = {
+            val haptic = LocalHapticFeedback.current
             IconButton(
                 onClick = {
+                    haptic.tapTick()
                     database.query {
                         album?.album?.toggleLike()?.let(::update)
                     }

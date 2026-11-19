@@ -30,8 +30,10 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.dd3boh.outertune.R
@@ -47,7 +49,7 @@ import com.dd3boh.outertune.ui.component.ColumnWithContentPadding
 import com.dd3boh.outertune.ui.component.EditTextPreference
 import com.dd3boh.outertune.ui.component.FloatingTopBar
 import com.dd3boh.outertune.ui.component.PreferenceGroupTitle
-import com.dd3boh.outertune.ui.dialog.phoneName
+import com.dd3boh.outertune.ui.dialog.phoneModel
 import com.dd3boh.outertune.utils.rememberPreference
 import kotlin.math.roundToInt
 
@@ -63,7 +65,6 @@ fun ListenTogetherSettings(
     navController: NavController,
     scrollBehavior: TopAppBarScrollBehavior,
 ) {
-    val context = LocalContext.current
     val (name, onNameChange) = rememberPreference(TogetherNameKey, defaultValue = "")
     val (tolerance, onToleranceChange) = rememberPreference(TogetherToleranceKey, defaultValue = SyncLock.DEFAULT_TOLERANCE_MS.toInt())
     val (catchUp, onCatchUpChange) = rememberPreference(TogetherCatchUpKey, defaultValue = TogetherTuning.DEFAULT_CATCH_UP_PERCENT)
@@ -76,12 +77,12 @@ fun ListenTogetherSettings(
     ) {
         PreferenceGroupTitle(title = stringResource(R.string.together_settings_you))
         ElevatedCard(modifier = Modifier.fillMaxWidth()) {
-            // Left empty, the phone's own name is used, as it was before there was a setting.
+            // Left empty, the phone's model is used: never its own name from Android's settings, often its owner's.
             EditTextPreference(
                 modifier = Modifier.settingRow(R.string.together_name_setting),
                 title = { Text(stringResource(R.string.together_name_setting)) },
                 icon = { Icon(Icons.Rounded.Badge, null) },
-                value = name.ifBlank { phoneName(context) },
+                value = name.ifBlank { phoneModel() },
                 onValueChange = { onNameChange(it.trim().take(NAME_MAX)) },
                 isInputValid = { it.trim().length <= NAME_MAX },
             )
@@ -150,10 +151,11 @@ private fun SliderSetting(
     onDone: (Int) -> Unit,
 ) {
     var moving by remember(value) { mutableFloatStateOf(value.coerceIn(range).toFloat()) }
+    val now = shown(moving.roundToInt())
     Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
         Text(title, style = MaterialTheme.typography.titleMedium)
         Text(
-            shown(moving.roundToInt()),
+            now,
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.primary,
         )
@@ -163,6 +165,11 @@ private fun SliderSetting(
             onValueChangeFinished = { onDone(moving.roundToInt()) },
             valueRange = range.first.toFloat()..range.last.toFloat(),
             steps = (range.last - range.first) / step - 1,
+            // For TalkBack, the setting's name and the value as shown ("80 ms"), not a percent of the range.
+            modifier = Modifier.semantics {
+                contentDescription = title
+                stateDescription = now
+            },
         )
         Text(
             explanation,

@@ -104,7 +104,7 @@ interface SongsDao {
     fun albumIndexOf(songId: String, albumId: String): Int?
 
     @Transaction
-    @Query("SELECT * FROM song WHERE title LIKE '%' || :query || '%' AND (inLibrary IS NOT NULL OR dateDownload IS NOT NULL) LIMIT :previewSize")
+    @Query(LibrarySql.SEARCH_SONGS)
     fun searchSongs(query: String, previewSize: Int = Int.MAX_VALUE): Flow<List<Song>>
 
     @Transaction
@@ -550,6 +550,10 @@ interface SongsDao {
 
     @Query("UPDATE song SET liked = 0, likedDate = null WHERE id = :songId")
     fun removeLike(songId: String)
+
+    /** Undo of a local song's Remove from library (LocalRemoval): the three values it changed, as they were. */
+    @Query("UPDATE song SET inLibrary = :inLibrary, liked = :liked, likedDate = :likedDate WHERE id = :songId")
+    fun restoreInLibrary(songId: String, inLibrary: LocalDateTime?, liked: Boolean, likedDate: LocalDateTime?)
 
     @Query("UPDATE song SET inLibrary = null WHERE localPath = null")
     fun disableInvalidLocalSongs()

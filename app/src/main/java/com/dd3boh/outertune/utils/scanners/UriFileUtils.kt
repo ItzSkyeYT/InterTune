@@ -63,12 +63,7 @@ fun fileFromUri(context: Context, uri: Uri): File? {
         if (uri.authority != "com.android.externalstorage.documents") return null
 
         val docId = DocumentsContract.getDocumentId(uri)
-        val parts = docId.split(":")
-
-        if (parts.size < 2) return null
-
-        val type = parts[0]
-        val relativePath = parts[1]
+        val (type, relativePath) = volumeAndPath(docId) ?: return null
 
         val rootDir = when (type.lowercase()) {
             "primary" -> Environment.getExternalStorageDirectory()
@@ -86,6 +81,14 @@ fun fileFromUri(context: Context, uri: Uri): File? {
         return rootDir?.let { File(it, relativePath) }
     }
 }
+
+/**
+ * The volume and the path inside it of a storage document id: "primary" and "Music/Live: Paris.mp3" for
+ * "primary:Music/Live: Paris.mp3". Split at the first ':' only, as a file's or a folder's name can hold one: split at
+ * every one, a removed file's line pointed at another path before Android 11 (LocalRemoval). Null without a ':'.
+ */
+internal fun volumeAndPath(docId: String): Pair<String, String>? =
+    docId.split(":", limit = 2).takeIf { it.size == 2 }?.let { it[0] to it[1] }
 
 fun absoluteFilePathFromUri(context: Context, uri: Uri): String? {
     val dfUri = documentFileFromUri(context, uri)?.uri

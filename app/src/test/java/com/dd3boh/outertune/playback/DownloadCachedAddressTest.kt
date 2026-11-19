@@ -49,7 +49,8 @@ class DownloadCachedAddressTest {
     @Test
     fun `the resolver hands out a remembered address only while it can still be read`() {
         val text = File("src/main/java/com/dd3boh/outertune/playback/DownloadUtil.kt").readText()
-        assertTrue(text.contains("songUrlCache[mediaId]?.takeIf { !staleCopy && stillUsable(it.first, it.second) }"))
+        // Nor for a download taken as the player plays it (asPlayed): that url was resolved at the Download quality.
+        assertTrue(text.contains("songUrlCache[mediaId]?.takeIf { !staleCopy && !asPlayed && stillUsable(it.first, it.second) }"))
     }
 
     private companion object {

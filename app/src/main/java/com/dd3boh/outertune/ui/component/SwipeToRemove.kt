@@ -19,6 +19,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -126,11 +127,38 @@ object SwipeToRemove {
 }
 
 /**
+ * Where a swiped row stands, and whether letting go now would take it. A row has its own; the songs
+ * picked in the queue share one, so that a swipe on any of them moves them all as one and they go
+ * together (#141, Ti-Die: "allow swiping away an entire selection, the same way you'd do with one
+ * song"). The offset is read in drawing only, so a swipe recomposes nothing.
+ */
+@Stable
+class SwipeToRemoveState {
+    /** Where the row is, from where it rests: the finger's move less the slop it took to start, either way. */
+    var offset by mutableFloatStateOf(0f)
+
+    /** Letting go now would take the row: the bin is full. */
+    var ready by mutableStateOf(false)
+
+    /** The row is sliding out or back after the finger let go. A new touch waits for it. */
+    var settling by mutableStateOf(false)
+
+    /** Back at rest at once, for rows that come to use it after it last moved. */
+    fun rest() {
+        offset = 0f
+        ready = false
+    }
+}
+
+/**
  * A row that is swiped sideways, either way, with a bin behind it, and goes only when the finger lets
  * go of it far enough along and clearly sideways ([SwipeToRemove]). Held half way, the bin shows
  * and the song is still in its place; dragged back, it stays; a scroll, a drag by the handle, a
  * tap or a long press are never a swipe. [onRemove] is asked once the row has slid out of sight, and
  * says whether the row is gone: if it says no, the row slides back.
+ *
+ * Rows given the same [state] move together under a swipe on any of them, each with its bin, and
+ * slide out or back together. Not [enabled], a touch on the row is left alone.
  *
  * The bin is the look of the swipe that adds a song to the queue (DragActionIcon in
  * AnchorDraggable): the same colours, a block as wide as the row has moved, its icon next to the
@@ -140,38 +168,36 @@ object SwipeToRemove {
 fun SwipeToRemoveBox(
     onRemove: () -> Boolean,
     modifier: Modifier = Modifier,
+    state: SwipeToRemoveState = remember { SwipeToRemoveState() },
+    enabled: Boolean = true,
     icon: ImageVector = Icons.Rounded.Delete,
     content: @Composable BoxScope.() -> Unit,
 ) {
     val haptic = LocalHapticFeedback.current
     val scope = rememberCoroutineScope()
     val currentOnRemove by rememberUpdatedState(onRemove)
+    // Read as each touch begins: picking a row in the queue, or unpicking it, changes both while it stays put.
+    val currentState by rememberUpdatedState(state)
+    val currentEnabled by rememberUpdatedState(enabled)
     val painter = rememberVectorPainter(icon)
     val block = MaterialTheme.colorScheme.primary
     val tint = MaterialTheme.colorScheme.onPrimary
 
-    // Where the row is, from where it rests: the finger's move less the slop it took to start, and
-    // either way. Read in drawing and layout only, so a swipe recomposes nothing.
-    var offset by remember { mutableFloatStateOf(0f) }
-    var ready by remember { mutableStateOf(false) }
-    // The row is sliding out or back after the finger let go. A new touch waits for it.
-    var settling by remember { mutableStateOf(false) }
-
     // The finger let go: slide the row out and ask for it to go, or slide it back. Only here is the
     // row ever asked to go, and only once the finger has let go.
     val settle = remember {
-        { remove: Boolean, edge: Float ->
+        { swiped: SwipeToRemoveState, remove: Boolean, edge: Float ->
             scope.launch {
-                settling = true
+                swiped.settling = true
                 try {
                     if (remove) {
-                        animate(offset, if (offset >= 0f) edge else -edge, animationSpec = tween(160, easing = FastOutLinearInEasing)) { value, _ -> offset = value }
+                        animate(swiped.offset, if (swiped.offset >= 0f) edge else -edge, animationSpec = tween(160, easing = FastOutLinearInEasing)) { value, _ -> swiped.offset = value }
                         if (currentOnRemove()) return@launch
                     }
-                    ready = false
-                    animate(offset, 0f, animationSpec = tween(200, easing = FastOutSlowInEasing)) { value, _ -> offset = value }
+                    swiped.ready = false
+                    animate(swiped.offset, 0f, animationSpec = tween(200, easing = FastOutSlowInEasing)) { value, _ -> swiped.offset = value }
                 } finally {
-                    settling = false
+                    swiped.settling = false
                 }
             }
             Unit
@@ -187,7 +213,10 @@ fun SwipeToRemoveBox(
                     // Not on the first touch's say: a handle or a button under it takes its own touch,
                     // and then takes the moves too, which ends this one below.
                     val down = awaitFirstDown(requireUnconsumed = false)
-                    if (settling) return@awaitEachGesture
+                    if (!currentEnabled) return@awaitEachGesture
+                    // The same for the whole touch, whatever happens to the row meanwhile.
+                    val swiped = currentState
+                    if (swiped.settling) return@awaitEachGesture
                     val slop = viewConfiguration.touchSlop
                     val distance = SwipeToRemove.distance(size.width.toFloat(), density)
                     var swiping = false
@@ -197,7 +226,7 @@ fun SwipeToRemoveBox(
                         val change = event.changes.fastFirstOrNull { it.id == down.id }
                         if (change == null || change.isConsumed) {
                             // Taken from us, by a scroll, the list, a drag by the handle, or the system.
-                            if (swiping) settle(false, 0f)
+                            if (swiping) settle(swiped, false, 0f)
                             return@awaitEachGesture
                         }
                         val dx = change.position.x - down.position.x
@@ -217,13 +246,13 @@ fun SwipeToRemoveBox(
                         }
                         change.consume()
                         if (up) {
-                            settle(SwipeToRemove.removes(dx, dy, distance, released = true), size.width.toFloat())
+                            settle(swiped, SwipeToRemove.removes(dx, dy, distance, released = true), size.width.toFloat())
                             return@awaitEachGesture
                         }
-                        offset = dx - along * slop
+                        swiped.offset = dx - along * slop
                         val now = SwipeToRemove.ready(dx, dy, distance)
-                        if (now != ready) {
-                            ready = now
+                        if (now != swiped.ready) {
+                            swiped.ready = now
                             haptic.performHapticFeedback(if (now) HapticFeedbackType.SegmentFrequentTick else HapticFeedbackType.SegmentTick)
                         }
                     }
@@ -234,9 +263,9 @@ fun SwipeToRemoveBox(
         Box(
             modifier = Modifier
                 .matchParentSize()
-                .graphicsLayer { alpha = if (offset == 0f) 0f else if (ready) 1f else 0.6f }
+                .graphicsLayer { alpha = with(state) { if (offset == 0f) 0f else if (ready) 1f else 0.6f } }
                 .drawBehind {
-                    val o = offset
+                    val o = state.offset
                     if (o == 0f) return@drawBehind
                     val width = min(abs(o), size.width)
                     val left = if (o > 0f) 0f else size.width - width
@@ -252,7 +281,7 @@ fun SwipeToRemoveBox(
                 }
         )
         Box(
-            modifier = Modifier.graphicsLayer { translationX = offset },
+            modifier = Modifier.graphicsLayer { translationX = state.offset },
             content = content
         )
     }

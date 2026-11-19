@@ -176,11 +176,12 @@ class SleepTimerRulesTest {
     }
 
     @Test
-    fun `under repeat one only the end of the song ends`() {
-        // The song starts over: that is the end of the song and nothing wider.
+    fun `under repeat one the song starting over ends the song, the album and the queue`() {
+        // The song is all that plays: its starting over is the album and the queue starting over.
+        // They used to never end, and the music played all night.
         assertTrue(SleepTimerRules.endsAt(SleepEnd.SONG, repeat, false, "A", "A", false))
-        assertFalse(SleepTimerRules.endsAt(SleepEnd.ALBUM, repeat, false, "A", "A", false))
-        assertFalse(SleepTimerRules.endsAt(SleepEnd.QUEUE, repeat, false, "A", "A", false))
+        assertTrue(SleepTimerRules.endsAt(SleepEnd.ALBUM, repeat, false, "A", "A", false))
+        assertTrue(SleepTimerRules.endsAt(SleepEnd.QUEUE, repeat, false, "A", "A", false))
     }
 
     // ---- the song that fades
@@ -202,9 +203,10 @@ class SleepTimerRulesTest {
         assertFalse(SleepTimerRules.finalSong(SleepEnd.QUEUE, off, hasNext = true, albumNow = "A", albumNext = "B"))
         assertTrue(SleepTimerRules.finalSong(SleepEnd.QUEUE, off, hasNext = false, albumNow = "A", albumNext = null))
         assertTrue(SleepTimerRules.finalSong(SleepEnd.QUEUE, all, hasNext = false, albumNow = "A", albumNext = null))
-        // Under repeat one neither the album nor the queue ever ends, so nothing fades for them.
-        assertFalse(SleepTimerRules.finalSong(SleepEnd.ALBUM, one, hasNext = false, albumNow = "A", albumNext = null))
-        assertFalse(SleepTimerRules.finalSong(SleepEnd.QUEUE, one, hasNext = false, albumNow = "A", albumNext = null))
+        // Under repeat one every end comes at the end of the song playing, so it fades for them all.
+        assertTrue(SleepTimerRules.finalSong(SleepEnd.ALBUM, one, hasNext = true, albumNow = "A", albumNext = "A"))
+        assertTrue(SleepTimerRules.finalSong(SleepEnd.QUEUE, one, hasNext = true, albumNow = "A", albumNext = "A"))
+        assertTrue(SleepTimerRules.finalSong(SleepEnd.QUEUE, one, hasNext = false, albumNow = "A", albumNext = null))
     }
 
     // ---- the fade

@@ -165,7 +165,9 @@ class KeptOnceTest {
 
     @Test
     fun `offline, the adaptive queue counts a download in a folder as playable`() {
-        val offline = service.substringAfter("playsOffline = { s -> ").substringBefore("},")
+        // One rule for the adaptive pass and the app's own radio (OwnRadioFolderDownloadsTest).
+        assertTrue(service.contains("playsOffline = { s -> playsOffline(s) },"))
+        val offline = service.substringAfter("private fun playsOffline(s: MediaMetadata): Boolean =").substringBefore("\n\n")
         assertTrue(offline.contains("downloadUtil.isDownloaded(s.id)"))
         assertTrue("songs on the phone and songs streamed whole as before", offline.contains("s.isLocal") && offline.contains("playerCache.holdsWhole(s.id)"))
     }

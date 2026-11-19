@@ -152,6 +152,20 @@ class SleepTimerWiringTest {
     }
 
     @Test
+    fun `the reshuffle at the queue's last song tells the timer first, or End of queue never comes under shuffle and repeat all`() {
+        val block = service.substringAfter("activePlayer.shuffleModeEnabled && activePlayer.repeatMode == REPEAT_MODE_ALL")
+            .substringBefore("queueBoard.setCurrQueue()")
+        assertTrue("sleepTimer.queueStartsOverAfterThisSong()" in block)
+        assertTrue(block.indexOf("sleepTimer.queueStartsOverAfterThisSong()") < block.indexOf("queueBoard.shuffleCurrent()"))
+        // The timer forgets it at the next song, and when repeat or shuffle change under the song.
+        val timer = fileCode("playback/SleepTimer.kt")
+        for (callback in listOf("onMediaItemTransition", "onRepeatModeChanged", "onShuffleModeEnabledChanged")) {
+            val body = timer.substringAfter("override fun $callback(").substringBefore("override fun ")
+            assertTrue("$callback keeps the end of the pass", "endsPass = false" in body)
+        }
+    }
+
+    @Test
     fun `the timer is one job and one notification for every end, and it is let go with the service`() {
         assertEquals(1, Regex("""SleepTimerNotification\(this\)""").findAll(service).count())
         assertTrue("sleepTimer.clear()" in service.substringAfter("override fun onDestroy()"))
