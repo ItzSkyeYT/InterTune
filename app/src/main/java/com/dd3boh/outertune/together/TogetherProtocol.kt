@@ -301,6 +301,21 @@ sealed interface Follow {
         }
 
         /**
+         * Where a guest whose player has ended on the host's song goes, or null to wait there: the
+         * host's spot [targetMs], unless it lies within [END_GAP_MS] of the song's end [durationMs]
+         * (null while not known), where the host is about to move on and its word for the next song
+         * is on the way. An ended player never plays again by itself: a guest that rejoined after
+         * playing the song to its end stayed silent under "Following the host" (19 Nov 2026).
+         */
+        fun wake(targetMs: Long, durationMs: Long?): Long? = when {
+            durationMs != null && targetMs > durationMs - END_GAP_MS -> null
+            else -> targetMs.coerceAtLeast(0)
+        }
+
+        /** How near its end the host's spot leaves a guest whose player has ended waiting for the next song. */
+        const val END_GAP_MS = 3_000L
+
+        /**
          * Whether a guest too far from the host to nudge, playing at [localMs] with the song come
          * in up to [bufferedMs], jumps to the host's spot [targetMs] now: back, or into what has
          * come in, at once; past it, only once that is more than [WAIT_FOR_DATA_MS] away. A jump
