@@ -34,8 +34,9 @@ import java.time.LocalDateTime
  * the list and scan.
  *
  * A song goes as a YouTube song does with the same words, out of the library and out of the liked songs
- * (SongEntity.toggleLibrary): kept liked, it would still be listed under Songs. A folder's songs go as a scan takes
- * out the songs of an excluded folder, their likes kept. Undo puts back exactly what was there.
+ * (SongEntity.toggleLibrary): kept liked, it would still be listed under Songs. For a song that was liked the message
+ * says so, "Removed from your library and Liked songs" (his pick of 19 Nov 2026). A folder's songs go as a scan takes
+ * out the songs of an excluded folder, their likes kept. Undo puts back exactly what was there, the like included.
  *
  * The part with no Android in it, the addresses and the list, is tested (LocalRemovalTest).
  */

@@ -46,7 +46,9 @@ object LocalRemoveMenu {
 
     fun removeSong(context: Context, database: MusicDatabase, snackbar: SnackbarHostState, song: SongEntity, address: String) {
         val app = context.applicationContext
-        val said = context.getString(R.string.local_removed)
+        // A liked song leaves Liked songs too (LocalRemoval.removeSong), and the message says so (his pick of 19 Nov
+        // 2026); Undo brings the like back with the song.
+        val said = context.getString(if (song.liked) R.string.local_removed_liked else R.string.local_removed)
         val undo = context.getString(R.string.undo)
         val shows = context.activity()?.lifecycleScope ?: scope
         scope.launch {

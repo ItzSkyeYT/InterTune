@@ -2735,5 +2735,6 @@
     <!-- Remove from library on a file of the phone's and Exclude folder on a folder's row of the Folders tab (LocalRemoval, Unreleased.LOCAL_REMOVE). Held from translators. -->
     <string name="local_exclude_folder" translatable="false">Exclure le dossier</string>
     <string name="local_removed" translatable="false">Retiré de votre bibliothèque. Le fichier reste.</string>
+    <string name="local_removed_liked" translatable="false">Retiré de votre bibliothèque et des Titres aimés. Le fichier reste.</string>
     <string name="local_folder_excluded" translatable="false">%1$s exclu. Ses fichiers restent.</string>
 </resources>
