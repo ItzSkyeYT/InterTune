@@ -242,10 +242,12 @@ private const val ADAPTIVE_VISIBLE_AHEAD = 4
 /**
  * What one removal by hand (a swipe, or the pill's Remove from queue) told the rest of the app, for its Undo to
  * take back: the adaptive queue's note of each song taken out (MusicService.noteRemovedByHand), and the time
- * the listening log's REMOVED_FROM_QUEUE rows were noted from.
+ * the listening log's REMOVED_FROM_QUEUE rows were noted from. And for a removal that takes every song the queue
+ * has: the queue as it stood before ([whole]), and the queue itself once it went with them ([dropped]).
  */
-private class RemovalNotes(val at: Long) {
+private class RemovalNotes(val at: Long, val whole: QueueUndo.Whole? = null) {
     val removals = ArrayList<AdaptiveQueue.Heard.Removal>()
+    var dropped: QueueUndo.Dropped? = null
 }
 
 /**
@@ -564,15 +566,31 @@ fun BoxScope.QueueContent(
      * to stay, empty: the sheet said "No queues" over a bar still naming it "1 / 0", the mini player
      * stayed on with no song and no cover (a tester's screenshot, 9 Nov 2026), and its last songs
      * came back at the next start, since an empty queue is never saved.
+     *
+     * So it still goes at once, and the removal's Undo brings it back (his pick of 19 Nov 2026,
+     * Select all included): the queue that went is handed back, emptied, with the one current
+     * after it, and is held aside while the message shows (offerUndo). Nothing empty stays on
+     * screen meanwhile, and an app closed meanwhile starts without it, as if the message had gone.
      */
-    val dropIfEmptied: () -> Unit = {
-        val emptied = qb.getCurrentQueue()?.takeIf { it.getSize() == 0 }
-        if (emptied != null) {
-            playerConnection.player.pause()
-            val remainingQueues = qb.deleteQueue(emptied)
-            qb.setCurrQueue()
-            exitDetachHead()
-            if (remainingQueues < 1) onTerminate()
+    val dropIfEmptied: () -> QueueUndo.Dropped? = drop@{
+        val emptied = qb.getCurrentQueue()?.takeIf { it.getSize() == 0 } ?: return@drop null
+        playerConnection.player.pause()
+        val remainingQueues = qb.deleteQueue(emptied)
+        qb.setCurrQueue()
+        exitDetachHead()
+        if (remainingQueues < 1) onTerminate()
+        QueueUndo.Dropped(emptied, qb.getCurrentQueue()?.id)
+    }
+    // The queue as it stands, when a removal is about to take [count] songs and that is every song it has: for the
+    // Undo of a queue that goes with them. Read before the first song goes, while the player is still on its song.
+    val wholeBefore: (Int) -> QueueUndo.Whole? = { count ->
+        qb.getCurrentQueue()?.takeIf { it.getSize() in 1..count }?.let { q ->
+            val loaded = playerConnection.player.mediaItemCount > 0
+            QueueUndo.Whole.of(
+                q,
+                position = if (loaded) playerConnection.player.currentPosition else q.lastSongPos,
+                playing = loaded && playerConnection.player.playWhenReady,
+            )
         }
     }
     // Undo for songs taken out by hand: a swipe, the pill's button and the menu's entry (the owner's pick of 11 Nov
@@ -592,6 +610,24 @@ fun BoxScope.QueueContent(
     val appScope = LocalAppScope.current
     val sheetHere = remember { booleanArrayOf(true) }
     DisposableEffect(Unit) { onDispose { sheetHere[0] = false } }
+    // Undo of a removal that took every song a queue had, the queue gone with them (dropIfEmptied): it comes back
+    // as it stood, every song in its place, on the song it was on and from where it was in it, and plays on if it
+    // was playing. Only while nothing else has been put on meanwhile: the queue current after it went, or none, is
+    // still the current one. The rows follow the player when the sheet is there.
+    val bringBackDropped: (QueueUndo.Dropped, QueueUndo.Whole, List<QueueUndo.Taken<MediaMetadata>>, RemovalNotes) -> Unit = back@{ dropped, whole, taken, notes ->
+        if (qb.getCurrentQueue()?.id != dropped.after) return@back
+        QueueUndo.refill(dropped.queue, whole)
+        if (!qb.bringBack(dropped.queue)) return@back
+        pickedSwipeRests()
+        if (whole.playing) {
+            // As a queue picked from the list starts: prepare() first, for a player stopped meanwhile.
+            playerConnection.player.prepare()
+            playerConnection.player.playWhenReady = true
+        }
+        for (removal in notes.removals.asReversed()) playerConnection.service.notePutBackByHand(removal)
+        for (t in taken) ActivityLog.takeBack(database, t.song.id, SignalKind.REMOVED_FROM_QUEUE, notes.at)
+        haptic.performHapticFeedback(HapticFeedbackType.Confirm)
+    }
     // The removal also told the adaptive queue (its artists a skip, its title turned down, its mark as put in
     // by hand gone) and the listening log (REMOVED_FROM_QUEUE): Undo takes those back too, or in a radio the
     // next pass found the song turned down and put a fresh pick in its place.
@@ -612,8 +648,10 @@ fun BoxScope.QueueContent(
     }
     val offerUndo: (Long?, List<QueueUndo.Taken<MediaMetadata>>, RemovalNotes) -> Unit = offer@{ queueId, taken, notes ->
         if (queueId == null || taken.isEmpty()) return@offer
-        // Not for a queue that went with its last songs (dropIfEmptied): there is nothing to put them back into.
-        qb.getCurrentQueue()?.takeIf { it.id == queueId && it.getSize() > 0 } ?: return@offer
+        // A queue that went with its last songs (dropIfEmptied) is held here for its Undo, as it stood before; any
+        // other is still on the board, the current one, with songs in it to put these back among.
+        val whole = notes.whole?.takeIf { notes.dropped?.queue?.id == queueId }
+        if (whole == null) qb.getCurrentQueue()?.takeIf { it.id == queueId && it.getSize() > 0 } ?: return@offer
         val message = if (taken.size == 1) {
             context.getString(R.string.queue_removed_one, taken[0].song.title)
         } else {
@@ -627,7 +665,10 @@ fun BoxScope.QueueContent(
                 actionLabel = undoLabel,
                 duration = SnackbarDuration.Long,
             )
-            if (result == SnackbarResult.ActionPerformed) putBackTaken(queueId, taken, notes)
+            if (result == SnackbarResult.ActionPerformed) {
+                val dropped = notes.dropped
+                if (whole != null && dropped != null) bringBackDropped(dropped, whole, taken, notes) else putBackTaken(queueId, taken, notes)
+            }
         }
     }
     // Undo ends here
@@ -647,7 +688,7 @@ fun BoxScope.QueueContent(
             val loaded = playerConnection.player.mediaItemCount > 0
             val queueId = qb.getCurrentQueue()?.id
             val taken = ArrayList<QueueUndo.Taken<MediaMetadata>>()
-            val notes = RemovalNotes(at = System.currentTimeMillis())
+            val notes = RemovalNotes(at = System.currentTimeMillis(), whole = wholeBefore(places.size))
             for (place in places) {
                 val song = mutableSongs.getOrNull(place) ?: continue
                 if (qb.removeCurrentQueueSong(place)) {
@@ -658,7 +699,7 @@ fun BoxScope.QueueContent(
                     taken += QueueUndo.Taken(place, song)
                 }
             }
-            dropIfEmptied()
+            notes.dropped = dropIfEmptied()
             if (!loaded) playerConnection.storedQueueEdited()
             haptic.performHapticFeedback(HapticFeedbackType.Confirm)
             offerUndo(queueId, taken, notes)
@@ -1392,7 +1433,7 @@ fun BoxScope.QueueContent(
                         // and a swipe on it must not take another song with it.
                         if (mutableSongs.getOrNull(swipedIndex) != window) return@swipe false
                         val queueId = qb.getCurrentQueue()?.id
-                        val notes = RemovalNotes(at = System.currentTimeMillis())
+                        val notes = RemovalNotes(at = System.currentTimeMillis(), whole = wholeBefore(1))
                         val removed = qb.removeCurrentQueueSong(swipedIndex)
                         if (removed) {
                             mutableSongs.getOrNull(swipedIndex)?.let { notes.removals += playerConnection.service.noteRemovedByHand(it) }
@@ -1400,7 +1441,7 @@ fun BoxScope.QueueContent(
                             val loaded = playerConnection.player.mediaItemCount > 0
                             if (loaded) playerConnection.player.removeMediaItem(swipedIndex)
                             mutableSongs.removeAt(swipedIndex)
-                            dropIfEmptied()
+                            notes.dropped = dropIfEmptied()
                             if (!loaded) playerConnection.storedQueueEdited()
                             haptic.performHapticFeedback(HapticFeedbackType.Confirm)
                             offerUndo(queueId, listOf(QueueUndo.Taken(swipedIndex, window)), notes)

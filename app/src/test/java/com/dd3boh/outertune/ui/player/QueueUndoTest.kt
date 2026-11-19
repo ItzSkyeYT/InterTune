@@ -163,6 +163,31 @@ class QueueUndoTest {
         assertTrue("shuffle stays on", q.shuffled)
     }
 
+    @Test
+    fun `a queue that went with every song comes back whole from what was kept, shuffled or not`() {
+        // Select all, then Remove from queue (his pick of 19 Nov 2026): the queue goes, and Undo brings it back as it
+        // stood, in its stored order and its play order, on the song it was on and from where it was in it.
+        val order = listOf(3, 7, 0, 9, 1, 5, 2, 8, 4, 6)
+        for (shuffled in listOf(false, true)) {
+            val songs = MutableList(10) { i -> song("s$i").apply { shuffleIndex = if (shuffled) order.indexOf(i) else i } }
+            val q = MultiQueueObject(id = 3, title = "W", queue = songs, shuffled = shuffled, queuePos = 1, lastSongPos = 5_000, index = 0)
+            val stored = q.queue.map { it.id to it.shuffleIndex }
+            val played = playOrder(q)
+            val whole = QueueUndo.Whole.of(q, position = 61_000, playing = true)
+            for (place in (0 until 10).reversed()) assertTrue(q.removeAtPlayIndex(place, currentPlayIndex = q.getQueuePosShuffled()))
+            assertEquals(0, q.getSize())
+
+            QueueUndo.refill(q, whole)
+
+            assertEquals("shuffled = $shuffled", stored, q.queue.map { it.id to it.shuffleIndex })
+            assertEquals(played, playOrder(q))
+            assertEquals(shuffled, q.shuffled)
+            assertEquals("the song it was on", "s1", q.getCurrentSong()?.id)
+            assertEquals("from where the player was in it", 61_000L, q.lastSongPos)
+            assertTrue(whole.playing)
+        }
+    }
+
     // What the sheet does with it, in the source: every way of taking songs out offers Undo.
 
     @Test
@@ -185,8 +210,10 @@ class QueueUndoTest {
         assertTrue("snackbarHostState.currentSnackbarData?.dismiss()" in offer)
         assertTrue(offer.indexOf("currentSnackbarData?.dismiss()") < offer.indexOf("showSnackbar("))
         assertTrue("only an Undo that was tapped puts anything back", "SnackbarResult.ActionPerformed" in offer)
-        // Not for a queue that went with its last songs.
+        // A queue still on the board needs songs in it to put these back among; one that went with its last songs
+        // is held aside and comes back whole (his pick of 19 Nov 2026, QueueEmptiedTest).
         assertTrue("getSize() > 0" in offer)
+        assertTrue("bringBackDropped(dropped, whole, taken, notes)" in offer)
     }
 
     @Test
