@@ -49,6 +49,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import com.dd3boh.outertune.ui.component.LongPressLabel
+import com.dd3boh.outertune.ui.component.SeekRumble
+import com.dd3boh.outertune.ui.component.tapTick
 import com.dd3boh.outertune.ui.component.rememberSleepTimerState
 import com.dd3boh.outertune.ui.component.openProxySetting
 import androidx.compose.material3.Icon
@@ -451,6 +453,8 @@ fun BottomSheetPlayer(
     var duration by rememberSaveable(playbackState, songId) {
         mutableLongStateOf(playerConnection.player.duration)
     }
+    // The seek bar's faint rumble while it is dragged (Unreleased.HAPTICS_MORE, #176).
+    val seekRumble = remember { SeekRumble() }
     var sliderPosition by remember {
         mutableStateOf<Long?>(null)
     }
@@ -1049,7 +1053,8 @@ fun BottomSheetPlayer(
             // With the queue on a button, this is the only way the queue sheet comes up.
             val openQueue: () -> Unit = {
                 queueSheetState.expandSoft()
-                haptic.performHapticFeedback(HapticFeedbackType.ContextClick)
+                // With more haptics the button it is on ticks, as every button of the player does.
+                if (!Unreleased.HAPTICS_MORE) haptic.performHapticFeedback(HapticFeedbackType.ContextClick)
             }
 
             // Classic: circles beside the title. Tertiary on the timer while it runs, and a
@@ -1466,6 +1471,7 @@ fun BottomSheetPlayer(
                                         initialDelayMillis = 3000
                                     )
                                     .clickable(enabled = mediaMetadata.album != null) {
+                                        haptic.tapTick()
                                         navController.navigate("album/${mediaMetadata.album!!.id}")
                                         state.collapseSoft()
                                     }
@@ -1486,6 +1492,7 @@ fun BottomSheetPlayer(
                                             initialDelayMillis = 5000
                                         )
                                         .clickable(enabled = artist.id != null) {
+                                            haptic.tapTick()
                                             mediaMetadata?.id?.let { ActivityLog.note(context, database, it, SignalKind.ARTIST_PAGE) }
                                             navController.navigate("artist/${artist.id}")
                                             state.collapseSoft()
@@ -1519,10 +1526,14 @@ fun BottomSheetPlayer(
                         sliderPosition = { sliderPosition },
                         onSlide = {
                             sliderPosition = it
-                            // slider too granular for this haptic to feel right
-    //                    haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
+                            // A tick for each move was too granular to feel right; one each fortieth of
+                            // the bar the finger travels is a faint rumble (#176).
+                            if (Unreleased.HAPTICS_MORE && seekRumble.tick(it, shownDuration)) {
+                                haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
+                            }
                         },
                         onSlideDone = {
+                            seekRumble.reset()
                             sliderPosition?.let {
                                 if (playerConnection.player.currentMediaItem == null) {
                                     // Nothing is loaded yet, so there is nothing to seek: move where
@@ -2519,6 +2530,7 @@ private fun PlayerCircleButton(
     onClick: () -> Unit,
     nudge: Dp = 0.dp,
 ) {
+    val haptic = LocalHapticFeedback.current
     // A long press says the button's own name (LongPressLabel), nothing shown otherwise. The label's box
     // takes the place of the circle, offset as it was.
     OptionalLongPressLabel(contentDescription, Modifier.offset(y = 5.dp)) {
@@ -2528,7 +2540,10 @@ private fun PlayerCircleButton(
                 .size(36.dp)
                 .clip(CircleShape)
                 .background(container)
-                .clickable(onClick = onClick)
+                .clickable {
+                    haptic.tapTick()
+                    onClick()
+                }
         ) {
             Icon(
                 painter = painter,
@@ -2558,6 +2573,7 @@ private fun PlayerActionSegment(
     /** Moves the icon sideways, for a glyph whose weight is off its middle ([SHARE_NUDGE]). */
     nudge: Dp = 0.dp,
 ) {
+    val haptic = LocalHapticFeedback.current
     // A long press says the button's own name (LongPressLabel), nothing shown otherwise.
     OptionalLongPressLabel(contentDescription) {
         Row(
@@ -2591,7 +2607,10 @@ private fun PlayerActionSegment(
                         )
                     else Modifier.background(container)
                 )
-                .clickable(onClick = onClick)
+                .clickable {
+                    haptic.tapTick()
+                    onClick()
+                }
                 .padding(horizontal = 10.dp)
         ) {
             Icon(

@@ -1,0 +1,59 @@
+/*
+ * Copyright (C) 2026 InterTune
+ *
+ * SPDX-License-Identifier: GPL-3.0
+ */
+
+package com.dd3boh.outertune.ui.component
+
+import androidx.compose.ui.hapticfeedback.HapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import com.dd3boh.outertune.constants.Unreleased
+import kotlin.math.abs
+
+/**
+ * The tick of a tap where the app gave none (Unreleased.HAPTICS_MORE, #176): the one a chip, a
+ * library row and the queue's button already give, ContextClick. It goes through the view, so
+ * Android's Touch feedback setting decides whether anything is felt, as it does for every app.
+ */
+fun HapticFeedback.tapTick() {
+    if (Unreleased.HAPTICS_MORE) performHapticFeedback(HapticFeedbackType.ContextClick)
+}
+
+/**
+ * The seek bar's faint rumble while it is dragged (Unreleased.HAPTICS_MORE, #176): one light tick
+ * each [steps]th of the bar the finger travels, as the Pixel's own volume slider ticks, and never
+ * one for each move the slider reports, which came many times a frame and buzzed (why the tick
+ * upstream gave the slider had been taken out: "slider too granular"). The count runs from where
+ * the drag went down and from each tick on, so a finger that trembles on the spot stays quiet and
+ * a slow drag ticks as evenly as a quick one. [reset] when the finger lifts.
+ */
+class SeekRumble(private val steps: Int = STEPS) {
+    /** Where the last tick was, or the drag went down, as a share of the bar; null between drags. */
+    private var anchor: Float? = null
+
+    /** Whether the drag, now at [position] of [duration], has gone a step since the last tick. */
+    fun tick(position: Long, duration: Long): Boolean {
+        if (duration <= 0) return false
+        val at = (position.coerceIn(0L, duration).toDouble() / duration).toFloat()
+        val from = anchor
+        if (from == null) {
+            anchor = at
+            return false
+        }
+        // A hair under one step, so that the float arithmetic never drops a tick the bar's own
+        // steps would have.
+        if (abs(at - from) < 1f / steps - 1e-6f) return false
+        anchor = at
+        return true
+    }
+
+    fun reset() {
+        anchor = null
+    }
+
+    companion object {
+        /** Forty ticks from one end of the bar to the other: about one every 8 dp on a phone. */
+        const val STEPS = 40
+    }
+}

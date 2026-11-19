@@ -128,6 +128,8 @@ import com.dd3boh.outertune.ui.component.items.ItemThumbnail
 import com.dd3boh.outertune.ui.player.likeName
 import com.dd3boh.outertune.utils.joinByBullet
 import com.dd3boh.outertune.utils.makeTimeString
+import androidx.compose.ui.platform.LocalHapticFeedback
+import com.dd3boh.outertune.ui.component.tapTick
 
 /**
  * A song of the queue liked, or its like taken back, from its menu (#219), the way the player's
@@ -737,9 +739,11 @@ fun <T : Comparable<T>> ValueAdjuster(
             modifier = Modifier.size(28.dp)
         )
 
+        val haptic = LocalHapticFeedback.current
         IconButton(
             enabled = stepValue(values, currentValue, up = false) != null,
             onClick = {
+                haptic.tapTick()
                 stepValue(values, currentValue, up = false)?.let(onValueUpdate)
             }
         ) {
@@ -759,6 +763,7 @@ fun <T : Comparable<T>> ValueAdjuster(
         IconButton(
             enabled = stepValue(values, currentValue, up = true) != null,
             onClick = {
+                haptic.tapTick()
                 stepValue(values, currentValue, up = true)?.let(onValueUpdate)
             }
         ) {

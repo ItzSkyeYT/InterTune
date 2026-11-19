@@ -59,6 +59,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -71,6 +72,7 @@ import com.dd3boh.outertune.R
 import com.dd3boh.outertune.playback.downloadManager.DownloadsSimpleLook
 import com.dd3boh.outertune.constants.MenuHiddenEntriesKey
 import com.dd3boh.outertune.constants.Unreleased
+import com.dd3boh.outertune.ui.component.tapTick
 import com.dd3boh.outertune.utils.editOrSay
 import com.dd3boh.outertune.utils.getDownloadState
 import com.dd3boh.outertune.utils.makeTimeString
@@ -208,6 +210,7 @@ private fun GridMenuEntry(
 ) {
     // While editing every entry can be moved, one greyed for now too.
     val active = enabled || mark != null
+    val haptic = LocalHapticFeedback.current
     Box {
         Column(
             verticalArrangement = Arrangement.spacedBy(GridMenuItemGap),
@@ -220,7 +223,10 @@ private fun GridMenuEntry(
                     // TalkBack says what a double tap and hold does here.
                     onLongClickLabel = if (onLongClick != null) stringResource(R.string.menu_edit_start) else null,
                     onLongClick = onLongClick,
-                    onClick = onClick,
+                    onClick = {
+                        haptic.tapTick()
+                        onClick()
+                    },
                 )
                 .alpha(if (enabled) 1f else 0.5f)
                 .padding(horizontal = 12.dp, vertical = 10.dp)

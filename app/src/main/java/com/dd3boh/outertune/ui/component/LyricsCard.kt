@@ -74,6 +74,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -656,6 +657,7 @@ private suspend fun loadCover(context: Context, model: Any?): Bitmap? = withCont
  */
 @Composable
 fun LyricsPickBar(picked: Int, videoMs: Long?, onCancel: () -> Unit, onShare: () -> Unit, modifier: Modifier = Modifier) {
+    val haptic = LocalHapticFeedback.current
     Surface(
         shape = CircleShape,
         color = MaterialTheme.colorScheme.secondaryContainer,
@@ -667,7 +669,10 @@ fun LyricsPickBar(picked: Int, videoMs: Long?, onCancel: () -> Unit, onShare: ()
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.padding(start = 4.dp, top = 4.dp, end = 6.dp, bottom = 4.dp),
         ) {
-            IconButton(onClick = onCancel) {
+            IconButton(onClick = {
+                haptic.tapTick()
+                onCancel()
+            }) {
                 Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.lyrics_pick_cancel))
             }
             Text(
@@ -685,7 +690,10 @@ fun LyricsPickBar(picked: Int, videoMs: Long?, onCancel: () -> Unit, onShare: ()
             )
             Spacer(Modifier.width(8.dp))
             Button(
-                onClick = onShare,
+                onClick = {
+                    haptic.tapTick()
+                    onShare()
+                },
                 enabled = picked > 0,
                 contentPadding = ButtonDefaults.ButtonWithIconContentPadding,
             ) {

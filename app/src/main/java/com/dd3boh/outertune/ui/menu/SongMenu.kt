@@ -95,6 +95,8 @@ import com.zionhuang.innertube.YouTube
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
+import androidx.compose.ui.platform.LocalHapticFeedback
+import com.dd3boh.outertune.ui.component.tapTick
 
 @Composable
 fun SongMenu(
@@ -184,8 +186,10 @@ fun SongMenu(
             )
         },
         trailingContent = {
+            val haptic = LocalHapticFeedback.current
             IconButton(
                 onClick = {
+                    haptic.tapTick()
                     // toggleLike sends the like to YouTube itself. A likeSong here sent it again.
                     val s = song.song.toggleLike()
                     database.query {

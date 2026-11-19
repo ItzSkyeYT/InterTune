@@ -86,6 +86,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.io.IOException
+import androidx.compose.ui.platform.LocalHapticFeedback
+import com.dd3boh.outertune.ui.component.tapTick
 
 @Composable
 fun PlaylistMenu(
@@ -186,8 +188,10 @@ fun PlaylistMenu(
         playlist = playlist,
         trailingContent = {
             if (!playlist.playlist.isEditable) {
+                val haptic = LocalHapticFeedback.current
                 IconButton(
                     onClick = {
+                        haptic.tapTick()
                         database.query {
                             dbPlaylist?.playlist?.toggleLike()?.let { update(it) }
                         }
