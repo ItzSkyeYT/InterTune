@@ -50,4 +50,24 @@ class TalkBackWordsTest {
         val search = source("ui/screens/playlist/PlaylistYouTubeSearch.kt")
         assertEquals(1, Regex(Regex.escape(words)).findAll(search).count())
     }
+
+    @Test
+    fun `every heart in a three-dot menu says what a tap on it does`() {
+        // Found on the walk of 19 Nov 2026: the heart beside a song's title in its menu had no words, as had those of
+        // the album, artist and playlist menus. Each now says it as the player and the screens' hearts do (likeName).
+        val menus = File("src/main/java/com/dd3boh/outertune/ui/menu").listFiles()!!.filter { it.name.endsWith(".kt") }
+        var hearts = 0
+        for (file in menus) {
+            val lines = file.readLines()
+            for ((i, line) in lines.withIndex()) {
+                if ("R.drawable.favorite_border" !in line || "painterResource(if (" !in line) continue
+                hearts++
+                val cond = Regex("""painterResource\(if \((.+?)\) R\.drawable\.favorite else R\.drawable\.favorite_border\)""")
+                    .find(line)?.groupValues?.get(1)
+                val next = lines.subList(i + 1, minOf(i + 5, lines.size)).joinToString("\n")
+                assertTrue("${file.name}:${i + 1}: the heart has no words", "contentDescription = likeName($cond)" in next)
+            }
+        }
+        assertTrue("the menus' hearts could not be found", hearts >= 9)
+    }
 }

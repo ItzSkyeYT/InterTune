@@ -73,6 +73,7 @@ import androidx.compose.material.icons.rounded.Group
 import com.dd3boh.outertune.utils.Toaster
 import androidx.compose.ui.platform.LocalHapticFeedback
 import com.dd3boh.outertune.ui.component.tapTick
+import com.dd3boh.outertune.ui.player.likeName
 
 @Composable
 fun YouTubeSongMenu(
@@ -158,7 +159,7 @@ fun YouTubeSongMenu(
                 Icon(
                     painter = painterResource(if (librarySong?.song?.liked == true) R.drawable.favorite else R.drawable.favorite_border),
                     tint = if (librarySong?.song?.liked == true) MaterialTheme.colorScheme.error else LocalContentColor.current,
-                    contentDescription = null
+                    contentDescription = likeName(librarySong?.song?.liked == true)
                 )
             }
         }

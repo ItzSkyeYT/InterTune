@@ -101,6 +101,7 @@ import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 import androidx.compose.ui.platform.LocalHapticFeedback
 import com.dd3boh.outertune.ui.component.tapTick
+import com.dd3boh.outertune.ui.player.likeName
 
 @Composable
 fun SongMenu(
@@ -213,7 +214,7 @@ fun SongMenu(
                 Icon(
                     painter = painterResource(if (song.song.liked) R.drawable.favorite else R.drawable.favorite_border),
                     tint = if (song.song.liked) MaterialTheme.colorScheme.error else LocalContentColor.current,
-                    contentDescription = null
+                    contentDescription = likeName(song.song.liked)
                 )
             }
         }
