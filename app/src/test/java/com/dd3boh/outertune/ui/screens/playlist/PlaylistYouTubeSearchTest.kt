@@ -7,6 +7,13 @@
 package com.dd3boh.outertune.ui.screens.playlist
 
 import com.dd3boh.outertune.constants.SearchSource
+import com.dd3boh.outertune.models.ArtistBlock
+import com.dd3boh.outertune.models.BlockedArtist
+import com.dd3boh.outertune.models.ContentFilter
+import com.zionhuang.innertube.models.Artist
+import com.zionhuang.innertube.models.SongItem
+import com.zionhuang.innertube.models.WatchEndpoint.WatchEndpointMusicSupportedConfigs.WatchEndpointMusicConfig.Companion.MUSIC_VIDEO_TYPE_ATV
+import com.zionhuang.innertube.models.WatchEndpoint.WatchEndpointMusicSupportedConfigs.WatchEndpointMusicConfig.Companion.MUSIC_VIDEO_TYPE_OMV
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -109,6 +116,58 @@ class PlaylistYouTubeSearchTest {
         assertTrue(trailing.indexOf("Icons.Rounded.Add") < trailing.indexOf("Icons.Rounded.MoreVert"))
         assertTrue(rows, "items(items = results, key = { \"yt_\" + it.id })" in rows)
         assertTrue(rows, "onLongClick = { onMenu(song) }," in rows)
+    }
+
+    @Test
+    fun `no selection while YouTube Music's songs are listed, so its bar never acts on the playlist's hidden rows`() {
+        // Found 18 Nov 2026: a song picked, then the search opened on YouTube Music (the remembered choice), and the
+        // bar stayed up over YouTube's songs: Select all took every row of the playlist, and Remove from playlist
+        // emptied it, on YouTube Music too when synced.
+        val screen = code("ui/screens/playlist/LocalPlaylistScreen.kt")
+        // Opening the search there ends it, and so does a screen brought back after Android closed the app: both the
+        // selection and the open search are saved with the screen.
+        assertTrue("LaunchedEffect(searchOnline, inSelectMode) {\n        if (searchOnline && inSelectMode) onExitSelectionMode()\n    }" in screen)
+        assertTrue("var inSelectMode by rememberSaveable { mutableStateOf(false) }" in screen)
+        assertTrue("var isSearching by rememberSaveable { mutableStateOf(false) }" in screen)
+        // The bar is not drawn for the frame before the effect runs, and there is no other bar.
+        assertTrue("FloatingFooter(inSelectMode && !searchOnline) {" in screen)
+        assertEquals(1, Regex("""FloatingFooter\(""").findAll(screen).count())
+        // Nor can its Select all reach a row while it slides away over them.
+        assertTrue("val shownSongs = if (searchOnline) emptyList<PlaylistSong>() else if (isSearching) mutableSongs else playlistWithSongs.second" in screen)
+        // The switch's own tap ends it, as it did.
+        val switch = screen.substringAfter("PlaylistSearchSwitch(online = ").substringBefore("}) else null,")
+        assertTrue(switch, "onExitSelectionMode()" in switch)
+        // And YouTube Music's rows have no way into it: a long press opens the song's menu.
+        val params = code("ui/screens/playlist/PlaylistYouTubeSearch.kt")
+            .substringAfter("fun LazyListScope.playlistYouTubeResults(").substringBefore(") {")
+        assertTrue(params, listOf("inSelectMode", "onSelect", "selection").none { it in params })
+    }
+
+    @Test
+    fun `YouTube Music's songs leave out what the main search hides, and at once after a block from their menu`() {
+        // Found 18 Nov 2026: with an artist blocked, searching the name listed the artist's songs with +, and + put
+        // in a row the playlist never shows (withoutBlocked), so the + was back at each visit. The empty playlist's
+        // add search, which shares this list, had the same gap.
+        val model = code("viewmodels/LocalPlaylistViewModel.kt")
+        val watch = model.substringAfter("private fun watchAddQuery() {").substringBefore("\n    fun addSong(")
+        assertTrue(watch, "addSent = result?.items?.filterIsInstance<SongItem>().orEmpty().distinctBy { it.id }" in watch)
+        assertTrue(watch, "_addResults.value = ContentFilter.current.apply(addSent)" in watch)
+        // Block artist is in a song's three dots: its songs leave the list then, as in the main search.
+        assertTrue(watch, "ContentFilter.changes.drop(1).collect { filter -> _addResults.value = filter.apply(addSent) }" in watch)
+        // Nothing reaches the list another way.
+        val assigned = Regex("""_addResults\.value = (.+)""").findAll(model).map { it.groupValues[1] }.toSet()
+        assertEquals(setOf("emptyList()", "ContentFilter.current.apply(addSent)", "filter.apply(addSent) }"), assigned)
+        // As the main search filters its results.
+        assertTrue("ContentFilter.current.apply(sent.items)" in code("viewmodels/OnlineSearchViewModel.kt"))
+
+        // What that leaves out: the blocked artist's songs, and explicit and video songs while the switches say so.
+        val x = BlockedArtist(id = "UCx", name = "X", at = 1L)
+        fun song(id: String, by: Artist = Artist("A", "UCa"), explicit: Boolean = false, type: String? = MUSIC_VIDEO_TYPE_ATV) =
+            SongItem(id = id, title = id, artists = listOf(by), thumbnail = "", explicit = explicit, musicVideoType = type)
+        val sent = listOf(song("byX", by = Artist("X", "UCx")), song("explicit", explicit = true), song("video", type = MUSIC_VIDEO_TYPE_OMV), song("kept"))
+        val filter = ContentFilter(explicit = true, videoSongs = true, blocked = ArtistBlock(listOf(x)))
+        assertEquals(listOf("kept"), filter.apply(sent).map { it.id })
+        assertEquals(sent, ContentFilter().apply(sent))
     }
 
     @Test

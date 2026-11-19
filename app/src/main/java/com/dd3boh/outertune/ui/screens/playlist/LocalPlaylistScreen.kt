@@ -301,6 +301,13 @@ fun LocalPlaylistScreen(
         if (searchOnline) viewModel.addQuery.value = query.text
         else if (!addMode) viewModel.addQuery.value = ""
     }
+    // No selection while the list shows YouTube Music's songs: the bar's Select all and Remove from playlist act on
+    // the playlist's rows, none of them on screen then (Select all, then Remove, emptied the playlist, on YouTube
+    // Music too when synced). Opening the search there ends it as the switch's tap does, and so does a screen
+    // brought back after Android closed the app; the bar is not drawn for the frame before.
+    LaunchedEffect(searchOnline, inSelectMode) {
+        if (searchOnline && inSelectMode) onExitSelectionMode()
+    }
 
     // Songs in the playlist more than once, for the button beside Play and Shuffle (issue #47).
     // Only where the playlist can be changed: a copy cannot be taken out of one that cannot.
@@ -1004,10 +1011,11 @@ fun LocalPlaylistScreen(
             },
         )
 
-        FloatingFooter(inSelectMode) {
+        FloatingFooter(inSelectMode && !searchOnline) {
             // While searching, mutableSongs holds just the results, and Select all must not reach
-            // songs the search is hiding. Outside a search it is the whole playlist, as before.
-            val shownSongs = if (isSearching) mutableSongs else playlistWithSongs.second
+            // songs the search is hiding. Outside a search it is the whole playlist, as before. Over
+            // YouTube Music's songs none: the bar can still be tapped while it slides away.
+            val shownSongs = if (searchOnline) emptyList<PlaylistSong>() else if (isSearching) mutableSongs else playlistWithSongs.second
             SelectHeader(
                 navController = navController,
                 selectedItems = selection.mapNotNull { id ->
