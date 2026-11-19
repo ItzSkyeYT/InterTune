@@ -236,6 +236,24 @@ class SettingsSearchTest {
         assertEquals(settingMark(R.string.enable_proxy), jump.instead)
     }
 
+    @Test
+    fun `the folder's row is listed by the name it shows, and found by today's row's name and its search words`() {
+        // The page everyone has from 0.13 (DownloadsSimpleLook.C) draws "Where downloads go" where today's page
+        // draws "Set external download folder…". The search listed it by today's name (the emulator, 19 Nov 2026).
+        val hit = inEnglish.search("where downloads go").first()
+        assertEquals("Where downloads go", hit.title)
+        assertEquals(settingMark(R.string.dl_simple_where_title), hit.entry!!.jump().target)
+        for (typed in listOf("download folder", "SD card", "external download folder", "Set external download folder…")) {
+            assertTrue(typed, "Where downloads go" in titles(inEnglish, typed).take(3))
+            assertFalse("today's row is not drawn, and found for $typed", "Set external download folder…" in titles(inEnglish, typed))
+        }
+        assertEquals("Où vont les téléchargements", titles(inFrench, "où vont les téléchargements").first())
+        assertTrue("Où vont les téléchargements" in titles(inFrench, "dossier de téléchargement").take(3))
+        // Where its name is not translated yet, the words of today's row's name, which is, still find it.
+        val inGerman = SettingsSearchIndex.of(text(strings("values-de")), engine = true)
+        assertTrue("Where downloads go" in titles(inGerman, "Download-Ordner").take(3))
+    }
+
     // The words
 
     private fun line(folder: String, name: String) =
