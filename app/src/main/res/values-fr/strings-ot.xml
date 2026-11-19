@@ -599,7 +599,7 @@
     <string name="help_translate">Aider à traduire InterTune (via Weblate)</string>
     <!-- Player settings -->
     <string name="player_buttons_style">Boutons du lecteur</string>
-    <string name="player_buttons_style_description">Connectés place partager et j\'aime près du titre, et les paroles, la minuterie et le menu sur une rangée sous les commandes.</string>
+    <string name="player_buttons_style_description">Connectés place partager et j\'aime près du titre, et les paroles et le menu sur une rangée sous les commandes.</string>
     <string name="player_buttons_classic">Classiques</string>
     <string name="player_buttons_connected">Connectés</string>
     <string name="queue_button">Bouton de file d\'attente</string>

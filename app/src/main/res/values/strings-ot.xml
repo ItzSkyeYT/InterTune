@@ -336,7 +336,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="grouped_player_controls">Group the player buttons</string>
     <string name="grouped_player_controls_description">Puts the playback buttons together in one glass bar. Needs Liquid glass.</string>
     <string name="player_buttons_style">Player buttons</string>
-    <string name="player_buttons_style_description">Connected puts share and like by the title, and lyrics, the sleep timer and the menu in a row under the controls.</string>
+    <string name="player_buttons_style_description">Connected puts share and like by the title, and lyrics and the menu in a row under the controls.</string>
     <string name="player_buttons_classic">Classic</string>
     <string name="player_buttons_connected">Connected</string>
     <string name="queue_button">Queue button</string>

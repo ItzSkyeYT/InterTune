@@ -24,18 +24,19 @@ import java.io.File
 class PlayerPinsTest {
 
     @Test
-    fun `never chosen, every place pins what it always has`() {
+    fun `never chosen, every place pins its defaults, Connected's row without the sleep timer since 0_13`() {
         val pins = PlayerPins.read("")
         assertEquals(listOf(TIMER, LIKE), pins[PinPlace.CLASSIC])
         assertEquals(listOf(SHARE, LIKE), pins[PinPlace.CONNECTED_TITLE])
-        assertEquals(listOf(LYRICS, TIMER), pins[PinPlace.CONNECTED_ROW])
+        // His word of 19 Nov 2026: the sleep timer is in the menu by default; an install set up before keeps it (PinsBefore013Test).
+        assertEquals(listOf(LYRICS), pins[PinPlace.CONNECTED_ROW])
     }
 
     @Test
     fun `a button added goes further out, so the ones beside the menu stay where they were`() {
         val pins = PlayerPins.toggle(PlayerPins.read(""), PinPlace.CLASSIC, SHARE)
         assertEquals(listOf(SHARE, TIMER, LIKE), pins[PinPlace.CLASSIC])
-        val row = PlayerPins.toggle(PlayerPins.read(""), PinPlace.CONNECTED_ROW, LIKE)
+        val row = PlayerPins.toggle(PlayerPins.read("CONNECTED_ROW=LYRICS+TIMER"), PinPlace.CONNECTED_ROW, LIKE)
         assertEquals("like joins the row in front of lyrics and the timer", listOf(LIKE, LYRICS, TIMER), row[PinPlace.CONNECTED_ROW])
     }
 
@@ -62,7 +63,7 @@ class PlayerPinsTest {
 
     @Test
     fun `in Connected a button is in one place at a time`() {
-        var pins = PlayerPins.toggle(PlayerPins.read(""), PinPlace.CONNECTED_TITLE, LIKE)
+        var pins = PlayerPins.toggle(PlayerPins.read("CONNECTED_ROW=LYRICS+TIMER"), PinPlace.CONNECTED_TITLE, LIKE)
         assertEquals(listOf(SHARE), pins[PinPlace.CONNECTED_TITLE])
         pins = PlayerPins.toggle(pins, PinPlace.CONNECTED_TITLE, TIMER)
         assertEquals(listOf(TIMER, SHARE), pins[PinPlace.CONNECTED_TITLE])
@@ -76,7 +77,7 @@ class PlayerPinsTest {
         pins = PlayerPins.toggle(pins, PinPlace.CONNECTED_ROW, TIMER)
         assertTrue(PlayerPins.changed(pins, listOf(PinPlace.CONNECTED_TITLE, PinPlace.CONNECTED_ROW)))
         val connectedBack = PlayerPins.reset(pins, listOf(PinPlace.CONNECTED_TITLE, PinPlace.CONNECTED_ROW))
-        assertEquals(listOf(LYRICS, TIMER), connectedBack[PinPlace.CONNECTED_ROW])
+        assertEquals("reset is today's default: the timer back in the menu", listOf(LYRICS), connectedBack[PinPlace.CONNECTED_ROW])
         assertEquals(listOf(SHARE, LIKE), connectedBack[PinPlace.CONNECTED_TITLE])
         assertEquals("Classic keeps its own choice", listOf(SHARE, TIMER, LIKE), connectedBack[PinPlace.CLASSIC])
         assertFalse(PlayerPins.changed(connectedBack, listOf(PinPlace.CONNECTED_TITLE, PinPlace.CONNECTED_ROW)))

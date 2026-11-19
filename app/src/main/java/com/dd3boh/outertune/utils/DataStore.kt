@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlin.properties.ReadOnlyProperty
+import com.dd3boh.outertune.ui.player.PinsBefore013
 
 /**
  * The file itself, reached only through [dataStore], so that no write goes round the copy in memory.
@@ -28,7 +29,7 @@ import kotlin.properties.ReadOnlyProperty
  */
 private val Context.settingsFile: DataStore<Preferences> by preferencesDataStore(
     name = "settings",
-    produceMigrations = { listOf(NewInstallSongCache, LyricsTimingOnTime) },
+    produceMigrations = { listOf(NewInstallSongCache, LyricsTimingOnTime, PinsBefore013) },
 )
 
 @Volatile

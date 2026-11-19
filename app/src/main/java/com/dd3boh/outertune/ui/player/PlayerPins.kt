@@ -6,6 +6,12 @@
 
 package com.dd3boh.outertune.ui.player
 
+import androidx.datastore.core.DataMigration
+import androidx.datastore.preferences.core.Preferences
+import com.dd3boh.outertune.constants.OobeStatusKey
+import com.dd3boh.outertune.constants.PinsBefore013Key
+import com.dd3boh.outertune.constants.PlayerPinsKey
+
 /**
  * A button the player can keep outside its menu (issue #27, for 0.13: "I would like the pinned
  * buttons to be configurable, so you could have other ones or even none pinned").
@@ -24,8 +30,12 @@ enum class PinPlace(val order: List<PlayerPin>, val most: Int, val defaults: Lis
     /** Connected's pair beside the title: share and like. */
     CONNECTED_TITLE(listOf(PlayerPin.LYRICS, PlayerPin.TIMER, PlayerPin.SHARE, PlayerPin.LIKE), 2, listOf(PlayerPin.SHARE, PlayerPin.LIKE)),
 
-    /** Connected's row under the controls: lyrics and the sleep timer, then the menu. */
-    CONNECTED_ROW(listOf(PlayerPin.SHARE, PlayerPin.LIKE, PlayerPin.LYRICS, PlayerPin.TIMER), 3, listOf(PlayerPin.LYRICS, PlayerPin.TIMER)),
+    /**
+     * Connected's row under the controls: lyrics, then the menu. The sleep timer is in the menu by default since 0.13 (his
+     * word of 19 Nov 2026, "the sleep timer should be by default in the three dot menu"); an install set up before keeps
+     * the timer it had there ([PinsBefore013]).
+     */
+    CONNECTED_ROW(listOf(PlayerPin.SHARE, PlayerPin.LIKE, PlayerPin.LYRICS, PlayerPin.TIMER), 3, listOf(PlayerPin.LYRICS)),
 }
 
 /**
@@ -77,3 +87,31 @@ object PlayerPins {
 
     private fun inOrder(place: PinPlace, chosen: List<PlayerPin>): List<PlayerPin> = place.order.filter { it in chosen }
 }
+
+/**
+ * The player's buttons as an install set up before 0.13 has them, written once so that the update moves none of them
+ * (memory: player controls stay put): 0.13 took the sleep timer out of Connected's row by default, and a place nobody
+ * chose follows the defaults. Only on an install that has been through setup ([OobeStatusKey] set) and for the places
+ * whose defaults changed, when it never chose them; a new install has the new defaults. Run as the settings are first
+ * read, after NewInstallSongCache, which needs them empty. Once: [PinsBefore013Key] says so.
+ */
+object PinsBefore013 : DataMigration<Preferences> {
+    /** What the places 0.13 changed had until then. */
+    val BEFORE: Map<PinPlace, List<PlayerPin>> = mapOf(PinPlace.CONNECTED_ROW to listOf(PlayerPin.LYRICS, PlayerPin.TIMER))
+
+    override suspend fun shouldMigrate(currentData: Preferences) = currentData[PinsBefore013Key] != true
+
+    override suspend fun migrate(currentData: Preferences): Preferences =
+        currentData.toMutablePreferences().apply {
+            if (this[OobeStatusKey] != null) {
+                val raw = this[PlayerPinsKey].orEmpty()
+                val chosen = raw.split(";").map { it.substringBefore('=') }.toSet()
+                val keep = BEFORE.filterKeys { it.name !in chosen }
+                if (keep.isNotEmpty()) this[PlayerPinsKey] = listOf(raw, PlayerPins.write(keep)).filter { it.isNotBlank() }.joinToString(";")
+            }
+            this[PinsBefore013Key] = true
+        }.toPreferences()
+
+    override suspend fun cleanUp() = Unit
+}
+
