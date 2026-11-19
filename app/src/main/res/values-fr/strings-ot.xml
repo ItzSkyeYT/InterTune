@@ -754,6 +754,8 @@
     <string name="lastfm_unavailable">Indisponible dans cette version</string>
     <string name="lastfm_unavailable_description">Cette copie d\'InterTune a été compilée sans clé Last.fm. Les versions officielles en ont une.</string>
     <string name="lastfm_login_failed">Last.fm n\'a pas voulu lancer la connexion : %1$s</string>
+    <string name="lastfm_ended" translatable="false">Last.fm ne fonctionne plus ici</string>
+    <string name="lastfm_ended_description" translatable="false">Depuis le 1er décembre, Last.fm ne fonctionne que dans les applications dont le créateur paie Last.fm Pro. Vos scrobbles restent sur Last.fm.</string>
     <string name="polls_unavailable">Indisponible dans cette version</string>
     <string name="polls_unavailable_description">Cette copie d\'InterTune a été compilée sans source de questions.</string>
     <string name="playlist_empty_title">Trouvons quelque chose pour cette playlist</string>

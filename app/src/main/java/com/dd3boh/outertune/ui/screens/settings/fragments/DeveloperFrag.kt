@@ -65,6 +65,7 @@ import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.AudioGaplessOffloadKey
 import com.dd3boh.outertune.constants.AudioOffloadKey
 import com.dd3boh.outertune.constants.AutomixStyleKey
+import com.dd3boh.outertune.constants.LastFmActAsEndedKey
 import com.dd3boh.outertune.constants.LyricsBlurKey
 import com.dd3boh.outertune.constants.LyricsWordsLookKey
 import com.dd3boh.outertune.constants.OobeStatusKey
@@ -223,6 +224,16 @@ fun ColumnScope.DeveloperFrag(navController: NavController) {
                     },
                 )
             }
+            // Last.fm as it is from 1 December 2026 (LastFmEnd), to walk that before the date.
+            // Kept across starts, so the next start forgets the account as the first one after
+            // the date does.
+            val (lastFmEnded, onLastFmEndedChange) = rememberPreference(key = LastFmActAsEndedKey, defaultValue = false)
+            SwitchPreference(
+                title = { Text("DEBUG: Act as after 1 December (Last.fm)") },
+                icon = { Icon(Icons.Rounded.Science, null) },
+                checked = lastFmEnded,
+                onCheckedChange = onLastFmEndedChange,
+            )
         }
         if (VisionosTest.offered(testBuild = BuildConfig.PREVIEW_FEATURES, identities = Unreleased.VISIONOS_IDENTITIES, fallback = Unreleased.WEB_FALLBACK)) {
             // One row over the two keys. As two switches, "this app's VISIONOS" and "VISIONOS",

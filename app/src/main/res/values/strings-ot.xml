@@ -1107,6 +1107,8 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="lastfm_unavailable">Not available in this build</string>
     <string name="lastfm_unavailable_description">This copy of InterTune was built without a Last.fm key. Official releases have one.</string>
     <string name="lastfm_login_failed">Last.fm would not start the login: %1$s</string>
+    <string name="lastfm_ended" translatable="false">Last.fm no longer works here</string>
+    <string name="lastfm_ended_description" translatable="false">Since 1 December, Last.fm only works in apps whose maker pays for Last.fm Pro. Your scrobbles stay on Last.fm.</string>
     <string name="polls_unavailable">Not available in this build</string>
     <string name="polls_unavailable_description">This copy of InterTune was built without a source for questions.</string>
     <string name="playlist_empty_title">Let\'s find something for this playlist</string>
