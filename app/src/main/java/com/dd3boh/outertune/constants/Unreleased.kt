@@ -1177,4 +1177,15 @@ object Unreleased {
      * search is the playlist's alone, as it was. To ship: set this to true and add its name to ReleasedFlagsTest.
      */
     val PLAYLIST_YT_SEARCH = BuildConfig.PREVIEW_FEATURES
+
+    /**
+     * The repeat button's look of his pick 3B, 15 Nov 2026 (#182: the grey of off read as a button that does not
+     * work): off is the plain repeat icon at full strength, all is that icon on a lit box in the play button's
+     * colours, one is the repeat-one icon on the same box, in the player in every mode and in the queue's own
+     * buttons (RepeatButton). Same place and size as before. With this off, off is the greyed icon of 5 Nov.
+     *
+     * Held back as the line's held features are: the debug app, the Preview and the Tester app have it; a release
+     * only on his word.
+     */
+    val REPEAT_LIT_BOX = BuildConfig.PREVIEW_FEATURES
 }
