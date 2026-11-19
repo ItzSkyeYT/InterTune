@@ -20,7 +20,7 @@ import android.service.quicksettings.TileService
  * The tile is an action, not a switch: it always looks the same, and the run is stopped on the
  * screen or from its notification.
  */
-class RecognitionTileService : TileService() {
+class RecognitionTileService : GuardedTileService() {
 
     override fun onStartListening() {
         super.onStartListening()

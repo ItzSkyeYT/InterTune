@@ -18,7 +18,7 @@ import com.dd3boh.outertune.R
  * straight to one each: [RecognitionTileService] around you, [PhoneSongTileService] this phone.
  * Below Android 10 the phone's own sound cannot be had, so there is nothing to ask.
  */
-class RecognitionChoiceTileService : TileService() {
+class RecognitionChoiceTileService : GuardedTileService() {
 
     override fun onStartListening() {
         super.onStartListening()

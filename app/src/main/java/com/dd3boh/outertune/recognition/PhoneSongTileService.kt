@@ -19,7 +19,7 @@ import android.service.quicksettings.TileService
  * Its two neighbours: [RecognitionTileService] listens around you, [RecognitionChoiceTileService]
  * asks which.
  */
-class PhoneSongTileService : TileService() {
+class PhoneSongTileService : GuardedTileService() {
 
     override fun onClick() {
         super.onClick()
