@@ -1043,6 +1043,13 @@ fun BottomSheetPlayer(
             val inRoom = room != null
             val roomAtFreeEnd = inRoom && Unreleased.ROOM_AT_FREE_END
             val roomBeforeMenu = inRoom && !Unreleased.ROOM_AT_FREE_END
+            // Connected's room button sits by the title, at the free end of the pair, in the normal player (his pick
+            // of 19 Nov 2026): the row under the controls never takes it, so nothing there moves or narrows when a
+            // room starts or ends, at any width. A full row on a 360 dp phone had no room for it even hung at 42 dp,
+            // and every button moved and narrowed from 56 to 52 dp. The pair is anchored at the end, so share and
+            // like stay where they are and the title is one segment narrower while the room lasts. In every build:
+            // rooms are in no release yet. A small player keeps it in its row, counted in with the others.
+            val roomByTitle = inRoom && !compactPlayer
             var showRoom by rememberSaveable { mutableStateOf(false) }
             if (showRoom) TogetherSheet(onDismiss = { showRoom = false })
 
@@ -1281,8 +1288,21 @@ fun BottomSheetPlayer(
                     horizontalArrangement = Arrangement.spacedBy(ConnectedButtonGap),
                     modifier = Modifier.offset(y = 4.dp)
                 ) {
+                    // The room's segment at the pair's free end (roomByTitle), in the room's colours as in the row.
+                    if (roomByTitle) {
+                        PlayerActionSegment(
+                            painter = rememberVectorPainter(Icons.Rounded.Group),
+                            contentDescription = stringResource(R.string.together_in_room),
+                            shape = connectedShape(first = true, last = titlePins.isEmpty()),
+                            container = MaterialTheme.colorScheme.primary,
+                            content = MaterialTheme.colorScheme.onPrimary,
+                            onClick = { showRoom = true },
+                            backdrop = buttonBackdrop,
+                            glassIntensity = glassIntensity,
+                        )
+                    }
                     titlePins.forEachIndexed { i, pin ->
-                        titleSegment(pin, connectedShape(first = i == 0, last = i == titlePins.lastIndex))
+                        titleSegment(pin, connectedShape(first = i == 0 && !roomByTitle, last = i == titlePins.lastIndex))
                     }
                 }
             }
@@ -1324,6 +1344,12 @@ fun BottomSheetPlayer(
             val quickActions: @Composable () -> Unit = {
                 val inactive = onBackgroundColor.copy(alpha = 0.12f)
                 val rowPins = pins[PinPlace.CONNECTED_ROW].orEmpty().filter { it != PlayerPin.SHARE || canShareSong }
+                // The room's segment is in this row only in a small player (roomInRow): the normal player has it by
+                // the title (roomByTitle). Here it is counted in with the rest, first with ROOM_AT_FREE_END, else right
+                // before the menu, and the row is centred with it in.
+                val roomInRow = inRoom && !roomByTitle
+                val rowRoomFirst = roomAtFreeEnd && roomInRow
+                val rowRoomBeforeMenu = roomBeforeMenu && roomInRow
                 val actionWidth = if (compactPlayer) {
                     compactQuickActionWidth(
                         rowWidth = windowWidth() - hPadding * 2,
@@ -1337,7 +1363,7 @@ fun BottomSheetPlayer(
                     PlayerActionSegment(
                         painter = rememberVectorPainter(Icons.AutoMirrored.Rounded.QueueMusic),
                         contentDescription = stringResource(R.string.queue),
-                        shape = connectedShape(first = !roomAtFreeEnd, last = false),
+                        shape = connectedShape(first = !rowRoomFirst, last = false),
                         container = inactive,
                         filled = false,
                         content = onBackgroundColor,
@@ -1361,24 +1387,20 @@ fun BottomSheetPlayer(
                         onClick = { showRoom = true },
                     )
                 }
-                // A room's segment, with ROOM_AT_FREE_END, comes first and hangs off the start of the
-                // others, which stay where they are without it (CentredRow's hangingFirst). A small
-                // player counts it in its widths, so there it is one of the row like the rest. Without
-                // it, as in a release, it comes right before the menu, centred with the others.
-                val roomHangs = roomAtFreeEnd && !compactPlayer
+                // No room's segment hangs off this row any more (CentredRow's hangingFirst is not asked for): in the
+                // normal player it is by the title, and a small player counts it in with the rest.
                 CentredRow(
                     gap = ConnectedButtonGap,
                     gutter = hPadding,
-                    hangingFirst = roomHangs,
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = hPadding)
                         .padding(top = 16.dp)
                 ) {
-                    if (roomAtFreeEnd) roomSegment(true)
+                    if (rowRoomFirst) roomSegment(true)
                     if (queueLayout.queueButton) queueSegment()
                     rowPins.forEachIndexed { i, pin ->
-                        val shape = connectedShape(first = i == 0 && !queueLayout.queueButton && !roomAtFreeEnd, last = false)
+                        val shape = connectedShape(first = i == 0 && !queueLayout.queueButton && !rowRoomFirst, last = false)
                         val liked = currentSong?.song?.liked == true
                         when (pin) {
                             PlayerPin.LYRICS -> PlayerActionSegment(
@@ -1433,11 +1455,11 @@ fun BottomSheetPlayer(
                             )
                         }
                     }
-                    if (roomBeforeMenu) roomSegment(rowPins.isEmpty() && !queueLayout.queueButton)
+                    if (rowRoomBeforeMenu) roomSegment(rowPins.isEmpty() && !queueLayout.queueButton)
                     PlayerActionSegment(
                         painter = rememberVectorPainter(Icons.Rounded.MoreVert),
                         contentDescription = stringResource(R.string.options),
-                        shape = connectedShape(first = rowPins.isEmpty() && !inRoom && !queueLayout.queueButton, last = true),
+                        shape = connectedShape(first = rowPins.isEmpty() && !roomInRow && !queueLayout.queueButton, last = true),
                         container = inactive,
                         filled = false,
                         content = onBackgroundColor,

@@ -28,8 +28,9 @@ import kotlin.math.abs
  * player's top row between the heart and the menu and pushed the timer and the heart left. It goes at
  * the free end of its row, behind ROOM_AT_FREE_END until he has seen Connected's row hang off centre in
  * a room (the look he turned down for the queue button on 11 Nov 2026); without it, as in a release, the
- * room's button is where next-013 has it. Partly read from the source: what Compose draws where cannot
- * be looked at on the JVM.
+ * room's button is where next-013 has it. In Connected's normal player it sits by the title instead, at the
+ * free end of the pair, in every build (his pick of 19 Nov 2026): a full row on a 360 dp phone had no room for
+ * it. Partly read from the source: what Compose draws where cannot be looked at on the JVM.
  */
 class RoomButtonStaysTest {
     private val folder = File("src/main/java/com/dd3boh/outertune")
@@ -74,21 +75,20 @@ class RoomButtonStaysTest {
             "if (roomBeforeMenu) {\n                    roomCircle()",
             "menuCircle()",
         )
-        // Connected's row: the room's segment right before the menu with next-013's shapes, centred with the others.
+        // Connected's row holds the room's segment only in a small player (roomInRow): right before the menu with
+        // next-013's shapes, centred with the others.
         assertInOrder(
             connectedRow,
             "if (queueLayout.queueButton) queueSegment()",
             "rowPins.forEachIndexed",
-            "if (roomBeforeMenu) roomSegment(rowPins.isEmpty() && !queueLayout.queueButton)",
+            "if (rowRoomBeforeMenu) roomSegment(rowPins.isEmpty() && !queueLayout.queueButton)",
             "contentDescription = stringResource(R.string.options)",
         )
-        assertTrue("shape = connectedShape(first = !roomAtFreeEnd, last = false)" in connectedRow)
-        assertTrue("connectedShape(first = i == 0 && !queueLayout.queueButton && !roomAtFreeEnd, last = false)" in connectedRow)
-        assertTrue("connectedShape(first = rowPins.isEmpty() && !inRoom && !queueLayout.queueButton, last = true)" in connectedRow)
-        // Hung only with the flag: off, CentredRow lays the row out as next-013 did.
-        assertTrue("val roomHangs = roomAtFreeEnd && !compactPlayer" in connectedRow)
-        assertTrue("hangingFirst = roomHangs," in connectedRow)
-        assertEquals("hangingFirst is given in one place", 1, Regex("""hangingFirst = """).findAll(player).count())
+        assertTrue("shape = connectedShape(first = !rowRoomFirst, last = false)" in connectedRow)
+        assertTrue("connectedShape(first = i == 0 && !queueLayout.queueButton && !rowRoomFirst, last = false)" in connectedRow)
+        assertTrue("connectedShape(first = rowPins.isEmpty() && !roomInRow && !queueLayout.queueButton, last = true)" in connectedRow)
+        // The row never hangs the room any more: the normal player has it by the title, a small player counts it in.
+        assertEquals("hangingFirst is asked for nowhere", 0, Regex("""hangingFirst = """).findAll(player).count())
         // One circle and one segment, each drawn in the two places the flag chooses between.
         assertEquals(2, Regex("""roomCircle\(\)""").findAll(classicRow).count())
         assertEquals(1, Regex("""R\.string\.together_in_room""").findAll(connectedRow).count())
@@ -112,7 +112,27 @@ class RoomButtonStaysTest {
             "classicPins(queueCircle = queueLayout.queueButton)",
             "menuCircle()",
         )
-        assertInOrder(connectedRow, "if (roomAtFreeEnd) roomSegment(true)", "if (queueLayout.queueButton) queueSegment()", "rowPins.forEachIndexed")
+        assertInOrder(connectedRow, "if (rowRoomFirst) roomSegment(true)", "if (queueLayout.queueButton) queueSegment()", "rowPins.forEachIndexed")
+    }
+
+    @Test
+    fun `in Connected the room's button sits by the title at the pair's free end, and the row under the controls never takes it`() {
+        // His pick of 19 Nov 2026, in every build; a small player keeps it in its row, counted in with the others.
+        assertTrue("val roomByTitle = inRoom && !compactPlayer" in player)
+        val pair = player.substringAfter("val connectedButtons: @Composable RowScope.() -> Unit = {").substringBefore("val actionButtons")
+        assertInOrder(
+            pair,
+            "if (roomByTitle) {",
+            "contentDescription = stringResource(R.string.together_in_room)",
+            "shape = connectedShape(first = true, last = titlePins.isEmpty())",
+            "onClick = { showRoom = true }",
+            "titlePins.forEachIndexed",
+        )
+        // Share and like keep their shapes' outer ends where they were: the room takes the pair's start.
+        assertTrue("titleSegment(pin, connectedShape(first = i == 0 && !roomByTitle, last = i == titlePins.lastIndex))" in pair)
+        assertTrue("val roomInRow = inRoom && !roomByTitle" in connectedRow)
+        assertTrue("val rowRoomFirst = roomAtFreeEnd && roomInRow" in connectedRow)
+        assertTrue("val rowRoomBeforeMenu = roomBeforeMenu && roomInRow" in connectedRow)
     }
 
     @Test
