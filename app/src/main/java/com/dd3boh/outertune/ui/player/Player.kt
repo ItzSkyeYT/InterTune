@@ -1663,8 +1663,11 @@ fun BottomSheetPlayer(
                                         .align(Alignment.Center)
                                         .named(shuffleName(shuffleModeEnabled)),
                                     color = onBackgroundColor,
-                                    enabled = playerConnection.player.currentMediaItem != null,
+                                    // After a cold start the player holds nothing and shows the saved queue: the
+                                    // first tap loads it, as skip and play do, and as the queue's own bar does (#127).
+                                    // Read straight from the player, the button stayed greyed out until play.
                                     onClick = {
+                                        playerConnection.loadQueueIfEmpty()
                                         playerConnection.triggerShuffle()
                                         haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
                                     }
@@ -1696,9 +1699,8 @@ fun BottomSheetPlayer(
                                             .align(Alignment.Center)
                                             .named(seekBackName()),
                                         color = onBackgroundColor,
-                                        enabled = playerConnection.player.currentMediaItem != null,
                                         onClick = {
-                                            playerConnection.player.seekTo(playerConnection.player.currentPosition - seekIncrement.millisec)
+                                            playerConnection.loadQueueIfEmpty().let { it.seekTo(it.currentPosition - seekIncrement.millisec) }
                                         }
                                     )
                                 }
@@ -1743,11 +1745,10 @@ fun BottomSheetPlayer(
                                             .align(Alignment.Center)
                                             .named(seekForwardName()),
                                         color = onBackgroundColor,
-                                        enabled = playerConnection.player.currentMediaItem != null,
                                         onClick = {
                                             //ExoPlayer seek increment can only be set in builder
                                             //playerConnection.player.seekForward()
-                                            playerConnection.player.seekTo(playerConnection.player.currentPosition + seekIncrement.millisec)
+                                            playerConnection.loadQueueIfEmpty().let { it.seekTo(it.currentPosition + seekIncrement.millisec) }
                                         }
                                     )
                                 }
@@ -1783,7 +1784,9 @@ fun BottomSheetPlayer(
                                         .align(Alignment.Center)
                                         .named(repeatName(repeatMode)),
                                     color = onBackgroundColor,
-                                    enabled = playerConnection.player.currentMediaItem != null,
+                                    // A setting of the player's: an empty one takes it too, and loading the saved queue
+                                    // leaves it as it is.
+                                    enabled = true,
                                     onClick = {
                                         playerConnection.player.toggleRepeatMode()
                                         haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
