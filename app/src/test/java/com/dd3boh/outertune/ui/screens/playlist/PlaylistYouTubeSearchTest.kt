@@ -185,8 +185,8 @@ class PlaylistYouTubeSearchTest {
     }
 
     @Test
-    fun `the flag is held back and there is no new text`() {
-        assertTrue("val PLAYLIST_YT_SEARCH = BuildConfig.PREVIEW_FEATURES" in code("constants/Unreleased.kt"))
+    fun `on for everyone in 0_13, and there is no new text`() {
+        assertTrue("val PLAYLIST_YT_SEARCH = true" in code("constants/Unreleased.kt"))
         val english = File("src/main/res/values/strings.xml").readText()
         assertTrue("<string name=\"search_yt_music\">Search YouTube Music…</string>" in english)
         // Read once, in code: comments that name it aside.

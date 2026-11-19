@@ -182,9 +182,9 @@ class LocalRemovePlacesTest {
     }
 
     @Test
-    fun `the flag is held back, and its words are held from translators, short, in English and French`() {
+    fun `on for everyone in 0_13, and its words are still held from translators, short, in English and French`() {
         val flags = code("constants/Unreleased.kt")
-        assertTrue("val LOCAL_REMOVE = BuildConfig.PREVIEW_FEATURES" in flags)
+        assertTrue("val LOCAL_REMOVE = true" in flags)
         val english = File("src/main/res/values/strings-ot.xml").readText()
         val french = File("src/main/res/values-fr/strings-ot.xml").readText()
         val words = mapOf(

@@ -41,9 +41,9 @@ class RepeatLitBoxTest {
     }
 
     @Test
-    fun `held back, a release keeps the grey of 5 Nov and no box`() {
+    fun `on for everyone in 0_13, and with the flag off the grey of 5 Nov and no box`() {
         val flags = File("src/main/java/com/dd3boh/outertune/constants/Unreleased.kt").readText()
-        assertTrue("val REPEAT_LIT_BOX = BuildConfig.PREVIEW_FEATURES" in flags)
+        assertTrue("val REPEAT_LIT_BOX = true" in flags)
         val row = Color(0xFFE5E2E1)
         for (mode in listOf(Player.REPEAT_MODE_OFF, Player.REPEAT_MODE_ALL, Player.REPEAT_MODE_ONE)) {
             assertFalse(RepeatLook.lit(mode, litBox = false))
