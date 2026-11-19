@@ -1,0 +1,53 @@
+/*
+ * Copyright (C) 2026 InterTune
+ *
+ * SPDX-License-Identifier: GPL-3.0
+ */
+
+package com.dd3boh.outertune.ui
+
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
+import org.junit.Test
+import java.io.File
+
+/**
+ * Buttons TalkBack only called "Button", found by the walks on the 0.13 integration (19 Nov 2026): the minus and plus of
+ * Tempo and Pitch (player menu > Advanced), and the add buttons of an empty playlist's own search. And the playlist
+ * search's tick, which said "Add to playlist" over a song already there. Each now says what it does or what it means.
+ */
+class TalkBackWordsTest {
+    private fun source(path: String) = File("src/main/java/com/dd3boh/outertune/$path").readText()
+
+    @Test
+    fun `tempo and pitch's minus and plus say what they do`() {
+        val menu = source("ui/menu/PlayerMenu.kt")
+        val adjuster = menu.substringAfter("fun <T : Comparable<T>> ValueAdjuster(")
+        assertTrue(adjuster.contains("contentDescription = downName"))
+        assertTrue(adjuster.contains("contentDescription = upName"))
+        val dialog = menu.substringAfter("fun PitchTempoDialog(").substringBefore("internal val TEMPO_STEPS")
+        assertTrue(dialog.contains("downName = stringResource(R.string.tempo_slower),"))
+        assertTrue(dialog.contains("upName = stringResource(R.string.tempo_faster),"))
+        assertTrue(dialog.contains("downName = stringResource(R.string.pitch_lower),"))
+        assertTrue(dialog.contains("upName = stringResource(R.string.pitch_higher),"))
+        // Held from translators like the line's other new words, French beside them.
+        val english = File("src/main/res/values/strings-ot.xml").readText()
+        val french = File("src/main/res/values-fr/strings-ot.xml").readText()
+        for (name in listOf("tempo_slower", "tempo_faster", "pitch_lower", "pitch_higher")) {
+            assertTrue(name, english.contains("<string name=\"$name\" translatable=\"false\">"))
+            assertTrue(name, french.contains("<string name=\"$name\">"))
+        }
+    }
+
+    @Test
+    fun `a playlist's add buttons say add, and their tick says the song is already there`() {
+        val words = "if (added) R.string.duplicates_description_single else R.string.add_to_playlist"
+        val empty = source("ui/screens/playlist/LocalPlaylistScreen.kt")
+            .substringAfter("items(items = addResults, key = { \"add_\" + it.id })").take(1200)
+        assertTrue(empty.contains(words))
+        assertFalse(empty.substringBefore("modifier = Modifier.clickable").contains("contentDescription = null"))
+        val search = source("ui/screens/playlist/PlaylistYouTubeSearch.kt")
+        assertEquals(1, Regex(Regex.escape(words)).findAll(search).count())
+    }
+}

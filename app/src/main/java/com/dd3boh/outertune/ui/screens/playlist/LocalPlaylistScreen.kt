@@ -698,7 +698,10 @@ fun LocalPlaylistScreen(
                                 ) {
                                     Icon(
                                         imageVector = if (added) Icons.Rounded.Check else Icons.Rounded.Add,
-                                        contentDescription = null,
+                                        // TalkBack said only "Button" here (the walks of 19 Nov 2026).
+                                        contentDescription = stringResource(
+                                            if (added) R.string.duplicates_description_single else R.string.add_to_playlist
+                                        ),
                                     )
                                 }
                             },

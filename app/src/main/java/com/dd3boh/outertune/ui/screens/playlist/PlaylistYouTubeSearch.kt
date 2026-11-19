@@ -140,7 +140,10 @@ fun LazyListScope.playlistYouTubeResults(
                 ) {
                     Icon(
                         imageVector = if (added) Icons.Rounded.Check else Icons.Rounded.Add,
-                        contentDescription = stringResource(R.string.add_to_playlist),
+                        // The tick says what it means, not "Add to playlist" over a song already there.
+                        contentDescription = stringResource(
+                            if (added) R.string.duplicates_description_single else R.string.add_to_playlist
+                        ),
                     )
                 }
                 IconButton(

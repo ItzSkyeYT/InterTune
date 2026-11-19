@@ -111,7 +111,8 @@ class PlaylistYouTubeSearchTest {
         val trailing = rows.substringAfter("trailingContent = {").substringBefore("modifier = Modifier")
         assertTrue(trailing, "enabled = !added," in trailing)
         assertTrue(trailing, "imageVector = if (added) Icons.Rounded.Check else Icons.Rounded.Add," in trailing)
-        assertTrue(trailing, "contentDescription = stringResource(R.string.add_to_playlist)," in trailing)
+        // TalkBack hears what the button means now: a tick over a song already there no longer says "Add to playlist".
+        assertTrue(trailing, "if (added) R.string.duplicates_description_single else R.string.add_to_playlist" in trailing)
         assertTrue(trailing, "Icons.Rounded.MoreVert," in trailing)
         assertTrue(trailing.indexOf("Icons.Rounded.Add") < trailing.indexOf("Icons.Rounded.MoreVert"))
         assertTrue(rows, "items(items = results, key = { \"yt_\" + it.id })" in rows)

@@ -697,6 +697,8 @@ fun PitchTempoDialog(
                         updatePlaybackParameters()
                     },
                     valueText = { "x$it" },
+                    downName = stringResource(R.string.tempo_slower),
+                    upName = stringResource(R.string.tempo_faster),
                     modifier = if (linked) Modifier else Modifier.padding(bottom = 12.dp)
                 )
                 if (!linked) ValueAdjuster(
@@ -707,7 +709,9 @@ fun PitchTempoDialog(
                         transposeValue = it
                         updatePlaybackParameters()
                     },
-                    valueText = { "${if (it > 0) "+" else ""}$it" }
+                    valueText = { "${if (it > 0) "+" else ""}$it" },
+                    downName = stringResource(R.string.pitch_lower),
+                    upName = stringResource(R.string.pitch_higher),
                 )
             }
         }
@@ -736,6 +740,9 @@ fun <T : Comparable<T>> ValueAdjuster(
     values: List<T>,
     onValueUpdate: (T) -> Unit,
     valueText: (T) -> String,
+    // What TalkBack says for the two buttons, which were only "Button" (the walks of 19 Nov 2026).
+    downName: String,
+    upName: String,
     modifier: Modifier = Modifier,
 ) {
     Row(
@@ -759,7 +766,7 @@ fun <T : Comparable<T>> ValueAdjuster(
         ) {
             Icon(
                 imageVector = Icons.Rounded.RemoveCircleOutline,
-                contentDescription = null
+                contentDescription = downName
             )
         }
 
@@ -779,7 +786,7 @@ fun <T : Comparable<T>> ValueAdjuster(
         ) {
             Icon(
                 imageVector = Icons.Rounded.AddCircleOutline,
-                contentDescription = null
+                contentDescription = upName
             )
         }
     }

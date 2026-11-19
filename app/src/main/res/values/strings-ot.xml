@@ -2919,6 +2919,11 @@ while also allowing users to translate our app as well. New, specific strings to
     <!-- Varispeed (Unreleased.VARISPEED, #225): held from translators until it ships, French beside them. -->
     <string name="varispeed" translatable="false">Varispeed</string>
     <string name="varispeed_description" translatable="false">Faster sounds higher and slower sounds lower, like a record player.</string>
+    <!-- What TalkBack says for the minus and plus of Tempo and Pitch (player menu > Advanced). -->
+    <string name="tempo_slower" translatable="false">Slower</string>
+    <string name="tempo_faster" translatable="false">Faster</string>
+    <string name="pitch_lower" translatable="false">Lower pitch</string>
+    <string name="pitch_higher" translatable="false">Higher pitch</string>
     <string name="search_words_varispeed">pitch, speed, tempo, record player, vinyl, tape, key lock, nightcore, slowed</string>
     <!-- Remove from library on a file of the phone's and Exclude folder on a folder's row of the Folders tab (LocalRemoval, Unreleased.LOCAL_REMOVE): the folder menu's entry (the song's is remove_from_library, as a YouTube song's), and what each says after, beside Undo. Held from translators. -->
     <string name="local_exclude_folder" translatable="false">Exclude folder</string>
