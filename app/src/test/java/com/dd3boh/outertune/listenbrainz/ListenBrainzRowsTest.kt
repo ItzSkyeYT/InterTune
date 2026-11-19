@@ -98,17 +98,23 @@ class ListenBrainzRowsTest {
     }
 
     @Test
-    fun `every text it uses is held from translators, with its French`() {
+    fun `every text it uses is held from translators, with its French, and its search words are open as every search word is`() {
         val english = strings("values")
         val french = strings("values-fr")
         val used = Regex("""R\.string\.(\w+)""").findAll(frag + screen).map { it.groupValues[1] }
             .filter { it.startsWith("listenbrainz") || it == "grp_listenbrainz" }.toSet()
         assertTrue(used.size >= 14)
-        for (name in used + "search_words_listenbrainz") {
+        for (name in used) {
             for ((folder, texts) in listOf("values" to english, "values-fr" to french)) {
                 val text = texts[name] ?: error("$name is not in $folder")
                 assertTrue("$name is open to translators in $folder", "translatable=\"false\"" in text.substringBefore("|"))
             }
+        }
+        // Settings' search words are open to translators even for a held feature (SettingsSearchTest on the 0.13
+        // line, varispeed's the same): they are only words to find a row by, and say nothing a release has not got.
+        for ((folder, texts) in listOf("values" to english, "values-fr" to french)) {
+            val text = texts["search_words_listenbrainz"] ?: error("search_words_listenbrainz is not in $folder")
+            assertFalse("search_words_listenbrainz is held back in $folder", "translatable=\"false\"" in text.substringBefore("|"))
         }
         assertTrue("%1\$s" in french.getValue("listenbrainz_connected_as"))
     }
