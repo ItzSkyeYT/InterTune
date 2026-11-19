@@ -2288,7 +2288,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="battery_follow_phone_now">\"Saver\" now: the phone\'s battery saver is on.</string>
     <!-- The note said twice at most when the phone's battery saver puts the app on Saver (SaverNote, Unreleased.SAVER_NOTE). -->
     <string name="saver_note_title" translatable="false">Battery saver is on</string>
-    <string name="saver_note_body" translatable="false">InterTune saves battery along with it. Word-by-word lyrics, the player\'s moving background and sound effects (not the equalizer) pause, the theme turns black and syncs wait for Wi-Fi. It all comes back when the saver goes off.</string>
+    <string name="saver_note_body" translatable="false">InterTune saves battery along with it. The player\'s moving background and sound effects (not the equalizer) pause, the theme turns black and syncs wait for Wi-Fi. It all comes back when the saver goes off.</string>
     <!-- The search at the top of Settings (SettingsSearch.kt, Unreleased.SETTINGS_SEARCH). %1$s is what was typed. -->
     <string name="search_settings">Search settings</string>
     <string name="search_settings_none">No setting matches \"%1$s\".</string>
@@ -2892,7 +2892,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="open_file_location" translatable="false">Open file location</string>
     <string name="open_file_location_failed" translatable="false">Couldn\'t open the folder</string>
     <string name="no_artist_found" translatable="false">No artist found</string>
-    <string name="lyrics_word_by_word_saver" translatable="false">Off while Android\'s battery saver is on.</string>
+    <string name="lyrics_word_by_word_saver" translatable="false">Off while \"Battery use\" is on \"Saver\".</string>
     <string name="order_move_up" translatable="false">Move up</string>
     <string name="order_move_down" translatable="false">Move down</string>
     <string name="dont_play_state" translatable="false">Plays only when you pick it</string>

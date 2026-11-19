@@ -150,6 +150,15 @@ object BatteryUse {
     fun proximity(chosen: Boolean, mode: BatteryMode): Boolean = chosen && mode != BatteryMode.SAVER
 
     /**
+     * Whether word-by-word lyrics stand still: only with Saver [picked] by hand in Battery use, the mode
+     * stored, not the one in force. They draw only while the lyrics are open, so the phone's own battery
+     * saver, which puts the app on Saver, leaves them on (his pick of 19 Nov 2026, after Ti-Die asked to
+     * keep them); before, the phone's saver alone paused them.
+     */
+    fun holdsWordByWord(picked: BatteryMode, offered: Boolean = Unreleased.BATTERY_MODES): Boolean =
+        offered && picked == BatteryMode.SAVER
+
+    /**
      * Whether the song goes to the phone's low-power audio path (offload): in Saver, or wherever
      * the developer's switch asks for it, and only while nothing needs the app's own path. Skip
      * silence, another speed or pitch, a sleep timer counting down and every sound effect do.

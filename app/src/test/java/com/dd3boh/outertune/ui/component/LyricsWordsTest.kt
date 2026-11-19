@@ -292,7 +292,7 @@ class LyricsWordsTest {
         assertTrue(words.contains("private val halfInk = Paint().apply { alpha = LyricsWords.UNSUNG }"))
         assertEquals(0.5f, LyricsWords.UNSUNG, 0f)
         // C's size, its lines that follow later, its measuring of the music and its nod: all only with C picked.
-        assertTrue(lyrics.contains("val carried = wordsLook == LyricsWordsLook.C && isSynced && lyricsFancy && !context.isPowerSaver()"))
+        assertTrue(lyrics.contains("val carried = wordsLook == LyricsWordsLook.C && isSynced && lyricsFancy && !wordsHeld"))
         assertTrue(lyrics.contains("val aroundSize = if (!carried) null else animateFloatAsState("))
         assertTrue(lyrics.contains("if (aroundSize == null) Modifier else Modifier.graphicsLayer {"))
         assertEquals(2, Regex("""carry\.takeIf \{ carried \}""").findAll(lyrics).count())
