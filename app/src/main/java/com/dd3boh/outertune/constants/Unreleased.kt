@@ -1149,4 +1149,18 @@ object Unreleased {
      * Held back as the line's held features are: the debug app, the Preview and the Tester app have it.
      */
     val VARISPEED = BuildConfig.PREVIEW_FEATURES
+
+    /**
+     * Remove a file of the phone's from the library, or a whole folder (his pick of 15 Nov 2026 for 0.13,
+     * experiments/mocks-1115/1-local-songs, A): Remove from library in a local song's menu, where a YouTube song has
+     * it and with its words, and Exclude folder last in the menu of a folder's row on the Folders tab. Both put the
+     * path on Excluded scan paths, so no scan brings it back, and take the songs out of the library at once; the
+     * files stay. A snackbar says so, with Undo. One comes back by taking its line off that list, under Settings >
+     * Local media > Configure scan locations, and scanning (LocalRemoval).
+     *
+     * Its three texts (local_exclude_folder, local_removed, local_folder_excluded) are held from translators, French
+     * beside them. Without the flag the menus are as they were. To ship: set this to true and add its name to
+     * ReleasedFlagsTest.
+     */
+    val LOCAL_REMOVE = BuildConfig.PREVIEW_FEATURES
 }

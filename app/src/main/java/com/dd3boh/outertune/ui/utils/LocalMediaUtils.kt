@@ -25,7 +25,14 @@ val MEDIA_PERMISSION_LEVEL =
 const val STORAGE_ROOT = "/storage/"
 val ARTIST_SEPARATORS = Regex("\\s*;\\s*|\\s*ft\\.\\s*|\\s*feat\\.\\s*|\\s*&\\s*|\\s*,\\s*", RegexOption.IGNORE_CASE)
 val uninitializedDirectoryTree = DirectoryTree(STORAGE_ROOT, CulmSongs(0))
-private var cachedDirectoryTree: ArrayList<DirectoryTree> = ArrayList()
+private val cachedDirectoryTree: ArrayList<DirectoryTree> = ArrayList()
+
+/**
+ * Held by every reader and writer of [cachedDirectoryTree]: a removal or an Undo clears it on one thread
+ * (LocalRemoval) while a folder reads or fills it on another, and a plain list read during a clear closed the app
+ * (ConcurrentModificationException).
+ */
+private val dtCacheLock = Any()
 
 /**
  * ==========================
@@ -38,38 +45,44 @@ private var cachedDirectoryTree: ArrayList<DirectoryTree> = ArrayList()
  * Get cached DirectoryTree
  */
 fun getDirectoryTree(path: String): DirectoryTree {
-    val yes = cachedDirectoryTree.firstOrNull { fixFilePath(it.getFullPath()) == fixFilePath(path) }
+    synchronized(dtCacheLock) {
+        val yes = cachedDirectoryTree.firstOrNull { fixFilePath(it.getFullPath()) == fixFilePath(path) }
 
-    if (yes != null) {
-        return yes
+        if (yes != null) {
+            return yes
+        }
+        return uninitializedDirectoryTree
     }
-    return uninitializedDirectoryTree
 }
 
 /**
  * Cache a DirectoryTree
  */
 fun cacheDirectoryTree(new: DirectoryTree) {
-    // initiate with root's subdirs
-    if (cachedDirectoryTree.isEmpty() && fixFilePath(new.getFullPath()) == STORAGE_ROOT) {
-        val dirs = new.getFlattenedSubdirs(true)
-        dirs.forEach { it.isSkeleton = !it.files.isEmpty() }
-        cachedDirectoryTree.addAll(dirs)
-        return
-    }
+    synchronized(dtCacheLock) {
+        // initiate with root's subdirs
+        if (cachedDirectoryTree.isEmpty() && fixFilePath(new.getFullPath()) == STORAGE_ROOT) {
+            val dirs = new.getFlattenedSubdirs(true)
+            dirs.forEach { it.isSkeleton = !it.files.isEmpty() }
+            cachedDirectoryTree.addAll(dirs)
+            return
+        }
 
-    // update structure
-    val match = cachedDirectoryTree.firstOrNull { fixFilePath(it.getFullPath()) == fixFilePath(new.getFullPath()) }
-    if (match == null) {
-        cachedDirectoryTree.add(new)
-    } else {
-        match.subdirs = new.subdirs
-        match.files = new.files
-        match.isSkeleton = new.isSkeleton
+        // update structure
+        val match = cachedDirectoryTree.firstOrNull { fixFilePath(it.getFullPath()) == fixFilePath(new.getFullPath()) }
+        if (match == null) {
+            cachedDirectoryTree.add(new)
+        } else {
+            match.subdirs = new.subdirs
+            match.files = new.files
+            match.isSkeleton = new.isSkeleton
+        }
     }
 }
 
+/** Drops the trees kept. The folders' numbers go on from where they were (DirectoryTree.uid): a tree on screen keeps its own. */
 fun clearDtCache() {
-    cachedDirectoryTree.clear()
-    DirectoryTree.directoryUID = 0
+    synchronized(dtCacheLock) {
+        cachedDirectoryTree.clear()
+    }
 }
