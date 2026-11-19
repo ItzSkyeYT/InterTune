@@ -198,7 +198,7 @@ Every change in detail, and why this fork exists: [docs/FEATURES.md](https://git
 What's being worked on, roughly in order. `[x]` is done, `[~]` is built and being tested, `[ ]` is still to do. Nothing here has a date, and plans can change. Ideas are welcome in #feature-requests on [Discord](https://discord.gg/68jmqhMjXk) or as a [GitHub issue](https://github.com/ItzSkyeYT/InterTune/issues/new/choose).
 
 <details>
-<summary><b>Next: 0.13</b> · 9 of 38 done, 24 to test</summary>
+<summary><b>Next: 0.13</b> · 14 of 44 done, 25 to test</summary>
 
 `[~]` Listen together: one person plays, friends follow the same song in real time\
 `[x]` AirPlay speakers in the cast list\
@@ -209,7 +209,7 @@ What's being worked on, roughly in order. `[x]` is done, `[~]` is built and bein
 `[~]` Swipe a song out of the queue, and Undo brings it back ([#141](https://github.com/ItzSkyeYT/InterTune/issues/141))\
 `[~]` Android Auto's search finds songs on YouTube Music, not only in your library ([#112](https://github.com/ItzSkyeYT/InterTune/issues/112))\
 `[~]` Block an artist\
-`[~]` Your playlists in your own order, dragged where you want them as well as playlist folders\
+`[~]` Your playlists in your own order, dragged where you want them\
 `[~]` What's playing works offline and names the song once you're back online ([#48](https://github.com/ItzSkyeYT/InterTune/issues/48))\
 `[~]` Albums carry on into a radio when they end\
 `[~]` A sleep timer with more ways to stop: at a clock time, or at the end of the song, the album or the queue\
@@ -237,6 +237,12 @@ What's being worked on, roughly in order. `[x]` is done, `[~]` is built and bein
 `[ ]` Better word by word lyrics\
 `[~]` Albums and artists in your own order too\
 `[ ]` Match your library from another service by logging in to it\
+`[x]` Repeat on a lit box when it's on, so off no longer looks greyed out ([#182](https://github.com/ItzSkyeYT/InterTune/issues/182))\
+`[x]` The cast button at the top of the player, and a small badge on the mini player during a cast or a room\
+`[x]` Remove a song on your phone from the library, or leave out a whole folder, with Undo\
+`[x]` A playlist's search looks on YouTube Music too, with an add button on each song\
+`[x]` Varispeed: the pitch follows the speed, like a record ([#225](https://github.com/ItzSkyeYT/InterTune/issues/225))\
+`[~]` More haptic feedback ([#176](https://github.com/ItzSkyeYT/InterTune/issues/176))\
 `[x]` Bring your library over from a Metrolist backup, from its Android app or its new one
 
 </details>
@@ -249,11 +255,11 @@ What's being worked on, roughly in order. `[x]` is done, `[~]` is built and bein
 `[ ]` Lyrics in big lines, each singer on their own side, with a menu to fix them or pick where they come from\
 `[ ]` The queue: radio choices as chips, and a lock\
 `[ ]` Roomier settings, and one page for the services InterTune connects to\
-`[ ]` ListenBrainz ([#159](https://github.com/ItzSkyeYT/InterTune/issues/159))\
+`[~]` ListenBrainz ([#159](https://github.com/ItzSkyeYT/InterTune/issues/159))\
+`[ ]` Playlist folders\
 `[ ]` Music videos ([#96](https://github.com/ItzSkyeYT/InterTune/issues/96))\
 `[ ]` Bring your library over from InnerTune, ViMusic, SimpMusic or Kreate\
 `[~]` A thumbs down that YouTube Music hears too ([#171](https://github.com/ItzSkyeYT/InterTune/issues/171))\
-`[~]` More haptic feedback ([#176](https://github.com/ItzSkyeYT/InterTune/issues/176))\
 `[ ]` Unison as a lyrics source ([#145](https://github.com/ItzSkyeYT/InterTune/issues/145))\
 `[ ]` Lyrics translated by AI with your own key, if you turn it on ([#177](https://github.com/ItzSkyeYT/InterTune/issues/177))\
 `[ ]` A page with every poll, to see or change what you answered\
