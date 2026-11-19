@@ -2697,6 +2697,9 @@
     <string name="open_file_location_failed" translatable="false">Impossible d\'ouvrir le dossier</string>
     <string name="no_artist_found" translatable="false">Aucun artiste trouvé</string>
     <string name="lyrics_word_by_word_saver" translatable="false">Désactivé tant que l\'économiseur de batterie d\'Android est activé.</string>
+    <string name="order_move_up" translatable="false">Déplacer vers le haut</string>
+    <string name="order_move_down" translatable="false">Déplacer vers le bas</string>
+    <string name="dont_play_state" translatable="false">Joué seulement si vous le choisissez</string>
     <string name="metrolist_import">Importer depuis Metrolist</string>
     <string name="metrolist_import_description">Titres aimés, playlists et écoutes d\'une sauvegarde Metrolist</string>
     <string name="metrolist_import_reading">Lecture de la sauvegarde</string>

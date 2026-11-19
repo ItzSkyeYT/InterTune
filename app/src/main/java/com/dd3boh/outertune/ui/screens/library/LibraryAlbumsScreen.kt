@@ -75,6 +75,7 @@ import com.dd3boh.outertune.ui.component.LazyColumnScrollbar
 import com.dd3boh.outertune.ui.component.LazyVerticalGridScrollbar
 import com.dd3boh.outertune.ui.component.LibraryAlbumGridItem
 import com.dd3boh.outertune.ui.component.LibraryAlbumListItem
+import com.dd3boh.outertune.ui.component.OrderMoves
 import com.dd3boh.outertune.ui.component.ScrollToTopManager
 import com.dd3boh.outertune.ui.component.SortHeader
 import com.dd3boh.outertune.ui.component.StoragePermissionBanner
@@ -142,6 +143,25 @@ fun LibraryAlbumsScreen(
     val reorderableListState = rememberReorderableLazyListState(lazyListState) { from, to -> moveRow(from.key, to.key) }
     val reorderableGridState = rememberReorderableLazyGridState(lazyGridState) { from, to -> moveRow(from.key, to.key) }
     val dragging = reorderableListState.isAnyItemDragging || reorderableGridState.isAnyItemDragging
+    // Where a drag ends, and after each Move up or Move down of TalkBack's: the order shown is kept, unless it is
+    // the one [kept] already.
+    fun keepShown(kept: List<String>): Boolean {
+        val shown = dragged.map { it.id }
+        if (!customOrder || shown == kept || shown.toSet() != kept.toSet()) return false
+        droppedOrder = shown
+        viewModel.saveCustomOrder(shown)
+        return true
+    }
+    // TalkBack's way to arrange them (OrderMoves): one place, as a drag over the neighbour, kept as a drop is.
+    val movesOf: (String) -> OrderMoves = { id ->
+        OrderMoves.of(dragged.indexOfFirst { it.id == id }, dragged.size) { places ->
+            val to = dragged.indexOfFirst { it.id == id } + places
+            if (to in dragged.indices) {
+                moveRow(id, dragged[to].id)
+                keepShown(droppedOrder ?: albums.orEmpty().map { it.id })
+            }
+        }
+    }
     LaunchedEffect(albums, dragging) {
         if (dragging) {
             wasDragging = true
@@ -151,12 +171,7 @@ fun LibraryAlbumsScreen(
         val ids = listed.map { it.id }
         if (wasDragging) {
             wasDragging = false
-            val shown = dragged.map { it.id }
-            if (customOrder && shown != ids && shown.toSet() == ids.toSet()) {
-                droppedOrder = shown
-                viewModel.saveCustomOrder(shown)
-                return@LaunchedEffect
-            }
+            if (keepShown(ids)) return@LaunchedEffect
         }
         // The rows stay where they were dropped until the order kept comes back, not the old one.
         val waiting = droppedOrder
@@ -367,6 +382,7 @@ fun LibraryAlbumsScreen(
                                         isActive = album.id == mediaMetadata?.album?.id,
                                         isPlaying = isPlaying,
                                         dragHandle = Modifier.draggableHandle(),
+                                        moves = movesOf(album.id),
                                     )
                                 }
                             } else {
@@ -440,6 +456,7 @@ fun LibraryAlbumsScreen(
                                         isActive = album.id == mediaMetadata?.album?.id,
                                         isPlaying = isPlaying,
                                         dragHandle = Modifier.draggableHandle(),
+                                        moves = movesOf(album.id),
                                     )
                                 }
                             } else {

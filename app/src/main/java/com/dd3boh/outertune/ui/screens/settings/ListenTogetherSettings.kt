@@ -30,6 +30,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.dd3boh.outertune.R
@@ -135,10 +138,11 @@ private fun SliderSetting(
     onDone: (Int) -> Unit,
 ) {
     var moving by remember(value) { mutableFloatStateOf(value.coerceIn(range).toFloat()) }
+    val now = shown(moving.roundToInt())
     Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
         Text(title, style = MaterialTheme.typography.titleMedium)
         Text(
-            shown(moving.roundToInt()),
+            now,
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.primary,
         )
@@ -148,6 +152,11 @@ private fun SliderSetting(
             onValueChangeFinished = { onDone(moving.roundToInt()) },
             valueRange = range.first.toFloat()..range.last.toFloat(),
             steps = (range.last - range.first) / step - 1,
+            // For TalkBack, the setting's name and the value as shown ("80 ms"), not a percent of the range.
+            modifier = Modifier.semantics {
+                contentDescription = title
+                stateDescription = now
+            },
         )
         Text(
             explanation,

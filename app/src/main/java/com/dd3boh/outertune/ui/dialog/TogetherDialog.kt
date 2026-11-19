@@ -112,6 +112,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
@@ -846,8 +847,15 @@ private fun SyncMeter(driftMs: Long?, locked: Boolean, toleranceMs: Long) {
     val track = MaterialTheme.colorScheme.outlineVariant
     val band = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
     val tick = MaterialTheme.colorScheme.outline
-    Column(Modifier.fillMaxWidth()) {
+    // One stop for TalkBack: the line above, then the side the dot is on, in words. Behind or ahead was only where
+    // the dot sat, and the two words under the line were read the same whatever it did.
+    Column(Modifier.fillMaxWidth().semantics(mergeDescendants = true) { }) {
         val apart = abs(driftMs ?: 0L).toInt()
+        val side = when {
+            (driftMs ?: 0L) > 0L -> stringResource(R.string.together_behind)
+            (driftMs ?: 0L) < 0L -> stringResource(R.string.together_ahead)
+            else -> null
+        }
         Text(
             when {
                 driftMs == null -> stringResource(R.string.together_following)
@@ -861,6 +869,7 @@ private fun SyncMeter(driftMs: Long?, locked: Boolean, toleranceMs: Long) {
             Modifier
                 .fillMaxWidth()
                 .height(18.dp)
+                .semantics { if (side != null) contentDescription = side }
         ) {
             val y = size.height / 2
             val ends = 7.dp.toPx()
@@ -878,12 +887,15 @@ private fun SyncMeter(driftMs: Long?, locked: Boolean, toleranceMs: Long) {
                 stringResource(R.string.together_behind),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                // Drawn only, as its pair: TalkBack hears the side the dot is on from the line's own words (side).
+                modifier = Modifier.clearAndSetSemantics { },
             )
             Spacer(Modifier.weight(1f))
             Text(
                 stringResource(R.string.together_ahead),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.clearAndSetSemantics { },
             )
         }
     }
@@ -1051,11 +1063,12 @@ private fun Person(
     onPress: (() -> Unit)? = null,
 ) {
     val ring = BottomSheetDefaults.ContainerColor
+    // One stop for TalkBack per person, as their name, Host and the phone's name; the tap that opens the menu says so.
     val pressable = if (onPress != null) {
         Modifier
             .clip(RoundedCornerShape(12.dp))
-            .combinedClickable(onClick = onPress, onLongClick = onPress)
-    } else Modifier
+            .combinedClickable(onClickLabel = stringResource(R.string.options), onClick = onPress, onLongClick = onPress)
+    } else Modifier.semantics(mergeDescendants = true) { }
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(76.dp).then(pressable)) {
         Box {
             Box(
@@ -1071,6 +1084,8 @@ private fun Person(
                     initials,
                     style = MaterialTheme.typography.titleMedium,
                     color = if (you) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
+                    // Drawn only: TalkBack read them first, letter by letter, before the name they come from.
+                    modifier = Modifier.clearAndSetSemantics { },
                 )
             }
             if (owner) {

@@ -31,6 +31,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.semantics
 import androidx.navigation.NavController
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.db.entities.Album
@@ -60,6 +64,8 @@ fun LibraryArtistListItem(
     modifier: Modifier = Modifier,
     // In an order of your own, unlocked: the handle the row is dragged by.
     dragHandle: Modifier? = null,
+    // With it, TalkBack's way to move the row: Move up and Move down.
+    moves: OrderMoves? = null,
 ) = ArtistListItem(
     artist = artist,
     trailingContent = {
@@ -84,6 +90,7 @@ fun LibraryArtistListItem(
         if (dragHandle != null) RowDragHandle(dragHandle)
     },
     modifier = modifier
+        .orderMoves(moves)
         .fillMaxWidth()
         .clickable {
             navController.navigate("artist/${artist.id}")
@@ -100,7 +107,9 @@ fun LibraryArtistGridItem(
     modifier: Modifier = Modifier,
     // In an order of your own, unlocked: the handle the tile is dragged by, on its picture's corner.
     dragHandle: Modifier? = null,
-) = TileWithDragHandle(modifier, dragHandle) { tile ->
+    // With it, TalkBack's way to move the tile: Move up and Move down.
+    moves: OrderMoves? = null,
+) = TileWithDragHandle(modifier, dragHandle, moves) { tile ->
     ArtistGridItem(
         artist = artist,
         fillMaxWidth = true,
@@ -133,6 +142,8 @@ fun LibraryAlbumListItem(
     isPlaying: Boolean = false,
     // In an order of your own, unlocked: the handle the row is dragged by.
     dragHandle: Modifier? = null,
+    // With it, TalkBack's way to move the row: Move up and Move down.
+    moves: OrderMoves? = null,
 ) = AlbumListItem(
     album = album,
     isActive = isActive,
@@ -159,6 +170,7 @@ fun LibraryAlbumListItem(
         if (dragHandle != null) RowDragHandle(dragHandle)
     },
     modifier = modifier
+        .orderMoves(moves)
         .fillMaxWidth()
         .clickable {
             navController.navigate("album/${album.id}")
@@ -177,7 +189,9 @@ fun LibraryAlbumGridItem(
     isPlaying: Boolean = false,
     // In an order of your own, unlocked: the handle the tile is dragged by, on its cover's corner.
     dragHandle: Modifier? = null,
-) = TileWithDragHandle(modifier, dragHandle) { tile ->
+    // With it, TalkBack's way to move the tile: Move up and Move down.
+    moves: OrderMoves? = null,
+) = TileWithDragHandle(modifier, dragHandle, moves) { tile ->
     AlbumGridItem(
         album = album,
         isActive = isActive,
@@ -212,6 +226,8 @@ fun LibraryPlaylistListItem(
     modifier: Modifier = Modifier,
     // In an order of your own, unlocked: the handle the row is dragged by, as a playlist's songs.
     dragHandle: Modifier? = null,
+    // With it, TalkBack's way to move the row: Move up and Move down.
+    moves: OrderMoves? = null,
 ) = PlaylistListItem(
     playlist = playlist,
     trailingContent = {
@@ -267,6 +283,7 @@ fun LibraryPlaylistListItem(
         if (dragHandle != null) RowDragHandle(dragHandle)
     },
     modifier = modifier
+        .orderMoves(moves)
         .fillMaxWidth()
         .clickable {
             navController.navigate(playlist.navigationRoute)
@@ -283,6 +300,8 @@ fun LibraryPlaylistGridItem(
     modifier: Modifier = Modifier,
     // In an order of your own, unlocked: the handle the tile is dragged by, on its cover's corner.
     dragHandle: Modifier? = null,
+    // With it, TalkBack's way to move the tile: Move up and Move down.
+    moves: OrderMoves? = null,
 ) {
     val clicks = Modifier
         .combinedClickable(
@@ -330,7 +349,7 @@ fun LibraryPlaylistGridItem(
                 }
             }
         )
-    TileWithDragHandle(modifier, dragHandle) { tile ->
+    TileWithDragHandle(modifier, dragHandle, moves) { tile ->
         PlaylistGridItem(
             playlist = playlist,
             fillMaxWidth = true,
@@ -341,12 +360,17 @@ fun LibraryPlaylistGridItem(
     }
 }
 
-/** The handle a row is dragged by in an order of your own, after its menu button. */
+/**
+ * The handle a row is dragged by in an order of your own, after its menu button. Not a stop for TalkBack: it was
+ * an unnamed button on every row that did nothing when tapped, and the row itself has Move up and Move down.
+ */
 @Composable
 private fun RowDragHandle(dragHandle: Modifier) {
     IconButton(
         onClick = { },
-        modifier = dragHandle
+        modifier = Modifier
+            .clearAndSetSemantics { }
+            .then(dragHandle)
     ) {
         Icon(
             Icons.Rounded.DragHandle,
@@ -357,16 +381,22 @@ private fun RowDragHandle(dragHandle: Modifier) {
 
 /**
  * A tile of the grid, given the modifier it is laid out with; in an order of your own, unlocked,
- * with the handle it is dragged by on its cover's corner.
+ * with the handle it is dragged by on its cover's corner, and [moves] on the tile, where TalkBack
+ * stops and its tap is.
  */
 @Composable
-private fun TileWithDragHandle(modifier: Modifier, dragHandle: Modifier?, tile: @Composable (Modifier) -> Unit) {
+private fun TileWithDragHandle(
+    modifier: Modifier,
+    dragHandle: Modifier?,
+    moves: OrderMoves?,
+    tile: @Composable (Modifier) -> Unit,
+) {
     if (dragHandle == null) {
         tile(modifier)
         return
     }
     Box(modifier.fillMaxWidth()) {
-        tile(Modifier)
+        tile(Modifier.orderMoves(moves))
         Box(
             contentAlignment = Alignment.Center,
             modifier = Modifier
@@ -374,6 +404,7 @@ private fun TileWithDragHandle(modifier: Modifier, dragHandle: Modifier?, tile: 
                 .padding(14.dp)
                 .size(36.dp)
                 .background(MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.9f), CircleShape)
+                .clearAndSetSemantics { }
                 .then(dragHandle)
         ) {
             Icon(
@@ -382,5 +413,35 @@ private fun TileWithDragHandle(modifier: Modifier, dragHandle: Modifier?, tile: 
                 modifier = Modifier.size(20.dp)
             )
         }
+    }
+}
+
+/**
+ * Move up and Move down: how TalkBack and Switch Access arrange an order of your own, where a finger
+ * drags the handle. Each takes the row or tile one place, as a drag over its neighbour does, and is
+ * null where there is no place to go.
+ */
+class OrderMoves(val up: (() -> Unit)?, val down: (() -> Unit)?) {
+    companion object {
+        /** The moves of the item at [at] among [count] (-1: not listed, so none), each a [step] of -1 or 1. */
+        fun of(at: Int, count: Int, step: (Int) -> Unit): OrderMoves {
+            val up: () -> Unit = { step(-1) }
+            val down: () -> Unit = { step(1) }
+            return OrderMoves(up.takeIf { at in 1 until count }, down.takeIf { at in 0 until count - 1 })
+        }
+    }
+}
+
+/** [moves] as actions TalkBack offers on the row or tile they move; nothing without them. */
+@Composable
+private fun Modifier.orderMoves(moves: OrderMoves?): Modifier {
+    if (moves == null) return this
+    val up = stringResource(R.string.order_move_up)
+    val down = stringResource(R.string.order_move_down)
+    return semantics {
+        customActions = listOfNotNull(
+            moves.up?.let { move -> CustomAccessibilityAction(up) { move(); true } },
+            moves.down?.let { move -> CustomAccessibilityAction(down) { move(); true } },
+        )
     }
 }
