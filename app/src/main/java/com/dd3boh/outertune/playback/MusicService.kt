@@ -1310,6 +1310,10 @@ class MusicService : MediaLibraryService(),
                 val was = before
                 before = now
                 if (now == was || !::exoPlayer.isInitialized) return@collect
+                // The media controls' Dislike reads this list: drawn again now, or a tap that lifted
+                // the song playing (or a lift in its menu or in Exclusions) left it filled until the
+                // next song, and a second tap on it disliked again.
+                if (::mediaSession.isInitialized) updateNotification()
                 val playing = activePlayer.currentMediaItem?.metadata ?: return@collect
                 if (now.covers(playing) && !was.covers(playing)) {
                     runCatching { passOverBlocked(dontPlay = true, asked = true) }.onFailure { Log.w(TAG, "Could not pass over a song not to play", it) }
@@ -2597,6 +2601,8 @@ class MusicService : MediaLibraryService(),
     /**
      * Dislike on the phone's media controls (Unreleased.DISLIKE): what the menus' Dislike does, to the song
      * playing, which is then passed over as any song kept from playing is (toggleDontPlay, DislikePlan).
+     * The button is drawn again by the songs-not-to-play collector in onCreate, once the database has the
+     * change: drawn here, it read the list as it was before the tap.
      */
     fun toggleDislike() {
         if (!Unreleased.DISLIKE) return
@@ -2605,7 +2611,6 @@ class MusicService : MediaLibraryService(),
         val held = ContentFilter.current.dontPlay.has(metadata.id)
         val liked = currentSong.value?.song?.takeIf { it.id == metadata.id }?.liked == true
         toggleDontPlay(this, database, metadata, held, downloadUtil, liked)
-        updateNotification()
     }
 
     fun toggleStartRadio() {
