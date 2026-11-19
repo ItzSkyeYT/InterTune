@@ -50,6 +50,8 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import com.dd3boh.outertune.ui.component.LongPressLabel
 import com.dd3boh.outertune.ui.component.SeekRumble
+import com.dd3boh.outertune.ui.component.hapticsLive
+import com.dd3boh.outertune.ui.component.segmentTick
 import com.dd3boh.outertune.ui.component.tapTick
 import com.dd3boh.outertune.ui.component.rememberSleepTimerState
 import com.dd3boh.outertune.ui.component.openProxySetting
@@ -453,8 +455,10 @@ fun BottomSheetPlayer(
     var duration by rememberSaveable(playbackState, songId) {
         mutableLongStateOf(playerConnection.player.duration)
     }
-    // The seek bar's faint rumble while it is dragged (Unreleased.HAPTICS_MORE, #176).
+    // The seek bar's faint rumble while it is dragged (Unreleased.HAPTICS_MORE, #176), and below Android 14 its
+    // stand-in (segmentTick).
     val seekRumble = remember { SeekRumble() }
+    val tickLive = remember { hapticsLive(context) }
     var sliderPosition by remember {
         mutableStateOf<Long?>(null)
     }
@@ -1529,7 +1533,7 @@ fun BottomSheetPlayer(
                             // A tick for each move was too granular to feel right; one each fortieth of
                             // the bar the finger travels is a faint rumble (#176).
                             if (Unreleased.HAPTICS_MORE && seekRumble.tick(it, shownDuration)) {
-                                haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
+                                haptic.segmentTick(currentView, tickLive, frequent = true)
                             }
                         },
                         onSlideDone = {

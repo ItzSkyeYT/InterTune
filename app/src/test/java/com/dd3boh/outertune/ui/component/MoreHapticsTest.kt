@@ -126,8 +126,32 @@ class MoreHapticsTest {
     fun `the seek bar rumbles while dragged and starts afresh when the finger lifts`() {
         assertTrue("if (Unreleased.HAPTICS_MORE && seekRumble.tick(it, shownDuration)) {" in player)
         assertTrue("onSlideDone = {\n                            seekRumble.reset()" in player)
-        // The tick for each move stays out.
-        assertEquals(1, Regex("""SegmentFrequentTick""").findAll(player.substringAfter("onSlide = {").substringBefore("onKey = ")).count())
+        // The tick for each move stays out: one tick, the rumble's, which below Android 14 is the view's clock tick.
+        val slide = player.substringAfter("onSlide = {").substringBefore("onKey = ")
+        assertEquals(1, Regex("""segmentTick\(""").findAll(slide).count())
+        assertTrue("haptic.segmentTick(currentView, tickLive, frequent = true)" in slide)
+        assertFalse("SegmentFrequentTick" in slide)
+        assertTrue("val tickLive = remember { hapticsLive(context) }" in player)
+    }
+
+    @Test
+    fun `below Android 14 the rumble and the volume bar's landing tick with the view's clock tick, where Compose ticks at all`() {
+        // SEGMENT_TICK and SEGMENT_FREQUENT_TICK are Android 14's; below, Compose sends them to the view all the same,
+        // and Android plays nothing for a constant it does not know.
+        assertEquals(TickWay.COMPOSE, tickWay(34, live = true))
+        assertEquals(TickWay.COMPOSE, tickWay(36, live = false))
+        assertEquals(TickWay.CLOCK, tickWay(33, live = true))
+        assertEquals(TickWay.CLOCK, tickWay(31, live = true))
+        // Where Compose gives no haptics at all, the stand-in gives none either.
+        assertEquals(TickWay.NONE, tickWay(33, live = false))
+        assertEquals(TickWay.NONE, tickWay(29, live = false))
+        val helper = source("ui/component/MoreHaptics.kt")
+        assertTrue("TickWay.COMPOSE -> performHapticFeedback(if (frequent) HapticFeedbackType.SegmentFrequentTick else HapticFeedbackType.SegmentTick)" in helper)
+        assertTrue("TickWay.CLOCK -> view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)" in helper)
+        // Compose 1.9.4's own rule for giving haptics at all (HapticDefaults.isPremiumVibratorEnabled).
+        val live = helper.substringAfter("fun hapticsLive(context: Context): Boolean {").substringBefore("\n}")
+        assertTrue("if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return false" in live)
+        for (primitive in listOf("PRIMITIVE_CLICK", "PRIMITIVE_TICK", "PRIMITIVE_THUD")) assertTrue(primitive in live)
     }
 
     @Test
