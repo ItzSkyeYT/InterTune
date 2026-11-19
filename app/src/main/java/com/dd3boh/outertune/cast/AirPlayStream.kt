@@ -72,16 +72,35 @@ class AirPlayAes(key: ByteArray, iv: ByteArray) {
  * is heard [latencyFrames] plus the speaker's own [outputLatencyFrames] later. As that point moves
  * from silence into a song or out of one, [events] hears of it, which is how the link knows what
  * the speaker is playing without asking.
+ *
+ * Only the speaker is answered. A resend request from anything else on the network would hand it
+ * the last seconds of audio, which goes unencrypted, and with a forged source address would make
+ * the phone send a burst of packets wherever it named; so a clock question or a resend request
+ * from any other address than [speaker]'s is dropped. The sockets listen on one address, [local],
+ * as the cast server does: not on mobile data, nor behind a VPN, nor at a global IPv6 address
+ * that a router may let the internet reach.
  */
 class AirPlayStream(
     private val clock: AirPlayClock,
     private val feed: Feed,
     private val events: Events,
+    /**
+     * The speaker's address, the RTSP connection's: the one whose questions are answered. Known
+     * from the start, since a speaker can ask about the clock before its answer to SETUP arrives.
+     */
+    private val speaker: InetAddress,
+    /**
+     * The phone's own address on the speaker's network, the RTSP connection's (made on the Wi-Fi):
+     * the address the speaker writes to, and the only one the sockets listen on.
+     */
+    private val local: InetAddress,
     private val codec: AirPlayCodec = AirPlayCodec.ALAC,
     private val aes: AirPlayAes? = null,
     private val latencyFrames: Int = AirPlay.LATENCY_FRAMES,
     private val leadNanos: Long = LEAD_NANOS,
     bind: (DatagramSocket) -> Unit = {},
+    /** The debug app only: answers any address too, for a speaker behind the emulator's NAT. */
+    private val anyAddress: Boolean = false,
     rtpStart: Long = (Math.random() * 0xFFFFFFFFL).toLong(),
     private val ssrc: Int = (Math.random() * Int.MAX_VALUE).toInt(),
     firstSeq: Int = (Math.random() * 0xFFFF).toInt(),
@@ -108,12 +127,12 @@ class AirPlayStream(
     private val timing = udp(bind)
     private val audio = udp(bind)
 
-    /** A UDP socket on a port of the system's choosing, bound to the Wi-Fi network first by [prepare]. */
+    /** A UDP socket at [local], on a port of the system's choosing, bound to the Wi-Fi network first by [prepare]. */
     private fun udp(prepare: (DatagramSocket) -> Unit): DatagramSocket {
         val socket = DatagramSocket(null as java.net.SocketAddress?)
         try {
             prepare(socket)
-            socket.bind(InetSocketAddress(0))
+            socket.bind(InetSocketAddress(local, 0))
         } catch (e: IOException) {
             socket.close()
             throw e
@@ -165,6 +184,10 @@ class AirPlayStream(
     @Volatile
     var resendMisses: Int = 0
         private set
+
+    /** Whether a request from another address has come yet; the first is logged, once. */
+    @Volatile
+    private var strangerSeen = false
 
     // The last packets sent, by sequence number, for resend requests.
     private val backlog = Array(BACKLOG) { ByteArray(AirPlayRtp.HEADER_BYTES + AirPlayAudio.alacBytes(AirPlay.FRAMES_PER_PACKET, AirPlay.CHANNELS)) }
@@ -361,7 +384,7 @@ class AirPlayStream(
             try {
                 val question = DatagramPacket(buffer, buffer.size)
                 timing.receive(question)
-                answer(timing, question)
+                if (fromSpeaker(question)) answer(timing, question)
             } catch (e: SocketException) {
                 if (timing.isClosed) return
             } catch (e: IOException) {
@@ -370,13 +393,14 @@ class AirPlayStream(
         }
     }
 
-    /** Resend requests on the control port: each lost packet still kept goes again, to whoever asked. */
+    /** Resend requests on the control port: each lost packet still kept goes again, where the request came from. */
     private fun answerControl() {
         val buffer = ByteArray(128)
         while (!control.isClosed) {
             try {
                 val request = DatagramPacket(buffer, buffer.size)
                 control.receive(request)
+                if (!fromSpeaker(request)) continue
                 // A speaker reached through NAT (the emulator's) can only be answered where it wrote from.
                 if (AirPlayRtp.isTimingRequest(buffer, request.length)) {
                     answer(control, request)
@@ -392,6 +416,19 @@ class AirPlayStream(
         }
     }
 
+    /**
+     * Whether [request] came from the speaker. Anything else is dropped, but in the debug app
+     * ([anyAddress]); the first such request is logged, without its address.
+     */
+    private fun fromSpeaker(request: DatagramPacket): Boolean {
+        if (request.address == speaker) return true
+        if (!strangerSeen) {
+            strangerSeen = true
+            Log.w(TAG, if (anyAddress) "Answering a request from another address than the speaker's (debug app)" else "Not answering requests from other addresses than the speaker's")
+        }
+        return anyAddress
+    }
+
     private fun answer(socket: DatagramSocket, question: DatagramPacket) {
         val received = clock.ntp()
         if (!AirPlayRtp.isTimingRequest(question.data, question.length)) return
@@ -401,8 +438,9 @@ class AirPlayStream(
         socket.send(DatagramPacket(reply, reply.size, question.address, question.port))
     }
 
+    /** The packets asked for that are still kept, [MAX_RESEND] at most however many the request names. */
     private fun resend(first: Int, count: Int, to: InetAddress, port: Int) {
-        for (offset in 0 until count.coerceAtMost(BACKLOG)) {
+        for (offset in 0 until count.coerceAtMost(MAX_RESEND)) {
             val wanted = (first + offset) and 0xFFFF
             val slot = wanted and (BACKLOG - 1)
             val reply = synchronized(lock) {
@@ -435,9 +473,16 @@ class AirPlayStream(
         const val LEAD_NANOS = 150_000_000L
         const val SYNC_EVERY_NANOS = 1_000_000_000L
 
-        /** Packets kept for resends: a power of two, about 12 seconds. */
+        /** Packets kept for resends: a power of two, about 8 seconds. */
         const val BACKLOG = 1024
         private const val MAX_BURST = 64
+
+        /**
+         * The most packets one resend request gets, half a second of audio: a speaker asks for the
+         * few it lost, and again for any still missing. A request naming thousands got the whole
+         * backlog, 1.4 MB for 8 bytes.
+         */
+        const val MAX_RESEND = 64
         private const val MAX_SPANS = 4096
         private const val BATCH_NANOS = 20_000_000L
         private const val MAX_SEND_FAILURES = 50
