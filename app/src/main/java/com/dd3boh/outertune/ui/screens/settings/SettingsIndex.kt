@@ -235,7 +235,8 @@ val SETTINGS_INDEX: List<SettingEntry> = listOf(
     SettingEntry(Tour.ROUTE_STORAGE, R.string.clear_all_downloads),
     SettingEntry(Tour.ROUTE_STORAGE, R.string.dl_extra_path_title, R.string.dl_extra_path_description, fold = R.string.advanced),
     SettingEntry(Tour.ROUTE_STORAGE, R.string.dl_rescan_title, R.string.dl_rescan_description, fold = R.string.advanced),
-    SettingEntry(Tour.ROUTE_STORAGE, R.string.dl_migrate_title, R.string.dl_migrate_description, fold = R.string.advanced, words = listOf(R.string.search_words_download_folder)),
+    // Drawn only on today's page: the simpler one offers the move from its one row (DownloadsFrag, !look.oneRow).
+    SettingEntry(Tour.ROUTE_STORAGE, R.string.dl_migrate_title, R.string.dl_migrate_description, fold = R.string.advanced, words = listOf(R.string.search_words_download_folder), there = !DownloadsSimpleLook.thisBuild.oneRow),
     SettingEntry(Tour.ROUTE_STORAGE, R.string.song_cache_max_size, words = listOf(R.string.search_words_cache)),
     SettingEntry(Tour.ROUTE_STORAGE, R.string.clear_song_cache, words = listOf(R.string.search_words_cache)),
     SettingEntry(Tour.ROUTE_STORAGE, R.string.image_cache_max_size, words = listOf(R.string.search_words_cache)),

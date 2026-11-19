@@ -117,6 +117,9 @@ class DownloadsSimpleTest {
         fun entry(title: String) = index.single { "SettingEntry(Tour.ROUTE_STORAGE, R.string.$title," in it }
         assertTrue(entry("dl_simple_where_title").endsWith(" there = DownloadsSimpleLook.thisBuild.oneRow),"))
         assertTrue(entry("dl_main_path_title").endsWith(" there = !DownloadsSimpleLook.thisBuild.oneRow),"))
+        // Migrate is drawn on today's page only (the simpler one offers the move from its one row): its entry follows,
+        // or the search listed a row that was never on screen.
+        assertTrue(entry("dl_migrate_title").endsWith(" there = !DownloadsSimpleLook.thisBuild.oneRow),"))
         val listed = SETTINGS_INDEX.filter { it.route == Tour.ROUTE_STORAGE && it.there }.map { it.title }
         assertTrue(R.string.dl_simple_where_title in listed)
         assertFalse(R.string.dl_main_path_title in listed)
