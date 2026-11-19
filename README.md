@@ -252,8 +252,8 @@ What's being worked on, roughly in order. `[x]` is done, `[~]` is built and bein
 `[ ]` ListenBrainz ([#159](https://github.com/ItzSkyeYT/InterTune/issues/159))\
 `[ ]` Music videos ([#96](https://github.com/ItzSkyeYT/InterTune/issues/96))\
 `[ ]` Bring your library over from InnerTune, ViMusic, SimpMusic or Kreate\
-`[ ]` A thumbs down that YouTube Music hears too ([#171](https://github.com/ItzSkyeYT/InterTune/issues/171))\
-`[ ]` More haptic feedback ([#176](https://github.com/ItzSkyeYT/InterTune/issues/176))\
+`[~]` A thumbs down that YouTube Music hears too ([#171](https://github.com/ItzSkyeYT/InterTune/issues/171))\
+`[~]` More haptic feedback ([#176](https://github.com/ItzSkyeYT/InterTune/issues/176))\
 `[ ]` Unison as a lyrics source ([#145](https://github.com/ItzSkyeYT/InterTune/issues/145))\
 `[ ]` Lyrics translated by AI with your own key, if you turn it on ([#177](https://github.com/ItzSkyeYT/InterTune/issues/177))\
 `[ ]` A page with every poll, to see or change what you answered\
