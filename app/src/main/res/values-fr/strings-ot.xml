@@ -2766,5 +2766,5 @@
     <string name="listenbrainz_scrobble_explain" translatable="false">Pour chaque titre que vous terminez, ListenBrainz reçoit son nom, son artiste, son album, sa durée, l\'heure d\'écoute et son lien YouTube Music, ainsi que le nom et la version d\'InterTune. Le titre en cours est envoyé aussi, sans l\'heure. Vos écoutes y sont publiques, et rien ne part tant que « Suspendre l\'historique d\'écoute » est activé.</string>
     <string name="listenbrainz_refused" translatable="false">ListenBrainz n\'accepte plus votre jeton</string>
     <string name="listenbrainz_refused_description" translatable="false">Collez le nouveau depuis votre page de paramètres. Les écoutes en attente partiront dès que ça fonctionnera.</string>
-    <string name="search_words_listenbrainz" translatable="false">listenbrainz, scrobble, scrobbling</string>
+    <string name="search_words_listenbrainz">listenbrainz, scrobble, scrobbling</string>
 </resources>

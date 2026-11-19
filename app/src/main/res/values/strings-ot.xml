@@ -2972,5 +2972,5 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="listenbrainz_scrobble_explain" translatable="false">For each song you finish, ListenBrainz gets its title, artist, album, length, when you played it and its YouTube Music link, plus InterTune\'s name and version. The song playing now goes too, without the time. Your listens are public there, and nothing goes while \"Pause listen history\" is on.</string>
     <string name="listenbrainz_refused" translatable="false">ListenBrainz no longer accepts your token</string>
     <string name="listenbrainz_refused_description" translatable="false">Paste the new one from your settings page. Listens waiting here go out once it works.</string>
-    <string name="search_words_listenbrainz" translatable="false">listenbrainz, scrobble, scrobbling</string>
+    <string name="search_words_listenbrainz">listenbrainz, scrobble, scrobbling</string>
 </resources>
