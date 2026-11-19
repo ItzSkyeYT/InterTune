@@ -1912,8 +1912,9 @@ fun BoxScope.QueueContent(
                             // Shuffle and repeat say what they are on a long press, their state too ("Repeat
                             // off"), by the name screen readers hear (Niko, 11 Nov 2026).
                             LongPressLabel(shuffleName(shuffleModeEnabled), Modifier.align(Alignment.Center)) {
-                                ResizableIconButton(
-                                    if (shuffleModeEnabled) R.drawable.shuffle_on else R.drawable.shuffle_off,
+                                // The player's look, the same in the queue's own buttons (ShuffleLook, 19 Nov 2026).
+                                ShuffleButton(
+                                    on = shuffleModeEnabled,
                                     modifier = Modifier
                                         .size(32.dp)
                                         .padding(4.dp)
