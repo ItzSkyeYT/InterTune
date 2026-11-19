@@ -50,6 +50,7 @@ class AccountWritesTest {
         val results = listOf(
             YouTube.likeVideo("dQw4w9WgXcQ", true),
             YouTube.likeVideo("dQw4w9WgXcQ", false),
+            YouTube.dislikeVideo("dQw4w9WgXcQ"),
             YouTube.likePlaylist("PLx", true),
             YouTube.subscribeChannel("UCx", true),
             YouTube.addToPlaylist("PLx", "dQw4w9WgXcQ"),

@@ -70,6 +70,7 @@ import com.dd3boh.outertune.db.entities.Playlist
 import com.dd3boh.outertune.db.entities.PlaylistSong
 import com.dd3boh.outertune.db.entities.Song
 import com.dd3boh.outertune.extensions.toMediaItem
+import com.dd3boh.outertune.models.DislikePlan
 import com.dd3boh.outertune.models.DontPlay
 import com.dd3boh.outertune.models.toMediaMetadata
 import com.dd3boh.outertune.playback.downloadManager.ExportItem
@@ -406,8 +407,8 @@ fun SongMenu(
         // anyone knows the place of (DontPlay).
         if (Unreleased.ARTIST_BLOCK) {
             val held = dontPlay.has(song.id)
-            dontPlayMenuItem(held) {
-                toggleDontPlay(context, database, song.toMediaMetadata(), held)
+            dontPlayMenuItem(held, dislike = DislikePlan.shown(Unreleased.DISLIKE, song.song.isLocal)) {
+                toggleDontPlay(context, database, song.toMediaMetadata(), held, downloadUtil, liked = song.song.liked)
                 onDismiss()
             }
         }

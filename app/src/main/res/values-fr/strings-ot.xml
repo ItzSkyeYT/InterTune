@@ -2713,4 +2713,7 @@
     <string name="err_download_not_on_phone" translatable="false">Ce titre est marqué comme téléchargé, mais son fichier manque ou est incomplet sur ce téléphone. Téléchargez-le à nouveau une fois en ligne.</string>
     <!-- The library search when it finds nothing (#200), under "No results found", held from translators. -->
     <string name="library_search_none" translatable="false">Pas dans votre bibliothèque</string>
+    <string name="menu_dislike" translatable="false">Je n\'aime pas</string>
+    <string name="menu_dislike_lift" translatable="false">Retirer « Je n\'aime pas »</string>
+    <string name="dislike_done" translatable="false">Noté, ici et sur YouTube Music. Il n\'est joué qu\'à votre demande.</string>
 </resources>

@@ -93,6 +93,7 @@ import com.dd3boh.outertune.constants.MAX_PLAYER_VOLUME
 import com.dd3boh.outertune.constants.ShowLyricsKey
 import com.dd3boh.outertune.constants.SyncMode
 import com.dd3boh.outertune.constants.YtmSyncModeKey
+import com.dd3boh.outertune.models.DislikePlan
 import com.dd3boh.outertune.models.DontPlay
 import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.models.withArtistIds
@@ -514,8 +515,8 @@ fun PlayerMenu(
         // song playing is passed over at once.
         if (Unreleased.ARTIST_BLOCK) {
             val held = dontPlay.has(mediaMetadata.id)
-            dontPlayMenuItem(held) {
-                toggleDontPlay(context, database, mediaMetadata, held)
+            dontPlayMenuItem(held, dislike = DislikePlan.shown(Unreleased.DISLIKE, mediaMetadata.isLocal)) {
+                toggleDontPlay(context, database, mediaMetadata, held, downloadUtil, liked = librarySong?.song?.liked == true)
                 onDismiss()
             }
         }

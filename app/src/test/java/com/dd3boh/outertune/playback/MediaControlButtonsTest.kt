@@ -6,6 +6,8 @@
 
 package com.dd3boh.outertune.playback
 
+import com.dd3boh.outertune.constants.Unreleased
+import com.dd3boh.outertune.playback.MediaControlButton.DISLIKE
 import com.dd3boh.outertune.playback.MediaControlButton.LIBRARY
 import com.dd3boh.outertune.playback.MediaControlButton.LIKE
 import com.dd3boh.outertune.playback.MediaControlButton.RADIO
@@ -91,6 +93,24 @@ class MediaControlButtonsTest {
         assertEquals(listOf(LIKE, SHUFFLE, REPEAT, RADIO), MediaControlButtons.layout(listOf(LIKE, LIKE)))
         assertEquals(listOf(RADIO, LIKE, SHUFFLE, REPEAT), MediaControlButtons.layout(listOf(RADIO, LIKE, SHUFFLE)))
         assertEquals(listOf(SHUFFLE, REPEAT, LIKE, RADIO), MediaControlButtons.layout(emptyList()))
+    }
+
+    @Test
+    fun `dislike only joins the layout when it is picked, and only where its flag is on`() {
+        // Like Add to library, it was never in the layout: Android Auto's row stays as it was.
+        assertEquals(false, DISLIKE in MediaControlButtons.layout(listOf(LIKE, RADIO)))
+        assertEquals(false, DISLIKE in MediaControlButtons.CAR)
+        assertEquals(listOf(DISLIKE, LIKE, SHUFFLE, REPEAT, RADIO), MediaControlButtons.layout(listOf(DISLIKE, LIKE)))
+        if (Unreleased.DISLIKE) {
+            assertEquals(listOf(DISLIKE, SHUFFLE), MediaControlButtons.parse("DISLIKE,SHUFFLE"))
+            assertEquals(true, DISLIKE in MediaControlButtons.offered)
+        } else {
+            // A build without it reads a saved Dislike, from a backup of a debug build, as a gap.
+            assertEquals(listOf(SHUFFLE, REPEAT), MediaControlButtons.parse("DISLIKE,SHUFFLE"))
+            assertEquals(false, DISLIKE in MediaControlButtons.offered)
+        }
+        // Saved by name, so the names never change: the new one went at the end.
+        assertEquals(listOf("LIKE", "RADIO", "SHUFFLE", "REPEAT", "LIBRARY", "DISLIKE"), MediaControlButton.entries.map { it.name })
     }
 
     @Test

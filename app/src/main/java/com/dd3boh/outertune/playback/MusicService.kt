@@ -112,6 +112,8 @@ import com.dd3boh.outertune.constants.MaxSongCacheSizeKey
 import com.dd3boh.outertune.constants.MediaControlButtonsKey
 import com.dd3boh.outertune.constants.MediaSessionConstants.CommandToggleLibrary
 import com.dd3boh.outertune.constants.MediaSessionConstants.CommandToggleLike
+import com.dd3boh.outertune.constants.MediaSessionConstants.CommandToggleDislike
+import com.dd3boh.outertune.ui.menu.toggleDontPlay
 import com.dd3boh.outertune.constants.MediaSessionConstants.CommandToggleRepeatMode
 import com.dd3boh.outertune.constants.MediaSessionConstants.CommandToggleShuffle
 import com.dd3boh.outertune.constants.MediaSessionConstants.CommandToggleStartRadio
@@ -1521,6 +1523,7 @@ class MusicService : MediaLibraryService(),
             toggleLike = ::toggleLike
             toggleStartRadio = ::toggleStartRadio
             toggleLibrary = ::toggleLibrary
+            toggleDislike = ::toggleDislike
         }
 
         // The session is first handed a smaller cover that is on the phone, so the lock screen is
@@ -2589,6 +2592,20 @@ class MusicService : MediaLibraryService(),
                 }
             }
         }
+    }
+
+    /**
+     * Dislike on the phone's media controls (Unreleased.DISLIKE): what the menus' Dislike does, to the song
+     * playing, which is then passed over as any song kept from playing is (toggleDontPlay, DislikePlan).
+     */
+    fun toggleDislike() {
+        if (!Unreleased.DISLIKE) return
+        val metadata = activePlayer.currentMetadata ?: return
+        if (metadata.isLocal) return
+        val held = ContentFilter.current.dontPlay.has(metadata.id)
+        val liked = currentSong.value?.song?.takeIf { it.id == metadata.id }?.liked == true
+        toggleDontPlay(this, database, metadata, held, downloadUtil, liked)
+        updateNotification()
     }
 
     fun toggleStartRadio() {
@@ -5085,6 +5102,18 @@ class MusicService : MediaLibraryService(),
                     .setSessionCommand(CommandToggleLibrary)
                     .setEnabled(song != null && !song.song.isLocal)
                     .build()
+
+            // YouTube Music's thumbs down (Unreleased.DISLIKE): filled for a song kept from playing that
+            // was picked anyway, where a tap lifts it. Off for a local file, which YouTube cannot hear;
+            // its Don't play this song is in the player's menu.
+            MediaControlButton.DISLIKE -> {
+                val held = song != null && ContentFilter.current.dontPlay.has(song.id)
+                CommandButton.Builder(if (held) CommandButton.ICON_THUMB_DOWN_FILLED else CommandButton.ICON_THUMB_DOWN_UNFILLED)
+                    .setDisplayName(getString(if (held) R.string.menu_dislike_lift else R.string.menu_dislike))
+                    .setSessionCommand(CommandToggleDislike)
+                    .setEnabled(Unreleased.DISLIKE && song != null && !song.song.isLocal)
+                    .build()
+            }
         }
     }
 

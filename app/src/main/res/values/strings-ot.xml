@@ -2905,4 +2905,8 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="err_download_not_on_phone" translatable="false">This song is marked as downloaded, but its file is missing or incomplete on this phone. Download it again when you\'re online.</string>
     <!-- The library search when it finds nothing (#200), under "No results found": held from translators like the other new 0.13 texts. Its button wears search_yt_music, translated. -->
     <string name="library_search_none" translatable="false">Not in your library</string>
+    <!-- Dislike (Unreleased.DISLIKE, #171): Don't play this song for a song from YouTube Music, which YouTube Music hears too when the account can be changed, and the same for the media controls. Held from translators until his go, French beside them in values-fr. -->
+    <string name="menu_dislike" translatable="false">Dislike</string>
+    <string name="menu_dislike_lift" translatable="false">Remove dislike</string>
+    <string name="dislike_done" translatable="false">Disliked here and on YouTube Music. It plays only when you pick it.</string>
 </resources>

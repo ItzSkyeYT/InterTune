@@ -775,6 +775,12 @@ object YouTube {
             innerTube.unlikeVideo(WEB_REMIX, videoId)
     }
 
+    /** The thumbs down; [likeVideo] with false takes it back, as it takes back a like. */
+    suspend fun dislikeVideo(videoId: String) = runCatching {
+        requireAccountWrites()
+        innerTube.dislikeVideo(WEB_REMIX, videoId)
+    }
+
     suspend fun likePlaylist(playlistId: String, like: Boolean) = runCatching {
         requireAccountWrites()
         if (like)

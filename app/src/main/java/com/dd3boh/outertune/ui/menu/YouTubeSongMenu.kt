@@ -50,6 +50,7 @@ import com.dd3boh.outertune.constants.ListThumbnailSize
 import com.dd3boh.outertune.constants.ThumbnailCornerRadius
 import com.dd3boh.outertune.db.entities.SongEntity
 import com.dd3boh.outertune.extensions.toMediaItem
+import com.dd3boh.outertune.models.DislikePlan
 import com.dd3boh.outertune.models.DontPlay
 import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.models.toMediaMetadata
@@ -272,8 +273,8 @@ fun YouTubeSongMenu(
         // anyone knows the place of (DontPlay).
         if (Unreleased.ARTIST_BLOCK) {
             val held = dontPlay.has(song.id)
-            dontPlayMenuItem(held) {
-                toggleDontPlay(context, database, song.toMediaMetadata(), held)
+            dontPlayMenuItem(held, dislike = DislikePlan.shown(Unreleased.DISLIKE, local = false)) {
+                toggleDontPlay(context, database, song.toMediaMetadata(), held, downloadUtil, liked = librarySong?.song?.liked == true)
                 onDismiss()
             }
         }

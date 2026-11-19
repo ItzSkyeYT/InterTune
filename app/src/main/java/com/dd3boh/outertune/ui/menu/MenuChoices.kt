@@ -41,7 +41,7 @@ object MenuChoices {
     /**
      * Entries whose text follows a state, under the name of their other state, so that hiding one hides the
      * entry whatever it says: Download is also Remove download and Downloading, Add to library is also
-     * Remove from library, Don't play this song is also Allow this song again.
+     * Remove from library, Don't play this song is also Allow this song again, Dislike and Remove dislike.
      */
     private val SAME_ENTRY = mapOf(
         "remove_download" to "action_download",
@@ -49,6 +49,9 @@ object MenuChoices {
         "remove_from_library" to "add_to_library",
         "remove_all_from_library" to "add_all_to_library",
         "menu_dont_play_lift" to "menu_dont_play_song",
+        // Dislike is Don't play this song for a song from YouTube Music (Unreleased.DISLIKE).
+        "menu_dislike" to "menu_dont_play_song",
+        "menu_dislike_lift" to "menu_dont_play_song",
         "ai_filter_not_ai" to "ai_filter_mark_ai",
         "lyrics_share_picture_or_video" to "lyrics_share_picture",
         "mix_edit_last_transition" to "mix_edit_transition",
