@@ -297,8 +297,8 @@ interface ListenDao {
     @Query(RecommendationSql.LIFT_DONT_PLAY_BANNED)
     fun banAgain(songId: String)
 
-    /** Whether [songId] is kept from playing by Don't play this song (or Dislike) now, read at once. */
-    @Query("SELECT EXISTS(SELECT 1 FROM recommendation_exclusion WHERE kind = 1 AND reason = 5 AND targetId = :songId)")
+    /** Whether [songId] is kept from playing by Don't play this song (or Dislike) now, set over a ban or not, read at once. */
+    @Query(RecommendationSql.IS_DONT_PLAY)
     fun isDontPlay(songId: String): Boolean
 
     @Query("SELECT * FROM recommendation_exclusion ORDER BY createdAt DESC")

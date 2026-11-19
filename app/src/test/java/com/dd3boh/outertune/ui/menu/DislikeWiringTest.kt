@@ -90,7 +90,8 @@ class DislikeWiringTest {
         // Lifted on the queue the row was written on, so a quick Dislike after it cannot land first.
         assertTrue("database.transaction { liftDontPlay(song.id) }" in toggle)
         val dao = File(sources, "db/daos/ListenDao.kt").readText()
-        assertTrue("@Query(\"SELECT EXISTS(SELECT 1 FROM recommendation_exclusion WHERE kind = 1 AND reason = 5 AND targetId = :songId)\")\n    fun isDontPlay(songId: String): Boolean" in dao)
+        // Set over Not this song (reason 6) as well: the query is run on the schema in DontPlayBanSqlTest.
+        assertTrue("@Query(RecommendationSql.IS_DONT_PLAY)\n    fun isDontPlay(songId: String): Boolean" in dao)
     }
 
     @Test

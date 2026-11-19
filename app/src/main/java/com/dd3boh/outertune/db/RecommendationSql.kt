@@ -34,6 +34,12 @@ object RecommendationSql {
     const val LIFT_DONT_PLAY_BANNED = "UPDATE recommendation_exclusion SET reason = 1 WHERE kind = 1 AND reason = 6 AND targetId = :songId"
 
     /**
+     * Whether a song is kept from playing by Don't play this song or Dislike now, set over Not this song (6) or not (5):
+     * what Dislike reads once YouTube Music has answered. With 5 alone, a Dislike over Not this song read as lifted.
+     */
+    const val IS_DONT_PLAY = "SELECT EXISTS(SELECT 1 FROM recommendation_exclusion WHERE kind = 1 AND reason IN (5, 6) AND targetId = :songId)"
+
+    /**
      * Songs related to your seed songs, ranked by how many of the seeds point at each one.
      *
      * The inherited version grouped every related row in the whole history before filtering, then

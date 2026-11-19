@@ -114,6 +114,30 @@ class DontPlayBanSqlTest {
         assertEquals(REASON_DONT_PLAY_BANNED, there("af1")?.reason)
     }
 
+    /** ListenDao.isDontPlay, which Dislike asks once YouTube Music has answered. */
+    private fun isDontPlay(id: String): Boolean = db.createStatement().use { st ->
+        st.executeQuery(RecommendationSql.IS_DONT_PLAY.replace(":songId", "'$id'")).use { rs -> rs.next() && rs.getInt(1) == 1 }
+    }
+
+    @Test
+    fun `Dislike's read after the answer counts Don't play set over Not this song`() {
+        // A Dislike on a song under Not this song writes Don't play set over the ban (6). It is still held, so the
+        // Disliked word and the like taken back follow, and no like goes back to YouTube Music as if it were lifted.
+        write(RecommendationExclusion(kind = 1, targetId = "af1", label = "Africa", reason = REASON_BAN, createdAt = 1_000L))
+        dontPlay("af1", at = 2_000L)
+        assertEquals(REASON_DONT_PLAY_BANNED, there("af1")?.reason)
+        assertTrue(isDontPlay("af1"))
+        dontPlay("ro2", at = 3_000L)
+        assertTrue(isDontPlay("ro2"))
+        // Lifted, or only banned from the rows: not held.
+        lift("af1")
+        assertFalse(isDontPlay("af1"))
+        lift("ro2")
+        assertFalse(isDontPlay("ro2"))
+        assertFalse(isDontPlay("none"))
+        assertTrue("@Query(RecommendationSql.IS_DONT_PLAY)" in File("src/main/java/com/dd3boh/outertune/db/daos/ListenDao.kt").readText())
+    }
+
     @Test
     fun `everywhere Don't play is read, set over a ban counts the same`() {
         assertTrue(ExclusionsViewModel.isDontPlay(REASON_DONT_PLAY))
