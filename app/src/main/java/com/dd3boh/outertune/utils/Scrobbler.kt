@@ -9,38 +9,50 @@ import com.dd3boh.outertune.constants.LastFmScrobbleKey
 import com.dd3boh.outertune.constants.LastFmSessionKey
 import com.dd3boh.outertune.constants.LastFmUsernameKey
 import com.dd3boh.outertune.constants.PauseListenHistoryKey
+import com.dd3boh.outertune.listenbrainz.ListenBrainzSender
 import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.playback.ListenReporting
+import com.dd3boh.outertune.playback.ListenRules
 import android.content.Context
 import androidx.datastore.preferences.core.edit
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Sends plays to Last.fm, if the user has connected an account.
+ * Sends plays to Last.fm, if the user has connected an account, and hands each to ListenBrainz
+ * beside it ([ListenBrainzSender], Unreleased.LISTENBRAINZ), on the same rules.
  *
  * Deliberately quiet. A scrobble that fails is not worth a message: the user did not ask for one at
  * that moment, the cause is almost always the network, and the play is already counted in
  * InterTune's own history either way. Failures are logged and dropped.
  *
- * There is no offline queue yet. That is the obvious next step and is noted in the TODO rather
+ * There is no offline queue for Last.fm yet (ListenBrainz has its own outbox). That is the obvious next step and is noted in the TODO rather
  * than half built here, because a queue that survives restarts needs a table, and adding one means
  * a database migration.
  *
  * Every call checks the key first, and from 1 December 2026 the key reads as empty (LastFmEnd),
- * so from then nothing here reaches Last.fm.
+ * so from then nothing here reaches Last.fm. ListenBrainz goes on after that: its plays are handed
+ * over before Last.fm's checks.
  *
  * @param settings the app's settings, read from memory.
+ * @param listenBrainzSender ListenBrainz's own sending; none in a test of Last.fm alone.
  * @param connect Last.fm's client for a key and its secret. A test hands in one over a fake network.
  */
 @Singleton
 class Scrobbler internal constructor(
     private val settings: SettingsSnapshot,
+    private val listenBrainzSender: ListenBrainzSender? = null,
     private val connect: (apiKey: String, apiSecret: String) -> LastFm,
 ) {
     @Inject
-    constructor(@ApplicationContext context: Context) : this(context.dataStore, { key, secret -> LastFm(key, secret) })
+    constructor(@ApplicationContext context: Context, listenBrainz: ListenBrainzSender) :
+        this(context.dataStore, listenBrainz, { key, secret -> LastFm(key, secret) })
+
+    /** ListenBrainz's own sending, which the settings card connects and disconnects. */
+    val listenBrainz: ListenBrainzSender get() = checkNotNull(listenBrainzSender) { "a scrobbler built without ListenBrainz" }
 
     // Empty in a build without them, in any copy not signed with the release key, and from
     // 1 December 2026 on. See BuiltInKeys and LastFmEnd.
@@ -98,10 +110,12 @@ class Scrobbler internal constructor(
 
     suspend fun logout() = forget(settings)
 
-    suspend fun nowPlaying(metadata: MediaMetadata) {
-        if (!ListenReporting.sendsNowPlaying(settings.get(PauseListenHistoryKey, false))) return
-        val session = sessionOrNull() ?: return
-        val artist = primaryArtist(metadata.artists.map { it.name }) ?: return
+    suspend fun nowPlaying(metadata: MediaMetadata): Unit = coroutineScope {
+        if (!ListenReporting.sendsNowPlaying(settings.get(PauseListenHistoryKey, false))) return@coroutineScope
+        // ListenBrainz beside Last.fm, neither waiting for the other's answer.
+        listenBrainzSender?.let { listenBrainz -> launch { listenBrainz.nowPlaying(metadata) } }
+        val session = sessionOrNull() ?: return@coroutineScope
+        val artist = primaryArtist(metadata.artists.map { it.name }) ?: return@coroutineScope
         api.updateNowPlaying(
             sessionKey = session,
             artist = artist,
@@ -124,11 +138,13 @@ class Scrobbler internal constructor(
         playedMs: Long,
         startedAtSeconds: Long,
         durationSeconds: Int = metadata.duration,
-    ) {
-        val session = sessionOrNull() ?: return
+    ): Unit = coroutineScope {
         val duration = durationSeconds
-        if (!LastFm.qualifies(playedMs, duration)) return
-        val artist = primaryArtist(metadata.artists.map { it.name }) ?: return
+        // One rule for Last.fm and ListenBrainz, so a play does not count for one and not the other.
+        if (!ListenRules.qualifies(playedMs, duration)) return@coroutineScope
+        listenBrainzSender?.let { listenBrainz -> launch { listenBrainz.scrobble(metadata, startedAtSeconds, duration) } }
+        val session = sessionOrNull() ?: return@coroutineScope
+        val artist = primaryArtist(metadata.artists.map { it.name }) ?: return@coroutineScope
         api.scrobble(
             sessionKey = session,
             artist = artist,

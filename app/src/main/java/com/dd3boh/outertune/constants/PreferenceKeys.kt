@@ -127,6 +127,26 @@ val LastFmScrobbleKey = booleanPreferencesKey("lastFmScrobble")
 val LastFmActAsEndedKey = booleanPreferencesKey("lastFmActAsEnded")
 /** When Last.fm refused the app's key itself (LastFmEnd.refusesKey): from then it is closed, as from 1 December. */
 val LastFmRefusedAtKey = longPreferencesKey("lastFmRefusedAt")
+
+/**
+ * ListenBrainz (Unreleased.LISTENBRAINZ).
+ *
+ * The user token pasted from listenbrainz.org/settings is the whole of the login and the key to
+ * the whole account, so it is kept as the YouTube cookie is: out of Android's cloud backup, in the
+ * app's own backup only with its sign-ins (SignIns.KEYS), never in a log, an error or a report.
+ * [ListenBrainzUserKey] is the account's name, so the settings can say whose it is.
+ */
+val ListenBrainzTokenKey = stringPreferencesKey("listenBrainzToken")
+val ListenBrainzUserKey = stringPreferencesKey("listenBrainzUser")
+
+/** Scrobbling to ListenBrainz can be paused without disconnecting. */
+val ListenBrainzScrobbleKey = booleanPreferencesKey("listenBrainzScrobble")
+
+/**
+ * When ListenBrainz last refused the token (a 401 or a 403), absent while it takes it. Nothing is
+ * sent until a token is pasted again; plays keep waiting in the outbox for it.
+ */
+val ListenBrainzRefusedAtKey = longPreferencesKey("listenBrainzRefusedAt")
 val AudioGaplessOffloadKey = booleanPreferencesKey("enableGaplessOffload")
 
 val MaxQueuesKey = intPreferencesKey("maxQueues")

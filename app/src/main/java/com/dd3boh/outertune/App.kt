@@ -96,6 +96,8 @@ import com.dd3boh.outertune.constants.LastPollFetchKey
 import com.dd3boh.outertune.utils.YTPlayerUtils
 import com.zionhuang.innertube.YouTube
 import dagger.hilt.android.HiltAndroidApp
+import com.dd3boh.outertune.listenbrainz.ListenBrainzWorker
+import com.dd3boh.outertune.listenbrainz.ListenOutbox
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
@@ -151,6 +153,10 @@ class App : Application(), SingletonImageLoader.Factory {
         BuiltInKeys.verify(this)
         // Before anything reads Battery use: the phone's battery saver can turn Saver on (PhoneBatterySaver).
         PhoneBatterySaver.start(this)
+        // Plays still waiting for ListenBrainz go once there is a connection: a look for the file, off the main thread.
+        if (Unreleased.LISTENBRAINZ) GlobalScope.launch(Dispatchers.IO) {
+            if (ListenOutbox.anyWaiting(this@App)) ListenBrainzWorker.schedule(this@App)
+        }
 
         if (BuildConfig.DEBUG) {
             System.setProperty("kotlinx.coroutines.debug", "on")

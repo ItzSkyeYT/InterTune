@@ -87,6 +87,8 @@ val SETTINGS_INDEX: List<SettingEntry> = listOf(
     SettingEntry(Tour.ROUTE_ACCOUNT, R.string.use_login_for_browse, R.string.use_login_for_browse_desc),
     SettingEntry(Tour.ROUTE_ACCOUNT, R.string.lastfm_connect, R.string.lastfm_connect_description, under = R.string.lastfm_scrobble, words = listOf(R.string.search_words_lastfm)),
     SettingEntry(Tour.ROUTE_ACCOUNT, R.string.lastfm_scrobble, R.string.lastfm_scrobble_description, under = R.string.lastfm_connect, words = listOf(R.string.search_words_lastfm)),
+    SettingEntry(Tour.ROUTE_ACCOUNT, R.string.listenbrainz_connect, R.string.listenbrainz_connect_description, under = R.string.listenbrainz_scrobble, words = listOf(R.string.search_words_listenbrainz), there = Unreleased.LISTENBRAINZ),
+    SettingEntry(Tour.ROUTE_ACCOUNT, R.string.listenbrainz_scrobble, R.string.listenbrainz_scrobble_description, under = R.string.listenbrainz_connect, words = listOf(R.string.search_words_listenbrainz), there = Unreleased.LISTENBRAINZ),
     SettingEntry(Tour.ROUTE_ACCOUNT, R.string.ytm_sync, words = listOf(R.string.search_words_ytm_sync)),
     SettingEntry(Tour.ROUTE_ACCOUNT, R.string.scanner_manual_btn, words = listOf(R.string.search_words_sync_now)),
     SettingEntry(Tour.ROUTE_ACCOUNT, R.string.sync_mode),
