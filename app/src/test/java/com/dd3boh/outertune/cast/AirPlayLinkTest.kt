@@ -18,10 +18,12 @@ import kotlinx.coroutines.withTimeout
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
 import java.io.BufferedInputStream
+import java.io.File
 import java.io.IOException
 import java.io.InputStream
 import java.net.DatagramPacket
@@ -29,6 +31,7 @@ import java.net.DatagramSocket
 import java.net.InetAddress
 import java.net.ServerSocket
 import java.net.Socket
+import java.net.SocketTimeoutException
 import java.security.KeyPairGenerator
 import java.security.PrivateKey
 import java.util.Collections
@@ -342,6 +345,43 @@ class AirPlayLinkTest {
         assertEquals("clock answers after the cast ended", answers, speaker.timingReplies.size)
     }
 
+    /** Another device on the network, as far as the phone can tell: another address, here another loopback one. */
+    private val elsewhere: InetAddress = InetAddress.getByName("127.0.0.2")
+
+    /** The sequence number of the session's first packet, as RECORD named it: kept for resends for the first seconds. */
+    private fun FakeSpeaker.recordSeq(): Int =
+        Regex("""RTP-Info: seq=(\d+)""").find(requests.first { it.first == "RECORD" }.second)!!.groupValues[1].toInt()
+
+    /** A resend request as a speaker sends it: [count] packets from [first]. */
+    private fun resendAsk(first: Int, count: Int) = ByteArray(8).also {
+        it[0] = 0x80.toByte()
+        it[1] = 0xD5.toByte()
+        AirPlayRtp.put16(it, 2, 1)
+        AirPlayRtp.put16(it, 4, first)
+        AirPlayRtp.put16(it, 6, count)
+    }
+
+    /** A clock question as a speaker asks it; the answer gives [stamp] back as its origin. */
+    private fun clockQuestion(stamp: Long) = ByteArray(32).also {
+        it[0] = 0x80.toByte()
+        it[1] = 0xD2.toByte()
+        it[3] = 7
+        AirPlayRtp.put64(it, 24, stamp)
+    }
+
+    /** The first packet [socket] gets within [timeoutMs], or null when none comes. */
+    private fun receiveWithin(socket: DatagramSocket, timeoutMs: Int): ByteArray? {
+        val buffer = ByteArray(2048)
+        val packet = DatagramPacket(buffer, buffer.size)
+        socket.soTimeout = timeoutMs
+        return try {
+            socket.receive(packet)
+            buffer.copyOf(packet.length)
+        } catch (e: SocketTimeoutException) {
+            null
+        }
+    }
+
     @Test
     fun `connecting is OPTIONS, ANNOUNCE, SETUP and RECORD, and the first packet is the one RECORD named`() = runBlocking {
         val speaker = FakeSpeaker()
@@ -543,6 +583,70 @@ class AirPlayLinkTest {
         link.waitFor(ReceiverState.ENDED, load = 1)
         eventually(what = "the resend") { speaker.resent.any { it.seq == lost } }
         assertEquals((0L until 22_050L).toList(), songFrames(speaker.stretch(0)))
+    }
+
+    @Test
+    fun `a device on the network that is not the speaker gets no packet sent again and no clock answer`() = runBlocking {
+        val speaker = FakeSpeaker()
+        val link = link(speaker)
+        link.connect()
+        eventually(what = "packets and a clock answer") { speaker.packets.size >= 10 && speaker.timingReplies.isNotEmpty() }
+        val kept = speaker.recordSeq()
+        // Asking for the last seconds of audio, and about the clock, on both of the phone's ports.
+        val stranger = DatagramSocket(0, elsewhere).also { closing += it }
+        for (port in listOf(speaker.senderControlPort, speaker.senderTimingPort)) {
+            stranger.send(DatagramPacket(resendAsk(kept, 8), 8, loopback, port))
+            stranger.send(DatagramPacket(clockQuestion(1L), 32, loopback, port))
+        }
+        assertNull("what came back to another address", receiveWithin(stranger, 600)?.toList())
+        // The very same request from the speaker is answered.
+        speaker.control.send(DatagramPacket(resendAsk(kept, 8), 8, loopback, speaker.senderControlPort))
+        eventually(what = "the packets sent again to the speaker") { speaker.resent.size == 8 }
+        assertEquals((0 until 8).map { (kept + it) and 0xFFFF }, speaker.resent.map { it.seq })
+    }
+
+    @Test
+    fun `a resend request gets at most a burst of packets, however many it names`() = runBlocking {
+        val speaker = FakeSpeaker()
+        val link = link(speaker)
+        link.connect()
+        // Far more kept than a burst: over a second and a half of packets.
+        eventually(what = "200 packets") { speaker.packets.size >= 200 }
+        val first = speaker.recordSeq()
+        speaker.control.send(DatagramPacket(resendAsk(first, 0xFFFF), 8, loopback, speaker.senderControlPort))
+        eventually(what = "the packets sent again") { speaker.resent.size >= AirPlayStream.MAX_RESEND }
+        // What would follow has had time to land.
+        Thread.sleep(300)
+        assertEquals(64, AirPlayStream.MAX_RESEND)
+        assertEquals((0 until 64).map { (first + it) and 0xFFFF }, speaker.resent.map { it.seq })
+    }
+
+    @Test
+    fun `the phone listens for its speaker only at its own address on the speaker's network`() = runBlocking {
+        val speaker = FakeSpeaker()
+        val link = link(speaker)
+        link.connect()
+        eventually(what = "a clock answer") { speaker.timingReplies.isNotEmpty() }
+        // From the speaker's own address, a clock question to the phone's timing port at another of its
+        // addresses (on a phone: mobile data, a VPN, a global IPv6 address) finds nothing listening there.
+        val asking = DatagramSocket(0, loopback).also { closing += it }
+        asking.send(DatagramPacket(clockQuestion(2L), 32, elsewhere, speaker.senderTimingPort))
+        assertNull("an answer at another address", receiveWithin(asking, 600)?.toList())
+        // At the address the phone reached the speaker from, the same question is answered.
+        asking.send(DatagramPacket(clockQuestion(3L), 32, loopback, speaker.senderTimingPort))
+        val answer = receiveWithin(asking, 2_000)
+        assertNotNull("no answer at the phone's own address", answer)
+        assertEquals(0xD3, answer!![1].toInt() and 0xFF)
+        assertEquals(3L, AirPlayRtp.get64(answer, 8))
+    }
+
+    @Test
+    fun `only the debug app answers other addresses than the speaker's, for the emulator's NAT`() {
+        // The Preview is debuggable too (initWith debug), so BuildConfig.DEBUG alone would let it answer anyone.
+        val links = File("src/main/java/com/dd3boh/outertune/cast/CastLinks.kt").readText()
+        assertTrue(links, "anyAddress = BuildConfig.DEBUG && BuildConfig.BUILD_TYPE == \"debug\",\n" in links)
+        val link = File("src/main/java/com/dd3boh/outertune/cast/AirPlayLink.kt").readText()
+        assertTrue("private val anyAddress: Boolean = false," in link && "anyAddress = anyAddress," in link)
     }
 
     @Test

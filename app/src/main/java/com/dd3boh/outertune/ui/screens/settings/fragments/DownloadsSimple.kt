@@ -10,12 +10,13 @@ import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material3.Icon
@@ -29,6 +30,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.playback.downloadManager.DownloadFolderState
@@ -136,21 +138,23 @@ internal fun WhereDownloadsGoDialog(
     onDismiss: () -> Unit,
 ) {
     ListDialog(onDismiss = onDismiss) {
+        // One group of two for TalkBack, which says which is chosen and that it is one of two; stacked as two
+        // items of the list were, so nothing moves.
         item {
-            WhereChoice(
-                selected = !inFolder,
-                name = stringResource(R.string.dl_simple_where_inside),
-                line = stringResource(R.string.dl_simple_inside_line),
-                onClick = onInside,
-            )
-        }
-        item {
-            WhereChoice(
-                selected = inFolder,
-                name = stringResource(R.string.dl_simple_in_folder),
-                line = stringResource(R.string.dl_simple_in_folder_line),
-                onClick = onFolder,
-            )
+            Column(Modifier.selectableGroup()) {
+                WhereChoice(
+                    selected = !inFolder,
+                    name = stringResource(R.string.dl_simple_where_inside),
+                    line = stringResource(R.string.dl_simple_inside_line),
+                    onClick = onInside,
+                )
+                WhereChoice(
+                    selected = inFolder,
+                    name = stringResource(R.string.dl_simple_in_folder),
+                    line = stringResource(R.string.dl_simple_in_folder_line),
+                    onClick = onFolder,
+                )
+            }
         }
         if (refused) {
             item {
@@ -164,14 +168,17 @@ internal fun WhereDownloadsGoDialog(
     }
 }
 
-/** A choice as ListPreference draws one that has a line under it: the button by the name, at the top. */
+/**
+ * A choice as ListPreference draws one that has a line under it: the button by the name, at the top. The row is
+ * the radio button for TalkBack, chosen or not, as the report dialog's logs are; the dot itself takes no tap.
+ */
 @Composable
 private fun WhereChoice(selected: Boolean, name: String, line: String, onClick: () -> Unit) {
     Row(
         verticalAlignment = Alignment.Top,
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .selectable(selected = selected, onClick = onClick, role = Role.RadioButton)
             .padding(horizontal = 16.dp, vertical = 12.dp)
     ) {
         RadioButton(selected = selected, onClick = null)
