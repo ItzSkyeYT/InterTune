@@ -91,6 +91,7 @@ import com.dd3boh.outertune.ui.component.SwitchPreference
 import com.dd3boh.outertune.ui.screens.OptInCatchUp
 import com.dd3boh.outertune.ui.screens.settings.SETTINGS_TAG
 import com.dd3boh.outertune.ui.screens.settings.settingRow
+import com.dd3boh.outertune.utils.AppLanguage
 import com.dd3boh.outertune.utils.FaultInjection
 import com.dd3boh.outertune.utils.Throttle
 import com.dd3boh.outertune.utils.dataStore
@@ -302,6 +303,9 @@ fun ColumnScope.DeveloperFrag(navController: NavController) {
                     AndroidView(
                         factory = { context ->
                             WebView(context).apply {
+                                // Before Android 13 the first WebView of the process puts the app's words
+                                // back in the phone's language.
+                                AppLanguage.afterWebView(context)
                                 settings.javaScriptEnabled = true
                                 settings.domStorageEnabled = true
                                 loadUrl("file:///android_asset/mix-editor-mockup.html")
