@@ -209,6 +209,31 @@ object LivingField {
     const val AURA_SWELL = 0.16f
     const val AURA_MOST = 0.62f
 
+    /** How strong the soft aura is at rest, and how much more at a full level at a reach of 1. */
+    const val AURA_REST_STRENGTH = 0.30f
+    const val AURA_STRENGTH = 0.40f
+
+    /**
+     * The aura as a thin rim (issue #215, Unreleased.LIVING_RIM_THIN): 40% of the soft aura's reach at
+     * rest, on a kick and at the most, which is what was asked for, and stronger: at rest the rim is
+     * there to be seen, a kick takes it to full strength. A tenth lighter as well, against the
+     * patches behind it, which are a fifth darker than the cover at rest ([REST_LIGHT]).
+     */
+    const val RIM_REST = AURA_REST * 0.4f
+    const val RIM_SWELL = AURA_SWELL * 0.4f
+    const val RIM_MOST = AURA_MOST * 0.4f
+    const val RIM_REST_STRENGTH = 0.50f
+    const val RIM_STRENGTH = 0.45f
+    const val RIM_LIGHT = 0.10f
+
+    /**
+     * The thin rim's points along each side of the cover. A point stands one rest radius from the
+     * next, so that neighbours run into one even band: half way between two of them each gives a
+     * little over half its strength, and the two together about what one gives where it stands.
+     * Half as far again apart, it would be down to a third between them: a string of beads.
+     */
+    const val RIM_POINTS = 25
+
     /**
      * One point of the aura.
      *
@@ -242,6 +267,31 @@ object LivingField {
             points += AuraPoint(x, 1f, (rows - 1) * columns + column, MusicLevels.BASS, far)
         }
         return points
+    }
+
+    /**
+     * The aura as a thin rim ([RIM_REST]) for a grid of [columns] by [rows]: [points] points along
+     * each side of the cover, evenly, where [aura] has one for each patch. Each answers as the
+     * aura's point beside the same patch would, takes that patch's colour, and lies as far round
+     * from where a kick lands, so the rim moves as the soft aura did, only closer in.
+     */
+    fun rim(columns: Int, rows: Int, points: Int = RIM_POINTS): List<AuraPoint> {
+        val all = ArrayList<AuraPoint>(4 * points)
+        for (k in 0 until points) {
+            val along = (k + 0.5f) / points
+            // down the sides, beside the row it is level with
+            val row = min(rows - 1, (along * rows).toInt())
+            val band = if (kotlin.math.abs(along - 0.5f) < 1f / 6f) MusicLevels.HIGH else MusicLevels.MID
+            val down = 0.5f + min(along, 1f - along)
+            all += AuraPoint(0f, along, row * columns, band, down)
+            all += AuraPoint(1f, along, row * columns + columns - 1, band, down)
+            // along the top and the bottom, beside the column it is level with
+            val column = min(columns - 1, (along * columns).toInt())
+            val across = kotlin.math.abs(along - 0.5f)
+            all += AuraPoint(along, 0f, column, MusicLevels.BASS, across)
+            all += AuraPoint(along, 1f, (rows - 1) * columns + column, MusicLevels.BASS, across)
+        }
+        return all
     }
 
     /**
@@ -790,9 +840,10 @@ object LivingField {
 /**
  * Where the picture is at one moment, for a grid of [columns] by [rows] patches. [moveTo] moves it
  * on to the moment of a frame, one [step] after another; the getters say where each patch is to be
- * drawn. One instance lives as long as the player's screen keeps its shape.
+ * drawn. One instance lives as long as the player's screen keeps its shape. With [thinRim] the aura
+ * round the cover is a thin rim ([LivingField.rim]), without it the soft aura.
  */
-class LivingMotion(val columns: Int = LivingField.ACROSS, val rows: Int = LivingField.ACROSS) {
+class LivingMotion(val columns: Int = LivingField.ACROSS, val rows: Int = LivingField.ACROSS, val thinRim: Boolean = false) {
     val count = columns * rows
 
     /** The levels as the picture shows them: up at once, down slowly. */
@@ -871,7 +922,7 @@ class LivingMotion(val columns: Int = LivingField.ACROSS, val rows: Int = Living
     }
 
     /** The aura round the cover, and how far each of its points is taken: 0 to 1, and beyond for a drop. */
-    val aura = LivingField.aura(columns, rows)
+    val aura = if (thinRim) LivingField.rim(columns, rows) else LivingField.aura(columns, rows)
     val auraShown = FloatArray(aura.size)
 
     // Where the cover is in the picture, in parts of its width and height. Only the aura asks.
@@ -1207,9 +1258,14 @@ class LivingMotion(val columns: Int = LivingField.ACROSS, val rows: Int = Living
     // The aura's point [i]: its radius in parts of the cover's side, how strong it is from 0 to 1, its colour.
 
     fun auraRadius(i: Int): Float =
-        min(LivingField.AURA_MOST, LivingField.AURA_REST + LivingField.AURA_SWELL * reach * auraShown[i])
+        if (thinRim) min(LivingField.RIM_MOST, LivingField.RIM_REST + LivingField.RIM_SWELL * reach * auraShown[i])
+        else min(LivingField.AURA_MOST, LivingField.AURA_REST + LivingField.AURA_SWELL * reach * auraShown[i])
 
-    fun auraStrength(i: Int): Float = auraPresence * min(1f, 0.30f + 0.40f * reach * auraShown[i])
+    fun auraStrength(i: Int): Float = auraPresence * min(
+        1f,
+        if (thinRim) LivingField.RIM_REST_STRENGTH + LivingField.RIM_STRENGTH * reach * auraShown[i]
+        else LivingField.AURA_REST_STRENGTH + LivingField.AURA_STRENGTH * reach * auraShown[i],
+    )
 
     fun auraColor(i: Int): Int {
         val by = min(reach * auraShown[i], 3f)
@@ -1219,7 +1275,8 @@ class LivingMotion(val columns: Int = LivingField.ACROSS, val rows: Int = Living
         } else {
             colors[aura[i].patch]
         }
-        return LivingField.lit(LivingField.colourful(from, 1.15f + 0.15f * by), min(LivingField.MOST_LIGHT, 1f + 0.30f * by))
+        val lighter = if (thinRim) LivingField.RIM_LIGHT else 0f
+        return LivingField.lit(LivingField.colourful(from, 1.15f + 0.15f * by), min(LivingField.MOST_LIGHT, 1f + lighter + 0.30f * by))
     }
 
     companion object {

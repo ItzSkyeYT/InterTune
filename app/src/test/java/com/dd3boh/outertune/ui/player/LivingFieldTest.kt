@@ -14,6 +14,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import kotlin.math.abs
 import kotlin.math.exp
+import kotlin.math.min
 
 /**
  * The living background: the cover as a few patches of colour that breathe with the music. Still,
@@ -894,6 +895,100 @@ class LivingFieldTest {
         assertFalse(motion.atRest())
         motion.run(1f, playing = false, measured = false)
         assertTrue(motion.auraPresence > 0.99f && motion.atRest())
+    }
+
+    // The thin rim (issue #215): 40% of the soft aura's reach, stronger, and one band all round
+
+    private fun thin() = LivingMotion(columns, rows, thinRim = true)
+
+    @Test
+    fun `the thin rim has points all round the cover, each beside the patch it takes its colour from`() {
+        val rim = LivingField.rim(columns, rows)
+        assertEquals(4 * LivingField.RIM_POINTS, rim.size)
+        assertTrue("it is the rim the thin motion stands round the cover", thin().aura.size == rim.size)
+        for (point in rim) {
+            assertTrue("on an edge: ${point.x}, ${point.y}", point.x == 0f || point.x == 1f || point.y == 0f || point.y == 1f)
+            assertTrue(point.x in 0f..1f && point.y in 0f..1f)
+            val column = point.patch % columns
+            val row = point.patch / columns
+            if (point.x == 0f) assertEquals(0, column)
+            if (point.x == 1f) assertEquals(columns - 1, column)
+            if (point.y == 0f) assertEquals(0, row)
+            if (point.y == 1f) assertEquals(rows - 1, row)
+            // and level with it: the patch beside a point is the one its row or column says
+            if (point.x == 0f || point.x == 1f) assertEquals(min(rows - 1, (point.y * rows).toInt()), row)
+            if (point.y == 0f || point.y == 1f) assertEquals(min(columns - 1, (point.x * columns).toInt()), column)
+            if (point.y == 0f || point.y == 1f) assertEquals(MusicLevels.BASS, point.band)
+            else assertTrue(point.band == MusicLevels.MID || point.band == MusicLevels.HIGH)
+            assertTrue(point.far in 0f..1f)
+        }
+    }
+
+    @Test
+    fun `the thin rim's points are close enough to run into one band`() {
+        // Neighbours along a side stand no further apart than a point's radius at rest, which is
+        // where two of them still make about what one makes where it stands.
+        val top = LivingField.rim(columns, rows).filter { it.y == 0f }.map { it.x }.sorted()
+        assertEquals(LivingField.RIM_POINTS, top.size)
+        for (k in 1 until top.size) assertTrue("${top[k] - top[k - 1]}", top[k] - top[k - 1] <= LivingField.RIM_REST + 1e-6f)
+        assertTrue("from one corner to the other: ${top.first()} .. ${top.last()}", top.first() <= LivingField.RIM_REST && top.last() >= 1f - LivingField.RIM_REST)
+    }
+
+    @Test
+    fun `the thin rim is 40 percent of the soft aura's reach and stronger, at rest and on a kick`() {
+        val soft = motion().apply { coverThere = true; turnTo(IntArray(count) { 0xff806040.toInt() }); settle() }
+        val rim = thin().apply { coverThere = true; turnTo(IntArray(count) { 0xff806040.toInt() }); settle() }
+        fun bottomMiddle(m: LivingMotion) = m.aura.indexOfFirst { it.y == 1f && abs(it.x - 0.5f) < 0.01f }
+        val s = bottomMiddle(soft)
+        val t = bottomMiddle(rim)
+        assertEquals(0.4f * soft.auraRadius(s), rim.auraRadius(t), 0.0001f)
+        assertTrue("there to be seen at rest: ${rim.auraStrength(t)} against ${soft.auraStrength(s)}", rim.auraStrength(t) >= soft.auraStrength(s) + 0.15f)
+        val restColour = rim.auraColor(t)
+        assertTrue("a little lighter than the soft aura at rest", (restColour shr 16 and 0xff) > (soft.auraColor(s) shr 16 and 0xff))
+
+        soft.run(0.3f, bass = 1f)
+        rim.run(0.3f, bass = 1f)
+        assertEquals("the same kick, as far round", soft.auraShown[s], rim.auraShown[t], 0.0001f)
+        assertEquals(0.4f * soft.auraRadius(s), rim.auraRadius(t), 0.0001f)
+        assertTrue("it reaches out on the kick: ${rim.auraRadius(t)}", rim.auraRadius(t) > LivingField.RIM_REST * 2.5f)
+        assertTrue("and near full strength, more than the soft aura: ${rim.auraStrength(t)} against ${soft.auraStrength(s)}",
+            rim.auraStrength(t) > 0.85f && rim.auraStrength(t) > soft.auraStrength(s))
+    }
+
+    @Test
+    fun `turned all the way up, the thin rim stays within 40 percent of the soft aura's most`() {
+        val most = thin().apply {
+            strength = 1f
+            coverThere = true
+            turnTo(IntArray(count) { 0xff806040.toInt() })
+            run(0.3f, bass = 1f, mid = 1f, high = 1f)
+        }
+        for (i in most.aura.indices) {
+            assertTrue("rim radius ${most.auraRadius(i)}", most.auraRadius(i) <= LivingField.RIM_MOST)
+            assertTrue("rim strength ${most.auraStrength(i)}", most.auraStrength(i) in 0f..1f)
+        }
+        assertEquals(0.4f * LivingField.AURA_MOST, LivingField.RIM_MOST, 0.0001f)
+    }
+
+    @Test
+    fun `a kick lands above and below the cover and runs round the thin rim as it ran round the aura`() {
+        val rim = thin()
+        val bottomMiddle = rim.aura.indexOfFirst { it.y == 1f && abs(it.x - 0.5f) < 0.01f }
+        val topMiddle = rim.aura.indexOfFirst { it.y == 0f && abs(it.x - 0.5f) < 0.01f }
+        val sideMiddle = rim.aura.indexOfFirst { it.x == 0f && abs(it.y - 0.5f) < 0.01f }
+        rim.run(0.05f, bass = 1f)
+        assertTrue("above and below first: ${rim.auraShown[bottomMiddle]} against ${rim.auraShown[sideMiddle]}",
+            rim.auraShown[bottomMiddle] > rim.auraShown[sideMiddle] + 0.25f)
+        assertEquals(rim.auraShown[bottomMiddle], rim.auraShown[topMiddle], 0.001f)
+        rim.run(0.25f, bass = 1f)
+        assertTrue("then all the way round: ${rim.auraShown[sideMiddle]}", rim.auraShown[sideMiddle] > 0.75f)
+    }
+
+    @Test
+    fun `the player and the sample in Settings stand the rim round the cover that the flag asks for`() {
+        val source = java.io.File("src/main/java/com/dd3boh/outertune/ui/player/LivingBackground.kt").readText()
+        assertTrue("LivingBackground no longer reads the flag", "val thin = Unreleased.LIVING_RIM_THIN" in source)
+        assertTrue("LivingMotion(across, along, thinRim = thin)" in source && "LivingMotion(along, across, thinRim = thin)" in source)
     }
 
     // A colour to each range: each moves its own colour and no other
