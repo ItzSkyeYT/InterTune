@@ -74,4 +74,15 @@ class SaverNoteTest {
             assertTrue("the note runs to ${body.count { it == '.' }} sentences in $folder", body.count { it == '.' } <= 3)
         }
     }
+
+    @Test
+    fun `word-by-word lyrics are no longer among what pauses, and the rest of the list is as it was`() {
+        // His pick of 19 Nov 2026: the phone's saver leaves them on (BatteryUse.holdsWordByWord).
+        val english = text("values", "saver_note_body")!!
+        val french = text("values-fr", "saver_note_body")!!
+        assertFalse(english, english.contains("Word-by-word", ignoreCase = true) || english.contains("lyrics", ignoreCase = true))
+        assertFalse(french, french.contains("mot à mot") || french.contains("paroles"))
+        assertTrue(english, english.contains("The player\\'s moving background and sound effects (not the equalizer) pause, the theme turns black and syncs wait for Wi-Fi."))
+        assertTrue(french, french.contains("Le fond animé du lecteur et les effets sonores (pas l\\'égaliseur) se mettent en pause, le thème passe en noir et les synchronisations attendent le Wi-Fi."))
+    }
 }

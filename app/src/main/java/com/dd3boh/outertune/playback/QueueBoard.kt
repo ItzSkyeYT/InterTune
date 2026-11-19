@@ -527,6 +527,24 @@ class QueueBoard(
         return masterQueues.size
     }
 
+    /**
+     * [q], a queue deleted when the last of its songs were taken out by hand (the queue sheet's dropIfEmptied), back
+     * on the board holding them again: that removal's Undo. Saved again as a queue added is, made current and loaded
+     * into the player on the song it was on, from where it was in it (setCurrQueue); the caller says whether it plays.
+     * Not when the board holds a queue of its id or title again, or has no room left for it. Main thread. Returns
+     * whether it came back.
+     */
+    fun bringBack(q: MultiQueueObject): Boolean {
+        if (q.queue.isEmpty() || masterQueues.size >= maxQueues) return false
+        if (masterQueues.any { it.id == q.id || it.title == q.title }) return false
+        masterQueues.add(q)
+        regenerateIndexes()
+        // In line with the saves, after the delete that took it (see saveDispatcher).
+        saveQueueSongs(q)
+        setCurrQueue(q)
+        return true
+    }
+
 
     /**
      * Un-shuffles current queue

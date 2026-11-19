@@ -6,6 +6,7 @@
 
 package com.dd3boh.outertune.ui.menu
 
+import com.dd3boh.outertune.db.SchemaDb
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -182,6 +183,50 @@ class LocalRemovePlacesTest {
     }
 
     @Test
+    fun `a liked song's message says it left Liked songs too, in the app's own name for them`() {
+        // His pick of 19 Nov 2026: "The like goes too, and the message says so". Chosen by the very song whose like the
+        // removal keeps for Undo (LocalRemoval.Row), so the message and Undo agree.
+        val glue = code("ui/menu/LocalRemoveMenu.kt")
+        assertTrue("val said = context.getString(if (song.liked) R.string.local_removed_liked else R.string.local_removed)" in glue)
+        val removal = code("utils/scanners/LocalRemoval.kt").substringAfter("suspend fun removeSong(").substringBefore("suspend fun excludeFolder(")
+        assertTrue(removal, "val row = Row(song.id, song.inLibrary, song.liked, song.likedDate)" in removal)
+        // A folder's songs keep their likes: its message stays as it was.
+        assertFalse("local_removed_liked" in glue.substringAfter("fun excludeFolder("))
+        // Liked songs as the app names them everywhere else, in English and in French.
+        assertTrue("<string name=\"liked_songs\">Liked songs</string>" in File("src/main/res/values/strings.xml").readText())
+        assertTrue("<string name=\"liked_songs\">Titres aimés</string>" in File("src/main/res/values-fr/strings.xml").readText())
+    }
+
+    @Test
+    fun `the like goes with the song and Undo brings it back, run on the app's own tables`() {
+        val dao = code("db/daos/SongsDao.kt")
+        fun query(name: String) = Regex("""@Query\("([^"]+)"\)\s*\n\s*fun $name\(""").find(dao)!!.groupValues[1]
+        // The removal's write, toggleInLibrary(song.id, null): out of the library, and the like with it.
+        val toggle = dao.substringAfter("fun toggleInLibrary(songId: String, inLibrary: LocalDateTime?) {").substringBefore("\n    }\n")
+        assertTrue(toggle, "inLibrary(songId, inLibrary)" in toggle && "if (inLibrary == null) {\n            removeLike(songId)" in toggle)
+        SchemaDb.open().use { db ->
+            fun exec(sql: String) = db.createStatement().use { it.execute(sql) }
+            fun row(): List<Any?> = db.createStatement().use { st ->
+                st.executeQuery("SELECT inLibrary, liked, likedDate FROM song WHERE id = 's'").use { rs ->
+                    assertTrue(rs.next())
+                    listOf(rs.getObject(1), rs.getInt(2), rs.getObject(3))
+                }
+            }
+            exec("INSERT INTO song(id, title, duration, liked, likedDate, inLibrary) VALUES ('s', 's', 200, 1, 1731000000000, 1730000000000)")
+            val before = row()
+            exec(query("inLibrary").replace(":inLibrary", "NULL").replace(":songId", "'s'"))
+            exec(query("removeLike").replace(":songId", "'s'"))
+            assertEquals("out of the library and out of Liked songs", listOf(null, 0, null), row())
+            // Undo: restoreInLibrary with what the removal kept of the song.
+            exec(
+                query("restoreInLibrary").replace(":inLibrary", "1730000000000").replace(":likedDate", "1731000000000")
+                    .replace(":liked", "1").replace(":songId", "'s'")
+            )
+            assertEquals("liked again, from the same day", before, row())
+        }
+    }
+
+    @Test
     fun `on for everyone in 0_13, and its words are still held from translators, short, in English and French`() {
         val flags = code("constants/Unreleased.kt")
         assertTrue("val LOCAL_REMOVE = true" in flags)
@@ -190,6 +235,7 @@ class LocalRemovePlacesTest {
         val words = mapOf(
             "local_exclude_folder" to ("Exclude folder" to "Exclure le dossier"),
             "local_removed" to ("Removed from your library. The file stays." to "Retiré de votre bibliothèque. Le fichier reste."),
+            "local_removed_liked" to ("Removed from your library and Liked songs. The file stays." to "Retiré de votre bibliothèque et des Titres aimés. Le fichier reste."),
             "local_folder_excluded" to ("%1\$s excluded. Its files stay." to "%1\$s exclu. Ses fichiers restent."),
         )
         for ((name, pair) in words) {

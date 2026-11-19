@@ -54,6 +54,7 @@ import com.zionhuang.innertube.models.AlbumItem
 import kotlinx.coroutines.flow.first
 import androidx.compose.ui.platform.LocalHapticFeedback
 import com.dd3boh.outertune.ui.component.tapTick
+import com.dd3boh.outertune.ui.player.likeName
 
 @Composable
 fun YouTubeAlbumMenu(
@@ -132,7 +133,7 @@ fun YouTubeAlbumMenu(
                 Icon(
                     painter = painterResource(if (album?.album?.bookmarkedAt != null) R.drawable.favorite else R.drawable.favorite_border),
                     tint = if (album?.album?.bookmarkedAt != null) MaterialTheme.colorScheme.error else LocalContentColor.current,
-                    contentDescription = null
+                    contentDescription = likeName(album?.album?.bookmarkedAt != null)
                 )
             }
         }

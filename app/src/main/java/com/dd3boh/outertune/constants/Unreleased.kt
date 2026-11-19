@@ -1219,11 +1219,10 @@ object Unreleased {
     /**
      * In a listening room, the room's button at the free end of the player's row, so that starting or leaving a
      * room moves no other button (his rule of 15 Nov 2026): first in Classic's circles, on top of a side column
-     * beside a small player's cover, and hanging off the start of Connected's row under the controls, which stays
-     * where it is without it. That row then stands off centre while a room is on, the look he turned down for the
-     * queue button on 11 Nov 2026 (memory player-controls-stay-put), and he has not seen it yet. With this off the
-     * room's button is where next-013 has it: right before the menu in both styles (his places of 17 Oct 2026),
-     * the row centred with it in.
+     * beside a small player's cover, and first in a small player's Connected row. With this off the room's button is
+     * where next-013 has it: right before the menu (his places of 17 Oct 2026), the row centred with it in. Connected's
+     * normal player has it by the title in every build since 19 Nov 2026 (his pick: the row under the controls never
+     * takes it), so its row no longer hangs it off centre, the look he turned down for the queue button on 11 Nov.
      *
      * Held back as the line's held features are: the debug app, the Preview and the Tester app have it; a release
      * only on his word.

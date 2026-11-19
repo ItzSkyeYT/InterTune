@@ -460,7 +460,8 @@ fun ColumnScope.SwipeGesturesFrag() {
 /**
  * "App language": the language of the app's own words, where the two rows under it are the
  * language and country YouTube Music answers in. System default, then every language the app
- * is translated into, each in its own words. A pick switches the whole app at once (AppLanguage):
+ * is translated into, each in its own words, "Partly translated" under those still mostly in English
+ * (AppLanguage.PARTLY). A pick switches the whole app at once (AppLanguage):
  * the screen stays, the music goes on. The value is read from where the platform keeps it each
  * time the screen is made, so it agrees with Android's own App languages page.
  */
@@ -481,6 +482,8 @@ fun ColumnScope.AppLanguageFrag() {
         valueText = {
             if (it == SYSTEM_DEFAULT) stringResource(R.string.system_default) else AppLanguage.nameOf(it)
         },
+        // Under a language most of whose words are still English, a short note says so (his pick of 19 Nov 2026).
+        valueDescription = { if (AppLanguage.partly(it)) stringResource(R.string.app_language_partly) else "" },
         onValueSelected = { picked ->
             var holder = context
             while (holder !is Activity && holder is ContextWrapper) holder = holder.baseContext

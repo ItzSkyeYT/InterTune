@@ -111,6 +111,7 @@ import androidx.lifecycle.repeatOnLifecycle
 import com.dd3boh.outertune.LocalMenuState
 import com.dd3boh.outertune.LocalPlayerConnection
 import com.dd3boh.outertune.R
+import com.dd3boh.outertune.constants.BatteryModeKey
 import com.dd3boh.outertune.constants.LyricClickable
 import com.dd3boh.outertune.constants.LyricAutoScrollKey
 import com.dd3boh.outertune.constants.LyricFontSizeKey
@@ -127,13 +128,13 @@ import com.dd3boh.outertune.constants.ShowLyricsKey
 import com.dd3boh.outertune.constants.Speed
 import com.dd3boh.outertune.db.entities.LyricsEntity
 import com.dd3boh.outertune.db.entities.LyricsEntity.Companion.uninitializedLyric
-import com.dd3boh.outertune.extensions.isPowerSaver
 import com.dd3boh.outertune.lyrics.LyricsShare
 import com.dd3boh.outertune.lyrics.LyricsTiming
 import com.dd3boh.outertune.lyrics.LyricsLatin
 import com.dd3boh.outertune.lyrics.latinTools
 import com.dd3boh.outertune.lyrics.LyricsVideoPlan
 import com.dd3boh.outertune.models.MediaMetadata
+import com.dd3boh.outertune.playback.BatteryUse
 import com.dd3boh.outertune.playback.MusicLevels
 import com.dd3boh.outertune.ui.component.button.IconButton
 import com.dd3boh.outertune.ui.component.shimmer.ShimmerHost
@@ -202,6 +203,10 @@ fun Lyrics(
     val lyricsClickable by rememberPreference(LyricClickable, true)
     val lyricsAutoScroll by rememberPreference(LyricAutoScrollKey, true)
     val lyricsFancy by rememberPreference(LyricKaraokeEnable, false)
+    // Word by word stands still only with Saver picked by hand in Battery use (BatteryUse.holdsWordByWord): it draws
+    // only while the lyrics are open, so the phone's battery saver leaves it on.
+    val pickedBatteryMode by rememberEnumPreference(BatteryModeKey, BatteryUse.DEFAULT)
+    val wordsHeld = BatteryUse.holdsWordByWord(pickedBatteryMode)
     val lyricsUpdateSpeed by rememberEnumPreference(LyricUpdateSpeed, Speed.MEDIUM)
     var lyricRefreshRate = lyricsUpdateSpeed.toLrcRefreshMillis()
     val showLatin by rememberPreference(LyricLatinKey, false)
@@ -521,7 +526,7 @@ fun Lyrics(
 
     // Look C: the lines under the one being sung follow it one after the other (LyricsCarry), and
     // the music is measured while the look is up, for the words' nod, as the Living blur has it measured.
-    val carried = wordsLook == LyricsWordsLook.C && isSynced && lyricsFancy && !context.isPowerSaver()
+    val carried = wordsLook == LyricsWordsLook.C && isSynced && lyricsFancy && !wordsHeld
     val carry = remember { LyricsCarry() }
     val levels = remember { FloatArray(MusicLevels.VALUES) }
     DisposableEffect(carried, playerConnection) {
@@ -878,7 +883,7 @@ fun Lyrics(
                                 },
                             )
                     ) {
-                        if (inLine && lyricsFancy && item.words != null && !context.isPowerSaver() && !picking) { // word by word
+                        if (inLine && lyricsFancy && item.words != null && !wordsHeld && !picking) { // word by word
                             // The line's words with their times, each where it stands in its text: the line is
                             // lit from them where each word stands (#165), the app's own way or in the look being
                             // compared (LyricsWordsLook); and for C how far each nods, weighed against the music

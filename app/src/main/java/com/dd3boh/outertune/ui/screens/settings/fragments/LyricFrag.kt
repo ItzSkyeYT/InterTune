@@ -31,7 +31,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.dd3boh.outertune.R
@@ -41,6 +40,7 @@ import com.dd3boh.outertune.constants.LyricClickable
 import com.dd3boh.outertune.constants.LyricAutoScrollKey
 import androidx.compose.material.icons.rounded.SwapVert
 import com.dd3boh.outertune.constants.LyricFontSizeKey
+import com.dd3boh.outertune.constants.BatteryModeKey
 import com.dd3boh.outertune.constants.LyricKaraokeEnable
 import com.dd3boh.outertune.constants.LyricLatinKey
 import com.dd3boh.outertune.constants.LyricSourcePrefKey
@@ -57,10 +57,10 @@ import com.dd3boh.outertune.ui.component.ListPreference
 import com.dd3boh.outertune.ui.component.PreferenceEntry
 import com.dd3boh.outertune.ui.component.SwitchPreference
 import com.dd3boh.outertune.ui.dialog.CounterDialog
+import com.dd3boh.outertune.playback.BatteryUse
 import com.dd3boh.outertune.utils.rememberEnumPreference
 import com.dd3boh.outertune.utils.rememberPreference
 import com.dd3boh.outertune.ui.screens.walkthrough.Tour
-import com.dd3boh.outertune.extensions.isPowerSaver
 import com.dd3boh.outertune.ui.screens.settings.MeaningLine
 import com.dd3boh.outertune.ui.screens.settings.settingRow
 import com.dd3boh.outertune.ui.screens.walkthrough.tourTarget
@@ -205,6 +205,7 @@ fun ColumnScope.LyricSourceFrag() {
 fun ColumnScope.LyricAdvancedFrag() {
     val (lyricUpdateSpeed, onLyricsUpdateSpeedChange) = rememberEnumPreference(LyricUpdateSpeed, Speed.MEDIUM)
     val (lyricsFancy, onLyricsFancyChange) = rememberPreference(LyricKaraokeEnable, false)
+    val pickedBatteryMode by rememberEnumPreference(BatteryModeKey, BatteryUse.DEFAULT)
     val (syncedLyricsClickable, onSyncedLyricsClickable) = rememberPreference(LyricClickable, defaultValue = true)
     val (lyricsAutoScroll, onLyricsAutoScrollChange) = rememberPreference(LyricAutoScrollKey, defaultValue = true)
 
@@ -241,9 +242,10 @@ fun ColumnScope.LyricAdvancedFrag() {
             checked = lyricsFancy,
             onCheckedChange = onLyricsFancyChange
         )
-        // Word by word stands still while Android's battery saver is on (Lyrics.kt): said here, so that it is not
-        // taken for broken (Niko, #testers, 18 Nov 2026).
-        if (lyricsFancy && LocalContext.current.isPowerSaver()) {
+        // Word by word stands still while Saver is picked by hand in Battery use (Lyrics.kt, BatteryUse.holdsWordByWord):
+        // said here, so that it is not taken for broken (Niko, #testers, 18 Nov 2026). Android's battery saver alone no
+        // longer stops it (his pick of 19 Nov 2026).
+        if (lyricsFancy && BatteryUse.holdsWordByWord(pickedBatteryMode)) {
             Box(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp)) {
                 MeaningLine(stringResource(R.string.lyrics_word_by_word_saver))
             }

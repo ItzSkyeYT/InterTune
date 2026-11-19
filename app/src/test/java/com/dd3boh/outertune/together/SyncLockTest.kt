@@ -150,8 +150,9 @@ class SyncLockTest {
         assertFalse(sheet.contains("together_up_next"))
         assertFalse(sheet.contains("QueueRow"))
         val player = File("src/main/java/com/dd3boh/outertune/ui/player/Player.kt").readText()
-        // His word of 17 Oct 2026: in both styles the room's button is in the player's row and the menu stays last.
-        // Where in the row is RoomButtonStaysTest's: right before the menu in a release, first with ROOM_AT_FREE_END.
+        // His word of 17 Oct 2026: the room's button is in the player's row and the menu stays last; since 19 Nov 2026
+        // Connected's normal player has it by the title instead, and the row keeps it for a small player. Where in the
+        // row is RoomButtonStaysTest's: right before the menu in a release, first with ROOM_AT_FREE_END.
         val classic = player.substringAfter("val classicButtons").substringBefore("\n            }\n")
         assertTrue(classic.indexOf("roomCircle()") in 0 until classic.indexOf("menuCircle()"))
         val connected = player.substringAfter("val quickActions").substringBefore("val controlsContent")

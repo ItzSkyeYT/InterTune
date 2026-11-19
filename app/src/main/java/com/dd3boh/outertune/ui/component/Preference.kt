@@ -107,7 +107,7 @@ fun <T> ListPreference(
     onValueSelected: (T) -> Unit,
     onDisabled: (T) -> Boolean = { false },
     isEnabled: Boolean = true,
-    /** A line under each choice in the list, on what it does. None by default. */
+    /** A line under each choice in the list, on what it does. None by default; an empty line is not drawn. */
     valueDescription: (@Composable (T) -> String)? = null,
 ) {
     var showDialog by remember {
@@ -119,9 +119,11 @@ fun <T> ListPreference(
         ) {
             items(values) { value ->
                 val isDisabled = onDisabled(value)
+                // A choice whose line is empty has none, and its button stays by the middle of its name.
+                val description = valueDescription?.invoke(value).orEmpty()
                 Row(
-                    // With a line under each choice the button stands by the name, at the top.
-                    verticalAlignment = if (valueDescription != null) Alignment.Top else Alignment.CenterVertically,
+                    // With a line under the choice the button stands by the name, at the top.
+                    verticalAlignment = if (description.isNotEmpty()) Alignment.Top else Alignment.CenterVertically,
                     modifier = Modifier
                         .fillMaxWidth()
                         .clickable(enabled = !isDisabled) {
@@ -145,9 +147,9 @@ fun <T> ListPreference(
                             text = valueText(value),
                             style = MaterialTheme.typography.bodyLarge,
                         )
-                        if (valueDescription != null) {
+                        if (description.isNotEmpty()) {
                             Text(
-                                text = valueDescription(value),
+                                text = description,
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
