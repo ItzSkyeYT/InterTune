@@ -64,6 +64,7 @@ import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.ListThumbnailSize
 import com.dd3boh.outertune.constants.MiniPlayerHeight
 import com.dd3boh.outertune.constants.ThumbnailCornerRadius
+import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.ui.component.button.IconButton
 import kotlin.math.roundToInt
@@ -323,6 +324,9 @@ fun MiniMediaInfo(
                     }
                 }
             }
+
+            // A room's or a cast's sign on the cover's corner, wherever the app is (CAST_AT_TOP).
+            if (Unreleased.CAST_AT_TOP) MiniPlayerBadge()
         }
 
         Column(

@@ -158,6 +158,42 @@ internal val ClassicSideColumnMinHeight = 88.dp
  */
 internal fun classicSideColumnsFit(height: Dp): Boolean = height >= ClassicSideColumnMinHeight
 
+/** One of Classic's circles beside a small player's cover. */
+internal sealed interface SideCircle {
+    data object Queue : SideCircle
+    data object Room : SideCircle
+    data object Menu : SideCircle
+    data class Pin(val pin: PlayerPin) : SideCircle
+}
+
+/**
+ * Classic's circles beside a small player's cover: the left column and the right one, each from
+ * the top. The queue first and the menu last with the [pins] between, half on each side, and a
+ * listening room's circle while [inRoom].
+ *
+ * With [roomAtFreeEnd] (Unreleased.ROOM_AT_FREE_END) the halves are counted without the room's
+ * circle, so no circle changes side when a room starts, and it goes on top of the shorter column,
+ * the left one when they are as long: one pin makes two and two, not three beside one, which
+ * [ClassicSideColumnMinHeight] has no room for. The column it joins is centred again with it, so
+ * its circles move down 22dp while the room lasts; the other column stays. Without it, as in a
+ * release, it is counted in, right before the menu.
+ */
+internal fun classicSideColumns(pins: List<PlayerPin>, inRoom: Boolean, roomAtFreeEnd: Boolean): Pair<List<SideCircle>, List<SideCircle>> {
+    val roomCounted = inRoom && !roomAtFreeEnd
+    val circles = buildList<SideCircle> {
+        add(SideCircle.Queue)
+        pins.forEach { add(SideCircle.Pin(it)) }
+        if (roomCounted) add(SideCircle.Room)
+        add(SideCircle.Menu)
+    }
+    val onLeft = (circles.size + 1) / 2
+    val left = circles.take(onLeft)
+    val right = circles.drop(onLeft)
+    if (!inRoom || roomCounted) return left to right
+    return if (right.size < left.size) left to (listOf<SideCircle>(SideCircle.Room) + right)
+    else (listOf<SideCircle>(SideCircle.Room) + left) to right
+}
+
 /**
  * The sizes of the transport controls under the seek bar.
  *

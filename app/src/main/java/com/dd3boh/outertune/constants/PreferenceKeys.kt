@@ -540,6 +540,14 @@ val QueueBackClosesPlayerKey = booleanPreferencesKey("queueBackClosesPlayer")
 val QueueLeftOpenKey = booleanPreferencesKey("queueLeftOpen")
 
 /**
+ * Whether the player shows the output button under its controls, the pill that names where the music
+ * plays (this phone, the headphones, a TV) and opens the cast sheet. Off by default since his pick of
+ * 15 Nov 2026: the cast button at the player's top right instead, and nothing under the controls. On
+ * gives back the pill, and the top right stays empty ("the pill should be toggleable").
+ */
+val OutputPillKey = booleanPreferencesKey("outputPill")
+
+/**
  * The two buttons the phone's media controls show beside previous, play and next, in order, as
  * names joined by a comma. Missing means shuffle then repeat, which is what they always showed.
  * See [com.dd3boh.outertune.playback.MediaControlButtons].

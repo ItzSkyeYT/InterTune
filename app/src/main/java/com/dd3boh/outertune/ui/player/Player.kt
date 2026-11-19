@@ -34,6 +34,7 @@ import com.dd3boh.outertune.constants.PlayerButtonsStyle
 import com.dd3boh.outertune.constants.PlayerButtonsStyleKey
 import com.dd3boh.outertune.constants.PlayerPinsKey
 import com.dd3boh.outertune.constants.QueueButtonKey
+import com.dd3boh.outertune.constants.OutputPillKey
 import com.dd3boh.outertune.constants.QueueBackClosesPlayerKey
 import com.dd3boh.outertune.constants.QueueLeftOpenKey
 import androidx.compose.material.icons.automirrored.rounded.QueueMusic
@@ -439,6 +440,10 @@ fun BottomSheetPlayer(
     // Back from the queue closes the whole player, and the player opens where it was left (#30).
     val queueBackClosesPlayer by rememberPreference(QueueBackClosesPlayerKey, defaultValue = false)
     var queueLeftOpen by rememberPreference(QueueLeftOpenKey, defaultValue = false)
+    // The pill under the controls naming where the music plays. With CAST_AT_TOP (his pick of 15 Nov
+    // 2026) it is a switch that is off, and the cast button stands at the top right instead.
+    val outputPillSwitch by rememberPreference(OutputPillKey, defaultValue = false)
+    val outputPill = !Unreleased.CAST_AT_TOP || outputPillSwitch
 
     // Read again on a new song as well as on a new state, since the loop below only reads while the
     // player is ready. A song changed while the one before was still loading kept that song's place
@@ -602,6 +607,15 @@ fun BottomSheetPlayer(
      * spelled out at the point of use.
      */
     val tabletTwoPane = tabMode
+
+    /**
+     * A phone on its side in a window under 600dp wide: split screen on its side, a 16:9 phone with
+     * its navigation bar beside the screen, a floating window. It has the stacked layout with the
+     * buttons above the title, and its cover only gets the height the controls leave, often none. So
+     * the cast button never goes at the cover's top right there, and the pill that names where music
+     * plays stays in the bottom right corner whatever the Output button says, as in a release.
+     */
+    val narrowSide = isLandscape && !tabMode && !wideScreen
 
 
     // ignoringVisibility so hiding the bars in immersive landscape does not change this bound and
@@ -1021,10 +1035,14 @@ fun BottomSheetPlayer(
                 SleepTimerDialog(playerConnection) { showSleepTimerDialog = false }
             }
 
-            // A listening room's button, only while one is on. In both styles it comes right before
-            // the menu, so that the menu stays last (his word of 17 Oct 2026). It opens the room.
+            // A listening room's button, only while one is on. It opens the room, and the menu stays
+            // last (his word of 17 Oct 2026). With ROOM_AT_FREE_END it goes at the free end of its
+            // row, where nothing is pushed, so the buttons never move when a room starts or ends (his
+            // rule of 15 Nov 2026); without it, as in a release, right before the menu in both styles.
             val room by playerConnection.service.together.collectAsState()
             val inRoom = room != null
+            val roomAtFreeEnd = inRoom && Unreleased.ROOM_AT_FREE_END
+            val roomBeforeMenu = inRoom && !Unreleased.ROOM_AT_FREE_END
             var showRoom by rememberSaveable { mutableStateOf(false) }
             if (showRoom) TogetherSheet(onDismiss = { showRoom = false })
 
@@ -1152,6 +1170,13 @@ fun BottomSheetPlayer(
                 Log.v(TAG, "PLR-3.xa")
                 Spacer(modifier = Modifier.width(10.dp))
 
+                // A room's circle, with ROOM_AT_FREE_END, first: the row stands at the end of its
+                // line, beside the title or at the top of the column, so its first place is the free
+                // end, and the circle there leaves the timer, the heart and the menu where they were.
+                if (roomAtFreeEnd) {
+                    roomCircle()
+                    Spacer(modifier = Modifier.width(7.dp))
+                }
                 if (queueLayout.queueButton) {
                     queueCircle()
                     Spacer(modifier = Modifier.width(7.dp))
@@ -1160,7 +1185,8 @@ fun BottomSheetPlayer(
                     pinCircle(pin)
                     Spacer(modifier = Modifier.width(7.dp))
                 }
-                if (inRoom) {
+                // Without it, as in a release, right before the menu.
+                if (roomBeforeMenu) {
                     roomCircle()
                     Spacer(modifier = Modifier.width(7.dp))
                 }
@@ -1180,18 +1206,16 @@ fun BottomSheetPlayer(
                     verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterVertically),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    // The queue first and the menu last with the pins between, half on each side; a
-                    // listening room's circle, while one is on, right before the menu.
+                    // The queue first and the menu last with the pins between, half on each side, and a
+                    // listening room's circle while one is on: see classicSideColumns.
                     val pinned = classicPins(queueCircle = true)
-                    val count = pinned.size + 2 + (if (inRoom) 1 else 0)
-                    val onLeft = (count + 1) / 2
-                    for (i in 0 until count) {
-                        if ((i < onLeft) != left) continue
-                        when {
-                            i == 0 -> queueCircle()
-                            i == count - 1 -> menuCircle()
-                            inRoom && i == count - 2 -> roomCircle()
-                            else -> pinCircle(pinned[i - 1])
+                    val (onLeft, onRight) = classicSideColumns(pinned, inRoom, roomAtFreeEnd = Unreleased.ROOM_AT_FREE_END)
+                    for (circle in if (left) onLeft else onRight) {
+                        when (circle) {
+                            SideCircle.Queue -> queueCircle()
+                            SideCircle.Room -> roomCircle()
+                            SideCircle.Menu -> menuCircle()
+                            is SideCircle.Pin -> pinCircle(circle.pin)
                         }
                     }
                 }
@@ -1313,7 +1337,7 @@ fun BottomSheetPlayer(
                     PlayerActionSegment(
                         painter = rememberVectorPainter(Icons.AutoMirrored.Rounded.QueueMusic),
                         contentDescription = stringResource(R.string.queue),
-                        shape = connectedShape(first = true, last = false),
+                        shape = connectedShape(first = !roomAtFreeEnd, last = false),
                         container = inactive,
                         filled = false,
                         content = onBackgroundColor,
@@ -1323,17 +1347,38 @@ fun BottomSheetPlayer(
                         onClick = openQueue,
                     )
                 }
+                val roomSegment: @Composable (Boolean) -> Unit = { first ->
+                    PlayerActionSegment(
+                        painter = rememberVectorPainter(Icons.Rounded.Group),
+                        contentDescription = stringResource(R.string.together_in_room),
+                        shape = connectedShape(first = first, last = false),
+                        container = MaterialTheme.colorScheme.primary,
+                        filled = true,
+                        content = MaterialTheme.colorScheme.onPrimary,
+                        width = actionWidth,
+                        backdrop = buttonBackdrop,
+                        glassIntensity = glassIntensity,
+                        onClick = { showRoom = true },
+                    )
+                }
+                // A room's segment, with ROOM_AT_FREE_END, comes first and hangs off the start of the
+                // others, which stay where they are without it (CentredRow's hangingFirst). A small
+                // player counts it in its widths, so there it is one of the row like the rest. Without
+                // it, as in a release, it comes right before the menu, centred with the others.
+                val roomHangs = roomAtFreeEnd && !compactPlayer
                 CentredRow(
                     gap = ConnectedButtonGap,
                     gutter = hPadding,
+                    hangingFirst = roomHangs,
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = hPadding)
                         .padding(top = 16.dp)
                 ) {
+                    if (roomAtFreeEnd) roomSegment(true)
                     if (queueLayout.queueButton) queueSegment()
                     rowPins.forEachIndexed { i, pin ->
-                        val shape = connectedShape(first = i == 0 && !queueLayout.queueButton, last = false)
+                        val shape = connectedShape(first = i == 0 && !queueLayout.queueButton && !roomAtFreeEnd, last = false)
                         val liked = currentSong?.song?.liked == true
                         when (pin) {
                             PlayerPin.LYRICS -> PlayerActionSegment(
@@ -1388,20 +1433,7 @@ fun BottomSheetPlayer(
                             )
                         }
                     }
-                    if (inRoom) {
-                        PlayerActionSegment(
-                            painter = rememberVectorPainter(Icons.Rounded.Group),
-                            contentDescription = stringResource(R.string.together_in_room),
-                            shape = connectedShape(first = rowPins.isEmpty() && !queueLayout.queueButton, last = false),
-                            container = MaterialTheme.colorScheme.primary,
-                            filled = true,
-                            content = MaterialTheme.colorScheme.onPrimary,
-                            width = actionWidth,
-                            backdrop = buttonBackdrop,
-                            glassIntensity = glassIntensity,
-                            onClick = { showRoom = true },
-                        )
-                    }
+                    if (roomBeforeMenu) roomSegment(rowPins.isEmpty() && !queueLayout.queueButton)
                     PlayerActionSegment(
                         painter = rememberVectorPainter(Icons.Rounded.MoreVert),
                         contentDescription = stringResource(R.string.options),
@@ -1853,6 +1885,16 @@ fun BottomSheetPlayer(
                             }
                         }
 
+                        // The cast button at the cover pane's top right, as on a tablet's two panes,
+                        // while the output button is off. The pane is already clear of the status bar.
+                        if (!outputPill) {
+                            CastButton(
+                                tint = onBackgroundColor,
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .padding(end = 4.dp)
+                            )
+                        }
                     }
 
                     Column(
@@ -1980,9 +2022,12 @@ fun BottomSheetPlayer(
                         }
 
                         // Laid over the empty top right corner, under the status bar, so nothing
-                        // else on the player moves or changes size for it. Only on a tablet's two
-                        // panes now: everywhere else the output button says and does more.
-                        if (tabletTwoPane) {
+                        // else on the player moves or changes size for it. On a tablet's two panes,
+                        // and everywhere else while the output button is off (his pick of 15 Nov
+                        // 2026: the cast button at the top right, nothing under the controls). Not
+                        // in a small player, whose top right is the cover's or its circles', nor in a
+                        // narrow window on its side, whose cover has no height to give it (narrowSide).
+                        if (tabletTwoPane || (!outputPill && !compactPlayer && !narrowSide)) {
                             CastButton(
                                 tint = onBackgroundColor,
                                 modifier = Modifier
@@ -2046,10 +2091,11 @@ fun BottomSheetPlayer(
                             // when the block has to shrink.
                             if (!compactPlayer) Spacer(Modifier.height(24.dp))
                         }
-                        if (queueLayout.outputRoom > 0.dp) {
+                        if (queueLayout.outputRoom > 0.dp && outputPill) {
                             // Where the music is coming out, in the half of the queue's strip its
                             // arrow gave up, drawn a little into the gap above so that it sits in
-                            // the middle of the two. Nothing above it has moved for it.
+                            // the middle of the two. Nothing above it has moved for it. Switched
+                            // off, the half stays empty, so the arrow and the controls stay put.
                             Box(
                                 contentAlignment = Alignment.Center,
                                 modifier = Modifier
@@ -2148,8 +2194,9 @@ fun BottomSheetPlayer(
         // Drawn after the queue's sheet. Its collapsed strip lies across the bottom of the window,
         // and under it the pill was seen and could not be pressed: the tap opened the queue. Gone
         // once the queue is most of the way up. Not on a small upright window, where that corner
-        // is the play row's.
-        if (isLandscape && queueLayout.outputRoom == 0.dp && !tabletTwoPane && mediaMetadata != null && !queueCovers) {
+        // is the play row's. With the Output button off, still in a narrow window on its side, which
+        // has no cast button at the top right (narrowSide): the pill is its only way to the cast sheet.
+        if ((outputPill || narrowSide) && isLandscape && queueLayout.outputRoom == 0.dp && !tabletTwoPane && mediaMetadata != null && !queueCovers) {
             OutputButton(
                 tint = onBackgroundColor,
                 wide = false,
@@ -2318,6 +2365,14 @@ private fun CentredRow(
     gap: Dp,
     gutter: Dp,
     modifier: Modifier = Modifier,
+    /**
+     * Whether the first button hangs off the start of the others, which are centred as they are
+     * without it (quickRowPositionsHanging): a listening room's, so that the others never move as a
+     * room starts and ends. It takes no width from them, and hangs at an icon's width where its own
+     * reaches too far (quickRowWidths). In a row with no room even for that, it is centred with
+     * them after all.
+     */
+    hangingFirst: Boolean = false,
     buttons: @Composable () -> Unit,
 ) {
     Layout(content = buttons, modifier = modifier) { measurables, constraints ->
@@ -2332,12 +2387,17 @@ private fun CentredRow(
         val width = if (constraints.hasBoundedWidth) constraints.maxWidth
         else natural.sum() + gapPx * (natural.size - 1).coerceAtLeast(0)
 
-        // Only a row too wide for its room gives other widths, and only to the buttons that give way.
-        val widths = fitQuickActionWidths(natural, gapPx, quickRowRoom(width, gutter), QuickActionIconOnlyWidth.roundToPx())
+        // Only a row too wide for its room gives other widths, and only to the buttons that give way. A
+        // hung first button takes nothing from the others, and hangs at an icon's width where its own
+        // reaches too far: see quickRowWidths.
+        val fitted = quickRowWidths(natural, gap, width, gutter, hangingFirst)
+        val widths = fitted.widths
         val placeables = measurables.mapIndexed { i, measurable ->
             measurable.measure(if (widths[i] == natural[i]) loose else loose.copy(minWidth = widths[i], maxWidth = widths[i]))
         }
-        val positions = quickRowPositions(IntArray(placeables.size) { placeables[it].width }, gap, width, layoutDirection)
+        val placed = IntArray(placeables.size) { placeables[it].width }
+        val positions = (if (fitted.hung) quickRowPositionsHanging(placed, gap, width, gutter, layoutDirection) else null)
+            ?: quickRowPositions(placed, gap, width, layoutDirection)
         val height = constraints.constrainHeight(placeables.maxOfOrNull { it.height } ?: 0)
 
         layout(width, height) {

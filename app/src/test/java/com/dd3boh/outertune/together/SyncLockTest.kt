@@ -150,7 +150,8 @@ class SyncLockTest {
         assertFalse(sheet.contains("together_up_next"))
         assertFalse(sheet.contains("QueueRow"))
         val player = File("src/main/java/com/dd3boh/outertune/ui/player/Player.kt").readText()
-        // His places of 17 Oct 2026: right before the menu in both styles, the menu staying last.
+        // His word of 17 Oct 2026: in both styles the room's button is in the player's row and the menu stays last.
+        // Where in the row is RoomButtonStaysTest's: right before the menu in a release, first with ROOM_AT_FREE_END.
         val classic = player.substringAfter("val classicButtons").substringBefore("\n            }\n")
         assertTrue(classic.indexOf("roomCircle()") in 0 until classic.indexOf("menuCircle()"))
         val connected = player.substringAfter("val quickActions").substringBefore("val controlsContent")
