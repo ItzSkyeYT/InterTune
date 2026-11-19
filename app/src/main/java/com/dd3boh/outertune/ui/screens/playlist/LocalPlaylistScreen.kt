@@ -122,6 +122,8 @@ import com.dd3boh.outertune.constants.CONTENT_TYPE_HEADER
 import com.dd3boh.outertune.constants.CONTENT_TYPE_SONG
 import com.dd3boh.outertune.constants.ListThumbnailSize
 import com.dd3boh.outertune.constants.PlaylistEditLockKey
+import com.dd3boh.outertune.constants.PlaylistSearchSourceKey
+import com.dd3boh.outertune.constants.SearchSource
 import com.dd3boh.outertune.constants.PlaylistSongSortDescendingKey
 import com.dd3boh.outertune.constants.PlaylistSongSortType
 import com.dd3boh.outertune.constants.PlaylistSongSortTypeKey
@@ -134,6 +136,8 @@ import com.dd3boh.outertune.extensions.move
 import com.dd3boh.outertune.extensions.toMediaItem
 import com.dd3boh.outertune.models.toMediaMetadata
 import com.dd3boh.outertune.playback.queues.ListQueue
+import com.dd3boh.outertune.playback.queues.YouTubeQueue
+import com.dd3boh.outertune.ui.menu.YouTubeSongMenu
 import com.dd3boh.outertune.ui.component.AutoResizeText
 import com.dd3boh.outertune.ui.component.EmptyPlaceholder
 import com.dd3boh.outertune.ui.component.FloatingFooter
@@ -284,6 +288,19 @@ fun LocalPlaylistScreen(
 
     val editable: Boolean =
         playlistWithSongs.first?.playlist?.isLocal == true || (playlistWithSongs.first?.playlist?.isEditable == true && syncMode == SyncMode.RW)
+
+    // Where the search looks (Unreleased.PLAYLIST_YT_SEARCH): the playlist, or YouTube Music, by the switch at the
+    // end of the pill, kept as the library search keeps its own. YouTube Music's songs come from the search the
+    // empty playlist has (addQuery), fed the pill's words; the add mode keeps its own field for it.
+    var searchSource by rememberEnumPreference(PlaylistSearchSourceKey, SearchSource.LOCAL)
+    val searchSwitch = PlaylistSearch.offered(Unreleased.PLAYLIST_YT_SEARCH, editable, addMode)
+    val searchOnline = isSearching && PlaylistSearch.online(searchSwitch, searchSource)
+    val addAnswered by viewModel.addAnswered.collectAsState()
+    val addFailed by viewModel.addFailed.collectAsState()
+    LaunchedEffect(searchOnline, query.text) {
+        if (searchOnline) viewModel.addQuery.value = query.text
+        else if (!addMode) viewModel.addQuery.value = ""
+    }
 
     // Songs in the playlist more than once, for the button beside Play and Shuffle (issue #47).
     // Only where the playlist can be changed: a copy cannot be taken out of one that cannot.
@@ -567,7 +584,7 @@ fun LocalPlaylistScreen(
         // On a phone on its side the header is not the first row of the list, where it was all
         // the window showed, but stands beside the list in a half of its own (Landscape.kt).
         val twoPanes = rememberHeaderBeside()
-        val listContent: LazyListScope.() -> Unit = {
+        val listContent: LazyListScope.() -> Unit = listContent@{
             Log.v("LocalPlaylistScreen", "P_RC-2.2")
             playlistWithSongs.first?.let { playlist ->
                 if (playlist.songCount == 0 || addMode) {
@@ -725,7 +742,8 @@ fun LocalPlaylistScreen(
                         }
                     }
 
-                    item(
+                    // Not over YouTube Music's songs, which the playlist's order and lock are nothing to.
+                    if (!searchOnline) item(
                         key = "action header",
                         contentType = CONTENT_TYPE_HEADER
                     ) {
@@ -769,6 +787,46 @@ fun LocalPlaylistScreen(
                         }
                     }
                 }
+            }
+
+            // YouTube Music's songs in the playlist's place while the search looks there (PlaylistYouTubeSearch).
+            if (searchOnline) {
+                val playlistIds = playlistWithSongs.second.mapTo(HashSet()) { it.song.id }
+                playlistYouTubeResults(
+                    query = query.text,
+                    results = addResults,
+                    waiting = PlaylistSearch.waiting(query.text, addAnswered, addSearching),
+                    failed = addFailed,
+                    inPlaylist = { PlaylistSearch.inPlaylist(it, playlistIds, justAdded) },
+                    playingId = mediaMetadata?.id,
+                    isPlaying = isPlaying,
+                    onAdd = { song -> playlistWithSongs.first?.let { viewModel.addSong(it, song) } },
+                    onPlay = { song ->
+                        if (song.id == mediaMetadata?.id) {
+                            playerConnection.togglePlayPause()
+                        } else {
+                            // As a tap on a search result: the song's radio, not every other song the search found.
+                            playerConnection.playQueue(
+                                YouTubeQueue.radio(song.toMediaMetadata()),
+                                isRadio = true,
+                                replace = true,
+                                origin = PlayOrigin.SEARCH,
+                            )
+                        }
+                    },
+                    onMenu = { song ->
+                        menuState.show {
+                            YouTubeSongMenu(
+                                song = song,
+                                navController = navController,
+                                onDismiss = menuState::dismiss
+                            )
+                        }
+                    },
+                    onSignIn = { navController.navigate("login") },
+                    onRetry = viewModel::retryAdd,
+                )
+                return@listContent
             }
 
             // songs
@@ -901,6 +959,16 @@ fun LocalPlaylistScreen(
                         value = query,
                         onValueChange = { query = it },
                         modifier = Modifier.focusRequester(focusRequester),
+                        // Where it looks, as the library search says it: the playlist, or YouTube Music.
+                        placeholder = stringResource(if (searchOnline) R.string.search_yt_music else R.string.search),
+                        // In brackets: after else, an annotated lambda reads as a block.
+                        trailing = if (searchSwitch) (@Composable {
+                            PlaylistSearchSwitch(online = searchSource == SearchSource.ONLINE) { online ->
+                                searchSource = if (online) SearchSource.ONLINE else SearchSource.LOCAL
+                                // YouTube Music's songs are not rows of the playlist to pick.
+                                onExitSelectionMode()
+                            }
+                        }) else null,
                     )
                 } else if (showTopBarTitle && !twoPanes) {
                     // Not beside the header, which says the name already and never scrolls away.
