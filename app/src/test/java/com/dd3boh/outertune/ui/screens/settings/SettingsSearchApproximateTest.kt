@@ -71,7 +71,7 @@ class SettingsSearchApproximateTest {
         "romaji" to listOf("Show in Latin letters"),
         "romanize lyrics" to listOf("Show in Latin letters"),
         "local files" to listOf("Enable local media", "Configure scan locations…"),
-        "music folder" to listOf("Configure scan locations…", "Set external download folder…"),
+        "music folder" to listOf("Configure scan locations…", "Where downloads go"),
         "offline" to listOf("Download on Wi-Fi only", "Automatically download your liked songs", "Download all liked songs now"),
         "delete downloads" to listOf("Clear all downloads"),
         "incognito" to listOf("Pause listen history", "Pause search history"),

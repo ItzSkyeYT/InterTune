@@ -19,6 +19,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.ENABLE_FFMETADATAEX
 import com.dd3boh.outertune.constants.Unreleased
+import com.dd3boh.outertune.playback.downloadManager.DownloadsSimpleLook
 import com.dd3boh.outertune.testerlock.TesterLock
 import com.dd3boh.outertune.ui.dialog.togetherAvailable
 import com.dd3boh.outertune.ui.screens.walkthrough.Tour
@@ -31,7 +32,7 @@ import java.text.Normalizer
  * @param description the line under the row, when it is the same words whatever the setting is
  *   set to. A line that says the value, or what is going on, is not one to search.
  * @param words other words it is found by: a string of search words (search_words_*), which is
- *   never shown, or the names of its choices.
+ *   never shown, the names of its choices, or the name of the row it took the place of.
  * @param fold the heading of the fold it is under (SettingsClickToReveal), opened on the way to it.
  * @param under the title of the row to light instead when this one is not on its screen: the
  *   switch it hangs from, or the row that stands in its place.
@@ -227,13 +228,17 @@ val SETTINGS_INDEX: List<SettingEntry> = listOf(
     SettingEntry(Tour.ROUTE_STORAGE, R.string.like_autodownload, words = listOf(R.string.search_words_offline)),
     SettingEntry(Tour.ROUTE_STORAGE, R.string.liked_autodownload_backfill_title, under = R.string.like_autodownload, words = listOf(R.string.search_words_offline)),
     SettingEntry(Tour.ROUTE_STORAGE, R.string.liked_download_sync, R.string.liked_download_sync_description, under = R.string.like_autodownload, there = Unreleased.LIKED_SYNC),
-    SettingEntry(Tour.ROUTE_STORAGE, R.string.dl_main_path_title, words = listOf(R.string.search_words_download_folder)),
+    // Where downloads go: one row or the other, as the page's look draws it (DownloadsSimpleLook). The simpler page's
+    // is found by today's row's name too, which every language has: its own is in English and French only so far.
+    SettingEntry(Tour.ROUTE_STORAGE, R.string.dl_simple_where_title, words = listOf(R.string.search_words_download_folder, R.string.dl_main_path_title), there = DownloadsSimpleLook.thisBuild.oneRow),
+    SettingEntry(Tour.ROUTE_STORAGE, R.string.dl_main_path_title, words = listOf(R.string.search_words_download_folder), there = !DownloadsSimpleLook.thisBuild.oneRow),
     SettingEntry(Tour.ROUTE_STORAGE, R.string.download_format, words = listOf(R.string.search_words_download_format), there = Unreleased.DOWNLOAD_FORMATS),
     SettingEntry(Tour.ROUTE_STORAGE, R.string.download_bitrate, under = R.string.download_format, words = listOf(R.string.search_words_audio_quality), there = Unreleased.DOWNLOAD_FORMATS),
     SettingEntry(Tour.ROUTE_STORAGE, R.string.clear_all_downloads),
     SettingEntry(Tour.ROUTE_STORAGE, R.string.dl_extra_path_title, R.string.dl_extra_path_description, fold = R.string.advanced),
     SettingEntry(Tour.ROUTE_STORAGE, R.string.dl_rescan_title, R.string.dl_rescan_description, fold = R.string.advanced),
-    SettingEntry(Tour.ROUTE_STORAGE, R.string.dl_migrate_title, R.string.dl_migrate_description, fold = R.string.advanced, words = listOf(R.string.search_words_download_folder)),
+    // Drawn only on today's page: the simpler one offers the move from its one row (DownloadsFrag, !look.oneRow).
+    SettingEntry(Tour.ROUTE_STORAGE, R.string.dl_migrate_title, R.string.dl_migrate_description, fold = R.string.advanced, words = listOf(R.string.search_words_download_folder), there = !DownloadsSimpleLook.thisBuild.oneRow),
     SettingEntry(Tour.ROUTE_STORAGE, R.string.song_cache_max_size, words = listOf(R.string.search_words_cache)),
     SettingEntry(Tour.ROUTE_STORAGE, R.string.clear_song_cache, words = listOf(R.string.search_words_cache)),
     SettingEntry(Tour.ROUTE_STORAGE, R.string.image_cache_max_size, words = listOf(R.string.search_words_cache)),

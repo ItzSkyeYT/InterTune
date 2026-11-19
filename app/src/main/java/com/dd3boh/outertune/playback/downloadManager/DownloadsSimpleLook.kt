@@ -49,9 +49,15 @@ enum class DownloadsSimpleLook {
         /** [C] where the simpler page is [offered], today's page elsewhere. */
         fun pick(offered: Boolean): DownloadsSimpleLook = if (offered) C else TODAY
 
+        /**
+         * The look this build draws, for what is worked out once with no context to read it with: the entries of
+         * Settings' search, one for each look's folder row (SettingsIndex).
+         */
+        val thisBuild: DownloadsSimpleLook get() = pick(Unreleased.DOWNLOADS_SIMPLE)
+
         /** The look to draw now. The [context] is the callers' still: the look no longer reads a file. */
         @Suppress("UNUSED_PARAMETER")
-        fun of(context: Context): DownloadsSimpleLook = pick(Unreleased.DOWNLOADS_SIMPLE).also { last = it }
+        fun of(context: Context): DownloadsSimpleLook = thisBuild.also { last = it }
 
         private const val PHONE_STORAGE = "/storage/emulated/0/"
 

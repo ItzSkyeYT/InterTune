@@ -72,14 +72,14 @@ internal fun WhereDownloadsGoRow(
     val cannotOpen = folder != null && state == DownloadFolderState.CANNOT_OPEN
     val offersMove = folder != null && state == DownloadFolderState.OPEN && inside > 0
     val counted = inside >= 0
-    val name = stringResource(R.string.dl_simple_where_title)
     PreferenceEntry(
-        // The mark of today's folder row, whose place it takes, so Settings' search finds it as it finds that one. The
-        // tour's mark too, written once: it moved here with the look that was chosen (C, the page everyone has in
-        // 0.13). Left on today's row, which is not drawn then, What's new's "Show me" for the folder and the tour's
-        // closer found nothing to point at and ended on the page pointing at nothing.
-        modifier = Modifier.tourTarget(Tour.SETTING_DOWNLOAD_FOLDER).settingRow(R.string.dl_main_path_title),
-        title = { Text(name) },
+        // The mark of its own title, as every row has: Settings' search lists it by the name it shows, and finds it
+        // by today's row's name too (SettingsIndex). The tour's mark too, written once: it moved here with the look
+        // that was chosen (C, the page everyone has in 0.13). Left on today's row, which is not drawn then, What's
+        // new's "Show me" for the folder and the tour's closer found nothing to point at and ended on the page
+        // pointing at nothing.
+        modifier = Modifier.tourTarget(Tour.SETTING_DOWNLOAD_FOLDER).settingRow(R.string.dl_simple_where_title),
+        title = { Text(stringResource(R.string.dl_simple_where_title)) },
         icon = { Icon(Icons.Rounded.Folder, null) },
         // "Inside the app • 5 songs • 23 MB", or "Music/InterTune • 5 songs" once a folder holds them.
         description = when {

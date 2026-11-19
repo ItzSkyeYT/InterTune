@@ -289,7 +289,7 @@ val SETTINGS_CLOSER_LOOK = listOf(
     closer("lyrics_font_size", Tour.SETTING_LYRICS_FONT_SIZE, Tour.ROUTE_LYRICS, R.string.lyrics_font_Size, R.string.tour_closer_lyrics_font_size),
 
     closer("liked_autodownload", Tour.SETTING_LIKED_AUTODOWNLOAD, Tour.ROUTE_STORAGE, R.string.like_autodownload, R.string.tour_closer_liked_autodownload),
-    closer("download_folder", Tour.SETTING_DOWNLOAD_FOLDER, Tour.ROUTE_STORAGE, R.string.dl_main_path_title, R.string.tour_closer_download_folder),
+    closer("download_folder", Tour.SETTING_DOWNLOAD_FOLDER, Tour.ROUTE_STORAGE, R.string.dl_simple_where_title, R.string.tour_closer_download_folder),
     closer("song_cache", Tour.SETTING_SONG_CACHE, Tour.ROUTE_STORAGE, R.string.song_cache_max_size, R.string.tour_closer_song_cache),
 
     closer("backup", Tour.SETTING_BACKUP, Tour.ROUTE_BACKUP, R.string.action_backup, R.string.tour_closer_backup),
@@ -506,7 +506,7 @@ val NEW_THINGS = listOf(
         icon = Icons.AutoMirrored.Rounded.DriveFileMove,
         stops = listOf(
             TourStop("downloads_move_row", Tour.ROW_STORAGE, Tour.ROUTE_SETTINGS, R.string.grp_storage_and_downloads, R.string.new_liked_sync_way, V0_13),
-            TourStop("downloads_move_setting", Tour.SETTING_DOWNLOAD_FOLDER, Tour.ROUTE_STORAGE, R.string.dl_main_path_title, R.string.new_downloads_move_here, V0_13),
+            TourStop("downloads_move_setting", Tour.SETTING_DOWNLOAD_FOLDER, Tour.ROUTE_STORAGE, R.string.dl_simple_where_title, R.string.new_downloads_move_here, V0_13),
         ),
     ),
     NewThing(
