@@ -156,6 +156,8 @@ val ResumeOnBluetoothKey = booleanPreferencesKey("resumeOnBluetooth")
 
 val SeekIncrementKey = stringPreferencesKey("seekIncrement")
 val SkipSilenceKey = booleanPreferencesKey("skipSilence")
+/** Varispeed (Unreleased.VARISPEED): the pitch follows the speed in Tempo and Pitch. Off by default. */
+val VarispeedKey = booleanPreferencesKey("varispeed")
 val SkipOnErrorKey = booleanPreferencesKey("skipOnError")
 val AudioNormalizationKey = booleanPreferencesKey("audioNormalization")
 val AutoLoadMoreKey = booleanPreferencesKey("autoLoadMore")

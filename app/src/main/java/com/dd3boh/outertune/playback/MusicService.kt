@@ -170,6 +170,7 @@ import com.dd3boh.outertune.constants.SleepTimerFadeKey
 import com.dd3boh.outertune.constants.SleepTimerSongFinishKey
 import com.dd3boh.outertune.constants.ShareAudioFocusKey
 import com.dd3boh.outertune.constants.SkipSilenceKey
+import com.dd3boh.outertune.constants.VarispeedKey
 import com.dd3boh.outertune.constants.StopMusicOnTaskClearKey
 import com.dd3boh.outertune.constants.TransitionFadeKey
 import com.dd3boh.outertune.constants.AutomixKey
@@ -465,6 +466,13 @@ class MusicService : MediaLibraryService(),
 
     /** Set at the top of onDestroy; see the checks in playQueue's resolve coroutine below. */
     @Volatile private var destroyed = false
+
+    /**
+     * Varispeed's switch as it stands (Unreleased.VARISPEED; false without the flag), for a Listen together
+     * room, which plays the room's speed in the song's own key while it is on (TogetherSession.speed).
+     */
+    @Volatile var varispeedOn = false
+        private set
 
     /** Whether this service has been torn down: anything asked of it then does nothing. See PlayerConnection.isAlive. */
     val isDestroyed: Boolean get() = destroyed
@@ -1742,6 +1750,21 @@ class MusicService : MediaLibraryService(),
                         applyOffload()
                     }
                 }
+
+            // Varispeed (#225): the switch acts on the song playing at once, the pitch linked to the speed when it
+            // turns on and back to the song's own key when it turns off. Tempo and Pitch keeps them linked after.
+            // A change of speed or pitch reaches applyOffload through onEvents.
+            if (Unreleased.VARISPEED) {
+                dataStore.data
+                    .map { it[VarispeedKey] ?: false }
+                    .distinctUntilChanged()
+                    .collectLatest(scope) { linked ->
+                        withContext(Dispatchers.Main) {
+                            varispeedOn = linked
+                            exoPlayer.playbackParameters = Varispeed.switched(exoPlayer.playbackParameters, linked)
+                        }
+                    }
+            }
 
             // The four the song-change path used to read blocking. Nothing here touches the
             // player, so they stay off the main thread; the fields are volatile because the

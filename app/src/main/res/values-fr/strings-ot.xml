@@ -2718,4 +2718,7 @@
     <string name="dislike_done" translatable="false">Noté, ici et sur YouTube Music. Il n\'est joué qu\'à votre demande.</string>
     <string name="dislike_not_sent" translatable="false">Noté ici seulement : YouTube Music ne l\'a pas reçu.</string>
     <string name="dislike_lift_not_sent" translatable="false">Retiré ici seulement : YouTube Music ne l\'a pas reçu.</string>
+    <string name="varispeed">Varispeed</string>
+    <string name="varispeed_description">Accélérer rend le son plus aigu et ralentir plus grave, comme un tourne-disque.</string>
+    <string name="search_words_varispeed">hauteur, vitesse, tempo, tonalité, tourne-disque, vinyle, nightcore, slowed</string>
 </resources>

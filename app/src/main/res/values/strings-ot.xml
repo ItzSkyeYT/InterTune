@@ -2911,4 +2911,8 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="dislike_done" translatable="false">Disliked here and on YouTube Music. It plays only when you pick it.</string>
     <string name="dislike_not_sent" translatable="false">Disliked here only. YouTube Music didn\'t get it.</string>
     <string name="dislike_lift_not_sent" translatable="false">Dislike removed here only. YouTube Music didn\'t get it.</string>
+    <!-- Varispeed (Unreleased.VARISPEED, #225): held from translators until it ships, French beside them. -->
+    <string name="varispeed" translatable="false">Varispeed</string>
+    <string name="varispeed_description" translatable="false">Faster sounds higher and slower sounds lower, like a record player.</string>
+    <string name="search_words_varispeed">pitch, speed, tempo, record player, vinyl, tape, key lock, nightcore, slowed</string>
 </resources>
