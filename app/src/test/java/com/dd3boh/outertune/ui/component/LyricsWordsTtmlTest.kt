@@ -64,7 +64,9 @@ class LyricsWordsTtmlTest {
     /**
      * [text] laid out as a screen does, in [advance]'s widths: each row after the first starts at
      * one of [breaks], the spaces before a break end the row above, and each row is set on the left
-     * of [width], in its middle with [centred], or on its right and read from the right with [rtl].
+     * of [width], in its middle with [centred], or on its right with [onRight]. With [rtl] its letters
+     * run from the right, and the row is set on the right as a line laid out right to left is, unless
+     * [onRight] says otherwise: a line read from the right in an app read from the left.
      */
     private inner class Rows(
         val text: String,
@@ -72,6 +74,7 @@ class LyricsWordsTtmlTest {
         private val width: Float = 1_000f,
         private val centred: Boolean = false,
         private val rtl: Boolean = false,
+        private val onRight: Boolean = rtl,
     ) : WordRows {
         private val starts = listOf(0) + breaks
         override val length = text.length
@@ -87,16 +90,17 @@ class LyricsWordsTtmlTest {
         private fun rowWidth(row: Int) = along(row, visibleEnd(row))
         override fun left(row: Int) = when {
             centred -> (width - rowWidth(row)) / 2f
-            rtl -> width - rowWidth(row)
+            onRight -> width - rowWidth(row)
             else -> 0f
         }
         override fun right(row: Int) = left(row) + rowWidth(row)
         override fun top(row: Int) = row * 60f
         override fun bottom(row: Int) = top(row) + 60f
-        override fun rtl(row: Int) = rtl
-        override fun x(offset: Int): Float {
-            val row = rowOf(offset)
-            return if (rtl) right(row) - along(row, offset) else left(row) + along(row, offset)
+        override fun across(from: Int, to: Int): ClosedFloatingPointRange<Float> {
+            val row = rowOf(from)
+            val a = along(row, from)
+            val b = along(row, to)
+            return if (rtl) (right(row) - b)..(right(row) - a) else (left(row) + a)..(left(row) + b)
         }
     }
 
@@ -245,7 +249,8 @@ class LyricsWordsTtmlTest {
         placed.drawsWhole(0)
         assertNull(placed.litEnd(0, 500))
         // While "Hello" is sung, none of the rest; once it is, all of it with it.
-        assertTrue(placed.litEnd(0, 1_500)!! < placed.rows.x(placed.line.text.indexOf("world")))
+        val world = placed.line.text.indexOf("world")
+        assertTrue(placed.litEnd(0, 1_500)!! < placed.rows.across(world, world + 1).start)
         assertTrue(placed.litEnd(0, 2_000)!! >= placed.rows.right(0))
     }
 
@@ -319,6 +324,48 @@ class LyricsWordsTtmlTest {
         assertEquals((first.left + first.right) / 2f, lit.start, 0.5f)
         assertTrue(lit.endInclusive >= first.right)
         assertNull("the second word waits", LyricsWords.lit(second, LyricsWords.sung(pieces[1], 1_500), true))
+    }
+
+    @Test
+    fun `a line read from the right in an app read from the left is lit from the right, word by word where each stands`() {
+        // The walk of 19 Nov 2026: Compose lays a line out the app's way unless told otherwise, so in an English app an
+        // Arabic line is a row read from the left whose letters run from the right. The words were placed by the row's
+        // way: the first reached over to the row's left end, the last to its right end, and a third into the first word
+        // two letters in the middle of the third were lit (a lit part from the first word's clip turned inside out).
+        val text = "אבג דהו זחטי כלמ"
+        val words = listOf(
+            SemanticLyrics.Word(1_000UL..2_000UL, 0..2, true),
+            SemanticLyrics.Word(2_000UL..3_000UL, 4..6, true),
+            SemanticLyrics.Word(3_000UL..4_000UL, 8..11, true),
+            SemanticLyrics.Word(4_000UL..5_000UL, 13..15, true),
+        )
+        val pieces = LyricsWords.pieces(text, words)
+        val rows = Rows(text, rtl = true, onRight = false)
+        val boxes = LyricsWords.place(pieces, rows, past = 50f)
+        val byPiece = pieces.indices.map { i -> boxes.single { it.piece == i } }
+        // Each word stands on its own letters: the first at the row's right end, the last at its left, none over another.
+        assertEquals(rows.right(0), byPiece.first().right, 0.001f)
+        assertEquals(rows.left(0), byPiece.last().left, 0.001f)
+        for ((i, box) in byPiece.withIndex()) {
+            val letters = (pieces[i].from until pieces[i].to).sumOf { advance(text[it]).toDouble() }.toFloat()
+            assertEquals("word $i is as wide as its letters", letters, box.right - box.left, 0.001f)
+        }
+        byPiece.zipWithNext { a, b -> assertTrue("word ${a.piece} stands right of word ${b.piece}", a.left >= b.right) }
+
+        fun at(ms: Long) = LyricsWords.litStretches(boxes, pieces, FloatArray(pieces.size) { LyricsWords.sung(pieces[it], ms) })
+        // A third into the first word: its right third lit, nothing of the others, never a part turned inside out.
+        val first = byPiece[0]
+        val early = at(1_333).single()
+        assertTrue(early.from < early.to)
+        assertEquals(first.right - (first.right - first.left) / 3f, early.from, 0.5f)
+        assertTrue(early.to >= first.right)
+        // Half way into the third word: the first two all lit and the third from its right end, in one stretch;
+        // nothing of the fourth.
+        val third = byPiece[2]
+        val middle = at(3_500).single()
+        assertEquals(third.right - (third.right - third.left) / 2f, middle.from, 0.5f)
+        assertTrue(middle.to >= first.right)
+        assertTrue("nothing of the fourth word is lit", middle.from >= byPiece[3].right)
     }
 
     @Test
