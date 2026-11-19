@@ -212,4 +212,61 @@ class AppLanguageTest {
         for ((name, text) in makers) assertTrue(name, "AppLanguage.afterWebView(context)" in text)
         assertTrue("fun afterWebView(context: Context) = applyToProcess(context.applicationContext)" in source("utils/AppLanguage.kt"))
     }
+
+    /** Names of the texts in [folder]'s strings.xml and strings-ot.xml; with [openOnly], only those open to translators. */
+    private fun textNames(folder: String, openOnly: Boolean): Set<String> {
+        val found = HashSet<String>()
+        for (file in listOf("strings.xml", "strings-ot.xml")) {
+            val f = File(res, "$folder/$file")
+            if (!f.exists()) continue
+            for (m in Regex("""<(?:string|plurals) name="([^"]+)"([^>]*)>""").findAll(f.readText())) {
+                if (openOnly && "translatable=\"false\"" in m.groupValues[2]) continue
+                found += m.groupValues[1]
+            }
+        }
+        return found
+    }
+
+    /** The share of the texts open to translators that [tag] has in its own words, as Android fills a regional folder. */
+    private fun share(tag: String, english: Set<String>): Double {
+        val parts = tag.split('-')
+        val folder = when {
+            parts.size == 2 && parts[1].length == 4 -> "values-b+${parts[0]}+${parts[1]}"
+            parts.size == 2 -> "values-${parts[0]}-r${parts[1]}"
+            else -> "values-$tag"
+        }
+        val own = textNames(folder, openOnly = false).toMutableSet()
+        // A regional folder's gaps are filled from its language's own folder first (es-US speaks all of es).
+        if (parts.size == 2 && parts[1].length == 2) own += textNames("values-${parts[0]}", openOnly = false)
+        return own.intersect(english).size.toDouble() / english.size
+    }
+
+    @Test
+    fun `languages still mostly in English say so in the list, and only those`() {
+        // His pick of 19 Nov 2026: "Partly translated" under them. Room either side of a half, so a translation round
+        // that moves a language a few texts does not flip it: in under 40%, out from 60%.
+        val english = textNames("values", openOnly = true)
+        assertTrue(english.size.toString(), english.size > 2000)
+        val shares = AppLanguage.TAGS.filter { !it.startsWith("en") }.associateWith { share(it, english) }
+        for ((tag, s) in shares) {
+            val pct = "%.1f%%".format(s * 100)
+            if (s < 0.40) assertTrue("$tag has $pct of the texts and no note", AppLanguage.partly(tag))
+            if (s >= 0.60) assertFalse("$tag has $pct of the texts and still the note", AppLanguage.partly(tag))
+        }
+        assertTrue("the note names a language the list does not have", AppLanguage.TAGS.containsAll(AppLanguage.PARTLY))
+        assertTrue("English is never partly English", AppLanguage.PARTLY.none { it.startsWith("en") })
+    }
+
+    @Test
+    fun `the App language list draws the note, and a choice with nothing to say has no empty line`() {
+        val frag = File(sources, "ui/screens/settings/fragments/InterfaceFrag.kt").readText()
+        assertTrue(frag.contains("valueDescription = { if (AppLanguage.partly(it)) stringResource(R.string.app_language_partly) else \"\" },"))
+        val list = File(sources, "ui/component/Preference.kt").readText()
+        assertTrue(list.contains("val description = valueDescription?.invoke(value).orEmpty()"))
+        assertTrue(list.contains("if (description.isNotEmpty()) {"))
+        assertTrue(list.contains("verticalAlignment = if (description.isNotEmpty()) Alignment.Top else Alignment.CenterVertically,"))
+        // Held from translators like the line's other new words, French beside it.
+        assertTrue(File(res, "values/strings-ot.xml").readText().contains("<string name=\"app_language_partly\" translatable=\"false\">Partly translated</string>"))
+        assertTrue(File(res, "values-fr/strings-ot.xml").readText().contains("<string name=\"app_language_partly\" translatable=\"false\">Traduction partielle</string>"))
+    }
 }

@@ -2932,4 +2932,6 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="local_removed" translatable="false">Removed from your library. The file stays.</string>
     <string name="local_removed_liked" translatable="false">Removed from your library and Liked songs. The file stays.</string>
     <string name="local_folder_excluded" translatable="false">%1$s excluded. Its files stay.</string>
+    <!-- Under a language of the App language list most of whose words are still English (AppLanguage.PARTLY). Held from translators. -->
+    <string name="app_language_partly" translatable="false">Partly translated</string>
 </resources>

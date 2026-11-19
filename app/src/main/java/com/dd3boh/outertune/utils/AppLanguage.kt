@@ -54,6 +54,24 @@ object AppLanguage {
         "sv", "ta", "te", "th", "tr", "uk", "vi", "zh-CN", "zh-TW",
     )
 
+    /**
+     * The languages of the list whose own words still cover under half of the app, so that most of it shows in
+     * English: "Partly translated" under each in the App language list (his pick of 19 Nov 2026). Measured from
+     * the values folders as Android fills them (a regional folder's gaps from its language's folder first, so
+     * es-US speaks all of es): on 19 Nov these 38 were at 1.5% to 28% of the 2,450 texts open to translators,
+     * the other nine at 64% and more. AppLanguageTest holds the list to the folders with room either side, in
+     * under 40% and out from 60%, so a language crosses when its translators carry it across, not by a few
+     * texts. English's own variants are English and never in it.
+     */
+    val PARTLY = setOf(
+        "ar", "az", "be", "bg", "bn", "bn-IN", "bs", "ca", "cs", "el", "et", "fa", "fi", "fil", "hr", "hu", "iw",
+        "ja", "ko", "ml", "nb-NO", "nl", "pa", "pt", "ro", "sk", "sl", "sr", "sr-Latn", "sv", "ta", "te", "th",
+        "tr", "uk", "vi", "zh-CN", "zh-TW",
+    )
+
+    /** Whether most of the app is still in English in [tag], for the note under it in the list. */
+    fun partly(tag: String): Boolean = tag in PARTLY
+
     private const val FILE = "app_language"
     private const val KEY = "tag"
 

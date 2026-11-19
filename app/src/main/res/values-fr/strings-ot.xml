@@ -2737,4 +2737,6 @@
     <string name="local_removed" translatable="false">Retiré de votre bibliothèque. Le fichier reste.</string>
     <string name="local_removed_liked" translatable="false">Retiré de votre bibliothèque et des Titres aimés. Le fichier reste.</string>
     <string name="local_folder_excluded" translatable="false">%1$s exclu. Ses fichiers restent.</string>
+    <!-- AppLanguage.PARTLY. -->
+    <string name="app_language_partly" translatable="false">Traduction partielle</string>
 </resources>
