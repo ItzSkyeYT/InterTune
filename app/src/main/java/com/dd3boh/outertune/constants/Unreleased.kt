@@ -1117,11 +1117,10 @@ object Unreleased {
      * sheet's drag and the snapping queue are not part of it. Android's Touch feedback setting turns the ticks
      * off, as it does for every app. It has no text.
      *
-     * Held back as the line's held features are: the debug app, the Preview and the Tester app have it; a
-     * release only on his word. Without it the app gives the haptics it always gave, the queue's button its own,
-     * and the volume bar goes where the finger puts it.
+     * On for everyone in 0.13, his pick of 19 Nov 2026, after its walk on the emulator that day. Without it the app gives the haptics it always gave,
+     * the queue's button its own, and the volume bar goes where the finger puts it.
      */
-    val HAPTICS_MORE = BuildConfig.PREVIEW_FEATURES
+    val HAPTICS_MORE = true
 
     /**
      * Dislike (#171, the half #78 left; his pick of 14 Nov 2026: "Dislike in the menu blocks here and tells
@@ -1163,9 +1162,9 @@ object Unreleased {
      * does. Its texts (varispeed, varispeed_description, search_words_varispeed) are held from translators, French
      * beside them. Without the flag the switch is not drawn, nothing reads it, and the dialog is as it was.
      *
-     * Held back as the line's held features are: the debug app, the Preview and the Tester app have it.
+     * On for everyone in 0.13, his pick of 19 Nov 2026, after its walk on the emulator that day.
      */
-    val VARISPEED = BuildConfig.PREVIEW_FEATURES
+    val VARISPEED = true
 
     /**
      * Remove a file of the phone's from the library, or a whole folder (his pick of 15 Nov 2026 for 0.13,
@@ -1176,10 +1175,9 @@ object Unreleased {
      * Local media > Configure scan locations, and scanning (LocalRemoval).
      *
      * Its three texts (local_exclude_folder, local_removed, local_folder_excluded) are held from translators, French
-     * beside them. Without the flag the menus are as they were. To ship: set this to true and add its name to
-     * ReleasedFlagsTest.
+     * beside them. Without the flag the menus are as they were. On for everyone in 0.13, his pick of 19 Nov 2026, after its walk on the emulator that day.
      */
-    val LOCAL_REMOVE = BuildConfig.PREVIEW_FEATURES
+    val LOCAL_REMOVE = true
 
     /**
      * A playlist's search looks on YouTube Music too (his pick of 15 Nov 2026 for 0.13,
@@ -1191,9 +1189,9 @@ object Unreleased {
      * search of an empty playlist, which looks on YouTube Music already.
      *
      * No new texts: the pill says "Search YouTube Music…" there, as the library search does. Without the flag the
-     * search is the playlist's alone, as it was. To ship: set this to true and add its name to ReleasedFlagsTest.
+     * search is the playlist's alone, as it was. On for everyone in 0.13, his pick of 19 Nov 2026, after its walk on the emulator that day.
      */
-    val PLAYLIST_YT_SEARCH = BuildConfig.PREVIEW_FEATURES
+    val PLAYLIST_YT_SEARCH = true
 
     /**
      * The repeat button's look of his pick 3B, 15 Nov 2026 (#182: the grey of off read as a button that does not
@@ -1201,10 +1199,9 @@ object Unreleased {
      * colours, one is the repeat-one icon on the same box, in the player in every mode and in the queue's own
      * buttons (RepeatButton). Same place and size as before. With this off, off is the greyed icon of 5 Nov.
      *
-     * Held back as the line's held features are: the debug app, the Preview and the Tester app have it; a release
-     * only on his word.
+     * On for everyone in 0.13, his pick of 19 Nov 2026, after its walk on the emulator that day.
      */
-    val REPEAT_LIT_BOX = BuildConfig.PREVIEW_FEATURES
+    val REPEAT_LIT_BOX = true
 
     /**
      * Where the player says it plays, his pick of 15 Nov 2026 ("C with B's badges", "yes thats it"): the cast
@@ -1214,10 +1211,10 @@ object Unreleased {
      * or a cast is on (MiniPlayerBadge). With this off the player is as it was: the pill under the controls, or in
      * a corner on its side, and no badge.
      *
-     * Held back as the line's held features are: the debug app, the Preview and the Tester app have it; a release
-     * only on his word.
+     * On for everyone in 0.13, his pick of 19 Nov 2026, after its walk on the emulator that day. Its two texts (output_pill, output_pill_description) stay held from
+     * translators until 0.13's texts go to them, French beside them.
      */
-    val CAST_AT_TOP = BuildConfig.PREVIEW_FEATURES
+    val CAST_AT_TOP = true
 
     /**
      * In a listening room, the room's button at the free end of the player's row, so that starting or leaving a

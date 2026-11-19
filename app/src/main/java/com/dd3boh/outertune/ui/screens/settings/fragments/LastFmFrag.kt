@@ -8,11 +8,13 @@ import androidx.compose.material.icons.rounded.LinkOff
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.navigation.NavController
 import com.dd3boh.outertune.LocalScrobbler
@@ -21,6 +23,8 @@ import com.dd3boh.outertune.constants.LastFmScrobbleKey
 import com.dd3boh.outertune.constants.LastFmUsernameKey
 import com.dd3boh.outertune.ui.component.PreferenceEntry
 import com.dd3boh.outertune.ui.component.SwitchPreference
+import com.dd3boh.outertune.utils.LastFmEnd
+import com.dd3boh.outertune.utils.dataStore
 import com.dd3boh.outertune.utils.rememberPreference
 import kotlinx.coroutines.launch
 import com.dd3boh.outertune.ui.screens.walkthrough.Tour
@@ -38,11 +42,30 @@ import androidx.compose.ui.Modifier
  *
  * The whole fragment hides itself when the build has no Last.fm API key, since every button in it
  * would fail.
+ *
+ * From 1 December 2026 Last.fm takes nothing from this app (LastFmEnd), and the card is one row
+ * saying so in place of all of that.
  */
 @Composable
 fun ColumnScope.LastFmFrag(navController: NavController) {
     val scope = rememberCoroutineScope()
     val scrobbler = LocalScrobbler.current
+    val context = LocalContext.current
+
+    // Last.fm has closed: why, in one row with nothing to tap. Before the row for a build without
+    // a key, since the key reads as empty then too. The settings are held as a state so the switch
+    // in Developer turns the card at once. No tour target here: the tour's Last.fm stop finds no
+    // row and is left out by itself (TourState.leaveOut).
+    val settings by context.dataStore.data.collectAsState()
+    if (LastFmEnd.closed(settings)) {
+        PreferenceEntry(
+            title = { Text(stringResource(R.string.lastfm_ended)) },
+            description = stringResource(R.string.lastfm_ended_description),
+            icon = { Icon(Icons.Rounded.LinkOff, null) },
+            onClick = null,
+        )
+        return
+    }
 
     // A build with no Last.fm key cannot log anyone in, but saying nothing leaves the section
     // heading sitting above an empty card, which reads as broken rather than as unavailable.

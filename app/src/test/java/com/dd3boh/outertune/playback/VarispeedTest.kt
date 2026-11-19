@@ -54,8 +54,8 @@ class VarispeedTest {
     }
 
     @Test
-    fun `held back like the line's other new features`() {
-        assertTrue("val VARISPEED = BuildConfig.PREVIEW_FEATURES" in source("constants/Unreleased.kt"))
+    fun `on for everyone in 0_13, his pick of 19 Nov 2026`() {
+        assertTrue("val VARISPEED = true" in source("constants/Unreleased.kt"))
     }
 
     @Test

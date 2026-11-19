@@ -98,9 +98,9 @@ class MoreHapticsTest {
     private val player get() = source("ui/player/Player.kt")
 
     @Test
-    fun `the flag is held back, and every tick of a tap asks it`() {
+    fun `on for everyone in 0_13, and every tick of a tap asks the flag`() {
         val flags = source("constants/Unreleased.kt")
-        assertTrue("val HAPTICS_MORE = BuildConfig.PREVIEW_FEATURES" in flags)
+        assertTrue("val HAPTICS_MORE = true" in flags)
         val helper = source("ui/component/MoreHaptics.kt")
         assertTrue("if (Unreleased.HAPTICS_MORE) performHapticFeedback(HapticFeedbackType.ContextClick)" in helper)
     }

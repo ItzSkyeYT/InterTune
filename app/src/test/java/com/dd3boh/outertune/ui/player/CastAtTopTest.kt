@@ -35,8 +35,8 @@ class CastAtTopTest {
     }
 
     @Test
-    fun `held back, a release keeps the pill under the controls and has no switch and no badge`() {
-        assertTrue("val CAST_AT_TOP = BuildConfig.PREVIEW_FEATURES" in File(folder, "constants/Unreleased.kt").readText())
+    fun `on for everyone in 0_13, and with the flag off the pill stays under the controls with no switch and no badge`() {
+        assertTrue("val CAST_AT_TOP = true" in File(folder, "constants/Unreleased.kt").readText())
         // Without the pick the pill is always shown, whatever the switch says.
         assertTrue("val outputPill = !Unreleased.CAST_AT_TOP || outputPillSwitch" in player)
         assertTrue("if (Unreleased.CASTING && Unreleased.CAST_AT_TOP) {" in File(folder, "ui/screens/settings/fragments/PlayerButtonsFrag.kt").readText())
