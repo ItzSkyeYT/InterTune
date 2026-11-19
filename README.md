@@ -237,7 +237,7 @@ What's being worked on, roughly in order. `[x]` is done, `[~]` is built and bein
 `[ ]` Better word by word lyrics\
 `[~]` Albums and artists in your own order too\
 `[ ]` Match your library from another service by logging in to it\
-`[x]` Repeat on a lit box when it's on, so off no longer looks greyed out ([#182](https://github.com/ItzSkyeYT/InterTune/issues/182))\
+`[x]` Repeat and shuffle on a lit box when they're on, so off no longer looks greyed out ([#182](https://github.com/ItzSkyeYT/InterTune/issues/182))\
 `[x]` The cast button at the top of the player, and a small badge on the mini player during a cast or a room\
 `[x]` Remove a song on your phone from the library, or leave out a whole folder, with Undo\
 `[x]` A playlist's search looks on YouTube Music too, with an add button on each song\
