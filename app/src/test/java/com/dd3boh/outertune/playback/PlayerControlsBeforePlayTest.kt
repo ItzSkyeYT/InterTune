@@ -22,7 +22,7 @@ import java.io.File
 class PlayerControlsBeforePlayTest {
     private val player = File("src/main/java/com/dd3boh/outertune/ui/player/Player.kt").readText()
     private val controls = player.substring(
-        player.indexOf("if (shuffleModeEnabled) R.drawable.shuffle_on else R.drawable.shuffle_off,"),
+        player.indexOf("ShuffleButton("),
         player.indexOf("playerConnection.player.toggleRepeatMode()"),
     )
 

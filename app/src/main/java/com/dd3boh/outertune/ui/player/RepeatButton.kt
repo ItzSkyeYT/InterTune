@@ -29,6 +29,7 @@ import androidx.media3.common.Player.REPEAT_MODE_OFF
 import androidx.media3.common.Player.REPEAT_MODE_ONE
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.Unreleased
+import androidx.compose.ui.graphics.painter.Painter
 
 /**
  * How the repeat button shows its three states, his pick 3B of 15 Nov 2026 (#182: the grey of off
@@ -76,13 +77,46 @@ internal fun RepeatButton(
     enabled: Boolean,
     modifier: Modifier = Modifier,
     onClick: () -> Unit,
+) = LitIconButton(painterResource(RepeatLook.icon(mode)), RepeatLook.lit(mode), RepeatLook.iconColor(mode, color), enabled, modifier, onClick)
+
+/**
+ * Shuffle in repeat's look (Ti-Die's ask of 19 Nov 2026, "it'd be good for consistency", and his "tru"): with
+ * [Unreleased.REPEAT_LIT_BOX], off is the plain shuffle icon at full strength and on stands on the same lit box; without
+ * it, shuffle's own two icons as before (straight arrows while off). One flag, so the two buttons always look alike.
+ */
+internal object ShuffleLook {
+    @DrawableRes
+    fun icon(on: Boolean, litBox: Boolean = Unreleased.REPEAT_LIT_BOX): Int =
+        if (on || litBox) R.drawable.shuffle_on else R.drawable.shuffle_off
+
+    fun lit(on: Boolean, litBox: Boolean = Unreleased.REPEAT_LIT_BOX): Boolean = litBox && on
+}
+
+/** The shuffle button of the player and of the queue's bar, in [ShuffleLook]'s look; the rest as [RepeatButton]. */
+@Composable
+internal fun ShuffleButton(
+    on: Boolean,
+    color: Color,
+    enabled: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) = LitIconButton(painterResource(ShuffleLook.icon(on)), ShuffleLook.lit(on), color, enabled, modifier, onClick)
+
+/** An icon that stands on the lit box while [lit], tinted [offColor] off it, dimmed while not [enabled]. */
+@Composable
+private fun LitIconButton(
+    painter: Painter,
+    lit: Boolean,
+    offColor: Color,
+    enabled: Boolean,
+    modifier: Modifier,
+    onClick: () -> Unit,
 ) {
-    val lit = RepeatLook.lit(mode)
     val box = MaterialTheme.colorScheme.primary
     Image(
-        painter = painterResource(RepeatLook.icon(mode)),
+        painter = painter,
         contentDescription = null,
-        colorFilter = ColorFilter.tint(if (lit) MaterialTheme.colorScheme.onPrimary else RepeatLook.iconColor(mode, color)),
+        colorFilter = ColorFilter.tint(if (lit) MaterialTheme.colorScheme.onPrimary else offColor),
         modifier = Modifier
             // First in the chain: the dimming below clips to the button's bounds, and the box reaches past them.
             .repeatBox(lit, if (enabled) box else box.copy(alpha = box.alpha * RepeatLook.DISABLED_ALPHA))

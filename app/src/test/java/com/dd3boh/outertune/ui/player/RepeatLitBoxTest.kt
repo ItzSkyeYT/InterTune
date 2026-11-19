@@ -77,7 +77,8 @@ class RepeatLitBoxTest {
         val box = button.substringAfter("private fun Modifier.repeatBox(")
         assertTrue("drawBehind {" in box)
         for (layout in listOf(".size(", ".padding(", ".offset(", ".layout(", ".requiredSize(")) assertFalse(layout, layout in box)
-        val chain = button.substringAfter("internal fun RepeatButton(").substringBefore("\n}\n")
+        // Repeat and shuffle draw through the one LitIconButton, so its chain is theirs.
+        val chain = button.substringAfter("private fun LitIconButton(").substringBefore("\n}\n")
         for (layout in listOf(".size(", ".padding(", ".offset(", ".requiredSize(")) assertFalse(layout, layout in chain)
         // First in the chain: Modifier.alpha clips to the button's bounds while it is dimmed.
         assertTrue(chain.indexOf(".repeatBox(") < chain.indexOf(".alpha("))
@@ -87,5 +88,26 @@ class RepeatLitBoxTest {
     fun `the box is the mockup's, 38dp around a 32dp button with 12dp corners`() {
         assertEquals(38f, 32f + RepeatLook.BoxOutset.value * 2, 0.001f)
         assertEquals(12f, 38f * RepeatLook.BOX_CORNER, 0.001f)
+    }
+
+    @Test
+    fun `shuffle takes repeat's look under the same switch, off at full strength and on on the box`() {
+        // Ti-Die's ask of 19 Nov 2026, for consistency: off is the plain shuffle icon, on stands on the lit box.
+        assertEquals(R.drawable.shuffle_on, ShuffleLook.icon(on = false, litBox = true))
+        assertEquals(R.drawable.shuffle_on, ShuffleLook.icon(on = true, litBox = true))
+        assertFalse(ShuffleLook.lit(on = false, litBox = true))
+        assertTrue(ShuffleLook.lit(on = true, litBox = true))
+        // Without the switch, shuffle's own two icons and no box, as before.
+        assertEquals(R.drawable.shuffle_off, ShuffleLook.icon(on = false, litBox = false))
+        assertEquals(R.drawable.shuffle_on, ShuffleLook.icon(on = true, litBox = false))
+        assertFalse(ShuffleLook.lit(on = true, litBox = false))
+        // One switch for both, read where the two looks are.
+        val button = code("RepeatButton.kt")
+        assertEquals("RepeatLook's two and ShuffleLook's two", 4, Regex("""litBox: Boolean = Unreleased\.REPEAT_LIT_BOX""").findAll(button).count())
+        for (name in listOf("Player.kt", "Queue.kt")) {
+            val text = code(name)
+            assertEquals(name, 1, Regex("""\bShuffleButton\(""").findAll(text).count())
+            assertFalse(name, "R.drawable.shuffle_off" in text)
+        }
     }
 }

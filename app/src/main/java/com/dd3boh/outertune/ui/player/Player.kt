@@ -1677,14 +1677,16 @@ fun BottomSheetPlayer(
                             val shuffleModeEnabled by playerConnection.shuffleModeEnabled.collectAsState()
 
                             Box(modifier = Modifier.weight(1f)) {
-                                ResizableIconButton(
-                                    icon = if (shuffleModeEnabled) R.drawable.shuffle_on else R.drawable.shuffle_off,
+                                // Off is the plain shuffle icon, on stands on repeat's lit box (ShuffleLook, 19 Nov 2026).
+                                ShuffleButton(
+                                    on = shuffleModeEnabled,
                                     modifier = Modifier
                                         .size(transportIconSize)
                                         .padding(4.dp)
                                         .align(Alignment.Center)
                                         .named(shuffleName(shuffleModeEnabled)),
                                     color = onBackgroundColor,
+                                    enabled = true,
                                     // After a cold start the player holds nothing and shows the saved queue: the
                                     // first tap loads it, as skip and play do, and as the queue's own bar does (#127).
                                     // Read straight from the player, the button stayed greyed out until play.
