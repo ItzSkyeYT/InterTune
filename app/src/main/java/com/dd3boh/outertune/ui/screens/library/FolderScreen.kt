@@ -191,6 +191,10 @@ fun FolderScreen(
         }
         if (!currDir.isSkeleton) {
             viewModel.uiInit = true
+            // The folder's songs came from the cache, its count did not: read it, or every visit after the first said
+            // "0 songs" over the folder's own list (the walks of 19 Nov 2026). Also read again on the way back from a
+            // folder inside, where a song may have been taken out.
+            coroutineScope.launch(Dispatchers.IO) { viewModel.getSongCount() }
         }
 
         if (!viewModel.uiInit) {
