@@ -388,11 +388,11 @@ val ContextChipKey = intPreferencesKey("contextChip")
  */
 val QuickPicksLeanKey = stringPreferencesKey("quickPicksLean")
 
-/** The developer's switch that builds Quick picks under Familiar first (Lean.FAMILIAR), a test: debug builds only. */
-val FamiliarFirstKey = booleanPreferencesKey("familiarFirst")
-/** With [FamiliarFirstKey]: the new Auto under test (EngineParams.mixLearned, familiarRanker, three an artist): debug builds only. */
-val FamiliarMixKey = booleanPreferencesKey("familiarMix")
-/** The share of new songs the last build under the new Auto was given (BuiltRow.mixShare), for the Recommendations page's picture; debug builds only. */
+/**
+ * The share of new songs the last build under the new Auto was given (BuiltRow.mixShare), for the Recommendations
+ * page's picture. Written only where Unreleased.NEW_ENGINE is on. "familiarFirst" and "familiarMix", the developer's
+ * two switches for that Auto until 20 Nov 2026, are no longer read: never reuse the two names.
+ */
 val MixShareKey = floatPreferencesKey("mixShare")
 /** Developer overrides of EngineParams, as one JSON object of name to value. */
 val EngineOverridesKey = stringPreferencesKey("engineOverrides")

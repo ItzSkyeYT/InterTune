@@ -1199,4 +1199,17 @@ object Unreleased {
      * only on his word.
      */
     val ROOM_AT_FREE_END = BuildConfig.PREVIEW_FEATURES
+
+    /**
+     * The 0.14 engine, step 2 of his yes of 20 Nov 2026 ("it should be the key new feature for 0.14"; testers first,
+     * everyone once it wins the three judges): Auto in Quick picks is the row designed on 21 Oct (engine/NewAuto),
+     * Familiar first with the mix learned, and on Settings > Recommendations the slider counts its new songs while
+     * Familiarity, which has nothing left to set under it, is not shown. A lean the listener picks, Discover and every
+     * other row are as they were. Off, Auto is today's blend.
+     *
+     * Held back as the line's held features are: the debug app, the Preview and the Tester app have it; a release only
+     * once it wins and on his word. To drop it: this flag, NewAuto and its two reads in HomeViewModel, the newAuto
+     * branches of RecommendationsSettings and the two new_auto_new_songs texts.
+     */
+    val NEW_ENGINE = BuildConfig.PREVIEW_FEATURES
 }

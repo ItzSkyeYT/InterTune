@@ -2732,4 +2732,7 @@
     <string name="local_folder_excluded" translatable="false">%1$s exclu. Ses fichiers restent.</string>
     <!-- AppLanguage.PARTLY. -->
     <string name="app_language_partly" translatable="false">Traduction partielle</string>
+    <!-- Auto under the 0.14 engine (Unreleased.NEW_ENGINE): held from translators, French beside the English. -->
+    <string name="new_auto_new_songs" translatable="false">Nouveaux titres</string>
+    <string name="new_auto_new_songs_description" translatable="false">Appris de ce que vous écoutez : %1$d cartes sur 20 sont nouvelles en ce moment. À gauche pour moins, à droite pour plus.</string>
 </resources>

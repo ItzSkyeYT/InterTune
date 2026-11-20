@@ -2926,11 +2926,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="local_folder_excluded" translatable="false">%1$s excluded. Its files stay.</string>
     <!-- Under a language of the App language list most of whose words are still English (AppLanguage.PARTLY). Held from translators. -->
     <string name="app_language_partly" translatable="false">Partly translated</string>
-    <!-- Familiar first, a test of Quick picks in debug builds: not for translators -->
-    <string name="familiar_first" translatable="false">Familiar first (test)</string>
-    <string name="familiar_mix" translatable="false">Familiar first learns the mix (test)</string>
-    <string name="familiar_mix_description" translatable="false">Under Familiar first, as many new songs as you usually play (4 to 10 of 20), your songs in the order of a ranker learned on other listeners, up to 3 songs an artist.</string>
-    <string name="new_auto_new_songs" translatable="false">New songs (test)</string>
+    <!-- Auto under the 0.14 engine (Unreleased.NEW_ENGINE), the slider on Settings > Recommendations. Held from translators until 0.14's texts go to them, French beside them. -->
+    <string name="new_auto_new_songs" translatable="false">New songs</string>
     <string name="new_auto_new_songs_description" translatable="false">Learned from what you play: %1$d of 20 cards are new now. Left for fewer, right for more.</string>
-    <string name="familiar_first_description" translatable="false">Quick picks leads with songs you have heard well, recent plays counting most, the rest of the row as usual. Overrides the lean chosen in Recommendations.</string>
 </resources>

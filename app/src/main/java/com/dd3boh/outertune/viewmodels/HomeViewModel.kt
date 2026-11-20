@@ -13,12 +13,9 @@ import com.dd3boh.outertune.constants.ContextChipKey
 import com.dd3boh.outertune.constants.BatteryMode
 import com.dd3boh.outertune.playback.BatteryUse
 import com.dd3boh.outertune.playback.batteryModeNow
-import com.dd3boh.outertune.BuildConfig
 import com.dd3boh.outertune.constants.QuickPicksLeanKey
-import com.dd3boh.outertune.constants.FamiliarFirstKey
-import com.dd3boh.outertune.constants.FamiliarMixKey
 import com.dd3boh.outertune.constants.MixShareKey
-import com.dd3boh.outertune.engine.MixShare
+import com.dd3boh.outertune.engine.NewAuto
 import androidx.datastore.preferences.core.edit
 import com.dd3boh.outertune.db.Converters
 import com.dd3boh.outertune.engine.Lean
@@ -309,12 +306,11 @@ class HomeViewModel @Inject constructor(
     /** Playing now built with no session under way: when the latest session's last listen ended. */
     private var lastEngineSimilarLastAt: Long? = null
 
-    /** What Best recommendations leans toward, as chosen: Auto unless the listener picked one. */
-    private fun storedLean(): Lean =
-        // The developer's Familiar first, a test of a row that leads with the familiar; never read
-        // in a release, where a restored backup could otherwise bring it.
-        if (BuildConfig.DEBUG && context.dataStore[FamiliarFirstKey] == true) Lean.FAMILIAR
-        else Lean.ofName(context.dataStore[QuickPicksLeanKey])
+    /**
+     * What Best recommendations is built under: the lean chosen, Auto unless the listener picked one, and under the
+     * 0.14 engine Auto is the new Auto, built as Familiar first (NewAuto).
+     */
+    private fun storedLean(): Lean = NewAuto.lean(Lean.ofName(context.dataStore[QuickPicksLeanKey]), Unreleased.NEW_ENGINE)
 
     /** The choice as it stands, for the first chip's label (and the settings line under it). */
     val quickPicksLean: StateFlow<Lean> = context.dataStore.data
@@ -332,13 +328,11 @@ class HomeViewModel @Inject constructor(
     /** The engine's parameters as the developer page and Familiarity leave them. */
     private fun engineParams(familiarity: Int = context.dataStore.get(FamiliarityKey, 25)): EngineParams =
         EngineTuning.params(EngineTuning.parse(context.dataStore.get(EngineOverridesKey, ""))).withFamiliarity(familiarity / 100.0)
-            // The new Auto as measured on 467 Last.fm listeners: the mix learned, the familiar songs
-            // in the ranker's order, three cards an artist (his choice of 16 Oct 2026).
+            // Under the 0.14 engine, Auto's row as measured on 467 Last.fm listeners: the mix learned and nudged by the
+            // slider, the familiar songs in the ranker's order, three cards an artist (NewAuto).
             .let {
-                if (BuildConfig.DEBUG && context.dataStore.get(FamiliarMixKey, false)) it.copy(mixLearned = true, familiarRanker = true, maxPerArtist = 3,
-                    // The slider nudges the learned mix there, fewer new songs to the left, more to the right.
-                    mixNudge = MixShare.nudge(context.dataStore.get(AdventurousnessKey, DefaultAdventurousness)))
-                else it
+                NewAuto.params(it, Lean.ofName(context.dataStore[QuickPicksLeanKey]), Unreleased.NEW_ENGINE,
+                    context.dataStore.get(AdventurousnessKey, DefaultAdventurousness))
             }
     /** How many listens carry the current mood chip; below the threshold the row says it is still learning. */
     val engineChipTagged = MutableStateFlow(-1)

@@ -44,10 +44,7 @@ import com.dd3boh.outertune.constants.ContextChipKey
 import com.dd3boh.outertune.constants.DefaultAdventurousness
 import com.dd3boh.outertune.constants.DiscoverRowKey
 import com.dd3boh.outertune.constants.FamiliarityKey
-import com.dd3boh.outertune.constants.FamiliarFirstKey
-import com.dd3boh.outertune.constants.FamiliarMixKey
 import com.dd3boh.outertune.constants.MixShareKey
-import com.dd3boh.outertune.BuildConfig
 import com.dd3boh.outertune.constants.LearnFromListeningKey
 import com.dd3boh.outertune.constants.NewSongsOnlyKey
 import com.dd3boh.outertune.constants.QuickPicksLeanKey
@@ -64,6 +61,7 @@ import com.dd3boh.outertune.constants.TidyHomeRowsKey
 import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.engine.ContextChip
 import com.dd3boh.outertune.engine.LeanChoice
+import com.dd3boh.outertune.engine.NewAuto
 import com.dd3boh.outertune.engine.LeanLine
 import com.dd3boh.outertune.engine.percentText
 import com.dd3boh.outertune.engine.SimilarSources
@@ -111,16 +109,14 @@ fun RecommendationsSettings(
     val (newSongsOnly, onNewSongsOnlyChange) = rememberPreference(NewSongsOnlyKey, defaultValue = false)
     val (discoverRow, onDiscoverRowChange) = rememberPreference(DiscoverRowKey, defaultValue = true)
     val (familiarity, onFamiliarityChange) = rememberPreference(FamiliarityKey, defaultValue = 25)
-    // The new Auto under test (two Developer switches, debug builds): the mix is learned, so the
-    // slider nudges it, Familiarity has nothing left to set, and the picture shows the learned split.
-    val (familiarFirst, _) = rememberPreference(FamiliarFirstKey, defaultValue = false)
-    val (familiarMix, _) = rememberPreference(FamiliarMixKey, defaultValue = false)
-    val (learnedShare, _) = rememberPreference(MixShareKey, defaultValue = -1f)
-    val newAuto = BuildConfig.DEBUG && familiarFirst && familiarMix
-    val share = learnedShare.takeIf { it >= 0f }?.toDouble()
     // Kept by name and read as Home reads it; unset, or a name this version does not know, is Auto.
     val (leanName, onLeanNameChange) = rememberPreference(QuickPicksLeanKey, defaultValue = "")
     val lean = LeanChoice.selected(leanName)
+    // Auto under the 0.14 engine (Unreleased.NEW_ENGINE, NewAuto): the mix is learned, so the slider
+    // nudges it, Familiarity has nothing left to set, and the picture shows the learned split.
+    val (learnedShare, _) = rememberPreference(MixShareKey, defaultValue = -1f)
+    val newAuto = NewAuto.applies(lean, Unreleased.NEW_ENGINE)
+    val share = learnedShare.takeIf { it >= 0f }?.toDouble()
     val (quickPicksSource, _) = rememberEnumPreference(QuickPicksSourceKey, defaultValue = QuickPicksSource.YOUTUBE)
     val (chip, _) = rememberPreference(ContextChipKey, defaultValue = ContextChip.AUTO)
     val activeExclusions by viewModel.activeExclusions.collectAsState(initial = 0)
