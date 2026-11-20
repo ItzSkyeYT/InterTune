@@ -9,7 +9,7 @@
     <string name="local_history">Locale</string>
     <string name="remote_history">Distant</string>
     <string name="create_queue">Nouvelle file d\'attente</string>
-    <string name="delete_lyric_confirm">Voulez-vous vraiment supprimer les paroles enregistrées pour \"%s\" ?</string>
+    <string name="delete_lyric_confirm">Supprimer les paroles enregistrées pour \"%s\" ?</string>
     <string name="sort_by_date_modified">Date de modification</string>
     <string name="sort_by_like_date">Date aimée</string>
     <string name="sort_by_play_count">Nombre de lectures</string>
@@ -73,14 +73,14 @@
     <string name="create_sync_playlist_description">Synchronisée avec YouTube Music. Impossible de changer ce choix plus tard, et les titres locaux ne peuvent pas y être ajoutés.</string>
     <string name="audio_offload">Activer le déchargement</string>
     <string name="local_library_enable_title">Activer les médias locaux</string>
-    <string name="token_adv_login_description">Avancé : collez un jeton de connexion au lieu de passer par la page web. Attention : toute personne qui a ce jeton peut utiliser votre compte YouTube.</string>
+    <string name="token_adv_login_description">Avancé : collez un jeton de connexion pour sauter la page de connexion. Attention : toute personne qui a ce jeton peut utiliser votre compte YouTube.</string>
     <string name="audio_offload_description">Peut économiser la batterie, mais peut causer des problèmes de lecture sur certains téléphones.</string>
     <string name="min_playback_duration">Durée minimale de lecture</string>
     <string name="min_playback_duration_description">La part d\'un titre à écouter pour qu\'il compte comme lu, pour le nombre de lectures, les plus écoutés et votre historique YouTube. Cela ne change pas l\'historique d\'InterTune.</string>
     <string name="lyrics_prefer_local">Préférez les fichiers de paroles locaux</string>
     <string name="lyrics_settings_title">Paroles</string>
     <string name="slim_navbar_title">Barre de navigation fine</string>
-    <string name="scanner_warning">Par défaut, l\'analyse ne rechargera PAS les métadonnées des titres existants, sauf si vous spécifiez le contraire ci-dessus. Cela peut prendre un certain temps.</string>
+    <string name="scanner_warning">Les titres déjà dans votre bibliothèque gardent leurs infos, sauf si vous choisissez de les réanalyser ci-dessus. Cela peut prendre un moment.</string>
     <string name="slim_navbar_description">Supprimer les étiquettes de texte pour réduire la hauteur de la barre de navigation</string>
     <string name="show_liked_and_downloaded_playlist">Afficher les playlists des titres appréciés et téléchargés dans la bibliothèque</string>
     <string name="keep_alive_title">Empêcher le système de tuer l\'application</string>
@@ -104,7 +104,7 @@
     <string name="scanner_type_taglib">Utiliser l’extracteur de métadonnées intégré TagLib</string>
     <string name="scanner_type_ffmpeg_ext">Utilisez l\'extracteur de métadonnées FFmpeg. Veuillez utiliser uniquement la version complète de l\'application. La version « Core » pourrait entraîner des problèmes de suivi des titres.</string>
     <string name="scanner_strict_file_name_title">Noms de fichiers stricts</string>
-    <string name="dev_settings_description">Paramètres avancés supplémentaires destinés au développement</string>
+    <string name="dev_settings_description">Paramètres pour les tests et le développement</string>
     <string name="sync_progress_active">Synchronisation avec le compte YouTube…</string>
     <string name="sync_progress_success">Synchronisation terminée</string>
     <string name="tab_arrangement_home_required">L\'onglet Accueil est obligatoire.</string>
@@ -146,7 +146,7 @@
     <string name="scanner_progress_syncing">Synchronisation…</string>
     <string name="scanner_ytm_link_start">Démarrage de la création de liens d\'artistes sur YouTube…</string>
     <string name="err_stop_on_error">Une erreur s\'est produite. La lecture s\'est arrêtée</string>
-    <string name="err_play_next_on_error">Une erreur s\'est produite, lecture du titre suivant</string>
+    <string name="err_play_next_on_error">Impossible de lire ce titre. Passage au suivant.</string>
     <string name="err_stop_on_too_many_errors">Trop d\'erreurs. La lecture est arrêtée</string>
     <string name="wait_to_reconnect">Attendez pour vous reconnecter</string>
     <string name="grp_general">Général</string>
@@ -159,7 +159,7 @@
     <string name="queues_title">Files d\'attente</string>
     <string name="pause_remote_listen_history">Partager l\'historique d\'écoute avec YouTube Music</string>
     <string name="swipe_to_skip_title">Balayer horizontalement pour changer de titre</string>
-    <string name="swipe_to_skip_description">S\'applique au lecteur en plein écran</string>
+    <string name="swipe_to_skip_description">Dans le lecteur en plein écran</string>
     <string name="filter_arrangement">Organiser les filtres</string>
     <string name="restart_to_apply_changes">Redémarrez l\'application afin que les modifications prennent effet</string>
     <string name="android_auto">Android Auto</string>
@@ -197,7 +197,7 @@
     <string name="high_contrast_description">Activez pour corriger certains défauts d\'affichage quand le mode contraste élevé d\'Android est actif</string>
     <string name="oss_licenses_title">Licences open source</string>
     <string name="lyrics_karaoke_title">Paroles mot à mot</string>
-    <string name="disable_lm_confirm">Voulez-vous vraiment désactiver les médias locaux ? Votre bibliothèque reste telle quelle.</string>
+    <string name="disable_lm_confirm">Désactiver les médias locaux ? Votre bibliothèque reste telle quelle.</string>
     <string name="scanner_progress_discovering">À la découverte…</string>
     <string name="scanner_progress_processing">Traitement…</string>
     <string name="clear_image_cache_confirm">Voulez-vous vraiment vider le cache des images ? Toutes les vignettes d\'albums existantes seront supprimées.</string>
@@ -215,7 +215,7 @@
     <string name="oobe_cross_platform_sync_description">Gardez votre musique en harmonie sur tous vos appareils</string>
     <string name="oobe_ytm_logon_title">Compte</string>
     <string name="oobe_local_media_title">Médias locaux</string>
-    <string name="oobe_local_media_subtitle">Choisissez les dossiers contenant votre musique.</string>
+    <string name="oobe_local_media_subtitle">Choisissez les dossiers où se trouve votre musique.</string>
     <string name="oobe_downloads_title">Téléchargements de chansons</string>
     <string name="oobe_downloads_subtitle">Choisissez un dossier dans lequel les titres téléchargés seront enregistrés.</string>
     <string name="oobe_complete_title">Vous êtes prêt !</string>
@@ -245,12 +245,12 @@
     <string name="dl_size_used_cache">Interne : %s utilisés</string>
     <string name="dl_size_used_main">Externe : %s utilisés</string>
     <string name="dl_size_used_extra">Importations supplémentaires : %s utilisés</string>
-    <string name="dl_storage_tooltip">Les téléchargements internes sont dans le stockage privé de l\'application. Les téléchargements externes vont dans un dossier que vous choisissez ; prenez-en un vide, car InterTune peut y modifier ou supprimer des fichiers. Les dossiers d\'importation supplémentaires sont seulement lus.</string>
+    <string name="dl_storage_tooltip">Les téléchargements internes restent dans le stockage de l\'application. Les externes vont dans un dossier que vous choisissez : prenez-en un vide, car InterTune peut y modifier ou supprimer des fichiers. Les dossiers d\'importation en plus sont seulement lus.</string>
     <string name="scanner_sensitivity_L0">Prendre le premier résultat fourni par YouTube lorsque la recherche sur YouTube est activée ; sinon, rechercher une correspondance avec le titre</string>
     <string name="app_info_title">Informations sur l\'application</string>
     <string name="device_info_title">Informations sur l\'appareil</string>
     <string name="help_bug_report_action">Signaler un problème</string>
-    <string name="help_contact_email_inquiries">Autres demandes (e-mail)</string>
+    <string name="help_contact_email_inquiries">Autres questions (e-mail)</string>
     <string name="help_support_forum">Aide et support (via GitHub)</string>
     <string name="wiki">Wiki</string>
     <string name="err_invalid_ytm_song">InterTune ne peut pas lire cette vidéo. Ce n\'est pas un titre de YouTube Music.</string>
@@ -297,7 +297,7 @@
     <string name="scanner_type_mediastore">(BÊTA) Utiliser l\'analyseur système MediaStore et ses extracteurs</string>
     <string name="restore_lm_tooltip">Après une restauration sur une nouvelle installation, vos dossiers de téléchargement et d\'analyse peuvent ne plus fonctionner. Retirez-les puis ajoutez-les à nouveau.</string>
     <string name="action_done">Terminé</string>
-    <string name="download_on_wifi_only_description">Les téléchargements attendent que le Wi-Fi soit disponible.</string>
+    <string name="download_on_wifi_only_description">Les téléchargements attendent le Wi-Fi.</string>
     <string name="download_on_wifi_only_title">Télécharger en Wi-Fi uniquement</string>
     <string name="download_waiting_for_wifi">En attente. Le téléchargement démarrera avec le Wi-Fi.</string>
     <plurals name="download_progress_songs">
@@ -307,7 +307,7 @@
     </plurals>
     <string name="err_copy_details">Copier les détails de l\'erreur</string>
     <string name="player_error_report">Signaler</string>
-    <string name="err_youtube_busy">YouTube a temporairement cessé d\'envoyer de la musique à cette connexion Internet. Essayez un autre réseau, comme les données mobiles, ou réessayez plus tard.</string>
+    <string name="err_youtube_busy">YouTube n\'envoie plus de musique à cette connexion pour l\'instant. Essayez les données mobiles ou un autre réseau, ou réessayez plus tard.</string>
     <string name="grouped_player_controls">Regrouper les boutons du lecteur</string>
     <string name="grouped_player_controls_description">Réunit les boutons de lecture dans une seule barre de verre. Nécessite Liquid glass.</string>
     <string name="grp_updates">Mises à jour</string>
@@ -340,7 +340,7 @@
     <string name="sleep_timer_fade">Fondu avant l\'arrêt</string>
     <string name="sleep_timer_fade_description">Baisse doucement le volume à la fin de la minuterie de sommeil, au lieu de couper net</string>
     <string name="sleep_timer_fade_duration">Durée du fondu</string>
-    <string name="sleep_timer_fade_duration_description">Durée du fondu avant que la minuterie de sommeil arrête la lecture. 0 : sans fondu.</string>
+    <string name="sleep_timer_fade_duration_description">Durée du fondu avant que la minuterie de sommeil arrête la musique. 0 : sans fondu.</string>
     <string name="sleep_timer_fade_duration_value">%1$d secondes</string>
     <string name="sleep_timer_fade_off" translatable="false">Sans fondu</string>
     <string name="swipe_to_dismiss_player">Balayer le mini lecteur pour le fermer</string>
@@ -444,7 +444,7 @@
     <string name="flush_image_cache_description">Les pochettes d\'album sont récupérées à nouveau au besoin.</string>
     <string name="song_cache_max_size">Taille maximale du cache des morceaux</string>
     <string name="image_cache_max_size">Taille maximale du cache des pochettes</string>
-    <string name="max_queues_description">La file la plus ancienne est supprimée quand la limite est dépassée.</string>
+    <string name="max_queues_description">Au-delà, la file la plus ancienne est supprimée.</string>
     <string name="enable_proxy_description">Fait passer tout ce que l\'application récupère par un autre serveur, images et paroles comprises. Laissez désactivé sauf si vous en avez besoin.</string>
     <string name="pause_listen_history_description">Arrête l\'ajout de titres à l\'historique.</string>
     <string name="pause_remote_listen_history_description">Arrête l\'envoi de l\'historique à YouTube Music.</string>
@@ -468,7 +468,7 @@
     <string name="skip_silence_description">Passer les blancs au début et à la fin d\'un morceau.</string>
     <string name="stop_music_on_task_clear_description">Arrêter la musique quand vous balayez l\'application hors des applications récentes.</string>
     <string name="enable_dynamic_theme_description">Les couleurs de l\'application suivent la pochette du titre en cours.</string>
-    <string name="pure_black_description">Peut économiser de la batterie sur les écrans OLED.</string>
+    <string name="pure_black_description">Économise un peu de batterie sur les écrans OLED.</string>
     <string name="min_playback_duration_short">La part d\'un titre à écouter pour qu\'il compte comme lu, dans InterTune et dans votre historique YouTube Music.</string>
     <string name="throttle_banner_title">YouTube a suspendu cette connexion</string>
     <!-- General -->
@@ -479,14 +479,14 @@
     <string name="saved_as_playlist">Enregistrée comme playlist : %1$s</string>
     <!-- Player -->
     <string name="spatial_audio">Audio spatial</string>
-    <string name="spatial_audio_description">Joue la musique devant vous, comme des enceintes, au lieu de dans votre tête.</string>
+    <string name="spatial_audio_description">La musique joue devant vous, comme des enceintes, pas dans votre tête.</string>
     <string name="spatial_audio_off">Désactivé</string>
     <string name="spatial_audio_headphones">Casque</string>
     <string name="spatial_audio_surround">Conversion surround</string>
     <string name="spatial_audio_explain">« Casque » fonctionne sur tous les téléphones. « Conversion surround » laisse faire votre téléphone, et seuls certains en sont capables.</string>
     <string name="stage_width">Largeur de scène</string>
     <string name="stage_width_value">Enceintes à %1$d degrés de chaque côté</string>
-    <string name="stage_width_explain">Accentue ou réduit l\'effet stéréo</string>
+    <string name="stage_width_explain">Élargit ou resserre la stéréo</string>
     <string name="head_tracking">Suivi de la tête</string>
     <string name="head_tracking_description">La musique reste en place quand vous tournez la tête.</string>
     <string name="head_tracking_report_prompt">Votre casque a le suivi de la tête, mais ceci indique toujours le contraire ? Dites-le-moi.</string>
@@ -502,7 +502,7 @@
     <string name="head_tracking_response_instant">Instantanée</string>
     <string name="head_tracking_response_explain">« Douce » ne dépasse jamais mais traîne un peu. « Rapide » et « Instantanée » réagissent tout de suite mais peuvent dépasser quand vous vous arrêtez. « Équilibrée » est entre les deux.</string>
     <string name="proximity_volume">Plus bas quand vous vous éloignez</string>
-    <string name="proximity_volume_explain">Considère votre téléphone comme la source de la musique.\n\nIl faut un casque Bluetooth et l\'autorisation « Appareils à proximité ».</string>
+    <string name="proximity_volume_explain">La musique semble venir de votre téléphone.\n\nIl faut un casque Bluetooth et l\'autorisation « Appareils à proximité ».</string>
     <string name="proximity_probe">Journal du signal Bluetooth</string>
     <string name="proximity_probe_stop">Arrêter l\'enregistrement</string>
     <string name="proximity_probe_description">Vérifiez si la distance peut être bien mesurée là où vous êtes.</string>
@@ -531,7 +531,7 @@
     <string name="head_tracking_lead_full_explain">De combien le son anticipe, pour rattraper le retard de votre casque. Lancez un titre, tournez la tête et faites glisser jusqu\'à ce que le son reste en place.</string>
     <string name="head_tracking_lead_value">Anticipe de %1$d ms</string>
     <string name="high_precision_audio">Traitement audio 32 bits</string>
-    <string name="high_precision_audio_description">Garde plus de détails, au prix d\'un peu plus de batterie</string>
+    <string name="high_precision_audio_description">Garde plus de détails, consomme un peu plus de batterie</string>
     <string name="high_precision_audio_explain">Garde un peu plus de détail quand le volume des titres est égalisé. Cela consomme un peu plus de batterie et la différence est faible : à vous de voir.</string>
     <string name="import_engine_data">Charger une copie</string>
     <string name="import_engine_data_description">Remplace ce qu\'il a appris par une copie enregistrée</string>
@@ -600,7 +600,7 @@
     <string name="help_translate">Aider à traduire InterTune (via Weblate)</string>
     <!-- Player settings -->
     <string name="player_buttons_style">Boutons du lecteur</string>
-    <string name="player_buttons_style_description">Connectés place partager et j\'aime près du titre, et les paroles et le menu sur une rangée sous les commandes.</string>
+    <string name="player_buttons_style_description">Connectés place caster, partager et j\'aime près du titre, et les paroles et le menu sur une rangée sous les commandes.</string>
     <string name="player_buttons_classic">Classiques</string>
     <string name="player_buttons_connected">Connectés</string>
     <string name="queue_button">Bouton de file d\'attente</string>
@@ -615,7 +615,7 @@
     <string name="grp_usage_count">Comptage anonyme</string>
     <string name="usage_count_enabled">Compter cette installation</string>
     <string name="usage_count_enabled_description">Un message anonyme par jour, pour savoir combien de personnes utilisent InterTune.</string>
-    <string name="usage_count_enabled_info" translatable="false">Une fois par jour, InterTune envoie un nom aléatoire qui change chaque mois, si elle vient de F-Droid, et les versions de l\'application et d\'Android. Jamais ce que vous écoutez, votre compte ni rien de lié à votre téléphone. F-Droid ne donne aucun chiffre de téléchargement : c\'est ainsi que nous savons combien de personnes utilisent InterTune.</string>
+    <string name="usage_count_enabled_info" translatable="false">Envoyé une fois par jour :\n• un nom aléatoire, nouveau chaque mois\n• si l\'application vient de F-Droid\n• les versions de l\'application et d\'Android\nJamais ce que vous écoutez, votre compte ni rien de lié à votre téléphone.</string>
     <string name="usage_count_forget">Prendre un nouveau nom</string>
     <string name="usage_count_forget_description">Abandonne le nom aléatoire sous lequel cette installation est comptée. Le prochain comptage en utilise un nouveau.</string>
     <string name="usage_count_opt_in_title">Compter cette installation ?</string>
@@ -652,7 +652,7 @@
     <string name="liked_autodownload_finished_failed">%1$d sur %2$d titres aimés téléchargés. %3$d en échec.</string>
     <string name="liked_autodownload_stopped_failed">Arrêté. %1$d téléchargés et %2$d en échec, le reste a été annulé.</string>
     <!-- Setup wizard -->
-    <string name="oobe_update_check_description_fdroid">Votre copie vient de F-Droid : F-Droid la tient à jour et vous n\'avez pas besoin de ceci. InterTune peut quand même consulter GitHub et vous prévenir quand une version sort, en général un peu avant que F-Droid l\'ait compilée.</string>
+    <string name="oobe_update_check_description_fdroid">Vous avez InterTune via F-Droid : F-Droid la tient à jour et vous n\'avez pas besoin de ceci. Elle peut quand même consulter GitHub et vous prévenir d\'une nouvelle version, en général un peu avant F-Droid.</string>
     <!-- M3U -->
     <string name="export_playlists_m3u">Exporter les playlists en M3U</string>
     <string name="export_playlists_m3u_description">Chaque playlist de votre bibliothèque dans un fichier lisible partout.</string>
@@ -674,7 +674,7 @@
     <string name="share_audio_focus_description">InterTune n\'arrête pas le son des autres applis quand elle joue.</string>
     <string name="share_audio_focus_explain">InterTune continue de jouer en même temps que les autres applications, et ne baisse plus pour la navigation ou les alarmes. Les appels le coupent toujours.</string>
     <string name="resume_on_bluetooth">Reprise automatique en Bluetooth</string>
-    <string name="resume_on_bluetooth_description">La musique coupée par une déconnexion Bluetooth reprend si l\'appareil se reconnecte peu après.</string>
+    <string name="resume_on_bluetooth_description">Si le Bluetooth se coupe et revient peu après, la musique reprend.</string>
     <string name="sleep_timer_notif_end_of_song">La musique s\'arrête à la fin de ce titre</string>
     <string name="sleep_timer_notif_chip">%1$d min</string>
     <plurals name="sleep_timer_notif_minutes">
@@ -690,7 +690,7 @@
     <string name="recognise_once">Écouter une fois</string>
     <string name="recognise_keep_listening">Écoute continue</string>
     <string name="recognise_once_desc">Identifie un titre, puis s\'arrête.</string>
-    <string name="recognise_keep_listening_short">Continue jusqu\'à un arrêt manuel.</string>
+    <string name="recognise_keep_listening_short">Continue jusqu\'à ce que vous l\'arrêtiez.</string>
     <string name="recognition_source_room">Autour de vous</string>
     <string name="recognition_source_phone">Sur cet appareil</string>
     <string name="recognition_phone_note">Utilise l\'enregistrement d\'écran d\'Android pour trouver les titres joués par d\'autres applis. Seul le son de l\'enregistrement est pris.</string>
@@ -726,7 +726,7 @@
     <string name="tour_recognise_body">Appuyez ici et levez le téléphone. InterTune écoute quelques secondes avec le micro et vous dit quel titre passe autour de vous.</string>
     <string name="tour_library_title">Votre bibliothèque est ici</string>
     <string name="tour_library_body">Playlists, albums, artistes et tout ce qui est enregistré sur cet appareil.</string>
-    <string name="tour_settings_body">Ces options se trouvent dans les Paramètres.</string>
+    <string name="tour_settings_body">Vous les trouverez dans les Paramètres.</string>
     <string name="walkthrough_recognition_title">Identifier un titre qui passe près de vous</string>
     <string name="walkthrough_settings_title">Tout est réglable</string>
     <string name="recognise_settings_description">Ce qui arrive quand vous demandez à InterTune d\'identifier la musique qui passe.</string>
@@ -1734,7 +1734,7 @@
     <string name="problem_report_failed_build">Le site n\'accepte pas encore le nom de cette version. Choisissez GitHub ci-dessus, ou copiez le rapport.</string>
     <string name="problem_report_failed_network">Pas de connexion à InterTune. Vérifiez votre réseau et réessayez.</string>
     <string name="problem_report_failed_busy">Trop de rapports depuis cette connexion aujourd\'hui. Réessayez demain, ou choisissez GitHub ci-dessus.</string>
-    <string name="problem_report_failed_long">Ce rapport est trop long pour être envoyé. Choisissez GitHub ci-dessus, qui en garde la fin, ou copiez-le.</string>
+    <string name="problem_report_failed_long">Ce rapport est trop long pour être envoyé. Copiez-le, ou choisissez GitHub ci-dessus : il en garde la fin.</string>
     <string name="problem_report_failed_site">Le site d\'InterTune ou GitHub a eu un problème. Réessayez dans une minute, ou choisissez GitHub ci-dessus.</string>
     <string name="report_way_anonymous">Anonyme</string>
     <string name="report_way_github">Compte GitHub</string>
@@ -1914,7 +1914,7 @@
     <string name="output_pill" translatable="false">Bouton de sortie audio</string>
     <string name="output_pill_description" translatable="false">Affiche où joue la musique, sous les commandes.</string>
     <string name="cast_searching">Recherche de récepteurs sur ce Wi-Fi</string>
-    <string name="cast_about">Caste vers les récepteurs FCast, les appareils Chromecast et Google TV, les enceintes AirPlay, et les téléviseurs et enceintes DLNA du même Wi-Fi. FCast demande l\'application FCast Receiver sur le téléviseur ou l\'ordinateur. Le téléphone reste allumé et envoie la musique pendant le cast.</string>
+    <string name="cast_about">Joue sur Chromecast et Google TV, les enceintes AirPlay, les téléviseurs et enceintes DLNA, et les récepteurs FCast de votre Wi-Fi (FCast demande son application Receiver). Votre téléphone reste allumé et envoie la musique pendant le cast.</string>
     <string name="cast_public_wifi" translatable="false">Sur un Wi-Fi public, les autres appareils connectés peuvent accéder aux titres que vous castez.</string>
     <string name="cast_add_by_address">Ajouter par adresse</string>
     <string name="cast_address_hint">192.168.1.20 pour FCast, chromecast 192.168.1.21, ou l\'URL de description DLNA</string>
@@ -2093,7 +2093,7 @@
     <string name="battery_follow_phone_now">« Économie » en ce moment : l\'économiseur du téléphone est activé.</string>
     <!-- The note said twice at most when the phone's battery saver puts the app on Saver (SaverNote, Unreleased.SAVER_NOTE). -->
     <string name="saver_note_title" translatable="false">L\'économiseur de batterie est activé</string>
-    <string name="saver_note_body" translatable="false">InterTune économise la batterie avec lui. Le fond animé du lecteur et les effets sonores (pas l\'égaliseur) se mettent en pause, le thème passe en noir et les synchronisations attendent le Wi-Fi. Tout revient quand l\'économiseur est désactivé.</string>
+    <string name="saver_note_body" translatable="false">InterTune économise aussi la batterie : le fond animé et les effets sonores se mettent en pause (pas l\'égaliseur), le thème passe en noir et les synchronisations attendent le Wi-Fi. Tout revient quand l\'économiseur s\'arrête.</string>
     <!-- The search at the top of Settings (SettingsSearch.kt). -->
     <string name="search_settings">Rechercher dans les paramètres</string>
     <string name="search_settings_none">Aucun paramètre ne correspond à «\u00A0%1$s\u00A0».</string>
@@ -2405,9 +2405,9 @@
         <item quantity="other">%1$d ignorés : déjà dans le dossier</item>
     </plurals>
     <plurals name="export_skipped_inside_app" translatable="false">
-        <item quantity="one">%1$d ignoré : dans l\'application, donc pas copié dans son dossier de téléchargement</item>
-        <item quantity="many">%1$d ignorés : dans l\'application, donc pas copiés dans son dossier de téléchargement</item>
-        <item quantity="other">%1$d ignorés : dans l\'application, donc pas copiés dans son dossier de téléchargement</item>
+        <item quantity="one">%1$d ignoré : gardé dans l\'application, pas dans le dossier de téléchargement</item>
+        <item quantity="many">%1$d ignorés : gardés dans l\'application, pas dans le dossier de téléchargement</item>
+        <item quantity="other">%1$d ignorés : gardés dans l\'application, pas dans le dossier de téléchargement</item>
     </plurals>
     <plurals name="export_skipped_local">
         <item quantity="one">%1$d ignoré : déjà un fichier du téléphone</item>
@@ -2512,7 +2512,7 @@
     <string name="media_button_resuming">Reprise de votre file d\'attente</string>
     <!-- Listen together (TogetherDialog), step 1, debug and Preview builds. -->
     <string name="together_title">Écouter ensemble</string>
-    <string name="together_intro">Créez un salon et partagez son code, ou tapez celui du salon d\'un ami. Tout le monde entend ce que joue l\'hôte, chaque téléphone le jouant depuis YouTube.</string>
+    <string name="together_intro">Créez un salon et partagez son code, ou tapez le code d\'un ami. Tout le monde entend ce que joue l\'hôte, sur son propre téléphone.</string>
     <string name="together_start">Créer un salon</string>
     <string name="together_code">Code du salon</string>
     <string name="together_join">Rejoindre</string>
@@ -2556,7 +2556,7 @@
     <string name="together_host_away">L\'hôte est absent</string>
     <string name="together_host_gone">L\'hôte n\'est pas revenu, le salon est terminé.</string>
     <string name="together_close_room">Fermer le salon</string>
-    <string name="together_song_unavailable">Ce titre n\'est pas disponible pour vous. Le suivant de l\'hôte démarrera tout seul.</string>
+    <string name="together_song_unavailable">Ce titre n\'est pas disponible pour vous. Vous entendrez le suivant de l\'hôte.</string>
     <string name="together_paused_here">En pause ici. Appuyez sur lecture pour revenir où en est le salon.</string>
     <string name="together_catch_up_after_cast" translatable="false">Vous rattraperez le salon à la fin du cast.</string>
     <string name="together_in_room">Dans un salon</string>
@@ -2721,8 +2721,8 @@
     <string name="metrolist_import_done_title">Importé depuis Metrolist</string>
     <string name="metrolist_import_done">Nouveaux titres : %1$d\nNouveaux titres aimés : %2$d\nAjoutés à votre bibliothèque : %3$d\nNouvelles playlists : %4$d\nÉcoutes ajoutées : %5$d</string>
     <string name="metrolist_import_not_metrolist">Ce n\'est pas une sauvegarde Metrolist. Dans Metrolist, créez-en une dans Paramètres, Sauvegarde et restauration.</string>
-    <string name="metrolist_import_ours">C\'est une sauvegarde InterTune ou OuterTune. Restaurer la prend.</string>
-    <string name="metrolist_import_too_old">Cette sauvegarde vient d\'InnerTune ou d\'un ancien Metrolist. Restaurer prend celles d\'InnerTune ; pour Metrolist, mettez-le à jour et faites une nouvelle sauvegarde.</string>
+    <string name="metrolist_import_ours">C\'est une sauvegarde InterTune ou OuterTune. Utilisez Restaurer.</string>
+    <string name="metrolist_import_too_old">Cette sauvegarde vient d\'InnerTune ou d\'un ancien Metrolist. Pour celle d\'InnerTune, utilisez Restaurer. Pour Metrolist, mettez-le à jour et faites une nouvelle sauvegarde.</string>
     <string name="metrolist_import_other_file">Choisir un autre fichier</string>
     <string name="metrolist_import_failed">Impossible de lire cette sauvegarde</string>
     <string name="err_download_not_on_phone" translatable="false">Ce titre est marqué comme téléchargé, mais son fichier manque ou est incomplet sur ce téléphone. Téléchargez-le à nouveau une fois en ligne.</string>
