@@ -23,13 +23,13 @@
     <string name="player_background_living">Flou vivant</string>
     <string name="player_living_strength">Intensité du Flou vivant</string>
     <string name="player_living_smoothing">Douceur du Flou vivant</string>
-    <string name="living_tune_open" translatable="false">Régler en plein écran</string>
-    <string name="living_tune_three_colours" translatable="false">Trois couleurs</string>
-    <string name="living_tune_cover" translatable="false">La pochette</string>
-    <string name="living_tune_strength" translatable="false">Intensité</string>
-    <string name="living_tune_smoothing" translatable="false">Douceur</string>
-    <string name="living_tune_hide" translatable="false">Masquer les réglages</string>
-    <string name="living_tune_show" translatable="false">Afficher les réglages</string>
+    <string name="living_tune_open">Régler en plein écran</string>
+    <string name="living_tune_three_colours">Trois couleurs</string>
+    <string name="living_tune_cover">La pochette</string>
+    <string name="living_tune_strength">Intensité</string>
+    <string name="living_tune_smoothing">Douceur</string>
+    <string name="living_tune_hide">Masquer les réglages</string>
+    <string name="living_tune_show">Afficher les réglages</string>
     <string name="player_living_colours">Couleurs du Flou vivant</string>
     <string name="player_living_colours_main">Couleurs de la pochette : une pour les basses, une pour les médiums, une pour les aigus</string>
     <string name="player_living_colours_cover">Pochette floutée</string>
@@ -169,7 +169,7 @@
     <string name="sync_conflict_overwrite">Remplacer le contenu local par du contenu distant</string>
     <string name="sync_conflict_title">Résolution des conflits</string>
     <string name="sync_mode">Mode de synchronisation</string>
-    <string name="sync_mode_off" translatable="false">Désactivé</string>
+    <string name="sync_mode_off">Désactivé</string>
     <string name="sync_mode_ro">Voir la bibliothèque YouTube Music du compte (lecture seule)</string>
     <string name="grp_library_and_content">Bibliothèque et Contenu</string>
     <string name="sync_conflict_add_only">Conservez tout le contenu local, ajoutez du nouveau contenu distant</string>
@@ -254,7 +254,7 @@
     <string name="help_support_forum">Aide et support (via GitHub)</string>
     <string name="wiki">Wiki</string>
     <string name="err_invalid_ytm_song">InterTune ne peut pas lire cette vidéo. Ce n\'est pas un titre de YouTube Music.</string>
-    <string name="link_open_failed" translatable="false">Impossible d\'ouvrir ce lien. Réessayez dans un moment.</string>
+    <string name="link_open_failed">Impossible d\'ouvrir ce lien. Réessayez dans un moment.</string>
     <string name="err_restore_incompatible_database">Impossible de restaurer une base de données incompatible</string>
     <string name="m3u_import_failed">Aucun titre trouvé. Fichier M3U non valide ou aucun titre correspondant n\'a été trouvé.</string>
     <string name="tap_show_more">Appuyez pour afficher plus d\'informations</string>
@@ -342,7 +342,7 @@
     <string name="sleep_timer_fade_duration">Durée du fondu</string>
     <string name="sleep_timer_fade_duration_description">Durée du fondu avant que la minuterie de sommeil arrête la musique. 0 : sans fondu.</string>
     <string name="sleep_timer_fade_duration_value">%1$d secondes</string>
-    <string name="sleep_timer_fade_off" translatable="false">Sans fondu</string>
+    <string name="sleep_timer_fade_off">Sans fondu</string>
     <string name="swipe_to_dismiss_player">Balayer le mini lecteur pour le fermer</string>
     <string name="swipe_to_dismiss_player_description">Arrête la musique</string>
     <string name="update_available">La version %1$s est disponible</string>
@@ -615,7 +615,7 @@
     <string name="grp_usage_count">Comptage anonyme</string>
     <string name="usage_count_enabled">Compter cette installation</string>
     <string name="usage_count_enabled_description">Un message anonyme par jour, pour savoir combien de personnes utilisent InterTune.</string>
-    <string name="usage_count_enabled_info" translatable="false">Envoyé une fois par jour :\n• un nom aléatoire, nouveau chaque mois\n• si l\'application vient de F-Droid\n• les versions de l\'application et d\'Android\nJamais ce que vous écoutez, votre compte ni rien de lié à votre téléphone.</string>
+    <string name="usage_count_enabled_info">Envoyé une fois par jour :\n• un nom aléatoire, nouveau chaque mois\n• si l\'application vient de F-Droid\n• les versions de l\'application et d\'Android\nJamais ce que vous écoutez, votre compte ni rien de lié à votre téléphone.</string>
     <string name="usage_count_forget">Prendre un nouveau nom</string>
     <string name="usage_count_forget_description">Abandonne le nom aléatoire sous lequel cette installation est comptée. Le prochain comptage en utilise un nouveau.</string>
     <string name="usage_count_opt_in_title">Compter cette installation ?</string>
@@ -756,8 +756,8 @@
     <string name="lastfm_unavailable">Indisponible dans cette version</string>
     <string name="lastfm_unavailable_description">Cette copie d\'InterTune a été compilée sans clé Last.fm. Les versions officielles en ont une.</string>
     <string name="lastfm_login_failed">Last.fm n\'a pas voulu lancer la connexion : %1$s</string>
-    <string name="lastfm_ended" translatable="false">Last.fm ne fonctionne plus ici</string>
-    <string name="lastfm_ended_description" translatable="false">Depuis le 1er décembre, Last.fm ne fonctionne que dans les applications dont le créateur paie Last.fm Pro. Vos scrobbles restent sur Last.fm.</string>
+    <string name="lastfm_ended">Last.fm ne fonctionne plus ici</string>
+    <string name="lastfm_ended_description">Depuis le 1er décembre, Last.fm ne fonctionne que dans les applications dont le créateur paie Last.fm Pro. Vos scrobbles restent sur Last.fm.</string>
     <string name="polls_unavailable">Indisponible dans cette version</string>
     <string name="polls_unavailable_description">Cette copie d\'InterTune a été compilée sans source de questions.</string>
     <string name="playlist_empty_title">Trouvons quelque chose pour cette playlist</string>
@@ -1652,8 +1652,8 @@
     <string name="home_play_at_random">Lancer quelque chose au hasard</string>
     <string name="view_as_list">Affiché en liste</string>
     <string name="view_as_grid">Affiché en grille</string>
-    <string name="view_as_tree" translatable="false">Affiché en arborescence</string>
-    <string name="previous_folder" translatable="false">Dossier parent</string>
+    <string name="view_as_tree">Affiché en arborescence</string>
+    <string name="previous_folder">Dossier parent</string>
     <string name="playlist_order_locked">Ordre verrouillé</string>
     <string name="playlist_order_unlocked">Ordre déverrouillé</string>
     <string name="cancel_download">Annuler le téléchargement</string>
@@ -1911,11 +1911,11 @@
     <string name="output_this_phone">Ce téléphone</string>
     <string name="output_wired">Casque filaire</string>
     <string name="output_cable">Sur un câble</string>
-    <string name="output_pill" translatable="false">Bouton de sortie audio</string>
-    <string name="output_pill_description" translatable="false">Affiche où joue la musique, sous les commandes.</string>
+    <string name="output_pill">Bouton de sortie audio</string>
+    <string name="output_pill_description">Affiche où joue la musique, sous les commandes.</string>
     <string name="cast_searching">Recherche de récepteurs sur ce Wi-Fi</string>
     <string name="cast_about">Joue sur Chromecast et Google TV, les enceintes AirPlay, les téléviseurs et enceintes DLNA, et les récepteurs FCast de votre Wi-Fi (FCast demande son application Receiver). Votre téléphone reste allumé et envoie la musique pendant le cast.</string>
-    <string name="cast_public_wifi" translatable="false">Sur un Wi-Fi public, les autres appareils connectés peuvent accéder aux titres que vous castez.</string>
+    <string name="cast_public_wifi">Sur un Wi-Fi public, les autres appareils connectés peuvent accéder aux titres que vous castez.</string>
     <string name="cast_add_by_address">Ajouter par adresse</string>
     <string name="cast_address_hint">192.168.1.20 pour FCast, chromecast 192.168.1.21, ou l\'URL de description DLNA</string>
     <string name="cast_address_invalid">Adresse inutilisable</string>
@@ -2092,8 +2092,8 @@
     <string name="battery_follow_phone_description">« Économie » tant qu\'il est activé.</string>
     <string name="battery_follow_phone_now">« Économie » en ce moment : l\'économiseur du téléphone est activé.</string>
     <!-- The note said twice at most when the phone's battery saver puts the app on Saver (SaverNote, Unreleased.SAVER_NOTE). -->
-    <string name="saver_note_title" translatable="false">L\'économiseur de batterie est activé</string>
-    <string name="saver_note_body" translatable="false">InterTune économise aussi la batterie : le fond animé et les effets sonores se mettent en pause (pas l\'égaliseur), le thème passe en noir et les synchronisations attendent le Wi-Fi. Tout revient quand l\'économiseur s\'arrête.</string>
+    <string name="saver_note_title">L\'économiseur de batterie est activé</string>
+    <string name="saver_note_body">InterTune économise aussi la batterie : le fond animé et les effets sonores se mettent en pause (pas l\'égaliseur), le thème passe en noir et les synchronisations attendent le Wi-Fi. Tout revient quand l\'économiseur s\'arrête.</string>
     <!-- The search at the top of Settings (SettingsSearch.kt). -->
     <string name="search_settings">Rechercher dans les paramètres</string>
     <string name="search_settings_none">Aucun paramètre ne correspond à «\u00A0%1$s\u00A0».</string>
@@ -2404,7 +2404,7 @@
         <item quantity="many">%1$d ignorés : déjà dans le dossier</item>
         <item quantity="other">%1$d ignorés : déjà dans le dossier</item>
     </plurals>
-    <plurals name="export_skipped_inside_app" translatable="false">
+    <plurals name="export_skipped_inside_app">
         <item quantity="one">%1$d ignoré : gardé dans l\'application, pas dans le dossier de téléchargement</item>
         <item quantity="many">%1$d ignorés : gardés dans l\'application, pas dans le dossier de téléchargement</item>
         <item quantity="other">%1$d ignorés : gardés dans l\'application, pas dans le dossier de téléchargement</item>
@@ -2558,7 +2558,7 @@
     <string name="together_close_room">Fermer le salon</string>
     <string name="together_song_unavailable">Ce titre n\'est pas disponible pour vous. Vous entendrez le suivant de l\'hôte.</string>
     <string name="together_paused_here">En pause ici. Appuyez sur lecture pour revenir où en est le salon.</string>
-    <string name="together_catch_up_after_cast" translatable="false">Vous rattraperez le salon à la fin du cast.</string>
+    <string name="together_catch_up_after_cast">Vous rattraperez le salon à la fin du cast.</string>
     <string name="together_in_room">Dans un salon</string>
     <string name="settings_together_description">Votre nom dans les salons, et à quel point les téléphones restent synchronisés</string>
     <string name="together_settings_you">Vous</string>
@@ -2611,9 +2611,9 @@
     <!-- A picker asked for on a device with none (#120, #121). -->
     <string name="no_app_to_pick">Pas de sélecteur de fichiers. Installez un gestionnaire de fichiers.</string>
     <!-- The sign-in page on a phone whose web view cannot start (#221). -->
-    <string name="no_web_view_title" translatable="false">La page de connexion ne peut pas s\'ouvrir ici</string>
-    <string name="no_web_view_body" translatable="false">La connexion se fait sur une page web, et la vue web de ce téléphone ne démarre pas. Mettre à jour Android System WebView ou Chrome depuis le Play Store règle le problème la plupart du temps.</string>
-    <string name="no_web_view_store" translatable="false">Ouvrir le Play Store</string>
+    <string name="no_web_view_title">La page de connexion ne peut pas s\'ouvrir ici</string>
+    <string name="no_web_view_body">La connexion se fait sur une page web, et la vue web de ce téléphone ne démarre pas. Mettre à jour Android System WebView ou Chrome depuis le Play Store règle le problème la plupart du temps.</string>
+    <string name="no_web_view_store">Ouvrir le Play Store</string>
     <string name="sleep_row_in">Dans</string>
     <string name="sleep_row_at">À</string>
     <string name="sleep_row_end_of">Fin de</string>
@@ -2675,7 +2675,7 @@
         <item quantity="many">%d titres n\'ont pas pu être déplacés et restent dans l\'application</item>
         <item quantity="other">%d titres n\'ont pas pu être déplacés et restent dans l\'application</item>
     </plurals>
-    <plurals name="dl_move_notice_held" translatable="false">
+    <plurals name="dl_move_notice_held">
         <item quantity="one">%d titre sera déplacé dès qu\'il ne sera plus en lecture</item>
         <item quantity="many">%d titres seront déplacés dès qu\'ils ne seront plus en lecture</item>
         <item quantity="other">%d titres seront déplacés dès qu\'ils ne seront plus en lecture</item>
@@ -2705,18 +2705,18 @@
         <item quantity="many">%d titres téléchargés, gardés dans l\'application</item>
         <item quantity="other">%d titres téléchargés, gardés dans l\'application</item>
     </plurals>
-    <string name="open_file_location" translatable="false">Ouvrir l\'emplacement</string>
-    <string name="open_file_location_failed" translatable="false">Impossible d\'ouvrir le dossier</string>
-    <string name="no_artist_found" translatable="false">Aucun artiste trouvé</string>
-    <string name="lyrics_word_by_word_saver" translatable="false">Désactivé tant que « Utilisation de la batterie » est sur « Économie ».</string>
-    <string name="order_move_up" translatable="false">Déplacer vers le haut</string>
-    <string name="order_move_down" translatable="false">Déplacer vers le bas</string>
-    <string name="dont_play_state" translatable="false">Joué seulement si vous le choisissez</string>
+    <string name="open_file_location">Ouvrir l\'emplacement</string>
+    <string name="open_file_location_failed">Impossible d\'ouvrir le dossier</string>
+    <string name="no_artist_found">Aucun artiste trouvé</string>
+    <string name="lyrics_word_by_word_saver">Désactivé tant que « Utilisation de la batterie » est sur « Économie ».</string>
+    <string name="order_move_up">Déplacer vers le haut</string>
+    <string name="order_move_down">Déplacer vers le bas</string>
+    <string name="dont_play_state">Joué seulement si vous le choisissez</string>
     <string name="metrolist_import">Importer depuis Metrolist</string>
     <string name="metrolist_import_description">Titres aimés, playlists et écoutes d\'une sauvegarde Metrolist</string>
     <string name="metrolist_import_reading">Lecture de la sauvegarde</string>
     <string name="search_words_metrolist">Metrolist, changer, transférer, sauvegarde</string>
-    <string name="metrolist_import_summary" translatable="false">Titres de sa bibliothèque : %1$d\nTitres aimés : %2$d\nPlaylists : %3$d\nÉcoutes : %4$d\n\nRien n\'est supprimé. Les titres que vous avez déjà reçoivent ses j\'aime, ses dates d\'ajout à la bibliothèque, ses artistes et albums, et le plus grand nombre d\'écoutes.</string>
+    <string name="metrolist_import_summary">Titres de sa bibliothèque : %1$d\nTitres aimés : %2$d\nPlaylists : %3$d\nÉcoutes : %4$d\n\nRien n\'est supprimé. Les titres que vous avez déjà reçoivent ses j\'aime, ses dates d\'ajout à la bibliothèque, ses artistes et albums, et le plus grand nombre d\'écoutes.</string>
     <string name="metrolist_import_confirm">Importer</string>
     <string name="metrolist_import_done_title">Importé depuis Metrolist</string>
     <string name="metrolist_import_done">Nouveaux titres : %1$d\nNouveaux titres aimés : %2$d\nAjoutés à votre bibliothèque : %3$d\nNouvelles playlists : %4$d\nÉcoutes ajoutées : %5$d</string>
@@ -2725,9 +2725,9 @@
     <string name="metrolist_import_too_old">Cette sauvegarde vient d\'InnerTune ou d\'un ancien Metrolist. Pour celle d\'InnerTune, utilisez Restaurer. Pour Metrolist, mettez-le à jour et faites une nouvelle sauvegarde.</string>
     <string name="metrolist_import_other_file">Choisir un autre fichier</string>
     <string name="metrolist_import_failed">Impossible de lire cette sauvegarde</string>
-    <string name="err_download_not_on_phone" translatable="false">Ce titre est marqué comme téléchargé, mais son fichier manque ou est incomplet sur ce téléphone. Téléchargez-le à nouveau une fois en ligne.</string>
+    <string name="err_download_not_on_phone">Ce titre est marqué comme téléchargé, mais son fichier manque ou est incomplet sur ce téléphone. Téléchargez-le à nouveau une fois en ligne.</string>
     <!-- The library search when it finds nothing (#200), under "No results found", held from translators. -->
-    <string name="library_search_none" translatable="false">Pas dans votre bibliothèque</string>
+    <string name="library_search_none">Pas dans votre bibliothèque</string>
     <string name="menu_dislike" translatable="false">Je n\'aime pas</string>
     <string name="menu_dislike_lift" translatable="false">Retirer « Je n\'aime pas »</string>
     <string name="dislike_done" translatable="false">Noté, ici et sur YouTube Music. Il n\'est joué qu\'à votre demande.</string>
@@ -2741,12 +2741,12 @@
     <string name="pitch_higher">Plus aigu</string>
     <string name="search_words_varispeed">hauteur, vitesse, tempo, tonalité, tourne-disque, vinyle, nightcore, slowed</string>
     <!-- Remove from library on a file of the phone's and Exclude folder on a folder's row of the Folders tab (LocalRemoval, Unreleased.LOCAL_REMOVE). Held from translators. -->
-    <string name="local_exclude_folder" translatable="false">Exclure le dossier</string>
-    <string name="local_removed" translatable="false">Retiré de votre bibliothèque. Le fichier reste.</string>
-    <string name="local_removed_liked" translatable="false">Retiré de votre bibliothèque et des Titres aimés. Le fichier reste.</string>
-    <string name="local_folder_excluded" translatable="false">%1$s exclu. Ses fichiers restent.</string>
+    <string name="local_exclude_folder">Exclure le dossier</string>
+    <string name="local_removed">Retiré de votre bibliothèque. Le fichier reste.</string>
+    <string name="local_removed_liked">Retiré de votre bibliothèque et des Titres aimés. Le fichier reste.</string>
+    <string name="local_folder_excluded">%1$s exclu. Ses fichiers restent.</string>
     <!-- AppLanguage.PARTLY. -->
-    <string name="app_language_partly" translatable="false">Traduction partielle</string>
+    <string name="app_language_partly">Traduction partielle</string>
     <!-- ListenBrainz in place of Last.fm (Unreleased.LISTENBRAINZ): held from translators. -->
     <string name="grp_listenbrainz" translatable="false">ListenBrainz</string>
     <string name="listenbrainz_connect" translatable="false">Connecter un compte ListenBrainz</string>
