@@ -6,6 +6,7 @@
 
 package com.dd3boh.outertune.ui.screens.settings.fragments
 
+import android.content.Context
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -18,7 +19,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Fullscreen
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -41,14 +46,16 @@ import com.dd3boh.outertune.LocalPlayerConnection
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.LivingColours
 import com.dd3boh.outertune.constants.PlayOrigin
+import com.dd3boh.outertune.db.MusicDatabase
 import com.dd3boh.outertune.models.toMediaMetadata
+import com.dd3boh.outertune.playback.PlayerConnection
 import com.dd3boh.outertune.playback.queues.ListQueue
 import com.dd3boh.outertune.ui.player.LivingBackground
+import com.dd3boh.outertune.utils.Toaster
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import com.dd3boh.outertune.utils.Toaster
 
 /**
  * Living blur as it will look in the player, small, beside the two sliders that shape it: the real
@@ -61,7 +68,14 @@ import com.dd3boh.outertune.utils.Toaster
  * movement. Not begun by itself: opening a settings screen must not start music.
  */
 @Composable
-fun LivingBlurSample(strength: Float, smoothing: Float, colours: LivingColours, modifier: Modifier = Modifier) {
+fun LivingBlurSample(
+    strength: Float,
+    smoothing: Float,
+    colours: LivingColours,
+    modifier: Modifier = Modifier,
+    paused: Boolean = false,
+    onFullScreen: (() -> Unit)? = null,
+) {
     val playerConnection = LocalPlayerConnection.current ?: return
     val context = LocalContext.current
     val database = LocalDatabase.current
@@ -90,6 +104,8 @@ fun LivingBlurSample(strength: Float, smoothing: Float, colours: LivingColours, 
             smoothing = smoothing,
             colours = colours,
             modifier = Modifier.matchParentSize(),
+            // Under the whole-screen tuner it is out of sight: no frames, and it goes on listening.
+            covered = paused,
         )
         Box(
             Modifier
@@ -131,33 +147,45 @@ fun LivingBlurSample(strength: Float, smoothing: Float, colours: LivingColours, 
                     )
                     Spacer(Modifier.height(8.dp))
                     FilledTonalButton(onClick = {
-                        scope.launch {
-                            val candidates = withContext(Dispatchers.IO) {
-                                database.mostPlayedSongs(System.currentTimeMillis() - NINETY_DAYS_MS, limit = 12).first()
-                                    .ifEmpty { database.likedSongsByCreateDateAsc().first().takeLast(12) }
-                            }
-                            val pick = candidates.randomOrNull()
-                            if (pick == null) {
-                                Toaster.show(context, R.string.player_living_sample_nothing, Toast.LENGTH_LONG)
-                            } else {
-                                // MENU: asked for by name from a button, like a play from a menu.
-                                playerConnection.playQueue(
-                                    ListQueue(
-                                        title = queueTitle,
-                                        items = listOf(pick.toMediaMetadata()),
-                                        // a third of the way in, in milliseconds; from the start when the length is not known
-                                        position = pick.song.duration.coerceAtLeast(0) * 1000L / 3,
-                                    ),
-                                    origin = PlayOrigin.MENU,
-                                )
-                            }
-                        }
+                        scope.launch { playSongToTuneBy(context, database, playerConnection, queueTitle) }
                     }) {
                         Text(stringResource(R.string.player_living_sample_play))
                     }
                 }
             }
         }
+        if (onFullScreen != null) {
+            IconButton(onClick = onFullScreen, modifier = Modifier.align(Alignment.TopEnd)) {
+                Icon(Icons.Rounded.Fullscreen, stringResource(R.string.living_tune_open))
+            }
+        }
+    }
+}
+
+/**
+ * Something to tune by: from what has been played most these three months, which is what somebody
+ * keeps coming back to, begun a third of the way in, past the intro. The sample and the whole-screen
+ * tuner (LivingBlurTune) both offer it.
+ */
+internal suspend fun playSongToTuneBy(context: Context, database: MusicDatabase, playerConnection: PlayerConnection, queueTitle: String) {
+    val candidates = withContext(Dispatchers.IO) {
+        database.mostPlayedSongs(System.currentTimeMillis() - NINETY_DAYS_MS, limit = 12).first()
+            .ifEmpty { database.likedSongsByCreateDateAsc().first().takeLast(12) }
+    }
+    val pick = candidates.randomOrNull()
+    if (pick == null) {
+        Toaster.show(context, R.string.player_living_sample_nothing, Toast.LENGTH_LONG)
+    } else {
+        // MENU: asked for by name from a button, like a play from a menu.
+        playerConnection.playQueue(
+            ListQueue(
+                title = queueTitle,
+                items = listOf(pick.toMediaMetadata()),
+                // a third of the way in, in milliseconds; from the start when the length is not known
+                position = pick.song.duration.coerceAtLeast(0) * 1000L / 3,
+            ),
+            origin = PlayOrigin.MENU,
+        )
     }
 }
 
