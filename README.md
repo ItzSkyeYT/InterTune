@@ -198,11 +198,11 @@ Every change in detail, and why this fork exists: [docs/FEATURES.md](https://git
 What's being worked on, roughly in order. `[x]` is done, `[~]` is built and being tested, `[ ]` is still to do. Nothing here has a date, and plans can change. Ideas are welcome in #feature-requests on [Discord](https://discord.gg/68jmqhMjXk) or as a [GitHub issue](https://github.com/ItzSkyeYT/InterTune/issues/new/choose).
 
 <details>
-<summary><b>Next: 0.13</b> · 33 of 46 done, 8 to test</summary>
+<summary><b>Next: 0.13</b> · 35 of 46 done, 6 to test</summary>
 
 `[x]` Listen together: one person plays, friends follow the same song in real time\
-`[~]` In a room, a guest who casts to a TV or speaker plays on their own, and catches up with the room when the cast ends\
-`[~]` Invites to a room keep its code out of the website's logs and out of chat apps' link previews\
+`[x]` In a room, a guest who casts to a TV or speaker plays on their own, and catches up with the room when the cast ends\
+`[x]` Invites to a room keep its code out of the website's logs and out of chat apps' link previews\
 `[x]` AirPlay speakers in the cast list\
 `[x]` The equalizer and volume levelling on AirPlay speakers too, and Signal path shows the speaker you cast to\
 `[x]` Casting to speakers that only take uncompressed audio, like a Zeppelin Wireless\
