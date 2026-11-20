@@ -2758,6 +2758,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="together_close_room">Close the room</string>
     <string name="together_song_unavailable">This song isn\'t available for you. The next one from the host plays by itself.</string>
     <string name="together_paused_here">Paused here. Press play to go back to where the room is.</string>
+    <string name="together_catch_up_after_cast" translatable="false">You\'ll catch up when the cast ends.</string>
     <string name="together_in_room">In a room</string>
     <string name="settings_together_description">Your name in rooms, and how closely phones keep in step</string>
     <string name="together_settings_you">You</string>

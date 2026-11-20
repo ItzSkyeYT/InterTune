@@ -116,6 +116,10 @@ class TogetherSession(
         val songUnavailable: Boolean = false,
         /** A guest that has heard nothing of the host for a while: it says the host is away (HostAbsence). */
         val hostAway: Boolean = false,
+        /** This phone casts. Following, it then follows nothing until the cast ends (GuestCast). */
+        val casting: Boolean = false,
+        /** On its own way for its cast alone: it catches up by itself when the cast ends. */
+        val catchUpAfterCast: Boolean = false,
     )
 
     /** A guest's own song and the queue after it, proposed to this phone as the leader: see [propose]. */
@@ -184,6 +188,9 @@ class TogetherSession(
     /** How late this phone's sound comes out (Settings > Listen together). */
     private var delayMs = 0L
     private var pausedHere = false
+    /** A cast on this phone, as the last look saw it: see [castLook]. */
+    private var casting = false
+    private val guestCast = GuestCast()
     /** The host's song this phone cannot play: see [holdsFailed]. */
     private val refusal = HostSongRefusal()
     /** The room's queue this phone's own was last made to match, so it is compared once per word. */
@@ -205,9 +212,10 @@ class TogetherSession(
     val following: Boolean get() = !leading
 
     private val listener = object : Player.Listener {
-        // A follower's own pause, song or seek, as against the session's own commands (mine()).
+        // A follower's own pause, song or seek, as against the session's own commands (mine()) and a cast's taking the
+        // music from this player and giving it back (MusicService.handOverTo, takeBack), which are never the listener's.
         override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
-            if (!leading) listenerPlayed(playWhenReady)
+            if (!leading && !service.castOn) listenerPlayed(playWhenReady)
             wake.trySend(Unit)
         }
 
@@ -215,6 +223,11 @@ class TogetherSession(
             val from = currentId
             currentId = mediaItem?.mediaId
             if (leading) return
+            if (service.castOn) {
+                // The cast emptied this player, or filled it again: the next look sees to it (castLook).
+                wake.trySend(Unit)
+                return
+            }
             if (proposedSongId != null && ownWay && mediaItem?.mediaId != proposedSongId) {
                 // On its own to another song: what was proposed is no longer what it plays.
                 proposedSongId = null
@@ -231,7 +244,7 @@ class TogetherSession(
         }
 
         override fun onPositionDiscontinuity(oldPosition: Player.PositionInfo, newPosition: Player.PositionInfo, reason: Int) {
-            if (!leading && reason == Player.DISCONTINUITY_REASON_SEEK) listenerChose("a seek")
+            if (!leading && reason == Player.DISCONTINUITY_REASON_SEEK && !service.castOn) listenerChose("a seek")
         }
 
         override fun onEvents(player: Player, events: Player.Events) {
@@ -315,6 +328,7 @@ class TogetherSession(
         }
         scope.launch {
             while (isActive) {
+                castLook()
                 if (!leading) follow()
                 watchHost()
                 // Four looks a second while the room plays; one every two seconds while it is paused there and here, or
@@ -706,16 +720,64 @@ class TogetherSession(
         _status.value = _status.value.copy(proposal = null)
     }
 
-    /** Back with the leader after going one's own way: the next look puts the leader's song and place back. */
+    /**
+     * Back with the leader after going one's own way: the next look puts the leader's song and place back. While this
+     * phone casts, once the cast ends (GuestCast): nothing of the room's goes to a receiver.
+     */
     fun catchUp() {
+        if (!guestCast.catchUpNow(casting = !leading && service.castOn)) {
+            _status.value = _status.value.copy(catchUpAfterCast = true)
+            Log.i(TAG, "Catching up with the leader once the cast ends")
+            return
+        }
         ownWay = false
         pausedHere = false
         matchedQueue = null
         lock.reset()
         roomQueue?.let { takeRepeat(it.repeat) }
-        _status.value = _status.value.copy(ownWay = false, pausedHere = false, locked = false, proposed = false)
+        _status.value = _status.value.copy(ownWay = false, pausedHere = false, locked = false, proposed = false, catchUpAfterCast = false)
         Log.i(TAG, "Catching up with the leader")
         wake.trySend(Unit)
+    }
+
+    /**
+     * A cast on this phone, at each look (GuestCast): a follower whose cast has begun goes its own way until it ends, and
+     * one that went its own way for the cast alone catches up once the music is back on the phone. Back paused while the
+     * room plays (a receiver lost or idle, or a cast stopped while paused there), it is paused here, as after a pause of
+     * its own: play takes it to where the room is, and the phone does not start playing by itself (a cast that is lost
+     * comes back paused on purpose, CastSession).
+     */
+    private fun castLook() {
+        val now = service.castOn
+        if (now != casting) {
+            casting = now
+            Log.i(TAG, if (now) "A cast from this phone has begun" else "The cast from this phone has ended")
+        }
+        when (guestCast.look(casting, following = !leading, ownWay = ownWay)) {
+            GuestCast.Step.OWN_WAY -> {
+                ownWay = true
+                pausedHere = false
+                lock.reset()
+                ownSpeed()
+                _status.value = _status.value.copy(ownWay = true, driftMs = null, locked = false, pausedHere = false)
+                Log.i(TAG, "Casting: playing on its own until the cast ends")
+            }
+            GuestCast.Step.CATCH_UP -> {
+                Log.i(TAG, "The cast has ended: back with the room")
+                catchUp()
+                val room = lastState
+                if (room != null && PauseHere.after(pausedHere = false, playWhenReady = service.exoPlayer.playWhenReady, roomPlaying = room.playing) == true) {
+                    pausedHere = true
+                    _status.value = _status.value.copy(pausedHere = true)
+                    Log.i(TAG, "Back from the cast paused: paused here; the room plays on")
+                }
+            }
+            GuestCast.Step.NONE -> Unit
+        }
+        val status = _status.value
+        if (status.casting != casting || status.catchUpAfterCast != guestCast.catchUpAfter) {
+            _status.value = status.copy(casting = casting, catchUpAfterCast = guestCast.catchUpAfter)
+        }
     }
 
     /**
@@ -786,6 +848,9 @@ class TogetherSession(
             _status.value = _status.value.copy(waitingForHost = true, driftMs = null)
             return
         }
+        // While this phone casts, nothing of the room's goes to a player (castLook): the phone's own is empty, and each of
+        // the host's songs went to the receiver from its start.
+        if (casting) return
         val player = service.exoPlayer
         // The host's next song: whatever failed before is behind.
         refusal.songIs(state.songId)
