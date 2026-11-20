@@ -6,6 +6,7 @@
 
 package com.dd3boh.outertune.ui.screens.settings.fragments
 
+import androidx.compose.material.icons.rounded.Cast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.border
@@ -181,12 +182,13 @@ fun ColumnScope.PlayerButtonsFrag() {
                     .fillMaxWidth()
                     .padding(start = 16.dp, end = 16.dp, bottom = 8.dp)
             ) {
-                PlayerPin.entries.forEach { pin ->
+                // Cast only where there is casting.
+                PlayerPin.entries.filter { it != PlayerPin.CAST || Unreleased.CASTING }.forEach { pin ->
                     val on = pin in chosen
                     FilterChip(
                         selected = on,
-                        // A full place takes no more until one comes off.
-                        enabled = on || chosen.size < most,
+                        // A full place takes no more until one comes off; the cast button always has room.
+                        enabled = on || pin == PlayerPin.CAST || !PlayerPins.full(chosen, most),
                         onClick = { onPinsRawChange(PlayerPins.write(PlayerPins.toggle(pins, place, pin, most))) },
                         label = { Text(pinName(pin)) },
                         leadingIcon = {
@@ -196,6 +198,7 @@ fun ColumnScope.PlayerButtonsFrag() {
                                     PlayerPin.LYRICS -> rememberVectorPainter(Icons.Rounded.Lyrics)
                                     PlayerPin.TIMER -> rememberVectorPainter(Icons.Rounded.Timer)
                                     PlayerPin.LIKE -> painterResource(R.drawable.favorite)
+                                    PlayerPin.CAST -> rememberVectorPainter(Icons.Rounded.Cast)
                                 },
                                 contentDescription = null,
                                 modifier = Modifier.size(FilterChipDefaults.IconSize)
@@ -263,5 +266,6 @@ private fun pinName(pin: PlayerPin): String = stringResource(
         PlayerPin.LYRICS -> R.string.player_pin_lyrics
         PlayerPin.TIMER -> R.string.sleep_timer
         PlayerPin.LIKE -> R.string.action_like
+        PlayerPin.CAST -> R.string.cast
     }
 )

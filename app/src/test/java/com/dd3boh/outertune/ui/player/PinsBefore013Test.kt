@@ -47,7 +47,7 @@ class PinsBefore013Test {
     private fun <T> open(newBuild: Boolean, block: suspend (DataStore<Preferences>) -> T): T {
         val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
         return try {
-            val migrations = if (newBuild) listOf(NewInstallSongCache, LyricsTimingOnTime, PinsBefore013, ClassicPinsBefore013) else emptyList()
+            val migrations = if (newBuild) listOf(NewInstallSongCache, LyricsTimingOnTime, PinsBefore013, ClassicPinsBefore013, CastPinAtUpdate) else emptyList()
             val settings = PreferenceDataStoreFactory.create(migrations = migrations, scope = scope) { file }
             runBlocking { block(settings) }
         } finally {
@@ -70,10 +70,11 @@ class PinsBefore013Test {
     fun `an install set up before keeps the sleep timer by Classic's title, and a new one has the heart alone`() {
         olderBuildLeft { it[OobeStatusKey] = 4 }
         val first = launch()
-        assertEquals(listOf(PlayerPin.TIMER, PlayerPin.LIKE), classic(first))
+        // The cast button joins it at the far end since 0.13 (CastPinTest).
+        assertEquals(listOf(PlayerPin.CAST, PlayerPin.TIMER, PlayerPin.LIKE), classic(first))
         assertEquals(true, first[ClassicPinsBefore013Key])
         dir.root.resolve("settings.preferences_pb").delete()
-        assertEquals(listOf(PlayerPin.LIKE), classic(launch()))
+        assertEquals(listOf(PlayerPin.CAST, PlayerPin.LIKE), classic(launch()))
     }
 
     @Test
@@ -85,7 +86,7 @@ class PinsBefore013Test {
             it[PlayerPinsKey] = "CONNECTED_ROW=LYRICS+TIMER"
         }
         val first = launch()
-        assertEquals(listOf(PlayerPin.TIMER, PlayerPin.LIKE), classic(first))
+        assertEquals(listOf(PlayerPin.CAST, PlayerPin.TIMER, PlayerPin.LIKE), classic(first))
         assertEquals(listOf(PlayerPin.LYRICS, PlayerPin.TIMER), connectedRow(first))
         // Changed after the update: never written over.
         launch { it.edit { prefs -> prefs[PlayerPinsKey] = "CONNECTED_ROW=LYRICS+TIMER;CLASSIC=LIKE" } }
@@ -99,7 +100,7 @@ class PinsBefore013Test {
         assertEquals(listOf(PlayerPin.LYRICS, PlayerPin.TIMER), connectedRow(first))
         assertEquals(true, first[PinsBefore013Key])
         // The other places still follow their defaults, which did not change.
-        assertEquals(listOf(PlayerPin.SHARE, PlayerPin.LIKE), PlayerPins.read(first[PlayerPinsKey].orEmpty())[PinPlace.CONNECTED_TITLE])
+        assertEquals(listOf(PlayerPin.CAST, PlayerPin.SHARE, PlayerPin.LIKE), PlayerPins.read(first[PlayerPinsKey].orEmpty())[PinPlace.CONNECTED_TITLE])
     }
 
     @Test
@@ -120,8 +121,9 @@ class PinsBefore013Test {
             it[OobeStatusKey] = 4
             it[PlayerPinsKey] = "CONNECTED_ROW=LIKE"
         }
-        // Connected's row as chosen; Classic, never chosen, keeps the timer it had (ClassicPinsBefore013).
-        assertEquals("CONNECTED_ROW=LIKE;CLASSIC=TIMER+LIKE", launch()[PlayerPinsKey])
+        // Connected's row as chosen; Classic, never chosen, keeps the timer it had (ClassicPinsBefore013), and the cast
+        // button joins it (CastPinAtUpdate).
+        assertEquals("CLASSIC=CAST+TIMER+LIKE;CONNECTED_ROW=LIKE", launch()[PlayerPinsKey])
     }
 
     @Test
@@ -131,7 +133,7 @@ class PinsBefore013Test {
             it[PlayerPinsKey] = "CLASSIC=SHARE+LIKE"
         }
         val first = launch()
-        assertEquals(listOf(PlayerPin.SHARE, PlayerPin.LIKE), PlayerPins.read(first[PlayerPinsKey].orEmpty())[PinPlace.CLASSIC])
+        assertEquals(listOf(PlayerPin.CAST, PlayerPin.SHARE, PlayerPin.LIKE), PlayerPins.read(first[PlayerPinsKey].orEmpty())[PinPlace.CLASSIC])
         assertEquals(listOf(PlayerPin.LYRICS, PlayerPin.TIMER), connectedRow(first))
     }
 
@@ -145,6 +147,6 @@ class PinsBefore013Test {
     @Test
     fun `the app opens its settings with it, after the new install's song cache`() {
         val source = File("src/main/java/com/dd3boh/outertune/utils/DataStore.kt").readText()
-        assertEquals(true, source.contains("produceMigrations = { listOf(NewInstallSongCache, LyricsTimingOnTime, PinsBefore013, ClassicPinsBefore013) },"))
+        assertEquals(true, source.contains("produceMigrations = { listOf(NewInstallSongCache, LyricsTimingOnTime, PinsBefore013, ClassicPinsBefore013, CastPinAtUpdate) },"))
     }
 }
