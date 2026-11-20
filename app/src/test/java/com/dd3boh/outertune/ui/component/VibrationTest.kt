@@ -82,7 +82,7 @@ class VibrationTest {
         // Skip, shuffle, repeat, every tap: a tick.
         assertEquals(steps(Step(tick, 1f)), strong(Feel.TICK))
         // The seek bar's ticks while it is dragged: low ones.
-        assertEquals(steps(Step(lowTick, 0.6f)), strong(Feel.LOW_TICK))
+        assertEquals(steps(Step(lowTick, 0.35f)), strong(Feel.LOW_TICK))
         // A like: two clicks 60 ms apart, the second the stronger, as Essentials' double has them.
         assertEquals(steps(Step(click, 0.7f), Step(click, 1f, delay = 60)), strong(Feel.DOUBLE))
     }
@@ -91,7 +91,7 @@ class VibrationTest {
     fun `on Android 11 there is no low tick, and the seek bar ticks with a softer tick`() {
         // PRIMITIVE_LOW_TICK is API 31: an Android 11 phone never says it plays one.
         val android11 = s25u.copy(sdk = 30, primitives = setOf(click, tick))
-        assertEquals(steps(Step(tick, 0.5f)), strong(Feel.LOW_TICK, android11))
+        assertEquals(steps(Step(tick, 0.3f)), strong(Feel.LOW_TICK, android11))
         assertEquals(steps(Step(tick, 1f)), strong(Feel.TICK, android11))
         assertEquals(steps(Step(click, 1f)), strong(Feel.FIRM, android11))
     }
@@ -139,7 +139,7 @@ class VibrationTest {
         }
         assertEquals(Buzz.Pulses(count = 2, length = 20, gap = 60), strong(Feel.DOUBLE, none))
         // Soft where the vibrator can play softly, as Essentials' subtle stand-in (10 ms at 80); short where it cannot.
-        assertEquals(Buzz.Pulses(count = 1, length = 10, amplitude = 80), strong(Feel.LOW_TICK, none))
+        assertEquals(Buzz.Pulses(count = 1, length = 10, amplitude = 50), strong(Feel.LOW_TICK, none))
         assertEquals(Buzz.Pulses(count = 1, length = 10), strong(Feel.LOW_TICK, none.copy(amplitudeControl = false)))
     }
 
@@ -148,9 +148,9 @@ class VibrationTest {
         val double = Buzz.Pulses(count = 2, length = 20, gap = 60)
         assertEquals(listOf(0L, 20L, 60L, 20L), double.timings().toList())
         assertEquals(listOf(0, VibrationEffect.DEFAULT_AMPLITUDE, 0, VibrationEffect.DEFAULT_AMPLITUDE), double.amplitudes().toList())
-        val soft = Buzz.Pulses(count = 1, length = 10, amplitude = 80)
+        val soft = Buzz.Pulses(count = 1, length = 10, amplitude = 50)
         assertEquals(listOf(0L, 10L), soft.timings().toList())
-        assertEquals(listOf(0, 80), soft.amplitudes().toList())
+        assertEquals(listOf(0, 50), soft.amplitudes().toList())
     }
 
     @Test

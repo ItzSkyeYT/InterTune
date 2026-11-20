@@ -128,7 +128,7 @@ fun buzzFor(feel: Feel, vibration: Vibration, caps: VibratorCaps): Buzz {
     return when (feel) {
         Feel.DOUBLE -> Buzz.Pulses(count = 2, length = 20, gap = 60)
         // Essentials' subtle stand-in, where the vibrator can play softly; only shorter where it cannot.
-        Feel.LOW_TICK -> if (caps.amplitudeControl) Buzz.Pulses(count = 1, length = 10, amplitude = 80) else Buzz.Pulses(count = 1, length = 10)
+        Feel.LOW_TICK -> if (caps.amplitudeControl) Buzz.Pulses(count = 1, length = 10, amplitude = 50) else Buzz.Pulses(count = 1, length = 10)
         else -> Buzz.Pulses(count = 1, length = 20)
     }
 }
@@ -144,7 +144,8 @@ private fun composition(feel: Feel, caps: VibratorCaps): Buzz.Primitives? {
         // Essentials' double: the second click the stronger, 60 ms after the first.
         Feel.DOUBLE -> listOf(Buzz.Step(click, 0.7f), Buzz.Step(click, 1f, delay = 60))
         // The low tick is Android 12's; before it, or on a phone without it, a softer tick.
-        Feel.LOW_TICK -> if (caps.sdk >= 31 && lowTick in caps.primitives) listOf(Buzz.Step(lowTick, 0.6f)) else listOf(Buzz.Step(tick, 0.5f))
+        // Softer than at first, with twice the ticks (Ti-Die, 20 Nov 2026: "increase the frequency of dots but make them less intense").
+        Feel.LOW_TICK -> if (caps.sdk >= 31 && lowTick in caps.primitives) listOf(Buzz.Step(lowTick, 0.35f)) else listOf(Buzz.Step(tick, 0.3f))
     }
     return if (steps.all { it.primitive in caps.primitives }) Buzz.Primitives(steps) else null
 }

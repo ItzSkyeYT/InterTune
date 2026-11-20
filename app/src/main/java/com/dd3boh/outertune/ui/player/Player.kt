@@ -1638,6 +1638,10 @@ fun BottomSheetPlayer(
                             if (Unreleased.HAPTICS_MORE && seekRumble.tick(it, shownDuration)) {
                                 haptic.segmentTick(currentView, tickLive, frequent = true)
                             }
+                            // A click as the bar hits its start or its end, where the click on letting go used to be.
+                            if (Unreleased.HAPTICS_MORE && seekRumble.hitsEnd(it, shownDuration)) {
+                                haptic.segmentTick(currentView, tickLive)
+                            }
                         },
                         onSlideDone = {
                             seekRumble.reset()
@@ -1655,8 +1659,8 @@ fun BottomSheetPlayer(
                                     position = it
                                 }
                             }
+                            // No haptic on letting go: after the ticks it felt odd (Ti-Die, 20 Nov 2026). The ends click instead.
                             sliderPosition = null
-                            haptic.performHapticFeedback(HapticFeedbackType.Confirm)
                         },
                         // From the keys, left and right seek in steps of a few seconds, which a
                         // whole song's worth of one percent nudges was not. Up and down move on

@@ -102,13 +102,37 @@ class SeekRumble(private val steps: Int = STEPS) {
         return true
     }
 
+    /** Which end of the bar the drag is at: -1 the start, 1 the end, 0 neither; null before the drag's first move. */
+    private var end: Int? = null
+
+    /**
+     * Whether the drag, now at [position] of [duration], has just reached the start or the end of the bar: once each
+     * time it gets there, not where the drag went down (Ti-Die, #testers 20 Nov 2026: a click "when you slide to the
+     * start or end ... instead" of one when letting go).
+     */
+    fun hitsEnd(position: Long, duration: Long): Boolean {
+        if (duration <= 0) return false
+        val now = when {
+            position <= 0L -> -1
+            position >= duration -> 1
+            else -> 0
+        }
+        val was = end
+        end = now
+        return was != null && now != 0 && now != was
+    }
+
     fun reset() {
         anchor = null
+        end = null
     }
 
     companion object {
-        /** Forty ticks from one end of the bar to the other: about one every 8 dp on a phone. */
-        const val STEPS = 40
+        /**
+         * Eighty ticks from one end of the bar to the other, about one every 4 dp on a phone: dense and faint, like a
+         * phone's own volume slider (Ti-Die, #testers 20 Nov 2026: forty felt like "dots").
+         */
+        const val STEPS = 80
     }
 }
 
