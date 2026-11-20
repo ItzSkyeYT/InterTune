@@ -22,7 +22,7 @@
     <string name="player_background_style">Style d\'arrière-plan du lecteur</string>
     <string name="player_background_living">Flou vivant</string>
     <string name="player_living_strength">Intensité du Flou vivant</string>
-    <string name="player_living_strength_description">À quel point le fond et le halo bougent avec la musique.</string>
+    <string name="player_living_strength_description">À quel point le fond et sa lueur bougent avec la musique.</string>
     <string name="player_living_smoothing">Douceur du Flou vivant</string>
     <string name="player_living_smoothing_description">La douceur avec laquelle il suit la musique. Bas, il saute à chaque coup. Haut, il enfle et s\'attarde.</string>
     <string name="player_living_colours">Couleurs du Flou vivant</string>
@@ -599,7 +599,7 @@
     <string name="help_translate">Aider à traduire InterTune (via Weblate)</string>
     <!-- Player settings -->
     <string name="player_buttons_style">Boutons du lecteur</string>
-    <string name="player_buttons_style_description">Connectés place partager et j\'aime près du titre, et les paroles, la minuterie et le menu sur une rangée sous les commandes.</string>
+    <string name="player_buttons_style_description">Connectés place partager et j\'aime près du titre, et les paroles et le menu sur une rangée sous les commandes.</string>
     <string name="player_buttons_classic">Classiques</string>
     <string name="player_buttons_connected">Connectés</string>
     <string name="queue_button">Bouton de file d\'attente</string>
@@ -1850,7 +1850,7 @@
     <string name="new_report_way">Dans À propos : la dernière erreur notée par l\'application, à copier ou à joindre à un rapport de bogue.</string>
     <string name="new_report_here">Ouvre la dernière erreur notée par l\'application. Rien ne quitte le téléphone sauf si vous l\'envoyez.</string>
     <string name="new_living_blur_title">Un fond qui bouge avec la musique</string>
-    <string name="new_living_blur_body">Flou vivant : le fond du lecteur respire avec le titre et brille autour de la pochette à chaque temps fort.</string>
+    <string name="new_living_blur_body">Flou vivant : le fond du lecteur respire avec le titre et brille à chaque temps fort.</string>
     <string name="new_living_blur_way">Le fond du lecteur se règle ici : ce que vous voyez derrière la pochette pendant la lecture.</string>
     <string name="new_living_blur_here">Ce qu\'il y a derrière le lecteur : la couleur du thème, ou un dégradé ou un flou tiré de la pochette. Le Flou vivant est le flou qui bouge avec la musique, et ses propres réglages apparaissent en dessous.</string>
     <string name="new_sleep_schedule_title">Une minuterie de sommeil qui se lance seule</string>

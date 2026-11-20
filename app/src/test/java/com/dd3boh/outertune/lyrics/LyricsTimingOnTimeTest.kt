@@ -111,6 +111,7 @@ class LyricsTimingOnTimeTest {
     @Test
     fun `the app opens its settings with it, after the new install's song cache`() {
         val source = File("src/main/java/com/dd3boh/outertune/utils/DataStore.kt").readText()
-        assertTrue(source.contains("produceMigrations = { listOf(NewInstallSongCache, LyricsTimingOnTime) },"))
+        // First the song cache, which needs the settings empty, then this; later migrations come after (PinsBefore013).
+        assertTrue(source.contains("produceMigrations = { listOf(NewInstallSongCache, LyricsTimingOnTime"))
     }
 }

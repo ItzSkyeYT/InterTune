@@ -24,24 +24,17 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
-import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.toSize
 import coil3.compose.AsyncImage
 import com.dd3boh.outertune.LocalDatabase
 import com.dd3boh.outertune.LocalPlayerConnection
@@ -75,7 +68,6 @@ fun LivingBlurSample(strength: Float, smoothing: Float, colours: LivingColours, 
     val scope = rememberCoroutineScope()
     val isPlaying by playerConnection.isPlaying.collectAsState()
     val song by playerConnection.mediaMetadata.collectAsState()
-    var coverAt by remember { mutableStateOf<Rect?>(null) }
     val queueTitle = stringResource(R.string.player_living_sample_queue)
     val coverPx = with(LocalDensity.current) { COVER.roundToPx() }
 
@@ -98,7 +90,6 @@ fun LivingBlurSample(strength: Float, smoothing: Float, colours: LivingColours, 
             smoothing = smoothing,
             colours = colours,
             modifier = Modifier.matchParentSize(),
-            coverPlace = { coverAt },
         )
         Box(
             Modifier
@@ -116,7 +107,6 @@ fun LivingBlurSample(strength: Float, smoothing: Float, colours: LivingColours, 
                 contentDescription = null,
                 modifier = Modifier
                     .size(COVER)
-                    .onGloballyPositioned { coverAt = Rect(it.positionInRoot(), it.size.toSize()) }
                     .clip(RoundedCornerShape(12.dp))
                     .background(MaterialTheme.colorScheme.surfaceVariant)
             )

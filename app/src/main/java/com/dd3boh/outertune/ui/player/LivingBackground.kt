@@ -17,18 +17,15 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.BlurEffect
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.TileMode
@@ -37,8 +34,6 @@ import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.layout.layout
-import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.Constraints
 import androidx.core.graphics.createBitmap
@@ -82,9 +77,8 @@ import kotlin.math.min
  * over it, which look through it and are redrawn with it, and the rest of the window. On the
  * screen's frames between two redraws nothing of it is stepped and nothing is drawn.
  *
- * The cover takes up most of the player and hides what is behind it, so most of what answers the
- * music is an aura on the cover's own edge ([PlayerCoverPlace] says where that is), half of it
- * behind the cover and half spilling out round it.
+ * Nothing is drawn round the cover, in the player or in the sample in Settings: his word of
+ * 20 Nov 2026 took away the aura that stood on its edge.
  *
  * @param cover what Coil is given for the cover; the small one the blurred background uses
  * @param tap where the levels come from, or null to drift without them
@@ -100,8 +94,6 @@ import kotlin.math.min
  *   lets nothing through lies over all of it: the player's queue, open. It asks for no frames
  *   then, as when it is off screen, and goes on listening, so that it comes back knowing where
  *   the song is in its shape.
- * @param coverPlace where the cover it stands behind is, in the root's measure, or null for none.
- *   The player's own by default; the sample in Settings has a small cover of its own.
  */
 @Composable
 fun LivingBackground(
@@ -115,12 +107,11 @@ fun LivingBackground(
     modifier: Modifier = Modifier,
     alpha: Float = 1f,
     covered: Boolean = false,
-    coverPlace: () -> Rect? = { PlayerCoverPlace.bounds },
 ) {
     // The grid is made for the room the picture is given, not for the window: in the player the
     // two are the same, in the Settings sample the picture is a strip.
     BoxWithConstraints(modifier) {
-        LivingPicture(cover, tap, playing, onScreen, covered, strength, smoothing, colours, alpha, coverPlace, constraints.maxWidth, constraints.maxHeight)
+        LivingPicture(cover, tap, playing, onScreen, covered, strength, smoothing, colours, alpha, constraints.maxWidth, constraints.maxHeight)
     }
 }
 
@@ -135,16 +126,13 @@ private fun LivingPicture(
     smoothing: Float,
     colours: LivingColours,
     alpha: Float,
-    coverPlace: () -> Rect?,
     wide: Int,
     tall: Int,
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val look = remember { Look() }
-    // Where this picture itself is, and how far it is stretched, to bring the cover's place into
-    // the small picture's own measure.
-    var origin by remember { mutableStateOf(Offset.Zero) }
+    // How far the small picture is stretched to fill its room (drawnSmall).
     val stretch = remember { mutableStateOf(Offset(1f, 1f)) }
 
     // Three patches along the short side and as many along the long side as keeps them round, or
@@ -157,20 +145,12 @@ private fun LivingPicture(
         long = max(wide, tall).toFloat(), short = min(wide, tall).toFloat(),
         across = across, most = if (ribbons) LivingField.FLOW_MOST_ALONG else LivingField.MOST_ALONG,
     )
-    // The aura round the cover: a thin rim (issue #215) where the flag has it, the soft aura elsewhere.
     val motion = remember(upright, along, across) {
-        val thin = Unreleased.LIVING_RIM_THIN
-        if (upright) LivingMotion(across, along, thinRim = thin) else LivingMotion(along, across, thinRim = thin)
+        if (upright) LivingMotion(across, along) else LivingMotion(along, across)
     }
 
-    // Whether there is a cover, and not where it is. Its place changes on every frame while the
-    // player's sheet or the strip of covers moves, and read here it had the whole picture
-    // composed again on each of those frames. Where the cover is, the drawing asks.
-    val place by rememberUpdatedState(coverPlace)
-    val coverThere by remember { derivedStateOf { place() != null } }
     motion.strength = strength
     motion.smoothing = smoothing
-    motion.coverThere = coverThere
     motion.separate = ribbons
 
     // Saver, or animations turned off: nothing moves, and nothing is measured for it.
@@ -204,9 +184,7 @@ private fun LivingPicture(
         covers++
     }
 
-    // coverThere is a key because the aura comes and goes with the cover, and has to be seen to
-    // do it even while nothing else moves.
-    LaunchedEffect(onScreen, covered, playing, covers, coverThere, motion, lifecycleOwner, still) {
+    LaunchedEffect(onScreen, covered, playing, covers, motion, lifecycleOwner, still) {
         // Covered, it is as good as off screen: nobody sees it move, and every frame of it would
         // still have the window drawn again over it.
         if (!onScreen || covered) {
@@ -273,43 +251,13 @@ private fun LivingPicture(
         }
     }
 
-    Canvas(Modifier.fillMaxSize().onGloballyPositioned { origin = it.positionInRoot() }.drawnSmall(stretch, alpha)) {
+    Canvas(Modifier.fillMaxSize().drawnSmall(stretch, alpha)) {
         @Suppress("UNUSED_VARIABLE")
         val redrawnAt = frame
-        // The cover's place, or where it last was while the aura fades out after it.
-        val coverAt = coverPlace()?.also { look.lastCover = it } ?: look.lastCover
         drawIntoCanvas { canvas ->
-            val native = canvas.nativeCanvas
-            look.discs.field(native, motion, size.width, size.height)
-
-            if (coverAt != null && motion.auraPresence > 0.004f) {
-                val by = stretch.value
-                val left = (coverAt.left - origin.x) / by.x
-                val top = (coverAt.top - origin.y) / by.y
-                val width = coverAt.width / by.x
-                val height = coverAt.height / by.y
-                val side = min(width, height)
-                motion.coverAt(left / size.width, top / size.height, (left + width) / size.width, (top + height) / size.height)
-                for (i in motion.aura.indices) {
-                    val point = motion.aura[i]
-                    val radius = motion.auraRadius(i) * side
-                    look.discs.disc(native, left + point.x * width, top + point.y * height, radius, radius, motion.auraColor(i), motion.auraStrength(i))
-                }
-            }
+            look.discs.field(canvas.nativeCanvas, motion, size.width, size.height)
         }
     }
-}
-
-/**
- * Where the cover of the song that plays is on screen, in the root's measure, or null while there
- * is none to be seen (the lyrics are up, the song failed, the window is too small for a cover).
- * The cover says so itself, in Thumbnail; the living background reads it.
- *
- * One for the app, like the tour's targets and for the same reason: there is one full player on
- * screen at a time, and the two ends are too far apart in the tree to hand it down.
- */
-object PlayerCoverPlace {
-    var bounds by mutableStateOf<Rect?>(null)
 }
 
 /**
@@ -322,8 +270,6 @@ private val redraws = RedrawPace()
 
 /** What the drawing keeps between frames, so that a frame allocates nothing. */
 private class Look {
-    var lastCover: Rect? = null
-
     /** True from when the picture stops being drawn, off screen, until its frames start again. */
     var unseen = false
 
@@ -365,8 +311,7 @@ internal class LivingDiscs {
 
     /**
      * The field as [motion] has it now, over a picture [width] by [height]: what shows where the
-     * patches leave anything uncovered, the patches, and the bass's glow. Everything but the aura,
-     * which is round a cover only the player has.
+     * patches leave anything uncovered, the patches, and the bass's glow.
      */
     fun field(canvas: android.graphics.Canvas, motion: LivingMotion, width: Float, height: Float) {
         canvas.drawColor(motion.under)

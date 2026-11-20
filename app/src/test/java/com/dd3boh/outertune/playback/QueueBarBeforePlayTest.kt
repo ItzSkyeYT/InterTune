@@ -20,7 +20,7 @@ import java.io.File
 class QueueBarBeforePlayTest {
     private val sheet = File("src/main/java/com/dd3boh/outertune/ui/player/Queue.kt").readText()
     private val bar = sheet.substring(
-        sheet.indexOf("if (shuffleModeEnabled) R.drawable.shuffle_on else R.drawable.shuffle_off,"),
+        sheet.indexOf("ShuffleButton("),
         sheet.indexOf("playerConnection.player.toggleRepeatMode()"),
     )
 

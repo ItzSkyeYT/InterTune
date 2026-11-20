@@ -336,7 +336,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="grouped_player_controls">Group the player buttons</string>
     <string name="grouped_player_controls_description">Puts the playback buttons together in one glass bar. Needs Liquid glass.</string>
     <string name="player_buttons_style">Player buttons</string>
-    <string name="player_buttons_style_description">Connected puts share and like by the title, and lyrics, the sleep timer and the menu in a row under the controls.</string>
+    <string name="player_buttons_style_description">Connected puts share and like by the title, and lyrics and the menu in a row under the controls.</string>
     <string name="player_buttons_classic">Classic</string>
     <string name="player_buttons_connected">Connected</string>
     <string name="queue_button">Queue button</string>
@@ -944,7 +944,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="welcome_card_dismiss">Dismiss this note</string>
 
     <string name="new_living_blur_title">A background that moves with the music</string>
-    <string name="new_living_blur_body">Living blur: the player\'s background breathes with the song and glows round the cover on every beat.</string>
+    <string name="new_living_blur_body">Living blur: the player\'s background breathes with the song and glows on every beat.</string>
     <string name="new_living_blur_way">The player\'s background is set in here: what you see behind the cover while a song plays.</string>
     <string name="new_living_blur_here">What is behind the player: the theme\'s colour, or a gradient or a blur made from the cover. Living blur is the blur that moves with the music, and its own settings appear under it.</string>
     <string name="new_sleep_schedule_title">A sleep timer that starts by itself</string>
