@@ -77,7 +77,8 @@ class CastPinTest {
         assertEquals(listOf(CAST, LIKE), pins[PinPlace.CLASSIC])
         assertEquals(listOf(CAST, SHARE, LIKE), pins[PinPlace.CONNECTED_TITLE])
         assertEquals("Connected's row as it was", listOf(LYRICS), pins[PinPlace.CONNECTED_ROW])
-        for (place in PinPlace.entries) assertEquals("furthest from the menu in $place", CAST, place.order.first())
+        for (place in PinPlace.entries) for (pin in listOf(SHARE, LYRICS, TIMER, LIKE))
+            assertTrue("outside $pin in $place", place.order.indexOf(CAST) < place.order.indexOf(pin))
     }
 
     @Test

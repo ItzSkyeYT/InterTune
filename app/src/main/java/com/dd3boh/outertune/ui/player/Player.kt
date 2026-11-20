@@ -1958,7 +1958,6 @@ fun BottomSheetPlayer(
                                 )
                             }
                         }
-
                     }
 
                     Column(

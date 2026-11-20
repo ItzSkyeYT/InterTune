@@ -29,8 +29,8 @@ enum class PlayerPin { SHARE, LYRICS, TIMER, LIKE, CAST }
  * always comes after them. The ones a place has always had stand last, beside the menu, so that one
  * added goes further out and none of those moves (memory: player controls stay put).
  *
- * The cast button stands furthest out and takes none of [most]'s room, as a room's button takes none: it came
- * from the top right, and no button of anyone's makes way for it.
+ * The cast button stands outside the four a place has always had, so they stay where they were, and takes none of
+ * [most]'s room, as a room's button takes none: it came from the top right, and no button of anyone's makes way for it.
  */
 enum class PinPlace(val order: List<PlayerPin>, val most: Int, val defaults: List<PlayerPin>) {
     /**
@@ -67,11 +67,12 @@ object PlayerPins {
 
     /**
      * [chosen] in [place]'s order with no more than [most] besides the cast button: the far ones go, the ones by the
-     * menu stay, and the cast button, which takes no room from them, stays at the far end.
+     * menu stay, and the cast button, which takes no room from them, stays where the order puts it.
      */
     fun fit(place: PinPlace, chosen: List<PlayerPin>, most: Int): List<PlayerPin> {
         val ordered = inOrder(place, chosen)
-        return ordered.filter { it == PlayerPin.CAST } + ordered.filter { it != PlayerPin.CAST }.takeLast(most)
+        val kept = ordered.filter { it != PlayerPin.CAST }.takeLast(most).toSet()
+        return ordered.filter { it == PlayerPin.CAST || it in kept }
     }
 
     /** Whether the cast button is pinned in any of [places], those of the style shown; when not, the menu has Cast. */
