@@ -9,6 +9,7 @@ package com.dd3boh.outertune.ui.player
 import androidx.datastore.core.DataMigration
 import androidx.datastore.preferences.core.Preferences
 import com.dd3boh.outertune.constants.OobeStatusKey
+import com.dd3boh.outertune.constants.ClassicPinsBefore013Key
 import com.dd3boh.outertune.constants.PinsBefore013Key
 import com.dd3boh.outertune.constants.PlayerPinsKey
 
@@ -24,8 +25,11 @@ enum class PlayerPin { SHARE, LYRICS, TIMER, LIKE }
  * added goes further out and none of those moves (memory: player controls stay put).
  */
 enum class PinPlace(val order: List<PlayerPin>, val most: Int, val defaults: List<PlayerPin>) {
-    /** Classic's circles beside the title: the sleep timer and like until somebody chooses. */
-    CLASSIC(listOf(PlayerPin.SHARE, PlayerPin.LYRICS, PlayerPin.TIMER, PlayerPin.LIKE), 3, listOf(PlayerPin.TIMER, PlayerPin.LIKE)),
+    /**
+     * Classic's circles beside the title: like until somebody chooses, the sleep timer in the menu as in Connected since
+     * 0.13 (his pick of 20 Nov 2026); an install set up before keeps the timer it had there ([ClassicPinsBefore013]).
+     */
+    CLASSIC(listOf(PlayerPin.SHARE, PlayerPin.LYRICS, PlayerPin.TIMER, PlayerPin.LIKE), 3, listOf(PlayerPin.LIKE)),
 
     /** Connected's pair beside the title: share and like. */
     CONNECTED_TITLE(listOf(PlayerPin.LYRICS, PlayerPin.TIMER, PlayerPin.SHARE, PlayerPin.LIKE), 2, listOf(PlayerPin.SHARE, PlayerPin.LIKE)),
@@ -95,11 +99,17 @@ object PlayerPins {
  * whose defaults changed, when it never chose them; a new install has the new defaults. Run as the settings are first
  * read, after NewInstallSongCache, which needs them empty. Once: [PinsBefore013Key] says so.
  */
-object PinsBefore013 : DataMigration<Preferences> {
-    /** What the places 0.13 changed had until then. */
-    val BEFORE: Map<PinPlace, List<PlayerPin>> = mapOf(PinPlace.CONNECTED_ROW to listOf(PlayerPin.LYRICS, PlayerPin.TIMER))
+object PinsBefore013 : PinsKeptAtUpdate(PinsBefore013Key, mapOf(PinPlace.CONNECTED_ROW to listOf(PlayerPin.LYRICS, PlayerPin.TIMER)))
 
-    override suspend fun shouldMigrate(currentData: Preferences) = currentData[PinsBefore013Key] != true
+/**
+ * The same for Classic, whose default lost the sleep timer a day later (20 Nov 2026), with a key of its own: the debug
+ * app and the Preview had already run [PinsBefore013] by then, and an install set up before still keeps its timer.
+ */
+object ClassicPinsBefore013 : PinsKeptAtUpdate(ClassicPinsBefore013Key, mapOf(PinPlace.CLASSIC to listOf(PlayerPin.TIMER, PlayerPin.LIKE)))
+
+/** A place whose defaults changed, written down as it was for an install set up before, once ([key] says so). */
+open class PinsKeptAtUpdate(private val key: Preferences.Key<Boolean>, val BEFORE: Map<PinPlace, List<PlayerPin>>) : DataMigration<Preferences> {
+    override suspend fun shouldMigrate(currentData: Preferences) = currentData[key] != true
 
     override suspend fun migrate(currentData: Preferences): Preferences =
         currentData.toMutablePreferences().apply {
@@ -109,7 +119,7 @@ object PinsBefore013 : DataMigration<Preferences> {
                 val keep = BEFORE.filterKeys { it.name !in chosen }
                 if (keep.isNotEmpty()) this[PlayerPinsKey] = listOf(raw, PlayerPins.write(keep)).filter { it.isNotBlank() }.joinToString(";")
             }
-            this[PinsBefore013Key] = true
+            this[key] = true
         }.toPreferences()
 
     override suspend fun cleanUp() = Unit

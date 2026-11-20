@@ -13,6 +13,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import com.dd3boh.outertune.constants.NewInstallSongCache
 import com.dd3boh.outertune.constants.OobeStatusKey
+import com.dd3boh.outertune.constants.ClassicPinsBefore013Key
 import com.dd3boh.outertune.constants.PinsBefore013Key
 import com.dd3boh.outertune.constants.PlayerPinsKey
 import com.dd3boh.outertune.lyrics.LyricsTimingOnTime
@@ -46,7 +47,7 @@ class PinsBefore013Test {
     private fun <T> open(newBuild: Boolean, block: suspend (DataStore<Preferences>) -> T): T {
         val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
         return try {
-            val migrations = if (newBuild) listOf(NewInstallSongCache, LyricsTimingOnTime, PinsBefore013) else emptyList()
+            val migrations = if (newBuild) listOf(NewInstallSongCache, LyricsTimingOnTime, PinsBefore013, ClassicPinsBefore013) else emptyList()
             val settings = PreferenceDataStoreFactory.create(migrations = migrations, scope = scope) { file }
             runBlocking { block(settings) }
         } finally {
@@ -62,6 +63,34 @@ class PinsBefore013Test {
     }
 
     private fun connectedRow(prefs: Preferences) = PlayerPins.read(prefs[PlayerPinsKey].orEmpty())[PinPlace.CONNECTED_ROW]
+
+    private fun classic(prefs: Preferences) = PlayerPins.read(prefs[PlayerPinsKey].orEmpty())[PinPlace.CLASSIC]
+
+    @Test
+    fun `an install set up before keeps the sleep timer by Classic's title, and a new one has the heart alone`() {
+        olderBuildLeft { it[OobeStatusKey] = 4 }
+        val first = launch()
+        assertEquals(listOf(PlayerPin.TIMER, PlayerPin.LIKE), classic(first))
+        assertEquals(true, first[ClassicPinsBefore013Key])
+        dir.root.resolve("settings.preferences_pb").delete()
+        assertEquals(listOf(PlayerPin.LIKE), classic(launch()))
+    }
+
+    @Test
+    fun `an install that ran 19 Nov's keeping still gets Classic's, once`() {
+        // The debug app and the Preview ran PinsBefore013 on 19 and 20 Nov, before Classic's default changed.
+        olderBuildLeft {
+            it[OobeStatusKey] = 4
+            it[PinsBefore013Key] = true
+            it[PlayerPinsKey] = "CONNECTED_ROW=LYRICS+TIMER"
+        }
+        val first = launch()
+        assertEquals(listOf(PlayerPin.TIMER, PlayerPin.LIKE), classic(first))
+        assertEquals(listOf(PlayerPin.LYRICS, PlayerPin.TIMER), connectedRow(first))
+        // Changed after the update: never written over.
+        launch { it.edit { prefs -> prefs[PlayerPinsKey] = "CONNECTED_ROW=LYRICS+TIMER;CLASSIC=LIKE" } }
+        assertEquals(listOf(PlayerPin.LIKE), classic(launch()))
+    }
 
     @Test
     fun `an install set up before keeps the sleep timer in Connected's row`() {
@@ -115,6 +144,6 @@ class PinsBefore013Test {
     @Test
     fun `the app opens its settings with it, after the new install's song cache`() {
         val source = File("src/main/java/com/dd3boh/outertune/utils/DataStore.kt").readText()
-        assertEquals(true, source.contains("produceMigrations = { listOf(NewInstallSongCache, LyricsTimingOnTime, PinsBefore013) },"))
+        assertEquals(true, source.contains("produceMigrations = { listOf(NewInstallSongCache, LyricsTimingOnTime, PinsBefore013, ClassicPinsBefore013) },"))
     }
 }

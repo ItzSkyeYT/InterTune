@@ -63,8 +63,8 @@ class RoomButtonStaysTest {
     }
 
     @Test
-    fun `held back, a release keeps the room's button where next-013 has it`() {
-        assertTrue("val ROOM_AT_FREE_END = BuildConfig.PREVIEW_FEATURES" in File(folder, "constants/Unreleased.kt").readText())
+    fun `the room's button at the row's free end in every build since his pick of 20 Nov, and the old place still drawn without the flag`() {
+        assertTrue("val ROOM_AT_FREE_END = true" in File(folder, "constants/Unreleased.kt").readText())
         assertTrue("val roomAtFreeEnd = inRoom && Unreleased.ROOM_AT_FREE_END" in player)
         assertTrue("val roomBeforeMenu = inRoom && !Unreleased.ROOM_AT_FREE_END" in player)
         // Classic's circles: the queue, the pins, the room and the menu, as on next-013.
