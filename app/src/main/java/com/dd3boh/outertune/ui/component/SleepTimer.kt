@@ -69,6 +69,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -372,11 +375,19 @@ private fun SetTimer(value: Float, onValueChange: (Float) -> Unit, onEnd: (Sleep
             )
         }
 
+        // For TalkBack, what the slider sets and the length it is at, as the line above says it
+        // ("30 minutes"). A bare Slider was read as a percent of its range, 1 to 120 minutes.
+        val sliderName = stringResource(R.string.sleep_timer)
         Slider(
             value = value,
             onValueChange = onValueChange,
             valueRange = 1f..120f,
-            modifier = Modifier.padding(bottom = 4.dp)
+            modifier = Modifier
+                .padding(bottom = 4.dp)
+                .semantics {
+                    contentDescription = sliderName
+                    stateDescription = pluralString
+                }
         )
 
         // In: how long from now. The lengths the leading players offer, and 90.
