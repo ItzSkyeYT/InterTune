@@ -43,9 +43,9 @@ class MetrolistTextsTest {
     }
 
     @Test
-    fun `it is held from translators, two sentences at most, and says nothing untrue`() {
+    fun `it is open to translators, two sentences at most, and says nothing untrue`() {
         for ((tag, text) in listOf(english, french)) {
-            assertTrue(tag, "translatable=\"false\"" in tag)
+            assertFalse(tag, "translatable=\"false\"" in tag)
             val sentences = text.substringAfterLast("\\n").split(Regex("""(?<=\.)\s+""")).filter { it.isNotBlank() }
             assertTrue(text, sentences.size <= 2)
             assertFalse(text, '—' in text || '–' in text || ';' in text)

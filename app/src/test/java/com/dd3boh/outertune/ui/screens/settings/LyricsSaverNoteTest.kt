@@ -39,8 +39,8 @@ class LyricsSaverNoteTest {
     fun `the note is written in English and French, in the words of Battery use's other notes`() {
         val english = File("src/main/res/values/strings-ot.xml").readText()
         val french = File("src/main/res/values-fr/strings-ot.xml").readText()
-        assertTrue(english.contains("<string name=\"lyrics_word_by_word_saver\" translatable=\"false\">Off while \\\"Battery use\\\" is on \\\"Saver\\\".</string>"))
-        assertTrue(french.contains("<string name=\"lyrics_word_by_word_saver\" translatable=\"false\">Désactivé tant que « Utilisation de la batterie » est sur « Économie ».</string>"))
+        assertTrue(english.contains("<string name=\"lyrics_word_by_word_saver\">Off while \\\"Battery use\\\" is on \\\"Saver\\\".</string>"))
+        assertTrue(french.contains("<string name=\"lyrics_word_by_word_saver\">Désactivé tant que « Utilisation de la batterie » est sur « Économie ».</string>"))
         // The same names as the notes under the other rows Saver holds.
         assertTrue(english.contains("while \\\"Battery use\\\" is on \\\"Saver\\\".</string>"))
         assertTrue(french.contains("<string name=\"battery_saver_glass_note\">Sans flou tant que « Utilisation de la batterie » est sur « Économie ».</string>"))

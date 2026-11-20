@@ -126,11 +126,11 @@ class VarispeedTest {
     private fun text(xml: String, name: String) = Regex("""<string name="$name"[^>]*>(.*?)</string>""").find(xml)?.groupValues?.get(1)
 
     @Test
-    fun `its texts are held from translators, short, with their French beside them`() {
+    fun `its texts are open to translators, short, with their French beside them`() {
         for (name in listOf("varispeed", "varispeed_description", "search_words_varispeed")) {
-            // Search words are open to translators whatever their feature (SettingsSearchTest); the rest is held.
+            // Open to translators since 0.13's push of 20 Nov 2026, the search words always were (SettingsSearchTest).
             if (name != "search_words_varispeed") {
-                assertTrue("$name is not held", "translatable=\"false\"" in (tag(english, name) ?: error("$name is not in the English file")))
+                assertFalse("$name is still held", "translatable=\"false\"" in (tag(english, name) ?: error("$name is not in the English file")))
             }
             assertNotNull("$name has no French", text(french, name))
             for (xml in listOf(english, french)) assertFalse("$name has a long dash", '—' in text(xml, name)!!)

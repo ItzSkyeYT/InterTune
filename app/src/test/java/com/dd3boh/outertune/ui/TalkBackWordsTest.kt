@@ -31,11 +31,11 @@ class TalkBackWordsTest {
         assertTrue(dialog.contains("upName = stringResource(R.string.tempo_faster),"))
         assertTrue(dialog.contains("downName = stringResource(R.string.pitch_lower),"))
         assertTrue(dialog.contains("upName = stringResource(R.string.pitch_higher),"))
-        // Held from translators like the line's other new words, French beside them.
+        // Open to translators with 0.13's other new words since 20 Nov 2026, French beside them.
         val english = File("src/main/res/values/strings-ot.xml").readText()
         val french = File("src/main/res/values-fr/strings-ot.xml").readText()
         for (name in listOf("tempo_slower", "tempo_faster", "pitch_lower", "pitch_higher")) {
-            assertTrue(name, english.contains("<string name=\"$name\" translatable=\"false\">"))
+            assertTrue(name, english.contains("<string name=\"$name\">"))
             assertTrue(name, french.contains("<string name=\"$name\">"))
         }
     }

@@ -82,7 +82,7 @@ class SaverNoteTest {
         val french = text("values-fr", "saver_note_body")!!
         assertFalse(english, english.contains("Word-by-word", ignoreCase = true) || english.contains("lyrics", ignoreCase = true))
         assertFalse(french, french.contains("mot à mot") || french.contains("paroles"))
-        assertTrue(english, english.contains("The player\\'s moving background and sound effects (not the equalizer) pause, the theme turns black and syncs wait for Wi-Fi."))
-        assertTrue(french, french.contains("Le fond animé du lecteur et les effets sonores (pas l\\'égaliseur) se mettent en pause, le thème passe en noir et les synchronisations attendent le Wi-Fi."))
+        assertTrue(english, english.contains("the moving background and sound effects pause (not the equalizer), the theme goes black and syncs wait for Wi-Fi."))
+        assertTrue(french, french.contains("le fond animé et les effets sonores se mettent en pause (pas l\\'égaliseur), le thème passe en noir et les synchronisations attendent le Wi-Fi."))
     }
 }

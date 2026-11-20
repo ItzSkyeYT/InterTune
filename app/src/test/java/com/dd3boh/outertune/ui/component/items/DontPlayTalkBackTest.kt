@@ -10,6 +10,7 @@ import androidx.compose.ui.Modifier
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotSame
 import org.junit.Assert.assertSame
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
@@ -61,11 +62,11 @@ class DontPlayTalkBackTest {
     }
 
     @Test
-    fun `the words are short, in English and French, held from translators for now`() {
+    fun `the words are short, in English and French, open to translators`() {
         val en = File("src/main/res/values/strings-ot.xml").readLines().single { "name=\"dont_play_state\"" in it }
         val fr = File("src/main/res/values-fr/strings-ot.xml").readLines().single { "name=\"dont_play_state\"" in it }
         for (line in listOf(en, fr)) {
-            assertTrue(line, "translatable=\"false\"" in line)
+            assertFalse(line, "translatable=\"false\"" in line)
             val words = line.substringAfter(">").substringBeforeLast("<")
             assertTrue(line, words.split(' ').size <= 6)
         }

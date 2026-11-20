@@ -282,11 +282,11 @@ class ReleasedFlagsTest {
         val english = File("src/main/res/values/strings-ot.xml").readText()
         val french = File("src/main/res/values-fr/strings-ot.xml").readText()
         // The Output button's words are CAST_AT_TOP's, and the public Wi-Fi line under the cast list his pick of 20 Nov 2026:
-        // held from translators until 0.13's texts go to them, French beside them.
+        // open to translators since 0.13's push of that evening, French beside them.
         val heldWithCastAtTop = setOf("output_pill", "output_pill_description", "cast_public_wifi")
         for (name in heldWithCastAtTop) {
-            assertTrue("$name is not held in English", "<string name=\"$name\" translatable=\"false\">" in english)
-            assertTrue("$name has no French", "<string name=\"$name\" translatable=\"false\">" in french)
+            assertTrue("$name is not open in English", "<string name=\"$name\">" in english)
+            assertTrue("$name has no French", "<string name=\"$name\">" in french)
         }
         val names = Regex("""<string name="(cast|cast_[a-z_]+|output_[a-z_]+)"""")
             .findAll(english).map { it.groupValues[1] }.filter { it !in heldWithCastAtTop }.toList()

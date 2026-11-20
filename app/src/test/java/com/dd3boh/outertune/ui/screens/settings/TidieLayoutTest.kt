@@ -66,7 +66,9 @@ class TidieLayoutTest {
         for (folder in listOf("values", "values-fr")) {
             assertTrue("$folder: one sentence under the switch", text(folder, "usage_count_enabled_description").count { it == '.' } == 1)
             val info = text(folder, "usage_count_enabled_info")
-            assertTrue("$folder: the (i) says what is never sent", "F-Droid" in info && info.count { it == '.' } in 2..3)
+            // A short list of what is sent, then what never is (TASTE.md: what leaves the phone stays complete, as a short list).
+            assertTrue("$folder: the (i) lists what is sent", "F-Droid" in info && info.split("\\n").count { it.startsWith("• ") } == 3)
+            assertTrue("$folder: the (i) says what is never sent", info.split("\\n").last().count { it == '.' } == 1)
         }
     }
 
