@@ -99,10 +99,10 @@ class ListenBrainzWiringTest {
     }
 
     @Test
-    fun `nothing is sent or kept without the flag`() {
+    fun `nothing is sent or kept without the flag, on for everyone since 0_13`() {
         assertTrue("Unreleased.LISTENBRAINZ && token.isNotBlank()" in sender)
         assertTrue("if (!Unreleased.LISTENBRAINZ) return Result.success()" in fileCode("listenbrainz/ListenBrainzWorker.kt"))
-        assertTrue("val LISTENBRAINZ = BuildConfig.PREVIEW_FEATURES" in fileCode("constants/Unreleased.kt"))
+        assertTrue("val LISTENBRAINZ = true" in fileCode("constants/Unreleased.kt"))
     }
 
     @Test

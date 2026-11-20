@@ -276,6 +276,8 @@ class ReleasedFlagsTest {
                 "ui/screens/walkthrough/Walkthrough.kt",
                 // The Output button's switch in Look and feel, there with CAST_AT_TOP as well (on in 0.13).
                 "ui/screens/settings/fragments/PlayerButtonsFrag.kt",
+                // The style pictures above it draw the cast button only where the app casts.
+                "ui/screens/settings/fragments/PlayerStyleSample.kt",
             ),
             readers("CASTING"),
         )
