@@ -410,7 +410,7 @@
     <string name="update_needs_permission">Android a besoin de votre autorisation pour qu\'InterTune installe des applications. Touchez pour ouvrir ce paramètre, puis revenez et réessayez.</string>
     <string name="update_install_failed">Installation impossible : %1$s. Vous pouvez toujours la télécharger vous-même depuis la page de la version.</string>
     <string name="update_blocked_samsung">L\'installation n\'a pas abouti : le Bloqueur automatique de Samsung l\'a sans doute empêchée. Désactivez-le, puis revenez ici et l\'installation recommence toute seule. Vous pouvez réactiver le Bloqueur automatique juste après.</string>
-    <string name="auto_blocker_note">Mise à jour terminée. Vous pouvez réactiver le Bloqueur automatique maintenant.</string>
+    <string name="auto_blocker_note">Mise à jour terminée. Si vous avez désactivé le Bloqueur automatique pour cela, vous pouvez le réactiver maintenant.</string>
     <string name="update_blocked">L\'installation n\'a pas abouti. Réessayez, ou téléchargez la mise à jour depuis la page de la version.</string>
     <string name="update_open_auto_blocker">Ouvrir le Bloqueur automatique</string>
     <string name="update_try_again">Réessayer</string>
@@ -576,7 +576,7 @@
     <string name="playback_auth_when_refused">Seulement quand un titre est refusé</string>
     <string name="playback_auth_always">Toujours</string>
     <string name="err_age_restricted">YouTube ne lira pas ce titre sans un compte ayant l\'âge requis.</string>
-    <string name="err_song_unavailable">Ce titre n\'est pas disponible.</string>
+    <string name="err_song_unavailable">YouTube n\'a plus ce titre, ou pas là où vous êtes.</string>
     <string name="err_not_audio">Ce qui est arrivé pour ce titre n\'est pas de l\'audio. Quelque chose sur cette connexion répond peut-être à la place de YouTube, comme un VPN ou un bloqueur de pubs.</string>
     <string name="err_sign_in_wanted">YouTube demande de se connecter pour lire depuis ce réseau. Les VPN et les connexions partagées sont souvent refusés.</string>
     <string name="gone_song_skipped">Titre passé, indisponible sur YouTube : « %1$s »</string>

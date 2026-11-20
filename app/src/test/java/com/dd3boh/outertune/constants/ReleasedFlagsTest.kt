@@ -252,7 +252,8 @@ class ReleasedFlagsTest {
         val french = File("src/main/res/values-fr/strings-ot.xml").readText()
         val names = Regex("""<string name="(player_background_living|player_living_[a-z_]+|new_living_blur_[a-z_]+)"""")
             .findAll(english).map { it.groupValues[1] }.toList()
-        assertEquals("Living blur's words could not all be found", 17, names.size)
+        // 15 since 20 Nov 2026: the strength and smoothing sliders lost their descriptions (his answer to Ti-Die's review).
+        assertEquals("Living blur's words could not all be found", 15, names.size)
         for (name in names) {
             assertTrue("$name is not open to translators", "<string name=\"$name\">" in english)
             assertTrue("$name has no French", "<string name=\"$name\">" in french)
