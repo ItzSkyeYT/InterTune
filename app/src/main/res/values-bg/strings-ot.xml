@@ -375,4 +375,8 @@
     <string name="pure_black_description">Използвай истинско черно вместо тъмносиво. На OLED екран това пести и малко батерия.</string>
     <string name="min_playback_duration_short">Каква част от песента трябва да се изсвири, за да се брои за слушане.</string>
     <string name="throttle_banner_title">YouTube спря временно тази връзка</string>
+    <string name="spatial_audio_off">Изклчено</string>
+    <string name="spatial_audio_headphones">Слушалки</string>
+    <string name="auto_search_again">Натисни, за да търсиш пак</string>
+    <string name="auto_settings_sound">Звук</string>
 </resources>
