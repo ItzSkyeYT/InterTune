@@ -6969,12 +6969,11 @@ class MusicService : MediaLibraryService(),
         override fun run() {
             if (!mediaButtonPending || destroyed) return
             val hasSong = ::player.isInitialized && player.mediaItemCount > 0
+            // For Report a problem's steps: media3's notification already up when the guard looks.
+            if (!holdingForMediaButton && foregroundNow()) ReportTrail.thisRun.owedStart(ReportTrail.Owed.PLAYER_UP, owedFor())
             when {
                 // media3's notification is up: nothing more to do.
-                !holdingForMediaButton && foregroundNow() -> {
-                    mediaButtonPending = false
-                    ReportTrail.thisRun.owedStart(ReportTrail.Owed.PLAYER_UP, owedFor())
-                }
+                !holdingForMediaButton && foregroundNow() -> mediaButtonPending = false
                 // The song is in and media3's notification on its way, or the song did not start:
                 // Android's time is kept either way.
                 hasSong -> {
