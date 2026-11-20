@@ -211,11 +211,26 @@ class SettingsSearchTest {
 
     @Test
     fun `two settings of one name on one screen are told apart by what they hang from`() {
-        val fades = inEnglish.search("fade length").filter { it.title == "Fade length" }
+        // Since Ti-Die's review (his answers of 19 Nov 2026) the sleep timer's fade is one row, so the pair of fade
+        // lengths on one screen is made up here, to keep the rule guarded for the next pair.
+        val twins = SettingsSearchIndex(
+            listOf(
+                SettingEntry(Tour.ROUTE_PLAYER, R.string.transition_fade_length, under = R.string.transition_fade),
+                SettingEntry(Tour.ROUTE_PLAYER, R.string.transition_fade_length, under = R.string.sleep_timer_fade),
+            ),
+            settingsGroups(true).flatten(),
+            text(english),
+        )
+        val fades = twins.search("fade length").filter { it.title == "Fade length" }
         assertEquals(2, fades.size)
         assertEquals(
             setOf("Fade between tracks", "Fade out before stopping").map { listOf(english["player_and_audio"], it).joinToString(" › ") }.toSet(),
             fades.map { it.place }.toSet(),
+        )
+        // The real index: one fade length now, the one under Fade between tracks.
+        assertEquals(
+            listOf(listOf(english["player_and_audio"], "Fade between tracks").joinToString(" › ")),
+            inEnglish.search("fade length").filter { it.title == "Fade length" }.map { it.place },
         )
     }
 
