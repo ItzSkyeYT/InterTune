@@ -17,7 +17,7 @@ import kotlin.random.Random
 
 /**
  * Ti-Die's four layout ideas from his review of the app's texts (19 Nov 2026), as built on tidie-layout-1120: the Living
- * blur sample's refresh button on the cover, Try both named in Quick picks source's line, Count this install's long
+ * blur sample's refresh button on the cover (liked and most played songs), Try both named in Quick picks source's line, Count this install's long
  * text behind an (i), and a shorter line when liked songs' downloads pause.
  */
 class TidieLayoutTest {
@@ -54,8 +54,9 @@ class TidieLayoutTest {
         assertFalse("the button under the words is gone", "FilledTonalButton" in sample)
         assertTrue(sample, "Icon(Icons.Rounded.Refresh, contentDescription = stringResource(R.string.player_living_sample_play)" in sample)
         assertTrue("on the cover's top left", ".align(Alignment.TopStart)" in sample)
-        val pool = sample.substringAfter("val candidates = withContext(Dispatchers.IO) {").substringBefore("}\n")
-        assertTrue("liked songs first: $pool", pool.indexOf("likedSongsByCreateDateAsc") in 0 until pool.indexOf("mostPlayedSongs"))
+        val pool = sample.substringAfter("val candidates = withContext(Dispatchers.IO) {").substringBefore(".distinctBy")
+        assertTrue("liked songs and the most played: $pool", pool.indexOf("likedSongsByCreateDateAsc") in 0 until pool.indexOf("mostPlayedSongs"))
+        assertTrue("only a playing song is left out", "mediaMetadata.value.takeIf { playerConnection.isPlaying.value }" in sample)
     }
 
     @Test

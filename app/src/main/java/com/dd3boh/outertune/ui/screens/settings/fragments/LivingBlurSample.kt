@@ -61,9 +61,9 @@ import com.dd3boh.outertune.utils.Toaster
  *
  * It needs music to move to. With a song playing it uses that. With none it says so, and the refresh
  * button on the cover's corner plays one, or another one when a song plays (Ti-Die's ask of 19 Nov
- * 2026, in place of a button under the words): a liked song when there are any, so the pool is
- * more than a handful, else what has been played most these three months; never the song playing
- * or another from its album; begun a third of the way in, past the intro, where a song has its
+ * 2026, in place of a button under the words): from the liked songs and what has been played most
+ * these three months, so the pool is more than a handful; never the song playing or another from
+ * its album; begun a third of the way in, past the intro, where a song has its
  * movement. Not begun by itself: opening a settings screen must not start music.
  */
 @Composable
@@ -121,10 +121,12 @@ fun LivingBlurSample(strength: Float, smoothing: Float, colours: LivingColours, 
                     onClick = {
                         scope.launch {
                             val candidates = withContext(Dispatchers.IO) {
-                                database.likedSongsByCreateDateAsc().first()
-                                    .ifEmpty { database.mostPlayedSongs(System.currentTimeMillis() - NINETY_DAYS_MS, limit = 50).first() }
+                                (database.likedSongsByCreateDateAsc().first() +
+                                    database.mostPlayedSongs(System.currentTimeMillis() - NINETY_DAYS_MS, limit = 50).first())
+                                    .distinctBy { it.id }
                             }
-                            val now = playerConnection.mediaMetadata.value
+                            // Only a song that is playing is left out: a paused one may as well be played again.
+                            val now = playerConnection.mediaMetadata.value.takeIf { playerConnection.isPlaying.value }
                             val chosen = SampleSong.pick(candidates.map { SampleSong.Choice(it.id, it.song.albumId) }, now?.id, now?.album?.id)
                             val pick = candidates.firstOrNull { it.id == chosen }
                             if (pick == null) {
