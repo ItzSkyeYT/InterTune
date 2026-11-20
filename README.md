@@ -198,7 +198,7 @@ Every change in detail, and why this fork exists: [docs/FEATURES.md](https://git
 What's being worked on, roughly in order. `[x]` is done, `[~]` is built and being tested, `[ ]` is still to do. Nothing here has a date, and plans can change. Ideas are welcome in #feature-requests on [Discord](https://discord.gg/68jmqhMjXk) or as a [GitHub issue](https://github.com/ItzSkyeYT/InterTune/issues/new/choose).
 
 <details>
-<summary><b>Next: 0.13</b> · 35 of 46 done, 6 to test</summary>
+<summary><b>Next: 0.13</b> · 37 of 48 done, 6 to test</summary>
 
 `[x]` Listen together: one person plays, friends follow the same song in real time\
 `[x]` In a room, a guest who casts to a TV or speaker plays on their own, and catches up with the room when the cast ends\
@@ -213,6 +213,8 @@ What's being worked on, roughly in order. `[x]` is done, `[~]` is built and bein
 `[x]` Block an artist\
 `[x]` Your playlists in your own order, dragged where you want them\
 `[x]` What's playing works offline and names the song once you're back online ([#48](https://github.com/ItzSkyeYT/InterTune/issues/48))\
+`[x]` What you have heard shows each song with its cover and menu, like every other list\
+`[~]` Scrobbling to ListenBrainz, in place of Last.fm from 1 December ([#159](https://github.com/ItzSkyeYT/InterTune/issues/159))\
 `[x]` Albums carry on into a radio when they end\
 `[~]` A sleep timer with more ways to stop: at a clock time, or at the end of the song, the album or the queue\
 `[x]` Pick a playlist's cover\
@@ -244,7 +246,7 @@ What's being worked on, roughly in order. `[x]` is done, `[~]` is built and bein
 `[x]` Remove a song on your phone from the library, or leave out a whole folder, with Undo\
 `[x]` A playlist's search looks on YouTube Music too, with an add button on each song\
 `[x]` Varispeed: the pitch follows the speed, like a record ([#225](https://github.com/ItzSkyeYT/InterTune/issues/225))\
-`[~]` More haptic feedback ([#176](https://github.com/ItzSkyeYT/InterTune/issues/176))\
+`[x]` More haptic feedback, and a Vibration setting: Off, Light or Strong ([#176](https://github.com/ItzSkyeYT/InterTune/issues/176))\
 `[x]` Bring your library over from a Metrolist backup, from its Android app or its new one
 
 </details>
@@ -268,7 +270,6 @@ What's being worked on, roughly in order. `[x]` is done, `[~]` is built and bein
 `[ ]` Lyrics in big lines, each singer on their own side, with a menu to fix them or pick where they come from\
 `[ ]` The queue: radio choices as chips, and a lock\
 `[ ]` Roomier settings, and one page for the services InterTune connects to\
-`[~]` ListenBrainz ([#159](https://github.com/ItzSkyeYT/InterTune/issues/159))\
 `[ ]` Playlist folders\
 `[ ]` Music videos ([#96](https://github.com/ItzSkyeYT/InterTune/issues/96))\
 `[ ]` Bring your library over from InnerTune, ViMusic, SimpMusic or Kreate\
