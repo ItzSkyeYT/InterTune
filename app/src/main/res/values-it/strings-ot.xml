@@ -54,7 +54,6 @@
     <string name="head_tracking_response_instant">Istantanea</string>
     <string name="head_tracking_response_explain">\"Morbida\" non va mai oltre, ma sembra un po\' in ritardo. \"Rapida\" e \"Istantanea\" sembrano immediate, ma possono andare oltre quando smetti di girarti. \"Bilanciata\" sta a metà tra le due.</string>
     <string name="proximity_volume">Più basso quando ti allontani</string>
-    <string name="proximity_volume_description">Considera il telefono come il punto da cui arriva la musica.</string>
     <string name="proximity_volume_explain">Se ti allontani dal telefono, la musica si abbassa piano piano, come se il telefono fosse l\'altoparlante. Non si azzera mai.\n\nServono cuffie Bluetooth e il permesso Dispositivi nelle vicinanze di Android: la distanza viene stimata dalla potenza del loro segnale.</string>
     <string name="proximity_probe">Registro del segnale Bluetooth</string>
     <string name="proximity_probe_stop">Interrompi la registrazione</string>
@@ -231,7 +230,6 @@
     <string name="oobe_polls_answered">Puoi cambiarlo quando vuoi in Impostazioni, alla voce Domande e novità.</string>
     <string name="oobe_usage_count_answered">Puoi cambiarlo quando vuoi in Impostazioni, alla voce Conteggio anonimo.</string>
     <string name="poll_title">Una domanda da InterTune</string>
-    <string name="poll_banner_hint">Tocca per rispondere, o chiudi con la croce</string>
     <string name="poll_dismiss">Ignora questa domanda</string>
     <string name="poll_close">Chiudi</string>
     <string name="poll_send">Invia la mia risposta</string>
@@ -336,7 +334,6 @@
     <string name="lyrics_prefer_local_description">Dai priorità alla risoluzione dei file di testo locali prima di utilizzare tutti i provider cloud. Disattivare questa opzione per dare priorità ai provider cloud</string>
     <string name="lyrics_settings_title">Testi</string>
     <string name="lyrics_synced_clickable">Testi cliccabili</string>
-    <string name="lyrics_trim_title">Rimuovi gli spazi attorno ai testi</string>
     <string name="local_library_enable_title">Abilitare i media locali</string>
     <string name="local_library_enable_description">Disattivando si nasconderà la libreria locale dall\'app</string>
     <string name="local_player_settings_title">Media locali</string>
@@ -404,7 +401,6 @@
     <string name="player_liquid_glass_description">Pannelli di vetro fluttuanti per la barra di navigazione, il mini player e i comandi di riproduzione, e colori della copertina più intensi dietro la schermata di riproduzione</string>
     <string name="player_liquid_glass_description_legacy">Colori della copertina più intensi dietro la schermata di riproduzione. I pannelli di vetro fluttuanti richiedono Android 13 o più recente</string>
     <string name="player_glass_intensity">Intensità del vetro</string>
-    <string name="player_glass_intensity_description">Più alta è più trasparente e più rifratta; più bassa si avvicina a superfici piene normali</string>
     <string name="player_glass_intensity_value">%1$d%%</string>
     <string name="player_glass_preview_needs_13">L\'anteprima in tempo reale del vetro richiede Android 13 o versioni successive</string>
     <string name="player_glass_preview_side_navigation">L\'anteprima in tempo reale del vetro non è disponibile con la navigazione laterale</string>
@@ -572,7 +568,6 @@
     <string name="image_cache_max_size">Dimensione massima della cache delle copertine</string>
     <string name="max_queues_description">Quante code tiene l\'app contemporaneamente. La più vecchia viene eliminata quando superi questo numero.</string>
     <string name="enable_proxy_description">Fai passare prima da un altro server le richieste e gli stream di YouTube Music. Le immagini, i testi e gli altri servizi usati dall\'app continuano a collegarsi direttamente. Lascialo disattivato a meno che tu non sappia di averne bisogno.</string>
-    <string name="show_liked_and_downloaded_playlist_description">Mostra Brani che ti piacciono e Brani scaricati come playlist nella tua libreria.</string>
     <string name="pause_listen_history_description">Smetti di aggiungere brani alla cronologia. Nulla di ciò che è già presente viene rimosso.</string>
     <string name="pause_remote_listen_history_description">Smetti di comunicare a YouTube Music cosa ascolti. La cronologia dentro questa app continua comunque.</string>
     <string name="clear_listen_history_description">Elimina tutto ciò che l\'app ha registrato su cosa hai ascoltato.</string>
@@ -693,7 +688,6 @@
     <string name="tour_closer_entry">Giro delle impostazioni</string>
     <string name="tour_closer_login">Accedere al tuo account YouTube Music porta qui le tue playlist, i Mi piace e i consigli. L\'app funziona anche senza.</string>
     <string name="tour_closer_lastfm">Per chi ha un profilo Last.fm: una volta collegato, i brani che ascolti qui fino alla fine vengono aggiunti al profilo.</string>
-    <string name="tour_closer_ytm_sync">Mantiene uguali la libreria qui e quella del tuo account YouTube Music, senza bisogno di chiederlo. Senza accesso, non c\'è niente con cui sincronizzare.</string>
     <string name="tour_closer_sync_mode">Scegli sola lettura se i Mi piace e le playlist creati qui devono restare qui e non arrivare mai al tuo account.</string>
     <string name="tour_closer_quick_picks_source">Chi sceglie i brani della riga Scelte rapide in cima alla Home. Cambia solo quella riga e nient\'altro.</string>
     <string name="tour_closer_content_language">La lingua in cui risponde YouTube Music: i nomi di brani e artisti, e i titoli delle righe della Home.</string>

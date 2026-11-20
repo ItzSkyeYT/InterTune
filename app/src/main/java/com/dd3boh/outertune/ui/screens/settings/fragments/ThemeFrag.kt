@@ -290,7 +290,6 @@ fun ColumnScope.ThemePlayerFrag() {
             PreferenceEntry(
                 modifier = Modifier.settingRow(R.string.player_living_strength),
                 title = { Text(stringResource(R.string.player_living_strength)) },
-                description = stringResource(R.string.player_living_strength_description),
                 icon = { Icon(Icons.Rounded.GraphicEq, null) },
                 // A label for the slider underneath, not a button.
                 onClick = null
@@ -313,7 +312,6 @@ fun ColumnScope.ThemePlayerFrag() {
             PreferenceEntry(
                 modifier = Modifier.settingRow(R.string.player_living_smoothing),
                 title = { Text(stringResource(R.string.player_living_smoothing)) },
-                description = stringResource(R.string.player_living_smoothing_description),
                 icon = { Icon(Icons.Rounded.Waves, null) },
                 onClick = null
             )
@@ -408,7 +406,6 @@ fun ColumnScope.ThemePlayerFrag() {
             PreferenceEntry(
                 modifier = Modifier.settingRow(R.string.player_glass_intensity),
                 title = { Text(stringResource(R.string.player_glass_intensity)) },
-                description = stringResource(R.string.player_glass_intensity_description),
                 content = noSampleBecause?.let { reason ->
                     @Composable {
                         Text(

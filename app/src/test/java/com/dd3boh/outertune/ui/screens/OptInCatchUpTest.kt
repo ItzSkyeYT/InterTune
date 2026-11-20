@@ -496,16 +496,16 @@ class OptInCatchUpTest {
     }
 
     @Test
-    fun `every text of the screen is in English and in French, and the closing line names the button`() {
+    fun `every text of the screen is in English and in French, and the closing line thanks`() {
         val used = Regex("""R\.string\.([a-z0-9_]+)""").findAll(screen).map { it.groupValues[1] }.toSet()
         assertEquals(setOf("catch_up_title", "catch_up_body", "catch_up_done", "catch_up_all_answered"), used)
         for (file in listOf("values/strings-ot.xml", "values-fr/strings-ot.xml")) {
             val texts = File("src/main/res/$file").readText()
             for (name in used) assertTrue("$name is not in $file", "<string name=\"$name\">" in texts)
-            // Setup's line says to tap the tick, and this screen has none: its own names its
-            // button, by whatever the button says.
+            // His pick of 19 Nov 2026 (Ti-Die's review): the closing line is a thank you, which the button under it
+            // makes plain enough. The screen still hands it the button's name, for the languages that keep the old line.
             val closing = texts.substringAfter("<string name=\"catch_up_all_answered\">").substringBefore("</string>")
-            assertTrue(closing, "%1\$s" in closing)
+            assertTrue(closing, closing == "Thank you!" || closing == "Merci !")
             assertFalse(closing, "'" in closing.replace("\\'", ""))
         }
         assertTrue("closing = stringResource(R.string.catch_up_all_answered, stringResource(R.string.catch_up_done))" in screen)

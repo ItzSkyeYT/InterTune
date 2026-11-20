@@ -331,6 +331,31 @@ class MetrolistImportTest {
     }
 
     @Test
+    fun `lyrics written or edited by hand in the new app come over in place of the provider's`() {
+        val m = theirs(65)
+        for (id in listOf("U1", "U2", "U3", "U4", "U5")) m.row("song", "id" to id, "title" to id, "duration" to 100)
+        // Their own beside a provider's: the new app shows their own (userLyrics) first.
+        m.row("lyrics", "id" to "U1", "lyrics" to "[00:01.00] provider", "provider" to "LrcLib", "userLyrics" to "[00:01.00] mine")
+        // Their own for a song no provider had.
+        m.row("lyrics", "id" to "U2", "lyrics" to "", "provider" to "LYRICS_NOT_FOUND_V2", "userLyrics" to "Typed by hand")
+        // A blank one of their own is no lyrics: the provider's come over.
+        m.row("lyrics", "id" to "U3", "lyrics" to "[00:01.00] provider", "provider" to "LrcLib", "userLyrics" to "  ")
+        // One set aside for a provider's, which the app shows: the provider's.
+        m.row("lyrics", "id" to "U4", "lyrics" to "[00:01.00] chosen", "provider" to "LrcLib", "stashedUserLyrics" to "set aside")
+        // A miss, and nothing of their own: nothing, so ours looks it up.
+        m.row("lyrics", "id" to "U5", "lyrics" to "", "provider" to "LYRICS_NOT_FOUND_V2")
+        val o = ours()
+
+        MetrolistImport.merge(JdbcDb(m), JdbcDb(o))
+
+        assertEquals(listOf("U1", "U2", "U3", "U4"), o.all("SELECT id FROM lyrics ORDER BY id"))
+        assertEquals("[00:01.00] mine", o.one("SELECT lyrics FROM lyrics WHERE id = 'U1'"))
+        assertEquals("Typed by hand", o.one("SELECT lyrics FROM lyrics WHERE id = 'U2'"))
+        assertEquals("[00:01.00] provider", o.one("SELECT lyrics FROM lyrics WHERE id = 'U3'"))
+        assertEquals("[00:01.00] chosen", o.one("SELECT lyrics FROM lyrics WHERE id = 'U4'"))
+    }
+
+    @Test
     fun `likes from the new app's list are dated as the app dates a like, the phone's clock written as UTC`() {
         val zone = TimeZone.getDefault()
         // Five hours behind UTC in November: true UTC would date these likes five hours in the future.

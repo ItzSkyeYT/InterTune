@@ -162,7 +162,6 @@
     <string name="oobe_update_check_title">Kas anname uuendustest teada?</string>
     <string name="oobe_update_check_yes">Jah, kontrolli</string>
     <string name="player_glass_intensity">Klaasi tugevus</string>
-    <string name="player_glass_intensity_description">Suurem väärtus on läbipaistvam ja tugevamalt murdunud, väiksem on lähemal tavalisele läbipaistmatule pinnale</string>
     <string name="player_glass_intensity_value">%1$d%%</string>
     <string name="player_liquid_glass">Vedelklaas</string>
     <string name="player_liquid_glass_description">Hõljuvad klaaspaneelid navigeerimisribale, minimängijale ja esitusnuppudele ning rikkalikumad kaanepildi värvid esitusvaate taustal</string>
@@ -186,7 +185,6 @@
     <string name="oobe_update_auto_description">Laadib selle taustal alla, et see oleks valmis, kui seda soovid. Android küsib ikkagi sinu kinnitust.</string>
     <string name="oobe_polls_answered">Saad seda igal ajal muuta seadetes jaotises Küsimused.</string>
     <string name="poll_title">Küsimus InterTune’ilt</string>
-    <string name="poll_banner_hint">Puuduta vastamiseks või sulge ristiga</string>
     <string name="poll_dismiss">Jäta see küsimus vahele</string>
     <string name="poll_close">Sulge</string>
     <string name="poll_send">Saada mu vastus</string>
@@ -247,7 +245,6 @@
     <string name="image_cache_max_size">Kaanepiltide vahemälu suurim maht</string>
     <string name="max_queues_description">Mitu järjekorda rakendus korraga hoiab. Vanim visatakse ära, kui sellest arvust üle lähed.</string>
     <string name="enable_proxy_description">Suuna YouTube Musicu päringud ja vood kõigepealt läbi teise serveri. Pildid, laulusõnad ja muud teenused, mida rakendus kasutab, ühenduvad endiselt otse. Jäta välja, kui sa ei tea, et seda vajad.</string>
-    <string name="show_liked_and_downloaded_playlist_description">Näita meeldinud lugusid ja alla laaditud lugusid oma teegis esitusloenditena.</string>
     <string name="pause_listen_history_description">Lõpeta lugude lisamine ajalukku. Midagi juba seal olevat ei eemaldata.</string>
     <string name="pause_remote_listen_history_description">Lõpeta YouTube Musicule teatamine, mida esitad. Ajalugu selle rakenduse sees jätkub niikuinii.</string>
     <string name="clear_listen_history_description">Kustuta kõik, mida rakendus on salvestanud selle kohta, mida oled esitanud.</string>

@@ -270,7 +270,6 @@ val MixQueueLinksKey = stringSetPreferencesKey("mixQueueLinks")
 val ShowLyricsKey = booleanPreferencesKey("showLyrics")
 val LyricsTextPositionKey = stringPreferencesKey("lyricsTextPosition")
 val MultilineLrcKey = booleanPreferencesKey("multilineLrc")
-val LyricTrimKey = booleanPreferencesKey("lyricTrim")
 /**
  * How far each song's synced lyrics are moved against it, as "songId=ms" pairs joined by commas
  * (LyricsTiming): only the songs somebody moved, so a handful of entries, kept with the settings so

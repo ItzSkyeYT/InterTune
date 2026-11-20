@@ -69,12 +69,18 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.SleepScheduleKey
 import com.dd3boh.outertune.constants.SleepScheduleStartKey
@@ -119,14 +125,22 @@ fun rememberSleepTimerStatus(playerConnection: PlayerConnection): SleepTimer.Sta
     val end = timer.endOf
 
     var status by remember { mutableStateOf<SleepTimer.Status?>(null) }
-    LaunchedEffect(active, trigger, end) {
+    // Once a second, and only while somebody can see it. A LaunchedEffect is not stopped when the
+    // screen goes off or another app comes in front, so a bare loop here woke the main thread every
+    // second for the timer's whole run, and at the end of an album or the queue each look walks the
+    // rest of the queue. STARTED as the player's progress bar: still seen behind a dialog. Nothing is
+    // lost while it sleeps, since status() works the time out afresh at the first look after ON_START.
+    val lifecycleOwner = LocalLifecycleOwner.current
+    LaunchedEffect(active, trigger, end, lifecycleOwner) {
         if (!active) {
             status = null
             return@LaunchedEffect
         }
-        while (isActive) {
-            status = timer.status()
-            delay(1000L)
+        lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            while (isActive) {
+                status = timer.status()
+                delay(1000L)
+            }
         }
     }
     return if (active) status ?: timer.status() else null
@@ -361,11 +375,19 @@ private fun SetTimer(value: Float, onValueChange: (Float) -> Unit, onEnd: (Sleep
             )
         }
 
+        // For TalkBack, what the slider sets and the length it is at, as the line above says it
+        // ("30 minutes"). A bare Slider was read as a percent of its range, 1 to 120 minutes.
+        val sliderName = stringResource(R.string.sleep_timer)
         Slider(
             value = value,
             onValueChange = onValueChange,
             valueRange = 1f..120f,
-            modifier = Modifier.padding(bottom = 4.dp)
+            modifier = Modifier
+                .padding(bottom = 4.dp)
+                .semantics {
+                    contentDescription = sliderName
+                    stateDescription = pluralString
+                }
         )
 
         // In: how long from now. The lengths the leading players offer, and 90.

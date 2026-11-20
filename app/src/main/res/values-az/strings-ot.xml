@@ -88,7 +88,6 @@
     <string name="oobe_update_check_title">Yeniləmələrdən xəbər verilsin?</string>
     <string name="oobe_update_check_yes">Bəli, yoxla</string>
     <string name="player_glass_intensity">Şüşə effektinin gücü</string>
-    <string name="player_glass_intensity_description">Yüksək dəyər daha şəffaf və daha güclü sınmış görünür; aşağı dəyər adi tutqun səthlərə yaxındır</string>
     <string name="player_glass_intensity_value">%1$d%%</string>
     <string name="player_liquid_glass">Maye şüşə</string>
     <string name="player_liquid_glass_description">Naviqasiya paneli, mini səsləndirici və idarəetmə düymələri üçün üzən şüşə panellər, həmçinin səslənən mahnı ekranının arxasında daha zəngin albom rəngləri</string>
@@ -112,7 +111,6 @@
     <string name="oobe_update_auto_description">Onu arxa planda endirir ki, istədiyiniz anda hazır olsun. Android yenə də sizdən təsdiq istəyəcək.</string>
     <string name="oobe_polls_answered">Bunu istənilən vaxt Ayarlarda, Suallar bölməsində dəyişə bilərsiniz.</string>
     <string name="poll_title">InterTune-dan bir sual</string>
-    <string name="poll_banner_hint">Cavablamaq üçün toxunun və ya çarpazla bağlayın</string>
     <string name="poll_dismiss">Bu sualı ləğv et</string>
     <string name="poll_close">Bağla</string>
     <string name="poll_send">Cavabımı göndər</string>
@@ -173,7 +171,6 @@
     <string name="image_cache_max_size">Üz qabığı keşinin maksimum həcmi</string>
     <string name="max_queues_description">Tətbiqin eyni anda saxladığı növbələrin sayı. Bu saydan keçdikdə ən köhnəsi atılır.</string>
     <string name="enable_proxy_description">YouTube Music sorğularını və yayımlarını əvvəlcə başqa serverdən keçir. Şəkillər, mahnı sözləri və tətbiqin istifadə etdiyi digər xidmətlər yenə birbaşa qoşulur. Ehtiyacınız olduğunu bilmirsinizsə, sönülü saxlayın.</string>
-    <string name="show_liked_and_downloaded_playlist_description">Bəyənilən mahnıları və endirilmiş mahnıları kitabxananızda pleylist kimi göstər.</string>
     <string name="pause_listen_history_description">Tarixçənizə mahnı əlavə etməyi dayandır. Orada artıq olan heç nə silinmir.</string>
     <string name="pause_remote_listen_history_description">YouTube Music-ə nə oxutduğunuzu bildirməyi dayandır. Bu tətbiqin daxilindəki tarixçə hər halda davam edir.</string>
     <string name="clear_listen_history_description">Tətbiqin nə oxutduğunuz barədə qeyd etdiyi hər şeyi sil.</string>

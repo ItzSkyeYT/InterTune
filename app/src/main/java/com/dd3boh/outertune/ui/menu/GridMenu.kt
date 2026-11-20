@@ -455,7 +455,9 @@ fun LazyGridScope.SleepTimerGridMenu(
         icon = {
             Icon(
                 imageVector = Icons.Rounded.Bedtime,
-                contentDescription = null,
+                // While the words under it are the time left, the moon names the entry: TalkBack read the
+                // time alone ("12:34"). Otherwise the words are the name, and the moon says nothing more.
+                contentDescription = if (enabled && sleepTimerTimeLeft > 0) stringResource(R.string.sleep_timer) else null,
                 modifier = Modifier.alpha(if (enabled) 1f else 0.5f)
             )
         },

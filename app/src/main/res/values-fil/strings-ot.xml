@@ -31,7 +31,6 @@
     <string name="oobe_update_check_title">Sabihan ka tungkol sa mga update?</string>
     <string name="oobe_update_check_yes">Oo, tingnan</string>
     <string name="player_glass_intensity">Intensity ng glass</string>
-    <string name="player_glass_intensity_description">Mas mataas, mas aninag at mas malakas ang refraction; mas mababa, mas malapit sa payak na solidong surface</string>
     <string name="player_glass_intensity_value">%1$d%%</string>
     <string name="player_liquid_glass">Liquid glass</string>
     <string name="player_liquid_glass_description">Mga lumulutang na glass panel para sa navigation bar, mini player at mga kontrol, at mas mayamang kulay ng artwork sa likod ng now playing screen</string>
@@ -55,7 +54,6 @@
     <string name="oobe_update_auto_description">Kinukuha ito sa background para handa na kapag kailangan mo. Hihingi pa rin ng kumpirmasyon ang Android.</string>
     <string name="oobe_polls_answered">Mababago mo ito anumang oras sa Mga setting, sa ilalim ng Mga tanong.</string>
     <string name="poll_title">May tanong ang InterTune</string>
-    <string name="poll_banner_hint">I-tap para sumagot, o isara gamit ang ekis</string>
     <string name="poll_dismiss">I-dismiss ang tanong na ito</string>
     <string name="poll_close">Isara</string>
     <string name="poll_send">Ipadala ang sagot ko</string>
@@ -116,7 +114,6 @@
     <string name="image_cache_max_size">Pinakamalaking laki ng cache ng artwork</string>
     <string name="max_queues_description">Ilang queue ang itinatago ng app nang sabay-sabay. Itinatapon ang pinakaluma kapag lumampas ka rito.</string>
     <string name="enable_proxy_description">Padaanin muna sa ibang server ang mga request at stream ng YouTube Music. Direkta pa ring kumokonekta ang mga larawan, lyrics at iba pang serbisyong ginagamit ng app. Iwanang naka-off maliban kung alam mong kailangan mo ito.</string>
-    <string name="show_liked_and_downloaded_playlist_description">Ipakita ang Mga nagustuhang kanta at Mga na-download na kanta bilang playlist sa aklatan mo.</string>
     <string name="pause_listen_history_description">Itigil ang pagdaragdag ng kanta sa kasaysayan mo. Walang inaalis sa mga naroon na.</string>
     <string name="pause_remote_listen_history_description">Itigil ang pagsasabi sa YouTube Music kung ano ang pinapatugtog mo. Tuloy pa rin ang kasaysayan sa loob ng app na ito.</string>
     <string name="clear_listen_history_description">Burahin ang lahat ng itinala ng app tungkol sa pinatugtog mo.</string>

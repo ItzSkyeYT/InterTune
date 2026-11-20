@@ -141,12 +141,6 @@ fun PollBanner(
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSecondaryContainer,
                 )
-                Spacer(Modifier.height(2.dp))
-                Text(
-                    text = stringResource(R.string.poll_banner_hint),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.75f),
-                )
             }
 
             IconButton(onClick = onDismiss) {

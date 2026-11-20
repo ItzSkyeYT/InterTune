@@ -66,7 +66,6 @@
     <string name="head_tracking_response_instant">Natychmiastowa</string>
     <string name="head_tracking_response_explain">„Płynna” nigdy nie przestrzeli, ale wydaje się lekko spóźniona. „Szybka” i „Natychmiastowa” działają od razu, ale mogą przestrzelić, gdy przestajesz obracać głowę. „Zrównoważona” jest pomiędzy nimi.</string>
     <string name="proximity_volume">Ciszej, gdy się oddalasz</string>
-    <string name="proximity_volume_description">Traktuje telefon jako miejsce, z którego płynie muzyka.</string>
     <string name="proximity_volume_explain">Odejdź od telefonu, a muzyka powoli stanie się trochę cichsza, jakby telefon był głośnikiem. Nigdy nie milknie całkiem.\n\nWymaga słuchawek Bluetooth i uprawnienia Androida „Urządzenia w pobliżu”: odległość jest oceniana na podstawie siły ich sygnału.</string>
     <string name="proximity_probe">Dziennik sygnału Bluetooth</string>
     <string name="proximity_probe_stop">Zatrzymaj zapis</string>
@@ -217,7 +216,6 @@
     <string name="player_background_gradient">Gradient kolorów</string>
     <string name="player_background_living">Żywe rozmycie</string>
     <string name="player_living_strength">Siła Żywego rozmycia</string>
-    <string name="player_living_strength_description">Jak bardzo tło i poświata wokół okładki poruszają się z muzyką. Przy 0 tylko powoli dryfują.</string>
     <string name="player_living_smoothing">Wygładzanie Żywego rozmycia</string>
     <string name="player_living_colours">Kolory Żywego rozmycia</string>
     <string name="player_living_colours_main">Trzy kolory okładki: po jednym dla basu, wokalu i wysokich tonów</string>
@@ -227,7 +225,6 @@
     <string name="player_living_sample_play">Włącz utwór do dostrajania</string>
     <string name="player_living_sample_queue">Dostrajanie Żywego rozmycia</string>
     <string name="player_living_sample_nothing">Nie masz jeszcze żadnego utworu do odtworzenia. Włącz jakiś, a potem wróć tutaj.</string>
-    <string name="player_living_smoothing_description">Jak łagodnie podąża za muzyką. Przy niskiej wartości skacze z każdym uderzeniem, przy wysokiej narasta i dłużej wybrzmiewa.</string>
     <string name="player_background_style">Styl tła odtwarzacza</string>
     <string name="show_liked_and_downloaded_playlist">Pokaż playlisty polubionych i pobranych utworów w bibliotece</string>
     <string name="slim_navbar_title">Wąski pasek nawigacji</string>
@@ -290,7 +287,6 @@
     <string name="oobe_polls_answered">Możesz to zmienić w każdej chwili w Ustawieniach, w sekcji Pytania i wiadomości.</string>
     <string name="oobe_usage_count_answered">Możesz to zmienić w każdej chwili w Ustawieniach, w sekcji Anonimowe zliczanie.</string>
     <string name="poll_title">Pytanie od InterTune</string>
-    <string name="poll_banner_hint">Dotknij, aby odpowiedzieć, lub zamknij krzyżykiem</string>
     <string name="poll_dismiss">Odrzuć to pytanie</string>
     <string name="poll_close">Zamknij</string>
     <string name="poll_send">Wyślij moją odpowiedź</string>
@@ -402,7 +398,6 @@
     <string name="lyrics_prefer_local_description">Priorytetyzuj rozwiązanie lokalnych plików tekstowych przed użyciem wszystkich dostawców z chmury. Wyłącz tę opcję aby priorytetyzować dostawców z chmury</string>
     <string name="lyrics_settings_title">Tekst</string>
     <string name="lyrics_synced_clickable">Klikalny tekst</string>
-    <string name="lyrics_trim_title">Usuń spacje naokoło tekstów</string>
     <string name="local_library_enable_title">Włącz media lokalne</string>
     <string name="local_library_enable_description">Wyłącznie spowoduje ukrycie lokalnej biblioteki z aplikacji</string>
     <string name="local_player_settings_title">Media lokalne</string>
@@ -472,7 +467,6 @@
     <string name="player_liquid_glass_description">Pływające szklane panele paska nawigacji, mini odtwarzacza i przycisków sterowania oraz bogatsze kolory okładki w tle ekranu odtwarzania</string>
     <string name="player_liquid_glass_description_legacy">Bogatsze kolory okładki w tle ekranu odtwarzania. Pływające szklane panele wymagają Androida 13 lub nowszego</string>
     <string name="player_glass_intensity">Intensywność szkła</string>
-    <string name="player_glass_intensity_description">Wyżej: bardziej przezroczyste i mocniej załamane; niżej: bliżej zwykłych, jednolitych powierzchni</string>
     <string name="player_glass_intensity_value">%1$d%%</string>
     <string name="player_glass_preview_needs_13">Podgląd szkła na żywo wymaga Androida 13 lub nowszego</string>
     <string name="player_glass_preview_side_navigation">Podgląd szkła na żywo nie jest dostępny przy bocznej nawigacji</string>
@@ -648,7 +642,6 @@
     <string name="image_cache_max_size">Maksymalny rozmiar pamięci podręcznej okładek</string>
     <string name="max_queues_description">Ile kolejek aplikacja trzyma naraz. Najstarsza jest usuwana, gdy przekroczysz tę liczbę.</string>
     <string name="enable_proxy_description">Przepuszczaj żądania i strumienie YouTube Music najpierw przez inny serwer. Obrazy, teksty piosenek i pozostałe usługi, z których korzysta aplikacja, nadal łączą się bezpośrednio. Zostaw to wyłączone, chyba że wiesz, że tego potrzebujesz.</string>
-    <string name="show_liked_and_downloaded_playlist_description">Pokazuj Polubione i Pobrane jako playlisty w Twojej bibliotece.</string>
     <string name="pause_listen_history_description">Przestań dodawać utwory do historii. Nic z tego, co już w niej jest, nie zostanie usunięte.</string>
     <string name="pause_remote_listen_history_description">Przestań przekazywać YouTube Music, czego słuchasz. Historia wewnątrz tej aplikacji działa dalej tak czy inaczej.</string>
     <string name="clear_listen_history_description">Usuń wszystko, co aplikacja zapisała o tym, czego słuchałeś.</string>
@@ -835,7 +828,6 @@
     <string name="tour_closer_entry">Przegląd ustawień</string>
     <string name="tour_closer_login">Zalogowanie się na konto YouTube Music przenosi tu Twoje playlisty, polubienia i rekomendacje. Aplikacja działa też bez tego.</string>
     <string name="tour_closer_lastfm">Dla osób z profilem Last.fm: po połączeniu utwory, których słuchasz tu do końca, są do niego dodawane.</string>
-    <string name="tour_closer_ytm_sync">Biblioteka tutaj i ta na Twoim koncie YouTube Music są automatycznie utrzymywane w zgodzie. Bez zalogowania nie ma z czym synchronizować.</string>
     <string name="tour_closer_sync_mode">Wybierz tryb tylko do odczytu, jeśli polubienia i playlisty utworzone tutaj mają tu zostać i nigdy nie trafiać na Twoje konto.</string>
     <string name="tour_closer_quick_picks_source">Kto wybiera utwory w wierszu Szybki wybór na górze ekranu głównego. Zmienia tylko ten jeden wiersz i nic poza nim.</string>
     <string name="tour_closer_content_language">Język, w którym odpowiada YouTube Music: nazwy utworów i artystów oraz tytuły wierszy na ekranie głównym.</string>

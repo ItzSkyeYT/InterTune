@@ -54,7 +54,6 @@
     <string name="head_tracking_response_instant">Мгновенно</string>
     <string name="head_tracking_response_explain">«Плавно» не проскакивает дальше нужного, но немного запаздывает. «Быстро» и «Мгновенно» реагируют сразу, но могут проскочить, когда вы перестаёте поворачиваться. «Сбалансированно» находится посередине.</string>
     <string name="proximity_volume">Тише, когда вы отходите</string>
-    <string name="proximity_volume_description">Телефон становится источником музыки.</string>
     <string name="proximity_volume_explain">Когда вы отходите от телефона, музыка постепенно становится немного тише, как будто телефон и есть колонка. Звук никогда не пропадает полностью.\n\nНужны Bluetooth-наушники и разрешение Android «Устройства поблизости»: расстояние определяется по силе их сигнала.</string>
     <string name="proximity_probe">Журнал сигнала Bluetooth</string>
     <string name="proximity_probe_stop">Остановить запись</string>
@@ -232,7 +231,6 @@
     <string name="oobe_polls_answered">Это можно изменить в любой момент в настройках, в разделе «Вопросы и новости».</string>
     <string name="oobe_usage_count_answered">Это можно изменить в любой момент в настройках, в разделе «Анонимный подсчёт».</string>
     <string name="poll_title">Вопрос от InterTune</string>
-    <string name="poll_banner_hint">Нажмите, чтобы ответить, или закройте крестиком</string>
     <string name="poll_dismiss">Скрыть этот вопрос</string>
     <string name="poll_close">Закрыть</string>
     <string name="poll_send">Отправить ответ</string>
@@ -338,7 +336,6 @@
     <string name="lyrics_prefer_local_description">Отдавать приоритет локальным файлам текстов песен перед использованием облачных источников. Отключите эту опцию, чтобы отдать приоритет облачным источникам</string>
     <string name="lyrics_settings_title">Текст</string>
     <string name="lyrics_synced_clickable">Кликабельные тексты песен</string>
-    <string name="lyrics_trim_title">Удалять пробелы вокруг текста</string>
     <string name="local_library_enable_title">Включить локальные медиа</string>
     <string name="local_library_enable_description">Отключение скроет локальную медиатеку в приложении</string>
     <string name="local_player_settings_title">Локальные медиа</string>
@@ -408,7 +405,6 @@
     <string name="player_liquid_glass_description">Плавающие стеклянные панели для панели навигации, мини-плеера и кнопок управления, а также более насыщенные цвета обложки на экране плеера</string>
     <string name="player_liquid_glass_description_legacy">Более насыщенные цвета обложки на экране плеера. Для плавающих стеклянных панелей нужен Android 13 или новее</string>
     <string name="player_glass_intensity">Интенсивность стекла</string>
-    <string name="player_glass_intensity_description">Чем выше, тем прозрачнее и сильнее преломление; чем ниже, тем ближе к обычным сплошным поверхностям</string>
     <string name="player_glass_intensity_value">%1$d%%</string>
     <string name="player_glass_preview_needs_13">Для живого предпросмотра стекла нужен Android 13 или новее</string>
     <string name="player_glass_preview_side_navigation">Живой предпросмотр стекла недоступен при боковой навигации</string>
@@ -578,7 +574,6 @@
     <string name="image_cache_max_size">Максимальный размер кэша обложек</string>
     <string name="max_queues_description">Сколько очередей приложение хранит одновременно. Самая старая удаляется, когда вы выходите за это число.</string>
     <string name="enable_proxy_description">Пропускать запросы и потоки YouTube Music сначала через другой сервер. Изображения, тексты песен и другие сервисы, которыми пользуется приложение, по-прежнему подключаются напрямую. Оставьте выключенным, если не уверены, что вам это нужно.</string>
-    <string name="show_liked_and_downloaded_playlist_description">Показывать «Понравившиеся» и «Скачанные» как плейлисты в вашей библиотеке.</string>
     <string name="pause_listen_history_description">Перестать добавлять треки в вашу историю. Ничего из того, что уже там есть, не удаляется.</string>
     <string name="pause_remote_listen_history_description">Перестать сообщать YouTube Music, что вы слушаете. История внутри этого приложения продолжает вестись в любом случае.</string>
     <string name="clear_listen_history_description">Удалить всё, что приложение записало о прослушанном.</string>
@@ -703,7 +698,6 @@
     <string name="tour_closer_entry">Обзор настроек</string>
     <string name="tour_closer_login">Вход в аккаунт YouTube Music переносит сюда ваши плейлисты, отметки «Нравится» и рекомендации. Приложение работает и без него.</string>
     <string name="tour_closer_lastfm">Для тех, у кого есть профиль Last.fm: после подключения песни, которые вы дослушиваете здесь, добавляются в него.</string>
-    <string name="tour_closer_ytm_sync">Автоматически синхронизирует библиотеку здесь с библиотекой в аккаунте YouTube Music. Без входа в аккаунт синхронизировать не с чем.</string>
     <string name="tour_closer_sync_mode">Выберите «Только чтение», если отметки «Нравится» и плейлисты, созданные здесь, должны оставаться здесь и никогда не попадать в ваш аккаунт.</string>
     <string name="tour_closer_quick_picks_source">Кто подбирает песни в подборке «Быстрый выбор» вверху главного экрана. Меняется только эта подборка, и ничего больше.</string>
     <string name="tour_closer_content_language">Язык, на котором отвечает YouTube Music: названия песен и имена исполнителей, а также заголовки подборок на главном экране.</string>
@@ -1722,7 +1716,6 @@
     <string name="auto_more_line">Очередь никогда не закончится</string>
     <string name="auto_radios_line">Учитывает ваши пропуски и лайки</string>
     <string name="player_background_living">Живое размытие</string>
-    <string name="player_living_strength_description">Насколько сильно фон и свечение вокруг обложки двигаются вместе с музыкой. На 0 они просто плывут.</string>
     <string name="player_living_smoothing">Сглаживание живого размытия</string>
     <string name="player_living_colours">Цвета живого размытия</string>
     <string name="player_living_colours_main">Три цвета обложки: один под басс, под голос и под высокие частоты</string>
@@ -1732,7 +1725,6 @@
     <string name="player_living_sample_play">Включите музыку чтобы настроить</string>
     <string name="player_living_sample_queue">Настройка живого размытия</string>
     <string name="player_living_sample_nothing">У вас пока нет песен которые можно включить. Сыграйте хотя бы одну, потом возвращайтесь.</string>
-    <string name="player_living_smoothing_description">Насколько плавно эффекты следуют за музыкой. На низких значениях они резко подпрыгивают под каждый бит, на высоких медленно плывут и переливаются.</string>
     <string name="poll_other_hint">Ваш ответ</string>
     <string name="poll_other_notice">То что вы пишете будет отослано как есть, поэтому не пишите личной информации.</string>
     <string name="update_blocked">Обновление не установилось. Попробуйте ещё раз или скачайте обновление вручную со страницы релизов.</string>

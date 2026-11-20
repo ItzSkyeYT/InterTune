@@ -196,7 +196,10 @@ object MetrolistImport {
         theirs.query("SELECT id, bookmarkedAt FROM artist WHERE bookmarkedAt IS NOT NULL") { r ->
             ours.exec("UPDATE artist SET bookmarkedAt = ? WHERE id = ? AND bookmarkedAt IS NULL", listOf(r[1], r[0]))
         }
-        for (table in PER_SONG) if (table in both) copy(theirs, ours, table, where = if (table == "lyrics") lyricsFound(theirs) else "")
+        for (table in PER_SONG) if (table in both) {
+            if (table == "lyrics") copy(theirs, ours, table, where = lyricsFound(theirs), read = lyricsRead(theirs))
+            else copy(theirs, ours, table)
+        }
 
         playlists(theirs, ours)
 
@@ -278,14 +281,23 @@ object MetrolistImport {
 
     /**
      * Every row of theirs we do not have, by key, with the columns both tables have but [leaveOut], and of their rows
-     * only those [where] (an SQL WHERE clause, with its leading space) takes.
+     * only those [where] (an SQL WHERE clause, with its leading space) takes. A column named in [read] is read from
+     * theirs as that SQL expression instead of as itself.
      */
-    private fun copy(theirs: Db, ours: Db, table: String, leaveOut: Set<String> = emptySet(), where: String = "") {
+    private fun copy(
+        theirs: Db,
+        ours: Db,
+        table: String,
+        leaveOut: Set<String> = emptySet(),
+        where: String = "",
+        read: Map<String, String> = emptyMap(),
+    ) {
         val columns = shared(theirs, ours, table) - leaveOut
         if (columns.isEmpty()) return
         val toOurs = numbers(ours, table, columns)
         val (sql, args) = insertIfParents(table, columns)
-        theirs.query("SELECT ${list(columns)} FROM \"$table\"$where") { r -> ours.exec(sql, args(toOurs(r))) }
+        val select = columns.joinToString(",") { read[it] ?: "\"$it\"" }
+        theirs.query("SELECT $select FROM \"$table\"$where") { r -> ours.exec(sql, args(toOurs(r))) }
     }
 
     /**
@@ -362,8 +374,26 @@ object MetrolistImport {
      * Metrolist's Android app writes the text LYRICS_NOT_FOUND for a miss, offline and on a timeout too; the new app an
      * empty text with the provider LYRICS_NOT_FOUND_V2.
      */
-    private fun lyricsFound(theirs: Db) = " WHERE trim(lyrics) != '' AND lyrics != 'LYRICS_NOT_FOUND'" +
-            if ("provider" in theirs.columns("lyrics")) " AND provider IS NOT 'LYRICS_NOT_FOUND_V2'" else ""
+    private fun lyricsFound(theirs: Db): String {
+        val columns = theirs.columns("lyrics")
+        val found = "trim(lyrics) != '' AND lyrics != 'LYRICS_NOT_FOUND'" +
+                if ("provider" in columns) " AND provider IS NOT 'LYRICS_NOT_FOUND_V2'" else ""
+        // Lyrics written or edited by hand in the new app are lyrics too, whatever its provider's row says.
+        return if (USER_LYRICS in columns) " WHERE trim($USER_LYRICS) != '' OR ($found)" else " WHERE $found"
+    }
+
+    /**
+     * Their lyrics as the song's lyrics here: the new app's own (written or edited by hand there, kept apart from the
+     * provider's in [USER_LYRICS]) where there are any, which it shows before any provider's; else the provider's.
+     * Only the lyrics column was copied before, so lyrics someone had typed there came over as the provider's text.
+     */
+    private fun lyricsRead(theirs: Db): Map<String, String> =
+        if (USER_LYRICS in theirs.columns("lyrics")) {
+            mapOf("lyrics" to "CASE WHEN trim($USER_LYRICS) != '' THEN $USER_LYRICS ELSE lyrics END")
+        } else emptyMap()
+
+    /** The new Metrolist app's column for a song's lyrics written or edited by hand (its LyricsEntity.userLyrics). */
+    private const val USER_LYRICS = "userLyrics"
 
     private fun truthy(value: Any?) = when (value) {
         is Number -> value.toLong() != 0L

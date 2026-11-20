@@ -42,20 +42,20 @@ while also allowing users to translate our app as well. New, specific strings to
 
 <!-- Menu -->
     <string name="more_settings">More settings</string>
-    <string name="delete_lyric_confirm">Do you really want to delete the stored lyrics for \"%s\"?</string>
+    <string name="delete_lyric_confirm">Are you sure you want to delete the stored lyrics for \"%s\"?</string>
     <string name="tap_show_more">Tap to show more information</string>
 
 <!-- Player -->
     <!-- A YouTube link pasted in the search or shared to the app (youtubeNavigator): a video that is no song on YouTube Music, and no answer at all (with Retry; offline it says error_no_internet). For 0.13, the French beside them in values-fr. -->
     <string name="err_invalid_ytm_song">InterTune can\'t play this video. It isn\'t a song on YouTube Music.</string>
     <string name="link_open_failed" translatable="false">Couldn\'t open this link. Try again in a moment.</string>
-    <string name="err_play_next_on_error">Error occurred. Playing next</string>
+    <string name="err_play_next_on_error">Error occurred, playing the next song</string>
     <string name="err_stop_on_error">Error occurred. Playback stopped</string>
     <string name="err_stop_on_too_many_errors">Too many errors. Playback stopped</string>
     <string name="wait_to_reconnect">Wait to reconnect</string>
-    <string name="err_youtube_busy">YouTube has temporarily stopped serving music to this internet connection. It is not your phone, your account or this song, and it clears by itself. Another network, such as mobile data, often works. Otherwise leave it a little while and try again.</string>
+    <string name="err_youtube_busy">YouTube has temporarily stopped serving music to this internet connection. Try another network, such as mobile data, or try again later.</string>
     <string name="spatial_audio">Spatial audio</string>
-    <string name="spatial_audio_description">Puts the music in front of you instead of inside your head.</string>
+    <string name="spatial_audio_description">Plays music from in front of you, like speakers, instead of inside your head.</string>
     <string name="spatial_audio_off">Off</string>
     <string name="spatial_audio_headphones">Headphones</string>
     <string name="spatial_audio_surround">Surround upmix</string>
@@ -75,7 +75,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <!-- The last row of a search in the car when YouTube Music gave nothing back: why, then what a tap does (it searches again). -->
     <string name="auto_search_offline">No internet on the phone</string>
     <string name="auto_search_no_answer">YouTube Music did not answer</string>
-    <string name="auto_search_again">Tap to search again</string>
+    <string name="auto_search_again">Search again</string>
     <string name="auto_settings_sound">Sound</string>
     <string name="auto_settings_playback">Playback</string>
     <string name="auto_level_line">Even out the volume</string>
@@ -93,17 +93,16 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="auto_shuffled" translatable="false">Shuffled · %1$s</string>
     <string name="spatial_ambience" translatable="false">Ambience</string>
     <string name="spatial_ambience_value" translatable="false">%1$d%% of the way out to your sides</string>
-    <string name="spatial_bass" translatable="false">Leave the bass alone</string>
-    <string name="spatial_bass_description" translatable="false">Low notes skip the effect and keep their weight.</string>
+    <string name="spatial_bass" translatable="false">Keep bass out of the effect</string>
     <string name="stage_width">Stage width</string>
     <string name="stage_width_value">Speakers at %1$d degrees either side</string>
-    <string name="stage_width_explain">How far apart the two virtual speakers sit, with 30° sounding like normal stereo. Wider spreads the instruments out, and too wide leaves a hole in the middle.</string>
+    <string name="stage_width_explain">Exaggerates or reduces the stereo effect</string>
     <string name="head_tracking">Head tracking</string>
     <string name="head_tracking_description">The music stays where it is when you turn your head.</string>
     <string name="head_tracking_report_prompt">Your headphones have head tracking and this still says they do not? Tell me about it.</string>
     <string name="link_wiki">Wiki</string>
     <string name="link_report">Report it</string>
-    <string name="head_tracking_none">No head tracker on this phone.</string>
+    <string name="head_tracking_none">No head tracker on this phone</string>
     <string name="head_tracking_explain">The music stays put when you turn your head. You need headphones that track your head, and most phones don\'t pass that on.</string>
     <string name="head_tracking_response">Tracking response</string>
     <string name="head_tracking_response_description">How quickly the sound reacts when you turn your head.</string>
@@ -113,8 +112,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="head_tracking_response_instant">Instant</string>
     <string name="head_tracking_response_explain">\"Smooth\" never overshoots but lags a little. \"Quick\" and \"Instant\" feel immediate but can overshoot when you stop. \"Balanced\" is in between.</string>
     <string name="proximity_volume">Quieter as you walk away</string>
-    <string name="proximity_volume_description">Treats your phone as where the music is coming from.</string>
-    <string name="proximity_volume_explain">Walk away from your phone and the music gets a little quieter, as if the phone were the speaker. It never goes silent.\n\nNeeds Bluetooth headphones and the Nearby devices permission, to tell the distance from their signal.</string>
+    <string name="proximity_volume_explain">Treats your phone as where the music is coming from.\n\nNeeds Bluetooth headphones and the Nearby devices permission.</string>
     <string name="proximity_probe">Bluetooth signal log</string>
     <string name="proximity_probe_stop">Stop logging</string>
     <string name="proximity_probe_description">Check how well distance can be measured where you are.</string>
@@ -125,9 +123,9 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="proximity_step_away">Leave the phone and walk as far away as you can.</string>
     <string name="proximity_step_far">Stay there and keep still.</string>
     <string name="proximity_step_back">Walk back to the phone.</string>
-    <string name="proximity_step_done">Finished. You can pick the phone up.</string>
-    <string name="head_tracking_3d">Follow tilting too</string>
-    <string name="head_tracking_3d_description">Looking up, down or sideways moves the sound as well.</string>
+    <string name="proximity_step_done">Proximity test finished. You can pick the phone up.</string>
+    <string name="head_tracking_3d">Track tilting too</string>
+    <string name="head_tracking_3d_description">Looking up and down moves the sound too. Uses more battery.</string>
     <string name="head_tracking_3d_explain">Looking up and down moves the sound too, not just turning. It uses a bit more battery, and the music pauses for a moment when you change this.</string>
     <string name="head_tracking_recentre">Recentre</string>
     <string name="head_tracking_calibrate">Calibrate</string>
@@ -136,16 +134,16 @@ while also allowing users to translate our app as well. New, specific strings to
         <item quantity="one">Keep still and look straight ahead. %1$d second left.</item>
         <item quantity="other">Keep still and look straight ahead. %1$d seconds left.</item>
     </plurals>
-    <string name="head_tracking_calibrate_done">Correcting %1$.2f degrees per second of drift.</string>
-    <string name="head_tracking_calibrate_explain">Headphones slowly lose track of where \"forward\" is, so the music drifts to one side. Sit still and look straight ahead for 30 seconds to fix it.</string>
+    <string name="head_tracking_calibrate_done">Correcting %1$.2f degrees per second of drift</string>
+    <string name="head_tracking_calibrate_explain">Headphones slowly lose track of where \"forward\" is. Sit still and look straight ahead for 30 seconds to fix it.</string>
     <string name="head_tracking_lead">Tracking lead</string>
     <string name="head_tracking_lead_full_explain">How far ahead the sound aims, to make up for your headphones\' delay. Play something, turn your head and drag until the sound stays put.</string>
     <string name="head_tracking_lead_value">Aiming %1$d ms ahead</string>
     <string name="high_precision_audio">32-bit audio processing</string>
-    <string name="high_precision_audio_description">Process volume and effects in 32-bit instead of 16-bit.</string>
+    <string name="high_precision_audio_description">Keeps more detail, at the cost of a little more battery</string>
     <string name="high_precision_audio_explain">Keeps a little more detail when songs\' loudness is evened out. It uses a bit more battery and the difference is small, so it\'s up to you.</string>
     <string name="import_engine_data">Load a copy</string>
-    <string name="import_engine_data_description">Replaces what it learned with a copy you saved, from this phone or another.</string>
+    <string name="import_engine_data_description">Replaces what it learned with a copy you saved</string>
     <string name="engine_data_export_done">Saved.</string>
     <string name="engine_data_import_done">Loaded.</string>
     <string name="engine_data_failed">That did not work. Check the file and try again.</string>
@@ -156,7 +154,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="adaptive_queue_autoplay">Only songs the app added</string>
     <string name="adaptive_queue_always">Any queue</string>
     <string name="adaptive_queue_note">Tuned to this session</string>
-    <string name="adaptive_queue_note_detail">The end of this queue adjusts itself to what you have been playing over the last while. The next few songs stay put, and nothing changes while you are looking at it.</string>
+    <string name="adaptive_queue_note_detail">Songs further into the queue adjust to what you have been listening to. The next few stay put.</string>
     <!--
       Keep radios up to date, 0.12. Every string from here to the end of this block is new or
       changed for 0.12, and waits for a yes on its words before it goes to translators. The note is
@@ -196,7 +194,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="playback_auth_never">Never</string>
     <string name="playback_auth_when_refused">Only when a song is refused</string>
     <string name="playback_auth_always">Always</string>
-    <string name="err_age_restricted">YouTube will not play this one without an account old enough to see it. Other songs are unaffected.</string>
+    <string name="err_age_restricted">YouTube will not play this one without an account old enough to see it.</string>
     <string name="err_song_unavailable">YouTube no longer has this song, or not where you are.</string>
     <string name="err_not_audio">What came back for this song is not audio. Something on this connection may be answering in YouTube\'s place, like a VPN or an ad blocker.</string>
     <string name="err_sign_in_wanted">YouTube wants a sign-in to play from this network. VPNs and shared connections are often refused.</string>
@@ -232,9 +230,9 @@ while also allowing users to translate our app as well. New, specific strings to
 <!-- Sync-->
     <string name="sync_progress_active">Syncing with YouTube account…</string>
     <string name="sync_progress_success">Sync complete</string>
-    <string name="sync_progress_failed">Sync did not finish. Nothing was removed; try again later.</string>
+    <string name="sync_progress_failed">Sync did not finish. Try again later.</string>
     <string name="sync_progress_nothing">Nothing to sync. Check that sync is on for at least one kind of content.</string>
-    <string name="playlist_sync_failed">Could not sync this playlist. It was left as it was.</string>
+    <string name="playlist_sync_failed">Could not sync this playlist.</string>
 
 <!-- Settings -->
     <string name="settings_debug">Debug</string>
@@ -261,9 +259,9 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="device_info_title">Device information</string>
     <string name="ffmpeg_lgpl">This software uses libraries from the FFmpeg project under the LGPLv2.1</string>
     <string name="help_bug_report_action">Report a problem</string>
-    <string name="help_contact_email_inquiries">Other inquiries (Tap to copy email)</string>
+    <string name="help_contact_email_inquiries">Other inquiries (Email)</string>
     <string name="help_support_forum">Help and support (Via GitHub)</string>
-    <string name="help_discord">Community chat (Via Discord)</string>
+    <string name="help_discord">Official Discord</string>
     <string name="help_translate">Help translate InterTune (Via Weblate)</string>
     <string name="no_updates_available">No updates available</string>
     <string name="update_check_failed">Could not check for updates</string>
@@ -286,18 +284,16 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="player_background_default">Follow theme</string>
     <string name="player_background_gradient">Gradient</string>
     <string name="player_background_living">Living blur</string>
-    <string name="player_living_strength">Living blur strength</string>
-    <string name="player_living_strength_description">How much the background and the glow move with the music.</string>
+    <string name="player_living_strength">Living blur intensity</string>
     <string name="player_living_smoothing">Living blur smoothing</string>
     <string name="player_living_colours">Living blur colours</string>
-    <string name="player_living_colours_main">Three of the cover\'s colours: one each for the bass, the voice and the highs</string>
-    <string name="player_living_colours_cover">The cover itself, blurred</string>
+    <string name="player_living_colours_main">Colours from the cover: one each for bass, mids and highs</string>
+    <string name="player_living_colours_cover">Blurred cover</string>
     <string name="player_living_sample_playing">Move the sliders while it plays.</string>
     <string name="player_living_sample_silent">Nothing is playing, so it has nothing to move to.</string>
     <string name="player_living_sample_play">Play a song to tune by</string>
     <string name="player_living_sample_queue">Tuning Living blur</string>
     <string name="player_living_sample_nothing">There is no song of yours to play yet. Play one, then come back.</string>
-    <string name="player_living_smoothing_description">How softly it follows the music. Low jumps with every beat, high swells and lingers.</string>
     <string name="player_background_style">Player background style</string>
     <string name="show_liked_and_downloaded_playlist">Show playlists for liked and downloaded songs in library</string>
     <string name="slim_navbar_title">Slim navbar</string>
@@ -312,15 +308,16 @@ while also allowing users to translate our app as well. New, specific strings to
 <!-- Content settings -->
     <string name="like_autodownload">Automatically download your liked songs</string>
     <string name="action_logout_tooltip">To fully log out, please sign out of your YouTube account in the web portal before using this logout button</string>
-    <string name="token_adv_login_description">For advanced use: paste a login token instead of signing in on the web page. Anyone with this token can use your YouTube account, so never share it.</string>
+    <string name="token_adv_login_description">Advanced: paste a login token instead of signing in on the web page. Be careful: anyone with this token can use your YouTube account.</string>
     <string name="token_hidden">Tap to show token</string>
     <string name="token_shown">Tap again to copy or edit</string>
     <string name="sync_conflict_add_only">Keep all local content, add new remote content</string>
     <string name="sync_conflict_overwrite">Overwrite local content with remote content</string>
     <string name="sync_conflict_title">Conflict resolution</string>
     <string name="sync_mode">Sync mode</string>
-    <string name="sync_mode_ro">Read only (View remote content)</string>
-    <string name="sync_mode_rw">Read write (Also allow changes to remote content)</string>
+    <string name="sync_mode_off" translatable="false">Off</string>
+    <string name="sync_mode_ro">View the account\'s YouTube Music library (read only)</string>
+    <string name="sync_mode_rw">View and change the account\'s YouTube Music library (read and write)</string>
     <string name="ytm_sync">Automatically sync with your YouTube Music account</string>
     <string name="wifi_only">Wi-Fi only</string>
 
@@ -332,7 +329,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="audio_gapless_offload" translatable="false">Gapless offload</string>
     <string name="audio_gapless_offload_description" translatable="false">Allow gapless offload if supported by the device and audio format. Some devices advertise support (Ex. Google Pixel 9 series), but the feature is good as useless in ExoPlayer because playback breaks after playing one song. When troubleshooting issues with offload, we suggest turning gapless offload off</string>
     <string name="swipe_to_dismiss_player">Swipe the mini player away</string>
-    <string name="swipe_to_dismiss_player_description">Swipe the mini player down to close it and stop the music. Off, it stays put so you can\'t close it by accident.</string>
+    <string name="swipe_to_dismiss_player_description">Stops the music</string>
     <string name="grouped_player_controls">Group the player buttons</string>
     <string name="grouped_player_controls_description">Puts the playback buttons together in one glass bar. Needs Liquid glass.</string>
     <string name="player_buttons_style">Player buttons</string>
@@ -344,7 +341,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="media_control_buttons">Media control buttons</string>
     <string name="android_auto_missing">Not showing in your car?</string>
     <string name="android_auto_missing_body">Android Auto only lists apps that Google Play installed, so it hides InterTune. To bring it in: open Android Auto\'s settings on your phone and tap the Version line ten times. Then open Developer settings from the menu at the top and turn on Unknown sources.</string>
-    <string name="media_control_buttons_explain">Two extra buttons next to previous, play and next, in the notification and on the lock screen. Tap the two you want, in order.</string>
+    <string name="media_control_buttons_explain">Visible in the notification and on the lock screen. Tap the two you want, in order.</string>
     <string name="media_control_repeat">Repeat</string>
     <string name="loudness_repair">Fix song volumes</string>
     <string name="loudness_repair_none">All your songs already have the right volume.</string>
@@ -362,23 +359,22 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="quick_picks_source_compare">Try both (experimental)</string>
     <string name="quick_picks_source_off">Off</string>
     <string name="quick_picks_source_description">Where \"Quick picks\" gets its songs. \"YouTube Music\" uses YouTube\'s picks for you, \"Your library\" songs related to what you play, \"Best recommendations\" learns from how you listen, and \"Try both\" mixes it with another source.</string>
-    <string name="oobe_update_auto_description">Download it in the background so it\'s ready. Android still asks you first.</string>
-    <string name="oobe_polls_answered">You can change this any time in Settings, under Questions and news.</string>
-    <string name="oobe_usage_count_answered">You can change this any time in Settings, under Anonymous count.</string>
+    <string name="oobe_update_auto_description">Download it in the background so it\'s ready. Android will still ask you first.</string>
+    <string name="oobe_polls_answered">You can change this any time in Settings</string>
+    <string name="oobe_usage_count_answered">You can change this any time in Settings</string>
     <string name="poll_title">A question from InterTune</string>
-    <string name="poll_banner_hint">Tap to answer, or dismiss with the cross</string>
     <string name="poll_dismiss">Dismiss this question</string>
     <string name="poll_close">Close</string>
     <string name="poll_send">Send my answer</string>
     <string name="poll_other_hint">Your answer</string>
     <string name="poll_other_notice">What you write is sent as it is, so leave out anything personal.</string>
     <string name="poll_not_now">Not now</string>
-    <string name="poll_anonymous_notice">Your answer is anonymous. All that is sent is which question this was, what you picked, and the app version. No account, no device details, nothing about your library.</string>
+    <string name="poll_anonymous_notice">Your answer is anonymous: only the question, your pick and the app version are sent.</string>
     <string name="grp_polls">Questions and news</string>
-    <string name="polls_enabled">Ask me the occasional question</string>
-    <string name="polls_enabled_description">A short question on Home now and then, about what to build next.</string>
-    <string name="polls_enabled_info">Now and then InterTune fetches a short question from GitHub and shows it on Home. Answering sends the question, your answer and the app version, and opening it sends its title and the app version. Never your account, device or library.</string>
-    <string name="polls_none">No question right now</string>
+    <string name="polls_enabled">Occasional questions</string>
+    <string name="polls_enabled_description">Now and then, about what to build next</string>
+    <string name="polls_enabled_info">Now and then InterTune fetches a short question from GitHub and shows it on Home. Your answer is anonymous.</string>
+    <string name="polls_none">No questions right now</string>
     <string name="polls_one_waiting">There is a question waiting</string>
     <string name="news_one_waiting">There is news waiting</string>
     <string name="news_none">No news right now</string>
@@ -389,29 +385,29 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="shortcut_play_liked">Play liked songs</string>
     <string name="shortcut_no_liked_songs">No liked songs yet</string>
     <string name="announcement_done">Got it</string>
-    <string name="announcement_picture">Picture %1$d of %2$d. Tap to see it whole.</string>
-    <string name="announcement_picture_failed">This picture could not be loaded.</string>
+    <string name="announcement_picture">Picture %1$d of %2$d</string>
+    <string name="announcement_picture_failed">This picture could not be loaded</string>
     <string name="polls_forget_description">Forgets what you\'ve answered, dismissed and read, so past questions and news can come back.</string>
     <string name="catch_up_title">A few quick questions</string>
     <string name="catch_up_body">These settings need your say-so, and this install has never been asked.</string>
     <string name="catch_up_done">Done</string>
     <!-- Under the questions of that screen once every one has its answer. %1$s is its button, catch_up_done. -->
-    <string name="catch_up_all_answered">That is all. Tap \"%1$s\" to finish.</string>
+    <string name="catch_up_all_answered">Thank you!</string>
     <string name="polls_opt_in_title">Ask you the occasional question?</string>
     <string name="polls_opt_in_body">Now and then InterTune can ask a short question on Home about what to build next. Answers and first opens are counted anonymously, and you can turn this off in Settings any time.</string>
     <string name="polls_opt_in_yes">Yes, ask me</string>
     <string name="polls_opt_in_no">No thanks</string>
     <string name="news_enabled">News from InterTune</string>
-    <string name="news_enabled_description">An announcement on Home now and then, like a new feature.</string>
-    <string name="news_enabled_info">Now and then InterTune fetches news from GitHub and shows it on Home. Opening one sends its title and the app version, to count readers. Never your account, device or library.</string>
+    <string name="news_enabled_description">New features and other news</string>
+    <string name="news_enabled_info">Now and then InterTune fetches news from GitHub and shows it on Home. Opening one sends its title and the app version, to count readers.</string>
     <string name="news_opt_in_title">Get news from InterTune?</string>
     <string name="news_opt_in_body">Now and then InterTune can show a short announcement on Home, like a new feature. Opening one is counted anonymously, and you can turn this off in Settings any time.</string>
     <string name="news_opt_in_yes">Yes, show me</string>
     <string name="oobe_news_answered">You can change this any time in Settings, under Questions and news.</string>
     <string name="grp_usage_count">Anonymous count</string>
-    <string name="usage_count_enabled">Count this install once a day</string>
+    <string name="usage_count_enabled">Count this install</string>
     <string name="usage_count_enabled_description">One short message a day: a random name that changes every month, whether you installed from F-Droid, and the app and Android versions. Never what you play, your account or anything tied to your device. F-Droid gives out no download figures, so this is the only way to know how many people use InterTune.</string>
-    <string name="usage_count_forget">Forget my current name</string>
+    <string name="usage_count_forget">Get a new name</string>
     <string name="usage_count_forget_description">Drops the random name this install is counted under. The next count uses a new one.</string>
     <string name="usage_count_opt_in_title">Count this install?</string>
     <string name="usage_count_opt_in_body">Once a day InterTune can send a short message saying it\'s still in use: a random name that changes every month, whether you installed from F-Droid, and the app and Android versions. Never what you play, your account or anything tied to your device. F-Droid gives no download figures, so this is the only way to know how many people use InterTune. You can turn it off any time.</string>
@@ -422,7 +418,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="update_install">Download and install</string>
     <string name="update_prompt_title">InterTune %1$s is available</string>
     <string name="update_prompt_ready">Already downloaded and ready to install.</string>
-    <string name="update_prompt_needs_permission">Downloaded and ready. Android needs your permission first: it only has to be given once.</string>
+    <string name="update_prompt_needs_permission">Downloaded and ready. Android needs your permission the first time.</string>
     <string name="update_prompt_allow">Continue</string>
     <string name="update_prompt_will_download">It will be downloaded when you tap install.</string>
     <string name="update_prompt_later">Remind me later</string>
@@ -456,13 +452,13 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="keep_alive_description">Use a persistent foreground service to prevent InterTune from being closed in the background</string>
     <string name="persistent_queue_desc_ot">Restore previous open queue(s) when the app starts</string>
     <string name="min_playback_duration">Minimum playback duration</string>
-    <string name="min_playback_duration_description">How much of a song has to play to count as a play, for play counts, the most played and your YouTube history. History still lists everything you hear.</string>
+    <string name="min_playback_duration_description">How much of a song has to play to count as a play, for play counts, the most played and your YouTube history. This doesn\'t affect InterTune\'s history.</string>
     <string name="swipe2Queue">Swipe to queue</string>
     <string name="swipe2Queue_description">Swipe a song to play it next.</string>
     <string name="seek_increment">Seek increment</string>
     <!-- Deliberately not called a crossfade: the two songs never play at the same time. -->
     <string name="transition_fade">Fade between tracks</string>
-    <string name="transition_fade_description">Each song fades out, then the next one fades in. They do not overlap.</string>
+    <string name="transition_fade_description">Fades each song out, then the next in, without overlap. Not between songs of the same album.</string>
     <string name="transition_fade_explain">Each song fades out and the next fades in, without overlapping. Songs from the same album and songs you pick yourself aren\'t faded.</string>
     <string name="transition_fade_length">Fade length</string>
     <plurals name="transition_fade_length_value">
@@ -483,8 +479,8 @@ while also allowing users to translate our app as well. New, specific strings to
 
 <!--Lyrics settings -->
     <string name="lyrics_font_Size">Font size</string>
-    <string name="lyrics_karaoke_title">Karaoke style lyrics</string>
-    <string name="lyrics_karaoke_description">Each word lights up as it\'s sung, when the lyrics have word timings.</string>
+    <string name="lyrics_karaoke_title">Word-by-word lyrics</string>
+    <string name="lyrics_karaoke_description">Needs songs with word timings. You can add some through BetterLyrics\' Unison.</string>
     <string name="lyrics_karaoke_hz_title">Adjust karaoke lyrics update speed</string>
     <string name="lyrics_multiline_title">Read multiline lyrics</string>
     <string name="lyrics_multiline_description">Treat all the lines between sync points as one lyric text</string>
@@ -492,7 +488,6 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="lyrics_prefer_local_description">Prioritize resolving local lyric files before using all cloud providers. Turn this off to prioritize cloud providers</string>
     <string name="lyrics_settings_title">Lyrics</string>
     <string name="lyrics_synced_clickable">Clickable lyrics</string>
-    <string name="lyrics_trim_title">Remove spaces around lyrics</string>
 
 <!-- Local player settings -->
     <string name="local_library_enable_title">Enable local media</string>
@@ -500,7 +495,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="local_player_settings_title">Local media</string>
     <string name="flat_subfolders_title">Flatten subfolders</string>
     <string name="flat_subfolders_description">Disable to preserve the file structure as on disk</string>
-    <string name="disable_lm_confirm">Are you sure you want to disable local media features? Your library contents will not be affected.</string>
+    <string name="disable_lm_confirm">Are you sure you want to turn off local media? Your library stays as it is.</string>
 
 <!-- Scanner settings -->
     <string name="auto_scanner_title">Scan automatically</string>
@@ -527,7 +522,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="dl_extra_path_overlap_kept">Overlaps a scan folder; kept as is because it was already saved</string>
     <string name="dl_extra_path_overlaps_scan">This folder overlaps a scan folder, so it cannot be an extra import location</string>
     <string name="dl_main_path_part_of_scan">This folder is part of a scan folder, so it cannot be the download folder</string>
-    <string name="scanner_warning">By default, the scanner will NOT reload any metadata of existing songs unless you specify otherwise above. Depending on the size of your library, it may take a while.</string>
+    <string name="scanner_warning">By default, the scanner will NOT reload any metadata of existing songs unless you specify otherwise above. This may take a while.</string>
 
 <!-- Scanner progress strings-->
     <string name="scanner_missing_storage_perm">The local media scanner requires storage permissions to function</string>
@@ -566,7 +561,7 @@ while also allowing users to translate our app as well. New, specific strings to
 
 <!-- Scanner parameter settings-->
     <string name="scanner_strict_file_name_title">Strict file names</string>
-    <string name="scanner_strict_file_name_description">File names count: \"Song.ogg\" and \"Song.flac\" become two songs.</string>
+    <string name="scanner_strict_file_name_description">File types will count: \"Song.ogg\" and \"Song.flac\" become two songs.</string>
     <string name="scanner_strict_file_paths_title">Match file paths instead of metadata</string>
     <string name="scanner_strict_file_paths_description">Turns off smart matching of song info. Moving files can then cause trouble, but the same song can live in two folders.</string>
     <string name="scanner_sensitivity_title">Configure scanner sensitivity</string>
@@ -593,17 +588,17 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="player_liquid_glass_description">Floating glass panels for the navigation bar, mini player and controls, with richer colours behind the player.</string>
     <string name="player_liquid_glass_description_legacy">Richer artwork colours behind the now playing screen, and the tabs and mini player float as a dock. The glass itself needs Android 13 or newer</string>
     <string name="player_glass_intensity">Glass intensity</string>
-    <string name="player_glass_intensity_description">Higher is clearer and bends the light more, lower looks more solid.</string>
     <string name="player_glass_intensity_value">%1$d%%</string>
     <string name="player_glass_preview_needs_13">A live preview of the glass needs Android 13 or later</string>
     <string name="player_glass_preview_side_navigation">A live preview of the glass is not available with the side navigation</string>
     <string name="sleep_timer_fade">Fade out before stopping</string>
     <string name="sleep_timer_fade_description">Ease the volume down as the sleep timer runs out, instead of cutting off abruptly</string>
     <string name="sleep_timer_fade_duration">Fade length</string>
-    <string name="sleep_timer_fade_duration_description">How long the fade out lasts before the sleep timer stops playback</string>
+    <string name="sleep_timer_fade_duration_description">How long the fade out lasts before the sleep timer stops playback. 0 is no fade.</string>
     <string name="sleep_timer_fade_duration_value">%1$d seconds</string>
+    <string name="sleep_timer_fade_off" translatable="false">Off</string>
     <string name="download_on_wifi_only_title">Download on Wi-Fi only</string>
-    <string name="download_on_wifi_only_description">Downloads wait for Wi-Fi, and start by themselves once you\'re back on it.</string>
+    <string name="download_on_wifi_only_description">Downloads will wait until Wi-Fi is available.</string>
     <string name="download_waiting_for_wifi">Queued. Will download when Wi-Fi is available</string>
     <plurals name="download_progress_songs">
         <item quantity="one">%1$d of %2$d song</item>
@@ -623,7 +618,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="dl_extra_path_title">Configure extra import locations…</string>
     <!-- Issue 122. -->
     <string name="dl_extra_path_dialog_title">Extra import locations</string>
-    <string name="dl_extra_path_description">Songs from these folders show up once you\'ve played them or added them to a playlist. The folders are never changed.</string>
+    <string name="dl_extra_path_description">Songs from these folders show up once you\'ve played them or added them to a playlist.</string>
     <string name="dl_migrate_title">Migrate downloads to external storage…</string>
     <string name="dl_migrate_description">Moves downloads from the app\'s own storage to your phone\'s storage.</string>
     <string name="dl_migrate_confirm">This will migrate ALL internal downloads to \"%s\", and this action cannot be undone. Continue?</string>
@@ -632,7 +627,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="dl_oobe_tooltip">Songs are downloaded to the app\'s private storage. To download to a folder you can reach, choose one here; you can change it later in Settings.</string>
     <string name="dl_rescan_title">Rescan download folders…</string>
     <string name="dl_rescan_description">Do this if you changed files in your download folders yourself.</string>
-	<string name="dl_rescan_confirm">Rescan all download folders now? This can take a few minutes depending on the size of your library.</string>
+	<string name="dl_rescan_confirm">Rescan all download folders now? This may take a while.</string>
     <!-- File sizes as the settings write them (utils formatFileSize), smallest first: the French beside them in values-fr. -->
     <string-array name="file_size_units">
         <item>B</item>
@@ -645,7 +640,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="dl_size_used_cache">Internal: %s used</string>
     <string name="dl_size_used_main">External: %s used</string>
     <string name="dl_size_used_extra">Extra imports: %s used</string>
-    <string name="dl_storage_tooltip">Internal downloads live in the app\'s private storage. External downloads go to a folder you choose; pick an empty one, since InterTune may change or delete files in it. Extra import folders are only read, never changed.</string>
+    <string name="dl_storage_tooltip">Internal downloads live in the app\'s private storage. External downloads go to a folder you choose; pick an empty one, since InterTune may change or delete files in it. Extra import folders are only read.</string>
     <string name="restart_to_apply_changes">An app restart is required for changes to take effect</string>
 
 <!-- Privacy settings -->
@@ -658,10 +653,10 @@ while also allowing users to translate our app as well. New, specific strings to
 
 <!-- Experimental settings -->
     <string name="dev_settings_title">Enable developer settings</string>
-    <string name="dev_settings_description">Reveals additional advanced settings intended for development use</string>
+    <string name="dev_settings_description">Additional advanced settings intended for development use</string>
 
     <string name="swipe_to_skip_title">Swipe horizontally to change song</string>
-    <string name="swipe_to_skip_description">Enable swiping horizontally in the player to switch songs</string>
+    <string name="swipe_to_skip_description">Applies to the full player</string>
 
     <string name="max_queues_title">Maximum number of queues</string>
 
@@ -679,8 +674,8 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="oobe_cross_platform_sync">Cross-Platform Sync</string>
     <string name="oobe_cross_platform_sync_description">Keep your music in harmony across devices</string>
     <string name="oobe_update_check_title">Tell you about updates?</string>
-    <string name="oobe_update_check_description">InterTune isn\'t on an app store, so it checks GitHub for new versions when you open it. It can download and install them for you, and Android always asks you first.</string>
-    <string name="oobe_update_check_description_fdroid">Your copy came from F-Droid, so F-Droid keeps it up to date and you do not need this. InterTune can still check GitHub and tell you when a release exists, which is usually a little before F-Droid has built it. Nothing is installed without you confirming it, and you can change this later in Settings.</string>
+    <string name="oobe_update_check_description">InterTune isn\'t on an app store, so it checks GitHub for new versions when you open it. It can download and install them for you (Android asks you first).</string>
+    <string name="oobe_update_check_description_fdroid">Your copy came from F-Droid, so F-Droid keeps it up to date and you do not need this. InterTune can still check GitHub and tell you when a release exists, which is usually a little before F-Droid has built it.</string>
     <string name="oobe_update_check_yes">Yes, check</string>
     <string name="oobe_update_check_no">No thanks</string>
     <string name="oobe_update_check_answered">You can change this any time in Settings, under Updates.</string>
@@ -692,11 +687,11 @@ while also allowing users to translate our app as well. New, specific strings to
 
     <!-- Account setup page -->
     <string name="oobe_ytm_logon_title">Account</string>
-    <string name="oobe_ytm_logon_subtitle">Sign in to bring your playlists, likes and recommendations. It\'s optional.</string>
+    <string name="oobe_ytm_logon_subtitle">Sign in to bring your playlists, likes and recommendations. (Optional)</string>
 
     <!-- Local media setup -->
     <string name="oobe_local_media_title">Local media</string>
-    <string name="oobe_local_media_subtitle">Choose folders that contain your music. We\'ll scan them for songs to import.</string>
+    <string name="oobe_local_media_subtitle">Choose folders that contain your music.</string>
 
     <!-- Downloads -->
     <string name="oobe_cache_subtitle">Pick how much space to keep for songs. A bigger cache helps when the connection is poor.</string>
@@ -792,65 +787,63 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="grp_search_history">Search history</string>
 
     <!-- Settings index: one line per entry, so nobody has to open a screen to find out what is on it -->
-    <string name="settings_account_sync_description">Sign in to YouTube Music, and choose what gets synced.</string>
-    <string name="settings_library_description">Where recommendations come from, language and region, and what appears in your library.</string>
-    <string name="settings_local_description">Music files kept on this device, and how the app finds them.</string>
-    <string name="settings_look_and_feel_description">Theme and colours, the tabs along the bottom, and swipe gestures.</string>
-    <string name="settings_player_description">Sound quality, audio effects, and how playback behaves.</string>
-    <string name="settings_lyrics_description">Where lyrics are fetched from, and how they are shown.</string>
-    <string name="settings_storage_description">Downloads, and how much space the caches may use.</string>
-    <string name="settings_backup_description">Save your library, playlists and settings to a file, restore them, or back up on a schedule.</string>
-    <string name="settings_privacy_description">What the app records about you, and what it sends.</string>
-    <string name="settings_updates_description">Check for a new version, and install it.</string>
-    <string name="settings_advanced_description">Maintenance, and developer options.</string>
-    <string name="settings_about_description">Version, licences and credits.</string>
+    <string name="settings_account_sync_description">YouTube Music account, sync</string>
+    <string name="settings_library_description">Recommendations, language, region</string>
+    <string name="settings_local_description">Location and scanning</string>
+    <string name="settings_look_and_feel_description">Theme, tab organisation, swipe gestures</string>
+    <string name="settings_player_description">Sound quality, audio effects, playback</string>
+    <string name="settings_lyrics_description">Lyrics sources, layout</string>
+    <string name="settings_storage_description">Downloads, caches</string>
+    <string name="settings_backup_description">Export, restore, scheduled backups</string>
+    <string name="settings_privacy_description">History, news, questions, metrics</string>
+    <string name="settings_updates_description">Auto-updates, manual checks</string>
+    <string name="settings_advanced_description">Developer options</string>
+    <string name="settings_about_description">Version, licences, credits</string>
 
     <!-- Rows that moved or were renamed -->
     <string name="flush_image_cache_title">Clear cached artwork</string>
-    <string name="flush_image_cache_description">Frees the memory holding album art. It is fetched again as you need it.</string>
+    <string name="flush_image_cache_description">Album art is fetched again when needed.</string>
     <string name="song_cache_max_size">Maximum song cache size</string>
     <string name="image_cache_max_size">Maximum artwork cache size</string>
-    <string name="max_queues_description">How many queues to keep. The oldest goes when you pass this.</string>
+    <string name="max_queues_description">The oldest queue gets removed when the limit is surpassed.</string>
     <string name="enable_proxy_description">Sends everything the app fetches through another server, pictures and lyrics included. Leave it off unless you know you need it.</string>
-    <string name="show_liked_and_downloaded_playlist_description">Show Liked songs and Downloaded songs as playlists in your library.</string>
 
     <!-- Descriptions for rows whose titles alone did not say what they do -->
-    <string name="pause_listen_history_description">Stop adding songs to your history. Nothing already in it is removed.</string>
-    <string name="pause_remote_listen_history_description">Stop telling YouTube Music what you play. Your history in the app carries on.</string>
+    <string name="pause_listen_history_description">Stops songs being added to history.</string>
+    <string name="pause_remote_listen_history_description">Stops history from being sent to YouTube Music.</string>
     <string name="clear_listen_history_description">Delete everything the app has recorded about what you have played.</string>
     <string name="pause_search_history_description">Stop saving what you search for.</string>
     <string name="clear_search_history_description">Delete every search the app has saved.</string>
     <string name="sync_params_description">\"Read write\" lets the app change your YouTube Music likes, library and playlists. \"Overwrite\" removes from this phone anything that isn\'t in your account.</string>
-    <string name="enable_lrclib_description">Look for lyrics on LRCLIB, a free community lyrics database.</string>
-    <string name="enable_kugou_description">Look for lyrics on KuGou. Its collection is large, and strongest for Chinese music.</string>
+    <string name="enable_lrclib_description">Free community lyrics database.</string>
+    <string name="enable_kugou_description">Large collection, strongest for Chinese music.</string>
     <!-- Lyrics sources (Unreleased.LYRICS_SOURCES). -->
     <string name="lyrics_sources">Lyrics sources</string>
-    <string name="lyrics_sources_hint">Asked from the top. The first timed lyrics found are shown, and plain words only when no source has timed ones.</string>
+    <string name="lyrics_sources_hint">Asked in this order. Prioritises word-by-word and line-by-line lyrics over plain text.</string>
     <string name="lyrics_source_youtube_captions">YouTube captions</string>
-    <string name="lyrics_source_youtube_captions_line">The video\'s own timed captions.</string>
     <string name="lyrics_source_youtube_music">YouTube Music</string>
-    <string name="lyrics_source_youtube_music_line">The words YouTube Music shows, not timed.</string>
+    <string name="lyrics_source_youtube_music_line">YouTube Music\'s lyrics are plain text only.</string>
     <string name="lyrics_source_lrclib">LRCLIB</string>
     <string name="lyrics_source_better_lyrics">Better Lyrics</string>
-    <string name="lyrics_source_better_lyrics_line">Timed word by word, when it has the song.</string>
+    <string name="lyrics_source_better_lyrics_line">Word-by-word lyrics, though their collection is smaller.</string>
     <string name="lyrics_source_kugou">KuGou</string>
     <string name="lyrics_source_move">Move %1$s</string>
     <string name="audio_normalization_description">Evens out the volume so no song is suddenly much louder.</string>
     <string name="skip_silence_description">Skip silent gaps at the start and end of a track.</string>
     <string name="stop_music_on_task_clear_description">Stop the music when you swipe the app away from your recent apps.</string>
-    <string name="enable_dynamic_theme_description">Take the app\'s colours from the cover of the song that is playing. Off, or with nothing playing, it uses your phone\'s own colours (Android 12 and newer).</string>
-    <string name="pure_black_description">True black instead of dark grey. On OLED screens it saves a little battery.</string>
-    <string name="min_playback_duration_short">How much of a song has to play to count as a play. History still lists everything you hear.</string>
+    <string name="enable_dynamic_theme_description">The app\'s colours follow the cover of the song playing.</string>
+    <string name="pure_black_description">May help with battery on OLED screens.</string>
+    <string name="min_playback_duration_short">How much of a song has to play to count as a play, in InterTune and in your YouTube Music history.</string>
     <string name="throttle_banner_title">YouTube has paused this connection</string>
     <plurals name="throttle_banner_body">
         <item quantity="one">Recommendations, downloads and sync are on hold for about a minute. Songs you tap still try to play.</item>
         <item quantity="other">Recommendations, downloads and sync are on hold for about %1$d minutes. Songs you tap still try to play.</item>
     </plurals>
     <string name="share_audio_focus">Let other apps play at the same time</string>
-    <string name="share_audio_focus_description">Play music over another app\'s sound instead of stopping it.</string>
+    <string name="share_audio_focus_description">InterTune doesn\'t stop other apps\' sound when it plays.</string>
     <string name="share_audio_focus_explain">InterTune keeps playing alongside other apps, and doesn\'t turn itself down for navigation or alarms. Calls still mute it.</string>
-    <string name="resume_on_bluetooth">Resume when Bluetooth connects</string>
-    <string name="resume_on_bluetooth_description">Music that stopped when Bluetooth disconnected plays again if it reconnects soon after. Music you paused stays paused.</string>
+    <string name="resume_on_bluetooth">Bluetooth auto-resume</string>
+    <string name="resume_on_bluetooth_description">Music that stopped due to Bluetooth disconnection plays again if it reconnects soon after.</string>
     <string name="sleep_timer_notif_end_of_song">The music stops at the end of this song</string>
     <string name="sleep_timer_notif_chip">%1$d min</string>
     <plurals name="sleep_timer_notif_minutes">
@@ -868,14 +861,14 @@ while also allowing users to translate our app as well. New, specific strings to
         One in a thousand. Shown instead of an ordinary line, so somebody who uses this a lot will
         eventually see one and nobody has to be told they exist.
     -->
-    <string name="recognise_no_match">Could not place that one. Try again somewhere quieter, or closer to the speaker.</string>
+    <string name="recognise_no_match">Couldn\'t recognise it. Try again somewhere quieter, or closer to the speaker.</string>
     <string name="recognise_once">Listen once</string>
     <string name="recognise_keep_listening">Keep listening</string>
     <string name="recognise_once_desc">Names one song, then stops.</string>
-    <string name="recognise_keep_listening_short">Keeps going until you stop it.</string>
+    <string name="recognise_keep_listening_short">Keeps going until stopped manually.</string>
     <string name="recognition_source_room">Around you</string>
     <string name="recognition_source_phone">On this device</string>
-    <string name="recognition_phone_note">Android lets an app hear other apps only through screen recording, so it asks first. InterTune takes the sound alone, never the picture, and only for this listen.</string>
+    <string name="recognition_phone_note">Uses Android\'s screen recording to find songs playing from other apps. Only the audio from the recording is taken.</string>
     <string name="recognition_phone_tile">Song on this device</string>
     <string name="recognition_service_title_phone">Listening to this device</string>
     <string name="recognition_phone_found_tap">tap to open in InterTune</string>
@@ -883,19 +876,19 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="recognition_phone_nothing_hint">Try again while the song is playing.</string>
     <string name="recognition_phone_results_channel">Songs found on this device</string>
     <string name="recognition_phone_needs_permission">InterTune needs the microphone to listen to this device too.</string>
-    <string name="recognition_phone_heard_nothing">No sound came through from the device. InterTune leaves its own songs out, and some apps block recording.</string>
+    <string name="recognition_phone_heard_nothing">No sound came through from the device. InterTune\'s own songs are left out, and some apps block recording.</string>
     <string name="recognition_room_tile">Song around you</string>
     <string name="recognition_phone_continue">Continue</string>
     <string name="recognition_phone_needs_notifications">InterTune needs notifications to give you the song.</string>
     <string name="recognise_tap_to_listen">Tap to listen</string>
-    <string name="recognise_screen_off_hint">You can turn the screen off. It keeps listening.</string>
+    <string name="recognise_screen_off_hint">You can turn the screen off while recognition is running.</string>
     <string name="recognise_history_title">Recognised this session</string>
     <string name="recognise_clear_history">Clear</string>
     <string name="recognise_settings">Song recognition</string>
 
     <!-- Walkthrough -->
     <string name="walkthrough_title_first">Welcome to InterTune</string>
-    <string name="walkthrough_description">A quick run through the app, and through anything added since you last opened it.</string>
+    <string name="walkthrough_description">A quick run through the app and anything added since you last opened it.</string>
     <string name="walkthrough_progress">%1$d of %2$d</string>
     <string name="walkthrough_skip">Skip</string>
     <string name="walkthrough_not_now">Not now</string>
@@ -905,11 +898,11 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="tour_search_title">Find anything</string>
     <string name="tour_search_body">Search your library and YouTube Music from the same box.</string>
     <string name="tour_quickpicks_title">Quick picks</string>
-    <string name="tour_quickpicks_body">Change the mix: Auto follows your listening, Discover reaches further out.</string>
+    <string name="tour_quickpicks_body">Discover reaches further out than Auto.</string>
     <string name="tour_recognise_body">Tap this and hold the phone up. InterTune listens through the microphone for a few seconds and names the song playing around you.</string>
     <string name="tour_library_title">Your library lives here</string>
     <string name="tour_library_body">Playlists, albums, artists and everything saved to this device.</string>
-    <string name="tour_settings_body">Nothing here is compulsory. All of it can be turned off in these settings.</string>
+    <string name="tour_settings_body">These options can be found in Settings.</string>
 
 
     <!-- The welcome back page after an update, and the walk round Settings (WelcomeBack.kt, Walkthrough.kt). -->
@@ -923,7 +916,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="scan_paths_none">No folder chosen yet</string>
     <string name="welcome_back_seen">Seen</string>
     <string name="welcome_back_action_for">%1$s: %2$s</string>
-    <string name="welcome_back_settings_title">Find your way round Settings</string>
+    <string name="welcome_back_settings_title">Find your way around Settings</string>
     <string name="welcome_back_settings_body">Four groups, and what lives in each.</string>
     <string name="welcome_back_settings_show">Show me round</string>
     <string name="welcome_back_done">Done</string>
@@ -944,11 +937,11 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="welcome_card_dismiss">Dismiss this note</string>
 
     <string name="new_living_blur_title">A background that moves with the music</string>
-    <string name="new_living_blur_body">Living blur: the player\'s background breathes with the song and glows on every beat.</string>
+    <string name="new_living_blur_body">Living blur: the player\'s background flows with the song.</string>
     <string name="new_living_blur_way">The player\'s background is set in here: what you see behind the cover while a song plays.</string>
     <string name="new_living_blur_here">What is behind the player: the theme\'s colour, or a gradient or a blur made from the cover. Living blur is the blur that moves with the music, and its own settings appear under it.</string>
-    <string name="new_sleep_schedule_title">A sleep timer that starts by itself</string>
-    <string name="new_sleep_schedule_body">Pick a time once, and the sleep timer starts by itself every day from then on.</string>
+    <string name="new_sleep_schedule_title">Scheduled sleep timer</string>
+    <string name="new_sleep_schedule_body">Automatically starts the sleep timer every day at a given time.</string>
     <string name="new_sleep_schedule_way">Sleep timer on a schedule is in here.</string>
     <string name="new_sleep_schedule_here">Turn it on, then pick when it starts and how long it runs.</string>
     <string name="new_content_filters_title">Hide explicit songs and music videos</string>
@@ -1028,7 +1021,6 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="tour_closer_entry">Tour of the settings</string>
     <string name="tour_closer_login">Signing in to your YouTube Music account brings your playlists, likes and recommendations here. The app works without it.</string>
     <string name="tour_closer_lastfm">For those who keep a Last.fm profile: once connected, the songs you finish here are added to it.</string>
-    <string name="tour_closer_ytm_sync">Keeps the library here and the one in your YouTube Music account the same without being asked. Signed out, there is nothing for it to sync with.</string>
     <string name="tour_closer_sync_mode">Choose read only if likes and playlists made here should stay here and never reach your account.</string>
     <string name="tour_closer_quick_picks_source">Who chooses the songs in the Quick picks row at the top of Home. It changes that one row and nothing else.</string>
     <string name="tour_closer_content_language">The language YouTube Music answers in: song and artist names, and the titles of the rows on Home.</string>
