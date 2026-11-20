@@ -150,7 +150,7 @@ class VibrationTest {
         assertEquals(listOf(0, VibrationEffect.DEFAULT_AMPLITUDE, 0, VibrationEffect.DEFAULT_AMPLITUDE), double.amplitudes().toList())
         val soft = Buzz.Pulses(count = 1, length = 10, amplitude = 50)
         assertEquals(listOf(0L, 10L), soft.timings().toList())
-        assertEquals(listOf(0, 80), soft.amplitudes().toList())
+        assertEquals(listOf(0, 50), soft.amplitudes().toList())
     }
 
     @Test

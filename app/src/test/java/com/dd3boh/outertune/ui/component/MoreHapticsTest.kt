@@ -149,9 +149,11 @@ class MoreHapticsTest {
     fun `the seek bar rumbles while dragged and starts afresh when the finger lifts`() {
         assertTrue("if (Unreleased.HAPTICS_MORE && seekRumble.tick(it, shownDuration)) {" in player)
         assertTrue("onSlideDone = {\n                            seekRumble.reset()" in player)
-        // The tick for each move stays out: one tick, the rumble's, which below Android 14 is the view's clock tick.
+        // The tick for each move stays out: the rumble's ticks, which below Android 14 are the view's clock tick, and the
+        // click at either end of the bar (Ti-Die, 20 Nov 2026), and none on letting go.
         val slide = player.substringAfter("onSlide = {").substringBefore("onKey = ")
-        assertEquals(1, Regex("""segmentTick\(""").findAll(slide).count())
+        assertEquals(2, Regex("""segmentTick\(""").findAll(slide).count())
+        assertTrue("seekRumble.hitsEnd(it, shownDuration)" in slide)
         assertTrue("haptic.segmentTick(currentView, tickLive, frequent = true)" in slide)
         assertFalse("SegmentFrequentTick" in slide)
         assertTrue("val tickLive = remember { hapticsLive(context) }" in player)
