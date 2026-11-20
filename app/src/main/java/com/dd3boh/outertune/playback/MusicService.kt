@@ -6979,14 +6979,12 @@ class MusicService : MediaLibraryService(),
                 hasSong -> {
                     mediaButtonPending = false
                     if (!holdingForMediaButton && !foregroundNow()) holdForeground()
-                    ReportTrail.thisRun.owedStart(
-                        when {
-                            holdingForMediaButton -> ReportTrail.Owed.HELD
-                            foregroundNow() -> ReportTrail.Owed.PLAYER_UP
-                            else -> ReportTrail.Owed.MISSED
-                        },
-                        owedFor(),
-                    )
+                    val met = when {
+                        holdingForMediaButton -> ReportTrail.Owed.HELD
+                        foregroundNow() -> ReportTrail.Owed.PLAYER_UP
+                        else -> ReportTrail.Owed.MISSED
+                    }
+                    ReportTrail.thisRun.owedStart(met, owedFor())
                     if (holdingForMediaButton) mediaButtonHandler.postDelayed(mediaButtonLetGo, MediaButtonStart.LET_GO_MS)
                 }
                 // Held since the press (before Android 12) while the queue is still being read.
