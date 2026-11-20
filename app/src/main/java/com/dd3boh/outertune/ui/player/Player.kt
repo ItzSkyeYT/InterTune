@@ -203,6 +203,11 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.toggleableState
+import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.TextUnit
@@ -1155,7 +1160,8 @@ fun BottomSheetPlayer(
                     contentDescription = stringResource(R.string.toggle_lyrics),
                     container = if (showLyrics) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.primary,
                     content = if (showLyrics) MaterialTheme.colorScheme.onTertiary else MaterialTheme.colorScheme.onPrimary,
-                    onClick = toggleLyrics
+                    onClick = toggleLyrics,
+                    on = showLyrics,
                 )
             }
             val pinCircle: @Composable (PlayerPin) -> Unit = { pin ->
@@ -1275,6 +1281,7 @@ fun BottomSheetPlayer(
                         onClick = toggleLyrics,
                         backdrop = buttonBackdrop,
                         glassIntensity = glassIntensity,
+                        on = showLyrics,
                     )
                 }
             }
@@ -1414,6 +1421,7 @@ fun BottomSheetPlayer(
                                 backdrop = buttonBackdrop,
                                 glassIntensity = glassIntensity,
                                 onClick = toggleLyrics,
+                                on = showLyrics,
                             )
                             PlayerPin.TIMER -> PlayerActionSegment(
                                 painter = rememberVectorPainter(Icons.Rounded.Timer),
@@ -2604,6 +2612,17 @@ internal fun rememberTabMode(): Boolean {
  */
 private val SHARE_NUDGE = (-1).dp
 
+/**
+ * A button that turns something on and off, as lyrics: TalkBack says it as a switch, with Android's own
+ * "On" or "Off", where the picture says it only by its colour. It said "Toggle lyrics" the same either way.
+ * Nothing for [on] null, a button that only does something.
+ */
+private fun Modifier.onOffState(on: Boolean?): Modifier =
+    if (on == null) this else semantics {
+        role = Role.Switch
+        toggleableState = ToggleableState(on)
+    }
+
 @Composable
 private fun PlayerCircleButton(
     painter: Painter,
@@ -2612,6 +2631,8 @@ private fun PlayerCircleButton(
     content: Color,
     onClick: () -> Unit,
     nudge: Dp = 0.dp,
+    /** For a button that turns something on and off, whether it is on ([onOffState]); null for one that only acts. */
+    on: Boolean? = null,
 ) {
     val haptic = LocalHapticFeedback.current
     // A long press says the button's own name (LongPressLabel), nothing shown otherwise. The label's box
@@ -2627,6 +2648,7 @@ private fun PlayerCircleButton(
                     haptic.tapTick()
                     onClick()
                 }
+                .onOffState(on)
         ) {
             Icon(
                 painter = painter,
@@ -2655,6 +2677,8 @@ private fun PlayerActionSegment(
     filled: Boolean = true,
     /** Moves the icon sideways, for a glyph whose weight is off its middle ([SHARE_NUDGE]). */
     nudge: Dp = 0.dp,
+    /** For a button that turns something on and off, whether it is on ([onOffState]); null for one that only acts. */
+    on: Boolean? = null,
 ) {
     val haptic = LocalHapticFeedback.current
     // A long press says the button's own name (LongPressLabel), nothing shown otherwise.
@@ -2694,6 +2718,7 @@ private fun PlayerActionSegment(
                     haptic.tapTick()
                     onClick()
                 }
+                .onOffState(on)
                 .padding(horizontal = 10.dp)
         ) {
             Icon(
