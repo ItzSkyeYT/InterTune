@@ -33,7 +33,7 @@ class TogetherLinkTest {
     @Test
     fun `share sends the https link, on its own line`() {
         val code = RoomCode.generate()
-        assertEquals("https://intertune.app/together/${code.raw}", code.webLink)
+        assertEquals("https://intertune.app/together/#${code.raw}", code.webLink)
         val dialog = File("src/main/java/com/dd3boh/outertune/ui/dialog/TogetherDialog.kt").readText()
         assertTrue("room.code.pretty, room.code.webLink" in dialog)
         for (res in listOf("values", "values-fr")) {
@@ -148,5 +148,17 @@ class TogetherLinkTest {
         assertTrue("InviteAnswer.forInvite(invite," in main)
         val service = File("src/main/java/com/dd3boh/outertune/playback/MusicService.kt").readText()
         assertTrue("together.value?.takeIf { it.code == code }" in service)
+    }
+
+    @Test
+    fun `the code travels after a #, so neither the site's log nor a link preview gets it, and old links still open`() {
+        val code = RoomCode.generate()
+        val uri = java.net.URI(code.webLink)
+        assertEquals("/together/", uri.rawPath)
+        assertEquals(code.raw, uri.rawFragment)
+        // Links sent before 20 Nov 2026 have the code in the path: they still open the room.
+        assertEquals(code, RoomCode.parse("https://intertune.app/together/${code.raw}"))
+        assertEquals(code, RoomCode.parse("https://intertune.app/together/#${code.raw}?utm=x"))
+        assertEquals(null, RoomCode.parse("https://intertune.app/together/#"))
     }
 }

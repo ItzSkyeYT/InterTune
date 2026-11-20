@@ -150,11 +150,12 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
- * The cast button: the picker when tapped, and what casting is doing at a glance. Filled in the
- * accent colour while a receiver plays, faded while connecting.
+ * The cast button at a tablet's top right: the sheet when tapped (the player's own, [CastPickerHost]), and what
+ * casting is doing at a glance. Filled in the accent colour while a receiver plays, faded while connecting.
  *
- * It sits in the empty space at the top right of the full player, laid over it by the caller, so
- * no control around it moves or changes size. Nothing at all with Unreleased.CASTING off.
+ * A tablet shows no buttons by the title, so it keeps this one, laid over the empty top right by the caller, so no
+ * control around it moves or changes size. Elsewhere the cast button is one of the player's ([PlayerPin.CAST]).
+ * Nothing at all with Unreleased.CASTING off.
  */
 @Composable
 fun CastButton(tint: Color, modifier: Modifier = Modifier) {
@@ -162,7 +163,6 @@ fun CastButton(tint: Color, modifier: Modifier = Modifier) {
     val playerConnection = LocalPlayerConnection.current ?: return
     val session = playerConnection.service.castSession ?: return
     val state by session.state.collectAsState()
-    val showPicker by session.pickerOpen.collectAsState()
 
     val casting = state as? CastSession.State.Casting
     val connecting = state as? CastSession.State.Connecting
@@ -181,7 +181,44 @@ fun CastButton(tint: Color, modifier: Modifier = Modifier) {
             },
         )
     }
+}
 
+/** What the cast button shows and does, for the player's buttons that draw it in their own shape ([PlayerPin.CAST]). */
+class CastLook(val icon: ImageVector, val description: String, val casting: Boolean, val connecting: Boolean, val open: () -> Unit)
+
+/** The cast button's look and its tap, or null without casting. */
+@Composable
+fun rememberCastLook(): CastLook? {
+    if (!Unreleased.CASTING) return null
+    val playerConnection = LocalPlayerConnection.current ?: return null
+    val session = playerConnection.service.castSession ?: return null
+    val state by session.state.collectAsState()
+    val casting = state as? CastSession.State.Casting
+    val connecting = state as? CastSession.State.Connecting
+    return CastLook(
+        icon = if (casting != null) Icons.Rounded.CastConnected else Icons.Rounded.Cast,
+        description = when {
+            casting != null -> stringResource(R.string.cast_playing_on, casting.device.name)
+            connecting != null -> stringResource(R.string.cast_connecting_to, connecting.device.name)
+            else -> stringResource(R.string.cast)
+        },
+        casting = casting != null,
+        connecting = connecting != null,
+        open = { session.pickerOpen.value = true },
+    )
+}
+
+/**
+ * The cast sheet, once for the whole player: the cast button wherever it is pinned, a tablet's at the top, the pill
+ * and the menu's Cast all open this one. Each of them used to put up its own, and two of them on screen at once would
+ * have put up two sheets.
+ */
+@Composable
+fun CastPickerHost() {
+    if (!Unreleased.CASTING) return
+    val playerConnection = LocalPlayerConnection.current ?: return
+    val session = playerConnection.service.castSession ?: return
+    val showPicker by session.pickerOpen.collectAsState()
     if (showPicker) {
         CastPicker(session, onDismiss = { session.pickerOpen.value = false })
     }
@@ -213,7 +250,6 @@ fun OutputButton(
     // Battery use on Saver: frosted still, with nothing behind it blurred (LocalGlassStill).
     val still = LocalGlassStill.current
     val state by session.state.collectAsState()
-    val showPicker by session.pickerOpen.collectAsState()
     val casting = state as? CastSession.State.Casting
     val connecting = state as? CastSession.State.Connecting
     val local = rememberLocalOutput()
@@ -311,10 +347,6 @@ fun OutputButton(
                 }
             }
         }
-    }
-
-    if (showPicker) {
-        CastPicker(session, onDismiss = { session.pickerOpen.value = false })
     }
 }
 

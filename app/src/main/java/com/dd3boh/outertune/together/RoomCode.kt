@@ -58,8 +58,12 @@ class RoomCode private constructor(val raw: String) {
     /** The app's own link, the one the room's QR holds. */
     val appLink: String get() = "$APP_LINK$raw"
 
-    /** The link Share sends: a web address, which chat apps make tappable (intertune:// they do not). */
-    val webLink: String get() = "$WEB_LINK$raw"
+    /**
+     * The link Share sends: a web address, which chat apps make tappable (intertune:// they do not). The code comes after
+     * a #, so it never reaches the site's log or a chat app's link preview, which fetch the address without it (his pick
+     * of 20 Nov 2026). The site reads it there, and in the path as links sent before then have it.
+     */
+    val webLink: String get() = "$WEB_LINK#$raw"
 
     override fun equals(other: Any?) = other is RoomCode && other.raw == raw
     override fun hashCode() = raw.hashCode()
@@ -78,10 +82,10 @@ class RoomCode private constructor(val raw: String) {
         fun isInviteLink(link: String): Boolean =
             link.startsWith(APP_LINK, ignoreCase = true) || link.startsWith(WEB_LINK, ignoreCase = true)
 
-        /** What follows the prefix of an invite link, up to a slash, a ? or a #. */
+        /** What follows the prefix of an invite link, after a # when it has one, up to a slash, a ? or a #. */
         private fun afterPrefix(value: String): String? {
             val prefix = listOf(APP_LINK, WEB_LINK).firstOrNull { value.startsWith(it, ignoreCase = true) } ?: return null
-            return value.substring(prefix.length).takeWhile { it != '/' && it != '?' && it != '#' }
+            return value.substring(prefix.length).removePrefix("#").takeWhile { it != '/' && it != '?' && it != '#' }
         }
 
         fun generate() = RoomCode(String(CharArray(LENGTH) { ALPHABET[random.nextInt(ALPHABET.length)] }))

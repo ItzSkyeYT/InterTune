@@ -546,6 +546,8 @@ val PinsBefore013Key = booleanPreferencesKey("pinsBefore013")
 
 /** The same for Classic's circles by the title, whose default changed on 20 Nov 2026 (ClassicPinsBefore013). */
 val ClassicPinsBefore013Key = booleanPreferencesKey("classicPinsBefore013")
+/** Set once the cast button has joined the player's buttons of an install set up before (CastPinAtUpdate). */
+val CastPinAddedKey = booleanPreferencesKey("castPinAdded")
 
 /**
  * Whether the player opens the queue from a button beside its other buttons, rather than from the

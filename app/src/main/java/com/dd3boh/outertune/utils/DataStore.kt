@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlin.properties.ReadOnlyProperty
 import com.dd3boh.outertune.ui.player.ClassicPinsBefore013
+import com.dd3boh.outertune.ui.player.CastPinAtUpdate
 import com.dd3boh.outertune.ui.player.PinsBefore013
 
 /**
@@ -30,7 +31,7 @@ import com.dd3boh.outertune.ui.player.PinsBefore013
  */
 private val Context.settingsFile: DataStore<Preferences> by preferencesDataStore(
     name = "settings",
-    produceMigrations = { listOf(NewInstallSongCache, LyricsTimingOnTime, PinsBefore013, ClassicPinsBefore013) },
+    produceMigrations = { listOf(NewInstallSongCache, LyricsTimingOnTime, PinsBefore013, ClassicPinsBefore013, CastPinAtUpdate) },
 )
 
 @Volatile

@@ -1,5 +1,11 @@
 package com.dd3boh.outertune.ui.menu
 
+import com.dd3boh.outertune.constants.PlayerButtonsStyleKey
+import com.dd3boh.outertune.constants.PlayerButtonsStyle
+import com.dd3boh.outertune.constants.PlayerPinsKey
+import com.dd3boh.outertune.ui.player.PinPlace
+import com.dd3boh.outertune.ui.player.PlayerPins
+import com.dd3boh.outertune.ui.player.rememberCastLook
 import com.dd3boh.outertune.ui.component.rememberSleepTimerState
 import com.dd3boh.outertune.ui.component.SleepTimerDialog
 import com.dd3boh.outertune.constants.Unreleased
@@ -171,6 +177,13 @@ fun PlayerMenu(
     val clipboardManager = LocalClipboard.current
 
     var showLyrics by rememberPreference(ShowLyricsKey, defaultValue = false)
+    // Cast, while the cast button is pinned nowhere in the style shown (PlayerPin.CAST): a way to the cast sheet is
+    // never taken away. Not in a queued song's menu, which is about that song.
+    val buttonsStyle by rememberEnumPreference(PlayerButtonsStyleKey, defaultValue = PlayerButtonsStyle.CLASSIC)
+    val pinsRaw by rememberPreference(PlayerPinsKey, "")
+    val castPlaces = if (buttonsStyle == PlayerButtonsStyle.CLASSIC) listOf(PinPlace.CLASSIC) else listOf(PinPlace.CONNECTED_TITLE, PinPlace.CONNECTED_ROW)
+    val castInMenu = !songHeader && !PlayerPins.castPinned(PlayerPins.read(pinsRaw), castPlaces)
+    val castLook = if (castInMenu) rememberCastLook() else null
 
     val playerConnection = LocalPlayerConnection.current ?: return
     val playerVolume = playerConnection.service.playerVolume.collectAsState()
@@ -527,6 +540,15 @@ fun PlayerMenu(
                 title = R.string.together_title
             ) {
                 showTogether = true
+            }
+        }
+        if (castLook != null) {
+            GridMenuItem(
+                icon = castLook.icon,
+                title = R.string.cast
+            ) {
+                castLook.open()
+                onDismiss()
             }
         }
         // Mix: the change from this song into the next, shaped by hand, only while a Mix queue
