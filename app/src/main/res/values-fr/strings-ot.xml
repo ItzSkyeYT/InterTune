@@ -2544,6 +2544,7 @@
     <string name="together_close_room">Fermer le salon</string>
     <string name="together_song_unavailable">Ce titre n\'est pas disponible pour vous. Le suivant de l\'hôte démarrera tout seul.</string>
     <string name="together_paused_here">En pause ici. Appuyez sur lecture pour revenir où en est le salon.</string>
+    <string name="together_catch_up_after_cast" translatable="false">Vous rattraperez le salon à la fin du cast.</string>
     <string name="together_in_room">Dans un salon</string>
     <string name="settings_together_description">Votre nom dans les salons, et à quel point les téléphones restent synchronisés</string>
     <string name="together_settings_you">Vous</string>

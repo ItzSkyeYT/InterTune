@@ -460,6 +460,13 @@ class MusicService : MediaLibraryService(),
     var isCasting = false
         private set
 
+    /**
+     * Whether a cast is on: from the pick of a receiver until the music is back on the phone, a move from one receiver
+     * straight to another included, and both hand-overs of the music inside it. A listening room's guest follows nothing
+     * meanwhile (TogetherSession.castLook). Main thread.
+     */
+    val castOn: Boolean get() = castSession?.state?.value.let { it != null && it != CastSession.State.Off }
+
     val qbInit = MutableStateFlow(false)
     var queueBoard = QueueBoard(this, maxQueues = 1)
     var queuePlaylistId: String? = null
