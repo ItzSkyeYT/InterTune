@@ -54,7 +54,6 @@
     <string name="head_tracking_response_instant">Instantâneo</string>
     <string name="head_tracking_response_explain">“Suave” nunca passa do ponto, mas parece um pouco atrasado. “Rápido” e “Instantâneo” parecem imediatos, mas podem passar do ponto quando você para de virar. “Equilibrado” fica entre os dois.</string>
     <string name="proximity_volume">Mais baixo quando você se afasta</string>
-    <string name="proximity_volume_description">Trata o celular como o lugar de onde vem a música.</string>
     <string name="proximity_volume_explain">Afaste-se do celular e a música vai ficando um pouco mais baixa, como se o celular fosse a caixa de som. Ela nunca fica muda.\n\nPrecisa de fones Bluetooth e da permissão Dispositivos por perto do Android: a distância é estimada pela intensidade do sinal deles.</string>
     <string name="proximity_probe">Registro do sinal Bluetooth</string>
     <string name="proximity_probe_stop">Parar o registro</string>
@@ -231,7 +230,6 @@
     <string name="oobe_polls_answered">Você pode mudar isso quando quiser em Configurações, em Perguntas e novidades.</string>
     <string name="oobe_usage_count_answered">Você pode mudar isso quando quiser em Configurações, em Contagem anônima.</string>
     <string name="poll_title">Uma pergunta do InterTune</string>
-    <string name="poll_banner_hint">Toque para responder, ou dispense no xis</string>
     <string name="poll_dismiss">Dispensar esta pergunta</string>
     <string name="poll_close">Fechar</string>
     <string name="poll_send">Enviar minha resposta</string>
@@ -404,7 +402,6 @@
     <string name="player_liquid_glass_description">Painéis de vidro flutuantes para a barra de navegação, o mini reprodutor e os controles de reprodução, e cores mais ricas da capa atrás da tela de reprodução</string>
     <string name="player_liquid_glass_description_legacy">Cores mais ricas da capa atrás da tela de reprodução. Os painéis de vidro flutuantes precisam do Android 13 ou mais recente</string>
     <string name="player_glass_intensity">Intensidade do vidro</string>
-    <string name="player_glass_intensity_description">Mais alto deixa mais transparente e com mais refração; mais baixo deixa mais perto de superfícies sólidas</string>
     <string name="player_glass_intensity_value">%1$d%%</string>
     <string name="player_glass_preview_needs_13">A prévia ao vivo do vidro precisa do Android 13 ou mais recente</string>
     <string name="player_glass_preview_side_navigation">A prévia ao vivo do vidro não está disponível com a navegação lateral</string>
@@ -572,7 +569,6 @@
     <string name="image_cache_max_size">Tamanho máximo do cache de capas</string>
     <string name="max_queues_description">Quantas filas o app mantém ao mesmo tempo. A mais antiga é descartada quando você passa desse número.</string>
     <string name="enable_proxy_description">Mandar as solicitações e os streams do YouTube Music por outro servidor primeiro. As imagens, as letras e os outros serviços que o app usa continuam se conectando diretamente. Deixe desativado a menos que você saiba que precisa.</string>
-    <string name="show_liked_and_downloaded_playlist_description">Mostrar Músicas curtidas e Músicas baixadas como playlists na sua biblioteca.</string>
     <string name="pause_listen_history_description">Parar de adicionar músicas ao seu histórico. Nada do que já está nele é removido.</string>
     <string name="pause_remote_listen_history_description">Parar de contar ao YouTube Music o que você toca. Seu histórico dentro deste app continua do mesmo jeito.</string>
     <string name="clear_listen_history_description">Apagar tudo o que o app registrou sobre o que você tocou.</string>
@@ -1653,7 +1649,6 @@
     <string name="problem_report_close">Fechar</string>
     <string name="player_background_living">Manter desfoque</string>
     <string name="player_living_strength">Intensidade do desfoque vivo</string>
-    <string name="player_living_strength_description">Quanto o fundo e o brilho ao redor da capa se movem com a música. Em 0 apenas balança.</string>
     <string name="player_living_smoothing">Suavização de desfoque vivo</string>
     <string name="player_living_colours">Cores de desfoque vivo</string>
     <string name="player_living_colours_main">Três das cores de capa: cada um dos graves, a voz e os agúdos</string>

@@ -114,7 +114,6 @@
     <string name="oobe_update_check_title">Να σας ειδοποιούμε για ενημερώσεις;</string>
     <string name="oobe_update_check_yes">Ναι, να ελέγχει</string>
     <string name="player_glass_intensity">Ένταση γυαλιού</string>
-    <string name="player_glass_intensity_description">Πιο ψηλά σημαίνει πιο διάφανο και πιο έντονη διάθλαση· πιο χαμηλά πλησιάζει τις απλές συμπαγείς επιφάνειες</string>
     <string name="player_glass_intensity_value">%1$d%%</string>
     <string name="player_liquid_glass">Υγρό γυαλί</string>
     <string name="player_liquid_glass_description">Αιωρούμενα γυάλινα πάνελ για τη γραμμή πλοήγησης, τον μίνι αναπαραγωγέα και τα χειριστήρια, και πιο πλούσια χρώματα εξωφύλλου πίσω από την οθόνη αναπαραγωγής</string>
@@ -138,7 +137,6 @@
     <string name="oobe_update_auto_description">Την κατεβάζει στο παρασκήνιο ώστε να είναι έτοιμη όταν τη θέλετε. Το Android θα σας ζητήσει ούτως ή άλλως επιβεβαίωση.</string>
     <string name="oobe_polls_answered">Μπορείτε να το αλλάξετε οποιαδήποτε στιγμή στις Ρυθμίσεις, στην ενότητα Ερωτήσεις.</string>
     <string name="poll_title">Μια ερώτηση από το InterTune</string>
-    <string name="poll_banner_hint">Πατήστε για απάντηση, ή κλείστε με το σταυρό</string>
     <string name="poll_dismiss">Απόρριψη αυτής της ερώτησης</string>
     <string name="poll_close">Κλείσιμο</string>
     <string name="poll_send">Αποστολή της απάντησής μου</string>
@@ -199,7 +197,6 @@
     <string name="image_cache_max_size">Μέγιστο μέγεθος προσωρινής μνήμης εξωφύλλων</string>
     <string name="max_queues_description">Πόσες λίστες αναπαραγωγής κρατά η εφαρμογή ταυτόχρονα. Η παλαιότερη απορρίπτεται όταν το ξεπεράσετε.</string>
     <string name="enable_proxy_description">Να περνούν τα αιτήματα και οι ροές του YouTube Music πρώτα από άλλον διακομιστή. Οι εικόνες, οι στίχοι και οι άλλες υπηρεσίες που χρησιμοποιεί η εφαρμογή συνδέονται ακόμη απευθείας. Αφήστε το ανενεργό εκτός αν ξέρετε ότι το χρειάζεστε.</string>
-    <string name="show_liked_and_downloaded_playlist_description">Εμφάνιση των Αγαπημένων και των Ληφθέντων τραγουδιών ως λίστες στη βιβλιοθήκη σας.</string>
     <string name="pause_listen_history_description">Να σταματήσει η προσθήκη τραγουδιών στο ιστορικό σας. Τίποτα από όσα υπάρχουν ήδη δεν αφαιρείται.</string>
     <string name="pause_remote_listen_history_description">Να σταματήσει η ενημέρωση του YouTube Music για ό,τι παίζετε. Το ιστορικό μέσα σε αυτή την εφαρμογή συνεχίζεται ούτως ή άλλως.</string>
     <string name="clear_listen_history_description">Διαγραφή όλων όσων έχει καταγράψει η εφαρμογή για ό,τι έχετε παίξει.</string>

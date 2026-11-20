@@ -235,7 +235,6 @@
     <string name="oobe_update_check_title">هل نخبرك بالتحديثات؟</string>
     <string name="oobe_update_check_yes">نعم، تحقق</string>
     <string name="player_glass_intensity">شدة الزجاج</string>
-    <string name="player_glass_intensity_description">كلما زادت أصبح أكثر شفافية وانكسارًا؛ وكلما قلّت اقترب من أسطح صلبة عادية</string>
     <string name="player_glass_intensity_value">%1$d%%</string>
     <string name="player_liquid_glass">الزجاج السائل</string>
     <string name="player_liquid_glass_description">ألواح زجاجية عائمة لشريط التنقل والمشغل المصغر وأزرار التحكم، وألوان أغنى من صورة الألبوم خلف شاشة التشغيل الحالي</string>
@@ -259,7 +258,6 @@
     <string name="oobe_update_auto_description">ينزّلها في الخلفية لتكون جاهزة عندما تريدها. وسيظل Android يطلب منك التأكيد.</string>
     <string name="oobe_polls_answered">يمكنك تغيير هذا في أي وقت من الإعدادات، ضمن الأسئلة.</string>
     <string name="poll_title">سؤال من InterTune</string>
-    <string name="poll_banner_hint">اضغط للإجابة، أو أغلق بعلامة الضرب</string>
     <string name="poll_dismiss">تجاهل هذا السؤال</string>
     <string name="poll_close">إغلاق</string>
     <string name="poll_send">إرسال إجابتي</string>
@@ -320,7 +318,6 @@
     <string name="image_cache_max_size">الحد الأقصى لذاكرة الأغلفة المؤقتة</string>
     <string name="max_queues_description">كم قائمة تشغيل يحتفظ بها التطبيق في وقت واحد. يُحذف الأقدم عند تجاوز هذا العدد.</string>
     <string name="enable_proxy_description">مرّر طلبات YouTube Music وبثّه عبر خادم آخر أولاً. الصور وكلمات الأغاني والخدمات الأخرى التي يستخدمها التطبيق ما زالت تتصل مباشرةً. اتركه معطلاً ما لم تكن تعرف أنك بحاجة إليه.</string>
-    <string name="show_liked_and_downloaded_playlist_description">أظهر الأغاني التي أعجبتك والأغاني المنزّلة كقوائم تشغيل في مكتبتك.</string>
     <string name="pause_listen_history_description">أوقف إضافة الأغاني إلى سجلك. ولا يُحذف أي شيء موجود فيه أصلاً.</string>
     <string name="pause_remote_listen_history_description">أوقف إخبار YouTube Music بما تشغّله. أما سجلك داخل هذا التطبيق فيستمر في الحالتين.</string>
     <string name="clear_listen_history_description">احذف كل ما سجّله التطبيق عمّا شغّلته.</string>

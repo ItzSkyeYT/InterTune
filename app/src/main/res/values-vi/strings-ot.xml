@@ -138,7 +138,6 @@
     <string name="oobe_update_check_title">Thông báo cho bạn khi có bản cập nhật?</string>
     <string name="oobe_update_check_yes">Có, hãy kiểm tra</string>
     <string name="player_glass_intensity">Cường độ kính</string>
-    <string name="player_glass_intensity_description">Càng cao thì càng trong suốt và khúc xạ mạnh hơn; càng thấp thì càng giống bề mặt đặc thông thường</string>
     <string name="player_glass_intensity_value">%1$d%%</string>
     <string name="player_liquid_glass">Kính lỏng</string>
     <string name="player_liquid_glass_description">Các tấm kính nổi cho thanh điều hướng, trình phát thu nhỏ và các nút điều khiển, cùng màu ảnh bìa đậm đà hơn phía sau màn hình đang phát</string>
@@ -162,7 +161,6 @@
     <string name="oobe_update_auto_description">Tải sẵn ở chế độ nền để có ngay khi bạn cần. Android vẫn sẽ hỏi bạn xác nhận.</string>
     <string name="oobe_polls_answered">Bạn có thể thay đổi bất cứ lúc nào trong Cài đặt, mục Câu hỏi.</string>
     <string name="poll_title">Một câu hỏi từ InterTune</string>
-    <string name="poll_banner_hint">Chạm để trả lời, hoặc đóng bằng dấu X</string>
     <string name="poll_dismiss">Bỏ qua câu hỏi này</string>
     <string name="poll_close">Đóng</string>
     <string name="poll_send">Gửi câu trả lời của tôi</string>
@@ -223,7 +221,6 @@
     <string name="image_cache_max_size">Dung lượng tối đa cho bộ nhớ đệm ảnh bìa</string>
     <string name="max_queues_description">Ứng dụng giữ bao nhiêu hàng đợi cùng lúc. Cái cũ nhất bị bỏ khi bạn vượt quá con số này.</string>
     <string name="enable_proxy_description">Cho các yêu cầu và luồng phát của YouTube Music đi qua một máy chủ khác trước. Hình ảnh, lời bài hát và các dịch vụ khác mà ứng dụng dùng vẫn kết nối trực tiếp. Cứ để tắt trừ khi bạn biết mình cần.</string>
-    <string name="show_liked_and_downloaded_playlist_description">Hiện Bài hát đã thích và Bài hát đã tải như danh sách phát trong thư viện của bạn.</string>
     <string name="pause_listen_history_description">Ngừng thêm bài hát vào lịch sử của bạn. Những gì đã có trong đó không bị xóa.</string>
     <string name="pause_remote_listen_history_description">Ngừng báo cho YouTube Music biết bạn đang nghe gì. Lịch sử bên trong ứng dụng này vẫn tiếp tục.</string>
     <string name="clear_listen_history_description">Xóa mọi thứ ứng dụng đã ghi lại về những gì bạn đã nghe.</string>

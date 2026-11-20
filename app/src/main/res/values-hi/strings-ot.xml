@@ -54,7 +54,6 @@
     <string name="head_tracking_response_instant">तुरंत</string>
     <string name="head_tracking_response_explain">\"सहज\" कभी आगे नहीं निकलता, पर थोड़ा पीछे लगता है। \"तेज़\" और \"तुरंत\" फ़ौरन जवाब देते हैं, पर सिर रोकने पर थोड़ा आगे निकल सकते हैं। \"संतुलित\" इन दोनों के बीच में है।</string>
     <string name="proximity_volume">दूर जाने पर आवाज़ धीमी</string>
-    <string name="proximity_volume_description">आपके फ़ोन को ही संगीत का स्रोत मानता है।</string>
     <string name="proximity_volume_explain">फ़ोन से दूर जाने पर संगीत धीरे-धीरे थोड़ा धीमा हो जाता है, मानो फ़ोन ही स्पीकर हो। आवाज़ कभी पूरी बंद नहीं होती।\n\nइसके लिए Bluetooth हेडफ़ोन और Android की \"आस-पास मौजूद डिवाइस\" अनुमति चाहिए: दूरी का अंदाज़ा उनके सिग्नल की ताकत से लगाया जाता है।</string>
     <string name="proximity_probe">Bluetooth सिग्नल लॉग</string>
     <string name="proximity_probe_stop">लॉग करना बंद करें</string>
@@ -230,7 +229,6 @@
     <string name="oobe_polls_answered">आप इसे कभी भी सेटिंग्स में, \"प्रश्न और खबरें\" के अंतर्गत बदल सकते हैं।</string>
     <string name="oobe_usage_count_answered">आप इसे कभी भी सेटिंग्स में \"गुमनाम गिनती\" के अंदर बदल सकते हैं।</string>
     <string name="poll_title">InterTune का एक प्रश्न</string>
-    <string name="poll_banner_hint">जवाब देने के लिए टैप करें, या क्रॉस से बंद करें</string>
     <string name="poll_dismiss">यह प्रश्न हटाएँ</string>
     <string name="poll_close">बंद करें</string>
     <string name="poll_send">मेरा जवाब भेजें</string>
@@ -400,7 +398,6 @@
     <string name="player_liquid_glass_description">नेवबार, मिनी प्लेयर और प्लेयर बटनों के लिए तैरते हुए ग्लास पैनल, और अभी चल रहे गाने की स्क्रीन के पीछे आर्टवर्क के गहरे रंग</string>
     <string name="player_liquid_glass_description_legacy">अभी चल रहे गाने की स्क्रीन के पीछे आर्टवर्क के गहरे रंग। तैरते हुए ग्लास पैनल के लिए Android 13 या नया संस्करण चाहिए</string>
     <string name="player_glass_intensity">ग्लास की तीव्रता</string>
-    <string name="player_glass_intensity_description">ज़्यादा रखने पर सतह और पारदर्शी तथा ज़्यादा मुड़ी हुई दिखती है; कम रखने पर सादी ठोस सतह जैसी</string>
     <string name="player_glass_intensity_value">%1$d%%</string>
     <string name="player_glass_preview_needs_13">ग्लास के लाइव प्रीव्यू के लिए Android 13 या उसके बाद का संस्करण चाहिए</string>
     <string name="player_glass_preview_side_navigation">साइड नेविगेशन के साथ ग्लास का लाइव प्रीव्यू उपलब्ध नहीं है</string>
@@ -566,7 +563,6 @@
     <string name="image_cache_max_size">कवर कैश का अधिकतम आकार</string>
     <string name="max_queues_description">ऐप एक साथ कितनी कतारें रखता है। इससे आगे जाने पर सबसे पुरानी हट जाती है।</string>
     <string name="enable_proxy_description">YouTube Music के अनुरोध और स्ट्रीम पहले किसी दूसरे सर्वर से गुज़ारें। तस्वीरें, गीत के बोल और ऐप की बाकी सेवाएँ अब भी सीधे जुड़ती हैं। जब तक आपको पक्का पता न हो कि ज़रूरत है, इसे बंद रहने दें।</string>
-    <string name="show_liked_and_downloaded_playlist_description">पसंद किए गए गाने और डाउनलोड किए गए गाने आपकी लाइब्रेरी में प्लेलिस्ट के रूप में दिखाएँ।</string>
     <string name="pause_listen_history_description">आपके इतिहास में गाने जोड़ना बंद करें। जो पहले से उसमें है, वह नहीं हटता।</string>
     <string name="pause_remote_listen_history_description">YouTube Music को यह बताना बंद करें कि आप क्या चला रहे हैं। इस ऐप के भीतर का इतिहास दोनों ही स्थिति में चलता रहता है।</string>
     <string name="clear_listen_history_description">आपने क्या चलाया, इस बारे में ऐप ने जो कुछ रिकॉर्ड किया है सब मिटाएँ।</string>

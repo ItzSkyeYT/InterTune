@@ -284,7 +284,6 @@
     <string name="oobe_update_check_title">Повідомляти про оновлення?</string>
     <string name="oobe_update_check_yes">Так, перевіряти</string>
     <string name="player_glass_intensity">Інтенсивність скла</string>
-    <string name="player_glass_intensity_description">Вище — прозоріше й сильніше заломлення; нижче — ближче до звичайних суцільних поверхонь</string>
     <string name="player_glass_intensity_value">%1$d%%</string>
     <string name="player_liquid_glass">Рідке скло</string>
     <string name="player_liquid_glass_description">Плаваючі скляні панелі для панелі навігації, мініплеєра та кнопок керування, а також насиченіші кольори обкладинки на екрані відтворення</string>
@@ -308,7 +307,6 @@
     <string name="oobe_update_auto_description">Завантажує у фоні, щоб оновлення було готове, коли знадобиться. Android усе одно попросить підтвердження.</string>
     <string name="oobe_polls_answered">Це можна змінити будь-коли в налаштуваннях, у розділі «Питання».</string>
     <string name="poll_title">Питання від InterTune</string>
-    <string name="poll_banner_hint">Торкніться, щоб відповісти, або закрийте хрестиком</string>
     <string name="poll_dismiss">Приховати це питання</string>
     <string name="poll_close">Закрити</string>
     <string name="poll_send">Надіслати відповідь</string>
@@ -369,7 +367,6 @@
     <string name="image_cache_max_size">Максимальний розмір кешу обкладинок</string>
     <string name="max_queues_description">Скільки черг застосунок тримає водночас. Найстаріша відкидається, коли ви виходите за це число.</string>
     <string name="enable_proxy_description">Пропускати запити й потоки YouTube Music спершу через інший сервер. Зображення, тексти пісень та інші сервіси, якими користується застосунок, і далі підключаються напряму. Залиште вимкненим, якщо не впевнені, що вам це потрібно.</string>
-    <string name="show_liked_and_downloaded_playlist_description">Показувати «Уподобані» та «Завантажені» як плейлисти у вашій бібліотеці.</string>
     <string name="pause_listen_history_description">Перестати додавати треки до вашої історії. Нічого з того, що вже там є, не видаляється.</string>
     <string name="pause_remote_listen_history_description">Перестати повідомляти YouTube Music, що ви слухаєте. Історія всередині цього застосунку ведеться далі в будь-якому разі.</string>
     <string name="clear_listen_history_description">Видалити все, що застосунок записав про прослухане.</string>
@@ -425,7 +422,6 @@
     <string name="head_tracking_response_instant">Миттєво</string>
     <string name="head_tracking_response_explain">«Плавний» ніколи не проскакує повз, але відчувається трохи з запізненням. «Швидкий» та «Миттєвий» реагують одразу, але можуть проскакувати далі, коли ви зупиняєте рух. «Збалансований» — це золота середина.</string>
     <string name="proximity_volume">Стихає в міру вашого віддалення</string>
-    <string name="proximity_volume_description">Визначає телефон як місце, звідки лунає музика.</string>
     <string name="proximity_volume_explain">Відійдіть від телефона, і музика почне повільно затихати — так, ніби сам телефон є динаміком. Звук ніколи не вимикається повністю.\n\nПотрібні Bluetooth-навушники та дозвіл Android на пошук пристроїв поблизу: відстань визначається за силою їхнього сигналу.</string>
     <string name="proximity_probe">Журнал сигналу Bluetooth</string>
     <string name="proximity_probe_stop">Припинити журналювання</string>

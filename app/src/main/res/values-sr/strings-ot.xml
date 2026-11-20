@@ -251,7 +251,6 @@
     <string name="oobe_update_check_title">Da te obaveštavamo o ažuriranjima?</string>
     <string name="oobe_update_check_yes">Da, proveravaj</string>
     <string name="player_glass_intensity">Jačina stakla</string>
-    <string name="player_glass_intensity_description">Veće je providnije i jače prelama svetlost; manje je bliže običnim punim površinama</string>
     <string name="player_glass_intensity_value">%1$d%%</string>
     <string name="player_liquid_glass">Tečno staklo</string>
     <string name="player_liquid_glass_description">Lebdeće staklene ploče za navigacionu traku, mini plejer i kontrole reprodukcije, i bogatije boje omota iza ekrana reprodukcije</string>
@@ -275,7 +274,6 @@
     <string name="oobe_update_auto_description">Преузима је у позадини да буде спремна кад је пожелите. Android ће и даље тражити потврду.</string>
     <string name="oobe_polls_answered">Ово можете променити било када у Подешавањима, под Питања.</string>
     <string name="poll_title">Питање од InterTune</string>
-    <string name="poll_banner_hint">Додирните да одговорите, или затворите крстићем</string>
     <string name="poll_dismiss">Одбаци ово питање</string>
     <string name="poll_close">Затвори</string>
     <string name="poll_send">Пошаљи мој одговор</string>
@@ -336,7 +334,6 @@
     <string name="image_cache_max_size">Највећа величина кеша омота</string>
     <string name="max_queues_description">Колико редова апликација чува истовремено. Најстарији се одбацује када пређете овај број.</string>
     <string name="enable_proxy_description">Пропусти захтеве и стримове YouTube Music-а прво кроз други сервер. Слике, текстови песама и остале услуге које апликација користи и даље се повезују директно. Оставите искључено осим ако знате да вам треба.</string>
-    <string name="show_liked_and_downloaded_playlist_description">Прикажи Омиљене песме и Преузете песме као листе у вашој библиотеци.</string>
     <string name="pause_listen_history_description">Престани да додајеш песме у вашу историју. Ништа што је већ у њој се не уклања.</string>
     <string name="pause_remote_listen_history_description">Престани да јављаш YouTube Music-у шта пуштате. Историја унутар ове апликације наставља у сваком случају.</string>
     <string name="clear_listen_history_description">Обриши све што је апликација забележила о томе шта сте пуштали.</string>

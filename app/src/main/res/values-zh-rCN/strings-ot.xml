@@ -274,7 +274,6 @@
     <string name="oobe_update_check_title">需要通知您有新版本吗？</string>
     <string name="oobe_update_check_yes">好，检查更新</string>
     <string name="player_glass_intensity">玻璃强度</string>
-    <string name="player_glass_intensity_description">数值越高越通透、折射越强；越低越接近普通的实色表面</string>
     <string name="player_glass_intensity_value">%1$d%%</string>
     <string name="player_liquid_glass">液态玻璃</string>
     <string name="player_liquid_glass_description">为导航栏、迷你播放器和播放控件加上悬浮玻璃面板，并让正在播放界面的封面配色更浓郁</string>
@@ -298,7 +297,6 @@
     <string name="oobe_update_auto_description">在后台下载，需要时即可使用。Android 仍会请你确认。</string>
     <string name="oobe_polls_answered">你随时可以在设置的“问题”中更改。</string>
     <string name="poll_title">来自 InterTune 的一个问题</string>
-    <string name="poll_banner_hint">点按回答，或用叉号关闭</string>
     <string name="poll_dismiss">忽略这个问题</string>
     <string name="poll_close">关闭</string>
     <string name="poll_send">发送我的回答</string>
@@ -359,7 +357,6 @@
     <string name="image_cache_max_size">封面缓存上限</string>
     <string name="max_queues_description">应用同时保留多少个播放队列。超出后最旧的会被丢弃。</string>
     <string name="enable_proxy_description">让 YouTube Music 的请求和音频流先经过另一台服务器。图片、歌词以及应用使用的其他服务仍会直接连接。除非你确定需要，否则请保持关闭。</string>
-    <string name="show_liked_and_downloaded_playlist_description">在音乐库中把“喜欢的歌曲”和“已下载的歌曲”显示为播放列表。</string>
     <string name="pause_listen_history_description">不再把歌曲加入你的收听记录。已在其中的内容不会被删除。</string>
     <string name="pause_remote_listen_history_description">不再把你播放的内容告诉 YouTube Music。此应用内的记录不受影响，照常继续。</string>
     <string name="clear_listen_history_description">删除应用记录的所有你播放过的内容。</string>

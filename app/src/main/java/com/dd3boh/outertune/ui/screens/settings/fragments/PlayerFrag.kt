@@ -213,7 +213,6 @@ fun ColumnScope.ProximityVolumeFrag() {
     ExplainedSwitchPreference(
         modifier = Modifier.settingRow(R.string.proximity_volume),
         title = stringResource(R.string.proximity_volume),
-        description = stringResource(R.string.proximity_volume_description),
         explanation = stringResource(R.string.proximity_volume_explain),
         picture = ExplainPicture.PROXIMITY,
         checked = enabled && !held,
@@ -366,7 +365,6 @@ fun ColumnScope.StageWidthFrag() {
         SwitchPreference(
             modifier = Modifier.settingRow(R.string.spatial_bass),
             title = { Text(stringResource(R.string.spatial_bass)) },
-            description = stringResource(R.string.spatial_bass_description),
             checked = bassDirect,
             onCheckedChange = onBassDirectChange,
         )

@@ -54,7 +54,6 @@
     <string name="head_tracking_response_instant">Instan</string>
     <string name="head_tracking_response_explain">\"Halus\" tidak pernah bergerak terlalu jauh, tetapi terasa sedikit tertinggal. \"Cepat\" dan \"Instan\" terasa langsung, tetapi bisa bergerak terlalu jauh saat Anda berhenti menoleh. \"Seimbang\" ada di antara keduanya.</string>
     <string name="proximity_volume">Lebih pelan saat Anda menjauh</string>
-    <string name="proximity_volume_description">Menganggap ponsel Anda sebagai sumber musik.</string>
     <string name="proximity_volume_explain">Saat Anda menjauh dari ponsel, musik perlahan menjadi sedikit lebih pelan, seolah-olah ponsel itulah speakernya. Musik tidak pernah dibisukan.\n\nMembutuhkan headphone Bluetooth dan izin Perangkat di sekitar dari Android: jarak diperkirakan dari kekuatan sinyalnya.</string>
     <string name="proximity_probe">Log sinyal Bluetooth</string>
     <string name="proximity_probe_stop">Berhenti mencatat</string>
@@ -229,7 +228,6 @@
     <string name="oobe_polls_answered">Anda bisa mengubah ini kapan saja di Pengaturan, pada bagian Pertanyaan dan berita.</string>
     <string name="oobe_usage_count_answered">Anda bisa mengubahnya kapan saja di Pengaturan, di bagian Hitungan anonim.</string>
     <string name="poll_title">Sebuah pertanyaan dari InterTune</string>
-    <string name="poll_banner_hint">Ketuk untuk menjawab, atau tutup dengan tanda silang</string>
     <string name="poll_dismiss">Abaikan pertanyaan ini</string>
     <string name="poll_close">Tutup</string>
     <string name="poll_send">Kirim jawaban saya</string>
@@ -396,7 +394,6 @@
     <string name="player_liquid_glass_description">Panel kaca mengambang untuk bilah navigasi, pemutar mini, dan tombol pemutaran, serta warna sampul yang lebih kaya di balik layar lagu yang sedang diputar</string>
     <string name="player_liquid_glass_description_legacy">Warna sampul yang lebih kaya di balik layar lagu yang sedang diputar. Panel kaca mengambang memerlukan Android 13 atau lebih baru</string>
     <string name="player_glass_intensity">Intensitas kaca</string>
-    <string name="player_glass_intensity_description">Makin tinggi makin tembus pandang dan makin kuat efek biasnya; makin rendah makin mendekati permukaan polos</string>
     <string name="player_glass_intensity_value">%1$d%%</string>
     <string name="player_glass_preview_needs_13">Pratinjau langsung kaca memerlukan Android 13 atau lebih baru</string>
     <string name="player_glass_preview_side_navigation">Pratinjau langsung kaca tidak tersedia dengan navigasi samping</string>
@@ -560,7 +557,6 @@
     <string name="image_cache_max_size">Ukuran maksimum singgahan sampul</string>
     <string name="max_queues_description">Berapa banyak antrean yang disimpan aplikasi sekaligus. Yang terlama dibuang saat Anda melewati angka ini.</string>
     <string name="enable_proxy_description">Lewatkan permintaan dan streaming YouTube Music melalui server lain lebih dulu. Gambar, lirik, dan layanan lain yang dipakai aplikasi tetap terhubung langsung. Biarkan mati kecuali Anda tahu Anda membutuhkannya.</string>
-    <string name="show_liked_and_downloaded_playlist_description">Tampilkan Lagu yang disukai dan Lagu yang diunduh sebagai daftar putar di pustaka Anda.</string>
     <string name="pause_listen_history_description">Berhenti menambahkan lagu ke riwayat Anda. Yang sudah ada di dalamnya tidak dihapus.</string>
     <string name="pause_remote_listen_history_description">Berhenti memberi tahu YouTube Music apa yang Anda putar. Riwayat di dalam aplikasi ini tetap berjalan.</string>
     <string name="clear_listen_history_description">Hapus semua yang dicatat aplikasi tentang apa yang telah Anda putar.</string>

@@ -83,7 +83,6 @@ fun LyricsSourcesEntry(modifier: Modifier = Modifier) {
     )
     val lines = mapOf(
         LyricsSources.BETTER_LYRICS to stringResource(R.string.lyrics_source_better_lyrics_line),
-        LyricsSources.YOUTUBE_CAPTIONS to stringResource(R.string.lyrics_source_youtube_captions_line),
         LyricsSources.LRCLIB to stringResource(R.string.enable_lrclib_description),
         LyricsSources.KUGOU to stringResource(R.string.enable_kugou_description),
         LyricsSources.YOUTUBE_MUSIC to stringResource(R.string.lyrics_source_youtube_music_line),
@@ -148,11 +147,14 @@ fun LyricsSourcesEntry(modifier: Modifier = Modifier) {
                             Checkbox(checked = row.second, onCheckedChange = { flip() })
                             Column(Modifier.weight(1f).padding(end = 8.dp)) {
                                 Text(names[row.first].orEmpty(), style = MaterialTheme.typography.bodyLarge)
-                                Text(
-                                    lines[row.first].orEmpty(),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
+                                // YouTube's captions have no line: the name says it (Ti-Die's review, 19 Nov 2026).
+                                lines[row.first]?.let { line ->
+                                    Text(
+                                        line,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
                             }
                             Icon(
                                 imageVector = Icons.Rounded.DragHandle,
