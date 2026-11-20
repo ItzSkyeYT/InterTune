@@ -42,7 +42,9 @@ import kotlin.random.Random
  * `ENGINE_CROWD_EXTRA=<edges file>` (20 Nov 2026, the 0.14 engine's step 4) adds a second source in edges.bin's
  * format, as experiments/features/recs-014/lb_crowd/lb_edges.py makes ListenBrainz's: a seed with a list there takes
  * that list, tagged as the second source, and keeps the crowd's own only when it has none, the way the app falls back
- * to YouTube per seed (RelatedSql.ENGINE_EDGES). Its lists are today's, so known at every moment.
+ * to YouTube per seed (RelatedSql.ENGINE_EDGES). Its lists are today's, so known at every moment. With
+ * `ENGINE_CROWD_EXTRA_MODE=merge` a seed keeps the crowd's own list as well, the two sources side by side for the
+ * learned mix (SourceMix), as the app holds YouTube's and Last.fm's.
  */
 class EngineCrowdTrial {
     private class Event(val user: Int, val t: Long, val target: Int, val new: Boolean)
@@ -88,6 +90,7 @@ class EngineCrowdTrial {
         for (i in nExtra - 1 downTo 0) xFirst[xSeed[i]] = i
         // Of the songs heard before each start that have a list at all, how many took the second source's.
         var seedsWithList = 0L; var seedsFromExtra = 0L
+        val mergeExtra = System.getenv("ENGINE_CROWD_EXTRA_MODE") == "merge"
 
         val index = File(dir, "index.tsv").readLines().filter { it.isNotBlank() }.map { l -> l.split('\t').let { Triple(it[0].toInt(), it[1].toLong(), it[2].toInt()) } }
         val events = File(dir, "events.tsv").readLines().filter { it.isNotBlank() }.map { l -> l.split('\t').let { Event(it[0].toInt(), it[1].toLong(), it[2].toInt(), it[3] == "1") } }.groupBy { it.user }
@@ -130,10 +133,10 @@ class EngineCrowdTrial {
                         var j = xFrom
                         while (j < nExtra && xSeed[j] == id) { songRow(xRel[j]); edges += Edge("s$id", "s${xRel[j]}", Provenance.LASTFM); j++ }
                         seedsWithList++; seedsFromExtra++
-                        continue
+                        if (!mergeExtra) continue
                     }
                     val from = seedFirst[id] ?: continue
-                    seedsWithList++
+                    if (xFrom == null) seedsWithList++
                     var j = from
                     while (j < nEdges && eSeed[j] == id) {
                         if (eKnown[j] <= ev.t) { songRow(eRel[j]); edges += Edge("s$id", "s${eRel[j]}") }
@@ -171,7 +174,7 @@ class EngineCrowdTrial {
         out?.close()
         val secs = (System.nanoTime() - started) / 1e9
         println("crowd: ${listeners.size} listeners, ${"%.0f".format(secs)} s, ${nEdges} related rows; hit = the session's first song in the row of twenty")
-        if (extraFile != null) println("  second source: ${extraFile.name}, $nExtra rows for ${xFirst.size} songs; it gave the list of %.1f%% of the seeds with one".format(100.0 * seedsFromExtra / maxOf(1L, seedsWithList)))
+        if (extraFile != null) println("  second source: ${extraFile.name}, $nExtra rows for ${xFirst.size} songs, ${if (mergeExtra) "beside" else "in place of"} the crowd's own; it gave the list of %.1f%% of the seeds with one".format(100.0 * seedsFromExtra / maxOf(1L, seedsWithList)))
         for ((arm, t) in tallies) {
             val perUser = t.perUser.values.map { it[1].toDouble() / it[0] }
             println("  %-9s hit@20 %.3f over %d starts, mean per listener %.3f, new songs found %d of %d new starts, new cards a row %.1f of %.1f, build %.0f ms".format(
