@@ -30,6 +30,8 @@ class HistoryDaysTest {
         "EEEEdMMMMy" to "EEEE d MMMM y",
         "Hm" to "HH:mm",
         "hm" to "h:mm a",
+        "MMMd" to "d MMM",
+        "yMMMd" to "d MMM y",
     )
 
     private fun format(is24Hour: Boolean, locale: Locale = Locale.UK) =
@@ -167,5 +169,39 @@ class HistoryDaysTest {
         // In the queue's title it follows a colon, so it stays as French writes it there.
         assertEquals("lundi 28 septembre", f.day(monday))
         assertEquals("Aujourd'hui", f.heading(HistoryDay.Today))
+    }
+
+    /** What you have heard: today's by the time, this year's by the day, older ones with the year too. */
+    @Test
+    fun `short words for when a song was heard`() {
+        val today = LocalDate.of(2026, 11, 20)
+        val f = format(true)
+        assertEquals("18:25", f.short(LocalDateTime.of(2026, 11, 20, 18, 25), today))
+        assertEquals("00:05", f.short(LocalDateTime.of(2026, 11, 20, 0, 5), today))
+        assertEquals("19 Nov", f.short(LocalDateTime.of(2026, 11, 19, 23, 59), today))
+        assertEquals("5 Nov", f.short(LocalDateTime.of(2026, 11, 5, 17, 43), today))
+        assertEquals("1 Jan", f.short(LocalDateTime.of(2026, 1, 1, 0, 0), today))
+        assertEquals("31 Dec 2025", f.short(LocalDateTime.of(2025, 12, 31, 23, 0), today))
+        assertEquals("29 Oct 2024", f.short(LocalDateTime.of(2024, 10, 29, 23, 56), today))
+    }
+
+    @Test
+    fun `today's time on the phone's own clock, and the day in its language`() {
+        val today = LocalDate.of(2026, 11, 20)
+        assertEquals("6:25 PM", format(false, Locale.US).short(LocalDateTime.of(2026, 11, 20, 18, 25), today))
+        val french = HistoryFormat(Locale.FRANCE, true, "Aujourd'hui", "Hier") { _, skeleton -> britishPatterns.getValue(skeleton) }
+        assertEquals("18:25", french.short(LocalDateTime.of(2026, 11, 20, 18, 25), today))
+        assertEquals("5 nov.", french.short(LocalDateTime.of(2026, 11, 5, 17, 43), today))
+    }
+
+    @Test
+    fun `the short skeletons, and what each is written as when the locale's cannot be read`() {
+        assertEquals("MMMd", HistoryFormat.shortDaySkeleton(withYear = false))
+        assertEquals("yMMMd", HistoryFormat.shortDaySkeleton(withYear = true))
+        assertEquals("d MMM", HistoryFormat.fallback("MMMd"))
+        assertEquals("d MMM y", HistoryFormat.fallback("yMMMd"))
+        // A locale whose pattern java.time cannot read still gets the day.
+        val broken = HistoryFormat(Locale.UK, true, "Today", "Yesterday") { _, _ -> "U" }
+        assertEquals("5 Nov", broken.short(LocalDateTime.of(2026, 11, 5, 17, 43), LocalDate.of(2026, 11, 20)))
     }
 }
