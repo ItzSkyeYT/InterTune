@@ -227,9 +227,9 @@ class SettingsSearchTest {
             setOf("Fade between tracks", "Fade out before stopping").map { listOf(english["player_and_audio"], it).joinToString(" › ") }.toSet(),
             fades.map { it.place }.toSet(),
         )
-        // The real index: one fade length now, the one under Fade between tracks.
+        // The real index: one fade length now, alone on its screen, so its place is the screen alone.
         assertEquals(
-            listOf(listOf(english["player_and_audio"], "Fade between tracks").joinToString(" › ")),
+            listOf(english["player_and_audio"]),
             inEnglish.search("fade length").filter { it.title == "Fade length" }.map { it.place },
         )
     }
