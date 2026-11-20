@@ -2944,31 +2944,31 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="local_folder_excluded">%1$s excluded. Its files stay.</string>
     <!-- Under a language whose words are still mostly English. -->
     <string name="app_language_partly">Partly translated</string>
-    <!-- ListenBrainz in place of Last.fm (Unreleased.LISTENBRAINZ): held from translators, French beside them. Words from experiments/features/listenbrainz/PLAN.md. -->
-    <string name="grp_listenbrainz" translatable="false">ListenBrainz</string>
-    <string name="listenbrainz_connect" translatable="false">Connect a ListenBrainz account</string>
-    <string name="listenbrainz_connect_description" translatable="false">Paste the user token from your ListenBrainz settings.</string>
-    <string name="listenbrainz_dialog_title" translatable="false">Connect ListenBrainz</string>
-    <string name="listenbrainz_dialog_body" translatable="false">Each song you finish is added to your ListenBrainz profile, and the one playing shows as playing now. Your listens there are public.</string>
-    <string name="listenbrainz_token" translatable="false">User token</string>
-    <string name="listenbrainz_get_token" translatable="false">Get my token</string>
-    <string name="listenbrainz_connect_button" translatable="false">Connect</string>
-    <string name="listenbrainz_token_unknown" translatable="false">ListenBrainz doesn\'t know this token. Copy it again from your settings page.</string>
-    <string name="listenbrainz_unreachable" translatable="false">Couldn\'t reach ListenBrainz. Check your connection and try again.</string>
-    <string name="listenbrainz_slow" translatable="false">ListenBrainz is slow or busy right now. Try again in a few minutes.</string>
-    <string name="listenbrainz_checking" translatable="false">Checking with ListenBrainz…</string>
-    <string name="listenbrainz_connected_as" translatable="false">Connected as %1$s</string>
-    <string name="listenbrainz_disconnect_description" translatable="false">Tap to disconnect. Nothing already sent is removed.</string>
-    <string name="listenbrainz_scrobble" translatable="false">Scrobble what I play</string>
-    <string name="listenbrainz_scrobble_description" translatable="false">Off, you stay connected and nothing is sent.</string>
-    <string name="listenbrainz_scrobble_explain" translatable="false">For each song you finish, ListenBrainz gets its title, artist, album, length, when you played it and its YouTube Music link, plus InterTune\'s name and version. The song playing now goes too, without the time. Your listens are public there, and nothing goes while \"Pause listen history\" is on.</string>
-    <string name="listenbrainz_refused" translatable="false">ListenBrainz no longer accepts your token</string>
-    <string name="listenbrainz_refused_description" translatable="false">Paste the new one from your settings page. Listens waiting here go out once it works.</string>
+    <!-- ListenBrainz, which takes over scrobbling from Last.fm: its card in Account and sync. -->
+    <string name="grp_listenbrainz">ListenBrainz</string>
+    <string name="listenbrainz_connect">Connect a ListenBrainz account</string>
+    <string name="listenbrainz_connect_description">Paste the user token from your ListenBrainz settings.</string>
+    <string name="listenbrainz_dialog_title">Connect ListenBrainz</string>
+    <string name="listenbrainz_dialog_body">Each song you finish is added to your ListenBrainz profile, and the one playing shows as playing now. Your listens there are public.</string>
+    <string name="listenbrainz_token">User token</string>
+    <string name="listenbrainz_get_token">Get my token</string>
+    <string name="listenbrainz_connect_button">Connect</string>
+    <string name="listenbrainz_token_unknown">ListenBrainz doesn\'t know this token. Copy it again from your settings page.</string>
+    <string name="listenbrainz_unreachable">Couldn\'t reach ListenBrainz. Check your connection and try again.</string>
+    <string name="listenbrainz_slow">ListenBrainz is slow or busy right now. Try again in a few minutes.</string>
+    <string name="listenbrainz_checking">Checking with ListenBrainz…</string>
+    <string name="listenbrainz_connected_as">Connected as %1$s</string>
+    <string name="listenbrainz_disconnect_description">Tap to disconnect. Nothing already sent is removed.</string>
+    <string name="listenbrainz_scrobble">Scrobble what I play</string>
+    <string name="listenbrainz_scrobble_description">When off, nothing is sent and you stay connected.</string>
+    <string name="listenbrainz_scrobble_explain">Sent for each song you finish:\n• its title, artist, album and length\n• when you played it, and its YouTube Music link\n• InterTune\'s name and version\nThe song playing goes too, without the time. Your listens are public there, and nothing goes while \"Pause listen history\" is on.</string>
+    <string name="listenbrainz_refused">ListenBrainz no longer accepts your token</string>
+    <string name="listenbrainz_refused_description">Paste the new one from your settings page. Listens waiting here go out once it works.</string>
     <string name="search_words_listenbrainz">listenbrainz, scrobble, scrobbling</string>
-    <!-- Vibration under Look and feel (Unreleased.HAPTICS_FEEL): how the app's haptics feel. Held from translators until his pick, French beside them. -->
-    <string name="vibration" translatable="false">Vibration</string>
-    <string name="vibration_off" translatable="false">Off</string>
-    <string name="vibration_light" translatable="false">Light</string>
-    <string name="vibration_strong" translatable="false">Strong</string>
+    <!-- Vibration under Look and feel: how strong the app's taps and ticks feel. -->
+    <string name="vibration">Vibration</string>
+    <string name="vibration_off">Off</string>
+    <string name="vibration_light">Light</string>
+    <string name="vibration_strong">Strong</string>
     <string name="search_words_vibration">haptics, haptic feedback, vibrate, buzz, touch feedback</string>
 </resources>

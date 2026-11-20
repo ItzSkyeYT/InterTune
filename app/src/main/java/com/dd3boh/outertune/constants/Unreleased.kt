@@ -1219,7 +1219,8 @@ object Unreleased {
      * nothing is kept. To ship: set this to true and add it to ReleasedFlagsTest, after a run on
      * a phone with a real token.
      */
-    val LISTENBRAINZ = BuildConfig.PREVIEW_FEATURES
+    // On for everyone in 0.13, his yes of 20 Nov 2026: Last.fm stops scrobbling on 1 December.
+    val LISTENBRAINZ = true
 
     /**
      * Vibration, one row under Look and feel > Behavior (his ask of 20 Nov 2026, the more haptics of 0.13 played on his
@@ -1237,5 +1238,6 @@ object Unreleased {
      * src/release's takes out again while this is held back, so a release asks for nothing new. Without the flag there is
      * no row, the setting is never read, and every haptic is today's.
      */
-    val HAPTICS_FEEL = BuildConfig.PREVIEW_FEATURES
+    // On for everyone in 0.13, Strong by default: his pick of 20 Nov 2026 after feeling it ("vibration is fine").
+    val HAPTICS_FEEL = true
 }

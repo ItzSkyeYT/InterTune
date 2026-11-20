@@ -226,8 +226,8 @@ class VibrationTest {
     private val haptics get() = source("ui/component/Haptics.kt")
 
     @Test
-    fun `held back to the debug app, the Preview and the Tester app, and without it every haptic is today's`() {
-        assertTrue("val HAPTICS_FEEL = BuildConfig.PREVIEW_FEATURES" in source("constants/Unreleased.kt"))
+    fun `on for everyone since 0_13, his pick of 20 Nov 2026, and without the flag every haptic is today's`() {
+        assertTrue("val HAPTICS_FEEL = true" in source("constants/Unreleased.kt"))
         // The setting is Light where the flag is off, and Light runs today's call unchanged.
         val vibration = haptics.substringAfter("fun vibration(): Vibration {").substringBefore("\n    }")
         assertTrue(vibration, "if (!Unreleased.HAPTICS_FEEL) return Vibration.LIGHT" in vibration)
@@ -298,14 +298,14 @@ class VibrationTest {
     }
 
     @Test
-    fun `its texts are short and held from translators until his pick, French beside them`() {
+    fun `its texts are short and open to translators since his pick, French beside them`() {
         val english = File("src/main/res/values/strings-ot.xml").readText()
         val french = File("src/main/res/values-fr/strings-ot.xml").readText()
         fun line(xml: String, name: String) = xml.lines().singleOrNull { "name=\"$name\"" in it } ?: error("$name is missing")
         for (name in listOf("vibration", "vibration_off", "vibration_light", "vibration_strong")) {
             for (xml in listOf(english, french)) {
                 val entry = line(xml, name)
-                assertTrue("$name is open to translators: $entry", "translatable=\"false\"" in entry)
+                assertFalse("$name is still held: $entry", "translatable=\"false\"" in entry)
                 val text = entry.substringAfter(">").substringBefore("</string>")
                 assertTrue("$name: $text", text.isNotBlank() && text.length <= 12 && '—' !in text)
             }
