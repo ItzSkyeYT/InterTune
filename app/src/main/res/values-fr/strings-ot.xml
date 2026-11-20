@@ -2760,6 +2760,8 @@
     <string name="listenbrainz_connect_button" translatable="false">Connecter</string>
     <string name="listenbrainz_token_unknown" translatable="false">ListenBrainz ne reconnaît pas ce jeton. Copiez-le à nouveau depuis votre page de paramètres.</string>
     <string name="listenbrainz_unreachable" translatable="false">Impossible de joindre ListenBrainz. Vérifiez votre connexion et réessayez.</string>
+    <string name="listenbrainz_slow" translatable="false">ListenBrainz est lent ou surchargé en ce moment. Réessayez dans quelques minutes.</string>
+    <string name="listenbrainz_checking" translatable="false">Vérification auprès de ListenBrainz…</string>
     <string name="listenbrainz_connected_as" translatable="false">Connecté en tant que %1$s</string>
     <string name="listenbrainz_disconnect_description" translatable="false">Appuyez pour vous déconnecter. Rien de ce qui a déjà été envoyé n\'est supprimé.</string>
     <string name="listenbrainz_scrobble" translatable="false">Scrobbler ce que j\'écoute</string>

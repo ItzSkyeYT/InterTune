@@ -39,6 +39,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.dd3boh.listenbrainz.ListenBrainzException
 import com.dd3boh.listenbrainz.models.TokenCheck
 import com.dd3boh.outertune.LocalScrobbler
 import com.dd3boh.outertune.R
@@ -149,12 +150,16 @@ private fun ListenBrainzConnectDialog(
         checking = true
         problem = null
         scope.launch {
-            // No answer (offline, ListenBrainz down) is not a token refused, and says so.
-            val check = connect(pasted).getOrNull()
+            // No answer is not a token refused, and says so: offline is the phone's side, a slow or
+            // busy ListenBrainz is theirs (6 to 40 s an answer on 20 Nov 2026), and each says which.
+            val result = connect(pasted)
+            val check = result.getOrNull()
+            val failure = result.exceptionOrNull()
             when {
-                check == null -> problem = R.string.listenbrainz_unreachable
-                check.valid -> onDismiss()
-                else -> problem = R.string.listenbrainz_token_unknown
+                check?.valid == true -> onDismiss()
+                check != null -> problem = R.string.listenbrainz_token_unknown
+                failure is ListenBrainzException.Unreachable && !failure.slow -> problem = R.string.listenbrainz_unreachable
+                else -> problem = R.string.listenbrainz_slow
             }
             checking = false
         }
@@ -188,7 +193,8 @@ private fun ListenBrainzConnectDialog(
             modifier = Modifier.padding(horizontal = 16.dp),
         )
         Spacer(Modifier.height(16.dp))
-        val said = problem?.let { stringResource(it) }
+        // While it asks, it says so: the answer can take a while on ListenBrainz's slow days.
+        val said = problem?.let { stringResource(it) } ?: if (checking) stringResource(R.string.listenbrainz_checking) else null
         TextField(
             value = pasted,
             onValueChange = {

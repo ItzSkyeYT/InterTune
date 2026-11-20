@@ -14,7 +14,11 @@ import com.dd3boh.listenbrainz.models.TokenResponse
 import com.dd3boh.listenbrainz.models.TrackMetadata
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.okhttp.OkHttp
+import io.ktor.client.network.sockets.ConnectTimeoutException
+import io.ktor.client.plugins.HttpRequestTimeoutException
 import io.ktor.client.plugins.HttpTimeout
+import io.ktor.client.plugins.pluginOrNull
+import io.ktor.client.plugins.timeout
 import io.ktor.client.request.HttpRequestBuilder
 import io.ktor.client.request.get
 import io.ktor.client.request.header
@@ -84,7 +88,7 @@ class ListenBrainz(
      */
     suspend fun validateToken(token: String): Result<TokenCheck> = attempt(token) {
         val key = usable(token) ?: return@attempt TokenCheck(valid = false, userName = null)
-        val response = gate.pass { client.get("$root/1/validate-token") { identify(key) } }
+        val response = gate.pass { client.get("$root/1/validate-token") { identify(key); patient() } }
         val text = response.bodyAsText()
         if (!response.status.isSuccess()) throw refusal(response, text, token)
         val answer = json.decodeFromString(TokenResponse.serializer(), text)
@@ -189,6 +193,19 @@ class ListenBrainz(
         if (!response.status.isSuccess()) throw refusal(response, response.bodyAsText(), token)
     }
 
+    /**
+     * The token check is one question a person waits on, asked once: it waits up to
+     * [TOKEN_CHECK_MS] for ListenBrainz, which on a slow day takes 6 to 40 s to answer anything
+     * (measured 20 Nov 2026, when the connect dialog gave up at 30 s and said to check the connection).
+     */
+    private fun HttpRequestBuilder.patient() {
+        if (client.pluginOrNull(HttpTimeout) == null) return
+        timeout {
+            requestTimeoutMillis = TOKEN_CHECK_MS
+            socketTimeoutMillis = TOKEN_CHECK_MS
+        }
+    }
+
     private fun HttpRequestBuilder.identify(key: String) {
         header(HttpHeaders.Authorization, "Token $key")
         header(HttpHeaders.UserAgent, app.userAgent)
@@ -203,7 +220,7 @@ class ListenBrainz(
         Result.failure(e)
     } catch (e: IOException) {
         // No connection, no address, a timeout: nothing was answered, so nothing was refused.
-        Result.failure(ListenBrainzException.Unreachable(describe(e, token)))
+        Result.failure(ListenBrainzException.Unreachable(describe(e, token), slow = answeredTooSlowly(e)))
     } catch (e: SerializationException) {
         Result.failure(ListenBrainzException.Unavailable(200, "ListenBrainz's answer could not be read"))
     } catch (e: Exception) {
@@ -232,6 +249,20 @@ class ListenBrainz(
 
     companion object {
         const val ROOT = "https://api.listenbrainz.org"
+
+        /** How long the token check waits for ListenBrainz (see [patient]). Listens keep the client's own 30 s. */
+        const val TOKEN_CHECK_MS = 60_000L
+
+        /**
+         * Connected, then no answer in time: ListenBrainz slow or overloaded, not the phone offline.
+         * A connection that never opened is the phone's side, and says so.
+         */
+        internal fun answeredTooSlowly(e: Throwable): Boolean = when (e) {
+            is ConnectTimeoutException -> false
+            is HttpRequestTimeoutException -> true
+            is java.net.SocketTimeoutException -> !(e.message ?: "").contains("connect", ignoreCase = true)
+            else -> false
+        }
 
         /** YouTube Music's domain in ListenBrainz's table of music services. */
         const val MUSIC_SERVICE_YOUTUBE_MUSIC = "music.youtube.com"
@@ -369,8 +400,12 @@ sealed class ListenBrainzException(message: String) : Exception(message) {
     /** 5xx or any other answer that is not ListenBrainz judging the listen: keep it for later. [status] 0 for an error of no HTTP kind. */
     class Unavailable(val status: Int, message: String) : ListenBrainzException(message)
 
-    /** No answer at all: no connection, no address, a timeout. Keep the listen for later. */
-    class Unreachable(message: String) : ListenBrainzException(message)
+    /**
+     * No answer at all: no connection, no address, a timeout. Keep the listen for later. [slow]:
+     * the connection opened and ListenBrainz did not answer in time, which is ListenBrainz being
+     * slow, not the phone being offline.
+     */
+    class Unreachable(message: String, val slow: Boolean = false) : ListenBrainzException(message)
 }
 
 /**

@@ -79,11 +79,14 @@ class ListenBrainzRowsTest {
         val kept = connect.indexOf("it[ListenBrainzTokenKey] = key")
         assertTrue(asked in 0 until kept)
         assertTrue("if (!check.valid) return@onSuccess" in connect)
-        // The dialog closes on a token ListenBrainz knows and says which of the two went wrong otherwise.
+        // The dialog closes on a token ListenBrainz knows and says which of three went wrong otherwise: a token it
+        // does not know, a phone offline, or ListenBrainz slow or busy (20 Nov 2026: 6 to 40 s an answer).
         val dialog = frag.substringAfter("private fun ListenBrainzConnectDialog(")
-        assertTrue("check.valid -> onDismiss()" in dialog)
-        assertTrue("check == null -> problem = R.string.listenbrainz_unreachable" in dialog)
-        assertTrue("else -> problem = R.string.listenbrainz_token_unknown" in dialog)
+        assertTrue("check?.valid == true -> onDismiss()" in dialog)
+        assertTrue("check != null -> problem = R.string.listenbrainz_token_unknown" in dialog)
+        assertTrue("failure is ListenBrainzException.Unreachable && !failure.slow -> problem = R.string.listenbrainz_unreachable" in dialog)
+        assertTrue("else -> problem = R.string.listenbrainz_slow" in dialog)
+        assertTrue("while it waits it says so", "if (checking) stringResource(R.string.listenbrainz_checking)" in dialog)
         assertTrue("Links.LISTENBRAINZ_SETTINGS" in dialog)
         // Read whole: code() cuts a line at its first //, which an address has.
         assertTrue("const val LISTENBRAINZ_SETTINGS = \"https://listenbrainz.org/settings/\"" in File(sources, "constants/Links.kt").readText())
