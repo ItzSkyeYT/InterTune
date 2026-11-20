@@ -133,8 +133,9 @@ class DocumentsContractApi19Ot {
         Cursor c = null;
         try {
             c = resolver.query(self, new String[] { column }, null, null, null);
-            if (c.moveToFirst() && !c.isNull(0)) {
-                return c.getString(0);
+            final int index = TreeDocumentFileOt.columnOr(c, column, 0);
+            if (c.moveToFirst() && !c.isNull(index)) {
+                return c.getString(index);
             } else {
                 return defaultValue;
             }
@@ -155,8 +156,9 @@ class DocumentsContractApi19Ot {
         Cursor c = null;
         try {
             c = resolver.query(self, new String[] { column }, null, null, null);
-            if (c.moveToFirst() && !c.isNull(0)) {
-                return c.getLong(0);
+            final int index = TreeDocumentFileOt.columnOr(c, column, 0);
+            if (c.moveToFirst() && !c.isNull(index)) {
+                return c.getLong(index);
             } else {
                 return defaultValue;
             }
