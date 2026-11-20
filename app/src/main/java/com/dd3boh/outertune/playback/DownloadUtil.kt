@@ -99,7 +99,6 @@ import com.dd3boh.outertune.utils.enumPreference
 import com.dd3boh.outertune.utils.preference
 import com.dd3boh.outertune.utils.get
 import com.dd3boh.outertune.utils.reportException
-import com.dd3boh.outertune.utils.scanners.InvalidAudioFileException
 import com.dd3boh.outertune.utils.scanners.ScanMerge
 import com.dd3boh.outertune.utils.scanners.absoluteFilePathFromUri
 import com.dd3boh.outertune.utils.scanners.FolderNesting
@@ -819,8 +818,8 @@ class DownloadUtil @Inject constructor(
                 _likedDownloadState.value = LikedDownloadState.NeedsWifi
                 return@launch
             }
-            // Never race a scan: it clears every dateDownload first, so until it has finished
-            // re-registering them, every song reads as not downloaded.
+            // Never race a scan: until it has written what it found, a song it is about to record
+            // still reads as not downloaded.
             if (isProcessingDownloads.value) {
                 _likedDownloadState.value = LikedDownloadState.NothingToDo
                 return@launch
@@ -834,6 +833,9 @@ class DownloadUtil @Inject constructor(
 
             val pending = database.likedSongsNotDownloaded().first()
                 .filter { isNotDownloaded(it.id) }
+                // A song whose file is in the download folder already is recorded, not fetched
+                // again: a scan that lost track of them all queued every one (keepFolderFile).
+                .filterNot { keepFolderFile(it.id, it.title, look = true) }
             if (pending.isEmpty()) {
                 _likedDownloadState.value = LikedDownloadState.NothingToDo
                 return@launch
@@ -977,10 +979,13 @@ class DownloadUtil @Inject constructor(
         if (mode == LikedAutodownloadMode.OFF) return 0
         if (!autodownloadAllowedNow(mode)) return -1
         if (Throttle.isBlocked) return 0
-        // Never race a scan: it clears every dateDownload first, so until it has finished
-        // re-registering them, every song reads as not downloaded.
+        // Never race a scan: until it has written what it found, a song it is about to record
+        // still reads as not downloaded.
         if (isProcessingDownloads.value) return 0
-        val missing = database.likedSongsNotDownloaded().first().filter { isNotDownloaded(it.id) }
+        val missing = database.likedSongsNotDownloaded().first().filter { isNotDownloaded(it.id) }.let { notDownloaded ->
+            // Recorded, not fetched again, when its file is in the download folder already (keepFolderFile).
+            withContext(Dispatchers.IO) { notDownloaded.filterNot { keepFolderFile(it.id, it.title, look = true) } }
+        }
         val now = System.currentTimeMillis()
         val pending = withContext(catchUpWork) {
             forgetSongsNoLongerLiked(missing.mapTo(HashSet()) { it.id })
@@ -1016,6 +1021,33 @@ class DownloadUtil @Inject constructor(
         downloads.value[id].let { it == null || it == STATE_INVALID }
 
     /**
+     * Whether [id] has a file of its own in a download folder already, which is then recorded as its
+     * download instead of being fetched again: in the folder's list, or, with [look], looked at in
+     * the main folder under the name a download of it has always had ("<title> [<id>].mka"), which
+     * asks the folder and so is for a background thread only.
+     *
+     * A song the app had forgotten while its file stayed in the folder was fetched again by the next
+     * liked catch up, and the move after it wrote a second copy beside the first: every one of dvd's
+     * 397 liked songs got a "(1)" (20 Nov 2026). Recorded here as the scan records a listed file.
+     */
+    private fun keepFolderFile(id: String, title: String?, look: Boolean): Boolean {
+        val uri = runCatching {
+            localMgr.getFilePathIfExists(id) ?: if (look) localMgr.fileAlreadyThere(id, title, null) else null
+        }.getOrNull() ?: return false
+        val path = runCatching { fileFromUri(context, uri)?.absolutePath }.getOrNull()
+        val now = LocalDateTime.now()
+        // Before the map changes, so a rescan merging at the same moment keeps this value. See scanTouchedIds.
+        scanTouchedIds.add(id)
+        downloads.update { it + (id to now) }
+        CoroutineScope(Dispatchers.IO).launch {
+            runCatching { if (path != null) database.registerDownloadSong(id, now, path) else database.updateDownloadStatus(id, now) }
+                .onFailure { Log.w(TAG, "Could not record the file of $id in the download folder", it) }
+        }
+        Log.i(TAG, "$id has its own file in a download folder already: recorded, not fetched again")
+        return true
+    }
+
+    /**
      * @return false only when the request never reached media3, so no update will ever come back
      *   for it. The liked-songs catch up needs to know, or it would wait for that song for good.
      */
@@ -1023,6 +1055,10 @@ class DownloadUtil @Inject constructor(
         // Already landed or in flight, which the map shows without any help from here. Not the
         // liked-songs setting's then, even when it asks: it was there before it.
         if (!isNotDownloaded(id)) return true
+        // A file of the song in a download folder already: recorded, not fetched again and written
+        // a second time beside itself. The folder's list only, read from memory: this runs on the
+        // main thread for a button (keepFolderFile).
+        if (keepFolderFile(id, title, look = false)) return true
         val downloadRequest = DownloadRequest.Builder(id, id.toUri())
             .setCustomCacheKey(id)
             .setData(title.toByteArray())
@@ -1282,8 +1318,13 @@ class DownloadUtil @Inject constructor(
                 val moved = moveIntoFolder(
                     save = {
                         fromCache.use { stream ->
-                            val displayName = database.song(s.key).first()?.title ?: ""
+                            val song = database.song(s.key).first()
+                            val displayName = song?.title ?: ""
                             localMgr.getFilePathIfExists(s.key)
+                                // The song's own file in the folder already, from an earlier download, at
+                                // its recorded path or under its download name: kept, never doubled. Each
+                                // "Title [id].mka (1)" in dvd's folder was written beside its own first file.
+                                ?: localMgr.fileAlreadyThere(s.key, displayName, song?.song?.localPath)
                                 // A file other players open, with the song's tags and cover inside; the
                                 // stream as it is when the song cannot be one (saveSongFile).
                                 ?: (if (Unreleased.DOWNLOAD_FILES) saveSongFile(s.key, notice) { notice?.starting(index, title) } else null)
@@ -1652,6 +1693,10 @@ class DownloadUtil @Inject constructor(
                 }
             }
         }
+        // A song the listing did not bring is looked at by its own file before it goes: a listing can
+        // come back short, and this runs at every start (DownloadScanPlan, dvd 20 Nov 2026).
+        val checked = localMgr.lookAgain(missingFiles.mapNotNull { s -> s.song.localPath?.let { s.song.id to it } }.toMap())
+        missingFiles.removeIf { !DownloadScanPlan.goes(checked[it.song.id]) }
         Log.d(
             TAG,
             "Found ${missingFiles.size}/${dbDownloads.size} song not in custom download directories + internal cache. Removing these files now"
@@ -1694,74 +1739,56 @@ class DownloadUtil @Inject constructor(
     private suspend fun scanDownloadsLocked() {
         Log.i(TAG, "+scanDownloads()")
         isProcessingDownloads.value = true
-
-//            val scanner = LocalMediaScanner.getScanner(context, ScannerImpl.TAGLIB, SCANNER_OWNER_DL)
-        // Read before clearing anything, so a folder that could not be listed is known before the
-        // decision below is made, instead of after.
-        // Song files are known by the file the database has for each song (knownPaths), their
-        // names holding no id; read before anything is cleared below.
-        val availableFiles = localMgr.getAvailableFiles(false, knownPaths(database.downloadedOrQueuedSongs().first()))
-        val unlistedRoots = unlistedDownloadRoots()
-        if (unlistedRoots.isEmpty()) {
-            database.removeAllDownloadedSongs()
-        } else {
-            // A folder that could not be listed reads as empty, and clearing every downloaded song
-            // first would forget every one of its songs (and, for a liked one, queue it for
-            // internal re-download) until a scan can read the folder again. Left alone instead.
+        try {
+            // Everything read first and the decision made from it, then written in one go
+            // (DownloadScanPlan). It used to clear every song's download and record again only the
+            // files it could list and give a path: a listing that came back short, or a file with no
+            // path, cost every one of those songs its download, and the liked catch up fetched them
+            // all again with a second copy of each in the folder (dvd, 20 Nov 2026: 397 songs).
+            // Song files are known by the file the database has for each song (knownPaths), their
+            // names holding no id.
             val dbDownloads = database.downloadedOrQueuedSongs().first()
-            val spared = idsCoveredByUnlistedRoot(
-                dbDownloads.associate { it.song.id to it.song.localPath },
-                unlistedRoots
-            )
-            // transactionNow, not transaction: it runs synchronously, so the re-registration right
-            // below is guaranteed to see these gone first. transaction queues on its own executor
-            // and could still be pending when that reads the table. Batched in one transaction
-            // rather than one write per song, same as the re-registration below.
-            database.transactionNow {
-                dbDownloads.filterNot { it.song.id in spared }.forEach { removeDownloadSong(it.song.id) }
-            }
-        }
-        val timeNow = LocalDateTime.now()
-
-        // add custom downloads. Written before going on, here and below: queued on the database's
-        // executor, the writes could still be pending when the map is rebuilt from the database at
-        // the end, and the songs then read as not downloaded until the next rebuild.
-        database.transactionNow {
-            availableFiles.forEach { f ->
-                try {
-                    val file = fileFromUri(context, f.value)
-                    if (file == null) throw (InvalidAudioFileException("Hello darkness my old friend"))
-                    // TODO: validate files in download folder
-//                        val format: FormatEntity? = scanner.advancedScan(f.value).format
-//                        if (format != null) {
-//                            database.upsert(format)
-//                        }
-                    registerDownloadSong(f.key, timeNow, file.absolutePath)
-
-                } catch (e: InvalidAudioFileException) {
-                    reportException(e)
-                }
-            }
-        }
-//            LocalMediaScanner.destroyScanner(SCANNER_OWNER_DL)
-        Log.d(TAG, "Registered ${availableFiles.size} files from custom downloads")
-
-        // add internal downloads. Finished ones only, as the listener writes them: failed, stopped
-        // and queued ones used to be stored as the sentinels 0 and 1, which every downloaded list
-        // and count took for downloads. See DownloadSql.
-        var count = 0
-        database.transactionNow {
+            val availableFiles = localMgr.getAvailableFiles(false, knownPaths(dbDownloads))
+            val recorded = dbDownloads.associate { it.song.id to it.song.localPath }
+            // Each file's path on the phone; null for one on another app's storage, whose song is
+            // recorded all the same, without one (it threw "Hello darkness my old friend" and lost
+            // its download).
+            val listed = availableFiles.mapValues { (_, uri) -> runCatching { fileFromUri(context, uri)?.absolutePath }.getOrNull() }
+            // A folder that could not be listed at all reads as empty: its songs are left alone.
+            val spared = idsCoveredByUnlistedRoot(recorded, unlistedDownloadRoots())
+            // The finished downloads inside the app, as the listener writes them: failed, stopped
+            // and queued ones used to be stored as the sentinels 0 and 1, which every downloaded
+            // list and count took for downloads. See DownloadSql.
+            val inside = mutableMapOf<String, LocalDateTime>()
             downloadManager.downloadIndex.getDownloads().use { cursor ->
                 while (cursor.moveToNext()) {
                     val download = cursor.download
-                    val completedAt = completedDownloadTime(download.state, download.updateTimeMs) ?: continue
-                    updateDownloadStatus(download.request.id, completedAt)
-                    count++
+                    completedDownloadTime(download.state, download.updateTimeMs)?.let { inside[download.request.id] = it }
                 }
             }
+            // A song the listing did not bring is looked at by its own file before it goes.
+            val checked = localMgr.lookAgain(DownloadScanPlan.toLookAt(recorded, listed.keys, inside.keys, spared))
+            val plan = DownloadScanPlan.of(recorded, listed, inside.keys, spared, checked)
+            val timeNow = LocalDateTime.now()
+            // transactionNow, not transaction: written before going on, or the map rebuilt from the
+            // database at the end could read the songs before their writes. One transaction: a
+            // write that fails leaves every song as it was, rather than half of them forgotten.
+            database.transactionNow {
+                plan.remove.forEach { removeDownloadSong(it) }
+                plan.register.forEach { (id, path) ->
+                    if (path != null) registerDownloadSong(id, timeNow, path) else updateDownloadStatus(id, timeNow)
+                }
+                inside.forEach { (id, completedAt) -> updateDownloadStatus(id, completedAt) }
+            }
+            Log.i(
+                TAG,
+                "Scan: ${availableFiles.size} files listed, ${plan.register.size} songs recorded anew, ${plan.remove.size} gone, " +
+                    "${inside.size} inside the app, ${spared.size} under a folder not listed, " +
+                    "${checked.count { it.value != FolderFileCheck.GONE }} kept by a look at their own file"
+            )
+        } finally {
+            isProcessingDownloads.value = false
         }
-        Log.d(TAG, "Registered $count files from internal downloads")
-        isProcessingDownloads.value = false
         Log.d(TAG, "Database registration complete, triggering map registry rebuild")
         rescanDownloadsLocked()
         Log.i(TAG, "-scanDownloads()")
