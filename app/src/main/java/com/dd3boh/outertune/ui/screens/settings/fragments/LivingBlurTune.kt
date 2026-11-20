@@ -7,7 +7,6 @@
 package com.dd3boh.outertune.ui.screens.settings.fragments
 
 import androidx.annotation.StringRes
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
@@ -231,7 +230,8 @@ fun LivingBlurTune(onClose: () -> Unit) {
                 // The bar keeps its room while it is hidden, so the cover never moves.
                 var barHeight by remember { mutableIntStateOf(0) }
                 Box(Modifier.fillMaxWidth().heightIn(min = with(LocalDensity.current) { barHeight.toDp() })) {
-                    AnimatedVisibility(
+                    // The plain one: the Column's own cannot be called from inside this Box.
+                    androidx.compose.animation.AnimatedVisibility(
                         visible = barShown,
                         enter = fadeIn() + slideInVertically { it / 4 },
                         exit = fadeOut() + slideOutVertically { it / 4 },
