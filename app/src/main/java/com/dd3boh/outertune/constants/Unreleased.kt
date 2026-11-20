@@ -1198,4 +1198,17 @@ object Unreleased {
      * On for everyone in 0.13, his pick of 20 Nov 2026 (the calls page: "the Preview's way for everyone in 0.13").
      */
     val ROOM_AT_FREE_END = true
+
+    /**
+     * ListenBrainz scrobbling (#159), in place of Last.fm, whose API wants a paid plan from 1 Dec
+     * 2026 (his decision of 18 Nov 2026: no Pro, ListenBrainz). A card under Last.fm's in Account
+     * and sync takes the user token pasted from listenbrainz.org/settings (ListenBrainzFrag); the
+     * songs that count for Last.fm count here too (ListenRules), each kept in an outbox before it
+     * is sent (ListenOutbox), what could not go sent later in batches (ListenBrainzWorker); playing
+     * now goes at a song's first sound. The plan: experiments/features/listenbrainz/PLAN.md. Its
+     * texts are held from translators, French beside them. Without the flag nothing is sent and
+     * nothing is kept. To ship: set this to true and add it to ReleasedFlagsTest, after a run on
+     * a phone with a real token.
+     */
+    val LISTENBRAINZ = BuildConfig.PREVIEW_FEATURES
 }
