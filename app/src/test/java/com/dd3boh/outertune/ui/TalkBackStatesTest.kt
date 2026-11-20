@@ -56,4 +56,13 @@ class TalkBackStatesTest {
         assertTrue(state, "role = Role.Switch" in state)
         assertTrue(state, "toggleableState = ToggleableState(on)" in state)
     }
+
+    @Test
+    fun `the player menu's sleep timer entry says its name before the time left`() {
+        val entry = source("ui/menu/GridMenu.kt").substringAfter("fun LazyGridScope.SleepTimerGridMenu(").substringBefore("\n}\n")
+        val shown = "if (enabled && sleepTimerTimeLeft > 0)"
+        // The words are the time left exactly when the moon names the entry, so it is said once either way.
+        assertTrue(entry, "text = $shown makeTimeString(sleepTimerTimeLeft) else stringResource(" in entry)
+        assertTrue(entry, "contentDescription = $shown stringResource(R.string.sleep_timer) else null," in entry)
+    }
 }
