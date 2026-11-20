@@ -336,7 +336,6 @@
     <string name="lyrics_prefer_local_description">Отдавать приоритет локальным файлам текстов песен перед использованием облачных источников. Отключите эту опцию, чтобы отдать приоритет облачным источникам</string>
     <string name="lyrics_settings_title">Текст</string>
     <string name="lyrics_synced_clickable">Кликабельные тексты песен</string>
-    <string name="lyrics_trim_title">Удалять пробелы вокруг текста</string>
     <string name="local_library_enable_title">Включить локальные медиа</string>
     <string name="local_library_enable_description">Отключение скроет локальную медиатеку в приложении</string>
     <string name="local_player_settings_title">Локальные медиа</string>
@@ -699,7 +698,6 @@
     <string name="tour_closer_entry">Обзор настроек</string>
     <string name="tour_closer_login">Вход в аккаунт YouTube Music переносит сюда ваши плейлисты, отметки «Нравится» и рекомендации. Приложение работает и без него.</string>
     <string name="tour_closer_lastfm">Для тех, у кого есть профиль Last.fm: после подключения песни, которые вы дослушиваете здесь, добавляются в него.</string>
-    <string name="tour_closer_ytm_sync">Автоматически синхронизирует библиотеку здесь с библиотекой в аккаунте YouTube Music. Без входа в аккаунт синхронизировать не с чем.</string>
     <string name="tour_closer_sync_mode">Выберите «Только чтение», если отметки «Нравится» и плейлисты, созданные здесь, должны оставаться здесь и никогда не попадать в ваш аккаунт.</string>
     <string name="tour_closer_quick_picks_source">Кто подбирает песни в подборке «Быстрый выбор» вверху главного экрана. Меняется только эта подборка, и ничего больше.</string>
     <string name="tour_closer_content_language">Язык, на котором отвечает YouTube Music: названия песен и имена исполнителей, а также заголовки подборок на главном экране.</string>

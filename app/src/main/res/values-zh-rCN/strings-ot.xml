@@ -60,7 +60,6 @@
     <string name="lyrics_settings_title">歌词</string>
     <string name="lyrics_multiline_title">朗读多行歌词</string>
     <string name="lyrics_multiline_description">将所有同步点之间的行视为一段歌词文本</string>
-    <string name="lyrics_trim_title">删除歌词周围的空格</string>
     <string name="lyrics_prefer_local">首选本地歌词文件</string>
     <string name="lyrics_prefer_local_description">在使用所有云提供商之前，优先解析本地歌词文件。关闭此选项可优先考虑云提供商</string>
     <string name="lyrics_font_Size">字体大小</string>

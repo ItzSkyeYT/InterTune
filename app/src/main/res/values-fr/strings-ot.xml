@@ -83,7 +83,6 @@
     <string name="m3u_import_playlist">Importer une playlist (m3u)</string>
     <string name="keep_alive_description">Utilisez un service de premier plan persistant pour empêcher la fermeture d\'InterTune en arrière-plan</string>
     <string name="lyrics_multiline_description">Traitez toutes les lignes entre les points de synchronisation comme un seul texte lyrique</string>
-    <string name="lyrics_trim_title">Supprimer les espaces autour des paroles</string>
     <string name="local_library_enable_description">La désactivation masquera la bibliothèque locale de l\'application</string>
     <string name="lyrics_font_Size">Taille de la police</string>
     <string name="scanner_strict_file_name_description">Les types de fichiers comptent : « Song.ogg » et « Song.flac » deviennent deux titres.</string>
@@ -153,7 +152,7 @@
     <string name="queues_title">Files d\'attente</string>
     <string name="pause_remote_listen_history">Partager l\'historique d\'écoute avec YouTube Music</string>
     <string name="swipe_to_skip_title">Balayer horizontalement pour changer de titre</string>
-    <string name="swipe_to_skip_description">Activer le balayage horizontal dans le lecteur pour changer de titre</string>
+    <string name="swipe_to_skip_description">S\'applique au lecteur en plein écran</string>
     <string name="filter_arrangement">Organiser les filtres</string>
     <string name="restart_to_apply_changes">Redémarrez l\'application afin que les modifications prennent effet</string>
     <string name="android_auto">Android Auto</string>
@@ -163,6 +162,7 @@
     <string name="sync_conflict_overwrite">Remplacer le contenu local par du contenu distant</string>
     <string name="sync_conflict_title">Résolution des conflits</string>
     <string name="sync_mode">Mode de synchronisation</string>
+    <string name="sync_mode_off" translatable="false">Désactivé</string>
     <string name="sync_mode_ro">Voir la bibliothèque YouTube Music du compte (lecture seule)</string>
     <string name="grp_library_and_content">Bibliothèque et Contenu</string>
     <string name="sync_conflict_add_only">Conservez tout le contenu local, ajoutez du nouveau contenu distant</string>
@@ -333,8 +333,9 @@
     <string name="sleep_timer_fade">Fondu avant l\'arrêt</string>
     <string name="sleep_timer_fade_description">Baisse doucement le volume à la fin de la minuterie de sommeil, au lieu de couper net</string>
     <string name="sleep_timer_fade_duration">Durée du fondu</string>
-    <string name="sleep_timer_fade_duration_description">Durée du fondu avant que la minuterie de sommeil arrête la lecture</string>
+    <string name="sleep_timer_fade_duration_description">Durée du fondu avant que la minuterie de sommeil arrête la lecture. 0 : sans fondu.</string>
     <string name="sleep_timer_fade_duration_value">%1$d secondes</string>
+    <string name="sleep_timer_fade_off" translatable="false">Sans fondu</string>
     <string name="swipe_to_dismiss_player">Balayer le mini lecteur pour le fermer</string>
     <string name="swipe_to_dismiss_player_description">Arrête la musique</string>
     <string name="update_available">La version %1$s est disponible</string>
@@ -1783,7 +1784,6 @@
     <string name="tour_closer_entry">Visite des réglages</string>
     <string name="tour_closer_login">Se connecter à votre compte YouTube Music amène ici vos playlists, vos j\'aime et vos recommandations. L\'application marche sans.</string>
     <string name="tour_closer_lastfm">Pour ceux qui tiennent un profil Last.fm : une fois connecté, les titres que vous terminez ici y sont ajoutés.</string>
-    <string name="tour_closer_ytm_sync">Garde la bibliothèque d\'ici et celle de votre compte YouTube Music identiques sans qu\'on le demande. Déconnecté, il n\'y a rien avec quoi synchroniser.</string>
     <string name="tour_closer_sync_mode">Choisissez lecture seule si les j\'aime et les playlists faits ici doivent rester ici et ne jamais atteindre votre compte.</string>
     <string name="tour_closer_quick_picks_source">Qui choisit les titres de la Sélection Rapide en haut de l\'Accueil. Cela change cette ligne et rien d\'autre.</string>
     <string name="tour_closer_content_language">La langue dans laquelle YouTube Music répond : noms des titres et des artistes, et titres des lignes de l\'Accueil.</string>

@@ -95,7 +95,6 @@
     <string name="lyrics_prefer_local">ترجیح دادن متن آهنگ محلی</string>
     <string name="lyrics_prefer_local_description">قبل از استفاده از همه ارائه دهندگان ابری، فایل‌های متن ترانه محلی را در اولویت قرار دهید. برای اولویت بندی ارائه دهندگان ابری، این گزینه را خاموش کنید</string>
     <string name="lyrics_settings_title">متن آهنگ ها</string>
-    <string name="lyrics_trim_title">فاصله های اطراف متن آهنگ را حذف کند</string>
     <string name="local_library_enable_title">رسانه محلی را فعال کند</string>
     <string name="local_library_enable_description">در صورت غیرفعال کردن، کتابخانه محلی برنامه پنهان میشود</string>
     <string name="local_player_settings_title">رسانه محلی</string>

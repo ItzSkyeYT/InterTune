@@ -40,7 +40,6 @@
     <string name="lyrics_settings_title">Тексти пісень</string>
     <string name="lyrics_multiline_title">Читати багаторядкові тексти</string>
     <string name="lyrics_multiline_description">Розглядати всі рядки між точками синхронізації як один текст</string>
-    <string name="lyrics_trim_title">Видалити пробіли між словами</string>
     <string name="lyrics_font_Size">Розмір шрифту</string>
     <string name="local_library_enable_title">Увімкнути локальні медіафайли</string>
     <string name="local_library_enable_description">Якщо вимкнути, локальну бібліотеку буде приховано</string>

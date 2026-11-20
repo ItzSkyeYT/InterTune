@@ -332,7 +332,6 @@
     <string name="lyrics_prefer_local_description">Verwendung lokaler Liedtextdateien priorisieren. Deaktivieren um Cloudanbieter bevorzugt zu verwenden</string>
     <string name="lyrics_settings_title">Liedtexte</string>
     <string name="lyrics_synced_clickable">Klickbare Songtexte</string>
-    <string name="lyrics_trim_title">Entferne Abstände um Liedtexte</string>
     <string name="local_library_enable_title">Aktiviere lokale Medien</string>
     <string name="local_library_enable_description">Deaktivieren blockiert den Zugriff der App auf die lokale Medienbibliothek</string>
     <string name="local_player_settings_title">Lokale Medien</string>
@@ -679,7 +678,6 @@
     <string name="tour_closer_entry">Rundgang durch die Einstellungen</string>
     <string name="tour_closer_login">Wenn du dich mit deinem YouTube Music-Konto anmeldest, kommen deine Playlists, „Mag ich“-Bewertungen und Empfehlungen hierher. Die App funktioniert auch ohne.</string>
     <string name="tour_closer_lastfm">Für alle mit einem Last.fm-Profil: Sobald es verbunden ist, kommen die Songs dazu, die du hier zu Ende hörst.</string>
-    <string name="tour_closer_ytm_sync">Hält die Bibliothek hier und die in deinem YouTube Music-Konto von selbst gleich. Abgemeldet gibt es nichts, womit synchronisiert werden kann.</string>
     <string name="tour_closer_sync_mode">Wähle „Nur lesen“, wenn „Mag ich“-Bewertungen und Playlists von hier auch hier bleiben und nie dein Konto erreichen sollen.</string>
     <string name="tour_closer_quick_picks_source">Wer die Songs in der Reihe „Schnellauswahl“ oben auf der Startseite auswählt. Das ändert nur diese eine Reihe und sonst nichts.</string>
     <string name="tour_closer_content_language">Die Sprache, in der YouTube Music antwortet: Song- und Künstlernamen und die Titel der Reihen auf der Startseite.</string>

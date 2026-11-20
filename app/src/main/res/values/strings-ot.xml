@@ -315,6 +315,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="sync_conflict_overwrite">Overwrite local content with remote content</string>
     <string name="sync_conflict_title">Conflict resolution</string>
     <string name="sync_mode">Sync mode</string>
+    <string name="sync_mode_off" translatable="false">Off</string>
     <string name="sync_mode_ro">View the account\'s YouTube Music library (read only)</string>
     <string name="sync_mode_rw">View and change the account\'s YouTube Music library (read and write)</string>
     <string name="ytm_sync">Automatically sync with your YouTube Music account</string>
@@ -487,7 +488,6 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="lyrics_prefer_local_description">Prioritize resolving local lyric files before using all cloud providers. Turn this off to prioritize cloud providers</string>
     <string name="lyrics_settings_title">Lyrics</string>
     <string name="lyrics_synced_clickable">Clickable lyrics</string>
-    <string name="lyrics_trim_title">Remove spaces around lyrics</string>
 
 <!-- Local player settings -->
     <string name="local_library_enable_title">Enable local media</string>
@@ -594,8 +594,9 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="sleep_timer_fade">Fade out before stopping</string>
     <string name="sleep_timer_fade_description">Ease the volume down as the sleep timer runs out, instead of cutting off abruptly</string>
     <string name="sleep_timer_fade_duration">Fade length</string>
-    <string name="sleep_timer_fade_duration_description">How long the fade out lasts before the sleep timer stops playback</string>
+    <string name="sleep_timer_fade_duration_description">How long the fade out lasts before the sleep timer stops playback. 0 is no fade.</string>
     <string name="sleep_timer_fade_duration_value">%1$d seconds</string>
+    <string name="sleep_timer_fade_off" translatable="false">Off</string>
     <string name="download_on_wifi_only_title">Download on Wi-Fi only</string>
     <string name="download_on_wifi_only_description">Downloads will wait until Wi-Fi is available.</string>
     <string name="download_waiting_for_wifi">Queued. Will download when Wi-Fi is available</string>
@@ -655,7 +656,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="dev_settings_description">Additional advanced settings intended for development use</string>
 
     <string name="swipe_to_skip_title">Swipe horizontally to change song</string>
-    <string name="swipe_to_skip_description">Enable swiping horizontally in the player to switch songs</string>
+    <string name="swipe_to_skip_description">Applies to the full player</string>
 
     <string name="max_queues_title">Maximum number of queues</string>
 
@@ -1020,7 +1021,6 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="tour_closer_entry">Tour of the settings</string>
     <string name="tour_closer_login">Signing in to your YouTube Music account brings your playlists, likes and recommendations here. The app works without it.</string>
     <string name="tour_closer_lastfm">For those who keep a Last.fm profile: once connected, the songs you finish here are added to it.</string>
-    <string name="tour_closer_ytm_sync">Keeps the library here and the one in your YouTube Music account the same without being asked. Signed out, there is nothing for it to sync with.</string>
     <string name="tour_closer_sync_mode">Choose read only if likes and playlists made here should stay here and never reach your account.</string>
     <string name="tour_closer_quick_picks_source">Who chooses the songs in the Quick picks row at the top of Home. It changes that one row and nothing else.</string>
     <string name="tour_closer_content_language">The language YouTube Music answers in: song and artist names, and the titles of the rows on Home.</string>

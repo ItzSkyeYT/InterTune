@@ -6,7 +6,6 @@ import android.util.Log
 import android.util.LruCache
 import com.dd3boh.outertune.constants.LyricSourcePrefKey
 import com.dd3boh.outertune.constants.LyricsSourceOrderKey
-import com.dd3boh.outertune.constants.LyricTrimKey
 import com.dd3boh.outertune.constants.MultilineLrcKey
 import com.dd3boh.outertune.db.MusicDatabase
 import com.dd3boh.outertune.db.entities.LyricsEntity
@@ -94,7 +93,8 @@ class LyricsHelper @Inject constructor(
      * source had any, the song was left with none (audit of 2 Nov 2026).
      */
     suspend fun refetch(mediaMetadata: MediaMetadata): Refetched {
-        val trim = context.dataStore.get(LyricTrimKey, defaultValue = false)
+        // Always, with no switch since 0.13 (his answer of 19 Nov 2026 to Ti-Die's review).
+        val trim = true
         val multiline = context.dataStore.get(MultilineLrcKey, defaultValue = true)
         val prefLocal = context.dataStore.get(LyricSourcePrefKey, true)
 
@@ -116,7 +116,8 @@ class LyricsHelper @Inject constructor(
     }
 
     private suspend fun resolveLyrics(mediaMetadata: MediaMetadata): SemanticLyrics? {
-        val trim = context.dataStore.get(LyricTrimKey, defaultValue = false)
+        // Always, with no switch since 0.13 (his answer of 19 Nov 2026 to Ti-Die's review).
+        val trim = true
         val multiline = context.dataStore.get(MultilineLrcKey, defaultValue = true)
 
         val prefLocal = context.dataStore.get(LyricSourcePrefKey, true)

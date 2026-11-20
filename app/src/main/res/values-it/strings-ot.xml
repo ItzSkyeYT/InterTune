@@ -334,7 +334,6 @@
     <string name="lyrics_prefer_local_description">Dai priorità alla risoluzione dei file di testo locali prima di utilizzare tutti i provider cloud. Disattivare questa opzione per dare priorità ai provider cloud</string>
     <string name="lyrics_settings_title">Testi</string>
     <string name="lyrics_synced_clickable">Testi cliccabili</string>
-    <string name="lyrics_trim_title">Rimuovi gli spazi attorno ai testi</string>
     <string name="local_library_enable_title">Abilitare i media locali</string>
     <string name="local_library_enable_description">Disattivando si nasconderà la libreria locale dall\'app</string>
     <string name="local_player_settings_title">Media locali</string>
@@ -689,7 +688,6 @@
     <string name="tour_closer_entry">Giro delle impostazioni</string>
     <string name="tour_closer_login">Accedere al tuo account YouTube Music porta qui le tue playlist, i Mi piace e i consigli. L\'app funziona anche senza.</string>
     <string name="tour_closer_lastfm">Per chi ha un profilo Last.fm: una volta collegato, i brani che ascolti qui fino alla fine vengono aggiunti al profilo.</string>
-    <string name="tour_closer_ytm_sync">Mantiene uguali la libreria qui e quella del tuo account YouTube Music, senza bisogno di chiederlo. Senza accesso, non c\'è niente con cui sincronizzare.</string>
     <string name="tour_closer_sync_mode">Scegli sola lettura se i Mi piace e le playlist creati qui devono restare qui e non arrivare mai al tuo account.</string>
     <string name="tour_closer_quick_picks_source">Chi sceglie i brani della riga Scelte rapide in cima alla Home. Cambia solo quella riga e nient\'altro.</string>
     <string name="tour_closer_content_language">La lingua in cui risponde YouTube Music: i nomi di brani e artisti, e i titoli delle righe della Home.</string>

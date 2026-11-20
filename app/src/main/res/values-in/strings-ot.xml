@@ -330,7 +330,6 @@
     <string name="lyrics_prefer_local_description">Prioritaskan pencarian file lirik lokal sebelum menggunakan semua penyedia cloud. Nonaktifkan opsi ini untuk memprioritaskan penyedia cloud</string>
     <string name="lyrics_settings_title">Lirik</string>
     <string name="lyrics_synced_clickable">Lirik yang dapat diklik</string>
-    <string name="lyrics_trim_title">Hapus spasi di sekitar lirik</string>
     <string name="local_library_enable_title">Aktifkan media lokal</string>
     <string name="local_library_enable_description">Menonaktifkan opsi ini akan menyembunyikan pustaka lokal dari aplikasi</string>
     <string name="local_player_settings_title">Media Lokal</string>
@@ -669,7 +668,6 @@
     <string name="tour_closer_entry">Tur pengaturan</string>
     <string name="tour_closer_login">Dengan masuk ke akun YouTube Music, daftar putar, lagu yang disukai, dan rekomendasi Anda ikut terbawa ke sini. Aplikasi tetap berfungsi tanpa akun.</string>
     <string name="tour_closer_lastfm">Bagi yang punya profil Last.fm: setelah terhubung, lagu yang Anda putar sampai selesai di sini ditambahkan ke profil itu.</string>
-    <string name="tour_closer_ytm_sync">Menjaga pustaka di sini dan di akun YouTube Music Anda tetap sama tanpa perlu diminta. Jika tidak masuk, tidak ada yang bisa disinkronkan.</string>
     <string name="tour_closer_sync_mode">Pilih baca-saja jika lagu yang disukai dan daftar putar yang dibuat di sini harus tetap di sini dan tidak pernah sampai ke akun Anda.</string>
     <string name="tour_closer_quick_picks_source">Siapa yang memilih lagu di baris Pilihan cepat di bagian atas Beranda. Ini hanya mengubah baris itu, tidak yang lain.</string>
     <string name="tour_closer_content_language">Bahasa yang dipakai YouTube Music: nama lagu dan artis, serta judul baris di Beranda.</string>

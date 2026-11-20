@@ -41,7 +41,6 @@
     <string name="lyrics_settings_title">자막</string>
     <string name="lyrics_multiline_title">다중 행 가사 읽기</string>
     <string name="lyrics_multiline_description">자막 리더</string>
-    <string name="lyrics_trim_title">자막 줄 사이의 공백 지우기</string>
     <string name="lyrics_prefer_local">로컬 가사 파일을 우선</string>
     <string name="flat_subfolders_title">하위 폴더 평탄화</string>
     <string name="auto_scanner_title">자동 스캔</string>

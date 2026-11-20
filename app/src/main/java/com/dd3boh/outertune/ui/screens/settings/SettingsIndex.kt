@@ -86,9 +86,8 @@ val SETTINGS_INDEX: List<SettingEntry> = listOf(
     SettingEntry(Tour.ROUTE_ACCOUNT, R.string.use_login_for_browse, R.string.use_login_for_browse_desc),
     SettingEntry(Tour.ROUTE_ACCOUNT, R.string.lastfm_connect, R.string.lastfm_connect_description, under = R.string.lastfm_scrobble, words = listOf(R.string.search_words_lastfm)),
     SettingEntry(Tour.ROUTE_ACCOUNT, R.string.lastfm_scrobble, R.string.lastfm_scrobble_description, under = R.string.lastfm_connect, words = listOf(R.string.search_words_lastfm)),
-    SettingEntry(Tour.ROUTE_ACCOUNT, R.string.ytm_sync, words = listOf(R.string.search_words_ytm_sync)),
     SettingEntry(Tour.ROUTE_ACCOUNT, R.string.scanner_manual_btn, words = listOf(R.string.search_words_sync_now)),
-    SettingEntry(Tour.ROUTE_ACCOUNT, R.string.sync_mode),
+    SettingEntry(Tour.ROUTE_ACCOUNT, R.string.sync_mode, words = listOf(R.string.ytm_sync, R.string.search_words_ytm_sync)),
     SettingEntry(Tour.ROUTE_ACCOUNT, R.string.sync_conflict_title),
 
     // Library and content
@@ -177,7 +176,6 @@ val SETTINGS_INDEX: List<SettingEntry> = listOf(
     SettingEntry(Tour.ROUTE_PLAYER, R.string.share_audio_focus, words = listOf(R.string.search_words_audio_focus)),
     SettingEntry(Tour.ROUTE_PLAYER, R.string.resume_on_bluetooth, R.string.resume_on_bluetooth_description, words = listOf(R.string.search_words_bluetooth)),
     SettingEntry(Tour.ROUTE_PLAYER, R.string.sleep_timer_fade, words = listOf(R.string.search_words_sleep)),
-    SettingEntry(Tour.ROUTE_PLAYER, R.string.sleep_timer_fade_duration, under = R.string.sleep_timer_fade),
     SettingEntry(Tour.ROUTE_PLAYER, R.string.sleep_schedule, words = listOf(R.string.search_words_sleep)),
     SettingEntry(Tour.ROUTE_PLAYER, R.string.sleep_schedule_start, under = R.string.sleep_schedule),
     SettingEntry(Tour.ROUTE_PLAYER, R.string.sleep_schedule_length, under = R.string.sleep_schedule),
@@ -208,7 +206,6 @@ val SETTINGS_INDEX: List<SettingEntry> = listOf(
     SettingEntry(Tour.ROUTE_LYRICS, R.string.enable_kugou, R.string.enable_kugou_description, there = !Unreleased.LYRICS_SOURCES),
     SettingEntry(Tour.ROUTE_LYRICS, R.string.lyrics_prefer_local),
     SettingEntry(Tour.ROUTE_LYRICS, R.string.lyrics_multiline_title, R.string.lyrics_multiline_description),
-    SettingEntry(Tour.ROUTE_LYRICS, R.string.lyrics_trim_title),
     SettingEntry(Tour.ROUTE_LYRICS, R.string.lyrics_text_position),
     SettingEntry(Tour.ROUTE_LYRICS, R.string.lyrics_font_Size, words = listOf(R.string.search_words_text_size)),
     SettingEntry(Tour.ROUTE_LYRICS, R.string.lyrics_latin_title, R.string.lyrics_latin_description, words = listOf(R.string.search_words_latin)),

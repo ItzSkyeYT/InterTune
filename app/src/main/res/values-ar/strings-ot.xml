@@ -105,7 +105,6 @@
     <string name="swipe2Queue_description">اسحب على أغنية لإضافتها إلى قائمة الانتظار التالية مباشرة بعد الأغنية التي يتم تشغيلها حاليًا</string>
     <string name="lyrics_multiline_title">قراءة كلمات الأغاني متعددة الأسطر</string>
     <string name="lyrics_multiline_description">معاملة جميع الأسطر بين نقاط المزامنة كنص كلمات أغنية واحد</string>
-    <string name="lyrics_trim_title">إزالة المسافات حول كلمات الأغاني</string>
     <string name="lyrics_prefer_local">تفضيل ملفات كلمات الأغاني المحلية</string>
     <string name="lyrics_prefer_local_description">إعطاء الأولوية لحل ملفات كلمات الأغاني المحلية قبل استخدام جميع مزودي الخدمات السحابية. قم بإيقاف تشغيل هذا لإعطاء الأولوية لمقدمي الخدمات السحابية</string>
     <string name="lyrics_font_Size">حجم الخط</string>

@@ -29,7 +29,6 @@
     <string name="swipe2Queue_description">曲をスワイプして、再生中の曲の直後のキューに追加</string>
     <string name="lyrics_multiline_title">複数行の歌詞を読み込む</string>
     <string name="lyrics_multiline_description">同期ポイント間のすべての行を1つの歌詞テキストとして扱う</string>
-    <string name="lyrics_trim_title">歌詞の前後の空白を削除する</string>
     <string name="lyrics_font_Size">文字の大きさ</string>
     <string name="local_player_settings_title">端末内メディア</string>
     <string name="m3u_import_playlist">再生リストをインポート (m3u)</string>

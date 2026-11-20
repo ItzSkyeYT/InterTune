@@ -398,7 +398,6 @@
     <string name="lyrics_prefer_local_description">Priorytetyzuj rozwiązanie lokalnych plików tekstowych przed użyciem wszystkich dostawców z chmury. Wyłącz tę opcję aby priorytetyzować dostawców z chmury</string>
     <string name="lyrics_settings_title">Tekst</string>
     <string name="lyrics_synced_clickable">Klikalny tekst</string>
-    <string name="lyrics_trim_title">Usuń spacje naokoło tekstów</string>
     <string name="local_library_enable_title">Włącz media lokalne</string>
     <string name="local_library_enable_description">Wyłącznie spowoduje ukrycie lokalnej biblioteki z aplikacji</string>
     <string name="local_player_settings_title">Media lokalne</string>
@@ -829,7 +828,6 @@
     <string name="tour_closer_entry">Przegląd ustawień</string>
     <string name="tour_closer_login">Zalogowanie się na konto YouTube Music przenosi tu Twoje playlisty, polubienia i rekomendacje. Aplikacja działa też bez tego.</string>
     <string name="tour_closer_lastfm">Dla osób z profilem Last.fm: po połączeniu utwory, których słuchasz tu do końca, są do niego dodawane.</string>
-    <string name="tour_closer_ytm_sync">Biblioteka tutaj i ta na Twoim koncie YouTube Music są automatycznie utrzymywane w zgodzie. Bez zalogowania nie ma z czym synchronizować.</string>
     <string name="tour_closer_sync_mode">Wybierz tryb tylko do odczytu, jeśli polubienia i playlisty utworzone tutaj mają tu zostać i nigdy nie trafiać na Twoje konto.</string>
     <string name="tour_closer_quick_picks_source">Kto wybiera utwory w wierszu Szybki wybór na górze ekranu głównego. Zmienia tylko ten jeden wiersz i nic poza nim.</string>
     <string name="tour_closer_content_language">Język, w którym odpowiada YouTube Music: nazwy utworów i artystów oraz tytuły wierszy na ekranie głównym.</string>

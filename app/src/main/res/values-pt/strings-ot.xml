@@ -116,7 +116,6 @@
     <string name="lyrics_prefer_local_description">Priorizar ficheiros de letra locais antes de usar os fornecidos pela nuvem. Desative isto para priorizar os fornecidos pela nuvem</string>
     <string name="lyrics_settings_title">Letra</string>
     <string name="lyrics_synced_clickable">Letras clicáveis</string>
-    <string name="lyrics_trim_title">Remover espaços entre letras</string>
     <string name="local_library_enable_title">Ativar média local</string>
     <string name="local_library_enable_description">Desativar isto ocultará a biblioteca local da app</string>
     <string name="local_player_settings_title">Média local</string>

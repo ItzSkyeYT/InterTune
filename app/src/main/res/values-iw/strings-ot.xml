@@ -154,7 +154,6 @@
     <string name="lyrics_prefer_local">העדיפו קבצי מילים מקומיים</string>
     <string name="lyrics_prefer_local_description">תן עדיפות לפתרון קבצי מילים מקומיים לפני שימוש בכל ספקי הענן. כבה אפשרות זו כדי לתעדף ספקי ענן</string>
     <string name="lyrics_settings_title">מילות השיר</string>
-    <string name="lyrics_trim_title">הסר רווחים מסביב למילים</string>
     <string name="local_library_enable_title">הפעלת מדיה מקומית</string>
     <string name="local_library_enable_description">השבתה תסתיר את הספרייה המקומית מהאפליקציה</string>
     <string name="local_player_settings_title">מדיה מקומית</string>

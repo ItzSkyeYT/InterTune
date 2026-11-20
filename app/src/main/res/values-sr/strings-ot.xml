@@ -110,7 +110,6 @@
     <string name="lyrics_prefer_local_description">Dajte prednost rešavanju lokalnih fajlova sa tekstovima pre korišćenja svih cloud provajdera. Isključite ovu opciju da biste dali prednost cloud provajderima</string>
     <string name="lyrics_settings_title">Tekstovi pesama</string>
     <string name="lyrics_synced_clickable">Tekst pesama na koji se može kliknuti</string>
-    <string name="lyrics_trim_title">Izbqci prostor oko tekstova pesama</string>
     <string name="local_library_enable_title">Omogući lokalne medije</string>
     <string name="local_library_enable_description">Onemogućavanje će sakriti lokalnu biblioteku iz aplikacije</string>
     <string name="local_player_settings_title">Lokalni mediji</string>

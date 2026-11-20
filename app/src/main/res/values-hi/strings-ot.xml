@@ -332,7 +332,6 @@
     <string name="lyrics_prefer_local_description">सभी क्लाउड प्रदाताओं का उपयोग करने से पहले स्थानीय लिरिक्स फ़ाइलों को प्राथमिकता दें। क्लाउड प्रदाताओं को प्राथमिकता देने के लिए इसे बंद करें</string>
     <string name="lyrics_settings_title">गीतिकाव्य</string>
     <string name="lyrics_synced_clickable">क्लिक करने योग्य लिरिक्स</string>
-    <string name="lyrics_trim_title">लिरिक्स के चारों ओर की खाली जगह हटाएं</string>
     <string name="local_library_enable_title">स्थानीय मीडिया सक्षम करें</string>
     <string name="local_library_enable_description">अक्षम करने पर स्थानीय लाइब्रेरी ऐप में नहीं दिखाई देगी</string>
     <string name="local_player_settings_title">स्थानीय मीडिया</string>
@@ -679,7 +678,6 @@
     <string name="tour_closer_entry">सेटिंग्स का टूर</string>
     <string name="tour_closer_login">अपने YouTube Music खाते में साइन इन करने से आपकी चाल सूचियां, पसंद और सुझाव यहां आ जाते हैं। ऐप इसके बिना भी चलता है।</string>
     <string name="tour_closer_lastfm">जिनकी Last.fm प्रोफ़ाइल है उनके लिए: जुड़ने के बाद, यहां पूरे सुने गए गाने उसमें जुड़ जाते हैं।</string>
-    <string name="tour_closer_ytm_sync">यहां के संग्रह और आपके YouTube Music खाते के संग्रह को बिना कहे एक जैसा रखता है। साइन आउट होने पर इसके पास सिंक करने के लिए कुछ नहीं होता।</string>
     <string name="tour_closer_sync_mode">अगर यहां की गई पसंद और बनाई गई चाल सूचियां यहीं रहनी चाहिए और कभी आपके खाते तक नहीं पहुंचनी चाहिए, तो \"केवल-पढ़ने के लिए\" चुनें।</string>
     <string name="tour_closer_quick_picks_source">मुख्य स्थान पर सबसे ऊपर की क्विक पिक्स पंक्ति के गाने कौन चुनता है। इससे सिर्फ़ वही एक पंक्ति बदलती है, और कुछ नहीं।</string>
     <string name="tour_closer_content_language">वह भाषा जिसमें YouTube Music जवाब देता है: गानों और कलाकारों के नाम, और मुख्य स्थान की पंक्तियों के शीर्षक।</string>

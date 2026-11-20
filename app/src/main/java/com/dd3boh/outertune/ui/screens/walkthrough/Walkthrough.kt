@@ -252,7 +252,6 @@ private fun closer(id: String, target: String, route: String, @StringRes title: 
 val SETTINGS_CLOSER_LOOK = listOf(
     closer("login", Tour.SETTING_LOGIN, Tour.ROUTE_ACCOUNT, R.string.login, R.string.tour_closer_login),
     closer("lastfm", Tour.SETTING_LASTFM, Tour.ROUTE_ACCOUNT, R.string.lastfm_connect, R.string.tour_closer_lastfm),
-    closer("ytm_sync", Tour.SETTING_YTM_SYNC, Tour.ROUTE_ACCOUNT, R.string.ytm_sync, R.string.tour_closer_ytm_sync),
     closer("sync_mode", Tour.SETTING_SYNC_MODE, Tour.ROUTE_ACCOUNT, R.string.sync_mode, R.string.tour_closer_sync_mode),
 
     closer("quick_picks_source", Tour.SETTING_QUICK_PICKS_SOURCE, Tour.ROUTE_LIBRARY, R.string.quick_picks_source, R.string.tour_closer_quick_picks_source),

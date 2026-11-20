@@ -21,7 +21,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Sync
-import androidx.compose.material.icons.rounded.SyncLock
 import androidx.compose.material.icons.rounded.SyncProblem
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
@@ -57,7 +56,6 @@ import com.dd3boh.outertune.constants.encodeSyncString
 import com.dd3boh.outertune.ui.component.EnumListPreference
 import com.dd3boh.outertune.ui.component.PreferenceEntry
 import com.dd3boh.outertune.ui.dialog.InfoLabel
-import com.dd3boh.outertune.ui.component.SwitchPreference
 import com.dd3boh.outertune.utils.SyncResult
 import com.dd3boh.outertune.utils.SyncUtils
 import com.dd3boh.outertune.utils.rememberEnumPreference
@@ -77,14 +75,24 @@ fun ColumnScope.SyncAutoFrag() {
         "SAPISID" in parseCookieString(innerTubeCookie)
     }
     val (ytmSync, onYtmSyncChange) = rememberPreference(YtmSyncKey, defaultValue = true)
+    val (syncMode, onSyncModeChange) = rememberEnumPreference(key = YtmSyncModeKey, defaultValue = SyncMode.RW)
 
-    SwitchPreference(
-        modifier = Modifier.tourTarget(Tour.SETTING_YTM_SYNC).settingRow(R.string.ytm_sync),
-        title = { Text(stringResource(R.string.ytm_sync)) },
+    // One row for what was a switch and a mode (Ti-Die's review, his answer of 19 Nov 2026): Off is the
+    // old switch's off, and the mode under it is kept as it was, so nothing that reads either changes.
+    EnumListPreference(
+        modifier = Modifier.tourTarget(Tour.SETTING_SYNC_MODE).settingRow(R.string.sync_mode),
+        title = { Text(stringResource(R.string.sync_mode)) },
         icon = { Icon(Icons.Rounded.Sync, null) },
-        checked = ytmSync,
-        onCheckedChange = onYtmSyncChange,
-        isEnabled = isLoggedIn
+        selectedValue = SyncChoice.of(ytmSync, syncMode),
+        onValueSelected = { choice -> SyncChoice.apply(choice, onYtmSyncChange, onSyncModeChange) },
+        valueText = {
+            when (it) {
+                SyncChoice.OFF -> stringResource(R.string.sync_mode_off)
+                SyncChoice.RO -> stringResource(R.string.sync_mode_ro)
+                SyncChoice.RW -> stringResource(R.string.sync_mode_rw)
+            }
+        },
+        isEnabled = isLoggedIn,
     )
 }
 
@@ -229,21 +237,6 @@ fun ColumnScope.SyncParamsFrag() {
     val (syncConflict, onSyncConflictChange) = rememberEnumPreference(
         key = YtmSyncConflictKey,
         defaultValue = SyncConflictResolution.ADD_ONLY
-    )
-    val (syncMode, onSyncModeChange) = rememberEnumPreference(key = YtmSyncModeKey, defaultValue = SyncMode.RW)
-
-    EnumListPreference(
-        modifier = Modifier.tourTarget(Tour.SETTING_SYNC_MODE).settingRow(R.string.sync_mode),
-        title = { Text(stringResource(R.string.sync_mode)) },
-        icon = { Icon(Icons.Rounded.SyncLock, null) },
-        selectedValue = syncMode,
-        onValueSelected = onSyncModeChange,
-        valueText = {
-            when (it) {
-                SyncMode.RO -> stringResource(R.string.sync_mode_ro)
-                SyncMode.RW -> stringResource(R.string.sync_mode_rw)
-            }
-        }
     )
     EnumListPreference(
         modifier = Modifier.settingRow(R.string.sync_conflict_title),

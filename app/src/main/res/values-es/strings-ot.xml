@@ -334,7 +334,6 @@
     <string name="lyrics_prefer_local_description">Priorizar la resolución de archivos de letras locales antes de utilizar todos los proveedores de nube. Desactive esta opción para dar prioridad a los proveedores de nube</string>
     <string name="lyrics_settings_title">Letras</string>
     <string name="lyrics_synced_clickable">Letras en las que se puede hacer clic</string>
-    <string name="lyrics_trim_title">Eliminar espacios alrededor de las letras</string>
     <string name="local_library_enable_title">Habilitar medios locales</string>
     <string name="local_library_enable_description">Al desactivarlo, se ocultará la biblioteca local de la aplicación</string>
     <string name="local_player_settings_title">Medios locales</string>
@@ -689,7 +688,6 @@
     <string name="tour_closer_entry">Recorrido por los ajustes</string>
     <string name="tour_closer_login">Iniciar sesión en tu cuenta de YouTube Music trae aquí tus listas de reproducción, tus me gusta y tus recomendaciones. La app funciona sin hacerlo.</string>
     <string name="tour_closer_lastfm">Para quien tiene un perfil de Last.fm: una vez conectada la cuenta, las canciones que terminas aquí se añaden a él.</string>
-    <string name="tour_closer_ytm_sync">Mantiene iguales la biblioteca de aquí y la de tu cuenta de YouTube Music sin que tengas que pedirlo. Sin sesión iniciada, no hay nada con qué sincronizar.</string>
     <string name="tour_closer_sync_mode">Elige Solo lectura si los me gusta y las listas de reproducción que hagas aquí deben quedarse aquí y nunca llegar a tu cuenta.</string>
     <string name="tour_closer_quick_picks_source">Quién elige las canciones de la fila Selecciones rápidas, arriba en Inicio. Solo cambia esa fila y nada más.</string>
     <string name="tour_closer_content_language">El idioma en el que responde YouTube Music: nombres de canciones y artistas, y los títulos de las filas de Inicio.</string>

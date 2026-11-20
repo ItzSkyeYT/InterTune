@@ -2,7 +2,6 @@
 <resources>
     <string name="swipe2Queue">Плъзнете за добавите в опашка</string>
     <string name="lyrics_multiline_title">Четене на многоредов текст</string>
-    <string name="lyrics_trim_title">Премахнете интервалите около текстовете</string>
     <string name="scanner_online_artist_linking">Опитайте да свържете изпълнители на локални файлове с такива в YouTube Music</string>
     <string name="folders">Папки</string>
     <string name="lyrics_prefer_local">Предпочитане на локални текстови файлове</string>
