@@ -133,6 +133,7 @@ class RecogniseLaterWorker(
             videoId = Heard.idFor(track, first),
             at = heardAt,
             checked = true,
+            cover = track.artworkUrl,
         )
     }
 

@@ -67,6 +67,7 @@ import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -778,6 +779,8 @@ fun ItemThumbnail(
     shape: Shape,
     modifier: Modifier = Modifier,
     albumIndex: Int? = null,
+    /** Fit, as every cover is drawn; Crop for a picture that is not square, such as a video's frame. */
+    contentScale: ContentScale = ContentScale.Fit,
 ) {
     val context = LocalContext.current
 
@@ -791,6 +794,7 @@ fun ItemThumbnail(
             },
 //            placeholder = rememberVectorPainter(placeholderIcon),
             contentDescription = null,
+            contentScale = contentScale,
             modifier = Modifier
                 .fillMaxSize()
                 .clip(shape)
