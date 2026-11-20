@@ -22,7 +22,9 @@ class PinsGreyedTest {
 
     @Test
     fun `a pin is hidden only where its feature is missing, never for the song playing`() {
-        assertTrue(actions.contains("shown = { pin -> pinOffered(pin) },"))
+        // The cast button also where this player has none to draw (no cast session, or a tablet's two panes, which keep
+        // theirs at the top): never for the song playing either.
+        assertTrue(actions.contains("shown = { pin -> pinOffered(pin) && (pin != PlayerPin.CAST || cast != null) },"))
         assertFalse("no pin hides for a local song", Regex("""shown = \{[^}]*!local""").containsMatchIn(actions))
         assertTrue(actions.contains("val unavailable: (PlayerPin) -> Int?"))
     }
