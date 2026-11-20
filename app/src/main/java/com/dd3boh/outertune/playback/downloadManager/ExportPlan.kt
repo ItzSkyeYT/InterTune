@@ -22,6 +22,12 @@ enum class SkipReason {
 
     /** The conversion or the write failed; the reason is in the log. */
     FAILED,
+
+    /**
+     * Original into a download folder for a song still inside the app (his pick of 20 Nov 2026): the copy would carry no
+     * link, Remove download would never delete it, and the song's own move into the folder later would make a second one.
+     */
+    INSIDE_APP,
 }
 
 class ExportSkip(val item: ExportItem, val reason: SkipReason)
@@ -33,7 +39,7 @@ class ExportResult(val exported: Int, val skipped: List<ExportSkip>, val stopped
 
 /** What an export says of itself in a line: "12 songs exported, 1 skipped: not downloaded". */
 object ExportSummary {
-    enum class Part { EXPORTED, NOT_ON_PHONE, ALREADY_THERE, LOCAL, FAILED }
+    enum class Part { EXPORTED, NOT_ON_PHONE, ALREADY_THERE, INSIDE_APP, LOCAL, FAILED }
 
     /**
      * The parts of the line in the order they are said, each with its count: how many were exported
@@ -56,6 +62,7 @@ object ExportSummary {
     private val REASONS = listOf(
         SkipReason.NOT_ON_PHONE to Part.NOT_ON_PHONE,
         SkipReason.ALREADY_THERE to Part.ALREADY_THERE,
+        SkipReason.INSIDE_APP to Part.INSIDE_APP,
         SkipReason.LOCAL to Part.LOCAL,
         SkipReason.FAILED to Part.FAILED,
     )

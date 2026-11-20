@@ -48,6 +48,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
@@ -253,13 +257,18 @@ fun ColumnScope.ThemePlayerFrag() {
         LivingColoursKey,
         defaultValue = LivingColours.MAIN
     )
+    // The whole-screen tuner (Unreleased.LIVING_TUNE), opened from the sample's corner.
+    var tuning by rememberSaveable { mutableStateOf(false) }
+    if (tuning) LivingBlurTune(onClose = { tuning = false })
     AnimatedVisibility(playerBackground == PlayerBackgroundStyle.LIVING && Unreleased.LIVING_BACKGROUND) {
         Column {
             LivingBlurSample(
                 strength = livingStrength,
                 smoothing = livingSmoothing,
                 colours = livingColours,
-                modifier = Modifier.padding(start = 16.dp, top = 4.dp, end = 16.dp, bottom = 8.dp)
+                modifier = Modifier.padding(start = 16.dp, top = 4.dp, end = 16.dp, bottom = 8.dp),
+                paused = tuning,
+                onFullScreen = if (Unreleased.LIVING_TUNE) ({ tuning = true }) else null,
             )
             // With animations off it stands still, here and in the player: said, with the switch
             // that does it, so that the sliders are not taken for broken (#49). Android's own is

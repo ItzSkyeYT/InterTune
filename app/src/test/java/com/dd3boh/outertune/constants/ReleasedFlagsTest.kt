@@ -27,7 +27,7 @@ import java.io.File
  */
 class ReleasedFlagsTest {
 
-    /** On in every build, and so in a release. The second line went on for 0.11.5, the third on 14 Oct, the fourth for 0.12, the fifth for 0.12.1, the sixth for 0.12.5 (its last four picked on 26 Oct 2026), the eighth for 0.13 (picked on 8 Nov 2026), the three after it for 0.13 too (picked on 14 Nov 2026), Listen together and the Metrolist import for 0.13 (his word, 14 Nov 2026, late), the battery saver note for 0.13 (his yes, 18 Nov 2026), and the last line for 0.13 (his picks of 19 Nov 2026, each walked on the emulator that day). */
+    /** On in every build, and so in a release. The second line went on for 0.11.5, the third on 14 Oct, the fourth for 0.12, the fifth for 0.12.1, the sixth for 0.12.5 (its last four picked on 26 Oct 2026), the eighth for 0.13 (picked on 8 Nov 2026), the three after it for 0.13 too (picked on 14 Nov 2026), Listen together and the Metrolist import for 0.13 (his word, 14 Nov 2026, late), the battery saver note for 0.13 (his yes, 18 Nov 2026), the line after it for 0.13 (his picks of 19 Nov 2026, each walked on the emulator that day), and the last for 0.13 (his pick of 20 Nov 2026). */
     private val inEveryBuild = setOf(
         "ENGINE", "SHORT_SETUP", "LOGIN_RETURNS",
         "STAND_INS", "VISIONOS_IDENTITIES", "WEB_FALLBACK", "LANDSCAPE", "EXPLAIN_PICTURES", "LIBRARY_IMPORT",
@@ -42,6 +42,7 @@ class ReleasedFlagsTest {
         "CAST_PCM", "REPORT_PLUS", "POLL_FOLLOW_UPS",
         "LISTEN_TOGETHER", "METROLIST_IMPORT", "SAVER_NOTE",
         "REPEAT_LIT_BOX", "CAST_AT_TOP", "LOCAL_REMOVE", "PLAYLIST_YT_SEARCH", "HAPTICS_MORE", "VARISPEED",
+        "ROOM_AT_FREE_END",
     )
 
     private val sources = File("src/main/java/com/dd3boh/outertune")
@@ -280,8 +281,9 @@ class ReleasedFlagsTest {
         )
         val english = File("src/main/res/values/strings-ot.xml").readText()
         val french = File("src/main/res/values-fr/strings-ot.xml").readText()
-        // The Output button's words are CAST_AT_TOP's: held from translators until 0.13's texts go to them, French beside them.
-        val heldWithCastAtTop = setOf("output_pill", "output_pill_description")
+        // The Output button's words are CAST_AT_TOP's, and the public Wi-Fi line under the cast list his pick of 20 Nov 2026:
+        // held from translators until 0.13's texts go to them, French beside them.
+        val heldWithCastAtTop = setOf("output_pill", "output_pill_description", "cast_public_wifi")
         for (name in heldWithCastAtTop) {
             assertTrue("$name is not held in English", "<string name=\"$name\" translatable=\"false\">" in english)
             assertTrue("$name has no French", "<string name=\"$name\" translatable=\"false\">" in french)

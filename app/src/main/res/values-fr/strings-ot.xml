@@ -23,6 +23,13 @@
     <string name="player_background_living">Flou vivant</string>
     <string name="player_living_strength">Intensité du Flou vivant</string>
     <string name="player_living_smoothing">Douceur du Flou vivant</string>
+    <string name="living_tune_open" translatable="false">Régler en plein écran</string>
+    <string name="living_tune_three_colours" translatable="false">Trois couleurs</string>
+    <string name="living_tune_cover" translatable="false">La pochette</string>
+    <string name="living_tune_strength" translatable="false">Intensité</string>
+    <string name="living_tune_smoothing" translatable="false">Douceur</string>
+    <string name="living_tune_hide" translatable="false">Masquer les réglages</string>
+    <string name="living_tune_show" translatable="false">Afficher les réglages</string>
     <string name="player_living_colours">Couleurs du Flou vivant</string>
     <string name="player_living_colours_main">Couleurs de la pochette : une pour les basses, une pour les médiums, une pour les aigus</string>
     <string name="player_living_colours_cover">Pochette floutée</string>
@@ -1906,7 +1913,8 @@
     <string name="output_pill" translatable="false">Bouton de sortie audio</string>
     <string name="output_pill_description" translatable="false">Affiche où joue la musique, sous les commandes.</string>
     <string name="cast_searching">Recherche de récepteurs sur ce Wi-Fi</string>
-    <string name="cast_about">Caste vers les récepteurs FCast, les appareils Chromecast et Google TV, et les téléviseurs et enceintes DLNA du même Wi-Fi. FCast demande l\'application FCast Receiver sur le téléviseur ou l\'ordinateur. Le téléphone reste allumé et envoie la musique pendant le cast.</string>
+    <string name="cast_about">Caste vers les récepteurs FCast, les appareils Chromecast et Google TV, les enceintes AirPlay, et les téléviseurs et enceintes DLNA du même Wi-Fi. FCast demande l\'application FCast Receiver sur le téléviseur ou l\'ordinateur. Le téléphone reste allumé et envoie la musique pendant le cast.</string>
+    <string name="cast_public_wifi" translatable="false">Sur un Wi-Fi public, les autres appareils connectés peuvent accéder aux titres que vous castez.</string>
     <string name="cast_add_by_address">Ajouter par adresse</string>
     <string name="cast_address_hint">192.168.1.20 pour FCast, chromecast 192.168.1.21, ou l\'URL de description DLNA</string>
     <string name="cast_address_invalid">Adresse inutilisable</string>
@@ -2395,6 +2403,11 @@
         <item quantity="many">%1$d ignorés : déjà dans le dossier</item>
         <item quantity="other">%1$d ignorés : déjà dans le dossier</item>
     </plurals>
+    <plurals name="export_skipped_inside_app" translatable="false">
+        <item quantity="one">%1$d ignoré : dans l\'application, donc pas copié dans son dossier de téléchargement</item>
+        <item quantity="many">%1$d ignorés : dans l\'application, donc pas copiés dans son dossier de téléchargement</item>
+        <item quantity="other">%1$d ignorés : dans l\'application, donc pas copiés dans son dossier de téléchargement</item>
+    </plurals>
     <plurals name="export_skipped_local">
         <item quantity="one">%1$d ignoré : déjà un fichier du téléphone</item>
         <item quantity="many">%1$d ignorés : déjà des fichiers du téléphone</item>
@@ -2544,6 +2557,7 @@
     <string name="together_close_room">Fermer le salon</string>
     <string name="together_song_unavailable">Ce titre n\'est pas disponible pour vous. Le suivant de l\'hôte démarrera tout seul.</string>
     <string name="together_paused_here">En pause ici. Appuyez sur lecture pour revenir où en est le salon.</string>
+    <string name="together_catch_up_after_cast" translatable="false">Vous rattraperez le salon à la fin du cast.</string>
     <string name="together_in_room">Dans un salon</string>
     <string name="settings_together_description">Votre nom dans les salons, et à quel point les téléphones restent synchronisés</string>
     <string name="together_settings_you">Vous</string>
@@ -2732,4 +2746,25 @@
     <string name="local_folder_excluded" translatable="false">%1$s exclu. Ses fichiers restent.</string>
     <!-- AppLanguage.PARTLY. -->
     <string name="app_language_partly" translatable="false">Traduction partielle</string>
+    <!-- ListenBrainz in place of Last.fm (Unreleased.LISTENBRAINZ): held from translators. -->
+    <string name="grp_listenbrainz" translatable="false">ListenBrainz</string>
+    <string name="listenbrainz_connect" translatable="false">Connecter un compte ListenBrainz</string>
+    <string name="listenbrainz_connect_description" translatable="false">Collez le jeton utilisateur de vos paramètres ListenBrainz.</string>
+    <string name="listenbrainz_dialog_title" translatable="false">Connecter ListenBrainz</string>
+    <string name="listenbrainz_dialog_body" translatable="false">Chaque titre que vous terminez s\'ajoute à votre profil ListenBrainz, et celui en cours s\'affiche en écoute. Vos écoutes y sont publiques.</string>
+    <string name="listenbrainz_token" translatable="false">Jeton utilisateur</string>
+    <string name="listenbrainz_get_token" translatable="false">Obtenir mon jeton</string>
+    <string name="listenbrainz_connect_button" translatable="false">Connecter</string>
+    <string name="listenbrainz_token_unknown" translatable="false">ListenBrainz ne reconnaît pas ce jeton. Copiez-le à nouveau depuis votre page de paramètres.</string>
+    <string name="listenbrainz_unreachable" translatable="false">Impossible de joindre ListenBrainz. Vérifiez votre connexion et réessayez.</string>
+    <string name="listenbrainz_slow" translatable="false">ListenBrainz est lent ou surchargé en ce moment. Réessayez dans quelques minutes.</string>
+    <string name="listenbrainz_checking" translatable="false">Vérification auprès de ListenBrainz…</string>
+    <string name="listenbrainz_connected_as" translatable="false">Connecté en tant que %1$s</string>
+    <string name="listenbrainz_disconnect_description" translatable="false">Appuyez pour vous déconnecter. Rien de ce qui a déjà été envoyé n\'est supprimé.</string>
+    <string name="listenbrainz_scrobble" translatable="false">Scrobbler ce que j\'écoute</string>
+    <string name="listenbrainz_scrobble_description" translatable="false">Désactivé, vous restez connecté et rien n\'est envoyé.</string>
+    <string name="listenbrainz_scrobble_explain" translatable="false">Pour chaque titre que vous terminez, ListenBrainz reçoit son nom, son artiste, son album, sa durée, l\'heure d\'écoute et son lien YouTube Music, ainsi que le nom et la version d\'InterTune. Le titre en cours est envoyé aussi, sans l\'heure. Vos écoutes y sont publiques, et rien ne part tant que « Suspendre l\'historique d\'écoute » est activé.</string>
+    <string name="listenbrainz_refused" translatable="false">ListenBrainz n\'accepte plus votre jeton</string>
+    <string name="listenbrainz_refused_description" translatable="false">Collez le nouveau depuis votre page de paramètres. Les écoutes en attente partiront dès que ça fonctionnera.</string>
+    <string name="search_words_listenbrainz">listenbrainz, scrobble, scrobbling</string>
 </resources>

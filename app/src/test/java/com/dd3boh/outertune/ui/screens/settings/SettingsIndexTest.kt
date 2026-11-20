@@ -179,6 +179,8 @@ class SettingsIndexTest {
             "lastfm_unavailable" to "Says that this build has no Last.fm; there is nothing to set.",
             "lastfm_ended" to "Says that Last.fm no longer works in the app (LastFmEnd); there is nothing to set.",
             "lastfm_connected_as" to "The connected account, named: \"Connect a Last.fm account\" lights the Scrobble switch beside it instead.",
+            "listenbrainz_connected_as" to "The connected account, named: \"Connect a ListenBrainz account\" lights the Scrobble switch beside it instead.",
+            "listenbrainz_refused" to "Shown only once ListenBrainz refuses the token, in the connected row's place: \"Connect a ListenBrainz account\" lights the Scrobble switch beside it instead.",
             "polls_unavailable" to "Says that this build has no questions; there is nothing to set.",
             "polls_one_waiting" to "A question waiting, shown only then.",
             "audio_quality_now" to "What is playing now, a reading.",

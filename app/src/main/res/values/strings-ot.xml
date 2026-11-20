@@ -294,6 +294,14 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="player_living_sample_play">Play a song to tune by</string>
     <string name="player_living_sample_queue">Tuning Living blur</string>
     <string name="player_living_sample_nothing">There is no song of yours to play yet. Play one, then come back.</string>
+    <!-- Living blur on the whole screen (LivingBlurTune, Unreleased.LIVING_TUNE): held from translators until he has seen it. -->
+    <string name="living_tune_open" translatable="false">Tune on the whole screen</string>
+    <string name="living_tune_three_colours" translatable="false">Three colours</string>
+    <string name="living_tune_cover" translatable="false">The cover</string>
+    <string name="living_tune_strength" translatable="false">Strength</string>
+    <string name="living_tune_smoothing" translatable="false">Smoothing</string>
+    <string name="living_tune_hide" translatable="false">Hide the controls</string>
+    <string name="living_tune_show" translatable="false">Show the controls</string>
     <string name="player_background_style">Player background style</string>
     <string name="show_liked_and_downloaded_playlist">Show playlists for liked and downloaded songs in library</string>
     <string name="slim_navbar_title">Slim navbar</string>
@@ -2096,7 +2104,9 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="output_pill" translatable="false">Output button</string>
     <string name="output_pill_description" translatable="false">Shows where music plays, under the controls.</string>
     <string name="cast_searching">Looking for receivers on this Wi-Fi</string>
-    <string name="cast_about">Casts to FCast receivers, to Chromecast and Google TV devices, and to DLNA TVs and speakers on the same Wi-Fi. FCast needs the FCast Receiver app on the TV or computer. The phone stays awake and sends the music while it casts.</string>
+    <string name="cast_about">Casts to FCast receivers, to Chromecast and Google TV devices, to AirPlay speakers, and to DLNA TVs and speakers on the same Wi-Fi. FCast needs the FCast Receiver app on the TV or computer. The phone stays awake and sends the music while it casts.</string>
+    <!-- Under the cast list's text (his pick of 20 Nov 2026): a receiver fetches the music over plain HTTP. Held from translators until 0.13's texts go to them, French beside it. -->
+    <string name="cast_public_wifi" translatable="false">On a public Wi-Fi, others on it can reach the songs you cast.</string>
     <string name="cast_add_by_address">Add by address</string>
     <string name="cast_address_hint">192.168.1.20 for FCast, chromecast 192.168.1.21, or a DLNA description URL</string>
     <string name="cast_address_invalid">Not an address this can use</string>
@@ -2581,6 +2591,11 @@ while also allowing users to translate our app as well. New, specific strings to
         <item quantity="one">%1$d skipped: already in the folder</item>
         <item quantity="other">%1$d skipped: already in the folder</item>
     </plurals>
+    <!-- Export Original into a download folder, a song still inside the app (his pick of 20 Nov 2026). Held from translators until 0.13's texts go to them, French beside it. -->
+    <plurals name="export_skipped_inside_app" translatable="false">
+        <item quantity="one">%1$d skipped: inside the app, so not copied into its download folder</item>
+        <item quantity="other">%1$d skipped: inside the app, so not copied into its download folder</item>
+    </plurals>
     <plurals name="export_skipped_local">
         <item quantity="one">%1$d skipped: a file on the phone already</item>
         <item quantity="other">%1$d skipped: files on the phone already</item>
@@ -2743,6 +2758,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="together_close_room">Close the room</string>
     <string name="together_song_unavailable">This song isn\'t available for you. The next one from the host plays by itself.</string>
     <string name="together_paused_here">Paused here. Press play to go back to where the room is.</string>
+    <string name="together_catch_up_after_cast" translatable="false">You\'ll catch up when the cast ends.</string>
     <string name="together_in_room">In a room</string>
     <string name="settings_together_description">Your name in rooms, and how closely phones keep in step</string>
     <string name="together_settings_you">You</string>
@@ -2926,4 +2942,25 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="local_folder_excluded" translatable="false">%1$s excluded. Its files stay.</string>
     <!-- Under a language of the App language list most of whose words are still English (AppLanguage.PARTLY). Held from translators. -->
     <string name="app_language_partly" translatable="false">Partly translated</string>
+    <!-- ListenBrainz in place of Last.fm (Unreleased.LISTENBRAINZ): held from translators, French beside them. Words from experiments/features/listenbrainz/PLAN.md. -->
+    <string name="grp_listenbrainz" translatable="false">ListenBrainz</string>
+    <string name="listenbrainz_connect" translatable="false">Connect a ListenBrainz account</string>
+    <string name="listenbrainz_connect_description" translatable="false">Paste the user token from your ListenBrainz settings.</string>
+    <string name="listenbrainz_dialog_title" translatable="false">Connect ListenBrainz</string>
+    <string name="listenbrainz_dialog_body" translatable="false">Each song you finish is added to your ListenBrainz profile, and the one playing shows as playing now. Your listens there are public.</string>
+    <string name="listenbrainz_token" translatable="false">User token</string>
+    <string name="listenbrainz_get_token" translatable="false">Get my token</string>
+    <string name="listenbrainz_connect_button" translatable="false">Connect</string>
+    <string name="listenbrainz_token_unknown" translatable="false">ListenBrainz doesn\'t know this token. Copy it again from your settings page.</string>
+    <string name="listenbrainz_unreachable" translatable="false">Couldn\'t reach ListenBrainz. Check your connection and try again.</string>
+    <string name="listenbrainz_slow" translatable="false">ListenBrainz is slow or busy right now. Try again in a few minutes.</string>
+    <string name="listenbrainz_checking" translatable="false">Checking with ListenBrainz…</string>
+    <string name="listenbrainz_connected_as" translatable="false">Connected as %1$s</string>
+    <string name="listenbrainz_disconnect_description" translatable="false">Tap to disconnect. Nothing already sent is removed.</string>
+    <string name="listenbrainz_scrobble" translatable="false">Scrobble what I play</string>
+    <string name="listenbrainz_scrobble_description" translatable="false">Off, you stay connected and nothing is sent.</string>
+    <string name="listenbrainz_scrobble_explain" translatable="false">For each song you finish, ListenBrainz gets its title, artist, album, length, when you played it and its YouTube Music link, plus InterTune\'s name and version. The song playing now goes too, without the time. Your listens are public there, and nothing goes while \"Pause listen history\" is on.</string>
+    <string name="listenbrainz_refused" translatable="false">ListenBrainz no longer accepts your token</string>
+    <string name="listenbrainz_refused_description" translatable="false">Paste the new one from your settings page. Listens waiting here go out once it works.</string>
+    <string name="search_words_listenbrainz">listenbrainz, scrobble, scrobbling</string>
 </resources>

@@ -460,6 +460,13 @@ class MusicService : MediaLibraryService(),
     var isCasting = false
         private set
 
+    /**
+     * Whether a cast is on: from the pick of a receiver until the music is back on the phone, a move from one receiver
+     * straight to another included, and both hand-overs of the music inside it. A listening room's guest follows nothing
+     * meanwhile (TogetherSession.castLook). Main thread.
+     */
+    val castOn: Boolean get() = castSession?.state?.value.let { it != null && it != CastSession.State.Off }
+
     val qbInit = MutableStateFlow(false)
     var queueBoard = QueueBoard(this, maxQueues = 1)
     var queuePlaylistId: String? = null
@@ -5936,8 +5943,6 @@ class MusicService : MediaLibraryService(),
         if (reason != Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED) {
             replanQueueTail(strong = reason == Player.MEDIA_ITEM_TRANSITION_REASON_SEEK && !transitionWentBack, skip = leftAs == AdaptiveQueue.Leave.SKIPPED)
         }
-        // "Listening now" on Last.fm. Not a scrobble, not stored, and allowed to fail quietly.
-        mediaItem?.metadata?.let { meta -> scope.launch { scrobbler.nowPlaying(meta) } }
         // +2 when and error happens, and -1 when transition. Thus when error, number increments by 1, else doesn't change
         if (consecutivePlaybackErr > 0) {
             consecutivePlaybackErr--
@@ -6398,6 +6403,10 @@ class MusicService : MediaLibraryService(),
         info.lastCheckpointPositionMs = info.startPositionMs
         if (listenHistoryPaused) { info.rowReady.complete(0L); return }
         val metadata = activePlayer.currentMediaItem?.takeIf { it.mediaId == mediaId }?.metadata
+        // "Playing now" on Last.fm and ListenBrainz, at the song's first sound. Not a scrobble, not
+        // kept, and allowed to fail quietly. It went at every change of song, which also told them
+        // of the queue put back paused when the app opens.
+        metadata?.let { meta -> scope.launch { scrobbler.nowPlaying(meta) } }
         database.transaction {
             runCatching {
                 // The row points at the song table, and recoverSong may still be fetching the

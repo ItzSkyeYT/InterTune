@@ -48,10 +48,11 @@ class ExportPlanTest {
     fun `every reason is said in its place, after the exported ones`() {
         val result = ExportResult(
             2,
-            listOf(skip(1, SkipReason.FAILED), skip(2, SkipReason.LOCAL), skip(3, SkipReason.ALREADY_THERE), skip(4, SkipReason.NOT_ON_PHONE), skip(5, SkipReason.NOT_ON_PHONE)),
+            listOf(skip(1, SkipReason.FAILED), skip(2, SkipReason.LOCAL), skip(3, SkipReason.ALREADY_THERE), skip(4, SkipReason.NOT_ON_PHONE), skip(5, SkipReason.NOT_ON_PHONE),
+                skip(6, SkipReason.INSIDE_APP)),
         )
         assertEquals(
-            listOf(Part.EXPORTED to 2, Part.NOT_ON_PHONE to 2, Part.ALREADY_THERE to 1, Part.LOCAL to 1, Part.FAILED to 1),
+            listOf(Part.EXPORTED to 2, Part.NOT_ON_PHONE to 2, Part.ALREADY_THERE to 1, Part.INSIDE_APP to 1, Part.LOCAL to 1, Part.FAILED to 1),
             ExportSummary.parts(result),
         )
     }

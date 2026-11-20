@@ -26,11 +26,13 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.dd3boh.outertune.R
+import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.ui.component.ColumnWithContentPadding
 import com.dd3boh.outertune.ui.component.PreferenceGroupTitle
 import com.dd3boh.outertune.ui.screens.settings.fragments.AccountExtrasFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.AccountFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.LastFmFrag
+import com.dd3boh.outertune.ui.screens.settings.fragments.ListenBrainzFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.SyncAutoFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.SyncManualFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.SyncParamsFrag
@@ -74,6 +76,19 @@ fun AccountSyncSettings(
             LastFmFrag(navController)
         }
         Spacer(modifier = Modifier.height(16.dp))
+
+        // In place of Last.fm, whose API wants a paid plan from 1 Dec 2026.
+        if (Unreleased.LISTENBRAINZ) {
+            PreferenceGroupTitle(
+                title = stringResource(R.string.grp_listenbrainz)
+            )
+            ElevatedCard(
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                ListenBrainzFrag()
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+        }
 
         PreferenceGroupTitle(
             title = stringResource(R.string.grp_sync)
