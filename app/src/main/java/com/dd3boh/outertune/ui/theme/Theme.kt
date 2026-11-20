@@ -148,8 +148,12 @@ private fun Bitmap.mainColours(everything: Boolean = false): Map<Int, Int> =
  * now means "no usable palette at all" rather than "the scorer was fussy".
  */
 fun Bitmap.extractGradientColors(): List<Color> {
+    // Without Palette's own filter, which drops near-white and near-black: a black-and-white cover then had no swatch at
+    // all and fell to the dark grey below, black beside Pure black (dvd, 20 Nov 2026). Score still leaves out greys
+    // for a cover that has colours, so only a cover with none takes its own white and black.
     val palette = Palette.from(this)
         .maximumColorCount(16)
+        .clearFilters()
         .generate()
 
     val extractedColors = palette.swatches.associate { it.rgb to it.population }
