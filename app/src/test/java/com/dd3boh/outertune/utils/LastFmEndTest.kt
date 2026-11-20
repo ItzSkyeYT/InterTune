@@ -368,7 +368,7 @@ class LastFmEndTest {
     }
 
     @Test
-    fun `the words are in English and French, held from translators, two short sentences at most`() {
+    fun `the words are in English and French, open to translators, two short sentences at most`() {
         fun text(folder: String, name: String): Pair<String, String> {
             val xml = File("src/main/res/$folder/strings-ot.xml").readText()
             val found = Regex("""<string name="$name"([^>]*)>([^<]*)</string>""").find(xml)
@@ -377,7 +377,7 @@ class LastFmEndTest {
         }
         for (folder in listOf("values", "values-fr")) for (name in listOf("lastfm_ended", "lastfm_ended_description")) {
             val (attributes, words) = text(folder, name)
-            assertTrue("$folder/$name is not held for his word", "translatable=\"false\"" in attributes)
+            assertFalse("$folder/$name is still held (open since his \"words good\" of 20 Nov 2026)", "translatable=\"false\"" in attributes)
             assertFalse("$folder/$name has a long dash", '—' in words || '–' in words)
             assertTrue("$folder/$name: $words", Regex("""[.!?](?=\s|$)""").findAll(words).count() <= 2)
         }

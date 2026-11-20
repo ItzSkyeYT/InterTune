@@ -21,8 +21,8 @@ class LivingBlurTuneTest {
     private fun read(path: String) = File("src/main/java/com/dd3boh/outertune/$path").readText()
 
     @Test
-    fun `the debug app, the Preview and the Tester app have it, a release does not`() {
-        assertTrue(read("constants/Unreleased.kt").contains("val LIVING_TUNE = BuildConfig.PREVIEW_FEATURES"))
+    fun `everyone has it since 0_13, his yes of 20 Nov 2026`() {
+        assertTrue(read("constants/Unreleased.kt").contains("val LIVING_TUNE = true"))
     }
 
     @Test

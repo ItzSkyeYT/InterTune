@@ -227,7 +227,7 @@ class LocalRemovePlacesTest {
     }
 
     @Test
-    fun `on for everyone in 0_13, and its words are still held from translators, short, in English and French`() {
+    fun `on for everyone in 0_13, and its words are open to translators, short, in English and French`() {
         val flags = code("constants/Unreleased.kt")
         assertTrue("val LOCAL_REMOVE = true" in flags)
         val english = File("src/main/res/values/strings-ot.xml").readText()
@@ -239,8 +239,8 @@ class LocalRemovePlacesTest {
             "local_folder_excluded" to ("%1\$s excluded. Its files stay." to "%1\$s exclu. Ses fichiers restent."),
         )
         for ((name, pair) in words) {
-            assertTrue(name, "<string name=\"$name\" translatable=\"false\">${pair.first}</string>" in english)
-            assertTrue(name, "<string name=\"$name\" translatable=\"false\">${pair.second}</string>" in french)
+            assertTrue(name, "<string name=\"$name\">${pair.first}</string>" in english)
+            assertTrue(name, "<string name=\"$name\">${pair.second}</string>" in french)
             for (text in listOf(pair.first, pair.second)) {
                 assertFalse(text, '—' in text)
                 assertTrue(text, Regex("[.!?](?=\\s|$)").findAll(text).count() <= 2)

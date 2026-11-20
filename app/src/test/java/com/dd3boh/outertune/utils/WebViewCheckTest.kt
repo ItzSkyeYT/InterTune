@@ -55,7 +55,7 @@ class WebViewCheckTest {
         for (values in listOf("values", "values-fr")) {
             val strings = File("src/main/res/$values/strings-ot.xml").readText()
             for (name in listOf("no_web_view_title", "no_web_view_body", "no_web_view_store")) {
-                assertTrue("$values: $name", "<string name=\"$name\" translatable=\"false\">" in strings)
+                assertTrue("$values: $name", "<string name=\"$name\">" in strings)
             }
             assertFalse("$values: no em dash", "—" in strings.substringAfter("name=\"no_web_view_title\"").substringBefore("name=\"no_web_view_store\""))
         }

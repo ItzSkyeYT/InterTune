@@ -279,4 +279,8 @@
     <string name="use_login_for_browse">Използвай вход за разглеждане на съдържание</string>
     <string name="use_login_for_browse_desc">Това може да повлияе какво съдържание виждате и например показва само премиум албуми, ако сте влезли с Премиум профил</string>
     <string name="action_login">Вход</string>
+    <string name="crash_report_github">Докладвай в GitHub</string>
+    <string name="crash_report_copy">Копиране</string>
+    <string name="crash_report_dismiss">Отхвърляне</string>
+    <string name="crash_report_copied">Грешката е копирана</string>
 </resources>

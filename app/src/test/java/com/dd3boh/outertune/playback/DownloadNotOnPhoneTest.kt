@@ -112,10 +112,10 @@ class DownloadNotOnPhoneTest {
     }
 
     @Test
-    fun `its words wait for the next push to translators, like every new text of 0_13`() {
+    fun `its words are open to translators, like every new text of 0_13 since 20 Nov 2026`() {
         for (path in listOf("src/main/res/values/strings-ot.xml", "src/main/res/values-fr/strings-ot.xml")) {
-            assertTrue("$path: not held from translators",
-                "<string name=\"err_download_not_on_phone\" translatable=\"false\">" in File(path).readText())
+            assertTrue("$path: not open to translators",
+                "<string name=\"err_download_not_on_phone\">" in File(path).readText())
         }
     }
 }

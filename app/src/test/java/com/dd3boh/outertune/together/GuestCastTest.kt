@@ -210,15 +210,15 @@ class GuestCastTest {
     }
 
     @Test
-    fun `the line is one short sentence, held from translators, in English and French`() {
+    fun `the line is one short sentence, open to translators, in English and French`() {
         for (folder in listOf("values", "values-fr")) {
             val file = File("src/main/res/$folder/strings-ot.xml").readText()
-            val text = Regex("""<string name="together_catch_up_after_cast" translatable="false">([^<]*)</string>""").find(file)?.groupValues?.get(1)
-            assertNotNull("$folder: the line, held from translators", text)
+            val text = Regex("""<string name="together_catch_up_after_cast">([^<]*)</string>""").find(file)?.groupValues?.get(1)
+            assertNotNull("$folder: the line, open to translators", text)
             assertTrue("$folder: $text", text!!.endsWith(".") && text.count { it == '.' } == 1 && text.length <= 60)
             assertFalse("$folder: $text", text.contains('—') || text.contains('–') || text.contains(';'))
         }
         val english = File("src/main/res/values/strings-ot.xml").readText()
-        assertTrue("<string name=\"together_catch_up_after_cast\" translatable=\"false\">You\\'ll catch up when the cast ends.</string>" in english)
+        assertTrue("<string name=\"together_catch_up_after_cast\">You\\'ll catch up when the cast ends.</string>" in english)
     }
 }

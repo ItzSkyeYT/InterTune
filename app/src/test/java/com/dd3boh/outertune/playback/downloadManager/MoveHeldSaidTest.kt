@@ -50,11 +50,11 @@ class MoveHeldSaidTest {
 
     private fun plural(xml: String, name: String): Map<String, String> =
         Regex("""<item quantity="(\w+)">([^<]*)</item>""").findAll(
-            xml.substringAfter("<plurals name=\"$name\" translatable=\"false\">").substringBefore("</plurals>")
+            xml.substringAfter("<plurals name=\"$name\"").substringAfter(">").substringBefore("</plurals>")
         ).associate { it.groupValues[1] to it.groupValues[2] }
 
     @Test
-    fun `the words, held from translators with the other new ones, short enough for a toast`() {
+    fun `the words, open to translators with the other new ones, short enough for a toast`() {
         val english = plural(en, "dl_move_notice_held")
         assertEquals(mapOf("one" to "%d song moves once it stops playing", "other" to "%d songs move once they stop playing"), english)
         val french = plural(fr, "dl_move_notice_held")

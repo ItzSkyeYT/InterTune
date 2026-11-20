@@ -45,10 +45,12 @@ public class TreeDocumentFileOt extends DocumentFile {
         mUri = uri;
         mMime = mime;
         mName = name;
-        int startIndex = name.lastIndexOf("[");
-        int endIndex = name.lastIndexOf("]");
-        if (startIndex < endIndex) {
-            mId = name.substring(startIndex + 1, endIndex);
+        if (name != null) {
+            int startIndex = name.lastIndexOf("[");
+            int endIndex = name.lastIndexOf("]");
+            if (startIndex < endIndex) {
+                mId = name.substring(startIndex + 1, endIndex);
+            }
         }
     }
     @Override
@@ -160,10 +162,18 @@ public class TreeDocumentFileOt extends DocumentFile {
                     DocumentsContract.Document.COLUMN_DISPLAY_NAME,
                     DocumentsContract.Document.COLUMN_MIME_TYPE
             }, null, null, null);
+            // Each column by its name, not by its place: a provider may answer with columns of its
+            // own and in its own order, and read by place every name came back as something else.
+            // A name that is not a song's makes every download in the folder look missing to a
+            // scan, and the move after a download write a second copy of each (dvd, 20 Nov 2026).
+            final int idColumn = columnOr(c, DocumentsContract.Document.COLUMN_DOCUMENT_ID, 0);
+            final int nameColumn = columnOr(c, DocumentsContract.Document.COLUMN_DISPLAY_NAME, 1);
+            final int mimeColumn = columnOr(c, DocumentsContract.Document.COLUMN_MIME_TYPE, 2);
             while (c.moveToNext()) {
-                final String documentId = c.getString(0);
-                final String documentName = c.getString(1);
-                final String documentMime = c.getString(2);
+                final String documentId = c.getString(idColumn);
+                if (documentId == null) continue;
+                final String documentName = c.getString(nameColumn);
+                final String documentMime = c.getString(mimeColumn);
                 final Uri documentUri = DocumentsContract.buildDocumentUriUsingTree(mUri,
                         documentId);
                 results.add(documentUri);
@@ -185,6 +195,12 @@ public class TreeDocumentFileOt extends DocumentFile {
         }
         return resultFiles;
     }
+    /** Where [column] is in [c], or [fallback] when the cursor does not name its columns. */
+    static int columnOr(Cursor c, String column, int fallback) {
+        final int index = c.getColumnIndex(column);
+        return index >= 0 ? index : fallback;
+    }
+
     private static void closeQuietly(@Nullable AutoCloseable closeable) {
         if (closeable != null) {
             try {

@@ -119,12 +119,12 @@ class LibraryOrderTalkBackTest {
     }
 
     @Test
-    fun `Move up and Move down are written in English and French, and held from translators for now`() {
+    fun `Move up and Move down are written in English and French, and open to translators`() {
         for (file in listOf("src/main/res/values/strings-ot.xml", "src/main/res/values-fr/strings-ot.xml")) {
             val lines = File(file).readLines()
             for (name in listOf("order_move_up", "order_move_down")) {
                 val line = lines.single { "name=\"$name\"" in it }
-                assertTrue(line, "translatable=\"false\"" in line)
+                assertFalse(line, "translatable=\"false\"" in line)
             }
         }
     }

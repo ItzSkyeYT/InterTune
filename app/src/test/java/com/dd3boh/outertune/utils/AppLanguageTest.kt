@@ -265,8 +265,8 @@ class AppLanguageTest {
         assertTrue(list.contains("val description = valueDescription?.invoke(value).orEmpty()"))
         assertTrue(list.contains("if (description.isNotEmpty()) {"))
         assertTrue(list.contains("verticalAlignment = if (description.isNotEmpty()) Alignment.Top else Alignment.CenterVertically,"))
-        // Held from translators like the line's other new words, French beside it.
-        assertTrue(File(res, "values/strings-ot.xml").readText().contains("<string name=\"app_language_partly\" translatable=\"false\">Partly translated</string>"))
-        assertTrue(File(res, "values-fr/strings-ot.xml").readText().contains("<string name=\"app_language_partly\" translatable=\"false\">Traduction partielle</string>"))
+        // Open to translators with 0.13's other new words since 20 Nov 2026, French beside it.
+        assertTrue(File(res, "values/strings-ot.xml").readText().contains("<string name=\"app_language_partly\">Partly translated</string>"))
+        assertTrue(File(res, "values-fr/strings-ot.xml").readText().contains("<string name=\"app_language_partly\">Traduction partielle</string>"))
     }
 }
