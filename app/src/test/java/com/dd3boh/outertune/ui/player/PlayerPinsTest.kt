@@ -89,7 +89,8 @@ class PlayerPinsTest {
         val classic = PlayerPins.toggle(PlayerPins.read(""), PinPlace.CLASSIC, PlayerPin.RADIO)
         assertEquals(listOf(PlayerPin.RADIO, TIMER, LIKE), classic[PinPlace.CLASSIC])
         val row = PlayerPins.toggle(PlayerPins.read(""), PinPlace.CONNECTED_ROW, PlayerPin.LISTEN_TOGETHER)
-        assertEquals(listOf(PlayerPin.LISTEN_TOGETHER, LYRICS, TIMER), row[PinPlace.CONNECTED_ROW])
+        // The timer is in the menu by default since 19 Nov 2026 (54a263bb5): Lyrics alone stands in the row.
+        assertEquals(listOf(PlayerPin.LISTEN_TOGETHER, LYRICS), row[PinPlace.CONNECTED_ROW])
         // Every place can take every pin.
         PinPlace.entries.forEach { place -> assertEquals(PlayerPin.entries.toSet(), place.order.toSet()) }
     }
