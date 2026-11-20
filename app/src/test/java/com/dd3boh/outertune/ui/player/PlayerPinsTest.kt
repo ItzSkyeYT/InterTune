@@ -6,6 +6,7 @@
 
 package com.dd3boh.outertune.ui.player
 
+import com.dd3boh.outertune.ui.player.PlayerPin.CAST
 import com.dd3boh.outertune.ui.player.PlayerPin.LIKE
 import com.dd3boh.outertune.ui.player.PlayerPin.LYRICS
 import com.dd3boh.outertune.ui.player.PlayerPin.SHARE
@@ -27,8 +28,9 @@ class PlayerPinsTest {
     fun `never chosen, every place pins its defaults, Connected's row and Classic without the sleep timer since 0_13`() {
         val pins = PlayerPins.read("")
         // His pick of 20 Nov 2026: Classic as Connected, the timer in the menu; an install set up before keeps it (PinsBefore013Test).
-        assertEquals(listOf(LIKE), pins[PinPlace.CLASSIC])
-        assertEquals(listOf(SHARE, LIKE), pins[PinPlace.CONNECTED_TITLE])
+        // The cast button by the title in both since 0.13, at the far end (CastPinTest).
+        assertEquals(listOf(CAST, LIKE), pins[PinPlace.CLASSIC])
+        assertEquals(listOf(CAST, SHARE, LIKE), pins[PinPlace.CONNECTED_TITLE])
         // His word of 19 Nov 2026: the sleep timer is in the menu by default; an install set up before keeps it (PinsBefore013Test).
         assertEquals(listOf(LYRICS), pins[PinPlace.CONNECTED_ROW])
     }
@@ -45,10 +47,11 @@ class PlayerPinsTest {
     fun `none pinned is the menu alone, and it is kept as chosen`() {
         var pins = PlayerPins.read("")
         pins = PlayerPins.toggle(pins, PinPlace.CLASSIC, LIKE)
+        pins = PlayerPins.toggle(pins, PinPlace.CLASSIC, CAST)
         assertEquals(emptyList<PlayerPin>(), pins[PinPlace.CLASSIC])
         val again = PlayerPins.read(PlayerPins.write(pins))
         assertEquals("an empty place stays empty, not back to its defaults", emptyList<PlayerPin>(), again[PinPlace.CLASSIC])
-        assertEquals(listOf(SHARE, LIKE), again[PinPlace.CONNECTED_TITLE])
+        assertEquals(listOf(CAST, SHARE, LIKE), again[PinPlace.CONNECTED_TITLE])
     }
 
     @Test
@@ -58,16 +61,19 @@ class PlayerPinsTest {
         val withQueue = PlayerPins.toggle(PlayerPins.read("CLASSIC=TIMER+LIKE"), PinPlace.CLASSIC, SHARE, most = PlayerPins.classicMost(queueCircle = true))
         assertEquals(listOf(TIMER, LIKE), withQueue[PinPlace.CLASSIC])
         val pair = PlayerPins.toggle(PlayerPins.read(""), PinPlace.CONNECTED_TITLE, TIMER)
-        assertEquals("the pair by the title stays a pair", listOf(SHARE, LIKE), pair[PinPlace.CONNECTED_TITLE])
+        assertEquals("the pair by the title stays a pair, the cast button beside it", listOf(CAST, SHARE, LIKE), pair[PinPlace.CONNECTED_TITLE])
     }
 
     @Test
     fun `in Connected a button is in one place at a time`() {
         var pins = PlayerPins.toggle(PlayerPins.read("CONNECTED_ROW=LYRICS+TIMER"), PinPlace.CONNECTED_TITLE, LIKE)
-        assertEquals(listOf(SHARE), pins[PinPlace.CONNECTED_TITLE])
+        assertEquals(listOf(CAST, SHARE), pins[PinPlace.CONNECTED_TITLE])
         pins = PlayerPins.toggle(pins, PinPlace.CONNECTED_TITLE, TIMER)
-        assertEquals(listOf(TIMER, SHARE), pins[PinPlace.CONNECTED_TITLE])
+        assertEquals(listOf(CAST, TIMER, SHARE), pins[PinPlace.CONNECTED_TITLE])
         assertEquals("the timer left the row for the title", listOf(LYRICS), pins[PinPlace.CONNECTED_ROW])
+        pins = PlayerPins.toggle(pins, PinPlace.CONNECTED_ROW, CAST)
+        assertEquals("the cast button left the title for the row", listOf(TIMER, SHARE), pins[PinPlace.CONNECTED_TITLE])
+        assertEquals(listOf(CAST, LYRICS), pins[PinPlace.CONNECTED_ROW])
     }
 
     @Test
@@ -78,8 +84,8 @@ class PlayerPinsTest {
         assertTrue(PlayerPins.changed(pins, listOf(PinPlace.CONNECTED_TITLE, PinPlace.CONNECTED_ROW)))
         val connectedBack = PlayerPins.reset(pins, listOf(PinPlace.CONNECTED_TITLE, PinPlace.CONNECTED_ROW))
         assertEquals("reset is today's default: the timer back in the menu", listOf(LYRICS), connectedBack[PinPlace.CONNECTED_ROW])
-        assertEquals(listOf(SHARE, LIKE), connectedBack[PinPlace.CONNECTED_TITLE])
-        assertEquals("Classic keeps its own choice", listOf(SHARE, LIKE), connectedBack[PinPlace.CLASSIC])
+        assertEquals(listOf(CAST, SHARE, LIKE), connectedBack[PinPlace.CONNECTED_TITLE])
+        assertEquals("Classic keeps its own choice", listOf(CAST, SHARE, LIKE), connectedBack[PinPlace.CLASSIC])
         assertFalse(PlayerPins.changed(connectedBack, listOf(PinPlace.CONNECTED_TITLE, PinPlace.CONNECTED_ROW)))
         assertEquals("written and read back, still the defaults", PlayerPins.read(""), PlayerPins.read(PlayerPins.write(PlayerPins.reset(pins, PinPlace.entries))))
     }
@@ -87,8 +93,8 @@ class PlayerPinsTest {
     @Test
     fun `every entry of the menu and Listen together can be pinned, further out than the four`() {
         val classic = PlayerPins.toggle(PlayerPins.read(""), PinPlace.CLASSIC, PlayerPin.RADIO)
-        // Classic's default is the heart alone since 20 Nov 2026: the radio goes further out from it.
-        assertEquals(listOf(PlayerPin.RADIO, LIKE), classic[PinPlace.CLASSIC])
+        // Classic's default is the cast button and the heart since 20 Nov 2026: the radio goes further out than both.
+        assertEquals(listOf(PlayerPin.RADIO, CAST, LIKE), classic[PinPlace.CLASSIC])
         val row = PlayerPins.toggle(PlayerPins.read(""), PinPlace.CONNECTED_ROW, PlayerPin.LISTEN_TOGETHER)
         // The timer is in the menu by default since 19 Nov 2026 (54a263bb5): Lyrics alone stands in the row.
         assertEquals(listOf(PlayerPin.LISTEN_TOGETHER, LYRICS), row[PinPlace.CONNECTED_ROW])
@@ -123,7 +129,7 @@ class PlayerPinsTest {
         val pins = PlayerPins.read("CLASSIC=LIKE+NOPE+SHARE;WHERE=LIKE;CONNECTED_ROW=;broken")
         assertEquals(listOf(SHARE, LIKE), pins[PinPlace.CLASSIC])
         assertEquals(emptyList<PlayerPin>(), pins[PinPlace.CONNECTED_ROW])
-        assertEquals(listOf(SHARE, LIKE), pins[PinPlace.CONNECTED_TITLE])
+        assertEquals(listOf(CAST, SHARE, LIKE), pins[PinPlace.CONNECTED_TITLE])
         val tooMany = PlayerPins.read("CLASSIC=SHARE+LYRICS+TIMER+LIKE")
         assertEquals("the ones beside the menu are the ones kept", listOf(LYRICS, TIMER, LIKE), tooMany[PinPlace.CLASSIC])
     }

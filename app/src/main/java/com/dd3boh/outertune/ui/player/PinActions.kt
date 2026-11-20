@@ -6,6 +6,9 @@
 
 package com.dd3boh.outertune.ui.player
 
+import com.dd3boh.outertune.constants.Unreleased
+import androidx.compose.material.icons.rounded.CastConnected
+import androidx.compose.material.icons.rounded.Cast
 import android.content.Intent
 import android.media.audiofx.AudioEffect
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -128,6 +131,7 @@ internal fun pinPainter(pin: PlayerPin, on: Boolean = false): Painter = when (pi
     PlayerPin.SIGNAL_PATH -> rememberVectorPainter(Icons.Rounded.Route)
     PlayerPin.RECENTRE -> rememberVectorPainter(Icons.Rounded.FilterCenterFocus)
     PlayerPin.LISTEN_TOGETHER -> rememberVectorPainter(Icons.Rounded.Group)
+    PlayerPin.CAST -> rememberVectorPainter(if (on) Icons.Rounded.CastConnected else Icons.Rounded.Cast)
 }
 
 /** A pin's name, its entry's in the menu, [on] for the buttons that are a state. */
@@ -153,11 +157,16 @@ internal fun pinLabel(pin: PlayerPin, on: Boolean = false): String = stringResou
         PlayerPin.SIGNAL_PATH -> R.string.signal_path
         PlayerPin.RECENTRE -> R.string.head_tracking_recentre
         PlayerPin.LISTEN_TOGETHER -> R.string.together_title
+        PlayerPin.CAST -> R.string.cast
     }
 )
 
-/** Whether [pin] can be offered at all in this build: Listen together is only where it is built. */
-internal fun pinOffered(pin: PlayerPin): Boolean = pin != PlayerPin.LISTEN_TOGETHER || togetherAvailable
+/** Whether [pin] can be offered at all in this build: Listen together is only where it is built, the cast button where casting is. */
+internal fun pinOffered(pin: PlayerPin): Boolean = when (pin) {
+    PlayerPin.LISTEN_TOGETHER -> togetherAvailable
+    PlayerPin.CAST -> Unreleased.CASTING
+    else -> true
+}
 
 /**
  * The menu's entries for the player's pinned buttons, watching in the database only what one of
@@ -171,6 +180,8 @@ internal fun rememberPinActions(
     pinned: Set<PlayerPin>,
     inRoom: Boolean,
     openRoom: () -> Unit,
+    /** The cast button's look and tap where it can be drawn here ([rememberCastLook]), else null. */
+    cast: CastLook? = null,
 ): PinActions {
     val context = LocalContext.current
     val database = LocalDatabase.current
@@ -299,13 +310,14 @@ internal fun rememberPinActions(
         }
     }
     return PinActions(
-        shown = { pin -> pinOffered(pin) },
+        shown = { pin -> pinOffered(pin) && (pin != PlayerPin.CAST || cast != null) },
         unavailable = why,
         on = { pin ->
             when (pin) {
                 PlayerPin.DOWNLOAD -> downloaded
                 PlayerPin.LIBRARY -> inLibrary
                 PlayerPin.LISTEN_TOGETHER -> inRoom
+                PlayerPin.CAST -> cast?.casting == true
                 else -> false
             }
         },
@@ -363,6 +375,7 @@ internal fun rememberPinActions(
                 PlayerPin.SIGNAL_PATH -> showSignalPath = true
                 PlayerPin.RECENTRE -> connection.service.headTracking.recentre()
                 PlayerPin.LISTEN_TOGETHER -> openRoom()
+                PlayerPin.CAST -> cast?.open?.invoke()
                 // The player's own, drawn and handled by it.
                 PlayerPin.SHARE, PlayerPin.LYRICS, PlayerPin.TIMER, PlayerPin.LIKE -> Unit
             }

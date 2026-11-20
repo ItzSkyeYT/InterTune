@@ -614,15 +614,6 @@ fun BottomSheetPlayer(
      */
     val tabletTwoPane = tabMode
 
-    /**
-     * A phone on its side in a window under 600dp wide: split screen on its side, a 16:9 phone with
-     * its navigation bar beside the screen, a floating window. It has the stacked layout with the
-     * buttons above the title, and its cover only gets the height the controls leave, often none. So
-     * the cast button never goes at the cover's top right there, and the pill that names where music
-     * plays stays in the bottom right corner whatever the Output button says, as in a release.
-     */
-    val narrowSide = isLandscape && !tabMode && !wideScreen
-
 
     // ignoringVisibility so hiding the bars in immersive landscape does not change this bound and
     // rebuild the sheet state mid-gesture. See the matching note in MainActivity.
@@ -1056,7 +1047,11 @@ fun BottomSheetPlayer(
                 if (buttonsStyle == PlayerButtonsStyle.CLASSIC) pins[PinPlace.CLASSIC].orEmpty().toSet()
                 else (pins[PinPlace.CONNECTED_TITLE].orEmpty() + pins[PinPlace.CONNECTED_ROW].orEmpty()).toSet()
             }
-            val pinActions = rememberPinActions(mediaMetadata, navController, state, stylePins, inRoom, openRoom = { showRoom = true })
+            // The cast button as one of the player's buttons (PlayerPin.CAST), lit while a receiver plays (pinActions). Not
+            // on a tablet's two panes, which keep theirs at the top right, nor without casting.
+            val castLook = rememberCastLook()
+            val castShown = castLook != null && !tabletTwoPane
+            val pinActions = rememberPinActions(mediaMetadata, navController, state, stylePins, inRoom, openRoom = { showRoom = true }, cast = castLook.takeIf { castShown })
             val roomApart = inRoom && PlayerPin.LISTEN_TOGETHER !in stylePins
             // Where that button goes, as said above; a pinned room's button is its pin, in the pins' place.
             val roomAtFreeEnd = roomApart && Unreleased.ROOM_AT_FREE_END
@@ -1199,8 +1194,7 @@ fun BottomSheetPlayer(
 
             /** Classic's pins by the title, as many as fit there beside the queue's circle or without it. */
             fun classicPins(queueCircle: Boolean): List<PlayerPin> =
-                pins[PinPlace.CLASSIC].orEmpty()
-                    .takeLast(PlayerPins.classicMost(queueCircle))
+                PlayerPins.fit(PinPlace.CLASSIC, pins[PinPlace.CLASSIC].orEmpty(), PlayerPins.classicMost(queueCircle))
                     .filter(pinActions.shown)
 
             val classicButtons: @Composable RowScope.() -> Unit = {
@@ -1971,17 +1965,6 @@ fun BottomSheetPlayer(
                                 )
                             }
                         }
-
-                        // The cast button at the cover pane's top right, as on a tablet's two panes,
-                        // while the output button is off. The pane is already clear of the status bar.
-                        if (!outputPill) {
-                            CastButton(
-                                tint = onBackgroundColor,
-                                modifier = Modifier
-                                    .align(Alignment.TopEnd)
-                                    .padding(end = 4.dp)
-                            )
-                        }
                     }
 
                     Column(
@@ -2108,13 +2091,11 @@ fun BottomSheetPlayer(
                             }
                         }
 
-                        // Laid over the empty top right corner, under the status bar, so nothing
-                        // else on the player moves or changes size for it. On a tablet's two panes,
-                        // and everywhere else while the output button is off (his pick of 15 Nov
-                        // 2026: the cast button at the top right, nothing under the controls). Not
-                        // in a small player, whose top right is the cover's or its circles', nor in a
-                        // narrow window on its side, whose cover has no height to give it (narrowSide).
-                        if (tabletTwoPane || (!outputPill && !compactPlayer && !narrowSide)) {
+                        // A tablet's two panes show no buttons by the title, so the cast button stays laid
+                        // over the empty top right corner there, under the status bar, so nothing else on
+                        // the player moves or changes size for it. Everywhere else it is one of the
+                        // player's buttons since 0.13 (PlayerPin.CAST, his word of 20 Nov 2026).
+                        if (tabletTwoPane) {
                             CastButton(
                                 tint = onBackgroundColor,
                                 modifier = Modifier
@@ -2281,9 +2262,9 @@ fun BottomSheetPlayer(
         // Drawn after the queue's sheet. Its collapsed strip lies across the bottom of the window,
         // and under it the pill was seen and could not be pressed: the tap opened the queue. Gone
         // once the queue is most of the way up. Not on a small upright window, where that corner
-        // is the play row's. With the Output button off, still in a narrow window on its side, which
-        // has no cast button at the top right (narrowSide): the pill is its only way to the cast sheet.
-        if ((outputPill || narrowSide) && isLandscape && queueLayout.outputRoom == 0.dp && !tabletTwoPane && mediaMetadata != null && !queueCovers) {
+        // is the play row's. Only with the Output button on: the cast button is one of the player's
+        // buttons, in a narrow window on its side too (above the title there).
+        if (outputPill && isLandscape && queueLayout.outputRoom == 0.dp && !tabletTwoPane && mediaMetadata != null && !queueCovers) {
             OutputButton(
                 tint = onBackgroundColor,
                 wide = false,
@@ -2295,6 +2276,8 @@ fun BottomSheetPlayer(
                     .padding(end = 24.dp, bottom = 10.dp)
             )
         }
+        // The cast sheet, one for the whole player, whichever button opened it.
+        CastPickerHost()
     }
 }
 

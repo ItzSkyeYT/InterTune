@@ -211,8 +211,8 @@ fun ColumnScope.PlayerButtonsFrag() {
                     )
                 }
                 AssistChip(
-                    // A full place takes no more until one comes off.
-                    enabled = chosen.size < most,
+                    // A full place takes no more until one comes off, but the cast button, which takes no room.
+                    enabled = !PlayerPins.full(chosen, most) || (PlayerPin.CAST !in chosen && pinOffered(PlayerPin.CAST)),
                     onClick = { adding = place },
                     label = { Text(stringResource(R.string.player_pins_add)) },
                     leadingIcon = {
@@ -224,7 +224,8 @@ fun ColumnScope.PlayerButtonsFrag() {
         adding?.let { place ->
             val most = if (place == PinPlace.CLASSIC) PlayerPins.classicMost(queueAsButton) else place.most
             ListDialog(onDismiss = { adding = null }) {
-                items(PlayerPin.entries.filter { it !in pins[place].orEmpty() && pinOffered(it) }) { pin ->
+                val full = PlayerPins.full(pins[place].orEmpty(), most)
+                items(PlayerPin.entries.filter { it !in pins[place].orEmpty() && pinOffered(it) && (!full || it == PlayerPin.CAST) }) { pin ->
                     ListItem(
                         title = pinLabel(pin),
                         thumbnailContent = {

@@ -14,11 +14,13 @@ import org.junit.Test
 import java.io.File
 
 /**
- * His pick of 15 Nov 2026, "C with B's badges": the cast button at the player's top right and nothing
- * under the controls, the pill that names where music plays kept as a switch that is off ("the pill
- * should be toggleable"), and a badge on the mini player's cover while a room or a cast is on, all
- * behind CAST_AT_TOP. Partly read from the source, as the flag tests are: what Compose draws where
- * cannot be looked at on the JVM.
+ * His pick of 15 Nov 2026, "C with B's badges": the cast button on the player and nothing under the
+ * controls, the pill that names where music plays kept as a switch that is off ("the pill should be
+ * toggleable"), and a badge on the mini player's cover while a room or a cast is on, all behind
+ * CAST_AT_TOP. The button stood alone at the top right until 20 Nov 2026, when it became one of the
+ * player's buttons by the title (his word: "it looks bad on both portrait and landscape"; CastPinTest);
+ * a tablet, which shows no buttons by the title, keeps it at the top right. Partly read from the
+ * source, as the flag tests are: what Compose draws where cannot be looked at on the JVM.
  */
 class CastAtTopTest {
     private val folder = File("src/main/java/com/dd3boh/outertune")
@@ -58,32 +60,29 @@ class CastAtTopTest {
     }
 
     @Test
-    fun `the cast button stands at the top right while the pill is off`() {
+    fun `only a tablet keeps a cast button at the top right, everywhere else it is one of the player's buttons`() {
         val calls = Regex("""\bCastButton\(""").findAll(player).map { it.range.first }.toList()
-        // What each is drawn under: upright, in narrow landscape and on a tablet, the cover's top right
-        // under the status bar; on its side, the top right of the cover's pane.
-        val conditions = calls.map { at -> player.substring(player.lastIndexOf("if (", at), at).lines().first().trim() }.toSet()
-        assertEquals(setOf("if (tabletTwoPane || (!outputPill && !compactPlayer && !narrowSide)) {", "if (!outputPill) {"), conditions)
-        for (at in calls) {
-            val call = player.substring(at, player.indexOf("\n                            )", at))
-            assertTrue(call, ".align(Alignment.TopEnd)" in call && ".padding(end = 4.dp)" in call)
-        }
+        assertEquals(1, calls.size)
+        val at = calls.single()
+        assertEquals("if (tabletTwoPane) {", player.substring(player.lastIndexOf("if (", at), at).lines().first().trim())
+        val call = player.substring(at, player.indexOf("\n                            )", at))
+        assertTrue(call, ".align(Alignment.TopEnd)" in call && ".padding(end = 4.dp)" in call)
+        // The pinned one is not drawn on a tablet's two panes, so it never shows twice.
+        assertTrue("val castShown = castLook != null && !tabletTwoPane" in player)
     }
 
     @Test
-    fun `a narrow window on its side keeps the pill in its corner and gets no cast button at the top`() {
-        // Under 600dp wide on its side (split screen, a 16:9 phone with its navigation bar beside the screen, a
-        // floating window) the stacked layout's cover gets what the controls leave, often no height at all: a cast
-        // button at its top right had none either, and with the pill gone there was no way to the cast sheet. So
-        // that window stays as a release has it, the switch or not.
-        assertTrue("val narrowSide = isLandscape && !tabMode && !wideScreen" in player)
+    fun `the pill stays in a window's corner on its side only with the switch on`() {
+        // A narrow window on its side (split screen, a 16:9 phone with its navigation bar beside the screen) kept the
+        // pill whatever the switch said, its only way to the cast sheet. The cast button is one of its buttons now,
+        // above the title there, so nothing is special about it any more.
+        assertTrue("narrowSide" !in player)
         val corner = player.lastIndexOf("OutputButton(")
         val condition = player.substring(player.lastIndexOf("if (", corner), corner).lines().first().trim()
         assertEquals(
-            "if ((outputPill || narrowSide) && isLandscape && queueLayout.outputRoom == 0.dp && !tabletTwoPane && mediaMetadata != null && !queueCovers) {",
+            "if (outputPill && isLandscape && queueLayout.outputRoom == 0.dp && !tabletTwoPane && mediaMetadata != null && !queueCovers) {",
             condition,
         )
-        assertTrue("if (tabletTwoPane || (!outputPill && !compactPlayer && !narrowSide)) {" in player)
     }
 
     @Test
