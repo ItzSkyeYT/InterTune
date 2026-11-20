@@ -198,9 +198,11 @@ Every change in detail, and why this fork exists: [docs/FEATURES.md](https://git
 What's being worked on, roughly in order. `[x]` is done, `[~]` is built and being tested, `[ ]` is still to do. Nothing here has a date, and plans can change. Ideas are welcome in #feature-requests on [Discord](https://discord.gg/68jmqhMjXk) or as a [GitHub issue](https://github.com/ItzSkyeYT/InterTune/issues/new/choose).
 
 <details>
-<summary><b>Next: 0.13</b> · 14 of 44 done, 25 to test</summary>
+<summary><b>Next: 0.13</b> · 14 of 46 done, 27 to test</summary>
 
 `[~]` Listen together: one person plays, friends follow the same song in real time\
+`[~]` In a room, a guest who casts to a TV or speaker plays on their own, and catches up with the room when the cast ends\
+`[~]` Invites to a room keep its code out of the website's logs and out of chat apps' link previews\
 `[x]` AirPlay speakers in the cast list\
 `[~]` The equalizer and volume levelling on AirPlay speakers too, and Signal path shows the speaker you cast to\
 `[~]` Casting to speakers that only take uncompressed audio, like a Zeppelin Wireless\
@@ -238,12 +240,23 @@ What's being worked on, roughly in order. `[x]` is done, `[~]` is built and bein
 `[~]` Albums and artists in your own order too\
 `[ ]` Match your library from another service by logging in to it\
 `[x]` Repeat and shuffle on a lit box when they're on, so off no longer looks greyed out ([#182](https://github.com/ItzSkyeYT/InterTune/issues/182))\
-`[x]` The cast button at the top of the player, and a small badge on the mini player during a cast or a room\
+`[x]` The cast button with the player's buttons by the title, where you can move it like them, and a small badge on the mini player during a cast or a room\
 `[x]` Remove a song on your phone from the library, or leave out a whole folder, with Undo\
 `[x]` A playlist's search looks on YouTube Music too, with an add button on each song\
 `[x]` Varispeed: the pitch follows the speed, like a record ([#225](https://github.com/ItzSkyeYT/InterTune/issues/225))\
 `[~]` More haptic feedback ([#176](https://github.com/ItzSkyeYT/InterTune/issues/176))\
 `[x]` Bring your library over from a Metrolist backup, from its Android app or its new one
+
+</details>
+
+<details>
+<summary><b>0.14: recommendations rebuilt</b></summary>
+
+`[ ]` One engine for Quick picks, the queue and radios, Home's shelves and Discover, rebuilt from the ground up *(in progress)*\
+`[ ]` New signals: the songs you just played, when you skip, what you replay and what you find again yourself\
+`[ ]` Learning on your phone that's fair to new songs, starting from what works for many listeners\
+`[ ]` The reason for each pick, on a long press\
+`[ ]` Testers first, then everyone once it beats today's picks
 
 </details>
 
@@ -259,7 +272,7 @@ What's being worked on, roughly in order. `[x]` is done, `[~]` is built and bein
 `[ ]` Playlist folders\
 `[ ]` Music videos ([#96](https://github.com/ItzSkyeYT/InterTune/issues/96))\
 `[ ]` Bring your library over from InnerTune, ViMusic, SimpMusic or Kreate\
-`[~]` A thumbs down that YouTube Music hears too ([#171](https://github.com/ItzSkyeYT/InterTune/issues/171))\
+`[~]` A thumbs down that YouTube Music hears too, then a Dislike button in the notification ([#171](https://github.com/ItzSkyeYT/InterTune/issues/171))\
 `[ ]` Unison as a lyrics source ([#145](https://github.com/ItzSkyeYT/InterTune/issues/145))\
 `[ ]` Lyrics translated by AI with your own key, if you turn it on ([#177](https://github.com/ItzSkyeYT/InterTune/issues/177))\
 `[ ]` A page with every poll, to see or change what you answered\
@@ -268,7 +281,10 @@ What's being worked on, roughly in order. `[x]` is done, `[~]` is built and bein
 `[~]` Spatial audio for surround recordings, and Strength, Room and Ambience controls\
 `[~]` Similar artists in the Favourite artists mix\
 `[ ]` Tablets: settings in two panes, and the player as a side pane that can show lyrics *(in progress)* ([#140](https://github.com/ItzSkyeYT/InterTune/issues/140))\
-`[ ]` A look made for foldable and flip phones *(in progress)*
+`[ ]` A look made for foldable and flip phones *(in progress)*\
+`[ ]` Play or shuffle the whole Quick picks row from its title\
+`[~]` A full-screen tuner for Living blur's colours and movement\
+`[ ]` Your own songs: an artist or genre with & or a comma in its name stays whole
 
 </details>
 
