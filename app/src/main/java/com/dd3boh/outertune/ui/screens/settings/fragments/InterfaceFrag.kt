@@ -35,6 +35,7 @@ import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.Swipe
 import androidx.compose.material.icons.rounded.SwipeDown
 import androidx.compose.material.icons.rounded.Tab
+import androidx.compose.material.icons.rounded.Vibration
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -52,6 +53,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
@@ -74,11 +76,15 @@ import com.dd3boh.outertune.constants.SwipeToQueueKey
 import com.dd3boh.outertune.constants.SwipeToSkipKey
 import com.dd3boh.outertune.constants.SwipeToDismissPlayerKey
 import com.dd3boh.outertune.constants.ThumbnailCornerRadius
+import com.dd3boh.outertune.constants.VibrationKey
 import com.dd3boh.outertune.extensions.move
 import com.dd3boh.outertune.ui.component.EnumListPreference
+import com.dd3boh.outertune.ui.component.FeltHaptics
+import com.dd3boh.outertune.ui.component.Haptics
 import com.dd3boh.outertune.ui.component.ListPreference
 import com.dd3boh.outertune.ui.component.PreferenceEntry
 import com.dd3boh.outertune.ui.component.SwitchPreference
+import com.dd3boh.outertune.ui.component.Vibration
 import com.dd3boh.outertune.ui.dialog.ActionPromptDialog
 import com.dd3boh.outertune.ui.dialog.InfoLabel
 import com.dd3boh.outertune.ui.screens.Screens
@@ -454,6 +460,36 @@ fun ColumnScope.SwipeGesturesFrag() {
         icon = { Icon(Icons.Rounded.SwipeDown, null) },
         checked = swipeToDismissPlayer,
         onCheckedChange = onSwipeToDismissPlayerChange
+    )
+}
+
+/**
+ * "Vibration": Off, Light or Strong (Unreleased.HAPTICS_FEEL, Haptics), how the app's haptics feel. A pick plays one
+ * buzz of itself, so the choice is felt as it is made: play and pause's firm click, nothing for Off.
+ */
+@Composable
+fun ColumnScope.VibrationFrag() {
+    val (vibration, onVibrationChange) = rememberEnumPreference(VibrationKey, defaultValue = Vibration.DEFAULT)
+    val haptic = LocalHapticFeedback.current
+    // Light's buzz is Compose's own: the window's (FeltHaptics) still holds the choice before as the new one is picked.
+    val platform = (haptic as? FeltHaptics)?.platform ?: haptic
+
+    EnumListPreference(
+        modifier = Modifier.settingRow(R.string.vibration),
+        title = { Text(stringResource(R.string.vibration)) },
+        icon = { Icon(Icons.Rounded.Vibration, null) },
+        selectedValue = vibration,
+        valueText = {
+            when (it) {
+                Vibration.OFF -> stringResource(R.string.vibration_off)
+                Vibration.LIGHT -> stringResource(R.string.vibration_light)
+                Vibration.STRONG -> stringResource(R.string.vibration_strong)
+            }
+        },
+        onValueSelected = { picked ->
+            onVibrationChange(picked)
+            Haptics.sample(picked, platform)
+        },
     )
 }
 

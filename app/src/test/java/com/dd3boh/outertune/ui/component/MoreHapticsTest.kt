@@ -102,14 +102,17 @@ class MoreHapticsTest {
         val flags = source("constants/Unreleased.kt")
         assertTrue("val HAPTICS_MORE = true" in flags)
         val helper = source("ui/component/MoreHaptics.kt")
-        assertTrue("if (Unreleased.HAPTICS_MORE) performHapticFeedback(HapticFeedbackType.ContextClick)" in helper)
+        // Today's ContextClick, played as the Vibration setting says (Unreleased.HAPTICS_FEEL, VibrationTest): Light's way
+        // wherever that setting is held back.
+        assertTrue("if (Unreleased.HAPTICS_MORE) Haptics.play(strong) { performHapticFeedback(HapticFeedbackType.ContextClick) }" in helper)
     }
 
     @Test
     fun `both kinds of player button tick on a tap, so every pinned button does, the queue's included`() {
         for (header in listOf("private fun PlayerCircleButton(", "private fun PlayerActionSegment(")) {
             val button = declaration(player, header)
-            assertTrue("$header has no tick", "haptic.tapTick()\n                    onClick()" in button)
+            // With the feel of the tap under the Vibration setting's Strong: a like's two clicks, else a tick.
+            assertTrue("$header has no tick", "haptic.tapTick(tap)\n                    onClick()" in button)
             assertFalse("$header still clicks without it", ".clickable(onClick = onClick)" in button)
         }
         // The queue's button ticked by itself before: with the flag, once, from the button.
@@ -173,7 +176,8 @@ class MoreHapticsTest {
         for (menu in listOf("SongMenu", "YouTubeSongMenu", "AlbumMenu", "YouTubeAlbumMenu", "ArtistMenu", "YouTubeArtistMenu", "PlaylistMenu", "YouTubePlaylistMenu")) {
             // The header's start: the heart, behind an if in the playlist menus.
             val header = source("ui/menu/$menu.kt").substringAfter("trailingContent = {").take(400)
-            assertTrue("$menu's header button has no tick", "val haptic = LocalHapticFeedback.current" in header && "haptic.tapTick()" in header)
+            // A song's heart says what it does under the Vibration setting's Strong (a like's two clicks, VibrationTest).
+            assertTrue("$menu's header button has no tick", "val haptic = LocalHapticFeedback.current" in header && "haptic.tapTick(" in header)
         }
         // Tempo and pitch, a step at a time, in the player menu's Advanced dialog.
         val adjuster = source("ui/menu/PlayerMenu.kt").substringAfter("fun <T : Comparable<T>> ValueAdjuster(")

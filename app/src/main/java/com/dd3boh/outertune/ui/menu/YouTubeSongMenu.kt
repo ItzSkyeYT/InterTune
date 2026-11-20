@@ -73,6 +73,7 @@ import androidx.compose.material.icons.rounded.Group
 import com.dd3boh.outertune.utils.Toaster
 import androidx.compose.ui.platform.LocalHapticFeedback
 import com.dd3boh.outertune.ui.component.tapTick
+import com.dd3boh.outertune.ui.component.Feel
 import com.dd3boh.outertune.ui.player.likeName
 
 @Composable
@@ -135,7 +136,8 @@ fun YouTubeSongMenu(
             val haptic = LocalHapticFeedback.current
             IconButton(
                 onClick = {
-                    haptic.tapTick()
+                    // Under the Vibration setting's Strong a like is two clicks, taking it back the tap's tick.
+                    haptic.tapTick(if (librarySong?.song?.liked == true) Feel.TICK else Feel.DOUBLE)
                     database.transaction {
                         librarySong.let { librarySong ->
                             // One push: toggleLike sends the like to YouTube itself. This sent it

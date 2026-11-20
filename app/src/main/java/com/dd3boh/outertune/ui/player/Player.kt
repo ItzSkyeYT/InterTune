@@ -54,6 +54,7 @@ import com.dd3boh.outertune.ui.component.SeekRumble
 import com.dd3boh.outertune.ui.component.hapticsLive
 import com.dd3boh.outertune.ui.component.segmentTick
 import com.dd3boh.outertune.ui.component.tapTick
+import com.dd3boh.outertune.ui.component.Feel
 import com.dd3boh.outertune.ui.component.rememberSleepTimerState
 import com.dd3boh.outertune.ui.component.openProxySetting
 import androidx.compose.material3.Icon
@@ -1106,7 +1107,9 @@ fun BottomSheetPlayer(
                     contentDescription = likeName(currentSong?.song?.liked == true),
                     container = MaterialTheme.colorScheme.primary,
                     content = MaterialTheme.colorScheme.onPrimary,
-                    onClick = playerConnection::toggleLike
+                    onClick = playerConnection::toggleLike,
+                    // Under Strong a like is two clicks, taking it back the tap's tick.
+                    tap = if (currentSong?.song?.liked == true) Feel.TICK else Feel.DOUBLE,
                 )
             }
             val roomCircle: @Composable () -> Unit = {
@@ -1273,6 +1276,7 @@ fun BottomSheetPlayer(
                         onClick = playerConnection::toggleLike,
                         backdrop = buttonBackdrop,
                         glassIntensity = glassIntensity,
+                        tap = if (liked) Feel.TICK else Feel.DOUBLE,
                     )
                     PlayerPin.TIMER -> PlayerActionSegment(
                         painter = rememberVectorPainter(Icons.Rounded.Timer),
@@ -1485,6 +1489,7 @@ fun BottomSheetPlayer(
                                 backdrop = buttonBackdrop,
                                 glassIntensity = glassIntensity,
                                 onClick = playerConnection::toggleLike,
+                                tap = if (liked) Feel.TICK else Feel.DOUBLE,
                             )
                             PlayerPin.CAST -> castLook?.let { cast ->
                                 PlayerActionSegment(
@@ -2661,6 +2666,8 @@ private fun PlayerCircleButton(
     nudge: Dp = 0.dp,
     /** For a button that turns something on and off, whether it is on ([onOffState]); null for one that only acts. */
     on: Boolean? = null,
+    /** What a tap feels like under the Vibration setting's Strong (Haptics): a like's two clicks, else a tick. */
+    tap: Feel = Feel.TICK,
 ) {
     val haptic = LocalHapticFeedback.current
     // A long press says the button's own name (LongPressLabel), nothing shown otherwise. The label's box
@@ -2673,7 +2680,7 @@ private fun PlayerCircleButton(
                 .clip(CircleShape)
                 .background(container)
                 .clickable {
-                    haptic.tapTick()
+                    haptic.tapTick(tap)
                     onClick()
                 }
                 .onOffState(on)
@@ -2707,6 +2714,8 @@ private fun PlayerActionSegment(
     nudge: Dp = 0.dp,
     /** For a button that turns something on and off, whether it is on ([onOffState]); null for one that only acts. */
     on: Boolean? = null,
+    /** What a tap feels like under the Vibration setting's Strong (Haptics): a like's two clicks, else a tick. */
+    tap: Feel = Feel.TICK,
 ) {
     val haptic = LocalHapticFeedback.current
     // A long press says the button's own name (LongPressLabel), nothing shown otherwise.
@@ -2743,7 +2752,7 @@ private fun PlayerActionSegment(
                     else Modifier.background(container)
                 )
                 .clickable {
-                    haptic.tapTick()
+                    haptic.tapTick(tap)
                     onClick()
                 }
                 .onOffState(on)

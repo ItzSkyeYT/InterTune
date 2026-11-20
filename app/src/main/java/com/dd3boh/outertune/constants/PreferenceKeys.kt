@@ -514,6 +514,12 @@ val SwipeToSkipKey = booleanPreferencesKey("swipeToSkip")
 val SwipeToDismissPlayerKey = booleanPreferencesKey("swipeToDismissPlayer")
 
 /**
+ * How the app's haptics feel: a Vibration (Off, Light, Strong), under Look and feel (Unreleased.HAPTICS_FEEL). Unset, it
+ * reads as Vibration.DEFAULT; a build without the flag never reads it, and plays today's haptics (Haptics.vibration).
+ */
+val VibrationKey = stringPreferencesKey("vibration")
+
+/**
  * What Share sends for a song or an album: a ShareLinkKind. Unset, it reads as ShareLinks.START,
  * nothing chosen yet, and the first share asks; the pick made there or in Settings is kept here.
  */
