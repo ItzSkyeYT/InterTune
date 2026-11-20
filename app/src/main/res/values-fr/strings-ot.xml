@@ -25,6 +25,13 @@
     <string name="player_living_strength_description">À quel point le fond et sa lueur bougent avec la musique.</string>
     <string name="player_living_smoothing">Douceur du Flou vivant</string>
     <string name="player_living_smoothing_description">La douceur avec laquelle il suit la musique. Bas, il saute à chaque coup. Haut, il enfle et s\'attarde.</string>
+    <string name="living_tune_open" translatable="false">Régler en plein écran</string>
+    <string name="living_tune_three_colours" translatable="false">Trois couleurs</string>
+    <string name="living_tune_cover" translatable="false">La pochette</string>
+    <string name="living_tune_strength" translatable="false">Intensité</string>
+    <string name="living_tune_smoothing" translatable="false">Douceur</string>
+    <string name="living_tune_hide" translatable="false">Masquer les réglages</string>
+    <string name="living_tune_show" translatable="false">Afficher les réglages</string>
     <string name="player_living_colours">Couleurs du Flou vivant</string>
     <string name="player_living_colours_main">Trois couleurs de la pochette : une pour les basses, une pour la voix, une pour les aigus</string>
     <string name="player_living_colours_cover">La pochette elle-même, floutée</string>

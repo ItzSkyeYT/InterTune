@@ -141,6 +141,14 @@ object Unreleased {
     val LIVING_BACKGROUND = true
 
     /**
+     * Living blur tuned on the whole screen (his ask of 20 Nov 2026, a mockup first): the player's picture over
+     * the whole screen and the three settings in one glass bar (LivingBlurTune), opened from the sample in Look
+     * and feel. The debug app only until he has seen it; its texts are held from translators, French beside them.
+     * Without it the sample has no full screen button, as before.
+     */
+    val LIVING_TUNE = BuildConfig.DEBUG && BuildConfig.BUILD_TYPE == "debug"
+
+    /**
      * The welcome back page: after an update, what is new since the version somebody came from,
      * each thing with a "Show me" that leads to where it lives, and a walk round Settings
      * (WelcomeBack.kt, Walkthrough.kt). It does not open by itself: a card at the top of Home
