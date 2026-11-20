@@ -303,7 +303,6 @@ class LivingVideo(
         this.strength = strength
         this.smoothing = smoothing
         separate = ribbons
-        coverThere = false
         val three = mains
         if (ribbons && three != null) turnTo(IntArray(count) { three[MusicLevels.BASS] }, glow = three[MusicLevels.BASS], mains = three)
         else turnTo(patches ?: IntArray(count) { LivingField.GREY })
