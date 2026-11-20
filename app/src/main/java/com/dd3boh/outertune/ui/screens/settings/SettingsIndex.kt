@@ -145,6 +145,7 @@ val SETTINGS_INDEX: List<SettingEntry> = listOf(
     SettingEntry(Tour.ROUTE_LOOK_AND_FEEL, R.string.swipe2Queue, R.string.swipe2Queue_description, words = listOf(R.string.search_words_gesture)),
     SettingEntry(Tour.ROUTE_LOOK_AND_FEEL, R.string.swipe_to_skip_title, words = listOf(R.string.search_words_gesture)),
     SettingEntry(Tour.ROUTE_LOOK_AND_FEEL, R.string.swipe_to_dismiss_player, R.string.swipe_to_dismiss_player_description, words = listOf(R.string.search_words_gesture)),
+    SettingEntry(Tour.ROUTE_LOOK_AND_FEEL, R.string.vibration, words = listOf(R.string.search_words_vibration), there = Unreleased.HAPTICS_FEEL),
 
     // Widgets: the two to add. A card's rows are one widget's own, there once for each (SettingsIndexTest leaves them out).
     SettingEntry(Tour.ROUTE_WIDGETS, R.string.widget_label, there = Unreleased.WIDGETS_PAGE),

@@ -2768,4 +2768,10 @@
     <string name="listenbrainz_refused" translatable="false">ListenBrainz n\'accepte plus votre jeton</string>
     <string name="listenbrainz_refused_description" translatable="false">Collez le nouveau depuis votre page de paramètres. Les écoutes en attente partiront dès que ça fonctionnera.</string>
     <string name="search_words_listenbrainz">listenbrainz, scrobble, scrobbling</string>
+    <!-- Vibration under Look and feel (Unreleased.HAPTICS_FEEL): held from translators until his pick. -->
+    <string name="vibration" translatable="false">Vibration</string>
+    <string name="vibration_off" translatable="false">Désactivée</string>
+    <string name="vibration_light" translatable="false">Légère</string>
+    <string name="vibration_strong" translatable="false">Forte</string>
+    <string name="search_words_vibration">haptique, retour haptique, vibrer, vibreur, retour tactile</string>
 </resources>

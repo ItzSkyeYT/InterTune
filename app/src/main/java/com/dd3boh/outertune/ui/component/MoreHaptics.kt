@@ -21,9 +21,13 @@ import kotlin.math.abs
  * The tick of a tap where the app gave none (Unreleased.HAPTICS_MORE, #176): the one a chip, a
  * library row and the queue's button already give, ContextClick. It goes through the view, so
  * Android's Touch feedback setting decides whether anything is felt, as it does for every app.
+ *
+ * As the Vibration setting says (Unreleased.HAPTICS_FEEL, Haptics): that tick under Light, [strong] under Strong (a
+ * like's two clicks, a tap's tick), nothing under Off. It reads the setting itself, so it does in the menus and
+ * dialogs too, whose windows have Compose's own haptic feedback.
  */
-fun HapticFeedback.tapTick() {
-    if (Unreleased.HAPTICS_MORE) performHapticFeedback(HapticFeedbackType.ContextClick)
+fun HapticFeedback.tapTick(strong: Feel = Feel.TICK) {
+    if (Unreleased.HAPTICS_MORE) Haptics.play(strong) { performHapticFeedback(HapticFeedbackType.ContextClick) }
 }
 
 /**
@@ -56,12 +60,17 @@ fun tickWay(sdk: Int, live: Boolean): TickWay = when {
  * knows these from 14 on (HapticFeedbackConstants.SEGMENT_TICK is API 34); below, Compose hands them to the view all
  * the same and nothing is felt, so the view's CLOCK_TICK, which every Android has, takes their place there, on a
  * phone where Compose gives haptics at all ([live], from [hapticsLive]).
+ *
+ * That is Light's way. Under the Vibration setting's Strong (Haptics) the seek bar ticks low and the volume clicks as
+ * it lands, on any phone from Android 11; under Off neither plays.
  */
 fun HapticFeedback.segmentTick(view: View, live: Boolean, frequent: Boolean = false) {
-    when (tickWay(Build.VERSION.SDK_INT, live)) {
-        TickWay.COMPOSE -> performHapticFeedback(if (frequent) HapticFeedbackType.SegmentFrequentTick else HapticFeedbackType.SegmentTick)
-        TickWay.CLOCK -> view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
-        TickWay.NONE -> Unit
+    Haptics.play(if (frequent) Feel.LOW_TICK else Feel.CLICK) {
+        when (tickWay(Build.VERSION.SDK_INT, live)) {
+            TickWay.COMPOSE -> performHapticFeedback(if (frequent) HapticFeedbackType.SegmentFrequentTick else HapticFeedbackType.SegmentTick)
+            TickWay.CLOCK -> view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+            TickWay.NONE -> Unit
+        }
     }
 }
 

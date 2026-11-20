@@ -9,6 +9,7 @@
 
 package com.dd3boh.outertune
 
+import com.dd3boh.outertune.ui.component.Haptics
 import com.dd3boh.outertune.utils.AppLanguage
 import com.dd3boh.outertune.utils.ChannelNames
 import com.dd3boh.outertune.utils.AppProxySelector
@@ -149,6 +150,8 @@ class App : Application(), SingletonImageLoader.Factory {
         if (Unreleased.PREVIOUS_LOGS) GlobalScope.launch(Dispatchers.IO) { RunLogs.start(this@App) }
         // What Report a problem tells of the last few minutes: the app in front or not, the settings changed.
         ReportFeed.start(this)
+        // The Vibration setting reads the settings and the vibrator from here (Unreleased.HAPTICS_FEEL). Nothing is read yet.
+        Haptics.start(this)
         // Before anything can read a built-in key: until it has run they all read as empty.
         BuiltInKeys.verify(this)
         // Before anything reads Battery use: the phone's battery saver can turn Saver on (PhoneBatterySaver).

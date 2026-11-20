@@ -2965,4 +2965,10 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="listenbrainz_refused" translatable="false">ListenBrainz no longer accepts your token</string>
     <string name="listenbrainz_refused_description" translatable="false">Paste the new one from your settings page. Listens waiting here go out once it works.</string>
     <string name="search_words_listenbrainz">listenbrainz, scrobble, scrobbling</string>
+    <!-- Vibration under Look and feel (Unreleased.HAPTICS_FEEL): how the app's haptics feel. Held from translators until his pick, French beside them. -->
+    <string name="vibration" translatable="false">Vibration</string>
+    <string name="vibration_off" translatable="false">Off</string>
+    <string name="vibration_light" translatable="false">Light</string>
+    <string name="vibration_strong" translatable="false">Strong</string>
+    <string name="search_words_vibration">haptics, haptic feedback, vibrate, buzz, touch feedback</string>
 </resources>
