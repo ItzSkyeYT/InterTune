@@ -120,7 +120,8 @@ class PinsBefore013Test {
             it[OobeStatusKey] = 4
             it[PlayerPinsKey] = "CONNECTED_ROW=LIKE"
         }
-        assertEquals("CONNECTED_ROW=LIKE", launch()[PlayerPinsKey])
+        // Connected's row as chosen; Classic, never chosen, keeps the timer it had (ClassicPinsBefore013).
+        assertEquals("CONNECTED_ROW=LIKE;CLASSIC=TIMER+LIKE", launch()[PlayerPinsKey])
     }
 
     @Test

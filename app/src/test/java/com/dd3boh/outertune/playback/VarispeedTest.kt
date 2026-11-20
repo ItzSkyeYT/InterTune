@@ -104,8 +104,8 @@ class VarispeedTest {
         assertTrue(speed, "val pitch = if (linked()) 1f else player.playbackParameters.pitch" in speed)
         assertTrue(speed, "PlaybackParameters(speed.toFloat(), pitch)" in speed)
         assertFalse("a restore still keeps the room's pitch", "speed(service.exoPlayer, speedBefore.toDouble())" in session)
-        // Room stopped, own way, paused here, made the leader, the leader gone quiet: five, besides its own line.
-        assertEquals(5, Regex("""\bownSpeed\(\)""").findAll(session).count() - 1)
+        // Room stopped, own way, paused here, made the leader, the leader gone quiet, a guest's cast begun: six, besides its own line.
+        assertEquals(6, Regex("""\bownSpeed\(\)""").findAll(session).count() - 1)
         val own = session.substringAfter("private fun ownSpeed() {").substringBefore("\n    }\n")
         assertTrue(own, "Varispeed.parameters(speedBefore, 0, linked = true)" in own)
         assertTrue(own, "if (!linked()) return speed(player, speedBefore.toDouble())" in own)

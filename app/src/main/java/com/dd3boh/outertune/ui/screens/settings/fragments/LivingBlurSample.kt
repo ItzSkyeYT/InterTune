@@ -174,7 +174,7 @@ internal suspend fun playSongToTuneBy(context: Context, database: MusicDatabase,
     }
     val pick = candidates.randomOrNull()
     if (pick == null) {
-        Toaster.show(context, R.string.player_living_sample_nothing, Toast.LENGTH_LONG)
+        withContext(Dispatchers.Main) { Toaster.show(context, R.string.player_living_sample_nothing, Toast.LENGTH_LONG) }
     } else {
         // MENU: asked for by name from a button, like a play from a menu.
         playerConnection.playQueue(

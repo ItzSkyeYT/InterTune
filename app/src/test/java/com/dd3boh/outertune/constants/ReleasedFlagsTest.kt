@@ -281,8 +281,9 @@ class ReleasedFlagsTest {
         )
         val english = File("src/main/res/values/strings-ot.xml").readText()
         val french = File("src/main/res/values-fr/strings-ot.xml").readText()
-        // The Output button's words are CAST_AT_TOP's: held from translators until 0.13's texts go to them, French beside them.
-        val heldWithCastAtTop = setOf("output_pill", "output_pill_description")
+        // The Output button's words are CAST_AT_TOP's, and the public Wi-Fi line under the cast list his pick of 20 Nov 2026:
+        // held from translators until 0.13's texts go to them, French beside them.
+        val heldWithCastAtTop = setOf("output_pill", "output_pill_description", "cast_public_wifi")
         for (name in heldWithCastAtTop) {
             assertTrue("$name is not held in English", "<string name=\"$name\" translatable=\"false\">" in english)
             assertTrue("$name has no French", "<string name=\"$name\" translatable=\"false\">" in french)
