@@ -2781,4 +2781,10 @@
     <string name="pin_only_local" translatable="false">Seulement pour un fichier du téléphone</string>
     <string name="pin_not_in_playlist" translatable="false">Dans aucune de vos playlists</string>
     <string name="pin_head_tracking_off" translatable="false">Le suivi de la tête est désactivé</string>
+    <!-- Vibration under Look and feel (Unreleased.HAPTICS_FEEL): held from translators until his pick. -->
+    <string name="vibration" translatable="false">Vibration</string>
+    <string name="vibration_off" translatable="false">Désactivée</string>
+    <string name="vibration_light" translatable="false">Légère</string>
+    <string name="vibration_strong" translatable="false">Forte</string>
+    <string name="search_words_vibration">haptique, retour haptique, vibrer, vibreur, retour tactile</string>
 </resources>

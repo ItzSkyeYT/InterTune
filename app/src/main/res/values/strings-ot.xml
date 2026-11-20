@@ -2989,4 +2989,10 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="pin_only_local" translatable="false">Only for a file on this phone</string>
     <string name="pin_not_in_playlist" translatable="false">Not in one of your playlists</string>
     <string name="pin_head_tracking_off" translatable="false">Head tracking is off</string>
+    <!-- Vibration under Look and feel (Unreleased.HAPTICS_FEEL): how the app's haptics feel. Held from translators until his pick, French beside them. -->
+    <string name="vibration" translatable="false">Vibration</string>
+    <string name="vibration_off" translatable="false">Off</string>
+    <string name="vibration_light" translatable="false">Light</string>
+    <string name="vibration_strong" translatable="false">Strong</string>
+    <string name="search_words_vibration">haptics, haptic feedback, vibrate, buzz, touch feedback</string>
 </resources>

@@ -217,6 +217,7 @@ import com.dd3boh.outertune.ui.dialog.togetherAvailable
 import com.dd3boh.outertune.together.RoomCode
 import com.dd3boh.outertune.testerlock.TesterLock
 import com.dd3boh.outertune.utils.urlEncode
+import com.dd3boh.outertune.ui.component.rememberFeltHaptics
 import com.dd3boh.outertune.ui.component.LocalHiddenByPlayer
 import com.dd3boh.outertune.ui.component.LocalPlayerSheet
 import com.dd3boh.outertune.ui.component.LyricsBlur
@@ -853,7 +854,10 @@ class MainActivity : ComponentActivity() {
             if (TesterLock.holds(this@MainActivity)) return@setContent
             Log.v(MAIN_TAG, "RC-1")
             val coroutineScope = rememberCoroutineScope()
-            val haptic = LocalHapticFeedback.current
+            // The window's haptics as the Vibration setting has them (Unreleased.HAPTICS_FEEL, FeltHaptics), handed down
+            // below so that what every screen asks of LocalHapticFeedback plays as the setting says. Compose's own
+            // where the flag is off.
+            val haptic = rememberFeltHaptics()
             val snackbarHostState = remember { SnackbarHostState() }
 
             val enableDynamicTheme by rememberPreference(DynamicThemeKey, defaultValue = true)
@@ -1631,6 +1635,7 @@ class MainActivity : ComponentActivity() {
                     }
 
                     CompositionLocalProvider(
+                        LocalHapticFeedback provides haptic,
                         LocalDatabase provides database,
                         LocalContentColor provides contentColorFor(MaterialTheme.colorScheme.surface),
                         LocalMenuState provides menuState,

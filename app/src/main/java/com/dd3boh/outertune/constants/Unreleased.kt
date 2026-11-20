@@ -1237,4 +1237,22 @@ object Unreleased {
      * a phone with a real token.
      */
     val LISTENBRAINZ = BuildConfig.PREVIEW_FEATURES
+
+    /**
+     * Vibration, one row under Look and feel > Behavior (his ask of 20 Nov 2026, the more haptics of 0.13 played on his
+     * S25U: "the haptics aren't really noticeable... how custom can we make them?"): Off, Light or Strong, with one buzz
+     * of the pick as it is made. Light is today's haptics, exactly: the view's own feedback, which Android's Touch
+     * feedback setting turns off. Strong is the app's own, played through the vibrator as touch feedback, so the phone's
+     * vibration switches and its touch strength still apply: a firm click for play and pause, two clicks for a like, a
+     * tick for skip and every tap, low ticks along the seek bar, a click as the volume lands on 100% (Vibration.kt,
+     * Haptics). Each with the best the phone's vibrator has: its primitives, else its own effects, else plain pulses;
+     * below Android 11 Light's way. Off is none at all. Strong by default for the trial. The shape is Essentials', his
+     * design reference: one setting, and Compose's own haptics through it (FeltHaptics, the main window's).
+     *
+     * Held back as the line's held features are, for him to feel on his Preview and pick. Its texts are held from
+     * translators, French beside them. It needs android.permission.VIBRATE, which the main manifest asks for and
+     * src/release's takes out again while this is held back, so a release asks for nothing new. Without the flag there is
+     * no row, the setting is never read, and every haptic is today's.
+     */
+    val HAPTICS_FEEL = BuildConfig.PREVIEW_FEATURES
 }
