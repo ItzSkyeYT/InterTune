@@ -287,6 +287,10 @@ class DownloadFormatsWiringTest {
         assertTrue("songTags(song).copy(keepLink = false)" in export)
         assertTrue("SongFiles.save(files, tags, conversion, fallBack = false)" in export)
         assertTrue("if (inDownloads) return SkipReason.ALREADY_THERE" in export)
+        // Original into a download folder for a song still inside the app: skipped and said (his pick of 20 Nov 2026), before any copy.
+        val inside = "if (format == DownloadFormat.ORIGINAL && inDownloads && source != ExportSources.Source.FOLDER_FILE) return SkipReason.INSIDE_APP"
+        assertTrue(inside in export)
+        assertTrue(export.indexOf(inside) < export.indexOf("ExportSources.Source.DOWNLOAD_CACHE, ExportSources.Source.SONG_CACHE ->"))
         assertTrue("localMgr.allDirs.any { FolderNesting.isSameOrInside(target.toString(), it.uri.toString()) }" in export)
         // Every file made in the chosen folder is made whole or not at all (writeInto deletes what it began).
         assertEquals(3, Regex("""\bwriteInto\(""").findAll(export).count())

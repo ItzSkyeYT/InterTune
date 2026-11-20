@@ -364,6 +364,54 @@ object PauseHere {
 }
 
 /**
+ * A guest that casts (his pick of 20 Nov 2026 for 0.13, "the small step"). The room's corrections are made for the
+ * phone's own player, which a cast empties: they put each of the host's songs on the receiver from its start, and
+ * fought the cast all the while (review of 0.13, 18 Nov 2026). So while a cast is on, a guest follows nothing, as one
+ * that went its own way. One that went its own way for the cast alone catches up by itself once the cast ends; one that
+ * had gone its own way before stays on it. Catch up asked for during a cast waits for its end. The one who leads is
+ * left as it was: its side of a cast comes later.
+ */
+class GuestCast {
+    enum class Step {
+        NONE,
+
+        /** The cast has begun: on its own way until it ends. */
+        OWN_WAY,
+
+        /** The cast it went its own way for has ended: back with the room, as Catch up brings it. */
+        CATCH_UP,
+    }
+
+    /** On its own way for the cast alone: it catches up by itself when the cast ends. */
+    var catchUpAfter = false
+        private set
+
+    /** A look of the room's: this phone [casting] or not, [following] someone or leading, on its [ownWay] or not. */
+    fun look(casting: Boolean, following: Boolean, ownWay: Boolean): Step = when {
+        // The one who leads follows nobody, and has nothing to catch up with.
+        !following -> {
+            catchUpAfter = false
+            Step.NONE
+        }
+        casting && !ownWay -> {
+            catchUpAfter = true
+            Step.OWN_WAY
+        }
+        !casting && catchUpAfter -> {
+            catchUpAfter = false
+            Step.CATCH_UP
+        }
+        else -> Step.NONE
+    }
+
+    /** Catch up, asked for while this phone is [casting] or not: true to catch up now, false to wait for the cast's end. */
+    fun catchUpNow(casting: Boolean): Boolean {
+        catchUpAfter = casting
+        return !casting
+    }
+}
+
+/**
  * What opening an invite does when this phone may be in that room already (his find of 15 Nov
  * 2026: the host opened its own link and was two in the room). The same room is opened on its
  * screen; any other is asked about, as before.

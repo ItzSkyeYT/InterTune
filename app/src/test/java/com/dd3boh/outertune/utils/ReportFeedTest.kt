@@ -78,7 +78,8 @@ class ReportFeedTest {
     fun `the trail is written from the places that were meant to, with what was meant`() {
         val methods = calls.map { it.first }.toSet()
         assertEquals(
-            setOf("screen", "network", "networkChangedTo", "playbackError", "gaveUp", "waited", "resumed", "paused", "songStarted", "seeked", "downloadFailed"),
+            setOf("screen", "network", "networkChangedTo", "playbackError", "gaveUp", "waited", "resumed", "paused", "songStarted", "seeked", "downloadFailed",
+                "startedFromOutside", "owedStart", "swipedAway"),
             methods,
         )
         assertTrue("ReportFeed.start(this)" in read("App.kt"))
@@ -89,6 +90,11 @@ class ReportFeedTest {
             "ReportTrail.thisRun.songStarted(reason, chosen, transitionWentBack, fromError, isCasting)",
             "ReportTrail.thisRun.seeked(newPosition.positionMs)",
             "ReportTrail.thisRun.paused(StopReasons.paused(reason))",
+            // A start from outside the app and how what it owed Android was met (issues #229 and #232).
+            "ReportTrail.thisRun.startedFromOutside(ReportTrail.Outside.MEDIA_BUTTON, sinceStart)",
+            "ReportTrail.thisRun.startedFromOutside(ReportTrail.Outside.RESTART, SystemClock.uptimeMillis() - processStartedAt)",
+            "ReportTrail.thisRun.owedStart(met, owedFor())",
+            "ReportTrail.thisRun.swipedAway()",
         )) assertTrue("$hook is not in MusicService", hook in service)
         val network = read("utils/NetworkConnectivityObserver.kt")
         assertTrue("ReportTrail.thisRun.network(ReportTrail.Network.LOST)" in network && "ReportTrail.thisRun.network(ReportTrail.Network.BACK)" in network)

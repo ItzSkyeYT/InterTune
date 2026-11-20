@@ -510,6 +510,9 @@ private fun RoomPage(room: TogetherSession, song: MediaMetadata?, onLeave: () ->
             Spacer(Modifier.height(16.dp))
             when {
                 status.waitingForHost -> Waiting()
+                // On its own while this phone casts (GuestCast), without Catch up and Propose, which work on the phone's own
+                // player.
+                status.ownWay && status.casting -> CastOwnWay(catchUpAfter = status.catchUpAfterCast)
                 status.ownWay -> OwnWay(
                     proposed = status.proposed,
                     // A song from a file on this phone: the leader could never play it.
@@ -960,6 +963,25 @@ private fun OwnWay(proposed: Boolean, canPropose: Boolean, onPropose: () -> Unit
                 Spacer(Modifier.width(ButtonDefaults.IconSpacing))
                 Text(stringResource(if (proposed) R.string.together_proposed else R.string.together_propose))
             }
+        }
+    }
+}
+
+/**
+ * A guest on its own while this phone casts: the own way's line, and for one that stopped following for the cast, that it
+ * catches up when the cast ends (his pick of 20 Nov 2026).
+ */
+@Composable
+private fun CastOwnWay(catchUpAfter: Boolean) {
+    Column(Modifier.fillMaxWidth()) {
+        Text(stringResource(R.string.together_own_way), style = MaterialTheme.typography.bodyMedium)
+        if (catchUpAfter) {
+            Spacer(Modifier.height(6.dp))
+            Text(
+                stringResource(R.string.together_catch_up_after_cast),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }

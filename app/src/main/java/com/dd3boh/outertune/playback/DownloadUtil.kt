@@ -1468,6 +1468,8 @@ class DownloadUtil @Inject constructor(
             inSongCache = runCatching { playerCache.holdsWhole(item.id) }.getOrDefault(false),
         )
         if (source == ExportSources.Source.NOWHERE) return SkipReason.NOT_ON_PHONE
+        // Original into a download folder for a song still inside the app: a copy would be a second, unlinked one (INSIDE_APP).
+        if (format == DownloadFormat.ORIGINAL && inDownloads && source != ExportSources.Source.FOLDER_FILE) return SkipReason.INSIDE_APP
         val song = database.song(item.id).first() ?: return SkipReason.NOT_ON_PHONE
         // An exported copy carries no link: if it is exported into a download folder, the app must not take it for the song's download.
         val tags = songTags(song).copy(keepLink = false)

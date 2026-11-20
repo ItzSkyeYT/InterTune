@@ -621,7 +621,14 @@ private fun CastPicker(session: CastSession, onDismiss: () -> Unit) {
                         text = stringResource(R.string.cast_about),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 8.dp),
+                        modifier = Modifier.padding(start = 4.dp, end = 4.dp, top = 8.dp),
+                    )
+                    // A receiver fetches the music over plain HTTP, the only way DLNA takes it (his pick of 20 Nov 2026).
+                    Text(
+                        text = stringResource(R.string.cast_public_wifi),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(start = 4.dp, end = 4.dp, top = 4.dp, bottom = 8.dp),
                     )
                 }
             }

@@ -24,9 +24,10 @@ import java.io.File
 class PlayerPinsTest {
 
     @Test
-    fun `never chosen, every place pins its defaults, Connected's row without the sleep timer since 0_13`() {
+    fun `never chosen, every place pins its defaults, Connected's row and Classic without the sleep timer since 0_13`() {
         val pins = PlayerPins.read("")
-        assertEquals(listOf(TIMER, LIKE), pins[PinPlace.CLASSIC])
+        // His pick of 20 Nov 2026: Classic as Connected, the timer in the menu; an install set up before keeps it (PinsBefore013Test).
+        assertEquals(listOf(LIKE), pins[PinPlace.CLASSIC])
         assertEquals(listOf(SHARE, LIKE), pins[PinPlace.CONNECTED_TITLE])
         // His word of 19 Nov 2026: the sleep timer is in the menu by default; an install set up before keeps it (PinsBefore013Test).
         assertEquals(listOf(LYRICS), pins[PinPlace.CONNECTED_ROW])
@@ -34,7 +35,7 @@ class PlayerPinsTest {
 
     @Test
     fun `a button added goes further out, so the ones beside the menu stay where they were`() {
-        val pins = PlayerPins.toggle(PlayerPins.read(""), PinPlace.CLASSIC, SHARE)
+        val pins = PlayerPins.toggle(PlayerPins.read("CLASSIC=TIMER+LIKE"), PinPlace.CLASSIC, SHARE)
         assertEquals(listOf(SHARE, TIMER, LIKE), pins[PinPlace.CLASSIC])
         val row = PlayerPins.toggle(PlayerPins.read("CONNECTED_ROW=LYRICS+TIMER"), PinPlace.CONNECTED_ROW, LIKE)
         assertEquals("like joins the row in front of lyrics and the timer", listOf(LIKE, LYRICS, TIMER), row[PinPlace.CONNECTED_ROW])
@@ -43,7 +44,6 @@ class PlayerPinsTest {
     @Test
     fun `none pinned is the menu alone, and it is kept as chosen`() {
         var pins = PlayerPins.read("")
-        pins = PlayerPins.toggle(pins, PinPlace.CLASSIC, TIMER)
         pins = PlayerPins.toggle(pins, PinPlace.CLASSIC, LIKE)
         assertEquals(emptyList<PlayerPin>(), pins[PinPlace.CLASSIC])
         val again = PlayerPins.read(PlayerPins.write(pins))
@@ -53,9 +53,9 @@ class PlayerPinsTest {
 
     @Test
     fun `a full place takes no more, and Classic has one fewer beside the queue's circle`() {
-        val full = PlayerPins.toggle(PlayerPins.read(""), PinPlace.CLASSIC, SHARE)
+        val full = PlayerPins.toggle(PlayerPins.read("CLASSIC=TIMER+LIKE"), PinPlace.CLASSIC, SHARE)
         assertEquals(full, PlayerPins.toggle(full, PinPlace.CLASSIC, LYRICS))
-        val withQueue = PlayerPins.toggle(PlayerPins.read(""), PinPlace.CLASSIC, SHARE, most = PlayerPins.classicMost(queueCircle = true))
+        val withQueue = PlayerPins.toggle(PlayerPins.read("CLASSIC=TIMER+LIKE"), PinPlace.CLASSIC, SHARE, most = PlayerPins.classicMost(queueCircle = true))
         assertEquals(listOf(TIMER, LIKE), withQueue[PinPlace.CLASSIC])
         val pair = PlayerPins.toggle(PlayerPins.read(""), PinPlace.CONNECTED_TITLE, TIMER)
         assertEquals("the pair by the title stays a pair", listOf(SHARE, LIKE), pair[PinPlace.CONNECTED_TITLE])
@@ -79,7 +79,7 @@ class PlayerPinsTest {
         val connectedBack = PlayerPins.reset(pins, listOf(PinPlace.CONNECTED_TITLE, PinPlace.CONNECTED_ROW))
         assertEquals("reset is today's default: the timer back in the menu", listOf(LYRICS), connectedBack[PinPlace.CONNECTED_ROW])
         assertEquals(listOf(SHARE, LIKE), connectedBack[PinPlace.CONNECTED_TITLE])
-        assertEquals("Classic keeps its own choice", listOf(SHARE, TIMER, LIKE), connectedBack[PinPlace.CLASSIC])
+        assertEquals("Classic keeps its own choice", listOf(SHARE, LIKE), connectedBack[PinPlace.CLASSIC])
         assertFalse(PlayerPins.changed(connectedBack, listOf(PinPlace.CONNECTED_TITLE, PinPlace.CONNECTED_ROW)))
         assertEquals("written and read back, still the defaults", PlayerPins.read(""), PlayerPins.read(PlayerPins.write(PlayerPins.reset(pins, PinPlace.entries))))
     }
@@ -87,7 +87,8 @@ class PlayerPinsTest {
     @Test
     fun `every entry of the menu and Listen together can be pinned, further out than the four`() {
         val classic = PlayerPins.toggle(PlayerPins.read(""), PinPlace.CLASSIC, PlayerPin.RADIO)
-        assertEquals(listOf(PlayerPin.RADIO, TIMER, LIKE), classic[PinPlace.CLASSIC])
+        // Classic's default is the heart alone since 20 Nov 2026: the radio goes further out from it.
+        assertEquals(listOf(PlayerPin.RADIO, LIKE), classic[PinPlace.CLASSIC])
         val row = PlayerPins.toggle(PlayerPins.read(""), PinPlace.CONNECTED_ROW, PlayerPin.LISTEN_TOGETHER)
         // The timer is in the menu by default since 19 Nov 2026 (54a263bb5): Lyrics alone stands in the row.
         assertEquals(listOf(PlayerPin.LISTEN_TOGETHER, LYRICS), row[PinPlace.CONNECTED_ROW])

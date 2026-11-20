@@ -23,6 +23,13 @@
     <string name="player_background_living">Flou vivant</string>
     <string name="player_living_strength">Intensité du Flou vivant</string>
     <string name="player_living_smoothing">Douceur du Flou vivant</string>
+    <string name="living_tune_open" translatable="false">Régler en plein écran</string>
+    <string name="living_tune_three_colours" translatable="false">Trois couleurs</string>
+    <string name="living_tune_cover" translatable="false">La pochette</string>
+    <string name="living_tune_strength" translatable="false">Intensité</string>
+    <string name="living_tune_smoothing" translatable="false">Douceur</string>
+    <string name="living_tune_hide" translatable="false">Masquer les réglages</string>
+    <string name="living_tune_show" translatable="false">Afficher les réglages</string>
     <string name="player_living_colours">Couleurs du Flou vivant</string>
     <string name="player_living_colours_main">Couleurs de la pochette : une pour les basses, une pour les médiums, une pour les aigus</string>
     <string name="player_living_colours_cover">Pochette floutée</string>
@@ -1906,7 +1913,8 @@
     <string name="output_pill" translatable="false">Bouton de sortie audio</string>
     <string name="output_pill_description" translatable="false">Affiche où joue la musique, sous les commandes.</string>
     <string name="cast_searching">Recherche de récepteurs sur ce Wi-Fi</string>
-    <string name="cast_about">Caste vers les récepteurs FCast, les appareils Chromecast et Google TV, et les téléviseurs et enceintes DLNA du même Wi-Fi. FCast demande l\'application FCast Receiver sur le téléviseur ou l\'ordinateur. Le téléphone reste allumé et envoie la musique pendant le cast.</string>
+    <string name="cast_about">Caste vers les récepteurs FCast, les appareils Chromecast et Google TV, les enceintes AirPlay, et les téléviseurs et enceintes DLNA du même Wi-Fi. FCast demande l\'application FCast Receiver sur le téléviseur ou l\'ordinateur. Le téléphone reste allumé et envoie la musique pendant le cast.</string>
+    <string name="cast_public_wifi" translatable="false">Sur un Wi-Fi public, les autres appareils connectés peuvent accéder aux titres que vous castez.</string>
     <string name="cast_add_by_address">Ajouter par adresse</string>
     <string name="cast_address_hint">192.168.1.20 pour FCast, chromecast 192.168.1.21, ou l\'URL de description DLNA</string>
     <string name="cast_address_invalid">Adresse inutilisable</string>
@@ -2481,6 +2489,11 @@
         <item quantity="many">%1$d ignorés : déjà dans le dossier</item>
         <item quantity="other">%1$d ignorés : déjà dans le dossier</item>
     </plurals>
+    <plurals name="export_skipped_inside_app" translatable="false">
+        <item quantity="one">%1$d ignoré : dans l\'application, donc pas copié dans son dossier de téléchargement</item>
+        <item quantity="many">%1$d ignorés : dans l\'application, donc pas copiés dans son dossier de téléchargement</item>
+        <item quantity="other">%1$d ignorés : dans l\'application, donc pas copiés dans son dossier de téléchargement</item>
+    </plurals>
     <plurals name="export_skipped_local">
         <item quantity="one">%1$d ignoré : déjà un fichier du téléphone</item>
         <item quantity="many">%1$d ignorés : déjà des fichiers du téléphone</item>
@@ -2584,6 +2597,7 @@
     <string name="media_button_resuming">Reprise de votre file d\'attente</string>
     <string name="together_host_away">L\'hôte est absent</string>
     <string name="together_host_gone">L\'hôte n\'est pas revenu, le salon est terminé.</string>
+    <string name="together_catch_up_after_cast" translatable="false">Vous rattraperez le salon à la fin du cast.</string>
     <string name="menu_hidden">Masquées</string>
     <string name="menu_hidden_hint">Touchez une entrée pour la mettre ici, ou la remettre.</string>
     <string name="menu_edit_done">Terminé</string>

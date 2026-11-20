@@ -551,6 +551,9 @@ val PlayerPinsKey = stringPreferencesKey("playerPins")
 /** Set once the player's buttons of an install set up before 0.13 were written down as they were (PinsBefore013). */
 val PinsBefore013Key = booleanPreferencesKey("pinsBefore013")
 
+/** The same for Classic's circles by the title, whose default changed on 20 Nov 2026 (ClassicPinsBefore013). */
+val ClassicPinsBefore013Key = booleanPreferencesKey("classicPinsBefore013")
+
 /**
  * Whether the player opens the queue from a button beside its other buttons, rather than from the
  * sheet pulled up from its bottom edge. Off keeps the sheet, which is how the player has always
