@@ -18,7 +18,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material3.FilledIconButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -55,9 +59,11 @@ import com.dd3boh.outertune.utils.Toaster
  * background with a cover standing in it, moving to whatever is playing at the sliders' values as
  * they are dragged. Tuning it by going to the player and back for every change is not tuning.
  *
- * It needs music to move to. With a song playing it uses that. With none it says so and offers to
- * play one: something from what has been played most these three months, which is what somebody
- * keeps coming back to, begun a third of the way in, past the intro, where a song has its
+ * It needs music to move to. With a song playing it uses that. With none it says so, and the refresh
+ * button on the cover's corner plays one, or another one when a song plays (Ti-Die's ask of 19 Nov
+ * 2026, in place of a button under the words): a liked song when there are any, so the pool is
+ * more than a handful, else what has been played most these three months; never the song playing
+ * or another from its album; begun a third of the way in, past the intro, where a song has its
  * movement. Not begun by itself: opening a settings screen must not start music.
  */
 @Composable
@@ -102,14 +108,53 @@ fun LivingBlurSample(strength: Float, smoothing: Float, colours: LivingColours, 
                 .matchParentSize()
                 .padding(horizontal = 28.dp)
         ) {
-            AsyncImage(
-                model = song?.getThumbnailModel(coverPx, coverPx),
-                contentDescription = null,
-                modifier = Modifier
-                    .size(COVER)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(MaterialTheme.colorScheme.surfaceVariant)
-            )
+            Box(Modifier.size(COVER)) {
+                AsyncImage(
+                    model = song?.getThumbnailModel(coverPx, coverPx),
+                    contentDescription = null,
+                    modifier = Modifier
+                        .matchParentSize()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                )
+                FilledIconButton(
+                    onClick = {
+                        scope.launch {
+                            val candidates = withContext(Dispatchers.IO) {
+                                database.likedSongsByCreateDateAsc().first()
+                                    .ifEmpty { database.mostPlayedSongs(System.currentTimeMillis() - NINETY_DAYS_MS, limit = 50).first() }
+                            }
+                            val now = playerConnection.mediaMetadata.value
+                            val chosen = SampleSong.pick(candidates.map { SampleSong.Choice(it.id, it.song.albumId) }, now?.id, now?.album?.id)
+                            val pick = candidates.firstOrNull { it.id == chosen }
+                            if (pick == null) {
+                                Toaster.show(context, R.string.player_living_sample_nothing, Toast.LENGTH_LONG)
+                            } else {
+                                // MENU: asked for by name from a button, like a play from a menu.
+                                playerConnection.playQueue(
+                                    ListQueue(
+                                        title = queueTitle,
+                                        items = listOf(pick.toMediaMetadata()),
+                                        // a third of the way in, in milliseconds; from the start when the length is not known
+                                        position = pick.song.duration.coerceAtLeast(0) * 1000L / 3,
+                                    ),
+                                    origin = PlayOrigin.MENU,
+                                )
+                            }
+                        }
+                    },
+                    colors = IconButtonDefaults.filledIconButtonColors(
+                        containerColor = Color.Black.copy(alpha = 0.45f),
+                        contentColor = Color.White,
+                    ),
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(4.dp)
+                        .size(32.dp),
+                ) {
+                    Icon(Icons.Rounded.Refresh, contentDescription = stringResource(R.string.player_living_sample_play), modifier = Modifier.size(18.dp))
+                }
+            }
             Spacer(Modifier.width(24.dp))
             Column(modifier = Modifier.weight(1f)) {
                 if (isPlaying && song != null) {
@@ -129,32 +174,6 @@ fun LivingBlurSample(strength: Float, smoothing: Float, colours: LivingColours, 
                         text = stringResource(R.string.player_living_sample_silent),
                         style = MaterialTheme.typography.bodyMedium,
                     )
-                    Spacer(Modifier.height(8.dp))
-                    FilledTonalButton(onClick = {
-                        scope.launch {
-                            val candidates = withContext(Dispatchers.IO) {
-                                database.mostPlayedSongs(System.currentTimeMillis() - NINETY_DAYS_MS, limit = 12).first()
-                                    .ifEmpty { database.likedSongsByCreateDateAsc().first().takeLast(12) }
-                            }
-                            val pick = candidates.randomOrNull()
-                            if (pick == null) {
-                                Toaster.show(context, R.string.player_living_sample_nothing, Toast.LENGTH_LONG)
-                            } else {
-                                // MENU: asked for by name from a button, like a play from a menu.
-                                playerConnection.playQueue(
-                                    ListQueue(
-                                        title = queueTitle,
-                                        items = listOf(pick.toMediaMetadata()),
-                                        // a third of the way in, in milliseconds; from the start when the length is not known
-                                        position = pick.song.duration.coerceAtLeast(0) * 1000L / 3,
-                                    ),
-                                    origin = PlayOrigin.MENU,
-                                )
-                            }
-                        }
-                    }) {
-                        Text(stringResource(R.string.player_living_sample_play))
-                    }
                 }
             }
         }
@@ -163,3 +182,18 @@ fun LivingBlurSample(strength: Float, smoothing: Float, colours: LivingColours, 
 
 private val COVER = 96.dp
 private const val NINETY_DAYS_MS = 90L * 24 * 60 * 60 * 1000
+
+/** Which song the sample's refresh button plays next, apart so it can be tested. */
+internal object SampleSong {
+    data class Choice(val id: String, val albumId: String?)
+
+    /**
+     * A song at random that is not the one playing and not from its album, so a press always brings something new;
+     * any other song when every one left shares that album; null when there is none at all.
+     */
+    fun pick(choices: List<Choice>, playingId: String?, playingAlbumId: String?, random: kotlin.random.Random = kotlin.random.Random): String? {
+        val others = choices.filter { it.id != playingId }
+        val apart = if (playingAlbumId == null) others else others.filter { it.albumId != playingAlbumId }
+        return apart.ifEmpty { others }.randomOrNull(random)?.id
+    }
+}
