@@ -85,4 +85,24 @@ class FaultInjectionTest {
         assertFalse(FaultInjection.hangsPlayer("VISIONOS", isVisionosItself = false))
         assertFalse(FaultInjection.hangsPlayer("IOS", isVisionosItself = false))
     }
+
+    @Test
+    fun `the resumption's words, a slow onCreate among them, each read on its own`() {
+        val slowCreate = FaultInjection.resumeFaultOf("slowcreate 12000")!!
+        assertEquals(12_000L, slowCreate.createDelayMs)
+        assertEquals("slowcreate is not slow", 0L, slowCreate.delayMs)
+        val both = FaultInjection.resumeFaultOf(" slow 25000  nohold\n")!!
+        assertEquals(25_000L, both.delayMs)
+        assertEquals(0L, both.createDelayMs)
+        assertTrue(both.noHold)
+        assertEquals(null, FaultInjection.resumeFaultOf("  \n"))
+    }
+
+    @Test
+    fun `a slow onCreate is held before anything else, and only through the fault file`() {
+        val service = java.io.File("src/main/java/com/dd3boh/outertune/playback/MusicService.kt").readText()
+        val onCreate = service.substringAfter("override fun onCreate() {").substringBefore("super.onCreate()")
+        assertTrue("held first, before media3 or Hilt run", "FaultInjection.resumeFault(this)?.createDelayMs" in onCreate)
+        assertEquals("the one sleep before super.onCreate is the fault's", 1, Regex("""Thread\.sleep\(""").findAll(onCreate).count())
+    }
 }

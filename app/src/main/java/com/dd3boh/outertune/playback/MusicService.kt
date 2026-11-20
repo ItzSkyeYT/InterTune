@@ -1282,6 +1282,12 @@ class MusicService : MediaLibraryService(),
     var consecutivePlaybackErr = 0
 
     override fun onCreate() {
+        // A service that starts slowly, made on purpose in a debug build ("slowcreate <ms>", FaultInjection): the
+        // proof that a media button's start is still met in time when onStartCommand comes late (issue #229).
+        FaultInjection.resumeFault(this)?.createDelayMs?.takeIf { it > 0 }?.let {
+            Log.w(TAG, "fault injection: onCreate held $it ms")
+            Thread.sleep(it)
+        }
         Log.i(TAG, "Starting MusicService")
         super.onCreate()
         isRunning = true
@@ -6830,6 +6836,12 @@ class MusicService : MediaLibraryService(),
     /** The plain notification is up, holding the foreground for a media button's start. */
     private var holdingForMediaButton = false
 
+    /** The uptime Android's time for the start owed began at, when known: for the steps of Report a problem. */
+    private var mediaButtonOrigin: Long? = null
+
+    /** How much of Android's time for the start owed has gone, when known. */
+    private fun owedFor(): Long? = mediaButtonOrigin?.let { SystemClock.uptimeMillis() - it }
+
     /** When the app's process started and when this service was created, in uptime ([MediaButtonStart.sinceStart]). */
     private var processStartedAt = 0L
     private var createdAt = 0L
@@ -6876,6 +6888,8 @@ class MusicService : MediaLibraryService(),
         mediaButtonHandler.removeCallbacks(mediaButtonLetGo)
         val held = !hasSong && Build.VERSION.SDK_INT < Build.VERSION_CODES.S && holdForeground()
         val sinceStart = MediaButtonStart.sinceStart(handedAt, firstStart, processStartedAt, createdAt, SystemClock.uptimeMillis())
+        mediaButtonOrigin = sinceStart?.let { SystemClock.uptimeMillis() - it }
+        ReportTrail.thisRun.startedFromOutside(ReportTrail.Outside.MEDIA_BUTTON, sinceStart)
         mediaButtonHandler.postDelayed(mediaButtonGuard, MediaButtonStart.guardDelayMs(Build.VERSION.SDK_INT, held, sinceStart))
     }
 
@@ -6887,6 +6901,7 @@ class MusicService : MediaLibraryService(),
      */
     private fun meetMediaButtonStartBeforeStop() {
         if (!mediaButtonPending) return
+        ReportTrail.thisRun.owedStart(ReportTrail.Owed.MET_BEFORE_STOP, owedFor())
         mediaButtonPending = false
         mediaButtonHandler.removeCallbacks(mediaButtonGuard)
         if (holdingForMediaButton || foregroundNow()) return
@@ -6910,6 +6925,7 @@ class MusicService : MediaLibraryService(),
             Log.w(TAG, "Brought back by Android with no intent: left alone (fault injection)")
             return
         }
+        ReportTrail.thisRun.startedFromOutside(ReportTrail.Outside.RESTART, SystemClock.uptimeMillis() - processStartedAt)
         try {
             ServiceCompat.startForeground(
                 this,
@@ -6955,12 +6971,23 @@ class MusicService : MediaLibraryService(),
             val hasSong = ::player.isInitialized && player.mediaItemCount > 0
             when {
                 // media3's notification is up: nothing more to do.
-                !holdingForMediaButton && foregroundNow() -> mediaButtonPending = false
+                !holdingForMediaButton && foregroundNow() -> {
+                    mediaButtonPending = false
+                    ReportTrail.thisRun.owedStart(ReportTrail.Owed.PLAYER_UP, owedFor())
+                }
                 // The song is in and media3's notification on its way, or the song did not start:
                 // Android's time is kept either way.
                 hasSong -> {
                     mediaButtonPending = false
                     if (!holdingForMediaButton && !foregroundNow()) holdForeground()
+                    ReportTrail.thisRun.owedStart(
+                        when {
+                            holdingForMediaButton -> ReportTrail.Owed.HELD
+                            foregroundNow() -> ReportTrail.Owed.PLAYER_UP
+                            else -> ReportTrail.Owed.MISSED
+                        },
+                        owedFor(),
+                    )
                     if (holdingForMediaButton) mediaButtonHandler.postDelayed(mediaButtonLetGo, MediaButtonStart.LET_GO_MS)
                 }
                 // Held since the press (before Android 12) while the queue is still being read.
@@ -6995,6 +7022,7 @@ class MusicService : MediaLibraryService(),
         mediaButtonPending = false
         mediaButtonHandler.removeCallbacks(mediaButtonGuard)
         Log.i(TAG, "Media button start: $why, so the service stops")
+        ReportTrail.thisRun.owedStart(ReportTrail.Owed.GAVE_UP, owedFor())
         if (!holdingForMediaButton && !foregroundNow()) holdForeground()
         holdingForMediaButton = false
         ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
@@ -7289,6 +7317,7 @@ class MusicService : MediaLibraryService(),
 
     override fun onTaskRemoved(rootIntent: Intent?) {
         Log.i(TAG, "onTaskRemoved called")
+        ReportTrail.thisRun.swipedAway()
         // Both ways below may stop the service: not while Android still waits on a media button's start.
         meetMediaButtonStartBeforeStop()
         if (dataStore.get(StopMusicOnTaskClearKey, true) && !dataStore.get(KeepAliveKey, false)) {

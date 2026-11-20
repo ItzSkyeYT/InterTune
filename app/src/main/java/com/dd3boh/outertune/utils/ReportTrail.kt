@@ -120,6 +120,34 @@ class ReportTrail(
 
     enum class App { OPENED, BACK_IN_FRONT, IN_BACKGROUND }
 
+    /**
+     * The player was started from outside the app's screens and owed Android its notification in Android's time
+     * (issues #229 and #232): by a media button (headphones, a car, the widget's Play while the player was not
+     * running), or by Android bringing it back after the app died. [sinceMs] is how much of Android's time had gone
+     * when the player saw it, when that is known. A crash report then says which road it came by, and how late.
+     */
+    fun startedFromOutside(by: Outside, sinceMs: Long?) =
+        add("player started by ${by.words}${sinceMs?.let { ", ${waitText(it)} into Android's time" }.orEmpty()}")
+
+    /**
+     * What became of the notification such a start owed Android, [atMs] into Android's time when that is known. The
+     * player's own is seen when the guard looks, so it was up "by" then; the others happen at that moment.
+     */
+    fun owedStart(outcome: Owed, atMs: Long?) = add("${outcome.words}${atMs?.let { " ${outcome.time} ${waitText(it)}" }.orEmpty()}")
+
+    /** The app's card swiped away in Recents, which can stop the player (issue #229's second road). */
+    fun swipedAway() = add("app swiped away")
+
+    enum class Outside(val words: String) { MEDIA_BUTTON("a media button"), RESTART("Android after the app died") }
+
+    enum class Owed(val words: String, val time: String = "at") {
+        PLAYER_UP("player's notification up", "by"),
+        HELD("plain notification put up"),
+        GAVE_UP("nothing to play, player stopped"),
+        MET_BEFORE_STOP("notification put up before a stop"),
+        MISSED("owed notification not up"),
+    }
+
     enum class Network { LOST, BACK }
 
     // ---- keeping it ----
