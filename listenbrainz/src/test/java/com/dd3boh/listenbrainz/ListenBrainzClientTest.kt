@@ -13,6 +13,9 @@ import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.MockRequestHandleScope
 import io.ktor.client.engine.mock.respond
 import io.ktor.client.network.sockets.ConnectTimeoutException
+import io.ktor.client.plugins.HttpTimeoutCapability
+import io.ktor.client.plugins.HttpTimeout
+import io.ktor.client.plugins.HttpRequestTimeoutException
 import io.ktor.client.request.HttpRequestData
 import io.ktor.client.request.HttpResponseData
 import io.ktor.http.HttpHeaders
@@ -288,6 +291,40 @@ class ListenBrainzClientTest {
             val e = refusalOf { throw thrown }
             assertTrue("$thrown", e is ListenBrainzException.Unreachable)
         }
+    }
+
+    /**
+     * 20 Nov 2026: ListenBrainz took 6 to 40 s to answer anything, the connect dialog gave up at 30 s and
+     * told him to check his connection. A connection that opened and then waited too long is
+     * ListenBrainz being slow, and says so; one that never opened is the phone's side.
+     */
+    @Test
+    fun aSlowAnswerIsNotAMissingConnection() = runBlocking<Unit> {
+        val tooLong = refusalOf { throw HttpRequestTimeoutException("https://api.listenbrainz.org/1/submit-listens", 30_000) }
+        assertTrue(tooLong is ListenBrainzException.Unreachable && tooLong.slow)
+        val readTimeout = refusalOf { throw java.net.SocketTimeoutException("timeout") }
+        assertTrue(readTimeout is ListenBrainzException.Unreachable && readTimeout.slow)
+        for (thrown in listOf(ConnectException("Connection refused"), UnknownHostException("api.listenbrainz.org"), ConnectTimeoutException("Connect timeout has expired"), java.net.SocketTimeoutException("failed to connect to api.listenbrainz.org"))) {
+            val e = refusalOf { throw thrown }
+            assertTrue("$thrown", e is ListenBrainzException.Unreachable && !e.slow)
+        }
+    }
+
+    @Test
+    fun theTokenCheckWaitsUpToAMinute() = runBlocking<Unit> {
+        var asked: Long? = null
+        val lb = ListenBrainz(
+            app = app,
+            client = HttpClient(MockEngine { request ->
+                asked = request.getCapabilityOrNull(HttpTimeoutCapability)?.requestTimeoutMillis
+                respond("""{"code":200,"message":"Token invalid.","valid":false}""", HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "application/json"))
+            }) { install(HttpTimeout) { requestTimeoutMillis = 30_000 } },
+            gate = Gate(now = { 0L }, sleep = {}),
+        )
+        assertFalse(lb.validateToken(token).getOrThrow().valid)
+        assertEquals(ListenBrainz.TOKEN_CHECK_MS, asked)
+        // a client without the timeout plugin, as in the other tests, is asked nothing and still works
+        assertFalse(Fixture { respond("""{"code":200,"message":"Token invalid.","valid":false}""", HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "application/json")) }.lb.validateToken(token).getOrThrow().valid)
     }
 
     @Test
