@@ -27,24 +27,24 @@ class MoreHapticsTest {
         positions.count { rumble.tick(it, duration) }
 
     @Test
-    fun `where the finger goes down is no tick, and a drag across the whole bar gives forty`() {
+    fun `where the finger goes down is no tick, and a drag across the whole bar gives eighty`() {
         assertEquals(0, ticks(listOf(0L)))
-        // Every 100 ms of a 200 s song: 2,000 moves, one tick per fortieth of the bar.
+        // Every 100 ms of a 200 s song: 2,000 moves, one tick per eightieth of the bar.
         assertEquals(SeekRumble.STEPS, ticks((0L..200_000L step 100L).toList()))
-        assertEquals(40, SeekRumble.STEPS)
+        assertEquals(80, SeekRumble.STEPS)
     }
 
     @Test
     fun `a slow drag ticks as evenly as a quick one, never once for each move`() {
         val slow = ticks((0L..50_000L step 10L).toList())
-        val quick = ticks((0L..50_000L step 1_000L).toList())
-        assertEquals(10, slow)
+        val quick = ticks((0L..50_000L step 500L).toList())
+        assertEquals(20, slow)
         assertEquals(slow, quick)
     }
 
     @Test
     fun `a finger that trembles on the spot stays quiet`() {
-        val wobble = (0 until 500).map { 100_000L + if (it % 2 == 0) 2_000L else -2_000L }
+        val wobble = (0 until 500).map { 100_000L + if (it % 2 == 0) 1_000L else -1_000L }
         assertEquals(0, ticks(wobble))
     }
 
@@ -52,7 +52,7 @@ class MoreHapticsTest {
     fun `going back the other way ticks too, counted from the last tick`() {
         val rumble = SeekRumble()
         assertFalse(rumble.tick(100_000L, 200_000L))
-        assertTrue(rumble.tick(105_000L, 200_000L))
+        assertTrue(rumble.tick(102_500L, 200_000L))
         assertFalse(rumble.tick(101_000L, 200_000L))
         assertTrue(rumble.tick(100_000L, 200_000L))
     }
@@ -66,6 +66,26 @@ class MoreHapticsTest {
         assertFalse(rumble.tick(150_000L, 200_000L))
         assertEquals(0, ticks((0L..10_000L step 100L).toList(), duration = 0L))
         assertEquals(0, ticks((0L..10_000L step 100L).toList(), duration = -1L))
+    }
+
+    @Test
+    fun `the bar's ends click once each time the drag reaches them, never where it went down`() {
+        val rumble = SeekRumble()
+        assertFalse("went down at the start", rumble.hitsEnd(0L, 200_000L))
+        assertFalse(rumble.hitsEnd(50_000L, 200_000L))
+        assertTrue("back at the start", rumble.hitsEnd(0L, 200_000L))
+        assertFalse("still there", rumble.hitsEnd(0L, 200_000L))
+        assertFalse(rumble.hitsEnd(120_000L, 200_000L))
+        assertTrue("the end, past it too", rumble.hitsEnd(260_000L, 200_000L))
+        assertFalse(rumble.hitsEnd(200_000L, 200_000L))
+        rumble.reset()
+        assertFalse("a new drag down at the end", rumble.hitsEnd(200_000L, 200_000L))
+        assertFalse("a song with no length", SeekRumble().hitsEnd(0L, 0L))
+        // The player: the ends click, letting go does not.
+        val player = java.io.File("src/main/java/com/dd3boh/outertune/ui/player/Player.kt").readText()
+        assertTrue("seekRumble.hitsEnd(it, shownDuration)" in player)
+        val done = player.substringAfter("onSlideDone = {").substringBefore("onKey = ")
+        assertFalse("no haptic on letting go", "performHapticFeedback" in done)
     }
 
     @Test
