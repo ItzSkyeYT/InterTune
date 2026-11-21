@@ -353,7 +353,9 @@ class VibrationTest {
         assertTrue("SwipeGesturesFrag()\n            if (Unreleased.HAPTICS_FEEL) VibrationFrag()" in look)
         val row = source("ui/screens/settings/fragments/InterfaceFrag.kt").substringAfter("fun ColumnScope.VibrationFrag() {").substringBefore("\n}")
         assertTrue(row, "rememberEnumPreference(VibrationKey, defaultValue = Vibration.DEFAULT)" in row)
-        assertTrue(row, "Modifier.settingRow(R.string.vibration)" in row)
+        assertTrue(row, ".settingRow(R.string.vibration)" in row)
+        // What's new's card for Vibration shows the row with its Show me (21 Nov 2026).
+        assertTrue(row, "Modifier.tourTarget(Tour.SETTING_VIBRATION)" in row)
         assertTrue(row, "Haptics.sample(picked, platform)" in row)
         // Light's buzz is today's own, never the window's, which still holds the old choice as it is picked.
         assertTrue(row, "val platform = (haptic as? FeltHaptics)?.platform ?: haptic" in row)

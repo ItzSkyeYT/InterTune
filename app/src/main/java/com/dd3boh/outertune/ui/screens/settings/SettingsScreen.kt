@@ -155,6 +155,7 @@ fun SettingsScreen(
             modifier = Modifier.fillMaxWidth().tourTarget(Tour.SETTINGS_YOU)
         ) {
             PreferenceEntry(
+                modifier = Modifier.tourTarget(Tour.ROW_ACCOUNT),
                 title = { Text(stringResource(R.string.grp_account_sync)) },
                 description = stringResource(R.string.settings_account_sync_description),
                 icon = { Icon(Icons.Rounded.AccountCircle, null) },

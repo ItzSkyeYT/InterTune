@@ -475,7 +475,7 @@ fun ColumnScope.VibrationFrag() {
     val platform = (haptic as? FeltHaptics)?.platform ?: haptic
 
     EnumListPreference(
-        modifier = Modifier.settingRow(R.string.vibration),
+        modifier = Modifier.tourTarget(Tour.SETTING_VIBRATION).settingRow(R.string.vibration),
         title = { Text(stringResource(R.string.vibration)) },
         icon = { Icon(Icons.Rounded.Vibration, null) },
         selectedValue = vibration,

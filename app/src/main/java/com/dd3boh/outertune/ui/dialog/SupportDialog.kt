@@ -40,7 +40,7 @@ import com.dd3boh.outertune.utils.Donors
 
 /**
  * About > Support InterTune: how to give, which is InterTune's Ko-fi since 8 Nov 2026 (cards, then
- * PayPal), or a direct message on the Discord server for crypto (as the first donation came, on
+ * PayPal), GitHub Sponsors since 21 Nov 2026 (monthly or once), or a direct message on the Discord server for crypto (as the first donation came, on
  * 17 Oct 2026), and thanks to those who have, each name on a line of its own. The two ways are
  * buttons the width of the note, so a large font never pushes them into each other. The names come from README > Donors ([Donors]): the
  * last list shows at once, and the README is asked again while the note is open, so a donor added
@@ -72,6 +72,13 @@ fun SupportDialog(onDismiss: () -> Unit) {
                         },
                         modifier = Modifier.fillMaxWidth(),
                     ) { Text(stringResource(R.string.support_kofi)) }
+                    OutlinedButton(
+                        onClick = {
+                            uriHandler.openUri(Links.GITHUB_SPONSORS)
+                            onDismiss()
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) { Text(stringResource(R.string.support_github)) }
                     OutlinedButton(
                         onClick = {
                             uriHandler.openUri(Links.DISCORD)

@@ -53,6 +53,8 @@ import com.dd3boh.outertune.ui.component.PreferenceEntry
 import com.dd3boh.outertune.ui.dialog.DefaultDialog
 import com.dd3boh.outertune.ui.screens.settings.settingRow
 import com.dd3boh.outertune.utils.rememberPreference
+import com.dd3boh.outertune.ui.screens.walkthrough.Tour
+import com.dd3boh.outertune.ui.screens.walkthrough.tourTarget
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -70,6 +72,8 @@ import kotlinx.coroutines.launch
 fun ColumnScope.ListenBrainzFrag() {
     val scope = rememberCoroutineScope()
     val sender = LocalScrobbler.current.listenBrainz
+    // Where the tour stops once an account is connected: the row that says so (Connect carries its own mark).
+    val connectedMark = Modifier.tourTarget(Tour.SETTING_LISTENBRAINZ)
 
     val (token, _) = rememberPreference(ListenBrainzTokenKey, "")
     val (user, _) = rememberPreference(ListenBrainzUserKey, "")
@@ -86,7 +90,7 @@ fun ColumnScope.ListenBrainzFrag() {
 
     if (token.isBlank()) {
         PreferenceEntry(
-            modifier = Modifier.settingRow(R.string.listenbrainz_connect),
+            modifier = Modifier.tourTarget(Tour.SETTING_LISTENBRAINZ).settingRow(R.string.listenbrainz_connect),
             title = { Text(stringResource(R.string.listenbrainz_connect)) },
             description = stringResource(R.string.listenbrainz_connect_description),
             icon = { Icon(Icons.Rounded.Link, null) },
@@ -97,6 +101,7 @@ fun ColumnScope.ListenBrainzFrag() {
 
     if (refusedAt > 0L) {
         PreferenceEntry(
+            modifier = connectedMark,
             title = { Text(stringResource(R.string.listenbrainz_refused)) },
             description = stringResource(R.string.listenbrainz_refused_description),
             icon = { Icon(Icons.Rounded.LinkOff, null) },
@@ -104,6 +109,7 @@ fun ColumnScope.ListenBrainzFrag() {
         )
     } else {
         PreferenceEntry(
+            modifier = connectedMark,
             title = { Text(stringResource(R.string.listenbrainz_connected_as, user)) },
             description = stringResource(R.string.listenbrainz_disconnect_description),
             icon = { Icon(Icons.Rounded.LinkOff, null) },

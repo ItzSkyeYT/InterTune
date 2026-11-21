@@ -329,6 +329,7 @@ fun SettingsTwoPane(
                             badge = updateBadgeLabel.takeIf { category.route == "settings/updates" && pendingUpdate != null },
                             modifier = when (category.route) {
                                 Tour.ROUTE_LOOK_AND_FEEL -> Modifier.tourTarget(Tour.ROW_LOOK_AND_FEEL)
+                                Tour.ROUTE_ACCOUNT -> Modifier.tourTarget(Tour.ROW_ACCOUNT)
                                 "settings/player" -> Modifier.tourTarget(Tour.ROW_PLAYER)
                                 Tour.ROUTE_LIBRARY -> Modifier.tourTarget(Tour.ROW_LIBRARY)
                                 Tour.ROUTE_BATTERY -> Modifier.tourTarget(Tour.ROW_BATTERY)
