@@ -23,7 +23,12 @@ enum class Vibration {
     /** None from the app at all. */
     OFF,
 
-    /** Today's: the view's own feedback, which Android's Touch feedback setting turns off, as for every app. */
+    /**
+     * The app's own feel per action, as Strong, at about half its strength (his pick of 21 Nov 2026: on phones whose
+     * own touch feedback is firm, the view's feedback that Light was felt as strong as Strong, to dvd and Ti-Die). Where
+     * the app cannot play its own (before Android 11, no vibrator), the view's own feedback, as before. Android's Touch
+     * feedback setting turns both off, as for every app.
+     */
     LIGHT,
 
     /** The app's own, played through the vibrator as touch feedback, a feel per action ([Feel]). */
@@ -99,6 +104,12 @@ data class VibratorCaps(
     val amplitudeControl: Boolean,
 )
 
+/** How strong Light is beside Strong: about half. */
+const val LIGHT_SCALE = 0.5f
+
+/** The faintest primitive Light plays: some vibrators play nothing at all below about this. */
+const val LIGHT_FLOOR = 0.15f
+
 /** The predefined effects a feel can be played with, the best first. */
 fun predefinedFor(feel: Feel): List<Int> = when (feel) {
     Feel.TICK, Feel.LOW_TICK -> listOf(VibrationEffect.EFFECT_TICK)
@@ -108,30 +119,52 @@ fun predefinedFor(feel: Feel): List<Int> = when (feel) {
 }
 
 /**
+ * The predefined effects Light falls back on where there are no primitives, a step lighter than Strong's: an effect
+ * cannot be played softer. A like's double has no lighter effect: [buzzFor] plays it as soft pulses where it can.
+ */
+fun lighterPredefinedFor(feel: Feel): List<Int> = when (feel) {
+    Feel.TICK, Feel.LOW_TICK, Feel.CLICK -> listOf(VibrationEffect.EFFECT_TICK)
+    Feel.FIRM -> listOf(VibrationEffect.EFFECT_CLICK, VibrationEffect.EFFECT_TICK)
+    Feel.DOUBLE -> listOf(VibrationEffect.EFFECT_DOUBLE_CLICK)
+}
+
+/**
  * What [feel] plays under [vibration] on a phone that can do [caps].
  *
- * Off is nothing, Light today's. Strong is the brief's feel per action (experiments/features/haptics-feel/BRIEF.md),
- * played with the best the vibrator has: its primitives where it plays the ones needed, else its predefined effect
- * (unless it says it has none: one that cannot say gets it, and Android plays its own stand-in where the hardware has
- * none), else plain pulses of 20 ms. Below Android 11, where there are no primitives and no answer about effects, and
- * on a phone without a vibrator, Strong is Light's way.
+ * Off is nothing. Strong is the brief's feel per action (experiments/features/haptics-feel/BRIEF.md), played with the
+ * best the vibrator has: its primitives where it plays the ones needed, else its predefined effect (unless it says it
+ * has none: one that cannot say gets it, and Android plays its own stand-in where the hardware has none), else plain
+ * pulses of 20 ms. Light is the same at about half the strength: the primitives at [LIGHT_SCALE], a lighter effect
+ * ([lighterPredefinedFor]), softer or shorter pulses. Below Android 11, where there are no primitives and no answer
+ * about effects, and on a phone without a vibrator, both are the view's own feedback ([Buzz.Light]).
  */
 fun buzzFor(feel: Feel, vibration: Vibration, caps: VibratorCaps): Buzz {
-    when (vibration) {
-        Vibration.OFF -> return Buzz.None
-        Vibration.LIGHT -> return Buzz.Light
-        Vibration.STRONG -> Unit
-    }
+    if (vibration == Vibration.OFF) return Buzz.None
     if (caps.sdk < 30 || !caps.hasVibrator) return Buzz.Light
-    composition(feel, caps)?.let { return it }
-    predefinedFor(feel).firstOrNull { caps.effects[it] != Vibrator.VIBRATION_EFFECT_SUPPORT_NO }?.let { return Buzz.Predefined(it) }
-    return when (feel) {
-        Feel.DOUBLE -> Buzz.Pulses(count = 2, length = 20, gap = 60)
-        // Essentials' subtle stand-in, where the vibrator can play softly; only shorter where it cannot.
-        Feel.LOW_TICK -> if (caps.amplitudeControl) Buzz.Pulses(count = 1, length = 10, amplitude = 50) else Buzz.Pulses(count = 1, length = 10)
-        else -> Buzz.Pulses(count = 1, length = 20)
-    }
+    val light = vibration == Vibration.LIGHT
+    composition(feel, caps)?.let { return if (light) it.softer() else it }
+    if (light && feel == Feel.DOUBLE && caps.amplitudeControl) return pulsesFor(feel, caps).softer(caps)
+    val effects = if (light) lighterPredefinedFor(feel) else predefinedFor(feel)
+    effects.firstOrNull { caps.effects[it] != Vibrator.VIBRATION_EFFECT_SUPPORT_NO }?.let { return Buzz.Predefined(it) }
+    return if (light) pulsesFor(feel, caps).softer(caps) else pulsesFor(feel, caps)
 }
+
+/** Plain pulses, the last resort, at Strong's strength. */
+private fun pulsesFor(feel: Feel, caps: VibratorCaps): Buzz.Pulses = when (feel) {
+    Feel.DOUBLE -> Buzz.Pulses(count = 2, length = 20, gap = 60)
+    // Essentials' subtle stand-in, where the vibrator can play softly; only shorter where it cannot.
+    Feel.LOW_TICK -> if (caps.amplitudeControl) Buzz.Pulses(count = 1, length = 10, amplitude = 50) else Buzz.Pulses(count = 1, length = 10)
+    else -> Buzz.Pulses(count = 1, length = 20)
+}
+
+/** The same steps at [LIGHT_SCALE] of their strength, never under [LIGHT_FLOOR]. */
+fun Buzz.Primitives.softer(): Buzz.Primitives =
+    Buzz.Primitives(steps.map { it.copy(scale = (it.scale * LIGHT_SCALE).coerceAtLeast(LIGHT_FLOOR)) })
+
+/** Half the amplitude where the vibrator can play softly, else a shorter pulse. */
+fun Buzz.Pulses.softer(caps: VibratorCaps): Buzz.Pulses =
+    if (caps.amplitudeControl) copy(amplitude = ((if (amplitude == VibrationEffect.DEFAULT_AMPLITUDE) 255 else amplitude) * LIGHT_SCALE).toInt().coerceAtLeast(1))
+    else copy(length = (length * 0.6f).toLong().coerceAtLeast(8))
 
 /** [feel] as primitives, where the phone plays the ones it needs. */
 private fun composition(feel: Feel, caps: VibratorCaps): Buzz.Primitives? {
