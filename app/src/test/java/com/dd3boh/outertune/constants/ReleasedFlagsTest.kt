@@ -42,7 +42,7 @@ class ReleasedFlagsTest {
         "CAST_PCM", "REPORT_PLUS", "POLL_FOLLOW_UPS",
         "LISTEN_TOGETHER", "METROLIST_IMPORT", "SAVER_NOTE",
         "REPEAT_LIT_BOX", "CAST_AT_TOP", "LOCAL_REMOVE", "PLAYLIST_YT_SEARCH", "HAPTICS_MORE", "VARISPEED",
-        "ROOM_AT_FREE_END", "LIVING_TUNE",
+        "ROOM_AT_FREE_END", "LIVING_TUNE", "HAPTICS_FEEL", "LISTENBRAINZ",
     )
 
     private val sources = File("src/main/java/com/dd3boh/outertune")
@@ -278,6 +278,8 @@ class ReleasedFlagsTest {
                 "ui/screens/settings/fragments/PlayerButtonsFrag.kt",
                 // The cast button among the pins (PlayerPin.CAST), offered only where casting is.
                 "ui/player/PinActions.kt",
+                // The style pictures above it draw the cast button only where the app casts.
+                "ui/screens/settings/fragments/PlayerStyleSample.kt",
             ),
             readers("CASTING"),
         )

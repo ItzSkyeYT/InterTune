@@ -101,7 +101,7 @@ class ListenBrainzRowsTest {
     }
 
     @Test
-    fun `every text it uses is held from translators, with its French, and its search words are open as every search word is`() {
+    fun `every text it uses is open to translators since 0_13 ships it, with its French`() {
         val english = strings("values")
         val french = strings("values-fr")
         val used = Regex("""R\.string\.(\w+)""").findAll(frag + screen).map { it.groupValues[1] }
@@ -110,7 +110,7 @@ class ListenBrainzRowsTest {
         for (name in used) {
             for ((folder, texts) in listOf("values" to english, "values-fr" to french)) {
                 val text = texts[name] ?: error("$name is not in $folder")
-                assertTrue("$name is open to translators in $folder", "translatable=\"false\"" in text.substringBefore("|"))
+                assertFalse("$name is still held in $folder", "translatable=\"false\"" in text.substringBefore("|"))
             }
         }
         // Settings' search words are open to translators even for a held feature (SettingsSearchTest on the 0.13

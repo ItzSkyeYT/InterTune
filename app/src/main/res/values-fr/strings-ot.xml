@@ -2748,25 +2748,25 @@
     <!-- AppLanguage.PARTLY. -->
     <string name="app_language_partly">Traduction partielle</string>
     <!-- ListenBrainz in place of Last.fm (Unreleased.LISTENBRAINZ): held from translators. -->
-    <string name="grp_listenbrainz" translatable="false">ListenBrainz</string>
-    <string name="listenbrainz_connect" translatable="false">Connecter un compte ListenBrainz</string>
-    <string name="listenbrainz_connect_description" translatable="false">Collez le jeton utilisateur de vos paramètres ListenBrainz.</string>
-    <string name="listenbrainz_dialog_title" translatable="false">Connecter ListenBrainz</string>
-    <string name="listenbrainz_dialog_body" translatable="false">Chaque titre que vous terminez s\'ajoute à votre profil ListenBrainz, et celui en cours s\'affiche en écoute. Vos écoutes y sont publiques.</string>
-    <string name="listenbrainz_token" translatable="false">Jeton utilisateur</string>
-    <string name="listenbrainz_get_token" translatable="false">Obtenir mon jeton</string>
-    <string name="listenbrainz_connect_button" translatable="false">Connecter</string>
-    <string name="listenbrainz_token_unknown" translatable="false">ListenBrainz ne reconnaît pas ce jeton. Copiez-le à nouveau depuis votre page de paramètres.</string>
-    <string name="listenbrainz_unreachable" translatable="false">Impossible de joindre ListenBrainz. Vérifiez votre connexion et réessayez.</string>
-    <string name="listenbrainz_slow" translatable="false">ListenBrainz est lent ou surchargé en ce moment. Réessayez dans quelques minutes.</string>
-    <string name="listenbrainz_checking" translatable="false">Vérification auprès de ListenBrainz…</string>
-    <string name="listenbrainz_connected_as" translatable="false">Connecté en tant que %1$s</string>
-    <string name="listenbrainz_disconnect_description" translatable="false">Appuyez pour vous déconnecter. Rien de ce qui a déjà été envoyé n\'est supprimé.</string>
-    <string name="listenbrainz_scrobble" translatable="false">Scrobbler ce que j\'écoute</string>
-    <string name="listenbrainz_scrobble_description" translatable="false">Désactivé, vous restez connecté et rien n\'est envoyé.</string>
-    <string name="listenbrainz_scrobble_explain" translatable="false">Pour chaque titre que vous terminez, ListenBrainz reçoit son nom, son artiste, son album, sa durée, l\'heure d\'écoute et son lien YouTube Music, ainsi que le nom et la version d\'InterTune. Le titre en cours est envoyé aussi, sans l\'heure. Vos écoutes y sont publiques, et rien ne part tant que « Suspendre l\'historique d\'écoute » est activé.</string>
-    <string name="listenbrainz_refused" translatable="false">ListenBrainz n\'accepte plus votre jeton</string>
-    <string name="listenbrainz_refused_description" translatable="false">Collez le nouveau depuis votre page de paramètres. Les écoutes en attente partiront dès que ça fonctionnera.</string>
+    <string name="grp_listenbrainz">ListenBrainz</string>
+    <string name="listenbrainz_connect">Connecter un compte ListenBrainz</string>
+    <string name="listenbrainz_connect_description">Collez le jeton utilisateur de vos paramètres ListenBrainz.</string>
+    <string name="listenbrainz_dialog_title">Connecter ListenBrainz</string>
+    <string name="listenbrainz_dialog_body">Chaque titre que vous terminez s\'ajoute à votre profil ListenBrainz, et celui en cours s\'affiche en écoute. Vos écoutes y sont publiques.</string>
+    <string name="listenbrainz_token">Jeton utilisateur</string>
+    <string name="listenbrainz_get_token">Obtenir mon jeton</string>
+    <string name="listenbrainz_connect_button">Connecter</string>
+    <string name="listenbrainz_token_unknown">ListenBrainz ne reconnaît pas ce jeton. Copiez-le à nouveau depuis votre page de paramètres.</string>
+    <string name="listenbrainz_unreachable">Impossible de joindre ListenBrainz. Vérifiez votre connexion et réessayez.</string>
+    <string name="listenbrainz_slow">ListenBrainz est lent ou surchargé en ce moment. Réessayez dans quelques minutes.</string>
+    <string name="listenbrainz_checking">Vérification auprès de ListenBrainz…</string>
+    <string name="listenbrainz_connected_as">Connecté en tant que %1$s</string>
+    <string name="listenbrainz_disconnect_description">Appuyez pour vous déconnecter. Rien de ce qui a déjà été envoyé n\'est supprimé.</string>
+    <string name="listenbrainz_scrobble">Scrobbler ce que j\'écoute</string>
+    <string name="listenbrainz_scrobble_description">Désactivé, rien n\'est envoyé et vous restez connecté.</string>
+    <string name="listenbrainz_scrobble_explain">Envoyé pour chaque titre terminé :\n• son nom, son artiste, son album et sa durée\n• l\'heure d\'écoute et son lien YouTube Music\n• le nom et la version d\'InterTune\nLe titre en cours part aussi, sans l\'heure. Vos écoutes y sont publiques, et rien ne part tant que « Suspendre l\'historique d\'écoute » est activé.</string>
+    <string name="listenbrainz_refused">ListenBrainz n\'accepte plus votre jeton</string>
+    <string name="listenbrainz_refused_description">Collez le nouveau depuis votre page de paramètres. Les écoutes en attente partiront dès que ça fonctionnera.</string>
     <string name="search_words_listenbrainz">listenbrainz, scrobble, scrobbling</string>
     <!-- The preview line's own texts (testers' builds), kept when the 0.13 line is merged in. -->
     <string name="casting_refused_every_form">L\'enceinte ne lit pas ce morceau. Écoutez-le sur ce téléphone.</string>
@@ -2782,9 +2782,9 @@
     <string name="pin_not_in_playlist" translatable="false">Dans aucune de vos playlists</string>
     <string name="pin_head_tracking_off" translatable="false">Le suivi de la tête est désactivé</string>
     <!-- Vibration under Look and feel (Unreleased.HAPTICS_FEEL): held from translators until his pick. -->
-    <string name="vibration" translatable="false">Vibration</string>
-    <string name="vibration_off" translatable="false">Désactivée</string>
-    <string name="vibration_light" translatable="false">Légère</string>
-    <string name="vibration_strong" translatable="false">Forte</string>
+    <string name="vibration">Vibration</string>
+    <string name="vibration_off">Désactivée</string>
+    <string name="vibration_light">Légère</string>
+    <string name="vibration_strong">Forte</string>
     <string name="search_words_vibration">haptique, retour haptique, vibrer, vibreur, retour tactile</string>
 </resources>

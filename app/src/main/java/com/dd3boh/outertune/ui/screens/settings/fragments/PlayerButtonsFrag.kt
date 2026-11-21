@@ -7,7 +7,6 @@
 package com.dd3boh.outertune.ui.screens.settings.fragments
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -51,7 +50,6 @@ import com.dd3boh.outertune.ui.player.pinPainter
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -88,6 +86,16 @@ fun ColumnScope.PlayerButtonsFrag() {
         defaultValue = PlayerButtonsStyle.CLASSIC
     )
 
+    // Off keeps the sheet pulled up from the bottom of the player, as it has always been. On puts
+    // a queue button with the others: beside lyrics under the controls in Connected, and first in
+    // the row by the title in Classic.
+    val (queueAsButton, onQueueAsButtonChange) = rememberPreference(QueueButtonKey, defaultValue = false)
+
+    // Which buttons stay on the player outside its menu, for the style chosen above (issue #27):
+    // a chip each, in the places that style has. Today's until somebody chooses.
+    val (pinsRaw, onPinsRawChange) = rememberPreference(PlayerPinsKey, defaultValue = "")
+    val pins = remember(pinsRaw) { PlayerPins.read(pinsRaw) }
+
     PreferenceEntry(
         modifier = Modifier.settingRow(R.string.player_buttons_style),
         title = { Text(stringResource(R.string.player_buttons_style)) },
@@ -118,15 +126,12 @@ fun ColumnScope.PlayerButtonsFrag() {
                         onClick = { onButtonsStyleChange(style) }
                     )
             ) {
-                Image(
-                    painter = painterResource(
-                        when (style) {
-                            PlayerButtonsStyle.CLASSIC -> R.drawable.player_buttons_classic
-                            PlayerButtonsStyle.CONNECTED -> R.drawable.player_buttons_connected
-                        }
-                    ),
-                    contentDescription = null,
-                    contentScale = ContentScale.FillWidth,
+                // Drawn from the buttons pinned for that style, so it never shows one the player has not got.
+                PlayerStyleSample(
+                    style = style,
+                    pins = pins,
+                    queueButton = queueAsButton,
+                    icon = { pinPainter(it, on = it == PlayerPin.LIKE) },
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(shape)
@@ -153,15 +158,6 @@ fun ColumnScope.PlayerButtonsFrag() {
         }
     }
 
-    // Off keeps the sheet pulled up from the bottom of the player, as it has always been. On puts
-    // a queue button with the others: beside lyrics under the controls in Connected, and first in
-    // the row by the title in Classic.
-    val (queueAsButton, onQueueAsButtonChange) = rememberPreference(QueueButtonKey, defaultValue = false)
-
-    // Which buttons stay on the player outside its menu, for the style chosen above (issue #27):
-    // a chip each, in the places that style has. Today's until somebody chooses.
-    val (pinsRaw, onPinsRawChange) = rememberPreference(PlayerPinsKey, defaultValue = "")
-    val pins = remember(pinsRaw) { PlayerPins.read(pinsRaw) }
     // The row, its chips and the way back to the default under one mark, for the tour from What's
     // new: its bubble is about the chips, and with the row alone marked it would stand over them.
     Column(Modifier.fillMaxWidth().tourTarget(Tour.SETTING_PLAYER_PINS)) {

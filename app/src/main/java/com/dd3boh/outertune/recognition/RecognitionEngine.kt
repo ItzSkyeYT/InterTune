@@ -993,6 +993,7 @@ class RecognitionEngine @Inject constructor(
                     videoId = Heard.idFor(outcome.track, song),
                     at = System.currentTimeMillis(),
                     checked = true,
+                    cover = outcome.track.artworkUrl,
                 )
                 val kept = outcome.track.shazamKey?.let { confirmed[it] } ?: pickBest(outcome.track, candidates, PlaybackVariant.ORIGINAL)
                 val saved = scope.launch { history.add(heard(kept)) }

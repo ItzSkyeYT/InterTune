@@ -79,15 +79,28 @@ class HistoryFormat(
 
     fun time(start: LocalDateTime): String = format(timeSkeleton(is24Hour)).format(start)
 
+    /**
+     * [at] as short as the second line of a song's row allows: the time when it is [today]
+     * ("18:25"), the day when it is this year ("5 Nov"), the day and the year before that ("29 Oct
+     * 2025"). What you have heard writes when each song was heard this way.
+     */
+    fun short(at: LocalDateTime, today: LocalDate): String = when {
+        at.toLocalDate() == today -> time(at)
+        else -> format(shortDaySkeleton(withYear = at.year != today.year)).format(at)
+    }
+
     companion object {
         fun daySkeleton(withYear: Boolean) = "EEEEdMMMM" + if (withYear) "y" else ""
         fun timeSkeleton(is24Hour: Boolean) = if (is24Hour) "Hm" else "hm"
+        fun shortDaySkeleton(withYear: Boolean) = if (withYear) "yMMMd" else "MMMd"
 
         /** What a skeleton is written as when the locale's own pattern cannot be read. */
         fun fallback(skeleton: String) = when (skeleton) {
             "Hm" -> "HH:mm"
             "hm" -> "h:mm a"
             "EEEEdMMMMy" -> "EEEE d MMMM y"
+            "MMMd" -> "d MMM"
+            "yMMMd" -> "d MMM y"
             else -> "EEEE d MMMM"
         }
     }
