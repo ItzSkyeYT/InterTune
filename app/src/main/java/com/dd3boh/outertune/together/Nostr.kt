@@ -122,6 +122,16 @@ data class NostrEvent(
 }
 
 /**
+ * An event as a relay handed it on: [live] when it came after the relay had sent everything it kept for the subscription
+ * (its EOSE), false for one of those kept ones. Rooms use an ephemeral kind that relays should pass on and never keep,
+ * but some keep it for a while all the same, and hand a new subscriber the room's last words: a guest who joined just
+ * after its host closed the room heard the host's last beats as if the room were alive, and waited on a ghost of the
+ * host (his two phones, 21 Nov 2026). What a relay kept is from before this phone came: it tells who made the room and
+ * whether it was closed, and never that anyone is there now.
+ */
+class Incoming(val event: NostrEvent, val live: Boolean)
+
+/**
  * Several Nostr relays at once, all carrying one subscription. Every event is sent to every
  * connected relay and each one arriving is handed on once, so a room keeps working while any one
  * relay does. A dropped connection comes back after a growing pause.
@@ -132,11 +142,20 @@ class RelayPool(
     /** An OkHttpClient, or a test's own. */
     private val client: WebSocket.Factory,
     private val scope: CoroutineScope,
+    /** Milliseconds that only go forward: a test's own, or the JVM's. */
+    private val clock: () -> Long = { System.nanoTime() / 1_000_000 },
 ) {
     private val sockets = ConcurrentHashMap<String, WebSocket>()
     private val seen = Collections.synchronizedSet(LinkedHashSet<String>())
-    private val _events = MutableSharedFlow<NostrEvent>(extraBufferCapacity = 64)
-    val events: SharedFlow<NostrEvent> = _events
+    private val _events = MutableSharedFlow<Incoming>(extraBufferCapacity = 64)
+    val events: SharedFlow<Incoming> = _events
+
+    /**
+     * When each open socket asked for the room (its REQ), in [clock]'s milliseconds, until it says it has sent all it
+     * kept (EOSE): from then on what it hands on is live. A relay that never says so is taken as live [CAUGHT_UP_MS]
+     * after it was asked.
+     */
+    private val askedAt = ConcurrentHashMap<WebSocket, Long>()
 
     private val _connected = MutableStateFlow(0)
     /** How many relays are connected right now. */
@@ -162,6 +181,7 @@ class RelayPool(
         retries.clear()
         sockets.values.forEach { it.close(1000, null) }
         sockets.clear()
+        askedAt.clear()
         _connected.value = 0
     }
 
@@ -192,6 +212,7 @@ class RelayPool(
                     return
                 }
                 _connected.value = sockets.size
+                askedAt[webSocket] = clock()
                 webSocket.send(buildJsonArray { add(JsonPrimitive("REQ")); add(JsonPrimitive(SUB)); add(filter) }.toString())
                 Log.i(TAG, "Connected to $url")
             }
@@ -207,7 +228,10 @@ class RelayPool(
                     // the list (review of 0.13, 18 Nov 2026). Before it is remembered, so a forged copy cannot shut
                     // out the real one.
                     if (!event.valid()) return
-                    if (remember(event.id)) _events.tryEmit(event)
+                    if (remember(event.id)) _events.tryEmit(Incoming(event, live = caughtUp(webSocket)))
+                } else if (message.size >= 2 && message[0].jsonPrimitive.content == "EOSE") {
+                    // All it kept is sent: what comes next from this relay is live.
+                    askedAt.remove(webSocket)
                 } else if (message.isNotEmpty() && message[0].jsonPrimitive.content == "NOTICE") {
                     Log.i(TAG, "$url says: ${message.getOrNull(1)?.jsonPrimitive?.content}")
                 }
@@ -222,7 +246,16 @@ class RelayPool(
         if (!running) socket.cancel()
     }
 
+    /** Whether what [socket] hands on now is live: it said EOSE, or was asked long enough ago ([CAUGHT_UP_MS]). */
+    private fun caughtUp(socket: WebSocket): Boolean {
+        val asked = askedAt[socket] ?: return true
+        if (clock() - asked < CAUGHT_UP_MS) return false
+        askedAt.remove(socket)
+        return true
+    }
+
     private fun lost(url: String, socket: WebSocket, attempt: Int) {
+        askedAt.remove(socket)
         if (sockets[url] === socket) sockets.remove(url)
         _connected.value = sockets.size
         if (!running) return
@@ -236,5 +269,8 @@ class RelayPool(
         private const val TAG = "RelayPool"
         private const val SUB = "room"
         private const val SEEN_KEPT = 2_000
+
+        /** A relay that has not said EOSE this long after it was asked is taken to have sent all it kept. */
+        const val CAUGHT_UP_MS = 5_000L
     }
 }
