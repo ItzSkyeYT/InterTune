@@ -205,4 +205,13 @@ class QuickActionRowTest {
         assertTrue(segment.contains(".size(22.dp)"))
         assertEquals(22.dp + 10.dp * 2, QuickActionIconOnlyWidth)
     }
+
+    @Test
+    fun `the row stands further from the controls in the normal player, as far in a small one`() {
+        // Ti-Die, #testers 20 Nov 2026: as much as above the controls, it looked less (the times stand in the space above).
+        assertEquals(24.dp, ConnectedRowGap.above(compact = false))
+        assertEquals(16.dp, ConnectedRowGap.above(compact = true))
+        val player = File("src/main/java/com/dd3boh/outertune/ui/player/Player.kt").readText()
+        assertTrue(player.contains(".padding(horizontal = hPadding)\n                        .padding(top = ConnectedRowGap.above(compactPlayer))"))
+    }
 }

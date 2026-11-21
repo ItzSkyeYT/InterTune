@@ -250,6 +250,15 @@ internal fun playerControlSizes(landscapePlayer: Boolean, compact: Boolean): Pla
     )
 }
 
+/**
+ * The space between the controls and Connected's row under them. As much as above the controls it looked less, the times
+ * under the seek bar standing in the space above (Ti-Die, #testers 20 Nov 2026; his yes): 24dp, but 16dp in a small
+ * player, where every dp goes to the cover.
+ */
+internal object ConnectedRowGap {
+    fun above(compact: Boolean): Dp = if (compact) 16.dp else 24.dp
+}
+
 /** The narrowest each of Connected's buttons under a small player's controls gets. */
 internal val CompactQuickActionMinWidth = 40.dp
 

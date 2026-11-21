@@ -1433,7 +1433,7 @@ fun BottomSheetPlayer(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = hPadding)
-                        .padding(top = 16.dp)
+                        .padding(top = ConnectedRowGap.above(compactPlayer))
                 ) {
                     if (rowRoomFirst) roomSegment(true)
                     if (queueLayout.queueButton) queueSegment()
