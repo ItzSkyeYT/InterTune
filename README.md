@@ -198,7 +198,7 @@ Every change in detail, and why this fork exists: [docs/FEATURES.md](https://git
 What's being worked on, roughly in order. `[x]` is done, `[~]` is built and being tested, `[ ]` is still to do. Nothing here has a date, and plans can change. Ideas are welcome in #feature-requests on [Discord](https://discord.gg/68jmqhMjXk) or as a [GitHub issue](https://github.com/ItzSkyeYT/InterTune/issues/new/choose).
 
 <details>
-<summary><b>Next: 0.13</b> · 37 of 48 done, 6 to test</summary>
+<summary><b>Next: 0.13</b> · 38 of 49 done, 6 to test</summary>
 
 `[x]` Listen together: one person plays, friends follow the same song in real time\
 `[x]` In a room, a guest who casts to a TV or speaker plays on their own, and catches up with the room when the cast ends\
@@ -247,6 +247,7 @@ What's being worked on, roughly in order. `[x]` is done, `[~]` is built and bein
 `[x]` A playlist's search looks on YouTube Music too, with an add button on each song\
 `[x]` Varispeed: the pitch follows the speed, like a record ([#225](https://github.com/ItzSkyeYT/InterTune/issues/225))\
 `[x]` More haptic feedback, and a Vibration setting: Off, Light or Strong ([#176](https://github.com/ItzSkyeYT/InterTune/issues/176))\
+`[x]` A full-screen tuner for Living blur's colours and movement\
 `[x]` Bring your library over from a Metrolist backup, from its Android app or its new one
 
 </details>
@@ -285,7 +286,6 @@ What's being worked on, roughly in order. `[x]` is done, `[~]` is built and bein
 `[ ]` Tablets: settings in two panes, and the player as a side pane that can show lyrics *(in progress)* ([#140](https://github.com/ItzSkyeYT/InterTune/issues/140))\
 `[ ]` A look made for foldable and flip phones *(in progress)*\
 `[ ]` Play or shuffle the whole Quick picks row from its title\
-`[~]` A full-screen tuner for Living blur's colours and movement\
 `[ ]` Your own songs: an artist or genre with & or a comma in its name stays whole
 
 </details>
