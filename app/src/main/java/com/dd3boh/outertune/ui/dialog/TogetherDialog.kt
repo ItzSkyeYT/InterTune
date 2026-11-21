@@ -52,6 +52,7 @@ import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -264,6 +265,12 @@ fun TogetherSheet(onDismiss: () -> Unit) {
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
+        // Upright, the sheet stands below the status bar, and its page never asks for the bar's room. Material's sheet
+        // gives its page the bar's room less as far as the sheet is up under the bar, so a page nearly as tall as the
+        // screen was taller the higher the sheet went: where it comes to rest moved as it moved, and Material put it
+        // there at once. It jumped at the end of its opening and, dragged down slowly, sprang back every few frames
+        // instead of following the finger (his Pixel 5 in a room, 21 Nov 2026).
+        modifier = if (landscape.active) Modifier else Modifier.windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top)),
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         sheetMaxWidth = landscape.panelWidth(BottomSheetDefaults.SheetMaxWidth),
         // On a phone on its side the sheet stands in the middle, clear of the status bar's icons at the sides: no room is
@@ -272,7 +279,8 @@ fun TogetherSheet(onDismiss: () -> Unit) {
         // off the bottom (his S25U, 21 Nov 2026).
         dragHandle = if (landscape.active) ({ SlimDragHandle() }) else ({ BottomSheetDefaults.DragHandle() }),
         contentWindowInsets = {
-            if (landscape.active) WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom) else WindowInsets.safeDrawing
+            if (landscape.active) WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom)
+            else WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom)
         },
     ) {
         if (!ready) Box(Modifier.fillMaxWidth().padding(vertical = 56.dp), contentAlignment = Alignment.Center) {

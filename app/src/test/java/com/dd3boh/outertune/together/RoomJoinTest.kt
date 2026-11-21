@@ -125,7 +125,7 @@ class RoomJoinTest {
         // His S25U, 21 Nov 2026: about 90dp above the title, and Close the room off the bottom of the screen.
         val sheet = main("ui/dialog/TogetherDialog.kt").substringAfter("fun TogetherSheet(").substringBefore("    ) {\n")
         assertTrue(sheet, "dragHandle = if (landscape.active) ({ SlimDragHandle() }) else ({ BottomSheetDefaults.DragHandle() })" in sheet)
-        assertTrue(sheet, "if (landscape.active) WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom) else WindowInsets.safeDrawing" in sheet)
+        assertTrue(sheet, "if (landscape.active) WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom)\n" in sheet)
         val handle = main("ui/dialog/TogetherDialog.kt").substringAfter("private fun SlimDragHandle() {").substringBefore("\n}\n")
         assertTrue(handle, "Modifier.padding(vertical = 8.dp)" in handle)
     }
