@@ -2759,6 +2759,10 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="together_host_gone">The host didn\'t come back, so the room ended.</string>
     <string name="together_nobody">Nobody answered in this room. It may be closed, or the code may be wrong.</string>
     <string name="together_failed">Something went wrong in the room, so you left it. Join again to carry on.</string>
+    <string name="together_joining">Joining the room</string>
+    <string name="together_youre_in">You\'re in the room</string>
+    <string name="together_someone_joined">%1$s joined the room</string>
+    <string name="together_someone">Someone</string>
     <string name="together_close_room">Close the room</string>
     <string name="together_song_unavailable">This song isn\'t available to you. You\'ll hear the host\'s next one.</string>
     <string name="together_paused_here">Paused here. Press play to go back to where the room is.</string>
