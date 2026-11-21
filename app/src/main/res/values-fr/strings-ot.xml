@@ -133,6 +133,7 @@
     </plurals>
     <string name="scan_note_kept">Android ne voit aucune musique dans %1$s. Vos titres y sont restés tels quels.</string>
     <string name="scan_note_blocked">Certains titres n\'ont pas pu être lus. Un fichier .nomedia dans leur dossier peut en être la cause.</string>
+    <string name="scan_note_elsewhere">Certains titres ne peuvent pas être lus là où leur dossier a été choisi. Retirez-le et ajoutez-le de nouveau depuis le stockage du téléphone.</string>
     <string name="scan_note_empty">Aucune musique trouvée dans %1$s.</string>
     <string name="swipe2Queue">Glisser pour mettre en file d’attente</string>
     <string name="playlist_add_local_to_synced_note">L\'ajout de fichiers de ce téléphone à une playlist synchronisée avec YouTube Music n\'est pas pris en charge.</string>

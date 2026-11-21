@@ -567,6 +567,7 @@ while also allowing users to translate our app as well. New, specific strings to
     </plurals>
     <string name="scan_note_kept">Android can\'t see any music in %1$s. Your songs there were left as they are.</string>
     <string name="scan_note_blocked">Some songs couldn\'t be read. A .nomedia file in their folder can cause that.</string>
+    <string name="scan_note_elsewhere">Some songs can\'t be read from where their folder was picked. Remove it and add it again from the phone\'s storage.</string>
     <string name="scan_note_empty">No music found in %1$s.</string>
 
 <!-- Scanner parameter settings-->

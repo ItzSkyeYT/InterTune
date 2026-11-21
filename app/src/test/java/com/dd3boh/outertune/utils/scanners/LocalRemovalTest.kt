@@ -164,7 +164,8 @@ class LocalRemovalTest {
         assertNull(volumeAndPath("primary"))
         val utils = File("src/main/java/com/dd3boh/outertune/utils/scanners/UriFileUtils.kt").readText()
         assertFalse("no document id is split at every ':'", "split(\":\")" in utils)
-        assertTrue("val (type, relativePath) = volumeAndPath(docId) ?: return null" in utils)
+        // Below Android 11 the id goes through documentPathBelowR since #243 (21 Nov 2026), split the same way.
+        assertTrue("EXTERNAL_STORAGE_AUTHORITY -> volumeAndPath(docId)?.let { (volume, path) ->" in utils)
     }
 
     @Test

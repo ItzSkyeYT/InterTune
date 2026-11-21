@@ -43,6 +43,19 @@ class ScanReportTest {
     }
 
     @Test
+    fun `songs with no path to open them by say to add the folder again, before the nomedia note`() {
+        // #243 (21 Nov 2026): a folder picked in Downloads on Android 9, its songs found and none of them opened.
+        val folders = listOf(Folder("Music", listed = true, found = 111))
+        assertEquals(Note.Elsewhere, ScanReport.noteFor(folders, blocked = 0, elsewhere = 111))
+        assertEquals(Note.Elsewhere, ScanReport.noteFor(folders, blocked = 4, elsewhere = 1))
+        // A folder that cannot be opened, or songs kept, still come first.
+        assertEquals(Note.Unreadable(listOf("Ad04a")), ScanReport.noteFor(listOf(Folder("Ad04a", listed = false, found = 0)), 0, elsewhere = 3))
+        assertEquals(Note.Kept(listOf("Ad04a")), ScanReport.noteFor(listOf(Folder("Ad04a", listed = true, found = 0, kept = true)), 0, elsewhere = 3))
+        // None: the note is the one it was.
+        assertEquals(Note.Blocked, ScanReport.noteFor(folders, blocked = 2, elsewhere = 0))
+    }
+
+    @Test
     fun `a scan whose folders all held nothing says so, with every name`() {
         val folders = listOf(Folder("Ad04a", listed = true, found = 0), Folder("Bob", listed = true, found = 0))
         assertEquals(Note.Empty(listOf("Ad04a", "Bob")), ScanReport.noteFor(folders, blocked = 0))
@@ -76,7 +89,7 @@ class ScanReportTest {
         val words = frag.substringAfter("private fun scanNoteText(").substringBefore("\n}\n")
         listOf(
             "R.plurals.scan_note_unreadable", "R.string.scan_note_kept",
-            "R.string.scan_note_blocked", "R.string.scan_note_empty",
+            "R.string.scan_note_blocked", "R.string.scan_note_empty", "R.string.scan_note_elsewhere",
         ).forEach { assertTrue("$it is not shown", words.contains(it)) }
     }
 
@@ -97,13 +110,15 @@ class ScanReportTest {
     private val named = listOf("scan_note_kept", "scan_note_empty")
 
     private fun notes(xml: String) =
-        named.map { text(xml, it) } + text(xml, "scan_note_blocked") + plural(xml, "scan_note_unreadable").values
+        named.map { text(xml, it) } + text(xml, "scan_note_blocked") + text(xml, "scan_note_elsewhere") +
+            plural(xml, "scan_note_unreadable").values
 
     @Test
     fun `every note has its words in English and French, with the folder names in the same place`() {
         for (xml in listOf(en, fr)) {
             named.forEach { assertTrue("$it has no name in it", text(xml, it).contains("%1\$s")) }
             assertFalse("the unreadable files are not counted", text(xml, "scan_note_blocked").contains("%"))
+            assertFalse("the songs with no path are not counted", text(xml, "scan_note_elsewhere").contains("%"))
             plural(xml, "scan_note_unreadable").values.forEach { assertTrue(it, it.contains("%1\$s")) }
         }
         // "it" for one folder, "them" for several.
