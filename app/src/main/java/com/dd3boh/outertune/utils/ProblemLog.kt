@@ -81,6 +81,9 @@ object ProblemLog {
         "SimpleCache", "CacheDataSink", "AndroidRuntime",
         // A failure the person was told about: see FailureLog.
         FailureLog.TAG,
+        // A listening room's own failures (TogetherSession.failed): a room never takes the app down, so a report is
+        // where they show (his word of 21 Nov 2026).
+        "Together",
     )
 
     /** Warnings every phone writes for every song, whatever happens next. */

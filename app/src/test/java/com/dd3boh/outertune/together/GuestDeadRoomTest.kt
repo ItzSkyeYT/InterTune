@@ -111,7 +111,9 @@ class GuestDeadRoomTest {
         assertFalse("service.roomAlive()" in session)
         assertTrue("private val hostSince = if (hostHeardAt > 0) hostHeardAt else startedAt" in session)
         val watch = session.substringAfter("private fun watchHost()").substringBefore("private fun sayHere()")
-        assertTrue("if (HostAbsence.gone(now, HostAbsence.lastSign(ownerHeardAt, hostSince))) closed(R.string.together_host_gone)" in watch)
+        // The end also goes into Report a problem's steps since 21 Nov 2026 (RoomJoinTest).
+        val gone = watch.substringAfter("if (HostAbsence.gone(now, HostAbsence.lastSign(ownerHeardAt, hostSince))) {").substringBefore("\n        }")
+        assertTrue(watch, "closed(R.string.together_host_gone)" in gone && "ReportTrail.Room.HOST_GONE" in gone)
         // the line that the host is away still waits for this session's first beats: a room that comes back while its
         // host is there does not say so for the moment before the host's next word
         assertTrue("HostAbsence.away(now, maxOf(ownerHeardAt, startedAt))" in watch)

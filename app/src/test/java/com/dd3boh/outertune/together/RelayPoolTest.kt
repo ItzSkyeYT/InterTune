@@ -114,7 +114,7 @@ class RelayPoolTest {
         val scope = CoroutineScope(job + Dispatchers.Unconfined)
         val pool = RelayPool(listOf("wss://one.example"), buildJsonObject {}, relays, scope)
         val got = Collections.synchronizedList(mutableListOf<NostrEvent>())
-        scope.launch(start = CoroutineStart.UNDISPATCHED) { pool.events.collect { got += it } }
+        scope.launch(start = CoroutineStart.UNDISPATCHED) { pool.events.collect { got += it.event } }
         pool.start()
         val (socket, listener) = relays.made.single()
         listener.onOpen(socket, opened(socket))
@@ -149,5 +149,45 @@ class RelayPoolTest {
         assertTrue("retries.put(url, scope.launch {" in nostr)
         assertFalse("retries +=" in nostr)
         assertFalse("mutableListOf<Job>()" in nostr)
+    }
+
+    @Test
+    fun `what a relay kept is history until it says EOSE, and what comes after is live`() {
+        // 21 Nov 2026, his two phones: a guest joined just after the host closed the room, a relay handed it the host's
+        // last words it had kept, and the guest took them for a live room. What comes before a relay's EOSE is history.
+        val relays = Relays()
+        val job = SupervisorJob()
+        val scope = CoroutineScope(job + Dispatchers.Unconfined)
+        var now = 1_000L
+        val pool = RelayPool(listOf("wss://one.example", "wss://two.example"), buildJsonObject {}, relays, scope, clock = { now })
+        val got = Collections.synchronizedList(mutableListOf<Incoming>())
+        scope.launch(start = CoroutineStart.UNDISPATCHED) { pool.events.collect { got += it } }
+        pool.start()
+        val (one, oneListener) = relays.made[0]
+        val (two, twoListener) = relays.made[1]
+        oneListener.onOpen(one, opened(one))
+        twoListener.onOpen(two, opened(two))
+        fun word() = NostrEvent.signed(Secp256k1.newSecretKey(), TogetherMessage.KIND, listOf(listOf("t", "tag")), "sealed")
+        fun relayed(listener: okhttp3.WebSocketListener, socket: FakeSocket, e: NostrEvent) =
+            listener.onMessage(socket, buildJsonArray { add(JsonPrimitive("EVENT")); add(JsonPrimitive("room")); add(e.toJson()) }.toString())
+
+        val kept = word()
+        relayed(oneListener, one, kept)
+        oneListener.onMessage(one, """["EOSE","room"]""")
+        val live = word()
+        relayed(oneListener, one, live)
+        assertEquals(listOf(kept.id to false, live.id to true), got.map { it.event.id to it.live })
+
+        // A relay that never says EOSE is taken as caught up a while after it was asked.
+        got.clear()
+        val early = word()
+        relayed(twoListener, two, early)
+        now += RelayPool.CAUGHT_UP_MS
+        val late = word()
+        relayed(twoListener, two, late)
+        assertEquals(listOf(early.id to false, late.id to true), got.map { it.event.id to it.live })
+
+        pool.stop()
+        job.cancel()
     }
 }
