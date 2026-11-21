@@ -198,7 +198,7 @@ Every change in detail, and why this fork exists: [docs/FEATURES.md](https://git
 What's being worked on, roughly in order. `[x]` is done, `[~]` is built and being tested, `[ ]` is still to do. Nothing here has a date, and plans can change. Ideas are welcome in #feature-requests on [Discord](https://discord.gg/68jmqhMjXk) or as a [GitHub issue](https://github.com/ItzSkyeYT/InterTune/issues/new/choose).
 
 <details>
-<summary><b>Next: 0.13</b> · 39 of 49 done, 5 to test</summary>
+<summary><b>Next: 0.13</b> · 36 of 46 done, 5 to test</summary>
 
 `[x]` Listen together: one person plays, friends follow the same song in real time\
 `[x]` In a room, a guest who casts to a TV or speaker plays on their own, and catches up with the room when the cast ends\
@@ -209,7 +209,6 @@ What's being worked on, roughly in order. `[x]` is done, `[~]` is built and bein
 `[x]` Don't play this song: radios, autoplay and Shuffle never bring it back ([#78](https://github.com/ItzSkyeYT/InterTune/issues/78))\
 `[x]` Pick several songs in the queue and remove them at once\
 `[x]` Swipe a song out of the queue, and Undo brings it back ([#141](https://github.com/ItzSkyeYT/InterTune/issues/141))\
-`[x]` Android Auto's search finds songs on YouTube Music, not only in your library ([#112](https://github.com/ItzSkyeYT/InterTune/issues/112))\
 `[x]` Block an artist\
 `[x]` Your playlists in your own order, dragged where you want them\
 `[x]` What's playing works offline and names the song once you're back online ([#48](https://github.com/ItzSkyeYT/InterTune/issues/48))\
@@ -222,8 +221,6 @@ What's being worked on, roughly in order. `[x]` is done, `[~]` is built and bein
 `[x]` Downloads at a quality of their own, apart from the streaming quality\
 `[~]` Downloads as MP3, M4A, FLAC or WAV, at a bitrate that follows what YouTube sent, and Export to folder\
 `[~]` Liked songs kept in sync with your downloads: unliking removes a download the app made itself ([#64](https://github.com/ItzSkyeYT/InterTune/issues/64))\
-`[x]` The volume past 100% turns the music up without distorting it ([#93](https://github.com/ItzSkyeYT/InterTune/issues/93))\
-`[x]` On mobile data, Auto quality takes a middle stream instead of the smallest ([#88](https://github.com/ItzSkyeYT/InterTune/issues/88))\
 `[x]` A floating dock without the glass on Android 11 and 12\
 `[x]` Tempo in 1% steps between 90% and 110%\
 `[x]` The playing song stays in view at the top or bottom of a long queue ([#81](https://github.com/ItzSkyeYT/InterTune/issues/81))\
