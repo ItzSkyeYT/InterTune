@@ -1912,7 +1912,7 @@
     <string name="output_wired">Casque filaire</string>
     <string name="output_cable">Sur un câble</string>
     <string name="output_pill">Bouton de sortie audio</string>
-    <string name="output_pill_description">Affiche où joue la musique, sous les commandes.</string>
+    <string name="output_pill_description">Affiche où joue la musique, sous les commandes. Appuyez dessus pour caster.</string>
     <string name="cast_searching">Recherche de récepteurs sur ce Wi-Fi</string>
     <string name="cast_about">Joue sur Chromecast et Google TV, les enceintes AirPlay, les téléviseurs et enceintes DLNA, et les récepteurs FCast de votre Wi-Fi (FCast demande son application Receiver). Votre téléphone reste allumé et envoie la musique pendant le cast.</string>
     <string name="cast_public_wifi">Sur un Wi-Fi public, les autres appareils connectés peuvent accéder aux titres que vous castez.</string>
