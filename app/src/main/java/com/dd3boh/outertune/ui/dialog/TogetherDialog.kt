@@ -193,12 +193,6 @@ internal class RoomOnScreen<T : Any> {
     fun of(live: T?, comingBack: Boolean): T? = (live ?: last?.takeIf { comingBack }).also { last = it }
 }
 
-/**
- * Listen together, from the player's menu. Out of a room: two phones on one song, a big Start, and
- * the field for a friend's code. In one: its code to pass on, the song the room plays, for a guest
- * how close it follows, and who is in.
- */
-@OptIn(ExperimentalMaterial3Api::class)
 /** Material's drag handle with 8dp above and below instead of 22dp: the room sheet's on a phone on its side. */
 @Composable
 private fun SlimDragHandle() {
@@ -211,6 +205,12 @@ private fun SlimDragHandle() {
     }
 }
 
+/**
+ * Listen together, from the player's menu. Out of a room: two phones on one song, a big Start, and
+ * the field for a friend's code. In one: its code to pass on, the song the room plays, for a guest
+ * how close it follows, and who is in.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TogetherSheet(onDismiss: () -> Unit) {
     val context = LocalContext.current
