@@ -267,6 +267,7 @@ What's being worked on, roughly in order. `[x]` is done, `[~]` is built and bein
 `[ ]` A switch to keep Liquid glass's layout, the player and its buttons where they are, drawn without the glass\
 `[ ]` The "Group the player buttons" setting goes, the buttons stay grouped as they are by default\
 `[ ]` Discord Rich Presence: what you play on your Discord profile, off until you turn it on (it signs in to Discord as you)\
+`[ ]` Connect your devices over your Wi-Fi: a phone, watch, TV or tablet as the remote or the speaker, paired once, off until you turn it on *(after 0.14)*\
 `[ ]` Paste or share a YouTube link to play it as a song and download it *(0.13.5)*\
 `[ ]` Speed dial on Home\
 `[ ]` Lyrics in big lines, each singer on their own side, with a menu to fix them or pick where they come from\
