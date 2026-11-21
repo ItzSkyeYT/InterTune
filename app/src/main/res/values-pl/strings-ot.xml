@@ -1141,8 +1141,6 @@
     <string name="familiarity">Znajome utwory</string>
     <string name="familiarity_description">Jaka część wiersza Najlepsze rekomendacje przypada utworom często słuchanym w ostatnich dwóch tygodniach, do których pora wrócić: %1$d z 20 kart. Utwory, które już się przejadły, same ustępują miejsca.</string>
     <string name="why_these_lane_again">Do których wracasz: %1$d</string>
-    <string name="new_songs_only">Tylko nowe utwory</string>
-    <string name="new_songs_only_description">Każda karta w wierszu Najlepsze rekomendacje to utwór dla Ciebie nowy.</string>
     <string name="similar_source">Źródło podobnych utworów</string>
     <string name="login_reassurance">To strona logowania samego Google. InterTune nigdy nie widzi Twojego hasła. Zachowuje tylko dane logowania, które przekazuje YouTube Music.</string>
     <string name="login_secure">Bezpieczne połączenie</string>
@@ -1550,7 +1548,6 @@
     <string name="rank_with_listening_info">Ustawia wiersz „Szybki wybór” w kolejności, która Ci pasuje: utwory często odtwarzane, ostatnio słuchane lub polubione zwykle są pierwsze. Nic nie jest dodawane ani usuwane. Nie zmienia wiersza, gdy wypełniają go „Najlepsze rekomendacje” lub „Wypróbuj oba”.</string>
     <string name="recommendations_engine_title_info">Wiersz ma dwadzieścia kart: utwory powiązane z tym, czego słuchasz, utwory, do których ciągle wracasz, więcej od Twoich artystów, dawni ulubieńcy, o których ostatnio cicho, i kilka nowych dla Ciebie. Te ustawienia działają, gdy „Źródło szybkich propozycji” to „Najlepsze rekomendacje” lub „Wypróbuj oba”. Przeciągnij w dół na ekranie głównym, aby zobaczyć zmianę.</string>
     <string name="similar_source_info">Gdzie „Najlepsze rekomendacje” i „Odkryj coś nowego” szukają utworów podobnych do tych, których słuchasz. Przy „Oba” lub „Tylko Last.fm” tytuł i wykonawca odtwarzanych lub polubionych utworów trafiają do Last.fm, nic więcej i bez konta. „Tylko YouTube” nie wysyła do Last.fm niczego.</string>
-    <string name="new_songs_only_info">Cały wiersz przypada utworom, których nie słuchano dalej niż mniej więcej do połowy. Utwór pominięty na początku nadal liczy się jako nowy. „Odkrywanie nowości” i „Znajome utwory” przestają mieć znaczenie, gdy to jest włączone. Wiersz może być krótszy, a wtedy „Szybki wybór” pokazuje inne źródło.</string>
     <string name="show_reasons_info">Każda karta podaje główny powód, dla którego się tam znalazła: utwór, do którego pasuje, artystę, którego słuchasz, polubienie albo to, że jest dla Ciebie nowa. Niespodzianka to karta wybrana losowo, żeby wiersz był świeży.</string>
     <string name="exclusions_info">Przytrzymaj kartę w „Szybkim wyborze”, aby wybrać „Nie ten utwór”, „Mniej tego artysty” (na miesiąc) lub „Nigdy tego artysty”. Filtrują one tylko wiersze rekomendacji, nigdy wyszukiwanie, Twoją bibliotekę ani playlisty. Ta strona pokazuje, co jest aktywne, a „Przywróć” usuwa wykluczenie.</string>
     <string name="rest_songs_i_skip_info">Pomiń utwór, który lubisz lub często odtwarzasz, przed jego połową, a przez tydzień nie pojawi się w wierszu „Najlepsze rekomendacje”. Pominięcie w pierwszych trzydziestu sekundach się nie liczy. Odpoczynek możesz zakończyć wcześniej na stronie „Wykluczenia”.</string>
@@ -1566,7 +1563,7 @@
     <string name="recommendations_learned_title_info">Wszystko poniżej jest przechowywane w aplikacji na tym telefonie i nigdy nie jest wysyłane. Kopia zapasowa to obejmuje. W sekcji „Prywatność i historia” opcja „Wstrzymaj historię odtwarzania” przestaje to zapisywać, a „Wyczyść historię odtwarzania” to usuwa.</string>
     <string name="recommendations_where_from_info">Każde miejsce liczy, ile razy zaczęto z niego słuchać. Utwory grające potem nie są liczone ponownie. Utwór wybrany samodzielnie uczy więcej niż taki, który po prostu grał dalej, a wyszukiwanie liczy się najbardziej. Gdy widnieje „nie zapisano”, aplikacja nie zanotowała, skąd zaczęło się słuchanie.</string>
     <string name="recommendations_recent_title_info">Ostatnie trzydzieści odsłuchań, z których się uczą, od najnowszych. Każdy wiersz mówi, jak skończyło się odtwarzanie, ile utworu słuchano i skąd go włączono. Dopisek „pominięte w nauce” oznacza, że kazano zapomnieć to odsłuchanie albo utwór grał z kolejki ustawionej na „Nie ucz się z tego”.</string>
-    <string name="context_chips_info">Pierwszy przycisk to Twój zwykły wiersz. Pozostałe przechylają go, dopóki nie wrócisz: „Odkrywaj” w stronę utworów dla Ciebie nowych, „Ulubione” w stronę polubionych, a „Skupienie”, „Relaks” i „Impreza” w stronę tego, czego słuchasz, gdy każdy z nich jest włączony. Ostatni przycisk działa niezależnie, z każdym z nich.</string>
+    <string name="context_chips_info">Pierwszy przycisk to Twój zwykły wiersz. Pozostałe przechylają go, dopóki nie wrócisz: „Odkrywaj” w stronę utworów dla Ciebie nowych, „Ulubione” w stronę polubionych, a „Skupienie”, „Relaks” i „Impreza” w stronę tego, czego słuchasz, gdy każdy z nich jest włączony.</string>
     <string name="context_chips">Przyciski Szybkiego wyboru</string>
     <string name="explain_what_this_does">Co robi: %1$s</string>
     <string name="explain_close">Zamknij</string>
@@ -1790,7 +1787,6 @@
     </plurals>
     <string name="quick_picks_lean">Nastawienie Szybkiego wyboru</string>
     <string name="quick_picks_lean_auto">Auto</string>
-    <string name="quick_picks_lean_new">Utwory dla mnie nowe</string>
     <string name="quick_picks_lean_artist">Więcej od artystów, do których ciągle wracam</string>
     <string name="quick_picks_lean_forgotten">Zapomniani ulubieńcy</string>
     <string name="quick_picks_lean_similar">Utwory pasujące do tego, czego teraz słucham</string>
@@ -1798,10 +1794,7 @@
     <string name="quick_picks_lean_description_compare">Około %1$d z 20 kart i %2$d z pierwszych czterech, bo „Wypróbuj oba” oddaje połowę wiersza drugiemu źródłu.</string>
     <string name="quick_picks_lean_not_source">Działa, gdy „Źródło szybkich propozycji” to „Najlepsze rekomendacje” lub „Wypróbuj oba”.</string>
     <string name="quick_picks_lean_set_aside_chip">Przycisk „%1$s” na ekranie głównym przejmuje kontrolę, gdy jest włączony.</string>
-    <string name="quick_picks_lean_set_aside_new_only">„Tylko nowe utwory” przejmuje kontrolę, gdy jest włączone.</string>
-    <string name="quick_picks_lean_new_only_strict">Przy włączonym „Tylko nowe utwory” Najlepsze rekomendacje wybierają tylko utwory, których nigdy nawet nie zaczęto, o ile jest ich dość.</string>
     <string name="quick_picks_lean_info">„Auto” to zwykły miks, oparty na tym, czego nauczyły się „Najlepsze rekomendacje”. Każdy inny wybór oddaje większość kart jednemu rodzajowi utworów. „Utwory pasujące do tego, czego teraz słucham” przebudowuje też „Szybki wybór”, gdy posłuchasz kilku utworów z innego miejsca.</string>
-    <string name="quick_picks_leaning_new">Nastawienie na utwory dla Ciebie nowe</string>
     <string name="quick_picks_leaning_artist">Nastawienie na artystów, do których ciągle wracasz</string>
     <string name="quick_picks_leaning_forgotten">Nastawienie na zapomnianych ulubieńców</string>
     <string name="quick_picks_leaning_similar">Nastawienie na to, czego teraz słuchasz</string>
@@ -1809,12 +1802,10 @@
     <string name="quick_picks_leaning_short">%1$s: na razie tylko %2$d, reszta to zwykły miks</string>
     <string name="quick_picks_leaning_none">%1$s: jeszcze nic, więc na razie to zwykły miks</string>
     <string name="quick_picks_leaning_forgotten_none">Żaden ulubiony utwór nie milczy jeszcze od 45 dni, więc na razie to zwykły miks</string>
-    <string name="chip_lean_new">Niesłuchane</string>
     <string name="chip_lean_artist">Twoi artyści</string>
     <string name="chip_lean_forgotten">Zapomniane</string>
     <string name="chip_lean_similar">Teraz grane</string>
     <string name="why_these_lean">Nastawienie: %1$s, %2$d z %3$d kart na ekranie</string>
-    <string name="adventurousness_description_lean_new">Ustalone przez nastawienie Szybkiego wyboru na utwory dla Ciebie nowe: %1$d z 20 kart.</string>
     <string name="share_link_kind_title">Udostępniane linki</string>
     <string name="share_link_youtube_music">Link do YouTube Music</string>
     <string name="share_link_page">Strona dla każdej aplikacji muzycznej</string>

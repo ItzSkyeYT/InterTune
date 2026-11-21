@@ -49,7 +49,6 @@ import com.dd3boh.outertune.constants.FamiliarMixKey
 import com.dd3boh.outertune.constants.MixShareKey
 import com.dd3boh.outertune.BuildConfig
 import com.dd3boh.outertune.constants.LearnFromListeningKey
-import com.dd3boh.outertune.constants.NewSongsOnlyKey
 import com.dd3boh.outertune.constants.QuickPicksLeanKey
 import com.dd3boh.outertune.constants.QuickPicksSource
 import com.dd3boh.outertune.constants.QuickPicksSourceKey
@@ -108,7 +107,6 @@ fun RecommendationsSettings(
     val (rankWithListening, onRankWithListeningChange) = rememberPreference(RankWithListeningKey, defaultValue = true)
     val (showReasons, onShowReasonsChange) = rememberPreference(ShowReasonsKey, defaultValue = true)
     val (adventurousness, onAdventurousnessChange) = rememberPreference(AdventurousnessKey, defaultValue = DefaultAdventurousness)
-    val (newSongsOnly, onNewSongsOnlyChange) = rememberPreference(NewSongsOnlyKey, defaultValue = false)
     val (discoverRow, onDiscoverRowChange) = rememberPreference(DiscoverRowKey, defaultValue = true)
     val (familiarity, onFamiliarityChange) = rememberPreference(FamiliarityKey, defaultValue = 25)
     // The new Auto under test (two Developer switches, debug builds): the mix is learned, so the
@@ -183,18 +181,18 @@ fun RecommendationsSettings(
             if (Unreleased.EXPLAIN_PICTURES) {
                 PinnedPicture(foot = { rowFoot.floatValue }, held = true, ground = MaterialTheme.colorScheme.surface) {
                     RowPicturePanel(
-                        if (newAuto) LeanChoice.learnedMix(share, adventurousness, chip, newSongsOnly)
-                        else LeanChoice.mix(lean, adventurousness / 100.0, familiarity / 100.0, chip, newSongsOnly)
+                        if (newAuto) LeanChoice.learnedMix(share, adventurousness, chip)
+                        else LeanChoice.mix(lean, adventurousness / 100.0, familiarity / 100.0, chip)
                     )
                 }
             }
             // First in the group: it decides what most of the row is, and the sliders below
             // share out what it leaves. The line under the choice says what it does as things
-            // stand, since another source, a chip or New songs only can each leave it waiting.
+            // stand, since another source or a chip can each leave it waiting.
             val leanTitle = stringResource(R.string.quick_picks_lean)
             val leanInfo = stringResource(R.string.quick_picks_lean_info)
-            val leanLine = remember(lean, quickPicksSource, chip, newSongsOnly, adventurousness) {
-                LeanChoice.line(lean, quickPicksSource, chip, newSongsOnly, adventurousness / 100.0)
+            val leanLine = remember(lean, quickPicksSource, chip, adventurousness) {
+                LeanChoice.line(lean, quickPicksSource, chip, adventurousness / 100.0)
             }
             Column(Modifier.onGloballyPositioned { rowFoot.floatValue = it.positionInWindow().y + it.size.height }) {
                 EnumListPreference(
@@ -220,12 +218,11 @@ fun RecommendationsSettings(
                 PreferenceEntry(
                     modifier = Modifier.tourTarget(Tour.SETTING_ADVENTUROUSNESS).settingRow(R.string.adventurousness),
                     title = { Text(stringResource(if (newAuto) R.string.new_auto_new_songs else R.string.adventurousness)) },
-                    // While Never heard leads the row the slider no longer sets this count, and the line says what does.
                     description = when {
                         newAuto -> stringResource(R.string.new_auto_new_songs_description, LeanChoice.learnedNewCards(share, adventurousness))
                         else -> stringResource(
-                            if (LeanChoice.newSetByChoice(lean, chip, newSongsOnly)) R.string.adventurousness_description_lean_new else R.string.adventurousness_description,
-                            LeanChoice.newCards(lean, adventurousness / 100.0, familiarity / 100.0, chip, newSongsOnly),
+                            R.string.adventurousness_description,
+                            LeanChoice.newCards(lean, adventurousness / 100.0, familiarity / 100.0, chip),
                         )
                     },
                     onClick = null,
@@ -241,7 +238,7 @@ fun RecommendationsSettings(
                     PreferenceEntry(
                         modifier = Modifier.tourTarget(SettingJumps.FAMILIARITY).settingRow(R.string.familiarity),
                         title = { Text(stringResource(R.string.familiarity)) },
-                        description = stringResource(R.string.familiarity_description, LeanChoice.againCards(lean, adventurousness / 100.0, familiarity / 100.0, chip, newSongsOnly)),
+                        description = stringResource(R.string.familiarity_description, LeanChoice.againCards(lean, adventurousness / 100.0, familiarity / 100.0, chip)),
                         onClick = null,
                     )
                     Slider(
@@ -251,14 +248,6 @@ fun RecommendationsSettings(
                         modifier = Modifier.padding(horizontal = 16.dp),
                     )
                 }
-                ExplainedSwitchPreference(
-                    modifier = Modifier.settingRow(R.string.new_songs_only),
-                    title = stringResource(R.string.new_songs_only),
-                    explanation = stringResource(R.string.new_songs_only_info),
-                    description = stringResource(R.string.new_songs_only_description),
-                    checked = newSongsOnly,
-                    onCheckedChange = onNewSongsOnlyChange,
-                )
             }
             // Needs the Last.fm key built into the app. A build without one, or a copy not signed with
             // the release key, has nothing to ask with, so the choice is not shown rather than shown
@@ -371,18 +360,16 @@ fun RecommendationsSettings(
 /** The line under Quick picks leans toward, in words. */
 @Composable
 private fun leanLineText(line: LeanLine): String = when (line) {
-    is LeanLine.SetAside -> if (line.newOnly) stringResource(leanLineString(line)) else stringResource(leanLineString(line), stringResource(contextChipName(line.chip)))
+    is LeanLine.SetAside -> stringResource(leanLineString(line), stringResource(contextChipName(line.chip)))
     is LeanLine.Leading -> stringResource(leanLineString(line), line.cards)
     is LeanLine.TryBoth -> stringResource(leanLineString(line), line.cards, line.first)
-    LeanLine.NotSource, LeanLine.StrictNew -> stringResource(leanLineString(line))
+    LeanLine.NotSource -> stringResource(leanLineString(line))
 }
 
 /** Which sentence the line under Quick picks leans toward is. */
 internal fun leanLineString(line: LeanLine): Int = when (line) {
     LeanLine.NotSource -> R.string.quick_picks_lean_not_source
-    is LeanLine.SetAside -> if (line.newOnly) R.string.quick_picks_lean_set_aside_new_only else R.string.quick_picks_lean_set_aside_chip
-    // Never heard is not set aside by New songs only: it keeps it to songs never even started.
-    LeanLine.StrictNew -> R.string.quick_picks_lean_new_only_strict
+    is LeanLine.SetAside -> R.string.quick_picks_lean_set_aside_chip
     is LeanLine.Leading -> R.string.quick_picks_lean_description
     is LeanLine.TryBoth -> R.string.quick_picks_lean_description_compare
 }

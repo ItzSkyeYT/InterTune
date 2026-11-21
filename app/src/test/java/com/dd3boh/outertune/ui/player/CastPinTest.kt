@@ -189,6 +189,6 @@ class CastPinTest {
     @Test
     fun `the app opens its settings with it, after Classic's place is written down`() {
         val dataStore = File(source, "utils/DataStore.kt").readText()
-        assertTrue("produceMigrations = { listOf(NewInstallSongCache, LyricsTimingOnTime, PinsBefore013, ClassicPinsBefore013, CastPinAtUpdate) }," in dataStore)
+        assertTrue("produceMigrations = { listOf(NewInstallSongCache, LyricsTimingOnTime, PinsBefore013, ClassicPinsBefore013, CastPinAtUpdate, NeverHeardToDiscover) }," in dataStore)
     }
 }

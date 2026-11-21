@@ -92,6 +92,8 @@ data class SongRow(
     val isLocal: Boolean = false,
     /** False for a local file that is gone, or anything that cannot play right now. */
     val playable: Boolean = true,
+    /** Downloaded to the phone: a song the listener knows, whatever the listen log says. */
+    val downloaded: Boolean = false,
 )
 
 /** Seed to candidate, with the [Provenance] bits of the lists that hold it: YouTube's, Last.fm's or both. */
@@ -128,13 +130,19 @@ data class EngineInput(
     val notSeeds: Set<String> = emptySet(),
     /** The [ContextChip] the row is built for. */
     val chip: Int = ContextChip.AUTO,
+    /**
+     * Every song the listener knows, read from the database for this build ([EngineSql.KNOWN_SONGS]).
+     * The engine adds what its own rows say (listens, likes, the library, downloads, local files),
+     * so a build given none still keeps to the rule, only without playlists.
+     */
+    val known: HeardSet = HeardSet.EMPTY,
 )
 
 /**
  * The declared context: a chip above the engine row, kept until changed, stamped on every listen
- * that starts while it is on. Auto is the ordinary row; Discover raises the explore share;
- * Favourites seeds from likes only; Focus, Chill and Party learn from the listener alone, from
- * what was played while each was on.
+ * that starts while it is on. Auto is the ordinary row; Discover is songs never heard, every card,
+ * by [HeardSet]'s rule; Favourites seeds from likes only; Focus, Chill and Party learn from the
+ * listener alone, from what was played while each was on.
  */
 object ContextChip {
     const val AUTO = 0
@@ -199,9 +207,8 @@ data class BuiltRow(
     /** The Last.fm share this build aimed its similar songs at, or null when it drew on one source. */
     val lastFmShare: Double? = null,
     /**
-     * The lean this build applied: AUTO when none is set, when a chip or New songs only set it
-     * aside, for Never heard under New songs only, where the whole row is new and no lane leads,
-     * and when the lean had too little to give and the row is Auto's (see [gaveWay]).
+     * The lean this build applied: AUTO when none is set, when a chip set it aside, and when the
+     * lean had too little to give and the row is Auto's (see [gaveWay]).
      */
     val lean: Lean = Lean.AUTO,
     /** How many of the lead lane's cards the build placed, for the heading's "only N right now". */
@@ -235,12 +242,16 @@ data class LeanGaveWay(val lean: Lean, val nothing: Boolean)
  *
  * Auto is the ordinary row. Each other value gives one existing lane most of the row and the
  * whole first column, narrowed to what its label promises, and leaves the rest to the usual mix:
- * Never heard (explore), Your artists (artist), Forgotten (rediscover), Playing now (related). The
- * code is what row_build stores, never the ordinal, as with [Lane] and the play origins.
+ * Your artists (artist), Forgotten (rediscover), Playing now (related). The code is what row_build
+ * stores, never the ordinal, as with [Lane] and the play origins.
+ *
+ * Code 1 was Never heard, taken out on 21 Nov 2026 with New songs only: songs never heard are the
+ * Discover chip's, by one rule ([HeardSet]). A stored Never heard lands on that chip
+ * (NeverHeardToDiscover), and the code is never given to anything else, since builds made under it
+ * are still graded by it ([leadLaneOfCode]).
  */
 enum class Lean(val code: Int, val lane: Lane?) {
     AUTO(0, null),
-    NEW(1, Lane.EXPLORE),
     ARTIST(2, Lane.ARTIST),
     FORGOTTEN(3, Lane.REDISCOVER),
     SIMILAR(4, Lane.RELATED),
@@ -256,21 +267,28 @@ enum class Lean(val code: Int, val lane: Lane?) {
     FAMILIAR(5, Lane.AGAIN);
 
     companion object {
+        /** Never heard's code, kept on the builds made under it. */
+        const val RETIRED_NEVER_HEARD = 1
+
         fun ofCode(code: Int): Lean = entries.firstOrNull { it.code == code } ?: AUTO
         fun ofName(name: String?): Lean = entries.firstOrNull { it.name == name } ?: AUTO
 
         /**
-         * The lean a build follows. A chip or New songs only is a request for right now and wins
-         * over the standing choice, except where following it would make the row less of what the
-         * lean promises: under Never heard, Discover and New songs only keep the lean and narrow
-         * it. A mood under Playing now is a request to break the run the lean follows, so the
-         * lean is set aside. The Discover something new row never leans.
+         * The lane a stored build's lean gave most of the row to, for grading and pool picks: a
+         * build made under Never heard before it was taken out led with new songs, and its
+         * impressions are weighed as they were when it was built.
          */
-        fun applied(stored: Lean, chip: Int, newOnly: Boolean, neverPlayed: Boolean): Lean = when {
+        fun leadLaneOfCode(code: Int): Lane? = if (code == RETIRED_NEVER_HEARD) Lane.EXPLORE else ofCode(code).lane
+
+        /**
+         * The lean a build follows. A chip is a request for right now and wins over the standing
+         * choice: Discover and Favourites set it aside, and a mood under Playing now is a request
+         * to break the run the lean follows, so the lean is set aside there too. Any other mood
+         * keeps the lean. The Discover something new row never leans.
+         */
+        fun applied(stored: Lean, chip: Int, neverPlayed: Boolean): Lean = when {
             neverPlayed || stored == AUTO -> AUTO
-            newOnly -> if (stored == NEW) NEW else AUTO
-            chip == ContextChip.FAVOURITES -> AUTO
-            chip == ContextChip.DISCOVER -> if (stored == NEW) NEW else AUTO
+            chip == ContextChip.FAVOURITES || chip == ContextChip.DISCOVER -> AUTO
             chip in ContextChip.MOODS && stored == SIMILAR -> AUTO
             else -> stored
         }

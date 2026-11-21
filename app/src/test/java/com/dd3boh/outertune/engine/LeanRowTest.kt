@@ -73,8 +73,8 @@ class LeanRowTest {
     @Test
     fun `the heading says short or nothing only when the engine itself ran short`() {
         assertNull(LeanRow.heading(Lean.AUTO, 0, 0, 0))
-        assertEquals(LeanHeadingKind.LEANING, LeanRow.heading(Lean.NEW, 12, 12, 11))   // one lost to tidy: not announced
-        assertEquals(LeanHeadingKind.LEANING, LeanRow.heading(Lean.NEW, 12, 13, 13))
+        assertEquals(LeanHeadingKind.LEANING, LeanRow.heading(Lean.ARTIST, 12, 12, 11))   // one lost to tidy: not announced
+        assertEquals(LeanHeadingKind.LEANING, LeanRow.heading(Lean.ARTIST, 12, 13, 13))
         assertEquals(LeanHeadingKind.SHORT, LeanRow.heading(Lean.FORGOTTEN, 12, 5, 5))
         assertEquals(LeanHeadingKind.SHORT, LeanRow.heading(Lean.FORGOTTEN, 12, 5, 4))
         assertEquals(LeanHeadingKind.NOTHING, LeanRow.heading(Lean.FORGOTTEN, 12, 0, 0))
@@ -96,7 +96,7 @@ class LeanRowTest {
         // What a build was for: the lean it followed, or the one it gave way on.
         val cards = emptyList<Card>()
         assertEquals(Lean.ARTIST, BuiltRow(cards, emptyList(), cards, emptyMap(), gaveWay = LeanGaveWay(Lean.ARTIST, true)).asked)
-        assertEquals(Lean.NEW, BuiltRow(cards, emptyList(), cards, emptyMap(), lean = Lean.NEW).asked)
+        assertEquals(Lean.FORGOTTEN, BuiltRow(cards, emptyList(), cards, emptyMap(), lean = Lean.FORGOTTEN).asked)
         assertEquals(Lean.AUTO, BuiltRow(cards, emptyList(), cards, emptyMap()).asked)
     }
 
@@ -106,7 +106,7 @@ class LeanRowTest {
         val all = row.mapTo(HashSet()) { it.songId }
         assertEquals(all, LeanRow.pullBanned(row, Lean.AUTO, 4))
         assertEquals(all, LeanRow.pullBanned(row, Lean.ARTIST, 4))
-        assertEquals(all, LeanRow.pullBanned(row, Lean.NEW, 4))
+        assertEquals(all, LeanRow.pullBanned(row, Lean.FORGOTTEN, 4))
         val similar = LeanRow.pullBanned(row, Lean.SIMILAR, 4)
         assertEquals(setOf("c0", "c1", "c2", "c3") + row.drop(4).filter { it.lane != Lane.RELATED }.map { it.songId }, similar)
         assertFalse("c4" in similar)

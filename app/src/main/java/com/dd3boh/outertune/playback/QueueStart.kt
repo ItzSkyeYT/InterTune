@@ -7,6 +7,7 @@
 package com.dd3boh.outertune.playback
 
 import android.util.Log
+import com.dd3boh.outertune.engine.HeardSet
 import com.dd3boh.outertune.models.AiFilter
 import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.models.MultiQueueObject
@@ -65,6 +66,11 @@ import kotlinx.coroutines.withContext
  * its own title that had been shuffled (issue #42). A list's Play and Shuffle buttons say
  * themselves how the list is to play and are no picks. In debug builds a pick also keeps the songs
  * put in with Play next that have not played yet, right after the picked song ([PlayNextWaiting]).
+ *
+ * A Discover pick's queue holds only songs never heard ([NeverHeardQueue]): what the listener knows is
+ * read once as the song tapped starts, the answer keeps the song tapped and the songs never heard, and
+ * more of the radio's pages, then the songs related to the one tapped, are asked for while too few
+ * pass ([keptNeverHeard]). Every start tells the queue whether it is one ([Target.keepNeverHeard]).
  */
 internal class QueueStart(private val service: Target) {
 
@@ -166,6 +172,18 @@ internal class QueueStart(private val service: Target) {
 
         /** [queue] was loaded with the app's own picks after its first song: for the queue's line. */
         fun pickedByInterTune(queue: MultiQueueObject) {}
+
+        /**
+         * Every song the listener knows, read once from the database for the queue of a Discover
+         * pick (NeverHeardQueue, EngineSql.KNOWN_SONGS). Nothing when the read fails; never throws.
+         */
+        suspend fun knownSongs(): HeardSet = HeardSet.EMPTY
+
+        /**
+         * [queue] kept to [heard] from now on, or with null to nothing (NeverHeardQueues): every start
+         * says which, since a queue of the same title is refilled and reused. Never throws.
+         */
+        fun keepNeverHeard(queue: MultiQueueObject, heard: HeardSet?) {}
     }
 
     /**
@@ -177,6 +195,7 @@ internal class QueueStart(private val service: Target) {
      * start, the first song played without it and its change into the second always stayed plain.
      * @param byHand the listener put the queue's songs in by hand (Play next or Add to queue with no
      * queue to go to): they are noted so ([Target.putInByHand]) before the queue loads.
+     * @param neverHeard a Discover pick: the queue holds only songs never heard ([NeverHeardQueue]).
      * @return whether this queue was started: false for a start dropped for a newer one or for a
      * service torn down, so the caller leaves alone the queue that plays.
      * @throws Exception whatever the queue's answer failed with. The caller reports it.
@@ -193,6 +212,7 @@ internal class QueueStart(private val service: Target) {
         runId: Long,
         beforeStart: () -> Unit = {},
         byHand: Boolean = false,
+        neverHeard: Boolean = false,
     ): Boolean {
         val number = ++lastStart
         var queueTitle = title
@@ -237,6 +257,11 @@ internal class QueueStart(private val service: Target) {
             service.start(playWhenReady)
         }
 
+        // What the listener knows, read once for a Discover pick's queue while its song starts.
+        val heard = if (neverHeard) service.knownSongs() else null
+        if (service.destroyed || number != lastStart) return false
+        q?.let { service.keepNeverHeard(it, heard) }
+
         val answer = try {
             withContext(Dispatchers.IO) { queue.getInitialStatus() }
         } catch (e: Exception) {
@@ -261,11 +286,13 @@ internal class QueueStart(private val service: Target) {
             Log.d(TAG, "playQueue: Queue initial status dropped, another queue was asked for since")
             return false
         }
-        val initialStatus = if (isRadio && preloadItem != null && answer.items.size == 1) {
+        val whole = if (isRadio && preloadItem != null && answer.items.size == 1) {
             filled(answer, preloadItem) { !service.destroyed && number == lastStart } ?: return false
         } else {
             answer
         }
+        val initialStatus = if (heard == null) whole
+            else keptNeverHeard(whole, preloadItem, queue, heard, isRadio) { !service.destroyed && number == lastStart } ?: return false
         // The queue of one goes once the full queue is loaded, where a queue of the answer's title
         // is on the board already: the board fills that one, and renaming the queue of one as
         // well left two queues of one name, one of them a single song. A radio started twice
@@ -304,6 +331,7 @@ internal class QueueStart(private val service: Target) {
             full?.origin = origin
             full?.originSlot = originSlot
             full?.runId = runId
+            if (full != null) service.keepNeverHeard(full, heard)
             // Into the queue before it is loaded, so the player gets them with the rest of it.
             if (full != null && waiting != null) service.keepPlayNext(full, waiting)
             // Noted before the load as well, which is the first of them becoming current.
@@ -345,6 +373,48 @@ internal class QueueStart(private val service: Target) {
         if (own.isEmpty()) return status
         Log.d(TAG, "playQueue: Radio of one, ${own.size} of the app's own picks after it")
         return status.copy(items = status.items + own, mediaItemIndex = 0, fromInterTune = true)
+    }
+
+    /**
+     * [status] kept to the songs [heard] does not know, the song it starts from staying ([seed], the
+     * song tapped), for a Discover pick's queue. While fewer than [NeverHeardQueue.ENOUGH] are left,
+     * the radio's next pages, a few at most, and then the songs related to [seed] as [filled] reads
+     * them. Says in the log how many it passed over. Null when [wanted] says, after a wait, that this
+     * start is no longer wanted.
+     */
+    private suspend fun keptNeverHeard(status: Queue.Status, seed: MediaMetadata?, queue: Queue, heard: HeardSet, isRadio: Boolean, wanted: () -> Boolean): Queue.Status? {
+        var (kept, passedOver) = NeverHeardQueue.status(status, heard, seed?.id)
+        fun few() = kept.items.count { it.id != seed?.id } < NeverHeardQueue.ENOUGH
+        var pages = 0
+        while (few() && pages < NeverHeardQueue.MORE_PAGES && queue.hasNextPage()) {
+            val page = try {
+                withContext(Dispatchers.IO) { queue.nextPage() }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.w(TAG, "playQueue: Discover queue, a next page failed", e)
+                break
+            }
+            if (!wanted()) return null
+            pages++
+            val more = NeverHeardQueue.keep(RadioPage.fresh(page, kept.items + listOfNotNull(seed)), heard)
+            passedOver += more.passedOver
+            kept = kept.copy(items = kept.items + more.songs)
+        }
+        if (few() && isRadio && seed != null) {
+            val stored = service.storedRelated(seed)
+            if (!wanted()) return null
+            val related = stored.ifEmpty { service.fetchRelated(seed, status.relatedEndpoint) }
+            if (!wanted()) return null
+            val more = NeverHeardQueue.keep(RadioPage.fresh(related, kept.items + seed), heard)
+            passedOver += more.passedOver
+            kept = kept.copy(items = kept.items + more.songs)
+        }
+        // The song tapped is where the queue starts, before what was found for it (withPreload puts
+        // it in the place the answer starts from, over whatever song is there).
+        if (seed != null && kept.items.isNotEmpty() && kept.items.none { it.id == seed.id }) kept = kept.copy(items = listOf(seed) + kept.items, mediaItemIndex = 0)
+        Log.i(TAG, "playQueue: " + NeverHeardQueue.said("its start", kept.items.count { it.id != seed?.id }, passedOver, pages))
+        return kept
     }
 
     /**

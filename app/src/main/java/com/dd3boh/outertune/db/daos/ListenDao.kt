@@ -142,6 +142,10 @@ interface ListenDao {
     @Query(EngineSql.SONGS)
     fun engineSongs(): List<EngineSongRow>
 
+    /** Every song the listener knows, for Discover's rule: see [EngineSql.KNOWN_SONGS] and HeardSet. */
+    @Query(EngineSql.KNOWN_SONGS)
+    fun knownSongs(): List<com.dd3boh.outertune.engine.KnownSong>
+
     /** The songs the adaptive queue reads, see [EngineSql.SONGS_HEARD_OR_LIKED]. */
     @Query(EngineSql.SONGS_HEARD_OR_LIKED)
     fun engineSongsHeardOrLiked(): List<EngineSongRow>

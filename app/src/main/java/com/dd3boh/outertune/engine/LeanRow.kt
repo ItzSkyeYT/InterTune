@@ -27,7 +27,7 @@ enum class LeanHeadingKind {
 data class LeanOnScreen(
     /** The choice in the preferences when the row was built. */
     val stored: Lean,
-    /** What the build followed, or was to follow when it [gaveWay]; AUTO when a chip or New songs only set the choice aside. */
+    /** What the build followed, or was to follow when it [gaveWay]; AUTO when a chip set the choice aside. */
     val applied: Lean,
     /** The lead lane's quota and how many of its cards the engine placed. */
     val quota: Int,

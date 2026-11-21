@@ -29,7 +29,7 @@ import kotlin.random.Random
  * worked out apart from the engine's lanes.
  *
  * Optional: `ENGINE_REPLAY_LEAN_LAST=80` keeps the last 80 points, `ENGINE_REPLAY_LEAN_ARMS` picks
- * the arms (a lean, or a lean and a chip or NEWONLY joined by +, such as NEW+DISCOVER), and
+ * the arms (a lean, or a lean and a chip joined by +, such as AUTO+DISCOVER), and
  * `ENGINE_REPLAY_LEAN_FLAGS` adds `learn` (a learning simulation from the copy's own weights, each
  * lean three ways: unweighted, weighted as shipped, and weighted by the lead cards placed), `pull`
  * (a pull to refresh after each build) and `ff` (the Forgotten favourites row under it).
@@ -46,7 +46,6 @@ class LeanReplayTrial {
             "DISCOVER" -> ContextChip.DISCOVER; "FAVOURITES" -> ContextChip.FAVOURITES; "CHILL" -> ContextChip.CHILL
             "FOCUS" -> ContextChip.FOCUS; "PARTY" -> ContextChip.PARTY; else -> ContextChip.AUTO
         }
-        val newOnly: Boolean = name.endsWith("+NEWONLY")
     }
 
     private class Tally {
@@ -72,7 +71,7 @@ class LeanReplayTrial {
         val path = System.getenv("ENGINE_REPLAY"); val mode = System.getenv("ENGINE_REPLAY_LEAN")
         assumeTrue("set ENGINE_REPLAY and ENGINE_REPLAY_LEAN to run", !path.isNullOrBlank() && !mode.isNullOrBlank())
         val lastN = System.getenv("ENGINE_REPLAY_LEAN_LAST")?.toIntOrNull() ?: Int.MAX_VALUE
-        val arms = (System.getenv("ENGINE_REPLAY_LEAN_ARMS") ?: "AUTO,NEW,ARTIST,FORGOTTEN,SIMILAR").split(',').map { Arm(it.trim()) }
+        val arms = (System.getenv("ENGINE_REPLAY_LEAN_ARMS") ?: "AUTO,AUTO+DISCOVER,ARTIST,FORGOTTEN,SIMILAR").split(',').map { Arm(it.trim()) }
         val flags = System.getenv("ENGINE_REPLAY_LEAN_FLAGS").orEmpty().split(',').map { it.trim() }.toSet()
         // The phone's zone, for the like dates as Converters stores them.
         val zone = ZoneId.of(System.getenv("ENGINE_REPLAY_ZONE") ?: "Europe/Paris")
@@ -175,7 +174,7 @@ class LeanReplayTrial {
                 val tally = tallies[arm.name]!!
                 val input = base.copy(chip = arm.chip)
                 val n0 = System.nanoTime()
-                val row = EngineRow.build(input, p = p, dial = dial, newOnly = arm.newOnly, random = Random(pt.idx.toLong()), stored = arm.lean)
+                val row = EngineRow.build(input, p = p, dial = dial, random = Random(pt.idx.toLong()), stored = arm.lean)
                 tally.nanos += System.nanoTime() - n0
                 val lead = row.lean.lane
                 val screen = onScreen(row, played, songs)
@@ -196,7 +195,7 @@ class LeanReplayTrial {
                     tally.tryBothLead += row.cards.take(10).count { it.lane == lead }; tally.tryBothFirst += row.cards.take(2).count { it.lane == lead }
                     tally.leadFirst += screen.take(4).count { it.lane == lead }
                     tally.leadPool += (row.cards + row.pool).count { it.lane == lead }
-                    val own = when (lead) { Lane.ARTIST -> "x_art"; Lane.REDISCOVER -> "x_dorm"; Lane.RELATED -> "x_seed"; Lane.EXPLORE -> "new_to_you"; else -> "" }
+                    val own = when (lead) { Lane.ARTIST -> "x_art"; Lane.REDISCOVER -> "x_dorm"; Lane.RELATED -> "x_seed"; else -> "" }
                     tally.ownCaption += leadCards.count { it.reasons.firstOrNull() == own }
                     tally.neverStartedLead += leadCards.count { it.songId !in heardBefore }
                     tally.newArtistLead += leadCards.count { it.features[Features.NOVEL] >= 1.0 }
@@ -207,18 +206,19 @@ class LeanReplayTrial {
                     tally.startedRecentlyLead += leadCards.count { (lastStart[it.songId] ?: 0L) >= t - 14 * day }
                     // What holds on any library: each lead card is what its label says.
                     for (c in row.cards.filter { it.lane == lead }) when (row.lean) {
-                        Lean.NEW -> assertTrue("${arm.name}: ${c.songId} is not new", truth(0, c.songId))
                         Lean.ARTIST -> assertTrue("${arm.name}: ${c.songId} is not by a returning artist", truth(1, c.songId))
                         Lean.FORGOTTEN -> assertTrue("${arm.name}: ${c.songId} is not loved and quiet", truth(2, c.songId) && (lastStart[c.songId] ?: 0L) < t - p.artistLaneQuietDays * day)
                         Lean.SIMILAR -> assertTrue("${arm.name}: ${c.songId} is not from the session", c.seedId in sessionSongs)
                         else -> {}
                     }
                 } else {
+                    // Discover holds every card to songs never heard, on any library.
+                    if (arm.chip == ContextChip.DISCOVER) for (c in row.cards) assertTrue("${arm.name}: ${c.songId} is not new", truth(0, c.songId))
                     tally.newArtistLead += screen.count { it.features[Features.NOVEL] >= 1.0 }
                     tally.returningLead += screen.count { songs[it.songId]?.artistId in returning }
                     // A lean that had too little: the row is Auto's, none of its cards the lean's, under the "nothing yet" heading.
                     if (row.gaveWay != null) {
-                        tally.leadQuota += EngineRow.shape(p, dial, arm.newOnly, false, arm.chip, arm.lean).let { s -> s.lead?.let { s.quotas[it] } ?: 0 }
+                        tally.leadQuota += EngineRow.shape(p, dial, false, arm.chip, arm.lean).let { s -> s.lead?.let { s.quotas[it] } ?: 0 }
                         tally.shortOnScreen++; tally.engineShort++; tally.noneBuilds++; tally.headingNothing++
                     }
                 }
@@ -229,8 +229,8 @@ class LeanReplayTrial {
                 if ("pull" in flags && lead != null) {
                     // A pull: the whole row sits the next build out, except Playing now's lead cards past the first column.
                     val damped = input.pastSeeds + PastSeeds(t, row.seeds)
-                    val whole = EngineRow.build(input.copy(banned = row.cards.mapTo(HashSet()) { it.songId }, pastSeeds = damped), p = p, dial = dial, newOnly = arm.newOnly, random = Random(pt.idx.toLong() + 7), stored = arm.lean)
-                    val exempt = EngineRow.build(input.copy(banned = LeanRow.pullBanned(row.cards, row.lean, p.columns), pastSeeds = damped), p = p, dial = dial, newOnly = arm.newOnly, random = Random(pt.idx.toLong() + 7), stored = arm.lean)
+                    val whole = EngineRow.build(input.copy(banned = row.cards.mapTo(HashSet()) { it.songId }, pastSeeds = damped), p = p, dial = dial, random = Random(pt.idx.toLong() + 7), stored = arm.lean)
+                    val exempt = EngineRow.build(input.copy(banned = LeanRow.pullBanned(row.cards, row.lean, p.columns), pastSeeds = damped), p = p, dial = dial, random = Random(pt.idx.toLong() + 7), stored = arm.lean)
                     tally.pullBuilds++; tally.pullLeadAll += whole.leanPlaced; tally.pullLeadExempt += exempt.leanPlaced
                 }
 
@@ -252,7 +252,7 @@ class LeanReplayTrial {
                     // Every card on screen seen; played when the session went on to hear it well, else ignored.
                     // "weighted" is the shipped weight, from the lean's quota; "by placed" is the
                     // same odds rule from the lead cards the engine actually placed, for comparison.
-                    val byPlaced = lead?.let { LeanWeighting.leadWeight(EngineRow.shape(p, dial, arm.newOnly, false, arm.chip, arm.lean).autoQuotas[it] ?: 0, row.leanPlaced, p.rowSize) } ?: 1.0
+                    val byPlaced = lead?.let { LeanWeighting.leadWeight(EngineRow.shape(p, dial, false, arm.chip, arm.lean).autoQuotas[it] ?: 0, row.leanPlaced, p.rowSize) } ?: 1.0
                     fun apply(key: String, weighted: Boolean, placed: Boolean = false) {
                         val l = learners[key] ?: return
                         val u = laneU[key]!!
@@ -267,7 +267,7 @@ class LeanReplayTrial {
                     if (arm.lean == Lean.AUTO) apply(arm.name, false) else { apply(arm.name + " unweighted", false); apply(arm.name + " weighted", true); apply(arm.name + " by placed", true, placed = true) }
                 }
             }
-            val a = screens["NEW"]; val b = screens["ARTIST"]
+            val a = screens["AUTO+DISCOVER"]; val b = screens["ARTIST"]
             if (a != null && b != null) {
                 sharedPoints++
                 shared += (a.map { it.songId }.toSet() intersect b.map { it.songId }.toSet()).size
@@ -298,7 +298,7 @@ class LeanReplayTrial {
             if (t.pullBuilds > 0) out("   after a pull: lead placed %.1f with the whole row banned, %.1f with the lead past the first column let back".format(t.pullLeadAll.toDouble() / t.pullBuilds, t.pullLeadExempt.toDouble() / t.pullBuilds))
             if (t.ffPoints > 0) out("   Forgotten favourites row after Quick picks: %.1f cards; Quick picks cards in its top 100: %.2f".format(t.ffRow.toDouble() / t.ffPoints, t.ffOverlap.toDouble() / t.ffPoints))
         }
-        if (sharedPoints > 0) out("NEW and ARTIST on screen, same dice: shared cards %.2f a row, lead with lead %.2f, first column %.2f".format(shared.toDouble() / sharedPoints, sharedLead.toDouble() / sharedPoints, sharedFirst.toDouble() / sharedPoints))
+        if (sharedPoints > 0) out("DISCOVER and ARTIST on screen, same dice: shared cards %.2f a row, lead with lead %.2f, first column %.2f".format(shared.toDouble() / sharedPoints, sharedLead.toDouble() / sharedPoints, sharedFirst.toDouble() / sharedPoints))
         if (learners.isNotEmpty()) {
             out("learning from the copy's weights, every on-screen card seen, no daily budget:")
             val names = listOf("x_novel", "x_art", "x_seed", "x_dorm", "x_act", "w_pos", "b_explore", "b_related", "b_artist", "b_rediscover", "b_again")

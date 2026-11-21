@@ -89,7 +89,7 @@ class EngineLearning(private val context: Context, private val database: MusicDa
             val playedGroups = picks.keys
             val mean = LeanWeighting.reference(
                 (cards + pool).filter { it.songId in shownSet && groups.groupOf(it.songId) !in playedGroups }.distinctBy { it.songId },
-                Lean.ofCode(b.leanApplied).lane, b.leadWeight,
+                Lean.leadLaneOfCode(b.leanApplied), b.leadWeight,
             ) ?: continue
             val poolPicks = LeanWeighting.poolPickCandidates(pool).filter { c -> groups.groupOf(c.songId) in playedGroups && groups.groupOf(c.songId) !in rowGroups }.take(3)
             if (poolPicks.isEmpty()) continue
