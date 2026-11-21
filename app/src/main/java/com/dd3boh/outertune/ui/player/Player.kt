@@ -56,6 +56,8 @@ import com.dd3boh.outertune.ui.component.hapticsLive
 import com.dd3boh.outertune.ui.component.segmentTick
 import com.dd3boh.outertune.ui.component.tapTick
 import com.dd3boh.outertune.ui.component.Feel
+import com.dd3boh.outertune.ui.component.buttonFeel
+import com.dd3boh.outertune.ui.component.felt
 import com.dd3boh.outertune.ui.component.rememberSleepTimerState
 import com.dd3boh.outertune.ui.component.openProxySetting
 import androidx.compose.material3.Icon
@@ -1437,7 +1439,7 @@ fun BottomSheetPlayer(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = hPadding)
-                        .padding(top = 16.dp)
+                        .padding(top = ConnectedRowGap.above(compactPlayer))
                 ) {
                     if (rowRoomFirst) roomSegment(true)
                     if (queueLayout.queueButton) queueSegment()
@@ -1754,9 +1756,11 @@ fun BottomSheetPlayer(
                                     // first tap loads it, as skip and play do, and as the queue's own bar does (#127).
                                     // Read straight from the player, the button stayed greyed out until play.
                                     onClick = {
+                                        // Under Strong as a like: read before the tap turns it.
+                                        val feel = buttonFeel(turnsOff = shuffleModeEnabled)
                                         playerConnection.loadQueueIfEmpty()
                                         playerConnection.triggerShuffle()
-                                        haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
+                                        haptic.felt(feel, HapticFeedbackType.SegmentFrequentTick)
                                     }
                                 )
                             }
@@ -1772,7 +1776,7 @@ fun BottomSheetPlayer(
                                     color = onBackgroundColor,
                                     onClick = {
                                         playerConnection.loadQueueIfEmpty().seekToPrevious()
-                                        haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
+                                        haptic.felt(Feel.FIRM, HapticFeedbackType.SegmentFrequentTick)
                                     }
                                 )
                             }
@@ -1856,7 +1860,7 @@ fun BottomSheetPlayer(
                                         // Cold start: the restored queue is only in the queue board until
                                         // something loads it into the player, same as Previous and Play above.
                                         playerConnection.loadQueueIfEmpty().seekToNext()
-                                        haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
+                                        haptic.felt(Feel.FIRM, HapticFeedbackType.SegmentFrequentTick)
                                     }
                                 )
                             }
@@ -1875,8 +1879,10 @@ fun BottomSheetPlayer(
                                     // leaves it as it is.
                                     enabled = true,
                                     onClick = {
+                                        // Off, all, one, off: only from one does a tap turn it off.
+                                        val feel = buttonFeel(turnsOff = repeatMode == REPEAT_MODE_ONE)
                                         playerConnection.player.toggleRepeatMode()
-                                        haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
+                                        haptic.felt(feel, HapticFeedbackType.SegmentFrequentTick)
                                     }
                                 )
                             }
@@ -2677,8 +2683,8 @@ private fun PlayerCircleButton(
     nudge: Dp = 0.dp,
     /** For a button that turns something on and off, whether it is on ([onOffState]); null for one that only acts. */
     on: Boolean? = null,
-    /** What a tap feels like under the Vibration setting's Strong (Haptics): a like's two clicks, else a tick. */
-    tap: Feel = Feel.TICK,
+    /** What a tap feels like under the Vibration setting's Strong (Haptics): a like's own, else as [buttonFeel] says of [on]. */
+    tap: Feel = buttonFeel(turnsOff = on),
 ) {
     val haptic = LocalHapticFeedback.current
     // A long press says the button's own name (LongPressLabel), nothing shown otherwise. The label's box
@@ -2725,8 +2731,8 @@ private fun PlayerActionSegment(
     nudge: Dp = 0.dp,
     /** For a button that turns something on and off, whether it is on ([onOffState]); null for one that only acts. */
     on: Boolean? = null,
-    /** What a tap feels like under the Vibration setting's Strong (Haptics): a like's two clicks, else a tick. */
-    tap: Feel = Feel.TICK,
+    /** What a tap feels like under the Vibration setting's Strong (Haptics): a like's own, else as [buttonFeel] says of [on]. */
+    tap: Feel = buttonFeel(turnsOff = on),
 ) {
     val haptic = LocalHapticFeedback.current
     // A long press says the button's own name (LongPressLabel), nothing shown otherwise.

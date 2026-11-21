@@ -30,6 +30,9 @@ fun HapticFeedback.tapTick(strong: Feel = Feel.TICK) {
     if (Unreleased.HAPTICS_MORE) Haptics.play(strong) { performHapticFeedback(HapticFeedbackType.ContextClick) }
 }
 
+/** [light], the haptic a button has always asked, under Light; [strong] under Strong; nothing under Off. */
+fun HapticFeedback.felt(strong: Feel, light: HapticFeedbackType) = Haptics.play(strong) { performHapticFeedback(light) }
+
 /**
  * Whether Compose gives haptics on this phone at all. Compose 1.9 hands every haptic to one that does nothing unless the
  * phone runs Android 12 or later with a vibrator that plays the click, tick and thud primitives (its HapticDefaults,

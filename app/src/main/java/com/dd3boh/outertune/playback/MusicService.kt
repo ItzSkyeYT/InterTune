@@ -537,6 +537,9 @@ class MusicService : MediaLibraryService(),
     /** A listening room while one lasts (together/TogetherSession), null otherwise. */
     val together = MutableStateFlow<TogetherSession?>(null)
 
+    /** A room this phone was in is on its way back with this service ([rejoinSavedRoom]): the sheet keeps showing it. */
+    val togetherComing = MutableStateFlow(false)
+
     /** The room this phone is in, kept so that it comes back: see [RoomMemory]. */
     private val roomMemory by lazy { RoomMemory(File(noBackupFilesDir, RoomMemory.FILE)) }
     private var roomTouchedAt = 0L
@@ -622,17 +625,22 @@ class MusicService : MediaLibraryService(),
         if (!togetherAvailable) return
         val saved = roomMemory.load(System.currentTimeMillis()) ?: return
         val code = RoomCode.parse(saved.code) ?: return
+        togetherComing.value = true
         scope.launch {
-            val relays = togetherRelays(this@MusicService)
-            val name = togetherName(this@MusicService)
-            if (together.value != null || destroyed) return@launch
-            Log.i(TAG, "A room this phone was in comes back, as ${if (saved.owner) "its host" else "a guest"}")
-            startTogether(
-                code, saved.owner, relays, name,
-                identity = saved.identity.hexToBytes(),
-                // A guest goes on from the last time it heard the host, not from now.
-                hostHeardAt = saved.aliveAt.takeIf { !saved.owner },
-            )
+            try {
+                val relays = togetherRelays(this@MusicService)
+                val name = togetherName(this@MusicService)
+                if (together.value != null || destroyed) return@launch
+                Log.i(TAG, "A room this phone was in comes back, as ${if (saved.owner) "its host" else "a guest"}")
+                startTogether(
+                    code, saved.owner, relays, name,
+                    identity = saved.identity.hexToBytes(),
+                    // A guest goes on from the last time it heard the host, not from now.
+                    hostHeardAt = saved.aliveAt.takeIf { !saved.owner },
+                )
+            } finally {
+                togetherComing.value = false
+            }
         }
     }
 
@@ -6995,11 +7003,11 @@ class MusicService : MediaLibraryService(),
     }
 
     /**
-     * Whether the service is in the foreground now, media3's notification or the plain one. Before
-     * Android 10 only media3 can say, of its own notification.
+     * Whether the service is in the foreground now, media3's notification or the plain one, as
+     * Android has it ([inForeground]). Before Android 10, or when Android's list cannot be read,
+     * media3 says, of its own notification.
      */
-    private fun foregroundNow(): Boolean =
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) foregroundServiceType != 0 else isPlaybackOngoing
+    private fun foregroundNow(): Boolean = inForeground() ?: isPlaybackOngoing
 
     /** Before the end of Android's time for a media button's start: see [holdForegroundForMediaButton]. */
     private val mediaButtonGuard = object : Runnable {
@@ -7345,9 +7353,17 @@ class MusicService : MediaLibraryService(),
     /** Whether the screen is on, for the lines that say why the music stopped. */
     private fun screenOn(): Boolean? = getSystemService<PowerManager>()?.isInteractive
 
-    /** Whether this service is in the foreground, which Android 10 and later can say. */
-    private fun inForeground(): Boolean? =
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) foregroundServiceType != ServiceInfo.FOREGROUND_SERVICE_TYPE_NONE else null
+    /**
+     * Whether this service is in the foreground, which Android 10 and later can say: from Android 14
+     * in foregroundServiceType, and on 10 to 13, which leave the type of the last startForeground
+     * there once the service has left the foreground, in Android's list of the app's own services
+     * ([MediaButtonStart.listedInForeground]).
+     */
+    private fun inForeground(): Boolean? = when {
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE -> foregroundServiceType != ServiceInfo.FOREGROUND_SERVICE_TYPE_NONE
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q -> MediaButtonStart.listedInForeground(this, ComponentName(this, MusicService::class.java))
+        else -> null
+    }
 
     override fun onTaskRemoved(rootIntent: Intent?) {
         Log.i(TAG, "onTaskRemoved called")

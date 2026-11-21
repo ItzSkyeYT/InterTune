@@ -40,6 +40,7 @@ import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -86,6 +87,7 @@ import com.dd3boh.outertune.constants.LivingColoursKey
 import com.dd3boh.outertune.constants.LivingSmoothingKey
 import com.dd3boh.outertune.constants.LivingStrengthKey
 import com.dd3boh.outertune.constants.PlayerGlassIntensityKey
+import com.dd3boh.outertune.constants.PlayerLiquidGlassKey
 import com.dd3boh.outertune.constants.PlayerHorizontalPadding
 import com.dd3boh.outertune.constants.ThumbnailCornerRadius
 import com.dd3boh.outertune.ui.player.LivingBackground
@@ -107,7 +109,7 @@ import kotlin.math.roundToInt
 /**
  * Living blur tuned on the whole screen (his ask of 20 Nov 2026, a mockup first): the player's own
  * picture behind everything, the cover where the player has it, and the three settings that shape
- * the picture in one glass bar where the player's controls are. Every change is the setting itself,
+ * the picture in one bar where the player's controls are, glass with Liquid glass on. Every change is the setting itself,
  * so the player has it at once. The eye hides the bar, to see the picture whole.
  *
  * In the debug app, the Preview and the Tester app (Unreleased.LIVING_TUNE), his pick of 20 Nov 2026.
@@ -126,6 +128,8 @@ fun LivingBlurTune(onClose: () -> Unit) {
     val (smoothing, onSmoothing) = rememberPreference(LivingSmoothingKey, LivingField.DEFAULT_SMOOTHING)
     val (colours, onColours) = rememberEnumPreference(LivingColoursKey, LivingColours.MAIN)
     val glassIntensity by rememberPreference(PlayerGlassIntensityKey, 1f)
+    // Glass only where the player has it (Ti-Die, #testers 21 Nov 2026: it was glass with Liquid glass off).
+    val liquidGlass by rememberPreference(PlayerLiquidGlassKey, defaultValue = false)
     val still = LocalGlassStill.current
     var barShown by rememberSaveable { mutableStateOf(true) }
     val queueTitle = stringResource(R.string.player_living_sample_queue)
@@ -150,10 +154,17 @@ fun LivingBlurTune(onClose: () -> Unit) {
         // The player's wash over the picture, as the sample in Settings has it.
         val scrim = (if (dark) Color.Black else Color.White).copy(alpha = if (dark) 0.3f else 0.45f)
         val spec = GlassSpec(backdrop, glassIntensity.coerceIn(0f, 1f), still = still)
-        val pane = Pane(spec, if (still) spec.stillFill() else spec.tint())
+        val pane = if (liquidGlass) Pane(spec, if (still) spec.stillFill() else spec.tint())
+        // Without glass a plain back panel, nothing blurred and no rim, so what is on it stays readable.
+        else Pane(spec, MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.9f), glass = false)
+        val reset = {
+            onStrength(LivingField.DEFAULT_STRENGTH)
+            onSmoothing(LivingField.DEFAULT_SMOOTHING)
+            onColours(LivingColours.MAIN)
+        }
 
         Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
-            Box(Modifier.fillMaxSize().then(if (still) Modifier else Modifier.layerBackdrop(backdrop))) {
+            Box(Modifier.fillMaxSize().then(if (still || !liquidGlass) Modifier else Modifier.layerBackdrop(backdrop))) {
                 LivingBackground(
                     cover = song?.getThumbnailModel(100, 100),
                     tap = playerConnection.service.levelTap,
@@ -172,20 +183,17 @@ fun LivingBlurTune(onClose: () -> Unit) {
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
                 ) {
-                    GlassRoundButton(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.back), pane, onClose)
+                    TuneRoundButton(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.back), pane, onClose)
                     Spacer(Modifier.weight(1f))
-                    TextButton(
-                        onClick = {
-                            onStrength(LivingField.DEFAULT_STRENGTH)
-                            onSmoothing(LivingField.DEFAULT_SMOOTHING)
-                            onColours(LivingColours.MAIN)
-                        },
-                        modifier = Modifier.height(48.dp).pane(pane, RoundedCornerShape(24.dp)),
-                    ) {
-                        Text(stringResource(R.string.reset), color = MaterialTheme.colorScheme.onSurface)
+                    if (pane.glass) {
+                        TextButton(onClick = reset, modifier = Modifier.height(48.dp).pane(pane, RoundedCornerShape(24.dp))) {
+                            Text(stringResource(R.string.reset), color = MaterialTheme.colorScheme.onSurface)
+                        }
+                    } else {
+                        FilledTonalButton(onClick = reset, modifier = Modifier.height(48.dp)) { Text(stringResource(R.string.reset)) }
                     }
                     Spacer(Modifier.width(8.dp))
-                    GlassRoundButton(
+                    TuneRoundButton(
                         if (barShown) Icons.Rounded.VisibilityOff else Icons.Rounded.Visibility,
                         stringResource(if (barShown) R.string.living_tune_hide else R.string.living_tune_show),
                         pane,
@@ -312,19 +320,28 @@ private fun TuneSlider(@StringRes label: Int, value: Float, onChange: (Float) ->
     Slider(value = value, onValueChange = onChange, valueRange = 0f..1f)
 }
 
+/** A round button over the picture: on a pane of glass, or Material's own tonal one where the player has no glass. */
 @Composable
-private fun GlassRoundButton(icon: ImageVector, description: String, pane: Pane, onClick: () -> Unit) {
+private fun TuneRoundButton(icon: ImageVector, description: String, pane: Pane, onClick: () -> Unit) {
+    if (!pane.glass) {
+        FilledTonalIconButton(onClick = onClick, modifier = Modifier.size(48.dp)) { Icon(icon, description) }
+        return
+    }
     Box(contentAlignment = Alignment.Center, modifier = Modifier.size(48.dp).pane(pane, CircleShape)) {
         IconButton(onClick = onClick) { Icon(icon, description, tint = MaterialTheme.colorScheme.onSurface) }
     }
 }
 
-/** What every pane on this screen is made of: the dock's glass over the picture, or its still frost on Saver, and the wash over it. */
-private class Pane(val spec: GlassSpec, val tint: Color)
+/**
+ * What every pane on this screen is made of: the dock's glass over the picture, or its still frost on Saver, and the wash
+ * over it; with Liquid glass off ([glass] false) only the wash, a plain panel.
+ */
+private class Pane(val spec: GlassSpec, val tint: Color, val glass: Boolean = true)
 
 /** One pane of glass, the queue bar's recipe (Queue.kt glassPane), with a wash that keeps what is on it readable. */
 private fun Modifier.pane(pane: Pane, shape: Shape): Modifier {
     val spec = pane.spec
+    if (!pane.glass) return this.background(pane.tint, shape)
     if (spec.still) return this.stillGlass { shape }.background(pane.tint, shape)
     return this
         .drawBackdrop(

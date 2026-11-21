@@ -130,6 +130,7 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.util.fastAny
+import androidx.media3.common.Player.REPEAT_MODE_ONE
 import androidx.media3.common.Player.STATE_ENDED
 import androidx.media3.common.Timeline
 import androidx.navigation.NavController
@@ -178,8 +179,11 @@ import com.dd3boh.outertune.ui.component.LazyColumnScrollbar
 import com.dd3boh.outertune.ui.component.FailedNote
 import com.dd3boh.outertune.ui.component.openProxySetting
 import com.dd3boh.outertune.playback.QueueStart
+import com.dd3boh.outertune.ui.component.Feel
 import com.dd3boh.outertune.ui.component.FloatingFooter
 import com.dd3boh.outertune.ui.component.SelectHeader
+import com.dd3boh.outertune.ui.component.buttonFeel
+import com.dd3boh.outertune.ui.component.felt
 import com.dd3boh.outertune.ui.component.SwipeToRemoveBox
 import com.dd3boh.outertune.ui.component.SwipeToRemoveState
 import com.dd3boh.outertune.ui.component.button.IconButton
@@ -1922,9 +1926,11 @@ fun BoxScope.QueueContent(
                                     color = iconButtonColor,
                                     enabled = barWorks,
                                     onClick = {
+                                        // As the player's: under Strong as a like, read before the tap turns it.
+                                        val feel = buttonFeel(turnsOff = shuffleModeEnabled)
                                         playerConnection.loadQueueIfEmpty()
                                         playerConnection.triggerShuffle()
-                                        haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
+                                        haptic.felt(feel, HapticFeedbackType.SegmentFrequentTick)
                                     }
                                 )
                             }
@@ -1943,7 +1949,7 @@ fun BoxScope.QueueContent(
                                                                     // Cold start: the saved queue is not in the player yet, and a
                                                                     // skip in an empty player goes nowhere. As the full player does.
                                                                     playerConnection.loadQueueIfEmpty().seekToPrevious()
-                                                                    haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
+                                                                    haptic.felt(Feel.FIRM, HapticFeedbackType.SegmentFrequentTick)
                                                                 }
                                                             )
                             }
@@ -2021,7 +2027,7 @@ fun BoxScope.QueueContent(
                                                                 enabled = barWorks && (canSkipNext || movesStoredQueue),
                                                                 onClick = {
                                                                     playerConnection.loadQueueIfEmpty().seekToNext()
-                                                                    haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
+                                                                    haptic.felt(Feel.FIRM, HapticFeedbackType.SegmentFrequentTick)
                                                                 }
                                                             )
                             }
@@ -2039,8 +2045,9 @@ fun BoxScope.QueueContent(
                                     color = iconButtonColor,
                                     enabled = barWorks,
                                     onClick = {
+                                        val feel = buttonFeel(turnsOff = repeatMode == REPEAT_MODE_ONE)
                                         playerConnection.player.toggleRepeatMode()
-                                        haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
+                                        haptic.felt(feel, HapticFeedbackType.SegmentFrequentTick)
                                     }
                                 )
                             }

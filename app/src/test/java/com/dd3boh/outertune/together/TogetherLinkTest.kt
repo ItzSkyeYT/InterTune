@@ -7,6 +7,7 @@
 package com.dd3boh.outertune.together
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
@@ -35,11 +36,14 @@ class TogetherLinkTest {
         val code = RoomCode.generate()
         assertEquals("https://intertune.app/together/#${code.raw}", code.webLink)
         val dialog = File("src/main/java/com/dd3boh/outertune/ui/dialog/TogetherDialog.kt").readText()
-        assertTrue("room.code.pretty, room.code.webLink" in dialog)
+        assertTrue("stringResource(R.string.together_invite_line, room.code.webLink)" in dialog)
         for (res in listOf("values", "values-fr")) {
             val text = File("src/main/res/$res/strings-ot.xml").readText()
-            val line = Regex("<string name=\"together_invite_text\">(.*)</string>").find(text)!!.groupValues[1]
-            assertTrue("$res: the link goes on its own line", line.endsWith("\\n%2\$s"))
+            val line = Regex("<string name=\"together_invite_line\">(.*)</string>").find(text)!!.groupValues[1]
+            // One short line, then the link on its own: the code is in the link (his pick of 21 Nov 2026).
+            assertTrue("$res: the link goes on its own line", line.endsWith("\\n%1\$s"))
+            assertFalse("$res: no second sentence", line.substringBefore("\\n").count { it == '.' } > 0)
+            assertFalse("$res: the old two-sentence invite is gone", "together_invite_text" in text)
         }
     }
 
