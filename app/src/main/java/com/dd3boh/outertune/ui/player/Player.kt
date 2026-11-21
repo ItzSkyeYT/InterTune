@@ -73,6 +73,11 @@ import android.app.Activity
 import android.content.res.Configuration
 import android.util.Log
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandHorizontally
+import androidx.compose.animation.shrinkHorizontally
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateDpAsState
@@ -696,6 +701,27 @@ fun BottomSheetPlayer(
     // Focus following the sheet, see playPauseFocus. Not to play and pause when the player opens
     // on the queue, which Back from the queue closing the player leaves open in it: they are
     // closed to the keys under the queue, which asks for focus itself as the player opens.
+    // Connected's room circle by the title (connectedButtons) slides out from under the pair the first time it can be
+    // seen arrive: the player open with no sheet over it (a sheet is a window of its own, so the player's loses the
+    // focus), so a room started from a sheet or from Home is seen arriving as the sheet goes or the player opens (his
+    // word of 20 Nov 2026: "when you join the circle slides in ... so it looks smooth"). Held here, where it lives while
+    // the player is collapsed and its full view is not drawn. Once there it stays, through every opening of the room
+    // after, and through a room coming back with a new music service (MusicService.togetherComing).
+    val circleRoom by playerConnection.service.together.collectAsState()
+    val circleRoomComing by playerConnection.service.togetherComing.collectAsState()
+    val windowFocused = LocalWindowInfo.current.isWindowFocused
+    var roomCircleShown by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(circleRoom != null, state.isExpanded, windowFocused, circleRoomComing) {
+        when {
+            circleRoom == null && (circleRoomComing || !playerConnection.isAlive) -> Unit
+            circleRoom == null -> roomCircleShown = false
+            !roomCircleShown && state.isExpanded && windowFocused -> {
+                delay(300)
+                roomCircleShown = true
+            }
+        }
+    }
+
     var sheetWasOpen by remember { mutableStateOf(false) }
     LaunchedEffect(state.isExpanded, state.isCollapsed) {
         val keys = inputModeManager.inputMode == InputMode.Keyboard
@@ -1329,24 +1355,36 @@ fun BottomSheetPlayer(
 
                 val titlePins = pins[PinPlace.CONNECTED_TITLE].orEmpty().filter(pinActions.shown)
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(ConnectedButtonGap),
+                    verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.offset(y = 4.dp)
                 ) {
-                    // The room's segment at the pair's free end (roomByTitle), in the room's colours as in the row.
-                    if (roomByTitle) {
-                        PlayerActionSegment(
-                            painter = rememberVectorPainter(Icons.Rounded.Group),
-                            contentDescription = stringResource(R.string.together_in_room),
-                            shape = connectedShape(first = true, last = titlePins.isEmpty()),
-                            container = MaterialTheme.colorScheme.primary,
-                            content = MaterialTheme.colorScheme.onPrimary,
-                            onClick = { showRoom = true },
-                            backdrop = buttonBackdrop,
-                            glassIntensity = glassIntensity,
-                        )
+                    // The room's own circle (roomByTitle), out of the pair so it reads as something extra and not one
+                    // of the pinned buttons (Ti-Die, his yes of 20 Nov 2026). It slides out from under the pair as a
+                    // room starts, and back under it as it ends; the pair does not move.
+                    AnimatedVisibility(
+                        visible = roomCircleShown && roomByTitle,
+                        enter = expandHorizontally(expandFrom = Alignment.End) + slideInHorizontally { it },
+                        exit = shrinkHorizontally(shrinkTowards = Alignment.End) + slideOutHorizontally { it },
+                    ) {
+                        Row {
+                            PlayerActionSegment(
+                                painter = rememberVectorPainter(Icons.Rounded.Group),
+                                contentDescription = stringResource(R.string.together_in_room),
+                                shape = CircleShape,
+                                circle = true,
+                                container = MaterialTheme.colorScheme.primary,
+                                content = MaterialTheme.colorScheme.onPrimary,
+                                onClick = { showRoom = true },
+                                backdrop = buttonBackdrop,
+                                glassIntensity = glassIntensity,
+                            )
+                            if (titlePins.isNotEmpty()) Spacer(Modifier.width(RoomCircleGap))
+                        }
                     }
-                    titlePins.forEachIndexed { i, pin ->
-                        titleSegment(pin, connectedShape(first = i == 0 && !roomByTitle, last = i == titlePins.lastIndex))
+                    Row(horizontalArrangement = Arrangement.spacedBy(ConnectedButtonGap)) {
+                        titlePins.forEachIndexed { i, pin ->
+                            titleSegment(pin, connectedShape(first = i == 0, last = i == titlePins.lastIndex))
+                        }
                     }
                 }
             }
@@ -2420,6 +2458,9 @@ private fun Modifier.shrinkToFitHeight(keepClearAtTop: Int = 0): Modifier = layo
 
 // Wide enough apart to read as separate buttons that belong together, not one slab with a seam.
 private val ConnectedButtonGap = 6.dp
+
+/** Between the room's own circle and the buttons by the title: twice the pair's own gap, so it reads as apart. */
+private val RoomCircleGap = 12.dp
 private val QuickActionWidth = 56.dp
 
 /** Material 3 Expressive connected buttons: fully round on the group's outer ends, 8dp between. */
@@ -2733,6 +2774,8 @@ private fun PlayerActionSegment(
     on: Boolean? = null,
     /** What a tap feels like under the Vibration setting's Strong (Haptics): a like's own, else as [buttonFeel] says of [on]. */
     tap: Feel = buttonFeel(turnsOff = on),
+    /** A round button of its own, as high as it is wide: the room's beside the buttons by the title. */
+    circle: Boolean = false,
 ) {
     val haptic = LocalHapticFeedback.current
     // A long press says the button's own name (LongPressLabel), nothing shown otherwise.
@@ -2741,8 +2784,7 @@ private fun PlayerActionSegment(
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
-                .height(40.dp)
-                .widthIn(min = width)
+                .then(if (circle) Modifier.size(40.dp) else Modifier.height(40.dp).widthIn(min = width))
                 .clip(shape)
                 .then(
                     // Frosted, with no lens, highlight or shadow. Those draw a bright rim, and at this
@@ -2773,7 +2815,7 @@ private fun PlayerActionSegment(
                     onClick()
                 }
                 .onOffState(on)
-                .padding(horizontal = 10.dp)
+                .padding(horizontal = if (circle) 0.dp else 10.dp)
         ) {
             Icon(
                 painter = painter,

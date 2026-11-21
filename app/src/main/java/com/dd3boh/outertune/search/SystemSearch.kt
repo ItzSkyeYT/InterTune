@@ -161,5 +161,7 @@ object SystemSearch {
     const val GROUP_COLUMN = "suggest_group"
 
     private const val SUGGEST_PATH = "search_suggest_query"
-    private val ID = Regex("[A-Za-z0-9_-]+")
+
+    /** Not the word null, which Navigation reads in a route as no value: local_playlist/null would close the app (#244). */
+    private val ID = Regex("(?!null$)[A-Za-z0-9_-]+")
 }

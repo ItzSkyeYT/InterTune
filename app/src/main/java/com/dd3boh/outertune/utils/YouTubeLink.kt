@@ -42,8 +42,12 @@ sealed interface YouTubeLink {
          */
         private val SITE_HOSTS = setOf("intertune.app", "www.intertune.app")
 
-        /** The characters of YouTube's ids. Anything else is not one, and would not survive a route. */
-        private val ID = Regex("[A-Za-z0-9_-]+")
+        /**
+         * The characters of YouTube's ids. Anything else is not one, and would not survive a route. Nor would the
+         * word null, which Navigation reads in a route as no value at all: a link with list=null in it opened
+         * online_playlist/null, and the app closed (#244).
+         */
+        private val ID = Regex("(?!null$)[A-Za-z0-9_-]+")
 
         /** The share page's own rules for its ids (site/s/index.html): a song's has 11 characters, a list's 10 to 80. */
         private val PAGE_SONG = Regex("[A-Za-z0-9_-]{11}")

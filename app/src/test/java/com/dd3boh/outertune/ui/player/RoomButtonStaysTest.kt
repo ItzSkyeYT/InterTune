@@ -118,20 +118,36 @@ class RoomButtonStaysTest {
     }
 
     @Test
-    fun `in Connected the room's button sits by the title at the pair's free end, and the row under the controls never takes it`() {
-        // His pick of 19 Nov 2026, in every build; a small player keeps it in its row, counted in with the others.
+    fun `in Connected the room's button is a circle of its own by the title, and the row under the controls never takes it`() {
+        // His pick of 19 Nov 2026, in every build; a small player keeps it in its row, counted in with the others. A
+        // circle of its own beside the pair, sliding out from under it (Ti-Die, his yes of 20 Nov 2026). A long press
+        // says its name as on every button (his word of 21 Nov 2026).
         assertTrue("val roomByTitle = roomApart && !compactPlayer" in player)
         val pair = player.substringAfter("val connectedButtons: @Composable RowScope.() -> Unit = {").substringBefore("val actionButtons")
         assertInOrder(
             pair,
-            "if (roomByTitle) {",
+            "AnimatedVisibility(\n                        visible = roomCircleShown && roomByTitle,",
+            "enter = expandHorizontally(expandFrom = Alignment.End) + slideInHorizontally { it },",
+            "exit = shrinkHorizontally(shrinkTowards = Alignment.End) + slideOutHorizontally { it },",
             "contentDescription = stringResource(R.string.together_in_room)",
-            "shape = connectedShape(first = true, last = titlePins.isEmpty())",
-            "onClick = { showRoom = true }",
+            "shape = CircleShape,\n                                circle = true,",
+            "onClick = { showRoom = true },",
+            "if (titlePins.isNotEmpty()) Spacer(Modifier.width(RoomCircleGap))",
             "titlePins.forEachIndexed",
         )
-        // Share and like keep their shapes' outer ends where they were: the room takes the pair's start.
-        assertTrue("titleSegment(pin, connectedShape(first = i == 0 && !roomByTitle, last = i == titlePins.lastIndex))" in pair)
+        // Seen arriving: the player open and no sheet over it, then kept, a room coming back with a new service too. Held
+        // outside the full view, which a collapsed player does not draw, so a room started from Home slides in as it opens.
+        val arrival = player.substringAfter("var roomCircleShown by rememberSaveable { mutableStateOf(false) }").substringBefore("\n    }\n")
+        assertTrue(arrival, "LaunchedEffect(circleRoom != null, state.isExpanded, windowFocused, circleRoomComing) {" in arrival)
+        assertTrue(arrival, "circleRoom == null && (circleRoomComing || !playerConnection.isAlive) -> Unit" in arrival)
+        assertTrue(arrival, "!roomCircleShown && state.isExpanded && windowFocused -> {" in arrival)
+        assertTrue(player.indexOf("var roomCircleShown") in 0 until player.indexOf("val connectedButtons"))
+        // The pair is the same in a room and out of one: the room takes nothing of it.
+        assertTrue("titleSegment(pin, connectedShape(first = i == 0, last = i == titlePins.lastIndex))" in pair)
+        val segment = player.substringAfter("private fun PlayerActionSegment(").substringBefore("\n}")
+        assertTrue(segment, "OptionalLongPressLabel(contentDescription) {" in segment)
+        assertFalse("onLongClick" in segment)
+        assertTrue(segment, ".then(if (circle) Modifier.size(40.dp) else Modifier.height(40.dp).widthIn(min = width))" in segment)
         assertTrue("val roomInRow = roomApart && !roomByTitle" in connectedRow)
         assertTrue("val rowRoomFirst = roomAtFreeEnd && roomInRow" in connectedRow)
         assertTrue("val rowRoomBeforeMenu = roomBeforeMenu && roomInRow" in connectedRow)

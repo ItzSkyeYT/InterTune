@@ -201,7 +201,8 @@ class QuickActionRowTest {
     fun `an icon-only button is as narrow as the floor says`() {
         // QuickActionIconOnlyWidth is the icon's 22dp and 10dp either side, from PlayerActionSegment.
         val segment = player.substringAfter("private fun PlayerActionSegment(").substringBefore("\n}\n")
-        assertTrue(segment.contains(".padding(horizontal = 10.dp)"))
+        // 10dp either side but in the room's circle beside the title, which is round and as wide as it is high.
+        assertTrue(segment.contains(".padding(horizontal = if (circle) 0.dp else 10.dp)"))
         assertTrue(segment.contains(".size(22.dp)"))
         assertEquals(22.dp + 10.dp * 2, QuickActionIconOnlyWidth)
     }
