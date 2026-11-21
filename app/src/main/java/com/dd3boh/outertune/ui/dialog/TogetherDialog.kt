@@ -396,7 +396,9 @@ private fun RoomPage(room: TogetherSession, song: MediaMetadata?, onLeave: () ->
     val haptics = LocalHapticFeedback.current
     val status by room.status.collectAsState()
     val copied = stringResource(R.string.together_copied)
-    val invite = stringResource(R.string.together_invite_text, room.code.pretty, room.code.webLink)
+    // One short line and the link, the code inside it (Ti-Die, #testers 21 Nov 2026: chat apps show the link's preview;
+    // his pick of the same day).
+    val invite = stringResource(R.string.together_invite_line, room.code.webLink)
     var showingQr by rememberSaveable { mutableStateOf(false) }
     if (showingQr) RoomQrDialog(room.code, onDismiss = { showingQr = false })
     // The owner's leaving ends the room for everyone: asked first (his word of 17 Oct 2026).

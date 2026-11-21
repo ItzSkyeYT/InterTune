@@ -2524,7 +2524,7 @@
     <string name="together_leave">Quitter</string>
     <string name="together_join_title">Rejoindre ce salon d\'écoute ?</string>
     <string name="together_share">Partager</string>
-    <string name="together_invite_text">Rejoins mon salon sur InterTune. Touche le lien, ou tape le code %1$s dans Écouter ensemble.\n%2$s</string>
+    <string name="together_invite_line">Rejoins mon salon sur InterTune :\n%1$s</string>
     <string name="together_own_way">Vous écoutez de votre côté</string>
     <string name="together_catch_up">Rattraper</string>
     <string name="together_suggest">Jouer ensuite dans le salon</string>

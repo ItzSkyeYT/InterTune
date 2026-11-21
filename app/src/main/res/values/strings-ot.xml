@@ -2726,7 +2726,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="together_leave">Leave</string>
     <string name="together_join_title">Join this listening room?</string>
     <string name="together_share">Share</string>
-    <string name="together_invite_text">Join my room on InterTune. Tap the link, or type the code %1$s under Listen together.\n%2$s</string>
+    <string name="together_invite_line">Join my room on InterTune:\n%1$s</string>
     <string name="together_own_way">Playing on your own</string>
     <string name="together_catch_up">Catch up</string>
     <string name="together_suggest">Play next in the room</string>
