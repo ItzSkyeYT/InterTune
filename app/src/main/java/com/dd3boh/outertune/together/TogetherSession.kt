@@ -6,6 +6,8 @@
 
 package com.dd3boh.outertune.together
 
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import android.widget.Toast
 import androidx.annotation.StringRes
@@ -26,7 +28,10 @@ import com.dd3boh.outertune.playback.MusicService
 import com.dd3boh.outertune.playback.Varispeed
 import com.dd3boh.outertune.playback.queues.ListQueue
 import com.dd3boh.outertune.utils.dataStore
+import com.dd3boh.outertune.utils.ReportTrail
 import com.dd3boh.outertune.utils.Toaster
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -133,7 +138,13 @@ class TogetherSession(
     /** How many relays the room was asked to use; [Status.relaysConnected] says how many answer. */
     val relayCount: Int get() = relays.size
 
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    /**
+     * Nothing that goes wrong in a room takes the app down (his word of 21 Nov 2026: "anything bad that happens in the
+     * rooms shows an error or just does something"): a failure in any of the room's work ends this phone's part in the
+     * room with a line, and goes into the log and Report a problem's steps ([failed]).
+     */
+    private val failure = CoroutineExceptionHandler { _, e -> failed(e) }
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main + failure)
     private val secret = identity
     private val me = Secp256k1.publicKey(secret).toHex()
 
@@ -144,6 +155,24 @@ class TogetherSession(
 
     /** Where a guest counts the host's absence from until it hears it: see [hostHeardAt]. */
     private val hostSince = if (hostHeardAt > 0) hostHeardAt else startedAt
+
+    /**
+     * A guest that joins now, not a room that comes back: it is in only once someone answers ([JoinCheck]). A guest who
+     * joined a room its host had just closed heard nothing live and waited on a ghost of the host (21 Nov 2026).
+     */
+    private val joiningNow = !owner && hostHeardAt == 0L
+
+    /** When the room first answered this guest live, the host or whoever leads; 0 before. */
+    private var answeredAt = 0L
+
+    /** Since when this guest has looked for the room with a relay answering: the wait for an answer counts from here. */
+    private var lookingSince = startedAt
+
+    /** Who said they made the room and who said it is over, before this phone knew who made it too. */
+    private val ends = RoomEnds()
+
+    /** Every relay went down since one last answered: said once when one is back. */
+    private var wentDark = false
 
     /** When the owner was last heard, 0 before it is. */
     private var ownerHeardAt = 0L
@@ -185,6 +214,10 @@ class TogetherSession(
     private var repeatTaken = false
     private var queueJob: Job? = null
     private val lock = SyncLock()
+
+    /** How the room has gone lately, logged once a minute for Report a problem. */
+    private val health = RoomHealth()
+
     /** How late this phone's sound comes out (Settings > Listen together). */
     private var delayMs = 0L
     private var pausedHere = false
@@ -263,13 +296,34 @@ class TogetherSession(
     }
 
     fun start() {
-        Log.i(TAG, "Room ${code.pretty}: ${if (owner) "made here" else "joining"} through ${relays.size} relays")
+        // Never the code: a report can be posted in public, and the code lets anyone in.
+        Log.i(TAG, "A room ${if (owner) "made here" else "joined"}, through ${relays.size} relays")
+        val how = when {
+            owner -> ReportTrail.Room.MADE
+            joiningNow -> ReportTrail.Room.JOINED
+            else -> ReportTrail.Room.BACK
+        }
+        ReportTrail.thisRun.room(how)
+        // A guest sees that it is joining, and then that it is in (answered) or not (nobodyAnswered): the invite's Join
+        // closed and nothing said what was going on (his word of 21 Nov 2026).
+        if (joiningNow) Toaster.show(service, R.string.together_joining)
         pool.start()
         service.exoPlayer.addListener(listener)
         scope.launch {
             var before = 0
             pool.connected.collect { n ->
                 _status.value = _status.value.copy(relaysConnected = n)
+                // Every relay down, and back: the room can neither hear nor be heard meanwhile.
+                if (n == 0 && before > 0) {
+                    Log.w(TAG, "No relay answering: the room hears nothing until one is back")
+                    ReportTrail.thisRun.room(ReportTrail.Room.NO_RELAY)
+                } else if (n > 0 && before == 0 && wentDark) {
+                    Log.i(TAG, "A relay answers again")
+                    ReportTrail.thisRun.room(ReportTrail.Room.RELAY_BACK)
+                }
+                if (n == 0 && before > 0) wentDark = true else if (n > 0) wentDark = false
+                // The wait for an answer counts only while a relay answers: no network is no empty room.
+                if (n == 0) lookingSince = System.currentTimeMillis()
                 // A relay that has just come up hears this phone at once. The Here said as the
                 // room opened went nowhere, no relay being up yet, and the leader answers a
                 // newcomer only once it hears it: a guest waited for the leader's next beat.
@@ -277,7 +331,7 @@ class TogetherSession(
                 before = n
             }
         }
-        scope.launch { pool.events.collect { onEvent(it) } }
+        scope.launch { pool.events.collect { onIncoming(it) } }
         // Settings > Listen together, taken as they change, a room under way included.
         scope.launch {
             service.dataStore.data.collect { prefs ->
@@ -337,6 +391,18 @@ class TogetherSession(
                 withTimeoutOrNull(every) { wake.receive() }
             }
         }
+        // How the room has gone lately, once a minute, for Report a problem: see RoomHealth.
+        scope.launch {
+            while (isActive) {
+                delay(RoomHealth.EVERY_MS)
+                val now = _status.value
+                Log.i(TAG, "room: " + health.line(
+                    owner = owner, leading = leading, others = now.others, relaysAnswering = now.relaysConnected,
+                    relays = relays.size, roundTripMs = if (gap.known) gap.bestRoundTripMs else null,
+                    waitingForLeader = now.waitingForHost, ownWay = now.ownWay, pausedHere = now.pausedHere,
+                ))
+            }
+        }
         publish()
     }
 
@@ -349,7 +415,7 @@ class TogetherSession(
         }
         pool.stop()
         scope.cancel()
-        Log.i(TAG, "Left room ${code.pretty}")
+        Log.i(TAG, "Left the room")
     }
 
     /**
@@ -360,6 +426,7 @@ class TogetherSession(
      */
     fun closeNow() {
         if (owner) {
+            ReportTrail.thisRun.room(ReportTrail.Room.CLOSED_HERE)
             runCatching {
                 pool.publish(
                     NostrEvent.signed(secret, TogetherMessage.KIND, listOf(listOf("t", code.tag)), code.seal(TogetherMessage.encode(TogetherMessage.End, sender = me)))
@@ -379,14 +446,26 @@ class TogetherSession(
     private fun watchHost() {
         if (owner) return
         val now = System.currentTimeMillis()
+        // A guest that joined now is in once the room answers; until then it looks for it, and gives up when nobody
+        // answers while a relay is up (JoinCheck): a closed room, a host whose phone is off, or a wrong code.
+        if (joiningNow && answeredAt == 0L) {
+            if (JoinCheck.nobody(now, lookingSince, _status.value.relaysConnected)) {
+                nobodyAnswered(now - lookingSince)
+                return
+            }
+        }
         // Away once not heard for a while in this session: a phone that has just come back has not heard it yet.
         val away = (leaderKey == null || leaderKey == ownerKey) && HostAbsence.away(now, maxOf(ownerHeardAt, startedAt))
         if (away != _status.value.hostAway) {
             Log.i(TAG, if (away) "The host is away" else "The host is back")
+            ReportTrail.thisRun.room(if (away) ReportTrail.Room.HOST_AWAY else ReportTrail.Room.HOST_BACK)
             _status.value = _status.value.copy(hostAway = away)
         }
         // Gone counted from the host's last word, before this session too for a room that comes back (hostSince).
-        if (HostAbsence.gone(now, HostAbsence.lastSign(ownerHeardAt, hostSince))) closed(R.string.together_host_gone)
+        if (HostAbsence.gone(now, HostAbsence.lastSign(ownerHeardAt, hostSince))) {
+            ReportTrail.thisRun.room(ReportTrail.Room.HOST_GONE)
+            closed(R.string.together_host_gone)
+        }
     }
 
     private fun sayHere() = send(TogetherMessage.Here(name, owner, lead = if (owner) leaderKey else null))
@@ -464,6 +543,46 @@ class TogetherSession(
         }
     }
 
+    /**
+     * A word from the relays. One that cannot be taken is said in the log and Report a problem's steps and passed over:
+     * never the end of the room, nor of the app.
+     */
+    private fun onIncoming(incoming: Incoming) {
+        try {
+            if (incoming.live) onEvent(incoming.event) else fromBefore(incoming.event)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.w(TAG, "A word in the room could not be taken: ${e.javaClass.simpleName}", e)
+            ReportTrail.thisRun.room(ReportTrail.Room.BAD_WORD)
+        }
+    }
+
+    /**
+     * A word a relay kept from before this phone came ([Incoming.live] false): it says nothing of who is in the room now,
+     * so nobody is heard, followed or counted as an answer from it. Only who said they made the room and who said it is
+     * over are taken, so that a room closed before this phone came ends at once, the close and the host's last words in
+     * whatever order the relays hand them on (21 Nov 2026).
+     */
+    private fun fromBefore(event: NostrEvent) {
+        val from = event.pubkey
+        if (from == me || event.kind != TogetherMessage.KIND || from in sentOut) return
+        val message = code.open(event.content)?.let { TogetherMessage.decodeFrom(it, from) } ?: return
+        val over = when {
+            message is TogetherMessage.Here && message.owner -> ends.owner(from)
+            message == TogetherMessage.End -> from == ownerKey || ends.end(from)
+            else -> false
+        }
+        if (over) endedBefore()
+    }
+
+    /** The room was closed before this phone came, or while it was away: ended here at once, with the line it deserves. */
+    private fun endedBefore() {
+        Log.i(TAG, "The room was closed before this phone heard it live")
+        ReportTrail.thisRun.room(ReportTrail.Room.CLOSED_BY_HOST)
+        closed(R.string.together_closed)
+    }
+
     private fun onEvent(event: NostrEvent) {
         val from = event.pubkey
         if (from == me || event.kind != TogetherMessage.KIND || from in sentOut) return
@@ -484,10 +603,21 @@ class TogetherSession(
         heard[from] = now
         heard.entries.removeAll { now - it.value > MEMBER_TIMEOUT_MS }
         if (message is TogetherMessage.Here) {
+            val newcomer = from !in said
             said[from] = message.name to message.owner
+            // The host sees each newcomer come in, by the name they chose (his word of 21 Nov 2026: no sign on the S25U
+            // that the Pixel was joining). Once: a guest heard again after a while away comes in again.
+            if (owner && newcomer && !message.owner) {
+                Toaster.show(service, service.getString(R.string.together_someone_joined, message.name.ifBlank { service.getString(R.string.together_someone) }))
+            }
             if (message.owner && ownerKey == null) {
                 ownerKey = from
                 Log.i(TAG, "The room was made by ${from.take(8)}")
+            }
+            // The one who made the room had already said it is over (its close came first, before this phone knew it).
+            if (message.owner && ends.owner(from)) {
+                endedBefore()
+                return
             }
             if (from == ownerKey && message.lead != null && message.lead != leaderKey) lead(message.lead)
             // A newcomer hears at once who leads, instead of at the owner's next Here.
@@ -541,7 +671,8 @@ class TogetherSession(
             }
             is TogetherMessage.Propose -> if (leading && message.songs.isNotEmpty()) {
                 _status.value = _status.value.copy(proposal = Proposal(message.songs, message.positionMs, message.by, now))
-                Log.i(TAG, "${message.by} proposed ${message.songs.first().id} and ${message.songs.size - 1} after it")
+                // By key, never by the name they chose: see RoomHealth.
+                Log.i(TAG, "${from.take(8)} proposed ${message.songs.first().id} and ${message.songs.size - 1} after it")
             }
             is TogetherMessage.Suggest -> if (leading) {
                 val song = MediaMetadata(
@@ -553,12 +684,13 @@ class TogetherSession(
                     genre = null,
                 )
                 service.enqueueNext(listOf(song.toMediaItem()))
-                Log.i(TAG, "${message.by} suggested ${message.songId}: next in the queue")
+                Log.i(TAG, "${from.take(8)} suggested ${message.songId}: next in the queue")
                 _status.value = _status.value.copy(lastSuggestion = "${message.title}, ${message.by}")
                 Toaster.show(service, service.getString(R.string.together_from_guest, message.by, message.title), Toast.LENGTH_LONG)
             }
             is TogetherMessage.Kick -> if (from == ownerKey && message.to == me) {
                 Log.i(TAG, "Sent out of the room by its owner")
+                ReportTrail.thisRun.room(ReportTrail.Room.SENT_OUT)
                 closed(R.string.together_kicked)
                 return
             }
@@ -566,18 +698,52 @@ class TogetherSession(
                 val next = PairSeal.open(secret, from, message.sealedCode)?.let(RoomCode::parse)
                 if (next != null && next != code) {
                     Log.i(TAG, "The owner moved the room to a new code")
+                    ReportTrail.thisRun.room(ReportTrail.Room.MOVED)
                     service.moveTogether(next)
                     return
                 }
             }
-            TogetherMessage.End -> if (from == ownerKey) {
+            TogetherMessage.End -> if (from == ownerKey || ends.end(from)) {
                 Log.i(TAG, "The owner closed the room")
+                ReportTrail.thisRun.room(ReportTrail.Room.CLOSED_BY_HOST)
                 closed(R.string.together_closed)
                 return
             }
             is TogetherMessage.Here -> Unit
         }
+        // The room answered: a live word from whoever made it or whoever leads it. Only then is a guest that joined now
+        // in the room (JoinCheck).
+        if (answeredAt == 0L && !owner && (from == ownerKey || from == leaderKey)) answered(now)
         publish()
+    }
+
+    /** The room's first live answer to this guest: see [joiningNow]. */
+    private fun answered(now: Long) {
+        answeredAt = now
+        if (joiningNow) Toaster.show(service, R.string.together_youre_in)
+        Log.i(TAG, "The room answered after ${now - startedAt} ms")
+        ReportTrail.thisRun.roomAnswered(now - startedAt)
+    }
+
+    /** Nobody answered a guest that joined now: the room was closed, its host's phone is off, or the code is wrong. */
+    private fun nobodyAnswered(lookedMs: Long) {
+        Log.i(TAG, "Nobody answered in the room in ${lookedMs / 1000} s with a relay up: closed, the host away, or a wrong code")
+        ReportTrail.thisRun.room(ReportTrail.Room.NOBODY)
+        closed(R.string.together_nobody)
+    }
+
+    /**
+     * Something in the room's own work failed ([failure]): this phone leaves the room with a line, rather than going on
+     * half working or taking the app down, and the failure goes into the log and Report a problem's steps.
+     */
+    private fun failed(e: Throwable) {
+        if (e is CancellationException) return
+        Log.e(TAG, "The room failed here and was left: ${e.javaClass.simpleName}", e)
+        ReportTrail.thisRun.room(ReportTrail.Room.FAILED)
+        // Off the coroutine that failed: leaving cancels the scope it ran in.
+        Handler(Looper.getMainLooper()).post {
+            if (service.together.value === this) closed(R.string.together_failed)
+        }
     }
 
     /** Who leads now is the phone with [key]: everyone follows it from here on, this phone included unless it is the one. */
@@ -704,7 +870,7 @@ class TogetherSession(
         if (!leading) return
         val songs = proposal.songs.map(::metadataOf)
         service.playQueue(ListQueue(items = songs), replace = true, origin = PlayOrigin.EXTERNAL)
-        Log.i(TAG, "Playing ${proposal.by}'s ${songs.first().id} and what came after it")
+        Log.i(TAG, "Playing the song proposed, ${songs.first().id}, and what came after it")
         scope.launch {
             // The queue loads a moment after it is asked for; the guest's spot is then a little further on.
             val first = songs.first().id
@@ -908,7 +1074,8 @@ class TogetherSession(
         val local = player.currentPosition
         if (now - lastLoggedDrift >= 2_000) {
             lastLoggedDrift = now
-            Log.i(TAG, "drift ${target - local} ms, speed ${"%.3f".format(player.playbackParameters.speed)}, ${if (lock.locked) "locked" else "not locked"} (tolerance ${lock.toleranceMs} ms), clock gap ${gap.offsetMs} ms (round trip ${if (gap.known) gap.bestRoundTripMs else -1} ms)")
+            // Every two seconds: under a tag of its own, which a report leaves out for the line a minute.
+            Log.i(SYNC_TAG, "drift ${target - local} ms, speed ${"%.3f".format(player.playbackParameters.speed)}, ${if (lock.locked) "locked" else "not locked"} (tolerance ${lock.toleranceMs} ms), clock gap ${gap.offsetMs} ms (round trip ${if (gap.known) gap.bestRoundTripMs else -1} ms)")
         }
         if (!state.playing) {
             // Paused, both stand on the leader's spot, so that they start again together: the
@@ -918,6 +1085,7 @@ class TogetherSession(
             _status.value = _status.value.copy(driftMs = target - local, locked = false)
             return
         }
+        health.drift(target - local)
         when (val decision = lock.decide(target, local, state.speed, now)) {
             is Follow.Seek -> if (Follow.jumpNow(decision.positionMs, local, player.bufferedPosition)) {
                 waitingForData = false
@@ -1145,6 +1313,10 @@ class TogetherSession(
 
     companion object {
         private const val TAG = "Together"
+
+        /** The follower's look every two seconds: in the phone's log, not in a report. */
+        private const val SYNC_TAG = "TogetherSync"
+        private const val SYNC_TICK_MS = 250L
         /** After a seek, time for the player to land before the next look. */
         private const val SETTLE_MS = 500L
         private const val MEMBER_TIMEOUT_MS = 45_000L

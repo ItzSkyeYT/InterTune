@@ -79,7 +79,9 @@ class ReportFeedTest {
         val methods = calls.map { it.first }.toSet()
         assertEquals(
             setOf("screen", "network", "networkChangedTo", "playbackError", "gaveUp", "waited", "resumed", "paused", "songStarted", "seeked", "downloadFailed",
-                "startedFromOutside", "owedStart", "swipedAway"),
+                "startedFromOutside", "owedStart", "swipedAway",
+                // A listening room's moments (21 Nov 2026), from TogetherSession.
+                "room", "roomAnswered"),
             methods,
         )
         assertTrue("ReportFeed.start(this)" in read("App.kt"))
@@ -96,6 +98,14 @@ class ReportFeedTest {
             "ReportTrail.thisRun.owedStart(met, owedFor())",
             "ReportTrail.thisRun.swipedAway()",
         )) assertTrue("$hook is not in MusicService", hook in service)
+        val room = read("together/TogetherSession.kt")
+        for (hook in listOf(
+            "ReportTrail.thisRun.room(how)",
+            "ReportTrail.thisRun.room(ReportTrail.Room.NOBODY)",
+            "ReportTrail.thisRun.room(ReportTrail.Room.CLOSED_BY_HOST)",
+            "ReportTrail.thisRun.room(ReportTrail.Room.FAILED)",
+            "ReportTrail.thisRun.roomAnswered(now - startedAt)",
+        )) assertTrue("$hook is not in TogetherSession", hook in room)
         val network = read("utils/NetworkConnectivityObserver.kt")
         assertTrue("ReportTrail.thisRun.network(ReportTrail.Network.LOST)" in network && "ReportTrail.thisRun.network(ReportTrail.Network.BACK)" in network)
     }
