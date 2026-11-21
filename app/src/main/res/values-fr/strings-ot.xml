@@ -989,8 +989,6 @@
     <string name="familiarity">Familiarité</string>
     <string name="familiarity_description">Des titres appréciés récemment qu\'il est temps de réentendre : %1$d cartes sur 20.</string>
     <string name="why_these_lane_again">%1$d auxquels vous revenez</string>
-    <string name="new_songs_only">Nouveaux titres uniquement</string>
-    <string name="new_songs_only_description">Chaque carte de la rangée Meilleures recommandations est un titre nouveau pour vous.</string>
     <string name="similar_source">Source des titres similaires</string>
     <string name="login_reassurance">C\'est la page de connexion de Google elle-même. InterTune ne voit jamais votre mot de passe et ne garde que la connexion renvoyée par YouTube Music.</string>
     <string name="login_secure">Connexion sécurisée</string>
@@ -1383,7 +1381,6 @@
     <string name="rank_with_listening_info">Remet la « Sélection Rapide » dans un ordre qui vous ressemble : les titres écoutés souvent, récemment ou aimés passent devant. Rien n\'est ajouté ni retiré.</string>
     <string name="recommendations_engine_title_info">Des titres proches de ce que vous écoutez, vos favoris anciens et récents, d\'autres titres de vos artistes et quelques surprises. Ils s\'affichent quand « Source de la Sélection Rapide » est sur « Meilleures recommandations » ou « Essayer les deux » : tirez l\'accueil vers le bas pour voir un changement.</string>
     <string name="similar_source_info">Où « Meilleures recommandations » et « Découvrir du nouveau » cherchent des titres proches des vôtres. Avec « Les deux » ou « Last.fm uniquement », le nom et l\'artiste des titres que vous écoutez ou aimez sont envoyés à Last.fm, sans compte. « YouTube uniquement » n\'envoie rien à Last.fm.</string>
-    <string name="new_songs_only_info">Remplit toute la rangée de titres que vous n\'avez pas encore vraiment écoutés. La rangée peut être courte, et la « Sélection Rapide » prend alors une autre source.</string>
     <string name="show_reasons_info">Chaque carte dit pourquoi elle est là : un titre avec lequel elle va, un artiste que vous écoutez, un j\'aime, ou parce qu\'elle est nouvelle pour vous. Un joker est tiré au hasard pour varier.</string>
     <string name="exclusions_info">Appuyez longuement sur une carte de la « Sélection Rapide » pour « Pas ce titre », « Moins de cet artiste » ou « Jamais cet artiste ». Cela ne touche que les recommandations, jamais la recherche, votre bibliothèque ou vos playlists. Levez-en une ici pour annuler.</string>
     <string name="rest_songs_i_skip_info">Passez tôt un titre favori, et il sort de « Meilleures recommandations » pendant une semaine. Vous pouvez le faire revenir plus tôt depuis « Exclusions ».</string>
@@ -1399,7 +1396,7 @@
     <string name="recommendations_learned_title_info">Ceci reste dans l\'application, sur ce téléphone, et n\'est jamais envoyé, mais les sauvegardes l\'incluent. « Suspendre l\'historique d\'écoute » l\'arrête et « Effacer l\'historique d\'écoute » le supprime, dans « Confidentialité et historique ».</string>
     <string name="recommendations_where_from_info">Combien de fois vous avez lancé la lecture depuis chaque endroit. Ce que vous choisissez vous-même compte plus, et une recherche compte le plus. « Non renseigné » : l\'application ne l\'a pas noté.</string>
     <string name="recommendations_recent_title_info">Vos dernières écoutes, de la plus récente à la plus ancienne : comment chacune s\'est terminée, ce que vous en avez entendu et d\'où elle a été lancée. « Ne lui apprend rien » : vous lui avez demandé de l\'oublier.</string>
-    <string name="context_chips_info">La première pastille est votre rangée habituelle. Les autres l\'orientent jusqu\'à ce que vous reveniez : « Découverte » vers des titres nouveaux, « Favoris » vers ceux que vous avez aimés, « Concentration », « Détente » et « Fête » vers ce que vous écoutez dans cette humeur. La dernière pastille marche avec toutes.</string>
+    <string name="context_chips_info">La première pastille est votre rangée habituelle. Les autres l\'orientent jusqu\'à ce que vous reveniez : « Découverte » vers des titres que vous n\'avez jamais écoutés, « Favoris » vers ceux que vous avez aimés, « Concentration », « Détente » et « Fête » vers ce que vous écoutez dans cette humeur.</string>
     <string name="context_chips">Pastilles de la Sélection Rapide</string>
     <!-- 0.10.8 only: the Quick picks source text without Best recommendations and Try both. -->
     <string name="quick_picks_source_description_basic">D\'où viennent les titres de la rangée « Sélection Rapide ». « YouTube Music » prend l\'étagère que YouTube construit pour votre compte, et « Votre bibliothèque » des titres liés à ce que vous écoutez. Seule cette rangée change, rien d\'autre sur l\'accueil.</string>
@@ -1609,7 +1606,6 @@
     <!-- Ce que la Sélection Rapide privilégie : un choix permanent pour Meilleures recommandations. Les options sont les réponses du sondage. -->
     <string name="quick_picks_lean">La Sélection Rapide privilégie</string>
     <string name="quick_picks_lean_auto">Auto</string>
-    <string name="quick_picks_lean_new">Des titres que je n\'ai jamais écoutés</string>
     <string name="quick_picks_lean_artist">Plus de titres des artistes auxquels je reviens sans cesse</string>
     <string name="quick_picks_lean_forgotten">Ce que j\'adorais et que j\'ai oublié</string>
     <string name="quick_picks_lean_similar">Des titres qui vont avec ce que j\'écoute en ce moment</string>
@@ -1617,10 +1613,7 @@
     <string name="quick_picks_lean_description_compare">Environ %1$d des 20 cartes et %2$d des quatre premières, car Essayer les deux donne la moitié de la rangée à l\'autre source.</string>
     <string name="quick_picks_lean_not_source">S\'applique quand Source de la Sélection Rapide est sur Meilleures recommandations ou Essayer les deux.</string>
     <string name="quick_picks_lean_set_aside_chip">La pastille %1$s de l\'accueil prend le dessus tant qu\'elle est activée.</string>
-    <string name="quick_picks_lean_set_aside_new_only">Nouveaux titres uniquement prend le dessus tant que ce réglage est activé.</string>
-    <string name="quick_picks_lean_new_only_strict">Quand Nouveaux titres uniquement est activé, Meilleures recommandations ne choisit que des titres que vous n\'avez jamais lancés, tant qu\'il y en a assez.</string>
     <string name="quick_picks_lean_info">« Auto », c\'est le mélange habituel, et les autres choix donnent la plus grande part de la rangée à un type de titres. « Des titres qui vont avec ce que j\'écoute en ce moment » se met aussi à jour pendant l\'écoute.</string>
-    <string name="quick_picks_leaning_new">Privilégie les titres que vous n\'avez jamais écoutés</string>
     <string name="quick_picks_leaning_artist">Privilégie les artistes auxquels vous revenez sans cesse</string>
     <string name="quick_picks_leaning_forgotten">Privilégie ce que vous adoriez et avez oublié</string>
     <string name="quick_picks_leaning_similar">Privilégie ce qui va avec ce que vous écoutez en ce moment</string>
@@ -1628,12 +1621,10 @@
     <string name="quick_picks_leaning_short">%1$s : seulement %2$d pour l\'instant, le reste est le mélange habituel</string>
     <string name="quick_picks_leaning_none">%1$s : rien pour l\'instant, donc c\'est le mélange habituel</string>
     <string name="quick_picks_leaning_forgotten_none">Rien de ce que vous adoriez n\'est délaissé depuis 45 jours, donc c\'est le mélange habituel pour l\'instant</string>
-    <string name="chip_lean_new">Jamais écoutés</string>
     <string name="chip_lean_artist">Vos artistes</string>
     <string name="chip_lean_forgotten">Oubliés</string>
     <string name="chip_lean_similar">En ce moment</string>
     <string name="why_these_lean">Privilégie : %1$s, %2$d des %3$d cartes affichées</string>
-    <string name="adventurousness_description_lean_new">Fixé par la Sélection Rapide, qui privilégie les titres que vous n\'avez jamais écoutés : %1$d cartes sur 20.</string>
     <string name="share_link_kind_title">Liens que vous partagez</string>
     <string name="share_link_youtube_music">Lien YouTube Music</string>
     <string name="share_link_page">Une page pour toutes les applis de musique</string>

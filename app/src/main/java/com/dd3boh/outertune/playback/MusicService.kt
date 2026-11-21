@@ -137,8 +137,10 @@ import com.dd3boh.outertune.constants.SpatialAudioKey
 import com.dd3boh.outertune.constants.SpatialAudioMode
 import com.dd3boh.outertune.constants.PersistentQueueKey
 import com.dd3boh.outertune.constants.PlayingQueueKey
+import com.dd3boh.outertune.constants.NeverHeardQueuesKey
 import com.dd3boh.outertune.db.daos.playingQueueAt
 import com.dd3boh.outertune.engine.EngineLoader
+import com.dd3boh.outertune.engine.HeardSet
 import com.dd3boh.outertune.engine.ListenLog
 import com.dd3boh.outertune.engine.TagFit
 import com.dd3boh.outertune.engine.SongTags
@@ -915,6 +917,20 @@ class MusicService : MediaLibraryService(),
 
     /** What has played in the current queue, in the order it was heard. See [AdaptiveQueue.Heard]. */
     private val heard = AdaptiveQueue.Heard()
+
+    /**
+     * The queues kept to songs never heard, a Discover pick's (NeverHeardQueue), by id with the set
+     * of songs known each was started with. The ids are kept in the settings for a restart; the
+     * sets are read again from the database then, the first time a restored queue needs one.
+     */
+    private val neverHeardQueues = NeverHeardQueues { ids ->
+        scope.launch { dataStore.edit { it[NeverHeardQueuesKey] = ids.mapTo(HashSet()) { id -> id.toString() } } }
+    }
+
+    /** Every song the listener knows, read from the database once (EngineLoader.known): nothing when the read fails. */
+    private suspend fun knownSongsNow(): HeardSet = withContext(Dispatchers.IO) {
+        runCatching { EngineLoader.known(database) }.onFailure { Log.w(TAG, "Discover queue: could not read the songs known", it) }.getOrDefault(HeardSet.EMPTY)
+    }
 
     /** Whether this process has read what the last one saved of the radios (AdaptiveMemory). */
     private var adaptiveMemoryRead = false
@@ -2686,6 +2702,8 @@ class MusicService : MediaLibraryService(),
         origin: PlayOrigin = PlayOrigin.UNKNOWN,
         originSlot: Int = -1,
         tappedAt: Long? = null,
+        /** The card's row was the one built under the Discover chip, as Home knew it at the tap (NeverHeardQueue.isPick). */
+        discoverRow: Boolean = false,
     ) {
         // Radio was already a flag; it is also an origin, and the more useful of the two.
         val playOrigin = if (origin == PlayOrigin.UNKNOWN && isRadio) PlayOrigin.RADIO else origin
@@ -2732,6 +2750,7 @@ class MusicService : MediaLibraryService(),
                     // the second stayed plain; a start dropped for a newer tap, or whose answer
                     // failed, never gets here and leaves the queue that plays as it was.
                     beforeStart = { if (Unreleased.AUTOMIX_EDITOR) linkMixQueue((queue as? ListQueue)?.mixPlaylistId) },
+                    neverHeard = NeverHeardQueue.isPick(playOrigin, discoverRow),
                 )
             } catch (e: Exception) {
                 reportException(e)
@@ -2756,6 +2775,7 @@ class MusicService : MediaLibraryService(),
                                     title = title,
                                     origin = origin,
                                     originSlot = originSlot,
+                                    discoverRow = discoverRow,
                                 )
                             }
                         }
@@ -2891,6 +2911,10 @@ class MusicService : MediaLibraryService(),
         override fun pickedByInterTune(queue: MultiQueueObject) {
             radioFromInterTune.value = queue.id
         }
+
+        override suspend fun knownSongs(): HeardSet = knownSongsNow()
+
+        override fun keepNeverHeard(queue: MultiQueueObject, heard: HeardSet?) = neverHeardQueues.set(queue.id, heard)
     })
 
     /**
@@ -3162,6 +3186,12 @@ class MusicService : MediaLibraryService(),
                 queueBoard = QueueBoard(this, queueBoard.masterQueues, maxQueues = maxQueues)
             }
             Log.d(TAG, "Queue with $maxQueues queue limit. Persist queue = $persistQueue. Queues loaded = ${queueBoard.masterQueues.size}")
+            // A Discover pick's queue keeps to songs never heard after a restart: its id was kept,
+            // and the songs known are read again the first time it asks for more.
+            neverHeardQueues.restore(
+                dataStore[NeverHeardQueuesKey].orEmpty().mapNotNullTo(HashSet()) { it.toLongOrNull() },
+                queueBoard.masterQueues.map { it.id },
+            )
             // What the radios had played, for when their queue plays again. Once a process: this
             // also runs mid-session (Max queues, a scan, the mini player swiped away), and the file
             // is older than anything the runs hold by then.
@@ -4814,12 +4844,21 @@ class MusicService : MediaLibraryService(),
         }
         val liked = snap.view.likePending
         val seeds = (listOfNotNull(liked) + snap.view.seeds).distinct()
+        // A Discover pick's queue picks only songs never heard, by the set it was started with.
+        val neverHeard = neverHeardQueues.heardFor(snap.queueId) { knownSongsNow() }
         // Never a song not to play, as the songs are now: a list is kept for the whole run, and
         // the taste that leaves them out too for half an hour or more (DontPlay, tasteFor).
         fun sources(): List<AdaptivePass.Source> {
             val dontPlay = ContentFilter.current.dontPlay
             return seeds.mapNotNull { seed -> listFor(seed, snap.explicitHidden) }
                 .map { source -> if (dontPlay.isEmpty) source else source.copy(songs = source.songs.filterNot(dontPlay::covers)) }
+                .let { lists ->
+                    if (neverHeard == null) lists else {
+                        val kept = lists.map { source -> source to NeverHeardQueue.keep(source.songs, neverHeard) }
+                        Log.d(TAG, "Adaptive queue: " + NeverHeardQueue.said("its picks", kept.sumOf { it.second.songs.size }, kept.sumOf { it.second.passedOver }, 0))
+                        kept.map { (source, k) -> source.copy(songs = k.songs) }
+                    }
+                }
         }
         val skippedRelated = snap.view.lastSkipped?.takeIf { snap.ask.skip }?.let { id ->
             runCatching { database.youtubeRelatedSongs(id).mapTo(HashSet()) { it.id } }.getOrDefault(emptySet())
@@ -6052,12 +6091,12 @@ class MusicService : MediaLibraryService(),
                 // still no radio of its own, the same songs and the same run. One that was
                 // refilled, made a radio, given a song by hand or played again meanwhile is not
                 // the end that was asked about, and the radio is not wanted at the end of it.
-                val wanted = activePlayer.playbackState != STATE_IDLE &&
+                fun wanted() = activePlayer.playbackState != STATE_IDLE &&
                     (songCount > 1 || endRadio) && // initial radio loading is handled by playQueue()
                     activePlayer.mediaItemCount > 0 && qbInit.value &&
                     queueBoard.getCurrentQueue()?.id == q.id &&
                     (!endRadio || (q.playlistId == null && q.getSize() == songCount && AdaptiveQueue.runKey(q.id, q.runId) == endRun))
-                if (!wanted) return@launch
+                if (!wanted()) return@launch
                 // Seed the next page from something the listener actually finished.
                 //
                 // This used to be a random pick from the last four songs of the page just
@@ -6085,11 +6124,29 @@ class MusicService : MediaLibraryService(),
                 // Nor, with the radio kept up to date, what this run turned down, banned songs or
                 // lasting dislikes: the page joins five songs from now at most, inside the lock by
                 // the next song change, where no pass looks (AdaptivePass.pageKeeps).
-                val joining = if (!adaptiveQueueMode.isOn) fresh else {
+                val offered = if (!adaptiveQueueMode.isOn) fresh else {
                     val view = heard.view()
                     AdaptivePass.pageKeeps(fresh, view.turnedDown, view.positiveArtists, tasteCache?.second)
                 }
-                if (joining.size < fresh.size) Log.d(TAG, "Adaptive queue: the radio's next page left out ${fresh.size - joining.size} songs")
+                if (offered.size < fresh.size) Log.d(TAG, "Adaptive queue: the radio's next page left out ${fresh.size - offered.size} songs")
+                // A Discover pick's queue: only songs never heard join, after whatever kept the
+                // page whole above, and while too few do, more of this seed's radio is asked for.
+                val neverHeard = neverHeardQueues.heardFor(q.id) { knownSongsNow() }
+                val joining = if (neverHeard == null) offered else {
+                    var kept = NeverHeardQueue.keep(offered, neverHeard)
+                    var pages = 0
+                    while (kept.songs.size < NeverHeardQueue.ENOUGH_TOP_UP && pages < NeverHeardQueue.MORE_PAGES && yq.hasNextPage()) {
+                        val page = try { yq.nextPage() } catch (e: CancellationException) { throw e } catch (e: Exception) { emptyList() }
+                        pages++
+                        val more = NeverHeardQueue.keep(RadioPage.fresh(page, songs + kept.songs, heard.reached, heard.reachedVersions), neverHeard)
+                        kept = NeverHeardQueue.Kept(kept.songs + more.songs, kept.passedOver + more.passedOver)
+                        if (page.isEmpty()) break
+                    }
+                    Log.i(TAG, "onMediaItemTransition: " + NeverHeardQueue.said("a top-up", kept.songs.size, kept.passedOver, pages))
+                    // The queue may have moved on while it was read and asked for.
+                    if (!wanted()) return@launch
+                    kept.songs
+                }
                 val next = RadioPage.nextSeed(anchor, joining, songs, asked = playlistId)
                 // The first radio of an album makes it a radio only when it brings something: an
                 // album it cannot extend stays what it was, and is not asked again from the same

@@ -147,6 +147,6 @@ class PinsBefore013Test {
     @Test
     fun `the app opens its settings with it, after the new install's song cache`() {
         val source = File("src/main/java/com/dd3boh/outertune/utils/DataStore.kt").readText()
-        assertEquals(true, source.contains("produceMigrations = { listOf(NewInstallSongCache, LyricsTimingOnTime, PinsBefore013, ClassicPinsBefore013, CastPinAtUpdate) },"))
+        assertEquals(true, source.contains("produceMigrations = { listOf(NewInstallSongCache, LyricsTimingOnTime, PinsBefore013, ClassicPinsBefore013, CastPinAtUpdate, NeverHeardToDiscover) },"))
     }
 }

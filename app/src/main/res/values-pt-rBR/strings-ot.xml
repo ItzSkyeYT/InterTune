@@ -988,8 +988,6 @@
     <string name="familiarity">Familiaridade</string>
     <string name="familiarity_description">Quanto da linha Melhores recomendações vai para músicas que você ouviu bastante nas últimas duas semanas e já pode ouvir de novo: %1$d de 20 cards. As músicas que você já cansou de ouvir saem sozinhas.</string>
     <string name="why_these_lane_again">%1$d que você sempre volta a ouvir</string>
-    <string name="new_songs_only">Só músicas novas</string>
-    <string name="new_songs_only_description">Todos os cards da linha Melhores recomendações são músicas novas para você.</string>
     <string name="similar_source">Músicas parecidas de</string>
     <string name="login_reassurance">Esta é a própria página de login do Google. O InterTune nunca vê sua senha. Ele guarda só a sessão que o YouTube Music devolve.</string>
     <string name="login_secure">Conexão segura</string>
@@ -1367,7 +1365,6 @@
     <string name="rank_with_listening_info">Coloca a linha “Escolhas rápidas” numa ordem que combina com você: as músicas que você toca muito, tocou recentemente ou favoritou tendem a vir primeiro. Nada é adicionado nem removido. A linha fica como está quando “Melhores recomendações” ou “Testar as duas” a preenche.</string>
     <string name="recommendations_engine_title_info">A linha tem vinte cards: músicas relacionadas ao que você toca, músicas a que você sempre volta, mais dos seus artistas, antigas favoritas esquecidas e algumas novas para você. Estas configurações valem enquanto a “Origem das escolhas rápidas” for “Melhores recomendações” ou “Testar as duas”. Puxe para baixo no Início para ver a mudança.</string>
     <string name="similar_source_info">Onde “Melhores recomendações” e “Descubra algo novo” encontram músicas parecidas com as que você toca. Com “Os dois” ou “Só o Last.fm”, o título e o artista das músicas que você toca ou favoritou vão para o Last.fm, nada além disso e nenhuma conta. “Só o YouTube” não envia nada ao Last.fm.</string>
-    <string name="new_songs_only_info">A linha inteira vai para músicas que você não ouviu além de mais ou menos a metade; uma que você pulou cedo ainda conta como nova. “Ousadia” e “Familiaridade” deixam de importar enquanto isto estiver ativado. A linha pode ficar mais curta, e então as “Escolhas rápidas” mostram outra fonte.</string>
     <string name="show_reasons_info">Cada card diz o principal motivo de estar ali: uma música com que combina, um artista que você toca, um favorito, ou que é novidade para você. Uma surpresa é um card escolhido ao acaso para manter a linha variada.</string>
     <string name="exclusions_info">Toque e segure um card das “Escolhas rápidas” para “Esta música não”, “Menos deste artista” (por um mês) ou “Nunca este artista”. Essas exclusões só filtram as linhas de recomendação, nunca a pesquisa, sua biblioteca ou as playlists. Esta página lista o que está em vigor, e “Retirar” remove uma.</string>
     <string name="rest_songs_i_skip_info">Pule uma música que você favoritou ou toca muito antes da metade, e ela fica fora da linha “Melhores recomendações” por uma semana. Um pulo nos primeiros trinta segundos não conta. Você pode encerrar um descanso antes na página “Exclusões”.</string>
@@ -1383,7 +1380,7 @@
     <string name="recommendations_learned_title_info">Tudo abaixo fica guardado no app neste celular e nunca é enviado. Um backup inclui esses dados. Em “Privacidade e histórico”, “Pausar o histórico de reprodução” para o registro e “Limpar o histórico de reprodução” apaga tudo.</string>
     <string name="recommendations_where_from_info">Cada lugar conta as vezes que você começou a tocar a partir dele; as músicas que tocam em seguida não são contadas de novo. Uma música escolhida por você ensina mais do que uma que só tocou em seguida, e uma pesquisa conta mais que tudo. “Não registrado” significa que o app não anotou onde ela começou.</string>
     <string name="recommendations_recent_title_info">As últimas trinta audições com que ele aprende, das mais novas para as mais antigas. Cada linha diz como a reprodução terminou, quanto da música você ouviu e de onde ela foi iniciada. “Sem aprendizado” significa que você pediu para esquecer essa audição, ou que ela tocou de uma fila marcada com “Não aprender com isto”.</string>
-    <string name="context_chips_info">O primeiro chip é a sua linha de sempre. Os outros puxam a linha para um lado até você voltar: “Descobrir” para músicas novas para você, “Favoritas” para músicas que você favoritou, “Foco”, “Relax” e “Festa” para o que você toca enquanto cada um está ativo. O último chip funciona sozinho, junto com qualquer um deles.</string>
+    <string name="context_chips_info">O primeiro chip é a sua linha de sempre. Os outros puxam a linha para um lado até você voltar: “Descobrir” para músicas novas para você, “Favoritas” para músicas que você favoritou, “Foco”, “Relax” e “Festa” para o que você toca enquanto cada um está ativo.</string>
     <string name="context_chips">Chips das Escolhas rápidas</string>
     <string name="explain_what_this_does">O que %1$s faz</string>
     <string name="explain_close">Fechar</string>
@@ -1591,7 +1588,6 @@
     </plurals>
     <string name="quick_picks_lean">Preferência das Escolhas rápidas</string>
     <string name="quick_picks_lean_auto">Auto</string>
-    <string name="quick_picks_lean_new">Músicas que nunca ouvi</string>
     <string name="quick_picks_lean_artist">Mais dos artistas que sempre volto a ouvir</string>
     <string name="quick_picks_lean_forgotten">Coisas que eu amava e esqueci</string>
     <string name="quick_picks_lean_similar">Músicas que combinam com o que estou tocando agora</string>
@@ -1599,10 +1595,7 @@
     <string name="quick_picks_lean_description_compare">Cerca de %1$d dos 20 cards e %2$d dos quatro primeiros, já que “Testar as duas” dá metade da linha à outra fonte.</string>
     <string name="quick_picks_lean_not_source">Vale quando a “Origem das escolhas rápidas” é “Melhores recomendações” ou “Testar as duas”.</string>
     <string name="quick_picks_lean_set_aside_chip">O chip %1$s no Início tem prioridade enquanto estiver ativo.</string>
-    <string name="quick_picks_lean_set_aside_new_only">“Só músicas novas” tem prioridade enquanto estiver ativado.</string>
-    <string name="quick_picks_lean_new_only_strict">Com “Só músicas novas” ativado, Melhores recomendações escolhe só músicas que você nunca nem começou a ouvir, desde que haja o suficiente.</string>
     <string name="quick_picks_lean_info">“Auto” é a mistura de sempre, a partir do que “Melhores recomendações” aprendeu. Cada uma das outras opções dá a maior parte dos cards a um tipo de música. “Músicas que combinam com o que estou tocando agora” também refaz as “Escolhas rápidas” depois que você ouve algumas músicas de outros lugares.</string>
-    <string name="quick_picks_leaning_new">Puxando para músicas que você nunca ouviu</string>
     <string name="quick_picks_leaning_artist">Puxando para artistas que você sempre volta a ouvir</string>
     <string name="quick_picks_leaning_forgotten">Puxando para coisas que você amava e esqueceu</string>
     <string name="quick_picks_leaning_similar">Puxando para o que você está tocando agora</string>
@@ -1610,12 +1603,10 @@
     <string name="quick_picks_leaning_short">%1$s: só %2$d por enquanto, o resto é a mistura de sempre</string>
     <string name="quick_picks_leaning_none">%1$s: nada ainda, então por enquanto é a mistura de sempre</string>
     <string name="quick_picks_leaning_forgotten_none">Nenhuma música que você amava está parada há 45 dias ainda, então por enquanto é a mistura de sempre</string>
-    <string name="chip_lean_new">Nunca ouvidas</string>
     <string name="chip_lean_artist">Seus artistas</string>
     <string name="chip_lean_forgotten">Esquecidas</string>
     <string name="chip_lean_similar">Tocando agora</string>
     <string name="why_these_lean">Preferência: %1$s, %2$d dos %3$d cards na tela</string>
-    <string name="adventurousness_description_lean_new">Definida pela preferência das Escolhas rápidas por músicas que você nunca ouviu: %1$d de 20 cards.</string>
     <string name="share_link_kind_title">Links que você compartilha</string>
     <string name="share_link_youtube_music">Link do YouTube Music</string>
     <string name="share_link_page">Uma página para qualquer app de música</string>

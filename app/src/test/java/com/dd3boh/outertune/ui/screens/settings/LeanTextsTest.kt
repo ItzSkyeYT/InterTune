@@ -29,7 +29,6 @@ class LeanTextsTest {
 
     private val leanInfo = "quick_picks_lean_info"
     private val chipsInfo = "context_chips_info"
-    private val strictLine = "quick_picks_lean_new_only_strict"
 
     private fun paragraphs(text: String) = text.split("\n\n")
     private fun sentences(paragraph: String) = Regex("[.!?](?=\\s|$)").findAll(paragraph).count()
@@ -42,14 +41,13 @@ class LeanTextsTest {
                 assertEquals("$language $name", 1, paragraphs(text).size)
                 assertTrue("$language $name", sentences(text) in 2..3)
             }
-            assertEquals(language, 1, sentences(texts.getValue(strictLine)))
-            for (name in listOf(leanInfo, chipsInfo, strictLine)) assertFalse("$language $name", '\u2014' in texts.getValue(name))
+            for (name in listOf(leanInfo, chipsInfo)) assertFalse("$language $name", '\u2014' in texts.getValue(name))
         }
     }
 
     @Test
     fun `Canadian English reads as English does`() {
-        for (name in listOf(leanInfo, chipsInfo, strictLine)) assertEquals(name, english.getValue(name), canadian.getValue(name))
+        for (name in listOf(leanInfo, chipsInfo)) assertEquals(name, english.getValue(name), canadian.getValue(name))
     }
 
     @Test
@@ -75,5 +73,20 @@ class LeanTextsTest {
         assertFalse("unliked" in english.getValue(chipsInfo))
         assertFalse("non aimés" in french.getValue(chipsInfo))
         assertFalse("only" in english.getValue(chipsInfo))
+    }
+
+    @Test
+    fun `the chips' explanation says Discover is songs never heard, and names no chip that is gone`() {
+        // New songs only, the last chip, and the Never heard choice were taken out on 21 Nov 2026.
+        assertTrue("never heard" in english.getValue(chipsInfo))
+        assertTrue("jamais écoutés" in french.getValue(chipsInfo))
+        assertFalse("last chip" in english.getValue(chipsInfo))
+        assertFalse("dernière pastille" in french.getValue(chipsInfo))
+        for ((language, texts) in listOf("English" to english, "Canadian" to canadian, "French" to french)) {
+            for (gone in listOf("new_songs_only", "new_songs_only_description", "new_songs_only_info", "quick_picks_lean_new", "quick_picks_lean_new_only_strict",
+                "quick_picks_leaning_new", "chip_lean_new", "adventurousness_description_lean_new", "quick_picks_lean_set_aside_new_only")) {
+                assertFalse("$language $gone", gone in texts)
+            }
+        }
     }
 }

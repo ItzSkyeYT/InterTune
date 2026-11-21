@@ -47,7 +47,7 @@ class LeanTest {
      * really is: artists 12 to 19 are only there because related lists named them, so they are
      * not in the library. Artists 0 to 7 were heard daily over the last month, 8 to 11 two months
      * ago, 12 to 19 never. Each of 0 to 7 also has four songs never heard and not in the library,
-     * for Never heard's second tier. [richNew] adds twenty-four more new artists, three for each
+     * for Discover's second tier. [richNew] adds twenty-four more new artists, three for each
      * of 0 to 7, so the first tier is large and spread over many artists, as a real related graph
      * is; without it new artists come only through two lightly played songs.
      */
@@ -86,40 +86,45 @@ class LeanTest {
     fun `a lean is stored by code and read back by name, anything unknown is Auto`() {
         Lean.entries.forEach { assertEquals(it, Lean.ofCode(it.code)); assertEquals(it, Lean.ofName(it.name)) }
         assertEquals(Lean.AUTO, Lean.ofName(null)); assertEquals(Lean.AUTO, Lean.ofName("SOMETHING")); assertEquals(Lean.AUTO, Lean.ofCode(9))
-        assertEquals(listOf(0, 1, 2, 3, 4), Lean.entries.map { it.code })
-        assertEquals(listOf(null, Lane.EXPLORE, Lane.ARTIST, Lane.REDISCOVER, Lane.RELATED), Lean.entries.map { it.lane })
+        assertEquals(listOf(0, 2, 3, 4), Lean.entries.map { it.code })
+        assertEquals(listOf(null, Lane.ARTIST, Lane.REDISCOVER, Lane.RELATED), Lean.entries.map { it.lane })
+        // Never heard was taken out (21 Nov 2026): its name and code read as Auto, and its code is
+        // never given to another lean, since builds made under it still lead with new songs.
+        assertEquals(Lean.AUTO, Lean.ofName("NEW")); assertEquals(Lean.AUTO, Lean.ofCode(Lean.RETIRED_NEVER_HEARD))
+        assertEquals(1, Lean.RETIRED_NEVER_HEARD)
+        assertTrue(Lean.entries.none { it.code == Lean.RETIRED_NEVER_HEARD })
+        assertEquals(Lane.EXPLORE, Lean.leadLaneOfCode(Lean.RETIRED_NEVER_HEARD))
+        Lean.entries.forEach { assertEquals(it.lane, Lean.leadLaneOfCode(it.code)) }
+        assertNull(Lean.leadLaneOfCode(9))
     }
 
     @Test
     fun `which lean a build follows`() {
-        for (stored in Lean.entries) for (chip in chips) for (newOnly in listOf(false, true)) for (neverPlayed in listOf(false, true)) {
+        for (stored in Lean.entries) for (chip in chips) for (neverPlayed in listOf(false, true)) {
             val expected = when {
                 neverPlayed || stored == Lean.AUTO -> Lean.AUTO
-                newOnly -> if (stored == Lean.NEW) Lean.NEW else Lean.AUTO
-                chip == ContextChip.FAVOURITES -> Lean.AUTO
-                chip == ContextChip.DISCOVER -> if (stored == Lean.NEW) Lean.NEW else Lean.AUTO
+                chip == ContextChip.FAVOURITES || chip == ContextChip.DISCOVER -> Lean.AUTO
                 chip in ContextChip.MOODS -> if (stored == Lean.SIMILAR) Lean.AUTO else stored
                 else -> stored
             }
-            assertEquals("$stored chip $chip newOnly $newOnly neverPlayed $neverPlayed", expected, Lean.applied(stored, chip, newOnly, neverPlayed))
+            assertEquals("$stored chip $chip neverPlayed $neverPlayed", expected, Lean.applied(stored, chip, neverPlayed))
         }
         // The cases the rule is about, spelled out.
-        assertEquals(Lean.NEW, Lean.applied(Lean.NEW, ContextChip.DISCOVER, false, false))
-        assertEquals(Lean.AUTO, Lean.applied(Lean.ARTIST, ContextChip.DISCOVER, false, false))
-        assertEquals(Lean.FORGOTTEN, Lean.applied(Lean.FORGOTTEN, ContextChip.CHILL, false, false))
-        assertEquals(Lean.AUTO, Lean.applied(Lean.SIMILAR, ContextChip.CHILL, false, false))
-        assertEquals(Lean.NEW, Lean.applied(Lean.NEW, ContextChip.AUTO, true, false))
-        assertEquals(Lean.AUTO, Lean.applied(Lean.NEW, ContextChip.AUTO, false, true))
+        assertEquals(Lean.AUTO, Lean.applied(Lean.ARTIST, ContextChip.DISCOVER, false))
+        assertEquals(Lean.AUTO, Lean.applied(Lean.FORGOTTEN, ContextChip.DISCOVER, false))
+        assertEquals(Lean.FORGOTTEN, Lean.applied(Lean.FORGOTTEN, ContextChip.CHILL, false))
+        assertEquals(Lean.AUTO, Lean.applied(Lean.SIMILAR, ContextChip.CHILL, false))
+        assertEquals(Lean.AUTO, Lean.applied(Lean.ARTIST, ContextChip.AUTO, true))
     }
 
     @Test
     fun `Auto stored is exactly the row built without a lean`() {
         val w = world()
-        for (chip in chips) for (newOnly in listOf(false, true)) for (neverPlayed in listOf(false, true)) {
-            val seeds = if (chip == ContextChip.AUTO && !newOnly && !neverPlayed) 20 else 3
+        for (chip in chips) for (neverPlayed in listOf(false, true)) {
+            val seeds = if (chip == ContextChip.AUTO && !neverPlayed) 20 else 3
             repeat(seeds) { s ->
-                val plain = EngineRow.build(w.input(chip), newOnly = newOnly, neverPlayed = neverPlayed, random = Random(s.toLong()), lastFmShare = 0.5)
-                val auto = EngineRow.build(w.input(chip), newOnly = newOnly, neverPlayed = neverPlayed, random = Random(s.toLong()), lastFmShare = 0.5, stored = Lean.AUTO)
+                val plain = EngineRow.build(w.input(chip), neverPlayed = neverPlayed, random = Random(s.toLong()), lastFmShare = 0.5)
+                val auto = EngineRow.build(w.input(chip), neverPlayed = neverPlayed, random = Random(s.toLong()), lastFmShare = 0.5, stored = Lean.AUTO)
                 assertEquals(sig(plain), sig(auto))
                 assertEquals(Lean.AUTO, auto.lean); assertEquals(0, auto.leanPlaced); assertEquals(1.0, auto.leadWeight, 0.0)
             }
@@ -134,16 +139,16 @@ class LeanTest {
         for ((k, a) in listOf(1, 2, 3, 4, 6, 7).withIndex()) w.play("a${a}s${k % 4}", hoursAgo = 0.45 - k * 0.04, session = 999)
         w.play("a7s6", hoursAgo = 10.0 / 3600, ratio = 0.05, session = 999, ended = EndReason.OPEN)
         var checked = 0
-        for (stored in Lean.entries.filter { it != Lean.AUTO }) for (chip in chips) for (newOnly in listOf(false, true)) for (neverPlayed in listOf(false, true)) {
-            if (Lean.applied(stored, chip, newOnly, neverPlayed) != Lean.AUTO) continue
+        for (stored in Lean.entries.filter { it != Lean.AUTO }) for (chip in chips) for (neverPlayed in listOf(false, true)) {
+            if (Lean.applied(stored, chip, neverPlayed) != Lean.AUTO) continue
             repeat(3) { s ->
-                val auto = EngineRow.build(w.input(chip), newOnly = newOnly, neverPlayed = neverPlayed, random = Random(s.toLong()))
-                val leaned = EngineRow.build(w.input(chip), newOnly = newOnly, neverPlayed = neverPlayed, random = Random(s.toLong()), stored = stored)
-                assertEquals("$stored chip $chip newOnly $newOnly neverPlayed $neverPlayed", sig(auto), sig(leaned))
+                val auto = EngineRow.build(w.input(chip), neverPlayed = neverPlayed, random = Random(s.toLong()))
+                val leaned = EngineRow.build(w.input(chip), neverPlayed = neverPlayed, random = Random(s.toLong()), stored = stored)
+                assertEquals("$stored chip $chip neverPlayed $neverPlayed", sig(auto), sig(leaned))
                 checked++
             }
         }
-        assertTrue(checked > 100)
+        assertTrue(checked > 50)
     }
 
     @Test
@@ -151,11 +156,15 @@ class LeanTest {
         val p = EngineParams.DEFAULT.withFamiliarity(0.25)
         fun q(lean: Lean, cards: Int = p.leanCards) = quotas(20, 0.5, false, p, lean, cards).let { m -> listOf(Lane.EXPLORE, Lane.RELATED, Lane.AGAIN, Lane.ARTIST, Lane.REDISCOVER).map { m[it] } }
         assertEquals(listOf(2, 7, 4, 4, 3), q(Lean.AUTO))
-        assertEquals(listOf(12, 3, 2, 2, 1), q(Lean.NEW))
         assertEquals(listOf(1, 4, 2, 12, 1), q(Lean.ARTIST))
         assertEquals(listOf(1, 3, 2, 2, 12), q(Lean.FORGOTTEN))
         assertEquals(listOf(1, 12, 3, 2, 2), q(Lean.SIMILAR))
-        assertEquals(listOf(16, 2, 1, 1, 0), q(Lean.NEW, 16))
+        // Discover gives the whole row to songs never heard, whatever the lean and the dials.
+        for (lean in Lean.entries) for (dial in listOf(0.0, 0.5, 1.0)) {
+            val discover = EngineRow.shape(p, dial, chip = ContextChip.DISCOVER, stored = lean)
+            assertEquals(listOf(20, 0, 0, 0, 0), listOf(Lane.EXPLORE, Lane.RELATED, Lane.AGAIN, Lane.ARTIST, Lane.REDISCOVER).map { discover.quotas[it] })
+            assertTrue(discover.onlyNew); assertNull(discover.lead)
+        }
         for (lean in Lean.entries) for (dial in listOf(0.0, 0.5, 1.0)) for (fam in listOf(0.0, 0.25, 0.45)) {
             val m = quotas(20, dial, false, EngineParams.DEFAULT.withFamiliarity(fam), lean)
             assertEquals(20, m.values.sum())
@@ -165,14 +174,14 @@ class LeanTest {
         val low = quotas(20, 0.5, false, EngineParams.DEFAULT.withFamiliarity(0.0), Lean.ARTIST)
         val high = quotas(20, 0.5, false, EngineParams.DEFAULT.withFamiliarity(0.6), Lean.ARTIST)
         assertEquals(0, low[Lane.AGAIN]); assertTrue(high[Lane.AGAIN]!! >= 4)
-        // New songs only decides the whole row whatever the lean.
+        // A row of new songs only is decided whole, whatever the lean.
         assertEquals(quotas(20, 0.5, true, p), quotas(20, 0.5, true, p, Lean.ARTIST))
     }
 
     @Test
     fun `the first column is the lean's, and its cards say why first`() {
         val w = world()
-        for (lean in listOf(Lean.NEW, Lean.ARTIST, Lean.SIMILAR)) repeat(5) { s ->
+        for (lean in listOf(Lean.ARTIST, Lean.SIMILAR)) repeat(5) { s ->
             val row = EngineRow.build(w.input(), random = Random(s.toLong()), stored = lean)
             val lead = lean.lane!!
             assertEquals(lean, row.lean)
@@ -180,7 +189,7 @@ class LeanTest {
             assertEquals("$lean seed $s", List(4) { lead }, row.cards.take(4).map { it.lane })
             assertEquals(row.cards.count { it.lane == lead }, row.leanPlaced)
             assertTrue("$lean placed ${row.leanPlaced}", row.leanPlaced >= 12)
-            val own = when (lead) { Lane.EXPLORE -> "new_to_you"; Lane.ARTIST -> "x_art"; Lane.RELATED -> "x_seed"; else -> "x_dorm" }
+            val own = when (lead) { Lane.ARTIST -> "x_art"; Lane.RELATED -> "x_seed"; else -> "x_dorm" }
             row.cards.filter { it.lane == lead }.forEach { assertEquals(own, it.reasons.first()) }
             // The rest of the row is the usual mix: every other lane that has songs is in it.
             assertTrue(row.cards.drop(4).any { it.lane != lead })
@@ -190,40 +199,37 @@ class LeanTest {
     }
 
     @Test
-    fun `Never heard is songs with no listen at all, not liked and not in the library, new artists first`() {
+    fun `Discover is songs never heard, every card, new artists first`() {
         val rich = world(richNew = true)
         val heard = rich.listens.mapTo(HashSet()) { it.songId }
         val knownArtists = rich.listens.mapNotNullTo(HashSet()) { rich.songs[it.songId]?.artistId }
+        fun known(w: World, id: String) = id in heard || w.songs[id]!!.inLibrary || w.songs[id]!!.liked
         repeat(5) { s ->
-            val row = EngineRow.build(rich.input(), random = Random(s.toLong()), stored = Lean.NEW)
-            val lead = row.cards.filter { it.lane == Lane.EXPLORE } + row.pool.filter { it.lane == Lane.EXPLORE }
-            assertTrue(row.leanPlaced >= 12)
-            lead.forEach { c ->
-                assertTrue("${c.songId} heard", c.songId !in heard)
-                assertFalse("${c.songId} in the library", rich.songs[c.songId]!!.inLibrary || rich.songs[c.songId]!!.liked)
+            val row = EngineRow.build(rich.input(ContextChip.DISCOVER), random = Random(s.toLong()), stored = Lean.ARTIST)
+            // No lean under Discover: the whole row is the new-to-you lane's, twenty songs never heard.
+            assertEquals(Lean.AUTO, row.lean); assertNull(row.gaveWay)
+            assertEquals(20, row.quotas[Lane.EXPLORE]); assertEquals(20, row.cards.size)
+            (row.cards + row.pool).forEach { c ->
+                assertFalse("${c.songId} is known", known(rich, c.songId))
+                assertTrue("${c.songId} came from ${c.lane}", c.lane == Lane.EXPLORE || c.lane == Lane.RELATED)
+            }
+            row.cards.forEach { c ->
                 // Plenty of new artists: the second tier, known artists' unheard songs, never comes in.
                 assertTrue("${c.songId} by a known artist", rich.songs[c.songId]!!.artistId !in knownArtists)
+                if (c.lane == Lane.EXPLORE) assertEquals("new_to_you", c.reasons.first())
             }
         }
-        // Few new artists: their songs first, then the second tier fills the lean.
+        // Few new artists: their songs first, then songs never heard by artists already heard,
+        // and never one heard, liked or in the library.
         val poor = world(richNew = false)
-        val poorRow = EngineRow.build(poor.input(), random = Random(1), stored = Lean.NEW)
-        val poorLead = poorRow.cards.filter { it.lane == Lane.EXPLORE }
-        assertTrue(poorLead.any { poor.songs[it.songId]!!.artistId in knownArtists })
-        poorLead.forEach { assertTrue(it.songId !in heard); assertFalse(poor.songs[it.songId]!!.inLibrary) }
-        // Under Discover: sixteen, new artists only, so never the second tier, even when that leaves it short.
-        val discover = EngineRow.build(poor.input(ContextChip.DISCOVER), random = Random(1), stored = Lean.NEW)
-        assertEquals(16, discover.quotas[Lane.EXPLORE]); assertEquals(Lean.NEW, discover.lean)
-        discover.cards.filter { it.lane == Lane.EXPLORE }.forEach { assertTrue(poor.songs[it.songId]!!.artistId !in knownArtists) }
-        val richDiscover = EngineRow.build(rich.input(ContextChip.DISCOVER), random = Random(1), stored = Lean.NEW)
-        assertEquals(16, richDiscover.leanPlaced)
-        assertEquals(List(4) { Lane.EXPLORE }, richDiscover.cards.take(4).map { it.lane })
-        assertEquals(0.25, richDiscover.leadWeight, 1e-12)
-        // With New songs only, the whole row is never played and none of it liked or in the library.
-        val strict = EngineRow.build(rich.input(), newOnly = true, random = Random(1), stored = Lean.NEW)
-        assertEquals(Lean.AUTO, strict.lean)
-        assertEquals(20, strict.cards.size)
-        strict.cards.forEach { c -> assertTrue(c.songId !in heard); assertFalse(rich.songs[c.songId]!!.inLibrary || rich.songs[c.songId]!!.liked) }
+        val poorRow = EngineRow.build(poor.input(ContextChip.DISCOVER), random = Random(1))
+        assertTrue(poorRow.cards.any { poor.songs[it.songId]!!.artistId in knownArtists })
+        assertTrue(poorRow.cards.any { poor.songs[it.songId]!!.artistId !in knownArtists })
+        (poorRow.cards + poorRow.pool).forEach { assertFalse("${it.songId} is known", known(poor, it.songId)) }
+        // The Discover something new row keeps the same rule.
+        val row = EngineRow.build(rich.input(), neverPlayed = true, random = Random(1))
+        assertEquals(20, row.cards.size)
+        (row.cards + row.pool).forEach { c -> assertFalse("${c.songId} is known", known(rich, c.songId)) }
     }
 
     @Test
@@ -247,10 +253,11 @@ class LeanTest {
     }
 
     @Test
-    fun `New songs only under Never heard keeps its stricter rule when related cards fill in`() {
+    fun `Discover keeps its rule when related cards fill in`() {
         // Known artists' songs refer five new artists with three songs each, which the cap of two
-        // an artist leaves short of twenty but long enough to show, and songs that are new under
-        // New songs only but not never heard: a library song never played and a song started and skipped.
+        // an artist leaves short of twenty but long enough to show, and songs that look new to the
+        // engine's novelty but that the listener knows: a library song never played and a song
+        // started and skipped.
         val w = World(now)
         for (a in 0 until 3) for (i in 0 until 4) w.song("k${a}s$i", "known$a", title = "Known $a $i")
         for (a in 0 until 5) for (i in 0 until 3) w.song("n${a}s$i", "fresh$a", title = "Fresh $a $i", inLibrary = false)
@@ -262,12 +269,15 @@ class LeanTest {
         for (i in 0 until 6) w.play("skip$i", hoursAgo = 30.0 + i, ratio = 0.05, session = 50, ended = EndReason.SKIPPED)
         val heard = w.listens.mapTo(HashSet()) { it.songId }
         repeat(5) { s ->
-            val strict = EngineRow.build(w.input(), newOnly = true, random = Random(s.toLong()), stored = Lean.NEW)
-            assertEquals(10, strict.cards.size); assertNull(strict.gaveWay)
-            strict.cards.forEach { c -> assertTrue("${c.songId} heard", c.songId !in heard); assertFalse("${c.songId} in the library", w.songs[c.songId]!!.inLibrary) }
-            // The plain rule lets both kinds in, so the difference is real.
-            val plain = EngineRow.build(w.input(), newOnly = true, random = Random(s.toLong()))
-            assertTrue(plain.cards.any { it.songId.startsWith("lib") || it.songId.startsWith("skip") })
+            val discover = EngineRow.build(w.input(ContextChip.DISCOVER), random = Random(s.toLong()))
+            assertEquals(10, discover.cards.size); assertNull(discover.gaveWay)
+            (discover.cards + discover.pool).forEach { c ->
+                assertTrue("${c.songId} heard", c.songId !in heard)
+                assertFalse("${c.songId} in the library", w.songs[c.songId]!!.inLibrary)
+            }
+            // The usual row lets both kinds in, so the difference is real.
+            val plain = EngineRow.build(w.input(), random = Random(s.toLong()))
+            assertTrue((plain.cards + plain.pool).any { it.songId.startsWith("lib") || it.songId.startsWith("skip") })
         }
     }
 
@@ -412,15 +422,15 @@ class LeanTest {
         val w = world()
         val auto = EngineRow.build(w.input(), random = Random(1))
         assertTrue(auto.pool.size <= 40)
-        val row = EngineRow.build(w.input(), random = Random(1), stored = Lean.NEW)
+        val row = EngineRow.build(w.input(), random = Random(1), stored = Lean.ARTIST)
         assertTrue(row.pool.size > 40)
-        assertTrue(row.pool.drop(40).all { it.lane == Lane.EXPLORE })
+        assertTrue(row.pool.drop(40).all { it.lane == Lane.ARTIST })
         assertTrue(row.pool.drop(40).size <= EngineParams.DEFAULT.leanSpares)
         val groups = VersionGroups(w.songs.values)
         val all = (row.cards + row.pool).map { groups.groupOf(it.songId) }
         assertEquals(all.size, all.toSet().size)
         // Lead cards in the pool say why first too, so a card the tidy pass brings in reads the same.
-        row.pool.filter { it.lane == Lane.EXPLORE }.forEach { assertEquals("new_to_you", it.reasons.first()) }
+        row.pool.filter { it.lane == Lane.ARTIST }.forEach { assertEquals("x_art", it.reasons.first()) }
         // The spares are never pool picks: those come from the forty, as without a lean.
         assertEquals(row.pool.take(40), LeanWeighting.poolPickCandidates(row.pool))
         assertTrue(LeanWeighting.poolPickCandidates(row.pool).none { it in row.pool.drop(40) })
@@ -453,22 +463,23 @@ class LeanTest {
     }
 
     @Test
-    fun `the pool-pick reference under Never heard has Auto's share of new songs`() {
-        val shape = EngineRow.shape(EngineParams.DEFAULT.withFamiliarity(0.25), 0.5, stored = Lean.NEW)
-        // Explore cards carry x_novel 1, everything else 0: the reference's x_novel is explore's share.
+    fun `the pool-pick reference under Your artists has Auto's share of artist cards`() {
+        val shape = EngineRow.shape(EngineParams.DEFAULT.withFamiliarity(0.25), 0.5, stored = Lean.ARTIST)
+        // Artist cards carry x_art 1, everything else 0: the reference's x_art is the artist lane's share.
         val cards = Lane.entries.flatMap { l ->
-            List(shape.quotas[l] ?: 0) { i -> Card("$l$i", l, 0.0, 0.1, DoubleArray(Features.COUNT) { f -> if (f == Features.NOVEL && l == Lane.EXPLORE) 1.0 else 0.0 }, emptyList()) }
+            List(shape.quotas[l] ?: 0) { i -> Card("$l$i", l, 0.0, 0.1, DoubleArray(Features.COUNT) { f -> if (f == Features.ART && l == Lane.ARTIST) 1.0 else 0.0 }, emptyList()) }
         }
         val weighed = LeanWeighting.reference(cards, shape.lead, shape.leadWeight)!!
-        assertEquals((shape.autoQuotas[Lane.EXPLORE] ?: 0) / 20.0, weighed[Features.NOVEL], 1e-9)
+        assertEquals((shape.autoQuotas[Lane.ARTIST] ?: 0) / 20.0, weighed[Features.ART], 1e-9)
         val plain = LeanWeighting.reference(cards, null, 1.0)!!
-        assertEquals(12 / 20.0, plain[Features.NOVEL], 1e-9)
+        assertEquals(12 / 20.0, plain[Features.ART], 1e-9)
         assertNull(LeanWeighting.reference(emptyList(), shape.lead, shape.leadWeight))
     }
 
     @Test
     fun `grading scales only the engine's lead cards of a leaned build`() {
-        val leaned = BuildLean(7, Lean.NEW.code, 0.074)
+        // A build made under Never heard before it was taken out: still graded as it was built.
+        val leaned = BuildLean(7, Lean.RETIRED_NEVER_HEARD, 0.074)
         val auto = BuildLean(8, Lean.AUTO.code, 1.0)
         assertEquals(0.3 * 0.074, LeanWeighting.gradedU(0.3, 1, Lane.EXPLORE, leaned), 1e-12)
         assertEquals(1.0 * 0.074, LeanWeighting.gradedU(1.0, 1, Lane.EXPLORE, leaned), 1e-12)

@@ -178,7 +178,7 @@ class EngineReportTest {
 
     @Test
     fun `too few cards under the choice, with enough under any, is too early since the choice`() {
-        // Chose Never heard ten days ago: the earlier fortnight was Auto's.
+        // Chose Your artists ten days ago: the earlier fortnight was Auto's.
         assertEquals(Trend.TooEarlySinceChoice, trendOf(CardCounts(200, 6), CardCounts(0, 0), recentAny = 260, earlierAny = 300))
         assertEquals(Trend.TooEarlySinceChoice, trendOf(CardCounts(49, 6), CardCounts(300, 20), recentAny = 50, earlierAny = 300))
         // Too few cards whatever was chosen is plain too early.
@@ -194,9 +194,9 @@ class EngineReportTest {
     }
 
     @Test
-    fun `a fortnight on Never heard after one on Auto is not called going down`() {
-        // Auto played 12 in 100, Never heard 4 in 100. One fortnight against the other is a clear
-        // drop, and all it shows is that the choice changed. Under Never heard alone there is
+    fun `a fortnight on Your artists after one on Auto is not called going down`() {
+        // Auto played 36 in 300, Your artists 12 in 300. One fortnight against the other is a clear
+        // drop, and all it shows is that the choice changed. Under Your artists alone there is
         // nothing to compare yet.
         assertTrue(trendOf(CardCounts(300, 12), CardCounts(300, 36)) is Trend.Down)
         val row = CardTrendRow(recentSeen = 300, recentPlayed = 12, earlierSeen = 0, earlierPlayed = 0, recentAny = 300, earlierAny = 300)

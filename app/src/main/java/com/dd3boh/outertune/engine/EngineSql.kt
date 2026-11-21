@@ -17,7 +17,7 @@ object EngineSql {
      * a library of thirty thousand songs.
      */
     const val SONGS = """
-        SELECT s.id, s.title, s.liked, s.likedDate, s.inLibrary, s.isLocal, s.localPath, m.artistId AS artistId, a.name AS artistName
+        SELECT s.id, s.title, s.liked, s.likedDate, s.inLibrary, s.isLocal, s.localPath, s.dateDownload, m.artistId AS artistId, a.name AS artistName
         FROM song s
         LEFT JOIN song_artist_map m ON m.songId = s.id
             AND m.position = (SELECT MIN(m2.position) FROM song_artist_map m2 WHERE m2.songId = s.id)
@@ -33,7 +33,7 @@ object EngineSql {
      * The listen.songId index serves the first subquery.
      */
     const val SONGS_HEARD_OR_LIKED = """
-        SELECT s.id, s.title, s.liked, s.likedDate, s.inLibrary, s.isLocal, s.localPath, m.artistId AS artistId, a.name AS artistName
+        SELECT s.id, s.title, s.liked, s.likedDate, s.inLibrary, s.isLocal, s.localPath, s.dateDownload, m.artistId AS artistId, a.name AS artistName
         FROM song s
         LEFT JOIN song_artist_map m ON m.songId = s.id
             AND m.position = (SELECT MIN(m2.position) FROM song_artist_map m2 WHERE m2.songId = s.id)
@@ -41,6 +41,30 @@ object EngineSql {
         WHERE s.liked = 1
             OR s.id IN (SELECT songId FROM listen)
             OR s.id IN (SELECT targetId FROM recommendation_exclusion WHERE kind = 1)
+        GROUP BY s.id
+    """
+
+    /**
+     * Every song the listener knows, with its first artist, for [HeardSet]: what Discover, its
+     * queues and the "New to you" caption keep out. A play of any length in the listen log or the
+     * old play history, a like, the library, any playlist (local or synced), a download, a local
+     * file. One query for a whole row or queue; the listen, event and playlist_song_map indexes on
+     * songId serve the three lists.
+     */
+    const val KNOWN_SONGS = """
+        SELECT s.id, s.title, a.name AS artistName
+        FROM song s
+        LEFT JOIN song_artist_map m ON m.songId = s.id
+            AND m.position = (SELECT MIN(m2.position) FROM song_artist_map m2 WHERE m2.songId = s.id)
+        LEFT JOIN artist a ON a.id = m.artistId
+        WHERE s.liked = 1
+            OR s.inLibrary IS NOT NULL
+            OR s.dateDownload IS NOT NULL
+            OR s.isLocal = 1
+            OR s.localPath IS NOT NULL
+            OR s.id IN (SELECT songId FROM listen)
+            OR s.id IN (SELECT songId FROM event)
+            OR s.id IN (SELECT songId FROM playlist_song_map)
         GROUP BY s.id
     """
 
