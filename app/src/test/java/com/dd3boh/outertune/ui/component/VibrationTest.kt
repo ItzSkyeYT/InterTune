@@ -56,13 +56,42 @@ class VibrationTest {
     // ---- the three choices ----
 
     @Test
-    fun `Off plays nothing and Light plays today's, whatever the phone and the action`() {
+    fun `Off plays nothing, and Light is the view's own only where the app cannot play its own`() {
         for (caps in listOf(s25u, effectsOnly, s25u.copy(sdk = 26), s25u.copy(hasVibrator = false))) {
-            for (feel in Feel.entries) {
-                assertEquals(Buzz.None, buzzFor(feel, Vibration.OFF, caps))
-                assertEquals(Buzz.Light, buzzFor(feel, Vibration.LIGHT, caps))
-            }
+            for (feel in Feel.entries) assertEquals(Buzz.None, buzzFor(feel, Vibration.OFF, caps))
         }
+        for (caps in listOf(s25u.copy(sdk = 26), s25u.copy(sdk = 29), s25u.copy(hasVibrator = false))) {
+            for (feel in Feel.entries) assertEquals("$feel on $caps", Buzz.Light, buzzFor(feel, Vibration.LIGHT, caps))
+        }
+    }
+
+    @Test
+    fun `Light is Strong at half the strength, so the two differ on every phone`() {
+        // His pick of 21 Nov 2026: dvd and Ti-Die felt Light, then the phone's own touch feedback, as strong as Strong.
+        fun light(feel: Feel, caps: VibratorCaps = s25u) = buzzFor(feel, Vibration.LIGHT, caps)
+        // His S25U: the same primitives, each at half its scale, never under the floor.
+        assertEquals(steps(Step(click, 0.5f)), light(Feel.FIRM))
+        assertEquals(steps(Step(click, 0.5f)), light(Feel.CLICK))
+        assertEquals(steps(Step(tick, 0.5f)), light(Feel.TICK))
+        assertEquals(steps(Step(lowTick, 0.175f)), light(Feel.LOW_TICK))
+        assertEquals(steps(Step(click, 0.35f), Step(click, 0.5f, delay = 60)), light(Feel.DOUBLE))
+        for (feel in Feel.entries) {
+            val strong = strong(feel) as Buzz.Primitives
+            val soft = light(feel) as Buzz.Primitives
+            assertEquals(feel.toString(), strong.steps.map { it.primitive }, soft.steps.map { it.primitive })
+            assertTrue(feel.toString(), soft.steps.zip(strong.steps).all { (l, st) -> l.scale < st.scale && l.scale >= LIGHT_FLOOR })
+        }
+        // Effects only: a lighter effect, since none can be played softer; the like's double as soft pulses where the
+        // vibrator plays softly, the same double click where it cannot.
+        assertEquals(Buzz.Predefined(VibrationEffect.EFFECT_CLICK), light(Feel.FIRM, effectsOnly))
+        assertEquals(Buzz.Predefined(VibrationEffect.EFFECT_TICK), light(Feel.CLICK, effectsOnly))
+        assertEquals(Buzz.Predefined(VibrationEffect.EFFECT_TICK), light(Feel.TICK, effectsOnly))
+        assertEquals(Buzz.Pulses(count = 2, length = 20, gap = 60, amplitude = 127), light(Feel.DOUBLE, effectsOnly))
+        assertEquals(Buzz.Predefined(VibrationEffect.EFFECT_DOUBLE_CLICK), light(Feel.DOUBLE, effectsOnly.copy(amplitudeControl = false)))
+        // Nothing but plain pulses: softer where the vibrator can, shorter where it cannot.
+        val bare = s25u.copy(primitives = emptySet(), effects = Feel.entries.flatMap(::predefinedFor).associateWith { no })
+        assertEquals(Buzz.Pulses(count = 1, length = 20, amplitude = 127), light(Feel.TICK, bare))
+        assertEquals(Buzz.Pulses(count = 1, length = 12), light(Feel.TICK, bare.copy(amplitudeControl = false)))
     }
 
     @Test
@@ -228,13 +257,14 @@ class VibrationTest {
     @Test
     fun `on for everyone since 0_13, his pick of 20 Nov 2026, and without the flag every haptic is today's`() {
         assertTrue("val HAPTICS_FEEL = true" in source("constants/Unreleased.kt"))
-        // The setting is Light where the flag is off, and Light runs today's call unchanged.
+        // The setting is Light where the flag is off, and Light without the flag runs today's call unchanged.
         val vibration = haptics.substringAfter("fun vibration(): Vibration {").substringBefore("\n    }")
         assertTrue(vibration, "if (!Unreleased.HAPTICS_FEEL) return Vibration.LIGHT" in vibration)
         assertTrue("context.dataStore[VibrationKey].toEnum(Vibration.DEFAULT)" in vibration)
         val play = haptics.substringAfter("inline fun play(").substringBefore("\n    }")
-        assertTrue(play, "Vibration.OFF -> Unit" in play && "Vibration.LIGHT -> light()" in play)
-        assertTrue(play, "Vibration.STRONG -> if (!strong(feel)) light()" in play)
+        assertTrue(play, "Vibration.OFF -> Unit" in play)
+        assertTrue(play, "Vibration.LIGHT -> if (!Unreleased.HAPTICS_FEEL || !own(feel, choice)) light()" in play)
+        assertTrue(play, "Vibration.STRONG -> if (!own(feel, choice)) light()" in play)
         // And the window keeps Compose's own haptic feedback where the flag is off.
         assertTrue("if (Unreleased.HAPTICS_FEEL) FeltHaptics(platform) else platform" in haptics)
     }
