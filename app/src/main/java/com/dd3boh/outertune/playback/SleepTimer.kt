@@ -138,6 +138,20 @@ class SleepTimer(
         launchJob()
     }
 
+    /**
+     * A timer that stops at the clock time [atMs] itself, a quarter of the hour picked under At (21 Nov 2026: 4:00 PM
+     * picked at 15:45:14 became 16 minutes from then, and stopped at 16:01). False, and nothing started, for a time
+     * already past: the dialog then starts the minutes it shows.
+     */
+    fun startAt(atMs: Long): Boolean {
+        val now = clock()
+        if (atMs <= now) return false
+        reset()
+        triggerTime = minOf(atMs, now + SleepTimerRules.MAX_AHEAD_MS)
+        launchJob()
+        return true
+    }
+
     /** A timer that waits for the end of the song, its album or the queue. Whatever ran before is replaced. */
     fun start(end: SleepEnd) {
         reset()
