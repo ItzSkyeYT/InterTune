@@ -301,7 +301,8 @@ What's being worked on, roughly in order. `[x]` is done, `[~]` is built and bein
 `[ ]` AirPlay 2 speakers\
 `[ ]` A web player, to listen from a computer's browser\
 `[ ]` A Wear OS app: a remote for your phone, and music on the watch itself *(in progress)*\
-`[ ]` What you're playing on your Discord profile *(being looked at)*
+`[ ]` What you're playing on your Discord profile *(being looked at)*\
+`[ ]` Animations reworked to feel even smoother
 
 </details>
 
