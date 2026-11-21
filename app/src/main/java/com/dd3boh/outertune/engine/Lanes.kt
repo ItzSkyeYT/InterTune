@@ -17,12 +17,14 @@ class Candidate(val songId: String, val lane: Lane, val x: DoubleArray, val z: D
 /**
  * How many cards each lane gets, by largest remainder over the row.
  *
- * With a [lean] (and not [newOnly], which already decides the whole row), the lean's lane gets
- * [leadCards] and the other four split what is left by largest remainder in their blend
- * proportions, so Adventurousness and Familiarity still shape the rest of the row.
+ * [allNew] gives the whole row to the new-to-you lane: the Discover chip and the Discover something
+ * new row, where every card is a song never heard. With a [lean] (and not [allNew], which already
+ * decides the whole row), the lean's lane gets [leadCards] and the other four split what is left by
+ * largest remainder in their blend proportions, so Adventurousness and Familiarity still shape the
+ * rest of the row.
  */
-fun quotas(rowSize: Int, dial: Double, newOnly: Boolean, p: EngineParams = EngineParams.DEFAULT, lean: Lean = Lean.AUTO, leadCards: Int = p.leanCards): Map<Lane, Int> {
-    val e = if (newOnly) 1.0 else (p.exploreBase + p.exploreSpan * dial.coerceIn(0.0, 1.0))
+fun quotas(rowSize: Int, dial: Double, allNew: Boolean, p: EngineParams = EngineParams.DEFAULT, lean: Lean = Lean.AUTO, leadCards: Int = p.leanCards): Map<Lane, Int> {
+    val e = if (allNew) 1.0 else (p.exploreBase + p.exploreSpan * dial.coerceIn(0.0, 1.0))
     val rest = 1 - e
     val shares = mapOf(
         Lane.EXPLORE to e,
@@ -31,7 +33,7 @@ fun quotas(rowSize: Int, dial: Double, newOnly: Boolean, p: EngineParams = Engin
         Lane.ARTIST to rest * p.artistShare,
         Lane.REDISCOVER to rest * p.rediscoverShare,
     )
-    val lead = lean.lane.takeIf { !newOnly }
+    val lead = lean.lane.takeIf { !allNew }
     if (lead != null) {
         val leadCount = leadCards.coerceIn(0, rowSize)
         val others = shares.filterKeys { it != lead }

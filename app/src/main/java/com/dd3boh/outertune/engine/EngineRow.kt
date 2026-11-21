@@ -86,14 +86,16 @@ object EngineRow {
      */
     class Shape(
         val lean: Lean,
-        /** The lean's lane; null under Auto, and under Never heard with New songs only, which is new throughout. */
+        /** The lean's lane; null under Auto, and wherever a chip sets the lean aside. */
         val lead: Lane?,
         val quotas: Map<Lane, Int>,
         val autoQuotas: Map<Lane, Int>,
-        /** Never heard with New songs only: the whole row never played, not even started, and not liked or in the library. */
-        val strictNew: Boolean,
-        /** Never heard with Discover: more of the row, from new artists only. */
-        val discoverNew: Boolean,
+        /**
+         * Every card a song never heard, by [HeardSet]'s rule: the Discover chip and the Discover
+         * something new row. The whole row is the new-to-you lane, related songs never heard fill
+         * in where it runs short, and nothing the listener knows comes in at all.
+         */
+        val onlyNew: Boolean,
         rowSize: Int,
     ) {
         val leadWeight: Double = lead?.let { LeanWeighting.leadWeight(autoQuotas[it] ?: 0, quotas[it] ?: 0, rowSize) } ?: 1.0
@@ -102,31 +104,23 @@ object EngineRow {
     fun shape(
         p: EngineParams = EngineParams.DEFAULT,
         dial: Double = 0.5,
-        newOnly: Boolean = false,
         neverPlayed: Boolean = false,
         chip: Int = ContextChip.AUTO,
         stored: Lean = Lean.AUTO,
     ): Shape {
-        val lean = Lean.applied(stored, chip, newOnly, neverPlayed)
-        val strictNew = lean == Lean.NEW && newOnly
-        val discoverNew = lean == Lean.NEW && chip == ContextChip.DISCOVER && !strictNew
-        // The chip's shape: Discover half new, Favourites nothing new and the lanes turned toward the familiar.
+        val lean = Lean.applied(stored, chip, neverPlayed)
+        // Discover is songs never heard, every card: the Discover something new row's rule.
+        val onlyNew = neverPlayed || chip == ContextChip.DISCOVER
+        // The chip's shape: Favourites nothing new and the lanes turned toward the familiar.
         val chipParams = when (chip) {
             ContextChip.FAVOURITES -> p.copy(exploreBase = 0.0, exploreSpan = 0.0, relatedShare = 0.20, againShare = 0.20, artistShare = 0.30, rediscoverShare = 0.30)
             else -> p
         }
-        val chipDial = if (chip == ContextChip.DISCOVER) 1.5 else dial   // past the dial's end: explore share 0.50
-        val onlyNew = newOnly || neverPlayed
-        val autoQuotas = quotas(p.rowSize, chipDial.coerceIn(0.0, 1.5), onlyNew, chipParams).let { q ->
-            if (chip == ContextChip.DISCOVER) quotas(p.rowSize, 1.0, onlyNew, p.copy(exploreBase = 0.50, exploreSpan = 0.0)) else q
-        }
-        val lead = lean.lane.takeIf { !strictNew }
-        // With a lead lane the Discover line above is bypassed on purpose: a lean reaches here
-        // with Discover only under Never heard, where Discover means more of the lead lane, from
-        // new artists only, rather than ten explore cards. A mood keeps the dial, as under Auto.
-        val now = if (lead == null) autoQuotas
-            else quotas(p.rowSize, dial.coerceIn(0.0, 1.0), false, p, lean, leadCards = if (discoverNew) p.leanDiscoverCards else p.leanCards)
-        return Shape(lean, lead, now, autoQuotas, strictNew, discoverNew, p.rowSize)
+        val autoQuotas = quotas(p.rowSize, dial, onlyNew, chipParams)
+        val lead = lean.lane
+        // A mood keeps the dial, as under Auto.
+        val now = if (lead == null) autoQuotas else quotas(p.rowSize, dial.coerceIn(0.0, 1.0), false, p, lean)
+        return Shape(lean, lead, now, autoQuotas, onlyNew, p.rowSize)
     }
 
     fun build(
@@ -138,11 +132,10 @@ object EngineRow {
          * default, the middle, two explore cards of twenty.
          */
         dial: Double = 0.5,
-        newOnly: Boolean = false,
         /**
-         * Only songs with no listen at all, the Discover something new row. Stricter than
-         * [newOnly], which counts a song as new until it is heard well, so a song skipped ten
-         * seconds in stays new there and would be offered here as something never heard.
+         * Only songs never heard, the Discover something new row: no play of any length, not
+         * liked, saved, in a playlist, downloaded or a local file ([HeardSet]). The Discover chip on
+         * [input] asks for the same rule by itself.
          */
         neverPlayed: Boolean = false,
         random: Random = Random.Default,
@@ -156,9 +149,10 @@ object EngineRow {
     ): BuiltRow {
         val stats = LibraryStats(input, p)
         val groups = VersionGroups(input.songs.values, input.versionLinks)
-        val shape = shape(p, dial, newOnly, neverPlayed, input.chip, stored)
+        val heard = heardOf(input)
+        val shape = shape(p, dial, neverPlayed, input.chip, stored)
         // No lean to follow: the ordinary row, from the caller's dice as they come.
-        if (shape.lean == Lean.AUTO) return checkNotNull(row(input, stats, groups, weights, p, shape, newOnly, neverPlayed, random, lastFmShare))
+        if (shape.lean == Lean.AUTO) return checkNotNull(row(input, stats, groups, heard, weights, p, shape, random, lastFmShare))
 
         // A lean never leaves the listener with less than Auto would. When its lane has nothing to
         // give, the row is Auto's, whole: built from the same dice, so it is the very row a build
@@ -166,14 +160,36 @@ object EngineRow {
         // leaned row comes out too short to be shown and Auto's does not, Auto's is the row as well.
         // A leaned row long enough to show stands, even where Auto's would have been longer.
         val dice = RememberedDice(random)
-        val leaned = row(input, stats, groups, weights, p, shape, newOnly, neverPlayed, dice, lastFmShare)
+        val leaned = row(input, stats, groups, heard, weights, p, shape, dice, lastFmShare)
         if (leaned != null && leaned.cards.size >= p.minCards) return leaned
-        val auto = checkNotNull(row(input, stats, groups, weights, p, shape(p, dial, newOnly, neverPlayed, input.chip), newOnly, neverPlayed, dice.again(), lastFmShare))
+        val auto = checkNotNull(row(input, stats, groups, heard, weights, p, shape(p, dial, neverPlayed, input.chip), dice.again(), lastFmShare))
         return when {
             leaned == null -> auto.copy(gaveWay = LeanGaveWay(shape.lean, nothing = true))
             auto.cards.size >= p.minCards -> auto.copy(gaveWay = LeanGaveWay(shape.lean, nothing = leaned.cards.isEmpty()))
             else -> leaned
         }
+    }
+
+    /**
+     * The fewest cards Quick picks shows the engine's row with. Under Discover, any: the row is
+     * songs never heard or nothing, and the library's row or YouTube's shelf, which stand in for a
+     * short row anywhere else, are songs heard. Otherwise [EngineParams.minCards].
+     */
+    fun fewestShown(chip: Int, p: EngineParams = EngineParams.DEFAULT): Int = if (chip == ContextChip.DISCOVER) 1 else p.minCards
+
+    /**
+     * Every song the listener knows: the set the database gave this build ([EngineInput.known]),
+     * and what the engine's own input says, any listen, a like, the library, a download or a local
+     * file, so a build given no set from the database keeps to the rule all the same, playlists
+     * aside. A listen whose song the table no longer holds is known by its id.
+     */
+    internal fun heardOf(input: EngineInput): HeardSet {
+        val listened = HashSet<String>()
+        for (l in input.listens) listened += l.songId
+        val more = ArrayList<KnownSong>()
+        for (s in input.songs.values) if (s.liked || s.inLibrary || s.isLocal || s.downloaded || s.id in listened) more += KnownSong(s.id, s.title, s.artistName)
+        for (id in listened) if (id !in input.songs) more += KnownSong(id, null, null)
+        return input.known.plus(more)
     }
 
     /**
@@ -198,11 +214,10 @@ object EngineRow {
         input: EngineInput,
         stats: LibraryStats,
         groups: VersionGroups,
+        heard: HeardSet,
         weights: Weights,
         p: EngineParams,
         shape: Shape,
-        newOnly: Boolean,
-        neverPlayed: Boolean,
         random: Random,
         lastFmShare: Double?,
     ): BuiltRow? {
@@ -275,13 +290,23 @@ object EngineRow {
         val bannedIds = (input.exclusions.filter { it.kind == 1 }.map { it.targetId } + input.banned)
             .toHashSet()
 
+        // Each song's key worked out once, for the bans and for what the listener knows.
+        val keys = HashMap<String, String>()
+        fun keyOf(s: SongRow): String = keys.getOrPut(s.id) { versionKey(s.title, s.artistName) }
+
         fun eligible(id: String): Boolean {
             val s = input.songs[id] ?: return false
             if (!s.playable) return false
             if (s.artistId != null && s.artistId in bannedArtists) return false
             // By id as well as by key, so a ban still holds on a song whose row has since gone.
-            if (id in bannedIds || versionKey(s.title, s.artistName) in bannedKeys) return false
+            if (id in bannedIds || keyOf(s) in bannedKeys) return false
             return groups.groupOf(id) !in excludedGroups
+        }
+
+        /** Never heard, by [HeardSet]'s rule: no play at all, not liked, saved, in a playlist, downloaded or a local file, nor another upload of one. */
+        fun neverHeard(id: String): Boolean {
+            val s = input.songs[id] ?: return false
+            return !heard.knowsKey(id, keyOf(s))
         }
 
         // Referrers restricted to this build's seeds, which is what x_seed means.
@@ -370,33 +395,21 @@ object EngineRow {
         val quotasNow = shape.quotas
         val lead = shape.lead
 
-        // Never heard, for the lean: no listen of any length, and not liked or in the library,
-        // which say the listener knows the song whatever InterTune has seen of it.
-        fun neverHeard(c: Candidate) = stats.songs[c.songId] == null && input.songs[c.songId]?.let { !it.liked && !it.inLibrary } == true
-        var explore = exploreAll.filter { it.x[Features.NOVEL] >= 1.0 }.sortedByDescending { it.z }
-        if (lean == Lean.NEW) {
-            // New artists first, as the explore lane always did, and songs by artists already
-            // heard only to top it up, never under Discover. Ranked by score inside each tier, so
-            // x_art cannot pull a known artist ahead of a new one. Trimmed, since the lane can hold
-            // ten thousand songs and the assembly reads it whole on every pick.
-            val tier1 = explore.filter(::neverHeard)
-            val want = quotasNow[Lane.EXPLORE] ?: 0
-            explore = (if (shape.discoverNew || tier1.size >= 2 * want) tier1
-                else tier1 + exploreAll.filter { it.x[Features.NOVEL] == 0.5 && neverHeard(it) }.sortedByDescending { it.z }).take(p.leanLaneTrim)
-        } else if (explore.size < 2 * (quotasNow[Lane.EXPLORE] ?: 0)) {
-            explore = (explore + exploreAll.filter { it.x[Features.NOVEL] == 0.5 }.sortedByDescending { it.z })
+        // Under Discover, and in the Discover something new row, only songs never heard come in at
+        // all, so the top-up below counts those: new artists first, as the explore lane always
+        // did, then new songs by artists already heard while there are too few.
+        fun fits(c: Candidate) = !shape.onlyNew || neverHeard(c.songId)
+        var explore = exploreAll.filter { it.x[Features.NOVEL] >= 1.0 && fits(it) }.sortedByDescending { it.z }
+        if (explore.size < 2 * (quotasNow[Lane.EXPLORE] ?: 0)) {
+            explore = (explore + exploreAll.filter { it.x[Features.NOVEL] == 0.5 && fits(it) }.sortedByDescending { it.z })
         }
 
-        // Never played: no listen of any length, which the stats hold for every listen there is,
-        // the event log backfilled from earlier versions included.
-        fun unheard(c: Candidate) = stats.songs[c.songId] == null
+        // Never Again, Your artists or Rediscover there, whose songs are known by what they are:
+        // related songs never heard fill in where the new-to-you lane runs short, and nothing else.
         val lanes = when {
-            neverPlayed -> mapOf(Lane.EXPLORE to explore.filter(::unheard), Lane.RELATED to related.filter(::unheard))
-            // New songs only under Never heard: its stricter rule for the whole row.
-            shape.strictNew -> mapOf(Lane.EXPLORE to explore, Lane.RELATED to related.filter(::neverHeard))
-            newOnly -> mapOf(Lane.EXPLORE to explore.filter { it.x[Features.NOVEL] >= 0.5 }, Lane.RELATED to related.filter { it.x[Features.NOVEL] >= 0.5 })
+            shape.onlyNew -> mapOf(Lane.EXPLORE to explore, Lane.RELATED to related.filter { neverHeard(it.songId) })
             else -> mapOf(Lane.RELATED to related, Lane.AGAIN to again, Lane.ARTIST to artistLane, Lane.REDISCOVER to rediscover, Lane.EXPLORE to explore)
-        }.let { m -> if (lead == null || lead == Lane.EXPLORE) m else m + (lead to m[lead].orEmpty().take(p.leanLaneTrim)) }
+        }.let { m -> if (lead == null) m else m + (lead to m[lead].orEmpty().take(p.leanLaneTrim)) }
         // The lean has nothing to give: the caller builds Auto's row instead.
         if (lead != null && lanes[lead].isNullOrEmpty()) return null
         // A graph with nothing from Last.fm in the similar-song lanes draws exactly as it would
@@ -410,7 +423,10 @@ object EngineRow {
             // A lead card says first why it is the lean's, in its own lane's words.
             val own = when (c.lane) { Lane.ARTIST -> "x_art"; Lane.REDISCOVER -> "x_dorm"; Lane.RELATED -> "x_seed"; else -> null }
             return when {
-                c.lane == Lane.EXPLORE -> listOf("new_to_you")
+                // "New to you" only on a song never heard, by Discover's rule. The lane also holds
+                // library songs never played and songs started but never heard well, and a song
+                // the listener has heard, liked, saved or downloaded is never called new.
+                c.lane == Lane.EXPLORE -> if (neverHeard(c.songId)) listOf("new_to_you") else Scorer.reasons(c.x, weights)
                 lead != null && c.lane == lead && own != null -> listOf(own) + Scorer.reasons(c.x, weights).filter { it != own }.take(1)
                 sampled -> listOf("wildcard") + Scorer.reasons(c.x, weights).take(1)
                 else -> Scorer.reasons(c.x, weights)

@@ -139,8 +139,6 @@ data class EngineParams(
     // ---- Quick picks leans toward (see Lean)
     /** The cards a lean gives its lane, the first column included; the other lanes share the rest as in the blend. */
     val leanCards: Int = 12,
-    /** Never heard with the Discover chip on: more of the row, from new artists only. */
-    val leanDiscoverCards: Int = 16,
     /** A song loved before: liked, or heard well this many times. */
     val leanLovedListens: Int = 3,
     /** An artist kept coming back to: heard well in this many sessions, on [leanReturnDays] local days, inside the context window. */

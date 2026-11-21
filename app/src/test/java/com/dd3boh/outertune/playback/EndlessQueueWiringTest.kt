@@ -101,7 +101,7 @@ class EndlessQueueWiringTest {
 
     @Test
     fun `the page goes only into the album it was asked for, as it was asked`() {
-        val wanted = topUp.substringAfter("val wanted = ").substringBefore("if (!wanted)")
+        val wanted = topUp.substringAfter("fun wanted() = ").substringBefore("if (!wanted())")
         assertTrue("(!endRadio || (q.playlistId == null && q.getSize() == songCount && AdaptiveQueue.runKey(q.id, q.runId) == endRun))" in wanted)
         assertTrue("(songCount > 1 || endRadio)" in wanted)
     }

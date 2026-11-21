@@ -988,8 +988,6 @@
     <string name="familiarity">Familiarità</string>
     <string name="familiarity_description">Quanta parte della riga Consigli migliori va a brani che hai ascoltato molto nelle ultime due settimane e che è ora di risentire: %1$d riquadri su 20. I brani che hai consumato si fanno da parte da soli.</string>
     <string name="why_these_lane_again">%1$d a cui torni</string>
-    <string name="new_songs_only">Solo brani nuovi</string>
-    <string name="new_songs_only_description">Ogni riquadro della riga Consigli migliori è un brano nuovo per te.</string>
     <string name="similar_source">Brani simili da</string>
     <string name="login_reassurance">Questa è la pagina di accesso di Google. InterTune non vede mai la tua password. Conserva solo l\'accesso che YouTube Music gli restituisce.</string>
     <string name="login_secure">Connessione sicura</string>
@@ -1367,7 +1365,6 @@
     <string name="rank_with_listening_info">Mette la riga \"Scelte rapide\" in un ordine adatto a te: i brani che ascolti spesso, che hai ascoltato di recente o che ti sono piaciuti tendono a venire prima. Non viene aggiunto né tolto nulla. Non tocca la riga quando la riempie \"Consigli migliori\" o \"Prova entrambi\".</string>
     <string name="recommendations_engine_title_info">La riga è di venti riquadri: brani correlati a ciò che ascolti, brani a cui torni spesso, altro dai tuoi artisti, vecchi preferiti dimenticati e qualche brano nuovo per te. Queste impostazioni valgono mentre \"Origine delle scelte rapide\" è \"Consigli migliori\" o \"Prova entrambi\". Trascina verso il basso nella Home per vedere una modifica.</string>
     <string name="similar_source_info">Dove \"Consigli migliori\" e \"Scopri qualcosa di nuovo\" trovano brani simili a quelli che ascolti. Con \"Entrambi\" o \"Solo Last.fm\", il titolo e l\'artista dei brani che ascolti o che ti sono piaciuti vanno a Last.fm, nient\'altro e nessun account. \"Solo YouTube\" non invia nulla a Last.fm.</string>
-    <string name="new_songs_only_info">Tutta la riga va a brani che non hai ascoltato oltre circa metà; uno che hai saltato presto conta ancora come nuovo. \"Esplorazione\" e \"Familiarità\" non contano più finché è attivo. La riga può risultare più corta, e allora \"Scelte rapide\" mostra un\'altra fonte.</string>
     <string name="show_reasons_info">Ogni riquadro dice il motivo principale per cui è lì: un brano con cui si abbina, un artista che ascolti, un Mi piace, o che è nuovo per te. Un jolly è un riquadro scelto a caso per mantenere la riga varia.</string>
     <string name="exclusions_info">Tieni premuto un riquadro in \"Scelte rapide\" per \"Non questo brano\", \"Meno di questo artista\" (per un mese) o \"Mai questo artista\". Filtrano solo le righe di consigli, mai la ricerca, la libreria o le playlist. Questa pagina elenca quelle attive, e \"Revoca\" ne toglie una.</string>
     <string name="rest_songs_i_skip_info">Salta un brano che ti piace o che ascolti spesso prima della sua metà, e resterà fuori dalla riga \"Consigli migliori\" per una settimana. Un salto nei primi trenta secondi non conta. Puoi revocare un riposo prima del tempo nella pagina \"Esclusioni\".</string>
@@ -1383,7 +1380,7 @@
     <string name="recommendations_learned_title_info">Tutto quello che c\'è qui sotto resta nell\'app su questo telefono e non viene mai caricato online. Un backup lo include. In \"Privacy e cronologia\", \"Sospendi la cronologia degli ascolti\" ne interrompe la scrittura e \"Cancella la cronologia degli ascolti\" lo elimina.</string>
     <string name="recommendations_where_from_info">Ogni posto conta le volte in cui hai avviato la riproduzione da lì; i brani che seguono non vengono contati di nuovo. Un brano scelto da te gli insegna più di uno che è solo partito dopo, e una ricerca conta più di tutto. La dicitura \"non registrato\" significa che l\'app non ha annotato da dove è partito.</string>
     <string name="recommendations_recent_title_info">Gli ultimi trenta ascolti da cui impara, dal più recente. Ogni riga dice come è finita la riproduzione, quanto del brano hai sentito e da dove è stata avviata. La dicitura \"non usato per imparare\" significa che gli hai detto di dimenticare quell\'ascolto, o che è partito da una coda impostata su \"Non imparare da questa coda\".</string>
-    <string name="context_chips_info">Il primo pulsante è la tua riga di sempre. Gli altri la orientano finché non torni indietro: \"Scopri\" verso brani nuovi per te, \"Preferiti\" verso brani che ti sono piaciuti, \"Concentrazione\", \"Relax\" e \"Festa\" verso ciò che ascolti mentre ognuno è attivo. L\'ultimo pulsante funziona da solo, insieme a qualsiasi altro.</string>
+    <string name="context_chips_info">Il primo pulsante è la tua riga di sempre. Gli altri la orientano finché non torni indietro: \"Scopri\" verso brani nuovi per te, \"Preferiti\" verso brani che ti sono piaciuti, \"Concentrazione\", \"Relax\" e \"Festa\" verso ciò che ascolti mentre ognuno è attivo.</string>
     <string name="context_chips">Pulsanti di Scelte rapide</string>
     <string name="explain_what_this_does">Cosa fa %1$s</string>
     <string name="explain_close">Chiudi</string>
@@ -1591,7 +1588,6 @@
     </plurals>
     <string name="quick_picks_lean">Orientamento delle Scelte rapide</string>
     <string name="quick_picks_lean_auto">Auto</string>
-    <string name="quick_picks_lean_new">Brani che non ho mai sentito</string>
     <string name="quick_picks_lean_artist">Altro dagli artisti a cui torno sempre</string>
     <string name="quick_picks_lean_forgotten">Cose che amavo e ho dimenticato</string>
     <string name="quick_picks_lean_similar">Brani adatti a ciò che sto ascoltando ora</string>
@@ -1599,10 +1595,7 @@
     <string name="quick_picks_lean_description_compare">Circa %1$d dei 20 riquadri e %2$d dei primi quattro, perché Prova entrambi dà metà della riga all\'altra fonte.</string>
     <string name="quick_picks_lean_not_source">Vale quando Origine delle scelte rapide è Consigli migliori o Prova entrambi.</string>
     <string name="quick_picks_lean_set_aside_chip">Il pulsante %1$s nella Home ha la precedenza finché è attivo.</string>
-    <string name="quick_picks_lean_set_aside_new_only">Solo brani nuovi ha la precedenza finché è attivo.</string>
-    <string name="quick_picks_lean_new_only_strict">Con Solo brani nuovi attivo, Consigli migliori sceglie solo brani che non hai mai nemmeno avviato, purché ce ne siano abbastanza.</string>
     <string name="quick_picks_lean_info">\"Auto\" è il solito mix, in base a ciò che \"Consigli migliori\" ha imparato. Ogni altra scelta dà a un tipo di brano la maggior parte dei riquadri. \"Brani adatti a ciò che sto ascoltando ora\" ricrea anche \"Scelte rapide\" dopo che hai ascoltato qualche brano da altre parti.</string>
-    <string name="quick_picks_leaning_new">Punta su brani che non hai mai sentito</string>
     <string name="quick_picks_leaning_artist">Punta sugli artisti a cui torni sempre</string>
     <string name="quick_picks_leaning_forgotten">Punta su cose che amavi e hai dimenticato</string>
     <string name="quick_picks_leaning_similar">Punta su ciò che stai ascoltando ora</string>
@@ -1610,12 +1603,10 @@
     <string name="quick_picks_leaning_short">%1$s: solo %2$d al momento, il resto è il solito mix</string>
     <string name="quick_picks_leaning_none">%1$s: ancora niente, quindi per ora è il solito mix</string>
     <string name="quick_picks_leaning_forgotten_none">Nessun brano che amavi è stato messo da parte per 45 giorni, quindi per ora è il solito mix</string>
-    <string name="chip_lean_new">Mai sentiti</string>
     <string name="chip_lean_artist">I tuoi artisti</string>
     <string name="chip_lean_forgotten">Dimenticati</string>
     <string name="chip_lean_similar">In ascolto ora</string>
     <string name="why_these_lean">Punta su: %1$s, %2$d su %3$d riquadri sullo schermo</string>
-    <string name="adventurousness_description_lean_new">Lo decide l\'orientamento delle Scelte rapide verso brani mai sentiti: %1$d riquadri su 20.</string>
     <string name="share_link_kind_title">Link che condividi</string>
     <string name="share_link_youtube_music">Link di YouTube Music</string>
     <string name="share_link_page">Una pagina per qualsiasi app musicale</string>

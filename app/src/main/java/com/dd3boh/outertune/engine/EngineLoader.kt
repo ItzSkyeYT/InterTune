@@ -23,6 +23,8 @@ data class EngineSongRow(
     val inLibrary: Long?,
     val isLocal: Boolean,
     val localPath: String?,
+    /** As Converters stored it; set means downloaded. */
+    val dateDownload: Long? = null,
 )
 
 /** [sources] is the edge's [Provenance] bits: 1 YouTube's list holds it, 2 Last.fm's, 3 both. */
@@ -51,7 +53,7 @@ object EngineLoader {
         for (r in database.engineSongs()) {
             val likedAt = r.likedDate?.let { storedLocalToInstant(it) }
             val playable = r.id !in gone && (!r.isLocal || r.localPath.isNullOrEmpty() || File(r.localPath).exists())
-            songs[r.id] = SongRow(r.id, r.title, r.artistId, r.artistName, r.liked, likedAt?.takeIf { r.liked }, r.inLibrary != null, r.isLocal, playable)
+            songs[r.id] = SongRow(r.id, r.title, r.artistId, r.artistName, r.liked, likedAt?.takeIf { r.liked }, r.inLibrary != null, r.isLocal, playable, r.dateDownload != null)
         }
         // A row still open is the song playing now: it ends, for the engine's purposes, now. A play
         // that failed is left out.
@@ -97,7 +99,7 @@ object EngineLoader {
         for (r in database.engineSongsHeardOrLiked()) {
             val likedAt = r.likedDate?.let { storedLocalToInstant(it) }
             val playable = r.id !in gone && (!r.isLocal || r.localPath.isNullOrEmpty() || File(r.localPath).exists())
-            songs[r.id] = SongRow(r.id, r.title, r.artistId, r.artistName, r.liked, likedAt?.takeIf { r.liked }, r.inLibrary != null, r.isLocal, playable)
+            songs[r.id] = SongRow(r.id, r.title, r.artistId, r.artistName, r.liked, likedAt?.takeIf { r.liked }, r.inLibrary != null, r.isLocal, playable, r.dateDownload != null)
         }
         val input = EngineInput(
             now = now,
@@ -136,6 +138,13 @@ object EngineLoader {
 
     /** ExclusionsViewModel.REASON_GONE, which this package does not otherwise reach for. */
     const val REASON_GONE = 4
+
+    /**
+     * Every song the listener knows, read once ([EngineSql.KNOWN_SONGS]): for a row that promises
+     * songs never heard, or shows "New to you", and for the queue of a Discover pick. Blocking, on
+     * the calling thread.
+     */
+    fun known(database: MusicDatabase): HeardSet = HeardSet.of(database.knownSongs())
 
     /** The seeds column is a JSON array of ids; no library is needed to read one. */
     fun parseSeeds(json: String): List<String> =

@@ -988,8 +988,6 @@
     <string name="familiarity">Familiaridad</string>
     <string name="familiarity_description">Cuánto de la fila de Mejores recomendaciones es para canciones que escuchaste mucho en las últimas dos semanas y que ya toca volver a oír: %1$d de 20 tarjetas. Las canciones que ya te cansaron se apartan solas.</string>
     <string name="why_these_lane_again">%1$d a las que vuelves</string>
-    <string name="new_songs_only">Solo canciones nuevas</string>
-    <string name="new_songs_only_description">Cada tarjeta de la fila de Mejores recomendaciones es una canción nueva para ti.</string>
     <string name="similar_source">Canciones similares de</string>
     <string name="login_reassurance">Esta es la página de inicio de sesión de Google. InterTune nunca ve tu contraseña. Solo guarda la sesión que le devuelve YouTube Music.</string>
     <string name="login_secure">Conexión segura</string>
@@ -1367,7 +1365,6 @@
     <string name="rank_with_listening_info">Ordena la fila \"Selecciones rápidas\" a tu gusto: las canciones que escuchas a menudo, que escuchaste hace poco o que te gustan suelen ir primero. No se añade ni se quita nada. No toca la fila cuando la llenan \"Mejores recomendaciones\" o \"Probar las dos\".</string>
     <string name="recommendations_engine_title_info">La fila tiene veinte tarjetas: canciones relacionadas con lo que escuchas, canciones a las que siempre vuelves, más de tus artistas, viejas favoritas que dejaron de sonar y algunas nuevas para ti. Estos ajustes se aplican mientras \"Fuente de selección rápida\" sea \"Mejores recomendaciones\" o \"Probar las dos\". Desliza hacia abajo en Inicio para ver un cambio.</string>
     <string name="similar_source_info">Dónde buscan \"Mejores recomendaciones\" y \"Descubre algo nuevo\" canciones parecidas a las que escuchas. Con \"Ambas\" o \"Solo Last.fm\", el título y el artista de las canciones que escuchas o que te gustaron se envían a Last.fm, nada más y sin ninguna cuenta. \"Solo YouTube\" no envía nada a Last.fm.</string>
-    <string name="new_songs_only_info">Toda la fila es para canciones que no escuchaste más allá de la mitad, más o menos; una que saltaste pronto sigue contando como nueva. \"Exploración\" y \"Familiaridad\" dejan de importar mientras está activado. La fila puede quedar más corta, y entonces \"Selecciones rápidas\" muestra otra fuente.</string>
     <string name="show_reasons_info">Cada tarjeta dice el motivo principal por el que está ahí: una canción con la que combina, un artista que escuchas, un me gusta, o que es nueva para ti. Un comodín es una tarjeta elegida al azar para mantener la fila fresca.</string>
     <string name="exclusions_info">Mantén presionada una tarjeta de \"Selecciones rápidas\" para elegir \"Esta canción no\", \"Menos de este artista\" (durante un mes) o \"Nunca este artista\". Solo filtran las filas de recomendaciones, nunca la búsqueda, tu biblioteca ni las listas de reproducción. Esta página muestra las que están en vigor, y \"Levantar\" quita una.</string>
     <string name="rest_songs_i_skip_info">Si saltas antes de la mitad una canción que te gusta o que escuchas a menudo, queda fuera de la fila \"Mejores recomendaciones\" durante una semana. Un salto en los primeros treinta segundos no cuenta. Puedes levantar un descanso antes de tiempo en la página \"Exclusiones\".</string>
@@ -1383,7 +1380,7 @@
     <string name="recommendations_learned_title_info">Todo lo de abajo se guarda en la app, en este teléfono, y nunca se sube. Las copias de seguridad lo incluyen. En \"Privacidad e historial\", \"Pausar historial de reproducciones\" deja de registrarlo y \"Borrar historial de reproducciones\" lo borra.</string>
     <string name="recommendations_where_from_info">Cada lugar cuenta las veces que empezaste a escuchar desde ahí; las canciones que suenan después no se vuelven a contar. Una canción que elegiste tú le enseña más que una que simplemente siguió sonando, y una búsqueda es lo que más cuenta. \"Sin registrar\" significa que la app no anotó dónde empezó.</string>
     <string name="recommendations_recent_title_info">Las últimas treinta escuchas de las que aprende, de la más reciente a la más antigua. Cada línea dice cómo terminó la reproducción, cuánto escuchaste de la canción y desde dónde se empezó. \"Sin aprender de ella\" significa que le pediste olvidar esa escucha, o que sonó desde una cola marcada con \"No aprender de esto\".</string>
-    <string name="context_chips_info">El primer chip es tu fila de siempre. Los demás la inclinan hasta que vuelvas a cambiar: \"Descubrir\" hacia canciones nuevas para ti, \"Favoritas\" hacia canciones que te gustaron, \"Concentración\", \"Relax\" y \"Fiesta\" hacia lo que escuchas mientras cada uno está activado. El último chip funciona por su cuenta, con cualquiera de ellos.</string>
+    <string name="context_chips_info">El primer chip es tu fila de siempre. Los demás la inclinan hasta que vuelvas a cambiar: \"Descubrir\" hacia canciones nuevas para ti, \"Favoritas\" hacia canciones que te gustaron, \"Concentración\", \"Relax\" y \"Fiesta\" hacia lo que escuchas mientras cada uno está activado.</string>
     <string name="context_chips">Chips de Selecciones rápidas</string>
     <string name="explain_what_this_does">Qué hace %1$s</string>
     <string name="explain_close">Cerrar</string>
@@ -1591,7 +1588,6 @@
     </plurals>
     <string name="quick_picks_lean">Preferencia de Selecciones rápidas</string>
     <string name="quick_picks_lean_auto">Auto</string>
-    <string name="quick_picks_lean_new">Canciones que nunca escuché</string>
     <string name="quick_picks_lean_artist">Más de artistas a los que siempre vuelvo</string>
     <string name="quick_picks_lean_forgotten">Cosas que me encantaban y olvidé</string>
     <string name="quick_picks_lean_similar">Canciones que encajan con lo que escucho ahora</string>
@@ -1599,10 +1595,7 @@
     <string name="quick_picks_lean_description_compare">Unas %1$d de las 20 tarjetas y %2$d de las cuatro primeras, porque Probar las dos da la mitad de la fila a la otra fuente.</string>
     <string name="quick_picks_lean_not_source">Se aplica cuando Fuente de selección rápida es Mejores recomendaciones o Probar las dos.</string>
     <string name="quick_picks_lean_set_aside_chip">El chip %1$s de Inicio tiene prioridad mientras está activado.</string>
-    <string name="quick_picks_lean_set_aside_new_only">Solo canciones nuevas tiene prioridad mientras está activado.</string>
-    <string name="quick_picks_lean_new_only_strict">Con Solo canciones nuevas activado, Mejores recomendaciones elige solo canciones que nunca empezaste siquiera, siempre que haya suficientes.</string>
     <string name="quick_picks_lean_info">\"Auto\" es la mezcla de siempre, a partir de lo que aprendió \"Mejores recomendaciones\". Cada una de las otras opciones da la mayoría de sus tarjetas a un tipo de canción. \"Canciones que encajan con lo que escucho ahora\" también rehace \"Selecciones rápidas\" cuando escuchas algunas canciones desde otro lugar.</string>
-    <string name="quick_picks_leaning_new">Con preferencia por canciones que nunca escuchaste</string>
     <string name="quick_picks_leaning_artist">Con preferencia por artistas a los que siempre vuelves</string>
     <string name="quick_picks_leaning_forgotten">Con preferencia por cosas que te encantaban y olvidaste</string>
     <string name="quick_picks_leaning_similar">Con preferencia por lo que escuchas ahora</string>
@@ -1610,12 +1603,10 @@
     <string name="quick_picks_leaning_short">%1$s: solo %2$d por ahora, el resto es la mezcla de siempre</string>
     <string name="quick_picks_leaning_none">%1$s: nada todavía, así que por ahora es la mezcla de siempre</string>
     <string name="quick_picks_leaning_forgotten_none">Nada de lo que te encantaba lleva todavía 45 días sin sonar, así que por ahora es la mezcla de siempre</string>
-    <string name="chip_lean_new">Nunca escuchadas</string>
     <string name="chip_lean_artist">Tus artistas</string>
     <string name="chip_lean_forgotten">Olvidadas</string>
     <string name="chip_lean_similar">Sonando ahora</string>
     <string name="why_these_lean">Preferencia: %1$s, %2$d de las %3$d tarjetas en pantalla</string>
-    <string name="adventurousness_description_lean_new">Lo fija la preferencia de Selecciones rápidas por canciones que nunca escuchaste: %1$d de 20 tarjetas.</string>
     <string name="share_link_kind_title">Enlaces que compartes</string>
     <string name="share_link_youtube_music">Enlace de YouTube Music</string>
     <string name="share_link_page">Una página para cualquier app de música</string>

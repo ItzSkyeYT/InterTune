@@ -4,9 +4,6 @@ import com.dd3boh.outertune.ui.component.button.IconButton
 import com.dd3boh.outertune.ui.component.ScreenBackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.horizontalScroll
-import com.dd3boh.outertune.constants.NewSongsOnlyKey
-import androidx.compose.material3.FilterChipDefaults
-import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material3.Icon
 import androidx.compose.material3.FilterChip
 import com.dd3boh.outertune.engine.ContextChip
@@ -948,6 +945,7 @@ fun HomeScreen(
                                                             origin = PlayOrigin.QUICK_PICKS,
                                                             originSlot = slot,
                                                             tappedAt = tappedAt,
+                                                            discoverRow = viewModel.quickPickKeepsToNeverHeard(shownSource),
                                                         )
                                                     }
                                                 },
@@ -986,6 +984,8 @@ fun HomeScreen(
                                                 origin = PlayOrigin.QUICK_PICKS,
                                                 originSlot = slot,
                                                 tappedAt = tappedAt,
+                                                // The row built under Discover: its queue too holds only songs never heard.
+                                                discoverRow = viewModel.quickPickKeepsToNeverHeard(shownSource),
                                             )
                                         },
                                         modifier = Modifier.width(horizontalLazyGridItemWidth)
@@ -1477,7 +1477,6 @@ private fun reasonText(reason: CardReason): String = when (reason.key) {
 /** The first chip's name: Auto, or the short name of the chosen lean. */
 internal fun leanChipName(lean: Lean): Int = when (lean) {
     Lean.AUTO -> R.string.chip_auto
-    Lean.NEW -> R.string.chip_lean_new
     Lean.ARTIST -> R.string.chip_lean_artist
     Lean.FORGOTTEN -> R.string.chip_lean_forgotten
     Lean.SIMILAR -> R.string.chip_lean_similar
@@ -1489,7 +1488,6 @@ internal fun leanChipName(lean: Lean): Int = when (lean) {
  */
 internal fun leanOptionName(lean: Lean): Int = when (lean) {
     Lean.AUTO -> R.string.quick_picks_lean_auto
-    Lean.NEW -> R.string.quick_picks_lean_new
     Lean.ARTIST -> R.string.quick_picks_lean_artist
     Lean.FORGOTTEN -> R.string.quick_picks_lean_forgotten
     Lean.SIMILAR -> R.string.quick_picks_lean_similar
@@ -1502,7 +1500,6 @@ private fun leanHeadingText(state: LeanOnScreen): String? {
     val context = LocalContext.current
     val base = when (state.applied) {
         Lean.AUTO -> return null
-        Lean.NEW -> stringResource(R.string.quick_picks_leaning_new)
         Lean.ARTIST -> stringResource(R.string.quick_picks_leaning_artist)
         Lean.FORGOTTEN -> stringResource(R.string.quick_picks_leaning_forgotten)
         Lean.SIMILAR -> state.lastSessionEndedAt?.let { at ->
@@ -1573,7 +1570,6 @@ private fun WhyTheseDialog(viewModel: HomeViewModel, navController: NavControlle
 private fun ContextChipRow(viewModel: HomeViewModel, modifier: Modifier = Modifier) {
     val (chip, onChipChange) = rememberPreference(ContextChipKey, defaultValue = ContextChip.AUTO)
     val tagged by viewModel.engineChipTagged.collectAsState()
-    val (newSongsOnly, onNewSongsOnlyChange) = rememberPreference(NewSongsOnlyKey, defaultValue = false)
     // While a lean is chosen the first chip carries its short name, in the same place and at the
     // same size, so "Auto" means one thing on screen at a time.
     val lean by viewModel.quickPicksLean.collectAsState()
@@ -1598,24 +1594,6 @@ private fun ContextChipRow(viewModel: HomeViewModel, modifier: Modifier = Modifi
                         label = { Text(name) },
                     )
                 }
-
-                // Beside the moods rather than buried in settings, because it is the same kind of
-                // decision: what this row should be right now. It is not one of them, though, so
-                // it toggles on its own instead of joining the group.
-                FilterChip(
-                    selected = newSongsOnly,
-                    onClick = { onNewSongsOnlyChange(!newSongsOnly); viewModel.chipChanged() },
-                    label = { Text(stringResource(R.string.new_songs_only)) },
-                    leadingIcon = if (!newSongsOnly) null else {
-                        {
-                            Icon(
-                                Icons.Rounded.Check,
-                                contentDescription = null,
-                                modifier = Modifier.size(FilterChipDefaults.IconSize),
-                            )
-                        }
-                    },
-                )
             }
             // Outside the scrolling row on purpose: a chip row wider than the screen would
             // otherwise carry the explanation off the right hand edge.

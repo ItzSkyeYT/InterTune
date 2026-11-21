@@ -59,8 +59,9 @@ data class RowBuild(
      */
     @ColumnInfo(defaultValue = "0") val lean: Int = 0,
     /**
-     * The lean the build followed: 0 when a chip or New songs only set the chosen one aside, and
-     * when the lean had too little to give and the row is Auto's.
+     * The lean the build followed: 0 when a chip set the chosen one aside, and when the lean had
+     * too little to give and the row is Auto's. 1, Never heard, on builds made before it was taken
+     * out (Lean.RETIRED_NEVER_HEARD).
      */
     @ColumnInfo(defaultValue = "0") val leanApplied: Int = 0,
     /** What each of the lead lane's impressions weighs in learning, see LeanWeighting; 1 with no lean. */

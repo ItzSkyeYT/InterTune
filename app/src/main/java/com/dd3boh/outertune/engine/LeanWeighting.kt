@@ -13,9 +13,9 @@ data class BuildLean(val id: Long, val leanApplied: Int, val leadWeight: Double)
  * What a card's evidence weighs when its build leaned.
  *
  * A lean shows one lane twelve times a row instead of two to seven, and every card shown is an
- * example for the one set of weights. Left alone, Never heard would teach x_novel and b_explore
- * from twelve passed-over explore cards a row, and whoever went back to Auto would carry that with
- * them. So the lead lane's impressions are weighed down until that lane's share of a build's
+ * example for the one set of weights. Left alone, Forgotten would teach x_dorm and b_rediscover
+ * from twelve passed-over rediscover cards a row, and whoever went back to Auto would carry that
+ * with them. So the lead lane's impressions are weighed down until that lane's share of a build's
  * evidence is the share an Auto build would have given it. The other lanes keep weight one: their
  * quotas are the blend's proportions of the cards left, so with the lead lane at its Auto share,
  * every lane is close to its own.
@@ -44,7 +44,7 @@ object LeanWeighting {
      * other row, Auto's included, keeps its grade exactly.
      */
     fun gradedU(u: Double, team: Int, lane: Lane?, build: BuildLean?): Double =
-        if (team != 1 || build == null) u else u * of(lane, Lean.ofCode(build.leanApplied).lane, build.leadWeight)
+        if (team != 1 || build == null) u else u * of(lane, Lean.leadLaneOfCode(build.leanApplied), build.leadWeight)
 
     /** The pool's first forty, the whole of it with no lean: the only songs a pool pick may be. */
     const val POOL_PICK_CANDIDATES = 40
@@ -58,8 +58,8 @@ object LeanWeighting {
 
     /**
      * The pool-pick reference: the mean features of the shown, unplayed cards, each weighed as its
-     * impression is, so a pool pick under Never heard is compared with a row shaped like Auto's
-     * rather than with twelve explore cards. Null with nothing to compare against.
+     * impression is, so a pool pick under Your artists is compared with a row shaped like Auto's
+     * rather than with twelve artist cards. Null with nothing to compare against.
      */
     fun reference(cards: List<Card>, lead: Lane?, leadWeight: Double): DoubleArray? {
         if (cards.isEmpty()) return null

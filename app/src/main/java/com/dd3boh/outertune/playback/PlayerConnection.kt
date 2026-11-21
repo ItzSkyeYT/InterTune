@@ -196,6 +196,11 @@ class PlayerConnection(
         originSlot: Int = -1,
         /** When a card was tapped to start this, so the listen can meet its impression. */
         tappedAt: Long? = null,
+        /**
+         * The card was in Quick picks' row built under the Discover chip: its queue holds only songs
+         * never heard, as a Discover something new card's does by its origin (NeverHeardQueue).
+         */
+        discoverRow: Boolean = false,
     ) {
         service.playQueue(
             queue = queue,
@@ -206,6 +211,7 @@ class PlayerConnection(
             origin = origin,
             originSlot = originSlot,
             tappedAt = tappedAt,
+            discoverRow = discoverRow,
         )
     }
 
