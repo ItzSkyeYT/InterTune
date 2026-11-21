@@ -41,7 +41,7 @@ class ForkGuardTest {
         for ((path, line) in guarded) assertTrue("$path is not guarded", read(path).contains(line))
         // About > Support InterTune: InterTune's Ko-fi and server (8 Nov 2026), both inside one guard.
         val support = read("ui/dialog/SupportDialog.kt").substringAfter("if (BuiltInKeys.official) {").substringBefore("if (donors.isNotEmpty())")
-        for (link in listOf("Links.KOFI", "Links.DISCORD")) assertTrue("$link is not inside the Support note's guard", link in support)
+        for (link in listOf("Links.KOFI", "Links.GITHUB_SPONSORS", "Links.DISCORD")) assertTrue("$link is not inside the Support note's guard", link in support)
         val about = read("ui/screens/settings/AboutScreen.kt")
         val community = about.substringAfter("if (BuiltInKeys.official) {").substringBefore("help_contact_email_inquiries")
         for (link in listOf("Links.DISCUSSIONS", "Links.DISCORD", "Links.TRANSLATE")) {

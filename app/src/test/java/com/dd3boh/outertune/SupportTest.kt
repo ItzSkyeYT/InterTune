@@ -25,14 +25,18 @@ class SupportTest {
         val dialog = File("src/main/java/com/dd3boh/outertune/ui/dialog/SupportDialog.kt").readText()
         assertTrue(dialog.contains("uriHandler.openUri(Links.DISCORD)"))
         assertTrue(dialog.contains("uriHandler.openUri(Links.KOFI)"))
+        // GitHub Sponsors beside Ko-fi (his ask of 21 Nov 2026), on his own account's page.
+        assertTrue(dialog.contains("uriHandler.openUri(Links.GITHUB_SPONSORS)"))
+        assertTrue(File("src/main/java/com/dd3boh/outertune/constants/Links.kt").readText().contains("const val GITHUB_SPONSORS = \"https://github.com/sponsors/ItzSkyeYT\""))
         assertTrue(File("src/main/java/com/dd3boh/outertune/constants/Links.kt").readText().contains("const val KOFI = \"https://ko-fi.com/intertune\""))
         for (path in listOf("src/main/res/values/strings-ot.xml", "src/main/res/values-fr/strings-ot.xml")) {
             val strings = File(path).readText()
-            for (name in listOf("support_title", "support_text", "support_discord", "support_kofi", "support_thanks")) {
+            for (name in listOf("support_title", "support_text", "support_discord", "support_kofi", "support_github", "support_thanks")) {
                 assertTrue("$name missing from $path", strings.contains("name=\"$name\""))
             }
             val text = Regex("""name="support_text">([^<]*)<""").find(strings)!!.groupValues[1]
             assertTrue("$path: the note names Ko-fi", "Ko-fi" in text)
+            assertTrue("$path: and GitHub Sponsors", "GitHub Sponsors" in text)
             assertTrue("$path: and Discord, for crypto", "Discord" in text && "crypto" in text)
         }
         assertFalse("no donor's name is written into the app", File("src/main/java/com/dd3boh/outertune/constants/Links.kt").readText().contains("SUPPORTERS"))
