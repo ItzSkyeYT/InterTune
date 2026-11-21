@@ -79,6 +79,19 @@ To make everyone's life easier, there are a set of guidelines that are to be fol
 - In the event of merge conflicts, you may be required to rebase onto the current default branch
 - **You are required to build and test the app before submitting a pull request**
 
+## Using AI tools
+
+AI tools are welcome. You are still the author of what you send, so:
+
+- One task per pull request. A tool makes it easy to change ten things at once: keep them apart.
+- Say in the description which tool and model helped, and with what.
+- Read every line before you send it. Take out what the change does not need (stray refactors,
+  comments that repeat the code, filler in the description) and check that the code is right, not
+  only that it compiles.
+- Build it and try it on a phone, as with any pull request. One that was never run will be closed.
+- The same for issues: describe what you saw yourself. A report a tool wrote about a problem nobody
+  saw will be closed.
+
 ## Commiting guidelines
 
 - Prefix commits with tags, and provide descriptions if necessary. These are generally done in format:

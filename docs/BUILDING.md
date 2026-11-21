@@ -64,5 +64,5 @@ versa.
 On a memory-constrained machine, `--max-workers=2` avoids the OOM killer during the native
 build.
 
-Pull request and commit conventions are in [CONTRIBUTING.md](../CONTRIBUTING.md), which is still
+Pull request and commit conventions are in [CONTRIBUTING.md](../.github/CONTRIBUTING.md), which is still
 upstream's document and describes upstream's process.
