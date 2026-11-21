@@ -44,7 +44,7 @@ class DownloadFormatsWiringTest {
     }
 
     @Test
-    fun `without the flag the stored setting is not read, and only the download code, the menus, the rows, the index and the report read the flag`() {
+    fun `without the flag the stored setting is not read, and only the download code, the menus, the rows, the index, the report and What's new read the flag`() {
         val readers = sources.walkTopDown()
             .filter { it.extension == "kt" && it.name != "Unreleased.kt" }
             .filter { Regex("""Unreleased\.DOWNLOAD_FORMATS\b""").containsMatchIn(code(it.readText())) }
@@ -57,6 +57,8 @@ class DownloadFormatsWiringTest {
                 "ui/menu/SongMenu.kt",
                 "ui/screens/settings/fragments/DownloadsFrag.kt",
                 "ui/screens/settings/SettingsIndex.kt",
+                // What's new's File format card, shown only when the setting is there (21 Nov 2026)
+                "ui/screens/walkthrough/Walkthrough.kt",
                 "utils/ReportSettings.kt",
             ),
             readers,
@@ -193,7 +195,9 @@ class DownloadFormatsWiringTest {
         // Up to the sizes line, wherever it is indented (the simpler looks put it in an else).
         val rows = frag.substring(start).substringAfter("{").substringBefore("stringResource(R.string.dl_size_used_cache")
         assertTrue("rememberEnumPreference(DownloadFormatKey, DownloadFormat.ORIGINAL)" in rows)
-        assertTrue("Modifier.settingRow(R.string.download_format)" in rows)
+        assertTrue(".settingRow(R.string.download_format)" in rows)
+        // What's new's card for File format shows this row with its Show me (21 Nov 2026).
+        assertTrue("Modifier.tourTarget(Tour.SETTING_FILE_FORMAT)" in rows)
         assertTrue("MeaningLine(stringResource(R.string.download_format_description))" in rows)
         for (name in listOf("DownloadFormat.MP3 -> \"MP3\"", "DownloadFormat.M4A -> \"M4A (AAC)\"", "DownloadFormat.FLAC -> \"FLAC\"", "DownloadFormat.WAV -> \"WAV\"")) {
             assertTrue(name, name in rows)
@@ -201,7 +205,7 @@ class DownloadFormatsWiringTest {
         assertTrue("DownloadFormat.ORIGINAL -> stringResource(R.string.download_format_original)" in rows)
         // Bitrate: inside the flag, after File format, for the formats that have one, Auto first.
         val bitrate = rows.indexOf("if (DownloadFormats.bitrateRowShown(fileFormat)) {")
-        assertTrue(bitrate > rows.indexOf("Modifier.settingRow(R.string.download_format)"))
+        assertTrue(bitrate > rows.indexOf(".settingRow(R.string.download_format)"))
         val bitrateRow = rows.substring(bitrate)
         assertTrue("rememberEnumPreference(DownloadBitrateKey, DownloadBitrate.AUTO)" in bitrateRow)
         assertTrue("Modifier.settingRow(R.string.download_bitrate)" in bitrateRow)
