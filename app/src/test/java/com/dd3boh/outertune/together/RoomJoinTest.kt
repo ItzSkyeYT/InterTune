@@ -111,12 +111,34 @@ class RoomJoinTest {
     @Test
     fun `the new lines have their words in English and French`() {
         for (xml in listOf("src/main/res/values/strings-ot.xml", "src/main/res/values-fr/strings-ot.xml").map { File(it).readText() }) {
-            for (name in listOf("together_nobody", "together_failed")) {
+            for (name in listOf("together_nobody", "together_failed", "together_joining", "together_youre_in", "together_someone_joined", "together_someone")) {
                 val text = Regex("""<string name="$name">([^<]*)</string>""").find(xml)?.groupValues?.get(1)
                 assertTrue("$name is missing", text != null)
                 assertTrue("$name: two sentences at most", text!!.split(Regex("""[.!?](\s|$)""")).count { it.isNotBlank() } <= 2)
                 assertFalse("$name: apostrophe not escaped", Regex("""(?<!\\)'""").containsMatchIn(text))
             }
         }
+    }
+
+    @Test
+    fun `on a phone on its side the room sheet has a slim top`() {
+        // His S25U, 21 Nov 2026: about 90dp above the title, and Close the room off the bottom of the screen.
+        val sheet = main("ui/dialog/TogetherDialog.kt").substringAfter("fun TogetherSheet(").substringBefore("    ) {\n")
+        assertTrue(sheet, "dragHandle = if (landscape.active) ({ SlimDragHandle() }) else ({ BottomSheetDefaults.DragHandle() })" in sheet)
+        assertTrue(sheet, "if (landscape.active) WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom) else WindowInsets.safeDrawing" in sheet)
+        val handle = main("ui/dialog/TogetherDialog.kt").substringAfter("private fun SlimDragHandle() {").substringBefore("\n}\n")
+        assertTrue(handle, "Modifier.padding(vertical = 8.dp)" in handle)
+    }
+
+    @Test
+    fun `the host sees a newcomer come in, and a guest sees it is joining and then in`() {
+        // His word of 21 Nov 2026: no sign on the S25U that the Pixel was joining, nor on the Pixel after Join.
+        val event = session.substringAfter("private fun onEvent(event: NostrEvent) {").substringBefore("\n    }\n\n")
+        assertTrue(event, "val newcomer = from !in said" in event)
+        assertTrue(event, "if (owner && newcomer && !message.owner) {" in event)
+        assertTrue(event, "R.string.together_someone_joined" in event)
+        assertTrue(session.contains("if (joiningNow) Toaster.show(service, R.string.together_joining)"))
+        val answered = session.substringAfter("private fun answered(now: Long) {").substringBefore("\n    }\n")
+        assertTrue(answered, "if (joiningNow) Toaster.show(service, R.string.together_youre_in)" in answered)
     }
 }

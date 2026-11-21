@@ -304,6 +304,9 @@ class TogetherSession(
             else -> ReportTrail.Room.BACK
         }
         ReportTrail.thisRun.room(how)
+        // A guest sees that it is joining, and then that it is in (answered) or not (nobodyAnswered): the invite's Join
+        // closed and nothing said what was going on (his word of 21 Nov 2026).
+        if (joiningNow) Toaster.show(service, R.string.together_joining)
         pool.start()
         service.exoPlayer.addListener(listener)
         scope.launch {
@@ -600,7 +603,13 @@ class TogetherSession(
         heard[from] = now
         heard.entries.removeAll { now - it.value > MEMBER_TIMEOUT_MS }
         if (message is TogetherMessage.Here) {
+            val newcomer = from !in said
             said[from] = message.name to message.owner
+            // The host sees each newcomer come in, by the name they chose (his word of 21 Nov 2026: no sign on the S25U
+            // that the Pixel was joining). Once: a guest heard again after a while away comes in again.
+            if (owner && newcomer && !message.owner) {
+                Toaster.show(service, service.getString(R.string.together_someone_joined, message.name.ifBlank { service.getString(R.string.together_someone) }))
+            }
             if (message.owner && ownerKey == null) {
                 ownerKey = from
                 Log.i(TAG, "The room was made by ${from.take(8)}")
@@ -711,6 +720,7 @@ class TogetherSession(
     /** The room's first live answer to this guest: see [joiningNow]. */
     private fun answered(now: Long) {
         answeredAt = now
+        if (joiningNow) Toaster.show(service, R.string.together_youre_in)
         Log.i(TAG, "The room answered after ${now - startedAt} ms")
         ReportTrail.thisRun.roomAnswered(now - startedAt)
     }

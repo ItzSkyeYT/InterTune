@@ -197,6 +197,18 @@ internal class RoomOnScreen<T : Any> {
  * how close it follows, and who is in.
  */
 @OptIn(ExperimentalMaterial3Api::class)
+/** Material's drag handle with 8dp above and below instead of 22dp: the room sheet's on a phone on its side. */
+@Composable
+private fun SlimDragHandle() {
+    Surface(
+        modifier = Modifier.padding(vertical = 8.dp),
+        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+        shape = MaterialTheme.shapes.extraLarge,
+    ) {
+        Box(Modifier.size(width = 32.dp, height = 4.dp))
+    }
+}
+
 @Composable
 fun TogetherSheet(onDismiss: () -> Unit) {
     val context = LocalContext.current
@@ -252,8 +264,13 @@ fun TogetherSheet(onDismiss: () -> Unit) {
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         sheetMaxWidth = landscape.panelWidth(BottomSheetDefaults.SheetMaxWidth),
+        // On a phone on its side the sheet stands in the middle, clear of the status bar's icons at the sides: no room is
+        // kept for the status bar at its top, and its handle is a slim one. The status bar's height and the standard
+        // handle's 22dp above and below made a forehead of about 90dp on a screen 480dp high, and Close the room fell
+        // off the bottom (his S25U, 21 Nov 2026).
+        dragHandle = if (landscape.active) ({ SlimDragHandle() }) else ({ BottomSheetDefaults.DragHandle() }),
         contentWindowInsets = {
-            if (landscape.active) WindowInsets.safeDrawing.only(WindowInsetsSides.Vertical) else WindowInsets.safeDrawing
+            if (landscape.active) WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom) else WindowInsets.safeDrawing
         },
     ) {
         if (!ready) Box(Modifier.fillMaxWidth().padding(vertical = 56.dp), contentAlignment = Alignment.Center) {
