@@ -258,7 +258,8 @@ What's being worked on, roughly in order. `[x]` is done, `[~]` is built and bein
 `[ ]` New signals: the songs you just played, when you skip, what you replay and what you find again yourself\
 `[ ]` Learning on your phone that's fair to new songs, starting from what works for many listeners\
 `[ ]` The reason for each pick, on a long press\
-`[ ]` Testers first, then everyone once it beats today's picks
+`[ ]` Testers first, then everyone once it beats today's picks\
+`[ ]` The player's background on one full-screen page, every style and its settings together
 
 </details>
 
