@@ -567,6 +567,7 @@ while also allowing users to translate our app as well. New, specific strings to
     </plurals>
     <string name="scan_note_kept">Android can\'t see any music in %1$s. Your songs there were left as they are.</string>
     <string name="scan_note_blocked">Some songs couldn\'t be read. A .nomedia file in their folder can cause that.</string>
+    <string name="scan_note_elsewhere">Some songs can\'t be read from where their folder was picked. Remove it and add it again from the phone\'s storage.</string>
     <string name="scan_note_empty">No music found in %1$s.</string>
 
 <!-- Scanner parameter settings-->
@@ -1332,8 +1333,6 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="familiarity">Familiarity</string>
     <string name="familiarity_description">Songs you\'ve enjoyed lately and are due to hear again: %1$d of 20 cards.</string>
     <string name="why_these_lane_again">%1$d you come back to</string>
-    <string name="new_songs_only">New songs only</string>
-    <string name="new_songs_only_description">Every card in the Best recommendations row is a song new to you.</string>
     <string name="similar_source">Similar songs from</string>
     <string name="login_reassurance">This is Google\'s own sign-in page. InterTune never sees your password. It keeps only the sign-in YouTube Music hands back.</string>
     <string name="login_secure">Secure connection</string>
@@ -1711,7 +1710,6 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="rank_with_listening_info">Puts \"Quick picks\" in an order that suits you: songs you play often, lately or liked come first. Nothing is added or removed.</string>
     <string name="recommendations_engine_title_info">Songs like what you play, favourites old and new, more from your artists and a few surprises. They show when \"Quick picks source\" is \"Best recommendations\" or \"Try both\", so pull down on Home to see a change.</string>
     <string name="similar_source_info">Where \"Best recommendations\" and \"Discover something new\" look for songs like yours. With \"Both\" or \"Last.fm only\", the title and artist of songs you play or like go to Last.fm, with no account. \"YouTube only\" sends Last.fm nothing.</string>
-    <string name="new_songs_only_info">Fills the whole row with songs you haven\'t really heard yet. The row can come up short, and then \"Quick picks\" uses another source.</string>
     <string name="show_reasons_info">Each card says why it\'s there: a song it goes with, an artist you play, a like, or that it\'s new to you. A wildcard is picked at random to keep things fresh.</string>
     <string name="exclusions_info">Long-press a card in \"Quick picks\" for \"Not this song\", \"Less of this artist\" or \"Never this artist\". This only affects recommendations, never search, your library or playlists. Lift one here to undo it.</string>
     <string name="rest_songs_i_skip_info">Skip a favourite early and it sits out of \"Best recommendations\" for a week. You can bring it back early from \"Exclusions\".</string>
@@ -1727,7 +1725,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="recommendations_learned_title_info">This stays in the app on this phone and is never uploaded, though backups include it. \"Pause listen history\" stops it and \"Clear listen history\" deletes it, both under \"Privacy and history\".</string>
     <string name="recommendations_where_from_info">How often you started playing from each place. What you pick yourself counts more, and a search counts most. \"Not recorded\" means the app didn\'t note where.</string>
     <string name="recommendations_recent_title_info">Your last listens, newest first: how each ended, how much you heard and where it started. \"Not learned from\" means you asked it to forget that one.</string>
-    <string name="context_chips_info">The first chip is your usual row. The others steer it until you switch back: \"Discover\" to new songs, \"Favourites\" to ones you liked, \"Focus\", \"Chill\" and \"Party\" to what you play in that mood. The last chip works with any of them.</string>
+    <string name="context_chips_info">The first chip is your usual row. The others steer it until you switch back: \"Discover\" to songs you have never heard, \"Favourites\" to ones you liked, \"Focus\", \"Chill\" and \"Party\" to what you play in that mood.</string>
     <string name="context_chips">Quick picks chips</string>
     <string name="explain_what_this_does">What %1$s does</string>
     <string name="explain_close">Close</string>
@@ -1975,7 +1973,6 @@ while also allowing users to translate our app as well. New, specific strings to
     <!-- Quick picks leans toward: a standing choice for Best recommendations. The option names are the poll's answers. -->
     <string name="quick_picks_lean">Quick picks leans toward</string>
     <string name="quick_picks_lean_auto">Auto</string>
-    <string name="quick_picks_lean_new">Songs I have never heard</string>
     <string name="quick_picks_lean_artist">More from artists I keep coming back to</string>
     <string name="quick_picks_lean_forgotten">Things I loved and forgot about</string>
     <string name="quick_picks_lean_similar">Songs that fit what I am playing now</string>
@@ -1983,10 +1980,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="quick_picks_lean_description_compare">About %1$d of the 20 cards and %2$d of the first four, since Try both gives half the row to the other source.</string>
     <string name="quick_picks_lean_not_source">Applies when Quick picks source is Best recommendations or Try both.</string>
     <string name="quick_picks_lean_set_aside_chip">The %1$s chip on Home takes over while it is on.</string>
-    <string name="quick_picks_lean_set_aside_new_only">New songs only takes over while it is on.</string>
-    <string name="quick_picks_lean_new_only_strict">With New songs only on, Best recommendations picks only songs you have never even started, as long as there are enough.</string>
     <string name="quick_picks_lean_info">\"Auto\" is the usual mix, and the other choices give most of the row to one kind of song. \"Songs that fit what I am playing now\" also updates as you listen.</string>
-    <string name="quick_picks_leaning_new">Leaning toward songs you have never heard</string>
     <string name="quick_picks_leaning_artist">Leaning toward artists you keep coming back to</string>
     <string name="quick_picks_leaning_forgotten">Leaning toward things you loved and forgot about</string>
     <string name="quick_picks_leaning_similar">Leaning toward what you are playing now</string>
@@ -1994,12 +1988,10 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="quick_picks_leaning_short">%1$s: only %2$d right now, the rest is the usual mix</string>
     <string name="quick_picks_leaning_none">%1$s: nothing yet, so this is the usual mix for now</string>
     <string name="quick_picks_leaning_forgotten_none">Nothing you loved has been quiet for 45 days yet, so this is the usual mix for now</string>
-    <string name="chip_lean_new">Never heard</string>
     <string name="chip_lean_artist">Your artists</string>
     <string name="chip_lean_forgotten">Forgotten</string>
     <string name="chip_lean_similar">Playing now</string>
     <string name="why_these_lean">Leaning toward: %1$s, %2$d of the %3$d cards on screen</string>
-    <string name="adventurousness_description_lean_new">Set by Quick picks leaning toward songs you have never heard: %1$d of 20 cards.</string>
     <string name="share_link_kind_title">Links you share</string>
     <string name="share_link_youtube_music">YouTube Music link</string>
     <string name="share_link_page">A page for any music app</string>
@@ -2104,7 +2096,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="output_wired">Wired headphones</string>
     <string name="output_cable">On a cable</string>
     <string name="output_pill">Output button</string>
-    <string name="output_pill_description">Shows where music plays, under the controls.</string>
+    <string name="output_pill_description">Shows where music plays, under the controls. Tap it to cast.</string>
     <string name="cast_searching">Looking for receivers on this Wi-Fi</string>
     <string name="cast_about">Plays on Chromecast and Google TV, AirPlay speakers, DLNA TVs and speakers, and FCast receivers on your Wi-Fi (FCast needs its Receiver app). Your phone stays awake and sends the music while it casts.</string>
     <!-- Under the cast list's text: a TV or speaker fetches the music over plain HTTP. -->
@@ -2726,7 +2718,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="together_leave">Leave</string>
     <string name="together_join_title">Join this listening room?</string>
     <string name="together_share">Share</string>
-    <string name="together_invite_text">Join my room on InterTune. Tap the link, or type the code %1$s under Listen together.\n%2$s</string>
+    <string name="together_invite_line">Join my room on InterTune:\n%1$s</string>
     <string name="together_own_way">Playing on your own</string>
     <string name="together_catch_up">Catch up</string>
     <string name="together_suggest">Play next in the room</string>
@@ -2757,6 +2749,12 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="together_closed">The room was closed</string>
     <string name="together_host_away">The host is away</string>
     <string name="together_host_gone">The host didn\'t come back, so the room ended.</string>
+    <string name="together_nobody">Nobody answered in this room. It may be closed, or the code may be wrong.</string>
+    <string name="together_failed">Something went wrong in the room, so you left it. Join again to carry on.</string>
+    <string name="together_joining">Joining the room</string>
+    <string name="together_youre_in">You\'re in the room</string>
+    <string name="together_someone_joined">%1$s joined the room</string>
+    <string name="together_someone">Someone</string>
     <string name="together_close_room">Close the room</string>
     <string name="together_song_unavailable">This song isn\'t available to you. You\'ll hear the host\'s next one.</string>
     <string name="together_paused_here">Paused here. Press play to go back to where the room is.</string>
@@ -2971,6 +2969,17 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="vibration_light">Light</string>
     <string name="vibration_strong">Strong</string>
     <string name="search_words_vibration">haptics, haptic feedback, vibrate, buzz, touch feedback</string>
+    <!-- Still read by the released app; the next version no longer uses them. -->
+    <string name="new_songs_only">New songs only</string>
+    <string name="new_songs_only_description">Every card in the Best recommendations row is a song new to you.</string>
+    <string name="new_songs_only_info">Fills the whole row with songs you haven\'t really heard yet. The row can come up short, and then \"Quick picks\" uses another source.</string>
+    <string name="quick_picks_lean_new">Songs I have never heard</string>
+    <string name="quick_picks_lean_set_aside_new_only">New songs only takes over while it is on.</string>
+    <string name="quick_picks_lean_new_only_strict">With New songs only on, Best recommendations picks only songs you have never even started, as long as there are enough.</string>
+    <string name="quick_picks_leaning_new">Leaning toward songs you have never heard</string>
+    <string name="chip_lean_new">Never heard</string>
+    <string name="adventurousness_description_lean_new">Set by Quick picks leaning toward songs you have never heard: %1$d of 20 cards.</string>
+    <string name="together_invite_text">Join my room on InterTune. Tap the link, or type the code %1$s under Listen together.\n%2$s</string>
     <!-- Still read by the released app; the next version no longer uses them. -->
     <!-- Still read by the released app; the next version no longer uses them. -->
     <string name="spatial_bass_description" translatable="false">Low notes skip the effect and keep their weight.</string>

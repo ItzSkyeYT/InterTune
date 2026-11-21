@@ -133,6 +133,7 @@
     </plurals>
     <string name="scan_note_kept">Android ne voit aucune musique dans %1$s. Vos titres y sont restés tels quels.</string>
     <string name="scan_note_blocked">Certains titres n\'ont pas pu être lus. Un fichier .nomedia dans leur dossier peut en être la cause.</string>
+    <string name="scan_note_elsewhere">Certains titres ne peuvent pas être lus là où leur dossier a été choisi. Retirez-le et ajoutez-le de nouveau depuis le stockage du téléphone.</string>
     <string name="scan_note_empty">Aucune musique trouvée dans %1$s.</string>
     <string name="swipe2Queue">Glisser pour mettre en file d’attente</string>
     <string name="playlist_add_local_to_synced_note">L\'ajout de fichiers de ce téléphone à une playlist synchronisée avec YouTube Music n\'est pas pris en charge.</string>
@@ -988,8 +989,6 @@
     <string name="familiarity">Familiarité</string>
     <string name="familiarity_description">Des titres appréciés récemment qu\'il est temps de réentendre : %1$d cartes sur 20.</string>
     <string name="why_these_lane_again">%1$d auxquels vous revenez</string>
-    <string name="new_songs_only">Nouveaux titres uniquement</string>
-    <string name="new_songs_only_description">Chaque carte de la rangée Meilleures recommandations est un titre nouveau pour vous.</string>
     <string name="similar_source">Source des titres similaires</string>
     <string name="login_reassurance">C\'est la page de connexion de Google elle-même. InterTune ne voit jamais votre mot de passe et ne garde que la connexion renvoyée par YouTube Music.</string>
     <string name="login_secure">Connexion sécurisée</string>
@@ -1382,7 +1381,6 @@
     <string name="rank_with_listening_info">Remet la « Sélection Rapide » dans un ordre qui vous ressemble : les titres écoutés souvent, récemment ou aimés passent devant. Rien n\'est ajouté ni retiré.</string>
     <string name="recommendations_engine_title_info">Des titres proches de ce que vous écoutez, vos favoris anciens et récents, d\'autres titres de vos artistes et quelques surprises. Ils s\'affichent quand « Source de la Sélection Rapide » est sur « Meilleures recommandations » ou « Essayer les deux » : tirez l\'accueil vers le bas pour voir un changement.</string>
     <string name="similar_source_info">Où « Meilleures recommandations » et « Découvrir du nouveau » cherchent des titres proches des vôtres. Avec « Les deux » ou « Last.fm uniquement », le nom et l\'artiste des titres que vous écoutez ou aimez sont envoyés à Last.fm, sans compte. « YouTube uniquement » n\'envoie rien à Last.fm.</string>
-    <string name="new_songs_only_info">Remplit toute la rangée de titres que vous n\'avez pas encore vraiment écoutés. La rangée peut être courte, et la « Sélection Rapide » prend alors une autre source.</string>
     <string name="show_reasons_info">Chaque carte dit pourquoi elle est là : un titre avec lequel elle va, un artiste que vous écoutez, un j\'aime, ou parce qu\'elle est nouvelle pour vous. Un joker est tiré au hasard pour varier.</string>
     <string name="exclusions_info">Appuyez longuement sur une carte de la « Sélection Rapide » pour « Pas ce titre », « Moins de cet artiste » ou « Jamais cet artiste ». Cela ne touche que les recommandations, jamais la recherche, votre bibliothèque ou vos playlists. Levez-en une ici pour annuler.</string>
     <string name="rest_songs_i_skip_info">Passez tôt un titre favori, et il sort de « Meilleures recommandations » pendant une semaine. Vous pouvez le faire revenir plus tôt depuis « Exclusions ».</string>
@@ -1398,7 +1396,7 @@
     <string name="recommendations_learned_title_info">Ceci reste dans l\'application, sur ce téléphone, et n\'est jamais envoyé, mais les sauvegardes l\'incluent. « Suspendre l\'historique d\'écoute » l\'arrête et « Effacer l\'historique d\'écoute » le supprime, dans « Confidentialité et historique ».</string>
     <string name="recommendations_where_from_info">Combien de fois vous avez lancé la lecture depuis chaque endroit. Ce que vous choisissez vous-même compte plus, et une recherche compte le plus. « Non renseigné » : l\'application ne l\'a pas noté.</string>
     <string name="recommendations_recent_title_info">Vos dernières écoutes, de la plus récente à la plus ancienne : comment chacune s\'est terminée, ce que vous en avez entendu et d\'où elle a été lancée. « Ne lui apprend rien » : vous lui avez demandé de l\'oublier.</string>
-    <string name="context_chips_info">La première pastille est votre rangée habituelle. Les autres l\'orientent jusqu\'à ce que vous reveniez : « Découverte » vers des titres nouveaux, « Favoris » vers ceux que vous avez aimés, « Concentration », « Détente » et « Fête » vers ce que vous écoutez dans cette humeur. La dernière pastille marche avec toutes.</string>
+    <string name="context_chips_info">La première pastille est votre rangée habituelle. Les autres l\'orientent jusqu\'à ce que vous reveniez : « Découverte » vers des titres que vous n\'avez jamais écoutés, « Favoris » vers ceux que vous avez aimés, « Concentration », « Détente » et « Fête » vers ce que vous écoutez dans cette humeur.</string>
     <string name="context_chips">Pastilles de la Sélection Rapide</string>
     <!-- 0.10.8 only: the Quick picks source text without Best recommendations and Try both. -->
     <string name="quick_picks_source_description_basic">D\'où viennent les titres de la rangée « Sélection Rapide ». « YouTube Music » prend l\'étagère que YouTube construit pour votre compte, et « Votre bibliothèque » des titres liés à ce que vous écoutez. Seule cette rangée change, rien d\'autre sur l\'accueil.</string>
@@ -1608,7 +1606,6 @@
     <!-- Ce que la Sélection Rapide privilégie : un choix permanent pour Meilleures recommandations. Les options sont les réponses du sondage. -->
     <string name="quick_picks_lean">La Sélection Rapide privilégie</string>
     <string name="quick_picks_lean_auto">Auto</string>
-    <string name="quick_picks_lean_new">Des titres que je n\'ai jamais écoutés</string>
     <string name="quick_picks_lean_artist">Plus de titres des artistes auxquels je reviens sans cesse</string>
     <string name="quick_picks_lean_forgotten">Ce que j\'adorais et que j\'ai oublié</string>
     <string name="quick_picks_lean_similar">Des titres qui vont avec ce que j\'écoute en ce moment</string>
@@ -1616,10 +1613,7 @@
     <string name="quick_picks_lean_description_compare">Environ %1$d des 20 cartes et %2$d des quatre premières, car Essayer les deux donne la moitié de la rangée à l\'autre source.</string>
     <string name="quick_picks_lean_not_source">S\'applique quand Source de la Sélection Rapide est sur Meilleures recommandations ou Essayer les deux.</string>
     <string name="quick_picks_lean_set_aside_chip">La pastille %1$s de l\'accueil prend le dessus tant qu\'elle est activée.</string>
-    <string name="quick_picks_lean_set_aside_new_only">Nouveaux titres uniquement prend le dessus tant que ce réglage est activé.</string>
-    <string name="quick_picks_lean_new_only_strict">Quand Nouveaux titres uniquement est activé, Meilleures recommandations ne choisit que des titres que vous n\'avez jamais lancés, tant qu\'il y en a assez.</string>
     <string name="quick_picks_lean_info">« Auto », c\'est le mélange habituel, et les autres choix donnent la plus grande part de la rangée à un type de titres. « Des titres qui vont avec ce que j\'écoute en ce moment » se met aussi à jour pendant l\'écoute.</string>
-    <string name="quick_picks_leaning_new">Privilégie les titres que vous n\'avez jamais écoutés</string>
     <string name="quick_picks_leaning_artist">Privilégie les artistes auxquels vous revenez sans cesse</string>
     <string name="quick_picks_leaning_forgotten">Privilégie ce que vous adoriez et avez oublié</string>
     <string name="quick_picks_leaning_similar">Privilégie ce qui va avec ce que vous écoutez en ce moment</string>
@@ -1627,12 +1621,10 @@
     <string name="quick_picks_leaning_short">%1$s : seulement %2$d pour l\'instant, le reste est le mélange habituel</string>
     <string name="quick_picks_leaning_none">%1$s : rien pour l\'instant, donc c\'est le mélange habituel</string>
     <string name="quick_picks_leaning_forgotten_none">Rien de ce que vous adoriez n\'est délaissé depuis 45 jours, donc c\'est le mélange habituel pour l\'instant</string>
-    <string name="chip_lean_new">Jamais écoutés</string>
     <string name="chip_lean_artist">Vos artistes</string>
     <string name="chip_lean_forgotten">Oubliés</string>
     <string name="chip_lean_similar">En ce moment</string>
     <string name="why_these_lean">Privilégie : %1$s, %2$d des %3$d cartes affichées</string>
-    <string name="adventurousness_description_lean_new">Fixé par la Sélection Rapide, qui privilégie les titres que vous n\'avez jamais écoutés : %1$d cartes sur 20.</string>
     <string name="share_link_kind_title">Liens que vous partagez</string>
     <string name="share_link_youtube_music">Lien YouTube Music</string>
     <string name="share_link_page">Une page pour toutes les applis de musique</string>
@@ -1912,7 +1904,7 @@
     <string name="output_wired">Casque filaire</string>
     <string name="output_cable">Sur un câble</string>
     <string name="output_pill">Bouton de sortie audio</string>
-    <string name="output_pill_description">Affiche où joue la musique, sous les commandes.</string>
+    <string name="output_pill_description">Affiche où joue la musique, sous les commandes. Appuyez dessus pour caster.</string>
     <string name="cast_searching">Recherche de récepteurs sur ce Wi-Fi</string>
     <string name="cast_about">Joue sur Chromecast et Google TV, les enceintes AirPlay, les téléviseurs et enceintes DLNA, et les récepteurs FCast de votre Wi-Fi (FCast demande son application Receiver). Votre téléphone reste allumé et envoie la musique pendant le cast.</string>
     <string name="cast_public_wifi">Sur un Wi-Fi public, les autres appareils connectés peuvent accéder aux titres que vous castez.</string>
@@ -2524,7 +2516,7 @@
     <string name="together_leave">Quitter</string>
     <string name="together_join_title">Rejoindre ce salon d\'écoute ?</string>
     <string name="together_share">Partager</string>
-    <string name="together_invite_text">Rejoins mon salon sur InterTune. Touche le lien, ou tape le code %1$s dans Écouter ensemble.\n%2$s</string>
+    <string name="together_invite_line">Rejoins mon salon sur InterTune :\n%1$s</string>
     <string name="together_own_way">Vous écoutez de votre côté</string>
     <string name="together_catch_up">Rattraper</string>
     <string name="together_suggest">Jouer ensuite dans le salon</string>
@@ -2555,6 +2547,12 @@
     <string name="together_closed">Le salon a été fermé</string>
     <string name="together_host_away">L\'hôte est absent</string>
     <string name="together_host_gone">L\'hôte n\'est pas revenu, le salon est terminé.</string>
+    <string name="together_nobody">Personne n\'a répondu dans ce salon. Il est peut-être fermé, ou le code est faux.</string>
+    <string name="together_failed">Un problème est survenu dans le salon, vous l\'avez donc quitté. Rejoignez-le pour continuer.</string>
+    <string name="together_joining">Connexion au salon</string>
+    <string name="together_youre_in">Vous êtes dans le salon</string>
+    <string name="together_someone_joined">%1$s a rejoint le salon</string>
+    <string name="together_someone">Quelqu\'un</string>
     <string name="together_close_room">Fermer le salon</string>
     <string name="together_song_unavailable">Ce titre n\'est pas disponible pour vous. Vous entendrez le suivant de l\'hôte.</string>
     <string name="together_paused_here">En pause ici. Appuyez sur lecture pour revenir où en est le salon.</string>
@@ -2774,6 +2772,17 @@
     <string name="vibration_light">Légère</string>
     <string name="vibration_strong">Forte</string>
     <string name="search_words_vibration">haptique, retour haptique, vibrer, vibreur, retour tactile</string>
+    <!-- Still read by the released app; the next version no longer uses them. -->
+    <string name="new_songs_only">Nouveaux titres uniquement</string>
+    <string name="new_songs_only_description">Chaque carte de la rangée Meilleures recommandations est un titre nouveau pour vous.</string>
+    <string name="new_songs_only_info">Remplit toute la rangée de titres que vous n\'avez pas encore vraiment écoutés. La rangée peut être courte, et la « Sélection Rapide » prend alors une autre source.</string>
+    <string name="quick_picks_lean_new">Des titres que je n\'ai jamais écoutés</string>
+    <string name="quick_picks_lean_set_aside_new_only">Nouveaux titres uniquement prend le dessus tant que ce réglage est activé.</string>
+    <string name="quick_picks_lean_new_only_strict">Quand Nouveaux titres uniquement est activé, Meilleures recommandations ne choisit que des titres que vous n\'avez jamais lancés, tant qu\'il y en a assez.</string>
+    <string name="quick_picks_leaning_new">Privilégie les titres que vous n\'avez jamais écoutés</string>
+    <string name="chip_lean_new">Jamais écoutés</string>
+    <string name="adventurousness_description_lean_new">Fixé par la Sélection Rapide, qui privilégie les titres que vous n\'avez jamais écoutés : %1$d cartes sur 20.</string>
+    <string name="together_invite_text">Rejoins mon salon sur InterTune. Touche le lien, ou tape le code %1$s dans Écouter ensemble.\n%2$s</string>
     <!-- Still read by the released app; the next version no longer uses them. -->
     <!-- Still read by the released app; the next version no longer uses them. -->
     <string name="player_living_strength_description">À quel point le fond et le halo bougent avec la musique.</string>
