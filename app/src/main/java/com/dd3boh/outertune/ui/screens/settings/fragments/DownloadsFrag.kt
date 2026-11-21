@@ -407,7 +407,7 @@ fun ColumnScope.DownloadsFrag() {
     if (Unreleased.DOWNLOAD_FORMATS) {
         val (fileFormat, onFileFormatChange) = rememberEnumPreference(DownloadFormatKey, DownloadFormat.ORIGINAL)
         EnumListPreference(
-            modifier = Modifier.settingRow(R.string.download_format),
+            modifier = Modifier.tourTarget(Tour.SETTING_FILE_FORMAT).settingRow(R.string.download_format),
             title = { Text(stringResource(R.string.download_format)) },
             icon = { Icon(Icons.Rounded.AudioFile, null) },
             content = {
