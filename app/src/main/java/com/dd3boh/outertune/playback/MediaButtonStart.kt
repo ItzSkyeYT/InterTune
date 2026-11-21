@@ -6,10 +6,12 @@
 
 package com.dd3boh.outertune.playback
 
+import android.app.ActivityManager
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.os.Build
@@ -180,6 +182,27 @@ internal object MediaButtonStart {
      */
     fun looksAgain(hasSong: Boolean, keyCode: Int?, sdk: Int): Boolean =
         !hasSong || (startsPlayback(keyCode) && sdk >= Build.VERSION_CODES.Q)
+
+    /**
+     * Whether Android has [component], a service of this app, in the foreground now, from its list
+     * of the app's own services (ActivityManager.getRunningServices, which from Android 8 lists the
+     * caller's own and no other app's): the service record's isForeground, the flag Android decides
+     * its demand by (ActiveServices.sendServiceArgsLocked). Null when the list cannot be read or does
+     * not have it.
+     *
+     * For Android 10 to 13, where Service.foregroundServiceType cannot say. It keeps the type of the
+     * service's last startForeground for as long as Android keeps the service's record: after
+     * stopForeground too, and in the new process after Android brought the service back. AOSP sets
+     * ServiceRecord.foregroundServiceType in startForeground only up to android-13.0.0_r83, and puts
+     * it back to 0 on leaving the foreground from android-14.0.0_r1. Read there, a player paused long
+     * enough for media3 to leave the foreground was taken to be in it: a play press on it had no look,
+     * and a service brought back after its process died did not meet what the dead process owed.
+     */
+    @Suppress("DEPRECATION")
+    fun listedInForeground(context: Context, component: ComponentName): Boolean? = runCatching {
+        context.getSystemService<ActivityManager>()?.getRunningServices(Int.MAX_VALUE)
+            ?.firstOrNull { it.service == component }?.foreground
+    }.getOrNull()
 
     /** The key of a media button's start, null when it carries none. */
     fun keyOf(intent: Intent?): Int? = runCatching {

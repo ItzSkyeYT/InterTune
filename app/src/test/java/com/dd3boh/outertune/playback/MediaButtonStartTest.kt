@@ -364,4 +364,31 @@ class MediaButtonStartTest {
         val hold = settle.indexOf("if (holdForeground()) ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)")
         assertTrue(settle, hold > settle.indexOf("mediaButtonHandler.removeCallbacks(mediaButtonGuard)"))
     }
+
+    @Test
+    fun `whether the service is in the foreground is Android's own record on 10 to 13, where the type outlives the foreground`() {
+        // AOSP ActiveServices sets ServiceRecord.foregroundServiceType in startForeground only, up to
+        // android-13.0.0_r83, and puts it back to 0 when the service leaves the foreground from
+        // android-14.0.0_r1. Read on Android 10 to 13 it said "in the foreground" for a player paused
+        // long enough for media3 to leave it, and for a service Android brought back after its
+        // process died: a play press on it had no look (holdForegroundForMediaButton returned at
+        // once) and settleAfterRestart did not meet what the dead process owed. Android closes the
+        // app for either, 10 s later on 10 to 12L, 30 s on 13.
+        val service = source("MusicService.kt")
+        val now = service.substringAfter("private fun foregroundNow(): Boolean =").substringBefore("\n")
+        assertEquals("Android's answer, media3's only where Android has none", " inForeground() ?: isPlaybackOngoing", now)
+        val asked = body(service, "private fun inForeground(): Boolean? = when {")
+        val type = asked.indexOf("Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE -> foregroundServiceType != ServiceInfo.FOREGROUND_SERVICE_TYPE_NONE")
+        val listed = asked.indexOf("Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q -> MediaButtonStart.listedInForeground(this, ComponentName(this, MusicService::class.java))")
+        assertTrue(asked, type >= 0 && listed > type && asked.indexOf("else -> null") > listed)
+        // The type is read there and nowhere else in the service: never on its own below Android 14.
+        assertEquals(1, Regex("""foregroundServiceType\s*!=""").findAll(service).count())
+        // Android's list of the app's own services carries the record's isForeground, the flag
+        // Android decides its demand by.
+        val list = source("MediaButtonStart.kt")
+            .substringAfter("fun listedInForeground(context: Context, component: ComponentName): Boolean? = runCatching {")
+            .substringBefore("}.getOrNull()")
+        assertTrue(list, "getRunningServices(" in list)
+        assertTrue(list, ".firstOrNull { it.service == component }?.foreground" in list)
+    }
 }
