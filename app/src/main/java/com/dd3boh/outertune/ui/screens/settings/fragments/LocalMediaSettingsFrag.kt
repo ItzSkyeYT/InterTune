@@ -15,7 +15,6 @@ import android.net.Uri
 import android.os.Build
 import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -106,6 +105,7 @@ import com.dd3boh.outertune.utils.scanners.ScannerAbortException
 import com.dd3boh.outertune.utils.scanners.absoluteFilePathFromUri
 import com.dd3boh.outertune.utils.scanners.ScanFolderRules
 import com.dd3boh.outertune.utils.scanners.ScanReport
+import com.dd3boh.outertune.utils.scanners.ScanFolderPicker
 import com.dd3boh.outertune.utils.scanners.folderName
 import com.dd3boh.outertune.utils.scanners.stringFromUriList
 import com.dd3boh.outertune.utils.scanners.uriListFromString
@@ -272,7 +272,7 @@ fun ColumnScope.LocalScannerFrag() {
                                 val uris = scanner.scanLocal(scanPaths, excludedScanPaths)
                                 scanner.fullSync(database, uris, scannerSensitivity, strictExtensions, strictFilePaths)
                             }
-                            scanNote = ScanReport.noteFor(scanner.lastFolders, scanner.unreadableFiles)
+                            scanNote = ScanReport.noteFor(scanner.lastFolders, scanner.unreadableFiles, scanner.elsewhereFiles)
 
                             delay(1000)
                             // start artist linking job
@@ -346,7 +346,7 @@ fun ColumnScope.LocalScannerFrag() {
                                     strictFilePaths
                                 )
                             }
-                            scanNote = ScanReport.noteFor(scanner.lastFolders, scanner.unreadableFiles)
+                            scanNote = ScanReport.noteFor(scanner.lastFolders, scanner.unreadableFiles, scanner.elsewhereFiles)
 
                             delay(1000)
                             // start artist linking job
@@ -631,7 +631,7 @@ fun ColumnScope.LocalScannerFrag() {
             } || tempScanPaths.isEmpty()
         ) {
             val dirPickerLauncher = rememberLauncherForActivityResult(
-                ActivityResultContracts.OpenDocumentTree()
+                ScanFolderPicker()
             ) { uri ->
                 if (uri == null) return@rememberLauncherForActivityResult
                 if (tempScanPaths.any { it.toString() == uri.toString() }) return@rememberLauncherForActivityResult
@@ -842,6 +842,8 @@ private fun scanNoteText(context: android.content.Context, note: ScanReport.Note
         context.getString(R.string.scan_note_kept, note.names.joinToString(", "))
     ScanReport.Note.Blocked ->
         context.getString(R.string.scan_note_blocked)
+    ScanReport.Note.Elsewhere ->
+        context.getString(R.string.scan_note_elsewhere)
     is ScanReport.Note.Empty ->
         context.getString(R.string.scan_note_empty, note.names.joinToString(", "))
 }

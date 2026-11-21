@@ -191,6 +191,8 @@ fun SleepTimerDialog(playerConnection: PlayerConnection, onDismiss: () -> Unit) 
     var sleepTimerValue by remember {
         mutableFloatStateOf(30f)
     }
+    // The clock time of the At chip tapped last, or null: the timer then stops at that time itself (startAt).
+    var clockAt by remember { mutableStateOf<Long?>(null) }
     val landscape = LocalLandscape.current
     val timer = playerConnection.service.sleepTimer
     val status = rememberSleepTimerStatus(playerConnection)
@@ -237,7 +239,12 @@ fun SleepTimerDialog(playerConnection: PlayerConnection, onDismiss: () -> Unit) 
                 if (status == null) {
                     SetTimer(
                         value = sleepTimerValue,
-                        onValueChange = { sleepTimerValue = it },
+                        // A length chosen by hand is a length: only a clock chip, tapped last, stops at its time.
+                        onValueChange = {
+                            sleepTimerValue = it
+                            clockAt = null
+                        },
+                        onAt = { clockAt = it },
                         onEnd = { end ->
                             onDismiss()
                             timer.start(end)
@@ -266,7 +273,8 @@ fun SleepTimerDialog(playerConnection: PlayerConnection, onDismiss: () -> Unit) 
                     TextButton(
                         onClick = {
                             onDismiss()
-                            timer.start(sleepTimerValue.roundToInt())
+                            // At a clock time, at that time to the second; else, or once it has gone by, the minutes shown.
+                            if (clockAt?.let(timer::startAt) != true) timer.start(sleepTimerValue.roundToInt())
                         }
                     ) {
                         Text(stringResource(R.string.sleep_start))
@@ -291,7 +299,7 @@ fun SleepTimerDialog(playerConnection: PlayerConnection, onDismiss: () -> Unit) 
 
 /** The length, as a slider with its answer above it, and the rows of ways to pick one: In, At and End of. */
 @Composable
-private fun SetTimer(value: Float, onValueChange: (Float) -> Unit, onEnd: (SleepEnd) -> Unit) {
+private fun SetTimer(value: Float, onValueChange: (Float) -> Unit, onAt: (Long) -> Unit, onEnd: (SleepEnd) -> Unit) {
     val focusRequester = remember {
         FocusRequester()
     }
@@ -403,12 +411,15 @@ private fun SetTimer(value: Float, onValueChange: (Float) -> Unit, onEnd: (Sleep
 
         // At: the next quarters of the hour, as the clock will read.
         ChipRow(stringResource(R.string.sleep_row_at)) {
-            val times = listOf(15L, 30L, 45L, 60L).map { getNextInterval(it) }.sortedBy { it.second }
-            for ((timeString, length) in times) {
+            val times = listOf(15L, 30L, 45L, 60L).map { getNextInterval(it) }.sortedBy { it.minutes }
+            for (chip in times) {
                 SleepChip(
-                    text = timeString,
-                    selected = minutes == length.roundToInt(),
-                    onClick = { onValueChange(length) },
+                    text = chip.text,
+                    selected = minutes == chip.minutes.roundToInt(),
+                    onClick = {
+                        onValueChange(chip.minutes)
+                        onAt(chip.atMs)
+                    },
                 )
             }
         }
@@ -601,30 +612,24 @@ private fun SleepChip(text: String, selected: Boolean = false, onClick: () -> Un
     }
 }
 
-fun getNextInterval(targetMin: Long): Pair<String, Float> {
+/** A clock time under At: as it reads, the minutes until it (for the slider), and the moment itself. */
+data class ClockChip(val text: String, val minutes: Float, val atMs: Long)
+
+/**
+ * The next time the clock reads [targetMin] past an hour (60: the next full hour), at its first second: 4:00 PM is
+ * 16:00:00, not now plus whole minutes (21 Nov 2026: picked at 15:45:14 it stopped at 16:01).
+ */
+fun getNextInterval(targetMin: Long, now: LocalDateTime = LocalDateTime.now()): ClockChip {
     require(targetMin in 1..60) { "Interval must be between 1 and 60 minutes" }
-
-    val now = LocalDateTime.now()
+    val minute = now.truncatedTo(ChronoUnit.MINUTES)
     val intervalMinutes = targetMin - now.minute
-
-    val targetTime: LocalDateTime = if (intervalMinutes > 0) {
-        // Within this hour
-        now.plusMinutes(intervalMinutes)
-    } else if (intervalMinutes < 0) {
-        // Next hour
-        now.plusHours(1).plusMinutes(targetMin - now.minute)
-//        now.plusMinutes((60 - now.minute) + targetMin)        // other way to calculate targetTime
-    } else {
-        // Equal to 0
-        now.plusHours(1)
+    val targetTime: LocalDateTime = when {
+        intervalMinutes > 0 -> minute.plusMinutes(intervalMinutes)
+        intervalMinutes < 0 -> minute.plusHours(1).plusMinutes(targetMin - now.minute)
+        else -> minute.plusHours(1)
     }
-
-    // Format the time
-    val timeString = SimpleDateFormat.getTimeInstance(SimpleDateFormat.SHORT, Locale.getDefault())
-        .format(Date(targetTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()))
-
-    // Calculate minutes between now and target
-    val minutesBetween = ChronoUnit.MINUTES.between(now, targetTime).toFloat()
-
-    return Pair(timeString, minutesBetween)
+    val atMs = targetTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+    val text = SimpleDateFormat.getTimeInstance(SimpleDateFormat.SHORT, Locale.getDefault()).format(Date(atMs))
+    val nowMs = now.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+    return ClockChip(text, ((atMs - nowMs) / 60_000.0).toFloat(), atMs)
 }

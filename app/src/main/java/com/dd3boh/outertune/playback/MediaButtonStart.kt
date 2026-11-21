@@ -103,6 +103,29 @@ internal object MediaButtonStart {
     const val MIN_LOOK_MS = 1_000L
 
     /**
+     * Whether the foreground is held at once, at the press. Before Android 12 with nothing in the
+     * player, as always: media3 shows nothing until the song is in. And on every Android when so
+     * little of Android's time is left that the guard's look could come too late ([tooLateToWait]).
+     */
+    fun holdsAtOnce(sdk: Int, hasSong: Boolean, sinceStartMs: Long?): Boolean =
+        (!hasSong && sdk < Build.VERSION_CODES.S) || tooLateToWait(sdk, sinceStartMs)
+
+    /**
+     * Whether less of Android's time is left than the guard's earliest look ([MIN_LOOK_MS]) and a
+     * second for a busy main thread ([HOLD_AT_ONCE_UNDER_MS]): a start whose onCreate and earlier
+     * work took that long was not met unless media3 was (C2 of experiments/triage-1121/FGS-AUDIT.md).
+     * Held at once then, from Android 12 too, which goes against the rule of 7 Nov 2026 (nothing
+     * held early there: once media3 lets the plain notification go, it may not come back into the
+     * foreground from the background, and Android may stop the music later). His call of 21 Nov
+     * 2026: a stop beats a crash. Null [sinceStartMs], a start that cannot be timed, is never late.
+     */
+    fun tooLateToWait(sdk: Int, sinceStartMs: Long?): Boolean =
+        sinceStartMs != null && limitMs(sdk) - sinceStartMs.coerceAtLeast(0L) < HOLD_AT_ONCE_UNDER_MS
+
+    /** Under this much of Android's time left at the press, the foreground is held at once ([tooLateToWait]). */
+    const val HOLD_AT_ONCE_UNDER_MS = MIN_LOOK_MS + 1_000L
+
+    /**
      * How much of Android's time for this start had gone by [now], when it can be told: from
      * [handedAt], when the app handed Android the start itself ([EXTRA_HANDED_AT]: the media button
      * receiver, and the widget with the player running), or else, for the first start of a
@@ -178,10 +201,13 @@ internal object MediaButtonStart {
      * Whether the service looks again after a media button's start that finds it out of the
      * foreground. With nothing in the player, always: nothing may come of it. With a song, media3
      * plays and shows at once, so only for a key that asks to play, the one that comes with
-     * Android's demand, and only from Android 10, where the service can tell that media3 has met it.
+     * Android's demand, and from Android 8, where Android makes that demand and the service can
+     * tell from Android's list whether media3 has met it ([listedInForeground]). Until 21 Nov 2026
+     * only from Android 10: on Android 8 and 9 a play press whose song did not start was not looked
+     * at, and Android closed the app 5 or 10 s later (C4 of experiments/triage-1121/FGS-AUDIT.md).
      */
     fun looksAgain(hasSong: Boolean, keyCode: Int?, sdk: Int): Boolean =
-        !hasSong || (startsPlayback(keyCode) && sdk >= Build.VERSION_CODES.Q)
+        !hasSong || (startsPlayback(keyCode) && sdk >= Build.VERSION_CODES.O)
 
     /**
      * Whether Android has [component], a service of this app, in the foreground now, from its list
@@ -190,8 +216,8 @@ internal object MediaButtonStart {
      * its demand by (ActiveServices.sendServiceArgsLocked). Null when the list cannot be read or does
      * not have it.
      *
-     * For Android 10 to 13, where Service.foregroundServiceType cannot say. It keeps the type of the
-     * service's last startForeground for as long as Android keeps the service's record: after
+     * For Android 8 to 13, where Service.foregroundServiceType cannot say: it came with Android 10,
+     * and on 10 to 13 it keeps the type of the service's last startForeground for as long as Android keeps the service's record: after
      * stopForeground too, and in the new process after Android brought the service back. AOSP sets
      * ServiceRecord.foregroundServiceType in startForeground only up to android-13.0.0_r83, and puts
      * it back to 0 on leaving the foreground from android-14.0.0_r1. Read there, a player paused long

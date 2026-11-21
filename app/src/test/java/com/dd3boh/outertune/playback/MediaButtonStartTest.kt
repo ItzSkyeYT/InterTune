@@ -86,9 +86,10 @@ class MediaButtonStartTest {
         val next = android.view.KeyEvent.KEYCODE_MEDIA_NEXT
         // Nothing in the player: every start is looked at again, as before, whatever the key and the Android.
         for (sdk in 24..37) for (key in listOf(play, next, null)) assertTrue("$sdk $key", MediaButtonStart.looksAgain(hasSong = false, keyCode = key, sdk = sdk))
-        // A song in the player: a play press, from Android 10, where the service can tell media3 is in the foreground.
-        for (sdk in 29..37) assertTrue("$sdk", MediaButtonStart.looksAgain(hasSong = true, keyCode = play, sdk = sdk))
-        for (sdk in 24..28) assertFalse("$sdk", MediaButtonStart.looksAgain(hasSong = true, keyCode = play, sdk = sdk))
+        // A song in the player: a play press, from Android 8, where Android waits on the start and its list of the
+        // app's own services says whether media3 met it (C4, 21 Nov 2026: until then from Android 10 only).
+        for (sdk in 26..37) assertTrue("$sdk", MediaButtonStart.looksAgain(hasSong = true, keyCode = play, sdk = sdk))
+        for (sdk in 24..25) assertFalse("$sdk", MediaButtonStart.looksAgain(hasSong = true, keyCode = play, sdk = sdk))
         for (sdk in 24..37) for (key in listOf(next, null)) assertFalse("$sdk $key", MediaButtonStart.looksAgain(hasSong = true, keyCode = key, sdk = sdk))
         // What an earlier press left behind does not count for this one.
         val fresh = hold.indexOf("holdingForMediaButton = false")
@@ -122,10 +123,28 @@ class MediaButtonStartTest {
     }
 
     @Test
-    fun `held at once only before Android 12 and only with nothing in the player`() {
+    fun `held at once before Android 12 with nothing in the player, and on any Android with under 2 s left`() {
         val service = source("MusicService.kt")
         val hold = body(service, holdStart)
-        assertTrue(hold, "val held = !hasSong && Build.VERSION.SDK_INT < Build.VERSION_CODES.S && holdForeground()" in hold)
+        assertTrue(hold, "val held = MediaButtonStart.holdsAtOnce(Build.VERSION.SDK_INT, hasSong, sinceStart) && holdForeground()" in hold)
+        // The time left is known before the hold is decided.
+        assertTrue(hold, hold.indexOf("val sinceStart = ") in 0 until hold.indexOf("val held = "))
+        // As before: nothing in the player before Android 12, whatever the time.
+        for (sdk in 26..30) assertTrue("$sdk", MediaButtonStart.holdsAtOnce(sdk, hasSong = false, sinceStartMs = null))
+        for (sdk in 31..37) assertFalse("$sdk", MediaButtonStart.holdsAtOnce(sdk, hasSong = false, sinceStartMs = null))
+        for (sdk in 26..37) assertFalse("$sdk", MediaButtonStart.holdsAtOnce(sdk, hasSong = true, sinceStartMs = null))
+        // C2, his call of 21 Nov 2026: under 2 s of Android's time left, held at once, song or not, Android 12 or not.
+        assertEquals(2_000L, MediaButtonStart.HOLD_AT_ONCE_UNDER_MS)
+        assertTrue(MediaButtonStart.holdsAtOnce(33, hasSong = true, sinceStartMs = 28_500L))
+        assertFalse(MediaButtonStart.holdsAtOnce(33, hasSong = true, sinceStartMs = 28_000L))
+        assertTrue(MediaButtonStart.holdsAtOnce(31, hasSong = false, sinceStartMs = 8_500L))
+        assertFalse(MediaButtonStart.holdsAtOnce(31, hasSong = false, sinceStartMs = 7_900L))
+        assertTrue(MediaButtonStart.holdsAtOnce(28, hasSong = true, sinceStartMs = 8_001L))
+        assertTrue(MediaButtonStart.holdsAtOnce(26, hasSong = true, sinceStartMs = 3_500L))
+        // Past the limit already: holding is still the best try.
+        assertTrue(MediaButtonStart.holdsAtOnce(37, hasSong = false, sinceStartMs = 40_000L))
+        // A start that cannot be timed is never late.
+        for (sdk in 26..37) assertFalse("$sdk", MediaButtonStart.tooLateToWait(sdk, null))
         assertTrue(hold, "mediaButtonHandler.postDelayed(mediaButtonGuard, MediaButtonStart.guardDelayMs(Build.VERSION.SDK_INT, held, sinceStart))" in hold)
         val held = service.substringAfter("private fun holdForeground(): Boolean = try {").substringBefore("    } catch")
         assertTrue(held, "NOTIFICATION_ID,\n            MediaButtonStart.placeholder(this, CHANNEL_ID),\n            ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK," in held)
@@ -379,7 +398,8 @@ class MediaButtonStartTest {
         assertEquals("Android's answer, media3's only where Android has none", " inForeground() ?: isPlaybackOngoing", now)
         val asked = body(service, "private fun inForeground(): Boolean? = when {")
         val type = asked.indexOf("Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE -> foregroundServiceType != ServiceInfo.FOREGROUND_SERVICE_TYPE_NONE")
-        val listed = asked.indexOf("Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q -> MediaButtonStart.listedInForeground(this, ComponentName(this, MusicService::class.java))")
+        // From Android 8 (C4, 21 Nov 2026): 8 and 9 have no type to read, and their list answers as 10 to 13's does.
+        val listed = asked.indexOf("Build.VERSION.SDK_INT >= Build.VERSION_CODES.O -> MediaButtonStart.listedInForeground(this, ComponentName(this, MusicService::class.java))")
         assertTrue(asked, type >= 0 && listed > type && asked.indexOf("else -> null") > listed)
         // The type is read there and nowhere else in the service: never on its own below Android 14.
         assertEquals(1, Regex("""foregroundServiceType\s*!=""").findAll(service).count())

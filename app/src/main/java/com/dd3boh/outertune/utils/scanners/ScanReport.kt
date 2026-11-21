@@ -18,6 +18,8 @@ package com.dd3boh.outertune.utils.scanners
  *  - songs found but refused when the app tried to read them: Android keeps a file out of an app's
  *    reach when it has not indexed it, which is what a .nomedia file in the folder does, and
  *    playing such a file fails the same way (EACCES);
+ *  - songs found in a folder picked from a place whose files have no path the scanner can open
+ *    (#243: Downloads on Android 9): add the folder again from the phone's storage;
  *  - a folder with no music in it.
  */
 object ScanReport {
@@ -39,6 +41,12 @@ object ScanReport {
         /** Songs that were found and could not be read. Said without a count: the way out is the same for one. */
         data object Blocked : Note
 
+        /**
+         * Songs found in a folder picked from a place of the picker whose files have no path to open (#243). Before
+         * [Blocked], whose words blame a .nomedia file: here the folder has to be added again from the phone's storage.
+         */
+        data object Elsewhere : Note
+
         /** Every folder opened and none held a song. */
         data class Empty(val names: List<String>) : Note
     }
@@ -50,12 +58,14 @@ object ScanReport {
      * songs among others that had some are an ordinary scan and say nothing.
      *
      * @param blocked how many songs were found and could not be read
+     * @param elsewhere how many songs were found with no file path to open them by
      */
-    fun noteFor(folders: List<Folder>, blocked: Int): Note? {
+    fun noteFor(folders: List<Folder>, blocked: Int, elsewhere: Int = 0): Note? {
         val closed = folders.filterNot { it.listed }
         if (closed.isNotEmpty()) return Note.Unreadable(names(closed))
         val kept = folders.filter { it.kept }
         if (kept.isNotEmpty()) return Note.Kept(names(kept))
+        if (elsewhere > 0) return Note.Elsewhere
         if (blocked > 0) return Note.Blocked
         if (folders.isNotEmpty() && folders.all { it.found == 0 }) return Note.Empty(names(folders))
         return null

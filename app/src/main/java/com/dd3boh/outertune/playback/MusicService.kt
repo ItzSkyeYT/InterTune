@@ -6969,7 +6969,12 @@ class MusicService : MediaLibraryService(),
      * given and left at once when there is nothing to play.
      *
      * With a song in the player media3 plays and shows at once, so nothing is held: the guard
-     * alone looks again, after a play press, in case the song did not start.
+     * alone looks again, after a play press, in case the song did not start (from Android 8:
+     * [MediaButtonStart.looksAgain]).
+     *
+     * Whatever the Android and the player, a start that reaches the service with under 2 s of
+     * Android's time left is held at once, since the guard's look could come too late
+     * ([MediaButtonStart.tooLateToWait], his call of 21 Nov 2026: a stop beats a crash).
      *
      * [handedAt] is when the app handed Android this start, if it did (MediaButtonStart.markHanded):
      * Android's time runs from there, not from the process's start.
@@ -6988,8 +6993,11 @@ class MusicService : MediaLibraryService(),
         // Nothing holds the foreground now, whatever an earlier press left here.
         holdingForMediaButton = false
         mediaButtonHandler.removeCallbacks(mediaButtonLetGo)
-        val held = !hasSong && Build.VERSION.SDK_INT < Build.VERSION_CODES.S && holdForeground()
         val sinceStart = MediaButtonStart.sinceStart(handedAt, firstStart, processStartedAt, createdAt, SystemClock.uptimeMillis())
+        if (MediaButtonStart.tooLateToWait(Build.VERSION.SDK_INT, sinceStart)) {
+            Log.i(TAG, "Media button start: ${sinceStart}ms of Android's ${MediaButtonStart.limitMs(Build.VERSION.SDK_INT)}ms already gone, so the foreground is held at once")
+        }
+        val held = MediaButtonStart.holdsAtOnce(Build.VERSION.SDK_INT, hasSong, sinceStart) && holdForeground()
         mediaButtonOrigin = sinceStart?.let { SystemClock.uptimeMillis() - it }
         ReportTrail.thisRun.startedFromOutside(ReportTrail.Outside.MEDIA_BUTTON, sinceStart)
         mediaButtonHandler.postDelayed(mediaButtonGuard, MediaButtonStart.guardDelayMs(Build.VERSION.SDK_INT, held, sinceStart))
@@ -7061,7 +7069,7 @@ class MusicService : MediaLibraryService(),
 
     /**
      * Whether the service is in the foreground now, media3's notification or the plain one, as
-     * Android has it ([inForeground]). Before Android 10, or when Android's list cannot be read,
+     * Android has it ([inForeground]). Before Android 8, or when Android's list cannot be read,
      * media3 says, of its own notification.
      */
     private fun foregroundNow(): Boolean = inForeground() ?: isPlaybackOngoing
@@ -7411,14 +7419,14 @@ class MusicService : MediaLibraryService(),
     private fun screenOn(): Boolean? = getSystemService<PowerManager>()?.isInteractive
 
     /**
-     * Whether this service is in the foreground, which Android 10 and later can say: from Android 14
-     * in foregroundServiceType, and on 10 to 13, which leave the type of the last startForeground
-     * there once the service has left the foreground, in Android's list of the app's own services
-     * ([MediaButtonStart.listedInForeground]).
+     * Whether this service is in the foreground, which Android 8 and later can say: from Android 14
+     * in foregroundServiceType, and on 8 to 13 in Android's list of the app's own services
+     * ([MediaButtonStart.listedInForeground]): 8 and 9 have no foregroundServiceType, and 10 to 13
+     * leave the type of the last startForeground there once the service has left the foreground.
      */
     private fun inForeground(): Boolean? = when {
         Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE -> foregroundServiceType != ServiceInfo.FOREGROUND_SERVICE_TYPE_NONE
-        Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q -> MediaButtonStart.listedInForeground(this, ComponentName(this, MusicService::class.java))
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.O -> MediaButtonStart.listedInForeground(this, ComponentName(this, MusicService::class.java))
         else -> null
     }
 
