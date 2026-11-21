@@ -160,6 +160,12 @@ val PersistentQueueKey = booleanPreferencesKey("persistentQueue")
 val PlayingQueueKey = longPreferencesKey("playingQueue")
 
 /**
+ * The ids of the queues kept to songs never heard, a Discover pick's (playback/NeverHeardQueue.kt),
+ * so a queue restored after a restart keeps to the rule. The set of songs known is read again then.
+ */
+val NeverHeardQueuesKey = stringSetPreferencesKey("neverHeardQueues")
+
+/**
  * Start playing the restored queue as soon as the app opens, rather than waiting to be told.
  *
  * Off by default and it must stay that way. This is sound without anybody pressing anything, and
@@ -372,8 +378,6 @@ val AdventurousnessKey = intPreferencesKey("adventurousness")
 
 /** The middle of the slider, two explore cards of twenty: see EngineParams.exploreSpan. */
 const val DefaultAdventurousness = 50
-/** The engine row holds only songs new to the listener. */
-val NewSongsOnlyKey = booleanPreferencesKey("newSongsOnly")
 /** A second engine row on Home, under Quick picks, of songs never played. On unless turned off. */
 val DiscoverRowKey = booleanPreferencesKey("discoverRow")
 /** Familiarity 0 to 60: the share of the engine row given to songs heard well lately. */
@@ -405,6 +409,8 @@ val ContextChipKey = intPreferencesKey("contextChip")
 /**
  * What Best recommendations leans toward, a standing choice: a [com.dd3boh.outertune.engine.Lean]
  * name. Unset or unknown means Auto, the usual mix, so nothing changes for anyone who never picks.
+ * A stored Never heard ("NEW") and the old New songs only switch land on the Discover chip once
+ * ([NeverHeardToDiscover]).
  */
 val QuickPicksLeanKey = stringPreferencesKey("quickPicksLean")
 

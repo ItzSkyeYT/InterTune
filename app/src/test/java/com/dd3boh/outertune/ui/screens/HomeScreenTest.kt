@@ -103,7 +103,7 @@ class HomeScreenTest {
     @Test
     fun `the first chip carries the lean's short name, and Auto otherwise`() {
         assertEquals(com.dd3boh.outertune.R.string.chip_auto, leanChipName(com.dd3boh.outertune.engine.Lean.AUTO))
-        assertEquals(com.dd3boh.outertune.R.string.chip_lean_new, leanChipName(com.dd3boh.outertune.engine.Lean.NEW))
+        assertEquals(com.dd3boh.outertune.R.string.chip_lean_artist, leanChipName(com.dd3boh.outertune.engine.Lean.ARTIST))
         assertEquals(com.dd3boh.outertune.R.string.chip_lean_similar, leanChipName(com.dd3boh.outertune.engine.Lean.SIMILAR))
     }
 
@@ -111,7 +111,6 @@ class HomeScreenTest {
     fun `a lean is named in the setting's words, one name each`() {
         val names = com.dd3boh.outertune.engine.Lean.entries.associateWith { leanOptionName(it) }
         assertEquals(com.dd3boh.outertune.R.string.quick_picks_lean_auto, names[com.dd3boh.outertune.engine.Lean.AUTO])
-        assertEquals(com.dd3boh.outertune.R.string.quick_picks_lean_new, names[com.dd3boh.outertune.engine.Lean.NEW])
         assertEquals(com.dd3boh.outertune.R.string.quick_picks_lean_artist, names[com.dd3boh.outertune.engine.Lean.ARTIST])
         assertEquals(com.dd3boh.outertune.R.string.quick_picks_lean_forgotten, names[com.dd3boh.outertune.engine.Lean.FORGOTTEN])
         assertEquals(com.dd3boh.outertune.R.string.quick_picks_lean_similar, names[com.dd3boh.outertune.engine.Lean.SIMILAR])

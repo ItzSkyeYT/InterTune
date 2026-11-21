@@ -43,16 +43,16 @@ class LeanGivesWayTest {
         fun input(chip: Int = ContextChip.AUTO) = EngineInput(now, songs, listens, edges, chip = chip)
     }
 
-    /** What is asked of the row beside the lean: a chip, New songs only, Both's share. */
-    private class Setting(val name: String, val chip: Int = ContextChip.AUTO, val newOnly: Boolean = false, val share: Double? = null)
+    /** What is asked of the row beside the lean: a chip, Both's share. */
+    private class Setting(val name: String, val chip: Int = ContextChip.AUTO, val share: Double? = null)
 
     private val settings = listOf(
-        Setting("plain"), Setting("discover", chip = ContextChip.DISCOVER), Setting("new songs only", newOnly = true),
+        Setting("plain"), Setting("discover", chip = ContextChip.DISCOVER),
         Setting("chill", chip = ContextChip.CHILL), Setting("both", share = 0.5),
     )
 
     private fun build(w: Library, s: Setting, dice: Int, stored: Lean = Lean.AUTO) =
-        EngineRow.build(w.input(s.chip), newOnly = s.newOnly, random = Random(dice.toLong()), lastFmShare = s.share, stored = stored)
+        EngineRow.build(w.input(s.chip), random = Random(dice.toLong()), lastFmShare = s.share, stored = stored)
 
     /** Everything a row is and everything recorded with it, so two builds can be held against each other exactly. */
     private fun sig(r: BuiltRow): String = buildString {
@@ -84,7 +84,7 @@ class LeanGivesWayTest {
         val w = nothingForAnyLean()
         var builds = 0
         for (lean in leans) for (s in settings) {
-            if (EngineRow.shape(newOnly = s.newOnly, chip = s.chip, stored = lean).lead == null) continue
+            if (EngineRow.shape(chip = s.chip, stored = lean).lead == null) continue
             repeat(8) { dice ->
                 val auto = build(w, s, dice)
                 val leaned = build(w, s, dice, lean)
@@ -96,8 +96,8 @@ class LeanGivesWayTest {
                 builds++
             }
         }
-        // Every lean with no chip, with a mood where it still applies, with Both, and Never heard with Discover.
-        assertEquals(8 * (4 + 3 + 4 + 1), builds)
+        // Every lean with no chip, with a mood where it still applies, and with Both. Discover sets them all aside.
+        assertEquals(8 * (3 + 2 + 3), builds)
     }
 
     /**
@@ -139,12 +139,11 @@ class LeanGivesWayTest {
 
     /**
      * Whether the lean's lane is sure to be empty, told from the library alone and not from the
-     * build: nothing never heard, no artist come back to, nothing played or liked long enough ago
+     * build: no artist come back to, nothing played or liked long enough ago
      * to be forgotten, no related list for any song of the session the latest listen is in or of
      * the one the latest listen heard through is in.
      */
     private fun sureToHaveNothing(lean: Lean, w: Library): Boolean = when (lean) {
-        Lean.NEW -> w.songs.values.none { s -> !s.liked && !s.inLibrary && w.listens.none { it.songId == s.id } }
         Lean.ARTIST -> EngineRow.returningArtists(w.input(), LibraryStats(w.input())).isEmpty()
         Lean.FORGOTTEN -> w.listens.none { it.endedAt < now - 45 * day } && w.songs.values.none { (it.likedAt ?: now) < now - 45 * day }
         Lean.SIMILAR -> {
@@ -159,11 +158,11 @@ class LeanGivesWayTest {
     @Test
     fun `over small libraries no lean gives less than Auto when it has nothing, or too short a row when Auto's is long enough`() {
         val sure = HashMap<Lean, Int>(); val gaveWayEmpty = HashMap<Lean, Int>(); val gaveWayShort = HashMap<Lean, Int>(); val followed = HashMap<Lean, Int>()
-        var strictGaveWay = 0; var bothShort = 0
+        var bothShort = 0
         for (seed in 0 until 300) {
             val w = library(seed)
             for (lean in leans) for (s in settings) {
-                val shape = EngineRow.shape(newOnly = s.newOnly, chip = s.chip, stored = lean)
+                val shape = EngineRow.shape(chip = s.chip, stored = lean)
                 if (shape.lean == Lean.AUTO) continue
                 repeat(2) { dice ->
                     val what = "library $seed, $lean, ${s.name} #$dice"
@@ -186,7 +185,6 @@ class LeanGivesWayTest {
                             assertTrue(what, auto.cards.size >= minCards)
                             gaveWayShort.merge(lean, 1, Int::plus)
                         }
-                        if (shape.lead == null) strictGaveWay++
                     } else {
                         // A row that follows the lean holds some of what it promises, unless Auto's
                         // row would not have been shown either, when the leaned one stands.
@@ -204,7 +202,6 @@ class LeanGivesWayTest {
             assertTrue("$lean followed in ${followed[lean]} builds", (followed[lean] ?: 0) >= 40)
         }
         assertTrue("gave way for a short row: $gaveWayShort", gaveWayShort.values.sum() >= 20)
-        assertTrue("Never heard with New songs only gave way in $strictGaveWay builds", strictGaveWay >= 10)
         assertTrue("both rows too short in $bothShort builds", bothShort >= 20)
     }
 
@@ -236,9 +233,10 @@ class LeanGivesWayTest {
     }
 
     @Test
-    fun `Never heard with New songs only gives way to the ordinary New songs only row when its own is too short to show`() {
-        // Two artists never heard of, two songs each: four cards under the strict rule. The
-        // ordinary rule also takes library songs never played, and has a row to show.
+    fun `Discover with too few songs never heard shows what it has, and nothing heard fills it`() {
+        // Two artists never heard of, two songs each. The library songs never played that the old
+        // New songs only took in are the listener's, so they never fill the gap, and there is no
+        // lean to give way to: the row is shown short, the pool behind it holding the rest.
         val w = Library(now)
         for (a in 0 until 3) for (i in 0 until 4) w.song("k${a}s$i", "known$a", "Known $a $i")
         for (a in 0 until 2) for (i in 0 until 2) w.song("n${a}s$i", "fresh$a", "Fresh $a $i", inLibrary = false)
@@ -246,21 +244,26 @@ class LeanGivesWayTest {
         val targets = (0 until 2).flatMap { a -> (0 until 2).map { "n${a}s$it" } } + (0 until 6).map { "lib$it" }
         for (a in 0 until 3) for (i in 0 until 4) targets.forEach { w.edge("k${a}s$i", it) }
         for (d in 1..10) for (a in 0 until 3) w.play("k${a}s${d % 4}", hoursAgo = d * 24.0 + a, session = d.toLong())
-        val newOnly = settings.first { it.newOnly }
+        val discover = settings.first { it.chip == ContextChip.DISCOVER }
+        val fresh = setOf("n0s0", "n0s1", "n1s0", "n1s1")
         repeat(5) { dice ->
-            val plain = build(w, newOnly, dice)
-            val strict = build(w, newOnly, dice, Lean.NEW)
-            assertTrue(plain.cards.size >= minCards)
-            assertEquals(sig(plain), sig(strict))
-            assertEquals(LeanGaveWay(Lean.NEW, nothing = false), strict.gaveWay)
+            for (lean in Lean.entries) {
+                val row = build(w, discover, dice, lean)
+                assertTrue(row.cards.isNotEmpty()); assertNull(row.gaveWay); assertEquals(Lean.AUTO, row.lean)
+                // What it has is all of it: the cards and the pool Home fills the row from.
+                assertEquals(fresh, (row.cards + row.pool).mapTo(HashSet()) { it.songId })
+                assertTrue(row.cards.size < minCards)
+            }
         }
-        // With enough never heard for a row, the strict rule stands and gives way to nothing.
+        // Short of the eight anything else needs, and still the row Quick picks shows.
+        assertEquals(1, EngineRow.fewestShown(ContextChip.DISCOVER))
+        for (chip in listOf(ContextChip.AUTO, ContextChip.FAVOURITES, ContextChip.FOCUS, ContextChip.CHILL, ContextChip.PARTY)) assertEquals(minCards, EngineRow.fewestShown(chip))
+        // With enough never heard for a row, every card is one of them.
         for (a in 2 until 5) for (i in 0 until 2) { w.song("n${a}s$i", "fresh$a", "Fresh $a $i", inLibrary = false); for (k in 0 until 3) w.edge("k${k}s0", "n${a}s$i") }
         repeat(5) { dice ->
-            val strict = build(w, newOnly, dice, Lean.NEW)
-            assertNull(strict.gaveWay)
-            assertTrue(strict.cards.size >= minCards)
-            strict.cards.forEach { assertTrue(it.songId, it.songId.startsWith("n")) }
+            val row = build(w, discover, dice)
+            assertTrue(row.cards.size >= minCards)
+            row.cards.forEach { assertTrue(it.songId, it.songId.startsWith("n")) }
         }
     }
 }

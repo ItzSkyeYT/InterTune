@@ -24,7 +24,8 @@ object JdbcEngineInput {
             val liked = (r["liked"] as Number).toInt() != 0
             val likedDate = (r["likedDate"] as Number?)?.toLong()
             id to SongRow(id, r["title"] as String, r["artistId"] as String?, r["artistName"] as String?, liked,
-                likedDate?.takeIf { liked }?.let { storedLocalToInstant(it, zone) }, r["inLibrary"] != null, (r["isLocal"] as Number).toInt() != 0)
+                likedDate?.takeIf { liked }?.let { storedLocalToInstant(it, zone) }, r["inLibrary"] != null, (r["isLocal"] as Number).toInt() != 0,
+                downloaded = r["dateDownload"] != null)
         }
 
     /** As the app's loader reads them: open rows ending [now], failed plays left out (EngineListens.forBuild). */

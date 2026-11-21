@@ -120,16 +120,16 @@ class CardTrendSqlTest {
 
     @Test
     fun `cards shown under another choice are left out of the two fortnights, and counted apart`() {
-        build(2, lean = 1)                                              // Never heard chosen
+        build(2, lean = 2)                                              // Your artists chosen
         impression(visibleAt = 1_500, y = 1.0, outcome = 1)             // Auto's, earlier
         impression(visibleAt = 1_600, y = 0.0)                          // Auto's, earlier
-        impression(visibleAt = 2_500, y = 0.0, build = 2)               // Never heard's, recent
+        impression(visibleAt = 2_500, y = 0.0, build = 2)               // Your artists', recent
         impression(visibleAt = 2_600, y = 0.0, build = 2)
         impression(visibleAt = 2_700, y = 1.0, outcome = 1, build = 2)
         // Back on Auto, the recent fortnight has nothing of Auto's to compare: not "going down".
         assertEquals(CardTrendRow(recentSeen = 0, recentPlayed = 0, earlierSeen = 2, earlierPlayed = 1, recentAny = 3, earlierAny = 2), trend(lean = 0))
-        // With Never heard chosen, only its own cards count.
-        assertEquals(CardTrendRow(recentSeen = 3, recentPlayed = 1, earlierSeen = 0, earlierPlayed = 0, recentAny = 3, earlierAny = 2), trend(lean = 1))
+        // With Your artists chosen, only its own cards count.
+        assertEquals(CardTrendRow(recentSeen = 3, recentPlayed = 1, earlierSeen = 0, earlierPlayed = 0, recentAny = 3, earlierAny = 2), trend(lean = 2))
         // A choice no row was built under yet has nothing, with every card still counted apart.
         assertEquals(CardTrendRow(recentSeen = 0, recentPlayed = 0, earlierSeen = 0, earlierPlayed = 0, recentAny = 3, earlierAny = 2), trend(lean = 3))
     }

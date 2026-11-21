@@ -17,24 +17,25 @@ import kotlin.random.Random
  * list of builds over them, one line a build, so the rows of today can be held against the rows the
  * engine gave before it could lean (see [AutoUnchangedTest]).
  *
- * Nothing here names a lean, and the build itself is handed in, so the same file compiles against
- * the engine as it was and wrote the lines kept in `engine/auto-rows.txt`.
+ * Nothing here names a lean, and the build itself is handed in, so the same file compiled against
+ * the engine as it was and wrote the lines kept in `engine/auto-rows.txt`. Since Discover was made
+ * strict (21 Nov 2026) the lines of the rows that promise songs never heard are this engine's
+ * ([Case.neverHeard]), and [heard] reads the rule they keep to.
  */
 internal object AutoRows {
     const val NOW = 1_789_135_200_000L
     private const val HOUR = 3_600_000L
     private const val DAY = 86_400_000L
 
-    /** A build as the app asks for it: input, weights, parameters, dial, New songs only, never played, dice, Last.fm share. */
+    /** A build as the app asks for it: input, weights, parameters, dial, never played, dice, Last.fm share. */
     fun interface Build {
-        fun row(input: EngineInput, weights: Weights, p: EngineParams, dial: Double, newOnly: Boolean, neverPlayed: Boolean, random: Random, lastFmShare: Double?): BuiltRow
+        fun row(input: EngineInput, weights: Weights, p: EngineParams, dial: Double, neverPlayed: Boolean, random: Random, lastFmShare: Double?): BuiltRow
     }
 
     /** One build's settings; every case is built once for each of its [dice]. */
     class Case(
         val name: String,
         val chip: Int = ContextChip.AUTO,
-        val newOnly: Boolean = false,
         val neverPlayed: Boolean = false,
         val dial: Double = 0.5,
         val familiarity: Double = 0.25,
@@ -48,7 +49,14 @@ internal object AutoRows {
         val dice: Int = 4,
         /** Built over the small library, where lanes run short, instead of the big one. */
         val small: Boolean = false,
-    )
+    ) {
+        /**
+         * The rows that promise songs never heard, every card: the Discover chip and the Discover
+         * something new row. Their lines are written by this engine (21 Nov 2026, Discover made
+         * strict); every other line is still the engine's from before leans.
+         */
+        val neverHeard: Boolean get() = chip == ContextChip.DISCOVER || neverPlayed
+    }
 
     val cases = listOf(
         Case("auto", dice = 12),
@@ -57,9 +65,11 @@ internal object AutoRows {
         Case("focus", chip = ContextChip.FOCUS),
         Case("chill", chip = ContextChip.CHILL),
         Case("party", chip = ContextChip.PARTY),
-        Case("new songs only", newOnly = true),
-        Case("new songs only, discover", chip = ContextChip.DISCOVER, newOnly = true),
-        Case("new songs only, chill", chip = ContextChip.CHILL, newOnly = true),
+        // These three places were New songs only's until it was taken out (21 Nov 2026), and are
+        // Discover's now: whatever the dial, with Both's split, and after a pull.
+        Case("discover, adventurous", chip = ContextChip.DISCOVER, dial = 0.9),
+        Case("discover, both", chip = ContextChip.DISCOVER, lastFmShare = 0.5),
+        Case("discover after a pull", chip = ContextChip.DISCOVER, pull = true),
         Case("never played", neverPlayed = true),
         Case("both", lastFmShare = 0.5),
         Case("both at four in five", lastFmShare = 0.8),
@@ -74,7 +84,7 @@ internal object AutoRows {
         // The small library, after everything above so that the lines of the big one keep their places.
         Case("small library", small = true),
         Case("small library, discover", chip = ContextChip.DISCOVER, small = true),
-        Case("small library, new songs only", newOnly = true, small = true),
+        Case("small library, never played", neverPlayed = true, small = true),
         Case("small library, both", lastFmShare = 0.5, small = true),
     )
 
@@ -183,6 +193,14 @@ internal object AutoRows {
         append("screen $screen\n")
     }
 
+    /**
+     * The row as the engine before 21 Nov 2026 captioned it: every new-to-you card "New to you",
+     * whatever the listener knew of the song. That is the one thing a row that promises nothing new
+     * says differently now, so the lines written before it are held against the rest of the row.
+     */
+    private fun captionedAsBefore(row: BuiltRow): BuiltRow =
+        row.copy(cards = row.cards.map { if (it.lane == Lane.EXPLORE) it.copy(reasons = listOf("new_to_you")) else it })
+
     private fun digest(text: String): String =
         MessageDigest.getInstance("SHA-256").digest(text.toByteArray(Charsets.UTF_8)).joinToString("") { "%02x".format(it) }
 
@@ -200,7 +218,10 @@ internal object AutoRows {
             .take(20).map { it.songId }
     }
 
-    /** One line: the case and its dice, a digest of the whole row, and the cards in order, to read. */
+    /**
+     * One line: the case and its dice, a digest of the whole row, and the cards in order, to read.
+     * Outside [Case.neverHeard] the digest is of the row captioned as before (see [captionedAsBefore]).
+     */
     fun line(case: Case, dice: Int, build: Build): String {
         val w = if (case.small) smallWorld() else world(case.later)
         val p = EngineParams.DEFAULT.withFamiliarity(case.familiarity)
@@ -220,12 +241,22 @@ internal object AutoRows {
             notSeeds = case.notSeeds, chip = case.chip,
         )
         if (case.pull) {
-            val before = build.row(input, weights, p, case.dial, case.newOnly, case.neverPlayed, Random(1000L + dice), case.lastFmShare)
+            val before = build.row(input, weights, p, case.dial, case.neverPlayed, Random(1000L + dice), case.lastFmShare)
             input = input.copy(pastSeeds = input.pastSeeds + PastSeeds(w.now, before.seeds), banned = before.cards.mapTo(HashSet()) { it.songId })
         }
-        val row = build.row(input, weights, p, case.dial, case.newOnly, case.neverPlayed, Random(dice.toLong()), case.lastFmShare)
-        return "${case.name} #$dice\t${digest(text(row, screen(row, w)))}\t${row.cards.joinToString(",") { it.songId }}"
+        val row = build.row(input, weights, p, case.dial, case.neverPlayed, Random(dice.toLong()), case.lastFmShare)
+        val written = if (case.neverHeard) row else captionedAsBefore(row)
+        return "${case.name} #$dice\t${digest(text(written, screen(row, w)))}\t${row.cards.joinToString(",") { it.songId }}"
     }
+
+    /** What the listener knows of each song of the case's library, by the engine's own rule (EngineRow.heardOf). */
+    fun heard(case: Case): HeardSet {
+        val w = if (case.small) smallWorld() else world(case.later)
+        return EngineRow.heardOf(EngineInput(w.now, w.songs, w.listens, w.edges))
+    }
+
+    /** The case's library, as [line] builds over it, for checks on the songs themselves. */
+    fun songs(case: Case): Map<String, SongRow> = (if (case.small) smallWorld() else world(case.later)).songs
 
     fun lines(build: Build): List<String> = cases.flatMap { c -> (0 until c.dice).map { line(c, it, build) } }
 }

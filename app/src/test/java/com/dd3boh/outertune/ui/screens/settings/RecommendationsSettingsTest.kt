@@ -21,24 +21,25 @@ import org.junit.Test
  */
 class RecommendationsSettingsTest {
 
-    private fun sentence(choice: Lean, source: QuickPicksSource = QuickPicksSource.ENGINE, chip: Int = ContextChip.AUTO, newOnly: Boolean = false) =
-        leanLineString(LeanChoice.line(choice, source, chip, newOnly, 0.5)!!)
+    private fun sentence(choice: Lean, source: QuickPicksSource = QuickPicksSource.ENGINE, chip: Int = ContextChip.AUTO) =
+        leanLineString(LeanChoice.line(choice, source, chip, 0.5)!!)
 
     @Test
-    fun `with New songs only on, Never heard says what it keeps and every other choice that it waits`() {
-        assertEquals(R.string.quick_picks_lean_new_only_strict, sentence(Lean.NEW, newOnly = true))
-        assertEquals(R.string.quick_picks_lean_new_only_strict, sentence(Lean.NEW, chip = ContextChip.DISCOVER, newOnly = true))
-        assertEquals(R.string.quick_picks_lean_new_only_strict, sentence(Lean.NEW, QuickPicksSource.COMPARE, newOnly = true))
-        for (choice in listOf(Lean.ARTIST, Lean.FORGOTTEN, Lean.SIMILAR)) assertEquals(R.string.quick_picks_lean_set_aside_new_only, sentence(choice, newOnly = true))
+    fun `with Discover on, every choice says that it waits`() {
+        // Discover is songs never heard, every card (21 Nov 2026), so no choice leads its row.
+        for (choice in listOf(Lean.ARTIST, Lean.FORGOTTEN, Lean.SIMILAR)) {
+            assertEquals(R.string.quick_picks_lean_set_aside_chip, sentence(choice, chip = ContextChip.DISCOVER))
+            assertEquals(R.string.quick_picks_lean_set_aside_chip, sentence(choice, QuickPicksSource.COMPARE, chip = ContextChip.DISCOVER))
+        }
     }
 
     @Test
     fun `each state of the line has a sentence of its own`() {
-        assertEquals(R.string.quick_picks_lean_description, sentence(Lean.NEW))
-        assertEquals(R.string.quick_picks_lean_description_compare, sentence(Lean.NEW, QuickPicksSource.COMPARE))
-        assertEquals(R.string.quick_picks_lean_not_source, sentence(Lean.NEW, QuickPicksSource.YOUTUBE, newOnly = true))
+        assertEquals(R.string.quick_picks_lean_description, sentence(Lean.ARTIST))
+        assertEquals(R.string.quick_picks_lean_description_compare, sentence(Lean.ARTIST, QuickPicksSource.COMPARE))
+        assertEquals(R.string.quick_picks_lean_not_source, sentence(Lean.ARTIST, QuickPicksSource.YOUTUBE, chip = ContextChip.DISCOVER))
         assertEquals(R.string.quick_picks_lean_set_aside_chip, sentence(Lean.ARTIST, chip = ContextChip.DISCOVER))
-        assertEquals(R.string.quick_picks_lean_set_aside_chip, leanLineString(LeanLine.SetAside(newOnly = false, chip = ContextChip.FAVOURITES)))
+        assertEquals(R.string.quick_picks_lean_set_aside_chip, leanLineString(LeanLine.SetAside(chip = ContextChip.FAVOURITES)))
     }
 
     @Test

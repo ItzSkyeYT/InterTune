@@ -44,11 +44,15 @@ class EngineRowTest {
     private fun bigWorld(): World {
         val w = World(now)
         // Twenty artists, eight songs each, with a live version of the first song of each artist.
+        // Artists 12 to 19 are only in the table because related lists named them, not in the library.
         val artists = 20
-        for (a in 0 until artists) for (i in 0 until 8) w.song("a${a}s$i", "artist$a", title = "Song $a $i")
-        for (a in 0 until artists) w.song("a${a}live", "artist$a", title = "Song $a 0 (Live)")
+        for (a in 0 until artists) for (i in 0 until 8) w.song("a${a}s$i", "artist$a", title = "Song $a $i", inLibrary = a < 12)
+        for (a in 0 until artists) w.song("a${a}live", "artist$a", title = "Song $a 0 (Live)", inLibrary = a < 12)
         // Everyone is related to the next two artists' songs.
         for (a in 0 until artists) for (i in 0 until 8) for (n in 1..2) w.edge("a${a}s$i", *(0 until 8).map { "a${(a + n) % artists}s$it" }.toTypedArray())
+        // And the songs heard most each name two artists nobody has played, two songs apiece.
+        for (k in 0 until 16) for (i in 0 until 2) w.song("n${k}s$i", "newartist$k", title = "Fresh $k $i", inLibrary = false)
+        for (a in 0 until 8) for (i in 0 until 4) w.edge("a${a}s$i", *(0 until 2).flatMap { j -> (0 until 2).map { "n${a + 8 * j}s$it" } }.toTypedArray())
         // A history: the first four songs of artists 0 to 7 played over the last month, artists 8 to 11 long ago, 12 to 19 never.
         var sess = 1L
         for (d in 1..30) { sess++; for (a in 0 until 8) w.play("a${a}s${d % 4}", hoursAgo = d * 24.0 + a, session = sess) }
@@ -105,9 +109,15 @@ class EngineRowTest {
     @Test
     fun `chips shape the row`() {
         val w = bigWorld()
-        // Discover: half the row new.
+        // Discover: the whole row songs never heard, by the new-to-you lane, with related songs never heard filling in.
         val discover = EngineRow.build(w.input().copy(chip = ContextChip.DISCOVER), random = Random(1))
-        assertEquals(10, discover.quotas[Lane.EXPLORE])
+        assertEquals(20, discover.quotas[Lane.EXPLORE])
+        val heard = w.listens.mapTo(HashSet()) { it.songId }
+        assertTrue(discover.cards.size >= EngineParams.DEFAULT.minCards)
+        (discover.cards + discover.pool).forEach { c ->
+            assertTrue("${c.songId} heard", c.songId !in heard); assertTrue("${c.songId} in the library", !w.songs[c.songId]!!.inLibrary)
+            assertTrue(c.lane == Lane.EXPLORE || c.lane == Lane.RELATED)
+        }
         // Favourites: nothing new, and seeds only from likes: with no likes there are no seeds at all.
         val favourites = EngineRow.build(w.input().copy(chip = ContextChip.FAVOURITES), random = Random(1))
         assertEquals(0, favourites.quotas[Lane.EXPLORE]); assertTrue(favourites.seeds.isEmpty())
@@ -174,35 +184,88 @@ class EngineRowTest {
     @Test
     fun `explore cards are new to the listener and say so`() {
         val w = bigWorld()
-        val row = EngineRow.build(w.input(), random = Random(3))
-        val explore = row.cards.filter { it.lane == Lane.EXPLORE }
-        assertTrue(explore.isNotEmpty())
-        explore.forEach { c ->
-            assertTrue(c.features[Features.NOVEL] >= 0.5)
-            assertEquals("new_to_you", c.reasons.first())
+        val heard = w.listens.mapTo(HashSet()) { it.songId }
+        repeat(5) { s ->
+            val row = EngineRow.build(w.input(), random = Random(3L + s))
+            val explore = row.cards.filter { it.lane == Lane.EXPLORE }
+            assertTrue(explore.isNotEmpty())
+            explore.forEach { c ->
+                assertTrue(c.features[Features.NOVEL] >= 0.5)
+                assertTrue("${c.songId} is known", c.songId !in heard && !w.songs[c.songId]!!.inLibrary)
+                assertEquals("new_to_you", c.reasons.first())
+            }
         }
+    }
+
+    @Test
+    fun `New to you is never said of a song heard, liked, saved, downloaded or a file of the listener's`() {
+        // His shot of 21 Nov 2026: a liked song in the library read "New to you". The new-to-you
+        // lane takes songs never heard WELL, and library songs never played, so it holds such songs.
+        // No related lists at all, so the lane is the library's songs never played: liked and not,
+        // a download and a local file. A song started and skipped is known as well.
+        val w = World(now)
+        for (a in 0 until 3) for (i in 0 until 4) w.song("k${a}s$i", "known$a", title = "Known $a $i")
+        for (d in 1..10) for (a in 0 until 3) w.play("k${a}s${d % 4}", hoursAgo = d * 24.0 + a, session = d.toLong())
+        w.song("saved", "shelf0", title = "Saved")
+        w.songs["liked"] = SongRow("liked", "Liked", "art_shelf1", "shelf1", liked = true, likedAt = null, inLibrary = true)
+        w.songs["download"] = SongRow("download", "Downloaded", "art_shelf2", "shelf2", inLibrary = true, downloaded = true)
+        w.songs["file"] = SongRow("file", "My file", "art_shelf3", "shelf3", inLibrary = true, isLocal = true)
+        w.song("skipped", "shelf4", title = "Skipped")
+        w.play("skipped", hoursAgo = 50.0, ratio = 0.05, session = 40, ended = EndReason.SKIPPED)
+        val known = setOf("saved", "liked", "download", "file", "skipped")
+        var placed = 0
+        repeat(10) { s ->
+            val row = EngineRow.build(w.input(), dial = 1.0, random = Random(s.toLong()))
+            for (c in row.cards.filter { it.lane == Lane.EXPLORE }) {
+                assertTrue("${c.songId} ${c.reasons}", "new_to_you" !in c.reasons)
+                if (c.songId in known) placed++
+            }
+        }
+        assertTrue("$placed known songs placed as new-to-you cards", placed >= 10)
+    }
+
+    @Test
+    fun `a song in a playlist keeps its place in the usual row but is not called new`() {
+        // Only the database knows playlists: the set it reads for the build (EngineInput.known).
+        val w = bigWorld()
+        val plain = EngineRow.build(w.input(), random = Random(4))
+        val fresh = plain.cards.filter { it.lane == Lane.EXPLORE }
+        assertTrue(fresh.isNotEmpty()); fresh.forEach { assertEquals("new_to_you", it.reasons.first()) }
+        val known = HeardSet.of(fresh.map { c -> w.songs.getValue(c.songId).let { KnownSong(it.id, it.title, it.artistName) } })
+        val again = EngineRow.build(w.input().copy(known = known), random = Random(4))
+        // The usual row is the same row, card for card: only Discover's rows leave known songs out.
+        assertEquals(plain.cards.map { it.songId to it.lane }, again.cards.map { it.songId to it.lane })
+        again.cards.filter { c -> fresh.any { it.songId == c.songId } }.forEach { assertTrue("${it.songId} ${it.reasons}", "new_to_you" !in it.reasons) }
+        // Under Discover they are gone.
+        val discover = EngineRow.build(w.input().copy(known = known, chip = ContextChip.DISCOVER), random = Random(4))
+        assertTrue((discover.cards + discover.pool).none { c -> fresh.any { it.songId == c.songId } })
     }
 
     @Test
     fun `never played means no listen at all, not no good listen`() {
         val w = bigWorld()
-        // Artists 12 to 15 were skipped ten seconds in, every song: new by New songs only's measure,
+        // Artists 12 to 15 were skipped ten seconds in, every song: new by the engine's novelty,
         // since none was heard well, but not something the listener has never heard.
         val skipped = (12..15).flatMap { a -> (0 until 8).map { "a${a}s$it" } }
         skipped.forEachIndexed { i, id -> w.play(id, hoursAgo = 48.0 + i, ratio = 0.05, session = 500L + i, ended = EndReason.SKIPPED) }
         val heard = w.listens.mapTo(HashSet()) { it.songId }
-        val row = EngineRow.build(w.input(), neverPlayed = true, random = Random(5))
-        assertTrue("a row to show", row.cards.size >= EngineParams.DEFAULT.minCards)
-        (row.cards + row.pool).forEach { assertTrue("${it.songId} has been played", it.songId !in heard) }
-        val newOnly = EngineRow.build(w.input(), newOnly = true, random = Random(5))
-        assertTrue("New songs only still counts a skip as new", (newOnly.cards + newOnly.pool).any { it.songId in skipped })
+        for (discover in listOf(false, true)) {
+            val input = if (discover) w.input().copy(chip = ContextChip.DISCOVER) else w.input()
+            val row = EngineRow.build(input, neverPlayed = !discover, random = Random(5))
+            assertTrue("a row to show", row.cards.size >= EngineParams.DEFAULT.minCards)
+            (row.cards + row.pool).forEach { assertTrue("${it.songId} has been played", it.songId !in heard) }
+        }
+        // The engine's own novelty counts a skip as new, so the difference is real.
+        val ctx = Features.Context(LibraryStats(w.input()), VersionGroups(w.songs.values), w.input(), emptyMap())
+        skipped.forEach { assertTrue("$it is new to the novelty feature", Features.of(it, ctx)[Features.NOVEL] >= 0.5) }
     }
 
     @Test
     fun `another version of a song heard well is not new to you`() {
         // The live takes of the songs heard well were offered as new, since novelty was counted by
         // song id: on one real history (16 Oct 2026) 36 of 533 explore cards were another version
-        // of a song the listener had heard well. New songs only shows them most readily.
+        // of a song the listener had heard well. A row of new songs only, Discover's now, would show
+        // them most readily.
         val w = bigWorld()
         // YouTube lists the live takes as related, as it does: each favourite points at the next
         // artist's live version of a song already heard well.
@@ -211,8 +274,8 @@ class EngineRowTest {
         val heardWell = w.listens.filter { it.playedMs >= it.durationMs / 2 }.mapTo(HashSet()) { groups.groupOf(it.songId) }
         assertTrue("the live takes are versions of songs heard well", (1..7).all { groups.groupOf("a${it}live") in heardWell })
         repeat(10) { attempt ->
-            for (newOnly in listOf(false, true)) {
-                val row = EngineRow.build(w.input(), newOnly = newOnly, random = Random(attempt.toLong()))
+            for (discover in listOf(false, true)) {
+                val row = EngineRow.build(if (discover) w.input().copy(chip = ContextChip.DISCOVER) else w.input(), random = Random(attempt.toLong()))
                 (row.cards + row.pool).forEach { c ->
                     if (groups.groupOf(c.songId) in heardWell) {
                         assertEquals("${c.songId} is a version of a song heard well", 0.0, c.features[Features.NOVEL], 0.0)
@@ -331,11 +394,11 @@ class EngineRowTest {
         // session last had one, missing this one entirely.
         val skipped = (12..15).map { "a${it}s0" }
         skipped.forEachIndexed { i, id -> w.play(id, hoursAgo = 0.01 * (i + 1), ratio = 0.05, session = 9001L, ended = EndReason.SKIPPED) }
-        // The same songs, reachable and counted as novel by newOnly's measure (see "never played
+        // The same songs, reachable and counted as novel by the new-to-you lane (see "never played
         // means no listen at all, not no good listen" above), so unless this session is taken as
         // the one in progress they are picked up as ordinary candidates.
         repeat(10) { attempt ->
-            val row = EngineRow.build(w.input(), newOnly = true, random = Random(attempt.toLong()))
+            val row = EngineRow.build(w.input(), dial = 1.0, random = Random(attempt.toLong()))
             assertTrue("a row to show", (row.cards + row.pool).isNotEmpty())
             (row.cards + row.pool).forEach { assertTrue("${it.songId} was skipped this session", it.songId !in skipped) }
         }

@@ -965,8 +965,6 @@
     <string name="familiarity">Vertrautheit</string>
     <string name="familiarity_description">Wie viel der Reihe „Beste Empfehlungen“ an Songs geht, die du in den letzten zwei Wochen oft gehört hast und die wieder dran sind: %1$d von 20 Karten. Songs, die du dir übergehört hast, treten von selbst zurück.</string>
     <string name="why_these_lane_again">%1$d, die du immer wieder hörst</string>
-    <string name="new_songs_only">Nur neue Songs</string>
-    <string name="new_songs_only_description">Jede Karte in der Reihe „Beste Empfehlungen“ ist ein Song, der neu für dich ist.</string>
     <string name="similar_source">Ähnliche Songs von</string>
     <string name="login_reassurance">Das ist Googles eigene Anmeldeseite. InterTune sieht dein Passwort nie. Es behält nur die Anmeldung, die YouTube Music zurückgibt.</string>
     <string name="login_secure">Sichere Verbindung</string>
@@ -1322,7 +1320,6 @@
     <string name="rank_with_listening_info">Ordnet die Reihe „Schnellauswahl“ so, dass sie zu dir passt: Songs, die du oft oder zuletzt gehört hast oder magst, kommen eher zuerst. Nichts wird hinzugefügt oder entfernt. Füllt „Beste Empfehlungen“ oder „Beide ausprobieren“ die Reihe, bleibt sie unverändert.</string>
     <string name="recommendations_engine_title_info">Die Reihe hat zwanzig Karten: Songs, die mit dem verwandt sind, was du hörst, Songs, die du immer wieder hörst, mehr von deinen Künstlern, alte Favoriten, die länger nicht liefen, und ein paar, die neu für dich sind. Diese Einstellungen gelten, solange „Quelle für Schnellauswahl“ auf „Beste Empfehlungen“ oder „Beide ausprobieren“ steht. Zieh auf der Startseite nach unten, um eine Änderung zu sehen.</string>
     <string name="similar_source_info">Wo „Beste Empfehlungen“ und „Etwas Neues entdecken“ Songs finden, die denen ähneln, die du hörst. Mit „Beide“ oder „Nur Last.fm“ gehen Titel und Künstler der Songs, die du hörst oder magst, an Last.fm, sonst nichts und kein Konto. „Nur YouTube“ sendet nichts an Last.fm.</string>
-    <string name="new_songs_only_info">Die ganze Reihe geht an Songs, die du nie über etwa die Hälfte hinaus gehört hast; einer, den du früh übersprungen hast, gilt weiter als neu. „Abenteuerlust“ und „Vertrautheit“ spielen keine Rolle, solange es an ist. Die Reihe kann kürzer ausfallen, und die „Schnellauswahl“ zeigt dann eine andere Quelle.</string>
     <string name="show_reasons_info">Jede Karte nennt den Hauptgrund, warum sie da ist: einen Song, zu dem sie passt, einen Künstler, den du hörst, eine „Mag ich“-Bewertung oder dass sie neu für dich ist. Ein Joker ist eine zufällig gewählte Karte, damit die Reihe frisch bleibt.</string>
     <string name="exclusions_info">Halte eine Karte in der „Schnellauswahl“ gedrückt für „Nicht diesen Song“, „Weniger von diesem Künstler“ (für einen Monat) oder „Nie diesen Künstler“. Sie filtern nur die Empfehlungsreihen, nie die Suche, deine Bibliothek oder Playlists. Diese Seite zeigt, was aktiv ist, und „Aufheben“ entfernt einen Eintrag.</string>
     <string name="rest_songs_i_skip_info">Überspringst du einen Song, den du magst oder oft hörst, vor der Hälfte, bleibt er eine Woche aus der Reihe „Beste Empfehlungen“ heraus. Überspringen in den ersten dreißig Sekunden zählt nicht. Eine Ruhepause kannst du auf der Seite „Ausschlüsse“ vorzeitig aufheben.</string>
@@ -1338,7 +1335,7 @@
     <string name="recommendations_learned_title_info">Alles hier unten bleibt in der App auf diesem Handy und wird nie hochgeladen. Eine Sicherung enthält es. Unter „Datenschutz und Verlauf“ stoppt „Pausieren des Hörverlaufs“ das Aufzeichnen, und „Hörverlauf löschen“ löscht es.</string>
     <string name="recommendations_where_from_info">Jeder Ort zählt, wie oft du dort etwas gestartet hast; die Songs, die danach weiterlaufen, werden nicht noch einmal gezählt. Ein selbst gewählter Song bringt ihm mehr bei als einer, der einfach weiterlief, und eine Suche zählt am meisten. „Nicht erfasst“ heißt, die App hat nicht notiert, wo es begann.</string>
     <string name="recommendations_recent_title_info">Die letzten dreißig Wiedergaben, aus denen es lernt, die neueste zuerst. Jede Zeile sagt, wie die Wiedergabe endete, wie viel du vom Song gehört hast und wo sie gestartet wurde. „Nicht daraus gelernt“ heißt, du hast es diese Wiedergabe vergessen lassen, oder sie lief aus einer Warteschlange mit „Daraus nicht lernen“.</string>
-    <string name="context_chips_info">Der erste Chip ist deine übliche Reihe. Die anderen setzen einen Schwerpunkt, bis du zurückwechselst: „Entdecken“ auf Songs, die neu für dich sind, „Favoriten“ auf Songs, die du magst, „Fokus“, „Chillen“ und „Party“ auf das, was du hörst, während der jeweilige Chip an ist. Der letzte Chip wirkt eigenständig und lässt sich mit jedem davon kombinieren.</string>
+    <string name="context_chips_info">Der erste Chip ist deine übliche Reihe. Die anderen setzen einen Schwerpunkt, bis du zurückwechselst: „Entdecken“ auf Songs, die neu für dich sind, „Favoriten“ auf Songs, die du magst, „Fokus“, „Chillen“ und „Party“ auf das, was du hörst, während der jeweilige Chip an ist.</string>
     <string name="context_chips">Chips der Schnellauswahl</string>
     <string name="explain_what_this_does">Was %1$s macht</string>
     <string name="explain_close">Schließen</string>
@@ -1530,7 +1527,6 @@
     </plurals>
     <string name="quick_picks_lean">Schwerpunkt der Schnellauswahl</string>
     <string name="quick_picks_lean_auto">Automatisch</string>
-    <string name="quick_picks_lean_new">Songs, die ich nie gehört habe</string>
     <string name="quick_picks_lean_artist">Mehr von Künstlern, die ich immer wieder höre</string>
     <string name="quick_picks_lean_forgotten">Was ich geliebt und vergessen habe</string>
     <string name="quick_picks_lean_similar">Songs, die zu dem passen, was ich gerade höre</string>
@@ -1538,10 +1534,7 @@
     <string name="quick_picks_lean_description_compare">Etwa %1$d der 20 Karten und %2$d der ersten vier, da „Beide ausprobieren“ die halbe Reihe der anderen Quelle gibt.</string>
     <string name="quick_picks_lean_not_source">Gilt, wenn „Quelle für Schnellauswahl“ auf „Beste Empfehlungen“ oder „Beide ausprobieren“ steht.</string>
     <string name="quick_picks_lean_set_aside_chip">Solange der Chip %1$s auf der Startseite an ist, hat er Vorrang.</string>
-    <string name="quick_picks_lean_set_aside_new_only">Solange „Nur neue Songs“ an ist, hat das Vorrang.</string>
-    <string name="quick_picks_lean_new_only_strict">Mit „Nur neue Songs“ wählt „Beste Empfehlungen“ nur Songs, die du nie auch nur angespielt hast, solange es genug davon gibt.</string>
     <string name="quick_picks_lean_info">„Automatisch“ ist die übliche Mischung, so wie „Beste Empfehlungen“ sie gelernt hat. Jede andere Wahl gibt einer Art von Songs die meisten Karten. „Songs, die zu dem passen, was ich gerade höre“ baut die „Schnellauswahl“ außerdem neu auf, sobald du ein paar Songs von anderswo gehört hast.</string>
-    <string name="quick_picks_leaning_new">Schwerpunkt: Songs, die du nie gehört hast</string>
     <string name="quick_picks_leaning_artist">Schwerpunkt: Künstler, die du immer wieder hörst</string>
     <string name="quick_picks_leaning_forgotten">Schwerpunkt: was du geliebt und vergessen hast</string>
     <string name="quick_picks_leaning_similar">Schwerpunkt: was du gerade hörst</string>
@@ -1549,12 +1542,10 @@
     <string name="quick_picks_leaning_short">%1$s: gerade nur %2$d, der Rest ist die übliche Mischung</string>
     <string name="quick_picks_leaning_none">%1$s: noch nichts, darum vorerst die übliche Mischung</string>
     <string name="quick_picks_leaning_forgotten_none">Nichts, was du geliebt hast, ist schon 45 Tage ungehört, darum vorerst die übliche Mischung</string>
-    <string name="chip_lean_new">Nie gehört</string>
     <string name="chip_lean_artist">Deine Künstler</string>
     <string name="chip_lean_forgotten">Vergessen</string>
     <string name="chip_lean_similar">Gerade läuft</string>
     <string name="why_these_lean">Schwerpunkt: %1$s, %2$d der %3$d Karten auf dem Bildschirm</string>
-    <string name="adventurousness_description_lean_new">Festgelegt durch den Schwerpunkt der Schnellauswahl auf Songs, die du nie gehört hast: %1$d von 20 Karten.</string>
     <string name="share_link_kind_title">Links, die du teilst</string>
     <string name="share_link_youtube_music">YouTube Music-Link</string>
     <string name="share_link_page">Eine Seite für jede Musik-App</string>

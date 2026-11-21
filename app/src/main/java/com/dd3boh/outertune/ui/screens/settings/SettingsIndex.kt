@@ -288,7 +288,6 @@ val SETTINGS_INDEX: List<SettingEntry> = listOf(
     SettingEntry(Tour.ROUTE_RECOMMENDATIONS, R.string.show_reasons, R.string.show_reasons_description),
     SettingEntry(Tour.ROUTE_RECOMMENDATIONS, R.string.adventurousness),
     SettingEntry(Tour.ROUTE_RECOMMENDATIONS, R.string.familiarity),
-    SettingEntry(Tour.ROUTE_RECOMMENDATIONS, R.string.new_songs_only, R.string.new_songs_only_description),
     SettingEntry(Tour.ROUTE_RECOMMENDATIONS, R.string.similar_source, words = listOf(R.string.similar_source_youtube, R.string.similar_source_lastfm)),
     SettingEntry(Tour.ROUTE_RECOMMENDATIONS, R.string.learn_from_listening, R.string.learn_from_listening_description),
     SettingEntry(Tour.ROUTE_RECOMMENDATIONS, R.string.rest_songs_i_skip, R.string.rest_songs_i_skip_description),
