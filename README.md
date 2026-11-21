@@ -37,7 +37,7 @@ InterTune is a free, open-source YouTube Music client for Android, forked from [
 [<img src="https://raw.githubusercontent.com/RookieEnough/Orion-Store/refs/heads/main/assets/orion-badge.png" alt="Get it on Orion Store" height="60">](https://rookieenough.github.io/Orion-Data/redirect.html?id=intertune)
 [<img src="https://raw.githubusercontent.com/ItzSkyeYT/InterTune/visionos-fix/assets/badge_openapk.png" alt="Get it on OpenAPK" height="60">](https://www.openapk.net/intertune/dev.skye.intertune/)
 
-Android 7.0 or later. Once installed, InterTune finds new versions by itself if you let it.
+Android 7.0 or later. Once installed, InterTune updates itself.
 
 </div>
 
@@ -356,9 +356,9 @@ Thank you so much, everyone, for your support in this growing project!
 
 <p align="center"><img src="https://raw.githubusercontent.com/ItzSkyeYT/InterTune/visionos-fix/assets/donors/geogos.png" width="64" height="64" alt="Geogos"><br><b>Geogos</b><br><sub>The first on PayPal · November 2026</sub></p>
 
-<p align="center"><sub>Some donors chose not to be named here. Thank you to them too.</sub></p>
-
 <p align="center"><img src="https://raw.githubusercontent.com/ItzSkyeYT/InterTune/visionos-fix/assets/donors/tortoulitortontonbbo.png" width="64" height="64" alt="Tortouli (TortonT on bbo)"><br><b>Tortouli (TortonT on bbo)</b><br><sub>Gave on Ko-fi · November 2026</sub></p>
+
+<p align="center"><sub>Some donors chose not to be named here. Thank you to them too.</sub></p>
 
 <!-- The app's About > Support InterTune and the site read the donors' names from this table (utils/Donors.kt, tools/site/build.py):
      one cell a donor, the name in bold first. A new donor goes in both here and above.
@@ -380,8 +380,8 @@ InterTune stands on a lot of other people's work.
 | Project | By | For |
 |---|---|---|
 | [InnerTune](https://github.com/z-huang/InnerTune) | [Zion Huang](https://github.com/z-huang) | The app it all started from |
-| [OuterTune](https://github.com/OuterTune/OuterTune) | [Michael Zh](https://github.com/mikooomich) · [Davide Garberi](https://github.com/DD3Boh) | The fork InterTune is built on, where the heavy lifting is |
-| [AsterTune](https://github.com/yuuichi-s/AsterTune) | [yuuichi-s](https://github.com/yuuichi-s) | The same `VISIONOS` fix, found on its own; how a signed-in play reaches the right channel's YouTube history follows its request (6ea96c90), and the po token page works the way its does |
+| [OuterTune](https://github.com/OuterTune/OuterTune) | [Michael Zh](https://github.com/mikooomich) · [Davide Garberi](https://github.com/DD3Boh) | The fork InterTune is built on, where the most work is from |
+| [AsterTune](https://github.com/yuuichi-s/AsterTune) | [yuuichi-s](https://github.com/yuuichi-s) | The same `VISIONOS` fix, found on their own; how a signed-in play reaches the right channel's YouTube history follows its request (6ea96c90), and the po token page works the way its does |
 | [Metrolist](https://github.com/MetrolistGroup/Metrolist) | [MetrolistGroup](https://github.com/MetrolistGroup) | A lot of inspiration, this README included |
 | [Essentials](https://github.com/sameerasw/essentials) · [sameerasw.com](https://sameerasw.com) | [Sameera Wijerathna](https://github.com/sameerasw) | The design language the app and its site learn from |
 
@@ -399,8 +399,7 @@ InterTune stands on a lot of other people's work.
 | Who | For |
 |---|---|
 | [rii2609](https://github.com/rii2609) | The idea for Liquid glass |
-| [cchery2512](https://github.com/cchery2512) | Reporting the M3U import bugs |
-| Everyone who [reports issues](https://github.com/ItzSkyeYT/InterTune/issues) | Finding what needs fixing |
+| Everyone who [reports issues](https://github.com/ItzSkyeYT/InterTune/issues) | Finding what needs fixing, as well as great ideas |
 | Everyone translating on [Weblate](https://hosted.weblate.org/engage/intertune/) | InterTune in your language |
 
 ## Licence
