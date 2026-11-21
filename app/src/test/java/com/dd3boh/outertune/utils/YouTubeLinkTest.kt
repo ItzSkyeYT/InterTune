@@ -90,6 +90,27 @@ class YouTubeLinkTest {
     }
 
     @Test
+    fun `an id that is the word null opens nothing, as a link with no id`() {
+        // Navigation reads the word null in a route as no value at all: a playlist link with list=null opened
+        // online_playlist/null, the playlist had no id, and the app closed ("Wrong argument type for 'playlistId'",
+        // #244 on 0.12.11). A channel's went the same way through artist/null.
+        for (text in listOf(
+            "https://music.youtube.com/playlist?list=null", "https://www.youtube.com/playlist?list=null&si=AbCdEf",
+            "https://www.youtube.com/playlist?list=nul%6C", "intertune://playlist?list=null",
+            "https://www.youtube.com/embed/videoseries?list=null", "Look at this https://m.youtube.com/playlist?list=null",
+            "https://www.youtube.com/channel/null", "https://www.youtube.com/c/null",
+            "https://music.youtube.com/watch?v=null", "https://youtu.be/null", "intertune://play?v=null",
+        )) {
+            assertNull(text, YouTubeLink.parse(text))
+        }
+        // A song with a list of null beside it is the song alone.
+        assertEquals(Video("dQw4w9WgXcQ", null), YouTubeLink.parse("https://music.youtube.com/watch?v=dQw4w9WgXcQ&list=null"))
+        // Only the word itself: an id with it inside is an id.
+        assertEquals(Playlist("PLnull"), YouTubeLink.parse("https://music.youtube.com/playlist?list=PLnull"))
+        assertEquals(Channel("nullsound"), YouTubeLink.parse("https://www.youtube.com/c/nullsound"))
+    }
+
+    @Test
     fun `the share page's own links, the same pages under the app's scheme`() {
         // Brave refuses a page's link to a YouTube address while it keeps YouTube's links for
         // itself ("Open YouTube links in Brave", brave-browser#46614): the share page hands it these.

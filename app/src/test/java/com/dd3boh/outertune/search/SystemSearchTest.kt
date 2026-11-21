@@ -47,6 +47,14 @@ class SystemSearchTest {
     }
 
     @Test
+    fun `a link to a library playlist called null opens nothing`() {
+        // Navigation reads the word null in a route as no value: local_playlist/null would close the app, as
+        // online_playlist/null did (#244).
+        assertNull(SystemSearch.playlistOf("intertune://playlist/null"))
+        assertEquals("LPnull1234", SystemSearch.playlistOf("intertune://playlist/LPnull1234"))
+    }
+
+    @Test
     fun `local files have no link to open them`() {
         assertTrue(SystemSearch.onYouTube(false, "dQw4w9WgXcQ"))
         assertFalse(SystemSearch.onYouTube(true, "dQw4w9WgXcQ"))
