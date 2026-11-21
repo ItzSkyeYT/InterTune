@@ -180,6 +180,18 @@ val togetherAvailable: Boolean
     get() = Unreleased.LISTEN_TOGETHER && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
 
 /**
+ * The room the sheet shows: the service's, or while a new service brings back the room it showed (the old one stopped
+ * while the app was away: MusicService.rejoinSavedRoom), that room still. Before, the sheet fell to its start page for
+ * that moment and the room slid in again at every return to the app (Ti-Die, #testers 20 Nov 2026: "the open animation
+ * plays each time").
+ */
+internal class RoomOnScreen<T : Any> {
+    private var last: T? = null
+
+    fun of(live: T?, comingBack: Boolean): T? = (live ?: last?.takeIf { comingBack }).also { last = it }
+}
+
+/**
  * Listen together, from the player's menu. Out of a room: two phones on one song, a big Start, and
  * the field for a friend's code. In one: its code to pass on, the song the room plays, for a guest
  * how close it follows, and who is in.
@@ -190,7 +202,12 @@ fun TogetherSheet(onDismiss: () -> Unit) {
     val context = LocalContext.current
     val playerConnection = LocalPlayerConnection.current ?: return
     val service = playerConnection.service
-    val session by service.together.collectAsState()
+    // Each service's own flows from its first frame (key): a collected value stays the old service's until the new flow
+    // speaks, a frame later, and in that frame a room on its way back looked gone.
+    val live = key(service) { service.together.collectAsState().value }
+    val coming = key(service) { service.togetherComing.collectAsState().value }
+    val onScreen = remember { RoomOnScreen<TogetherSession>() }
+    val session = onScreen.of(live, comingBack = !playerConnection.isAlive || coming)
     val song by playerConnection.mediaMetadata.collectAsState()
     val scope = rememberCoroutineScope()
     val haptics = LocalHapticFeedback.current
@@ -198,8 +215,8 @@ fun TogetherSheet(onDismiss: () -> Unit) {
 
     // The service the app held before it came back from another app has stopped, and a room made on it would be held
     // by nothing (MusicService.startTogether). Its room is on its way back with the next one, which the sheet is
-    // drawn again with: until then it shows neither a start page nor a room.
-    val ready = playerConnection.isAlive
+    // drawn again with: until then it shows the room it showed, or with none, neither a start page nor a room.
+    val ready = playerConnection.isAlive || session != null
 
     fun open(code: RoomCode, owner: Boolean) {
         if (!playerConnection.isAlive) return

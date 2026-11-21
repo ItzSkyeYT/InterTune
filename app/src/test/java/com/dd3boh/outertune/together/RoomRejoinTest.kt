@@ -6,7 +6,10 @@
 
 package com.dd3boh.outertune.together
 
+import com.dd3boh.outertune.ui.dialog.RoomOnScreen
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
@@ -64,7 +67,7 @@ class RoomRejoinTest {
         val rejoin = body(service, "private fun rejoinSavedRoom()")
         assertTrue("if (!togetherAvailable) return" in rejoin)
         assertTrue("roomMemory.load(System.currentTimeMillis())" in rejoin)
-        assertTrue("startTogether(\n                code, saved.owner, relays, name,\n                identity = saved.identity.hexToBytes()," in rejoin)
+        assertTrue("startTogether(\n                    code, saved.owner, relays, name,\n                    identity = saved.identity.hexToBytes()," in rejoin)
         // nothing is asked of anyone, and a room already there is left alone
         assertTrue("if (together.value != null || destroyed) return@launch" in rejoin)
     }
@@ -123,6 +126,31 @@ class RoomRejoinTest {
         // a room that comes back, from the host's last word before it (GuestDeadRoomTest)
         assertTrue("if (from == ownerKey) ownerHeardAt = now" in session)
         assertTrue("HostAbsence.gone(now, HostAbsence.lastSign(ownerHeardAt, hostSince))" in watch)
+    }
+
+    @Test
+    fun `the sheet goes on showing the room while it comes back, so it does not slide in again`() {
+        // Ti-Die, #testers 20 Nov 2026: back from sharing the code, "the open animation plays each time".
+        val shown = RoomOnScreen<String>()
+        assertEquals("room", shown.of("room", comingBack = false))
+        // The old service stopped, the new one not joined yet: the room it showed, not a start page.
+        assertEquals("room", shown.of(null, comingBack = true))
+        assertEquals("room again", shown.of("room again", comingBack = false))
+        // Left or closed: the start page.
+        assertNull(shown.of(null, comingBack = false))
+        // And nothing comes back that had already gone.
+        assertNull(shown.of(null, comingBack = true))
+
+        val rejoin = body(service, "private fun rejoinSavedRoom()")
+        assertTrue("togetherComing.value = true\n        scope.launch {\n            try {" in rejoin)
+        assertTrue("} finally {\n                togetherComing.value = false\n            }" in rejoin)
+        val top = body(sheet, "fun TogetherSheet(")
+        // A new service's flows read fresh from its first frame, never its StateFlow's value in composition (lint).
+        assertTrue("val live = key(service) { service.together.collectAsState().value }" in top)
+        assertTrue("val coming = key(service) { service.togetherComing.collectAsState().value }" in top)
+        assertTrue("val session = onScreen.of(live, comingBack = !playerConnection.isAlive || coming)" in top)
+        assertFalse("togetherComing.value" in top)
+        assertTrue("val ready = playerConnection.isAlive || session != null" in top)
     }
 
     @Test

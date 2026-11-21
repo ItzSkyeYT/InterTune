@@ -534,6 +534,9 @@ class MusicService : MediaLibraryService(),
     /** A listening room while one lasts (together/TogetherSession), null otherwise. */
     val together = MutableStateFlow<TogetherSession?>(null)
 
+    /** A room this phone was in is on its way back with this service ([rejoinSavedRoom]): the sheet keeps showing it. */
+    val togetherComing = MutableStateFlow(false)
+
     /** The room this phone is in, kept so that it comes back: see [RoomMemory]. */
     private val roomMemory by lazy { RoomMemory(File(noBackupFilesDir, RoomMemory.FILE)) }
     private var roomTouchedAt = 0L
@@ -619,17 +622,22 @@ class MusicService : MediaLibraryService(),
         if (!togetherAvailable) return
         val saved = roomMemory.load(System.currentTimeMillis()) ?: return
         val code = RoomCode.parse(saved.code) ?: return
+        togetherComing.value = true
         scope.launch {
-            val relays = togetherRelays(this@MusicService)
-            val name = togetherName(this@MusicService)
-            if (together.value != null || destroyed) return@launch
-            Log.i(TAG, "A room this phone was in comes back, as ${if (saved.owner) "its host" else "a guest"}")
-            startTogether(
-                code, saved.owner, relays, name,
-                identity = saved.identity.hexToBytes(),
-                // A guest goes on from the last time it heard the host, not from now.
-                hostHeardAt = saved.aliveAt.takeIf { !saved.owner },
-            )
+            try {
+                val relays = togetherRelays(this@MusicService)
+                val name = togetherName(this@MusicService)
+                if (together.value != null || destroyed) return@launch
+                Log.i(TAG, "A room this phone was in comes back, as ${if (saved.owner) "its host" else "a guest"}")
+                startTogether(
+                    code, saved.owner, relays, name,
+                    identity = saved.identity.hexToBytes(),
+                    // A guest goes on from the last time it heard the host, not from now.
+                    hostHeardAt = saved.aliveAt.takeIf { !saved.owner },
+                )
+            } finally {
+                togetherComing.value = false
+            }
         }
     }
 
