@@ -198,7 +198,7 @@ Every change in detail, and why this fork exists: [docs/FEATURES.md](https://git
 What's being worked on, roughly in order. `[x]` is done, `[~]` is built and being tested, `[ ]` is still to do. Nothing here has a date, and plans can change. Ideas are welcome in #feature-requests on [Discord](https://discord.gg/68jmqhMjXk) or as a [GitHub issue](https://github.com/ItzSkyeYT/InterTune/issues/new/choose).
 
 <details>
-<summary><b>Next: 0.13</b> · 38 of 49 done, 6 to test</summary>
+<summary><b>Next: 0.13</b> · 39 of 49 done, 5 to test</summary>
 
 `[x]` Listen together: one person plays, friends follow the same song in real time\
 `[x]` In a room, a guest who casts to a TV or speaker plays on their own, and catches up with the room when the cast ends\
@@ -224,7 +224,7 @@ What's being worked on, roughly in order. `[x]` is done, `[~]` is built and bein
 `[~]` Liked songs kept in sync with your downloads: unliking removes a download the app made itself ([#64](https://github.com/ItzSkyeYT/InterTune/issues/64))\
 `[x]` The volume past 100% turns the music up without distorting it ([#93](https://github.com/ItzSkyeYT/InterTune/issues/93))\
 `[x]` On mobile data, Auto quality takes a middle stream instead of the smallest ([#88](https://github.com/ItzSkyeYT/InterTune/issues/88))\
-`[~]` A floating dock without the glass on Android 11 and 12\
+`[x]` A floating dock without the glass on Android 11 and 12\
 `[x]` Tempo in 1% steps between 90% and 110%\
 `[x]` The playing song stays in view at the top or bottom of a long queue ([#81](https://github.com/ItzSkyeYT/InterTune/issues/81))\
 `[~]` Choose which lyrics sources are used, and in what order\
