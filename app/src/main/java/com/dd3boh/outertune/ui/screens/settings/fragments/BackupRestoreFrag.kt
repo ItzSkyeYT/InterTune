@@ -353,7 +353,7 @@ fun ColumnScope.BackupAndRestoreFrag(viewModel: BackupRestoreViewModel) {
         if (Unreleased.METROLIST_IMPORT) {
             val reading = metrolist == BackupRestoreViewModel.Metrolist.Working
             PreferenceEntry(
-                modifier = Modifier.settingRow(R.string.metrolist_import),
+                modifier = Modifier.tourTarget(Tour.SETTING_METROLIST_IMPORT).settingRow(R.string.metrolist_import),
                 title = { Text(stringResource(R.string.metrolist_import)) },
                 description = stringResource(if (reading) R.string.metrolist_import_reading else R.string.metrolist_import_description),
                 icon = { Icon(Icons.Rounded.MoveToInbox, null) },

@@ -11,6 +11,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.DriveFileMove
 import androidx.compose.material.icons.automirrored.rounded.TrendingUp
 import androidx.compose.material.icons.rounded.Animation
+import androidx.compose.material.icons.rounded.Group
+import androidx.compose.material.icons.rounded.Speaker
+import androidx.compose.material.icons.rounded.Insights
+import androidx.compose.material.icons.rounded.Vibration
+import androidx.compose.material.icons.rounded.MoveToInbox
+import androidx.compose.material.icons.rounded.DragHandle
+import androidx.compose.material.icons.rounded.AudioFile
 import androidx.compose.material.icons.rounded.Autorenew
 import androidx.compose.material.icons.rounded.Backup
 import androidx.compose.material.icons.rounded.ContentCopy
@@ -367,8 +374,9 @@ class NewThing(
  * @param quickPicksChips whether Quick picks has its row of chips, which it only has while it
  *   draws from Best recommendations or Try both (QuickPicksSource.hasChips). Somebody on
  *   YouTube's row or their library's has nothing there to be shown.
+ * @param rooms whether this phone has Listen together, which needs Android 8 (togetherAvailable).
  */
-class Install(val quickPicksChips: Boolean = true)
+class Install(val quickPicksChips: Boolean = true, val rooms: Boolean = true)
 
 /**
  * Song recognition's own picture wherever it is: the sound bars of the button beside the search
@@ -382,6 +390,90 @@ val NEW_THINGS = listOf(
     // 0.13's own, the six things on for everyone from it (picked on 8 Nov 2026), Don't play this
     // song with Block artist. A setting is shown where it is; what lives in menus and lists outside
     // Settings has a card that says where it is.
+    // 0.13's headline features, added 21 Nov 2026 when the release inventory found them without a card
+    // (experiments/release-0.13/INVENTORY-1121.md): rooms, AirPlay, ListenBrainz, Vibration, Metrolist's import,
+    // your own order and the file formats. What lives outside Settings says where it is.
+    NewThing(
+        id = "together",
+        release = "0.13",
+        sinceVersionCode = V0_13,
+        title = R.string.new_together_title,
+        body = R.string.new_together_body,
+        icon = Icons.Rounded.Group,
+        action = NewThingAction.NONE,
+        there = { it.rooms },
+    ),
+    NewThing(
+        id = "airplay",
+        release = "0.13",
+        sinceVersionCode = V0_13,
+        title = R.string.new_airplay_title,
+        body = R.string.new_airplay_body,
+        icon = Icons.Rounded.Speaker,
+        action = NewThingAction.NONE,
+        there = { Unreleased.CASTING && Unreleased.CAST_AIRPLAY },
+    ),
+    NewThing(
+        id = "listenbrainz",
+        release = "0.13",
+        sinceVersionCode = V0_13,
+        title = R.string.new_listenbrainz_title,
+        body = R.string.new_listenbrainz_body,
+        icon = Icons.Rounded.Insights,
+        stops = listOf(
+            TourStop("listenbrainz_row", Tour.ROW_ACCOUNT, Tour.ROUTE_SETTINGS, R.string.grp_account_sync, R.string.new_listenbrainz_way, V0_13),
+            TourStop("listenbrainz_setting", Tour.SETTING_LISTENBRAINZ, Tour.ROUTE_ACCOUNT, R.string.listenbrainz_connect, R.string.new_listenbrainz_here, V0_13),
+        ),
+        there = { Unreleased.LISTENBRAINZ },
+    ),
+    NewThing(
+        id = "vibration",
+        release = "0.13",
+        sinceVersionCode = V0_13,
+        title = R.string.new_vibration_title,
+        body = R.string.new_vibration_body,
+        icon = Icons.Rounded.Vibration,
+        stops = listOf(
+            TourStop("vibration_row", Tour.ROW_LOOK_AND_FEEL, Tour.ROUTE_SETTINGS, R.string.look_and_feel, R.string.new_vibration_way, V0_13),
+            TourStop("vibration_setting", Tour.SETTING_VIBRATION, Tour.ROUTE_LOOK_AND_FEEL, R.string.vibration, R.string.new_vibration_here, V0_13),
+        ),
+        there = { Unreleased.HAPTICS_FEEL },
+    ),
+    NewThing(
+        id = "metrolist_import",
+        release = "0.13",
+        sinceVersionCode = V0_13,
+        title = R.string.new_metrolist_title,
+        body = R.string.new_metrolist_body,
+        icon = Icons.Rounded.MoveToInbox,
+        stops = listOf(
+            TourStop("metrolist_row", Tour.ROW_BACKUP, Tour.ROUTE_SETTINGS, R.string.backup_restore, R.string.new_metrolist_way, V0_13),
+            TourStop("metrolist_setting", Tour.SETTING_METROLIST_IMPORT, Tour.ROUTE_BACKUP, R.string.metrolist_import, R.string.new_metrolist_here, V0_13),
+        ),
+        there = { Unreleased.METROLIST_IMPORT },
+    ),
+    NewThing(
+        id = "custom_order",
+        release = "0.13",
+        sinceVersionCode = V0_13,
+        title = R.string.new_custom_order_title,
+        body = R.string.new_custom_order_body,
+        icon = Icons.Rounded.DragHandle,
+        action = NewThingAction.NONE,
+    ),
+    NewThing(
+        id = "file_format",
+        release = "0.13",
+        sinceVersionCode = V0_13,
+        title = R.string.new_file_format_title,
+        body = R.string.new_file_format_body,
+        icon = Icons.Rounded.AudioFile,
+        stops = listOf(
+            TourStop("file_format_row", Tour.ROW_STORAGE, Tour.ROUTE_SETTINGS, R.string.grp_storage_and_downloads, R.string.new_liked_sync_way, V0_13),
+            TourStop("file_format_setting", Tour.SETTING_FILE_FORMAT, Tour.ROUTE_STORAGE, R.string.download_format, R.string.new_file_format_here, V0_13),
+        ),
+        there = { Unreleased.DOWNLOAD_FORMATS },
+    ),
     NewThing(
         id = "block_artist",
         release = "0.13",

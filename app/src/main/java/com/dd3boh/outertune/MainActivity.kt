@@ -1775,7 +1775,7 @@ class MainActivity : ComponentActivity() {
                         var tourFromWelcome by rememberSaveable { mutableStateOf(false) }
                         // Quick picks is only listed where it has chips to be shown: see Install.
                         val quickPicksSource by rememberEnumPreference(QuickPicksSourceKey, defaultValue = QuickPicksSource.YOUTUBE)
-                        val install = Install(quickPicksChips = quickPicksSource.orOffered().hasChips)
+                        val install = Install(quickPicksChips = quickPicksSource.orOffered().hasChips, rooms = togetherAvailable)
                         val newThings = remember(walkthroughSeen, welcomeEverything, quickPicksSource) {
                             newThingsFor(walkthroughSeen, everything = welcomeEverything, install = install)
                         }
