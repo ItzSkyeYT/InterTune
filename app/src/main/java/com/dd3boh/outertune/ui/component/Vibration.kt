@@ -151,8 +151,21 @@ private fun composition(feel: Feel, caps: VibratorCaps): Buzz.Primitives? {
 }
 
 /**
+ * A player button's feel under Strong, after Ti-Die (#testers, 21 Nov 2026: the like "does the haptics perfectly", copy
+ * it to the buttons that do not open anything; the ones that do, and skip, "closer to how the pause button feels").
+ * One that turns something on and off is a like: two clicks turning it on, the tap's tick turning it off ([turnsOff]).
+ * One that opens something (a sheet, a menu, Android's share sheet) or skips (null) is play and pause's firm click.
+ */
+fun buttonFeel(turnsOff: Boolean?): Feel = when (turnsOff) {
+    null -> Feel.FIRM
+    true -> Feel.TICK
+    false -> Feel.DOUBLE
+}
+
+/**
  * The feel of a haptic the app asks of Compose (FeltHaptics), as the player's buttons use them: Confirm is play and
- * pause, SegmentFrequentTick skip, shuffle and repeat, ContextClick a tap.
+ * pause, SegmentFrequentTick skip, shuffle and repeat under Light (Strong plays theirs as [buttonFeel] says), ContextClick
+ * a tap.
  */
 fun feelOf(type: HapticFeedbackType): Feel = when (type) {
     HapticFeedbackType.Confirm, HapticFeedbackType.LongPress -> Feel.FIRM

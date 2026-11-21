@@ -278,11 +278,43 @@ class VibrationTest {
         assertEquals(3, Regex("""tap = if \((currentSong\?\.song\?\.liked == true|liked)\) Feel\.TICK else Feel\.DOUBLE""").findAll(player).count())
         for (header in listOf("private fun PlayerCircleButton(", "private fun PlayerActionSegment(")) {
             val button = player.substringAfter(header).substringBefore("\n}")
-            assertTrue("$header takes no feel", "tap: Feel = Feel.TICK" in button)
+            assertTrue("$header takes no feel", "tap: Feel = buttonFeel(turnsOff = on)" in button)
             assertTrue("$header does not tick with it", "haptic.tapTick(tap)" in button)
         }
         assertTrue("haptic.tapTick(if (song.song.liked) Feel.TICK else Feel.DOUBLE)" in source("ui/menu/SongMenu.kt"))
         assertTrue("haptic.tapTick(if (librarySong?.song?.liked == true) Feel.TICK else Feel.DOUBLE)" in source("ui/menu/YouTubeSongMenu.kt"))
+    }
+
+    @Test
+    fun `a button that turns something on feels like a like, one that opens something or skips like play and pause`() {
+        // Ti-Die, #testers 21 Nov 2026: "the like button does the haptics perfectly ... copy paste that to the
+        // shuffle/repeat buttons, and any other menu button that doesn't open a popup. those that do (share, queue,
+        // cast) and the previous/next buttons, should have something closer to how the pause button feels".
+        assertEquals(Feel.DOUBLE, buttonFeel(turnsOff = false))
+        assertEquals(Feel.TICK, buttonFeel(turnsOff = true))
+        assertEquals(Feel.FIRM, buttonFeel(turnsOff = null))
+
+        val player = source("ui/player/Player.kt")
+        // The pinned buttons: lyrics is the one that turns something on (on = showLyrics, three places), the queue, the
+        // timer, share, cast, the room and the menu open something and pass no on.
+        assertEquals(3, Regex("""onClick = toggleLyrics,""").findAll(player).count())
+        assertEquals(3, Regex("""\son = showLyrics,""").findAll(player).count())
+        // The controls: shuffle and repeat as a like, read before the tap changes them; skip both ways firm.
+        val controls = player.substringAfter("val shuffleModeEnabled by playerConnection.shuffleModeEnabled.collectAsState()")
+            .substringBefore("if (buttonsStyle == PlayerButtonsStyle.CONNECTED) quickActions()")
+        assertTrue(controls, "val feel = buttonFeel(turnsOff = shuffleModeEnabled)\n" in controls)
+        assertTrue(controls, "val feel = buttonFeel(turnsOff = repeatMode == REPEAT_MODE_ONE)\n" in controls)
+        assertEquals(controls, 2, Regex("""haptic\.felt\(feel, HapticFeedbackType\.SegmentFrequentTick\)""").findAll(controls).count())
+        assertEquals(controls, 2, Regex("""seekTo(Previous|Next)\(\)\s+haptic\.felt\(Feel\.FIRM, HapticFeedbackType\.SegmentFrequentTick\)""").findAll(controls).count())
+        // Under Light they ask what they always asked, through the window's haptics.
+        assertFalse(controls, "haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)" in controls)
+        // The queue's bar has the same four, felt the same.
+        val bar = source("ui/player/Queue.kt")
+        assertTrue("val feel = buttonFeel(turnsOff = shuffleModeEnabled)\n" in bar)
+        assertTrue("val feel = buttonFeel(turnsOff = repeatMode == REPEAT_MODE_ONE)\n" in bar)
+        assertEquals(2, Regex("""haptic\.felt\(feel, HapticFeedbackType\.SegmentFrequentTick\)""").findAll(bar).count())
+        assertEquals(2, Regex("""seekTo(Previous|Next)\(\)\s+haptic\.felt\(Feel\.FIRM, HapticFeedbackType\.SegmentFrequentTick\)""").findAll(bar).count())
+        assertTrue("fun HapticFeedback.felt(strong: Feel, light: HapticFeedbackType) = Haptics.play(strong) { performHapticFeedback(light) }" in source("ui/component/MoreHaptics.kt"))
     }
 
     @Test
