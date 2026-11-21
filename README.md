@@ -198,7 +198,7 @@ Every change in detail, and why this fork exists: [docs/FEATURES.md](https://git
 What's being worked on, roughly in order. `[x]` is done, `[~]` is built and being tested, `[ ]` is still to do. Nothing here has a date, and plans can change. Ideas are welcome in #feature-requests on [Discord](https://discord.gg/68jmqhMjXk) or as a [GitHub issue](https://github.com/ItzSkyeYT/InterTune/issues/new/choose).
 
 <details>
-<summary><b>Next: 0.13</b> · 36 of 46 done, 5 to test</summary>
+<summary><b>Next: 0.13</b> · 39 of 46 done, 2 to test</summary>
 
 `[x]` Listen together: one person plays, friends follow the same song in real time\
 `[x]` In a room, a guest who casts to a TV or speaker plays on their own, and catches up with the room when the cast ends\
@@ -219,12 +219,12 @@ What's being worked on, roughly in order. `[x]` is done, `[~]` is built and bein
 `[x]` Pick a playlist's cover\
 `[x]` Downloads other apps can use: .m4a or .opus files with the title, artist and cover\
 `[x]` Downloads at a quality of their own, apart from the streaming quality\
-`[~]` Downloads as MP3, M4A, FLAC or WAV, at a bitrate that follows what YouTube sent, and Export to folder\
-`[~]` Liked songs kept in sync with your downloads: unliking removes a download the app made itself ([#64](https://github.com/ItzSkyeYT/InterTune/issues/64))\
+`[x]` Downloads as MP3, M4A, FLAC or WAV, at a bitrate that follows what YouTube sent, and Export to folder\
+`[x]` Liked songs kept in sync with your downloads: unliking removes a download the app made itself ([#64](https://github.com/ItzSkyeYT/InterTune/issues/64))\
 `[x]` A floating dock without the glass on Android 11 and 12\
 `[x]` Tempo in 1% steps between 90% and 110%\
 `[x]` The playing song stays in view at the top or bottom of a long queue ([#81](https://github.com/ItzSkyeYT/InterTune/issues/81))\
-`[~]` Choose which lyrics sources are used, and in what order\
+`[x]` Choose which lyrics sources are used, and in what order\
 `[x]` Find songs you saved twice, in Liked or your library ([#47](https://github.com/ItzSkyeYT/InterTune/issues/47))\
 `[x]` A Widgets page in Settings: each widget on your home screen, how it looks and its main choices\
 `[x]` An Animations switch, for older and smaller phones\
