@@ -99,7 +99,7 @@ class RoomControlTest {
         // A guest says no lead, and no time.
         assertFalse("\"since\"" in TogetherMessage.encode(TogetherMessage.Here("dvd", owner = false)))
         assertTrue("TogetherMessage.Here(name, owner, lead = if (owner) leaderKey else null, leadSince = if (owner) leadGivenAt else null)" in session)
-        assertTrue("leadGivenAt = System.currentTimeMillis()" in body(session, "private fun lead(key: String)"))
+        assertTrue("leadGivenAt = maxOf(System.currentTimeMillis(), leadGivenAt + 1)" in body(session, "private fun lead(key: String)"))
     }
 
     @Test
@@ -127,6 +127,7 @@ class RoomControlTest {
         // follow() no longer hands the lead back: a leader that plays nothing for a while is waited for.
         val follow = body(session, "private fun follow()")
         assertFalse(follow, "lead(me)" in follow)
+        assertTrue(follow, "if (!owner) leaderKey = null" in follow)
         val watch = body(session, "private fun watchLeader()")
         assertTrue(watch, "LeaderGone.now(now, leadGivenAt, heard[key] ?: 0L, hearingSince, _status.value.relaysConnected)" in watch)
         assertTrue(watch, "if (now - lastLookAt > LeaderGone.ASLEEP_MS) hearingSince = now" in watch)

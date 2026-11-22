@@ -843,7 +843,8 @@ class TogetherSession(
         if (key == leaderKey && lastState != null) return
         Log.i(TAG, "The lead is with ${if (key == me) "this phone" else key.take(8)}")
         leaderKey = key
-        leadGivenAt = System.currentTimeMillis()
+        // Always later than the last one, so a clock set back a little never makes the owner's new word look old (LeadWord).
+        leadGivenAt = maxOf(System.currentTimeMillis(), leadGivenAt + 1)
         gap = ClockGap()
         pingsToLeader = 0
         lastState = null
@@ -1095,20 +1096,13 @@ class TogetherSession(
         val state = lastState ?: return
         // A leader silent this long has left: the follower plays on by itself and says so.
         if (System.currentTimeMillis() - lastStateAt > HOST_TIMEOUT_MS) {
-            // The owner takes back a lead it handed to a phone that has gone (watchLeader), not from one that is there
-            // and plays nothing for a while: it waits for its playback. Anyone else waits for whoever leads next.
-            if (owner) {
-                Log.i(TAG, "No playback from the leader for ${HOST_TIMEOUT_MS / 1000} s: waiting for it")
-                lastState = null
-                hostLine.clear()
-                ownSpeed()
-                _status.value = _status.value.copy(waitingForHost = true, driftMs = null)
-                return
-            }
-            Log.i(TAG, "No word from the leader for ${HOST_TIMEOUT_MS / 1000} s: playing on alone")
+            Log.i(TAG, "No playback from the leader for ${HOST_TIMEOUT_MS / 1000} s: playing on alone")
             lastState = null
             hostLine.clear()
-            leaderKey = null
+            // Anyone else waits for whoever leads next. The owner keeps the one it gave control to and waits for its
+            // playback: it takes control back only from a phone that has gone (watchLeader), never from one that is
+            // there and plays nothing for a while.
+            if (!owner) leaderKey = null
             ownSpeed()
             _status.value = _status.value.copy(waitingForHost = true, driftMs = null)
             return
