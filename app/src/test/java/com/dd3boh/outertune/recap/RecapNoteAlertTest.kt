@@ -25,7 +25,7 @@ class RecapNoteAlertTest {
     }
 
     @Test
-    fun `no notes, notes for a Recap not out yet, or no Recap out: no notification`() {
+    fun `no notes, notes for a Recap not out yet, or no Recap out, and no notification`() {
         assertNull(RecapNoteAlert.due(upTo = 2026, toldYear = 0, counts = emptyMap()))
         assertNull(RecapNoteAlert.due(upTo = 2026, toldYear = 0, counts = mapOf(2025 to 0)))
         assertNull(RecapNoteAlert.due(upTo = 2026, toldYear = 0, counts = mapOf(2026 to 3)))
