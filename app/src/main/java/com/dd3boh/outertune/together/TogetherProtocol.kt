@@ -20,6 +20,7 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.long
+import kotlinx.serialization.json.longOrNull
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.buildJsonArray
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
@@ -54,9 +55,11 @@ sealed interface TogetherMessage {
 
     /**
      * Somebody in the room, said every [HERE_MS] so the others know who is still there. The owner's
-     * also says who leads, [lead] being that phone's key: the only word on it anyone takes.
+     * also says who leads, [lead] being that phone's key: the only word on it anyone takes. And since
+     * when, [leadSince] by the owner's clock: relays do not keep order, and an older word on who leads
+     * is not taken after a newer one (LeadWord). Null from builds before 22 Nov 2026, taken as ever.
      */
-    data class Here(val name: String, val owner: Boolean, val lead: String? = null) : TogetherMessage
+    data class Here(val name: String, val owner: Boolean, val lead: String? = null, val leadSince: Long? = null) : TogetherMessage
 
     /**
      * A follower's song for the leader to play next, or at the end of its queue when [atEnd]. An older host
@@ -135,6 +138,7 @@ sealed interface TogetherMessage {
             is Here -> buildJsonObject {
                 put("t", "here"); put("name", message.name); put("owner", message.owner)
                 message.lead?.let { put("lead", it) }
+                message.leadSince?.let { put("since", it) }
             }
             is Suggest -> buildJsonObject {
                 put("t", "suggest"); put("song", message.songId); put("title", message.title); put("artist", message.artist)
@@ -191,7 +195,7 @@ sealed interface TogetherMessage {
                 "state" -> State(s("song"), s("title"), s("artist"), l("pos"), o["playing"]!!.jsonPrimitive.boolean, o["speed"]!!.jsonPrimitive.double, l("at"))
                 "ping" -> Ping(l("c"), s("to"))
                 "pong" -> Pong(l("c"), l("h"), s("to"))
-                "here" -> Here(s("name"), o["owner"]!!.jsonPrimitive.boolean, o["lead"]?.jsonPrimitive?.content)
+                "here" -> Here(s("name"), o["owner"]!!.jsonPrimitive.boolean, o["lead"]?.jsonPrimitive?.content, o["since"]?.jsonPrimitive?.longOrNull)
                 "suggest" -> Suggest(
                     s("song"), s("title"), s("artist"), thumbnailFor(s("thumb")), s("by"),
                     atEnd = o["end"]?.jsonPrimitive?.booleanOrNull == true,

@@ -24,12 +24,16 @@ class RoomMemory(private val file: File) {
     // One at a time: the service touches the file off the main thread (MusicService.roomAlive), and saves, loads and
     // forgets it on the main one.
 
-    /** What is kept, and when the room was last alive: for a guest, when it last heard the host (HostAbsence.aliveAt). */
-    data class Saved(val code: String, val owner: Boolean, val identity: String, val aliveAt: Long)
+    /**
+     * What is kept, and when the room was last alive: for a guest, when it last heard the host (HostAbsence.aliveAt). And
+     * who was in control as this phone last knew it ([lead], a phone's key in the room), so that the room comes back with
+     * control where it was (TogetherSession's lead). Null in a file from before 22 Nov 2026.
+     */
+    data class Saved(val code: String, val owner: Boolean, val identity: String, val aliveAt: Long, val lead: String? = null)
 
     @Synchronized
-    fun save(code: RoomCode, owner: Boolean, identity: String, now: Long) {
-        write(Saved(code.raw, owner, identity, now))
+    fun save(code: RoomCode, owner: Boolean, identity: String, now: Long, lead: String? = null) {
+        write(Saved(code.raw, owner, identity, now, lead))
     }
 
     /** The room that is kept, or null: none, one that was last alive more than [FORGET_AFTER_MS] ago, or a file that cannot be read. */
@@ -53,6 +57,12 @@ class RoomMemory(private val file: File) {
         read()?.takeIf { it.code == code.raw }?.let { write(it.copy(aliveAt = now)) }
     }
 
+    /** [key] is in control of the room [code] now. Only if it is still the room kept, as for [touch]. */
+    @Synchronized
+    fun lead(code: RoomCode, key: String) {
+        read()?.takeIf { it.code == code.raw }?.let { write(it.copy(lead = key)) }
+    }
+
     @Synchronized
     fun forget() {
         runCatching { file.delete() }
@@ -65,13 +75,19 @@ class RoomMemory(private val file: File) {
             owner = words.getValue("owner").toBooleanStrict(),
             identity = words.getValue("identity").also { key -> require(key.length == 64 && key.all { it in "0123456789abcdef" }) },
             aliveAt = words.getValue("aliveAt").toLong(),
+            lead = words["lead"]?.takeIf(::isKey),
         )
     }.getOrNull()
+
+    private fun isKey(key: String) = key.length == 64 && key.all { it in "0123456789abcdef" }
 
     private fun write(saved: Saved) {
         runCatching {
             val temp = File(file.absoluteFile.parentFile, file.name + ".tmp")
-            temp.writeText("code=${saved.code}\nowner=${saved.owner}\nidentity=${saved.identity}\naliveAt=${saved.aliveAt}\n")
+            temp.writeText(
+                "code=${saved.code}\nowner=${saved.owner}\nidentity=${saved.identity}\naliveAt=${saved.aliveAt}\n" +
+                    saved.lead?.let { "lead=$it\n" }.orEmpty()
+            )
             if (!temp.renameTo(file)) {
                 file.delete()
                 temp.renameTo(file)

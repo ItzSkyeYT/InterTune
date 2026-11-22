@@ -2572,6 +2572,10 @@
     <string name="together_role_guest">%1$s choisit la musique. Vous pouvez ajouter des titres et mettre en pause juste pour vous.</string>
     <string name="together_take_back">Reprendre la main</string>
     <string name="together_give_control">Donner la main</string>
+    <string name="together_give_control_to">Donner la main à %1$s</string>
+    <string name="together_control_yours">Vous avez la main : vous choisissez la musique pour tout le monde.</string>
+    <string name="together_control_theirs">%1$s a la main maintenant</string>
+    <string name="together_control_back">%1$s ne répond plus, alors vous reprenez la main.</string>
     <string name="together_kick">Retirer du salon</string>
     <string name="together_kicked">Vous avez été retiré du salon</string>
     <string name="together_closed">Le salon a été fermé</string>
@@ -2623,6 +2627,7 @@
         <item quantity="other">Et %1$d autres après lui, de sa file d\'attente</item>
     </plurals>
     <string name="together_removed">%1$s a été retiré. Le salon a un nouveau code.</string>
+    <string name="together_removed_control">%1$s a été retiré. Le salon a un nouveau code, et vous reprenez la main.</string>
     <string name="menu_hidden">Masquées</string>
     <string name="menu_hidden_hint">Touchez une entrée pour la mettre ici, ou la remettre.</string>
     <string name="menu_edit_done">Terminé</string>

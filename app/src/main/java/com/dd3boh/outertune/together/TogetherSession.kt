@@ -86,6 +86,12 @@ class TogetherSession(
      * RoomMemory kept it. The host's absence goes on counting from then. 0 for a room joined now.
      */
     hostHeardAt: Long = 0L,
+    /**
+     * Who was in control as this phone last knew it, for a room that comes back (RoomMemory): a host's room comes back
+     * with control where it was, not taken from the guest who had it by the host's own restart, and nobody is told of a
+     * change that is none (ControlNews). Null for a room made or joined now.
+     */
+    lead: String? = null,
 ) {
     data class Status(
         val relaysConnected: Int = 0,
@@ -193,8 +199,29 @@ class TogetherSession(
     /** Who made the room: this phone, or the first that said so in its Here. */
     private var ownerKey: String? = if (owner) me else null
     /** Who everyone follows: the owner's word, or before it, whoever sends the playback. */
-    private var leaderKey: String? = if (owner) me else null
+    private var leaderKey: String? = if (owner) lead ?: me else null
     private val leading: Boolean get() = leaderKey == me
+
+    /** When the lead last moved, by this phone's clock: the owner says it with its word on who leads (LeadWord). */
+    private var leadGivenAt = startedAt
+
+    /** Who is in control as this phone's person was last told: see [inControl]. */
+    private val news = ControlNews(before = if (owner) leaderKey else lead)
+
+    /** The owner's newest word on who leads, so that an older one is not taken after it. */
+    private val leadWord = LeadWord()
+
+    /**
+     * When a relay last answered again after none did, or this phone woke from a sleep: the owner counts a leader's
+     * silence from then too (LeaderGone).
+     */
+    private var hearingSince = startedAt
+
+    /** The room's last look: one long after it is a phone that slept ([LeaderGone.ASLEEP_MS]). */
+    private var lastLookAt = startedAt
+
+    /** When the owner last told a phone that played for the room without control who has it: see [answerStray]. */
+    private var strayAnsweredAt = 0L
     private var lastState: TogetherMessage.State? = null
     private val hostLine = HostLine()
     private var roomQueue: TogetherMessage.Queue? = null
@@ -241,7 +268,8 @@ class TogetherSession(
     /** The song this phone proposed to the leader, until the leader plays it or this phone moves on. */
     private var proposedSongId: String? = null
 
-    private val _status = MutableStateFlow(Status(waitingForHost = !owner, leading = owner))
+    // A host's room that comes back with control elsewhere (lead) waits for that phone, as any follower does.
+    private val _status = MutableStateFlow(Status(waitingForHost = !leading, leading = leading))
     val status: StateFlow<Status> = _status
 
     /** Whether this phone follows someone now: its player's repeat mode is then the room's, not its own choice. */
@@ -327,6 +355,8 @@ class TogetherSession(
                 if (n == 0 && before > 0) wentDark = true else if (n > 0) wentDark = false
                 // The wait for an answer counts only while a relay answers: no network is no empty room.
                 if (n == 0) lookingSince = System.currentTimeMillis()
+                // Nor is it the leader's silence: the owner hears the room again from now (LeaderGone).
+                if (n > 0 && before == 0) hearingSince = System.currentTimeMillis()
                 // A relay that has just come up hears this phone at once. The Here said as the
                 // room opened went nowhere, no relay being up yet, and the leader answers a
                 // newcomer only once it hears it: a guest waited for the leader's next beat.
@@ -388,6 +418,7 @@ class TogetherSession(
                 castLook()
                 if (!leading) follow()
                 watchHost()
+                watchLeader()
                 // Four looks a second while the room plays; one every two seconds while it is paused there and here, or
                 // while this phone leads. A word from the leader, a play or a pause here, a new lead or Catch up wakes it.
                 val every = lookEveryMs(leading, lastState?.playing, service.exoPlayer.playWhenReady)
@@ -471,7 +502,61 @@ class TogetherSession(
         }
     }
 
-    private fun sayHere() = send(TogetherMessage.Here(name, owner, lead = if (owner) leaderKey else null))
+    private fun sayHere() = send(
+        TogetherMessage.Here(name, owner, lead = if (owner) leaderKey else null, leadSince = if (owner) leadGivenAt else null)
+    )
+
+    /**
+     * The owner takes control back from the phone it gave it to once that phone has gone (LeaderGone), and everyone is
+     * told. A look that comes long after the one before is this phone waking from a sleep: what it did not hear
+     * meanwhile is its own silence, not the leader's.
+     */
+    private fun watchLeader() {
+        val now = System.currentTimeMillis()
+        if (now - lastLookAt > LeaderGone.ASLEEP_MS) hearingSince = now
+        lastLookAt = now
+        if (!owner || leading) return
+        val key = leaderKey ?: return
+        if (!LeaderGone.now(now, leadGivenAt, heard[key] ?: 0L, hearingSince, _status.value.relaysConnected)) return
+        // By name when it was heard: a host's room that comes back may never hear the phone it had given control to.
+        val gone = said[key]?.first?.ifBlank { null }
+        Log.i(TAG, "Nothing from the leader for ${LeaderGone.QUIET_MS / 1000} s with a relay up: the owner leads again")
+        lead(me)
+        sayHere()
+        inControl(me, wentQuiet = gone)
+    }
+
+    /**
+     * Who is in control now, by the owner's word, or for the owner by its own doing: this phone's person is told once, as
+     * it changes (ControlNews), and the room is remembered with it for when it comes back (RoomMemory). [wentQuiet] names
+     * the phone the owner took control back from because it had gone.
+     */
+    private fun inControl(key: String, wentQuiet: String? = null) {
+        if (news.told != key) service.roomLead(code, key)
+        if (!news.now(key)) return
+        val text = when {
+            key != me -> service.getString(R.string.together_control_theirs, nameOf(key))
+            wentQuiet != null -> service.getString(R.string.together_control_back, wentQuiet)
+            else -> service.getString(R.string.together_control_yours)
+        }
+        Log.i(TAG, "Told that ${if (key == me) "this phone" else key.take(8)} is in control now")
+        Toaster.show(service, text, Toast.LENGTH_LONG)
+    }
+
+    /** The name [key] said in the room, or "Someone" before it is heard. */
+    private fun nameOf(key: String): String = said[key]?.first?.ifBlank { null } ?: service.getString(R.string.together_someone)
+
+    /**
+     * A phone played for the room without control: one that missed the owner's word (its connection lost and back, or a
+     * word dropped on the way). The owner says at once who has it, as it does for a newcomer, rather than at its next
+     * Here ten seconds on, while a guest that had lost the leader may follow that phone. Once a beat at most.
+     */
+    private fun answerStray(now: Long) {
+        if (now - strayAnsweredAt < TogetherMessage.HEARTBEAT_MS) return
+        strayAnsweredAt = now
+        Log.i(TAG, "A phone without control played for the room: told who has it")
+        sayHere()
+    }
 
     private fun sendState() {
         val player = service.exoPlayer
@@ -622,12 +707,17 @@ class TogetherSession(
                 endedBefore()
                 return
             }
-            if (from == ownerKey && message.lead != null && message.lead != leaderKey) lead(message.lead)
+            // The owner's word on who leads, never an older one after a newer one (LeadWord); a change is told here once.
+            if (from == ownerKey && message.lead != null && leadWord.take(message.leadSince)) {
+                if (message.lead != leaderKey) lead(message.lead)
+                inControl(message.lead)
+            }
             // A newcomer hears at once who leads, instead of at the owner's next Here.
             if (owner && greeted.add(from)) sayHere()
         }
         said.keys.retainAll(heard.keys)
         if (from == ownerKey) ownerHeardAt = now
+        if (owner && message is TogetherMessage.State && from != leaderKey) answerStray(now)
         when (message) {
             is TogetherMessage.Ping -> if (leading && message.to == me) {
                 send(TogetherMessage.Pong(message.askedAtMs, System.currentTimeMillis(), from))
@@ -716,6 +806,8 @@ class TogetherSession(
                 if (next != null && next != code) {
                     Log.i(TAG, "The owner moved the room to a new code")
                     ReportTrail.thisRun.room(ReportTrail.Room.MOVED)
+                    // The owner is in control in the new room: said here, where the names are known (kick).
+                    inControl(from)
                     service.moveTogether(next)
                     return
                 }
@@ -769,6 +861,8 @@ class TogetherSession(
         Log.i(TAG, "The lead is with ${if (key == me) "this phone" else key.take(8)}")
         if (key != leaderKey) proposalsAfterLeadMoved()
         leaderKey = key
+        // Always later than the last one, so a clock set back a little never makes the owner's new word look old (LeadWord).
+        leadGivenAt = maxOf(System.currentTimeMillis(), leadGivenAt + 1)
         gap = ClockGap()
         pingsToLeader = 0
         lastState = null
@@ -804,18 +898,20 @@ class TogetherSession(
         )
     }
 
-    /** The owner hands the lead to [member]; it stays the owner. */
+    /** The owner hands the lead to [member]; it stays the owner. Everyone is told, the owner too (inControl). */
     fun handOver(member: Member) {
         if (!owner || member.key == me || member.key !in heard) return
         lead(member.key)
         sayHere()
+        inControl(member.key)
     }
 
-    /** The owner takes the lead back. */
+    /** The owner takes the lead back, and everyone is told. */
     fun takeBack() {
         if (!owner || leading) return
         lead(me)
         sayHere()
+        inControl(me)
     }
 
     /**
@@ -831,7 +927,9 @@ class TogetherSession(
             PairSeal.seal(secret, key, next.raw)?.let { send(TogetherMessage.Move(key, it)) }
         }
         Log.i(TAG, "Sent ${member.id} out; the room moves to a new code")
-        Toaster.show(service, service.getString(R.string.together_removed, member.name.ifBlank { member.id }), Toast.LENGTH_LONG)
+        // The new room starts with the owner in control (new keys for everyone): said with the rest when someone else had it.
+        val removed = if (leading) R.string.together_removed else R.string.together_removed_control
+        Toaster.show(service, service.getString(removed, member.name.ifBlank { member.id }), Toast.LENGTH_LONG)
         // Long enough for the messages to leave before this session closes with the old code.
         scope.launch {
             delay(MOVE_AFTER_MS)
@@ -1080,18 +1178,13 @@ class TogetherSession(
         val state = lastState ?: return
         // A leader silent this long has left: the follower plays on by itself and says so.
         if (System.currentTimeMillis() - lastStateAt > HOST_TIMEOUT_MS) {
-            // The owner takes back a lead it handed to a phone that has gone; anyone else waits
-            // for whoever leads next.
-            if (owner) {
-                Log.i(TAG, "No word from the leader for ${HOST_TIMEOUT_MS / 1000} s: the owner leads again")
-                lead(me)
-                sayHere()
-                return
-            }
-            Log.i(TAG, "No word from the leader for ${HOST_TIMEOUT_MS / 1000} s: playing on alone")
+            Log.i(TAG, "No playback from the leader for ${HOST_TIMEOUT_MS / 1000} s: playing on alone")
             lastState = null
             hostLine.clear()
-            leaderKey = null
+            // Anyone else waits for whoever leads next. The owner keeps the one it gave control to and waits for its
+            // playback: it takes control back only from a phone that has gone (watchLeader), never from one that is
+            // there and plays nothing for a while.
+            if (!owner) leaderKey = null
             ownSpeed()
             _status.value = _status.value.copy(waitingForHost = true, driftMs = null)
             return
