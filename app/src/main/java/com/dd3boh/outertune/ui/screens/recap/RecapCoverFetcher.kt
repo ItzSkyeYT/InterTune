@@ -69,7 +69,7 @@ class RecapCoverFetcher(
         }
 
         /** The picture inside the file at [path], decoded to about [px], or null where it has none. */
-        private fun embedded(path: String, px: Int): Bitmap? {
+        internal fun embedded(path: String, px: Int): Bitmap? {
             val retriever = MediaMetadataRetriever()
             val art = try {
                 retriever.setDataSource(path)
