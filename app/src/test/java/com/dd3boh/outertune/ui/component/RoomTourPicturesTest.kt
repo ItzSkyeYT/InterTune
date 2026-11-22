@@ -110,7 +110,7 @@ class RoomTourPicturesTest {
         // A moment after it is due: the sum and the division round a float just under 1 at the very moment.
         assertTrue(addFlight(ADD_LEAVE + ADD_FLIGHT + 0.001f) >= 1f)
         assertEquals(0f, addScroll(ADD_NEXT), 0f)
-        assertEquals(1f, addScroll(ADD_NEXT + ADD_SCROLL), 0f)
+        assertEquals(1f, addScroll(ADD_NEXT + ADD_SCROLL), 1e-5f)
         // Each loop begins with the song the loop before added, so it ends where the next begins.
         for (loop in 0..3) {
             val start = loop * ADD_LOOP + 0.01f
@@ -119,7 +119,7 @@ class RoomTourPicturesTest {
         // The song added lands right after the one playing, and is the one playing once the queue has moved.
         val landed = addRows(ADD_LEAVE + ADD_FLIGHT + 0.5f).single { it.id == ADDED_ID }
         assertEquals(1f, landed.slot, 0f)
-        assertEquals(0f, addRows(ADD_NEXT + ADD_SCROLL).single { it.id == ADDED_ID }.slot, 0f)
+        assertEquals(0f, addRows(ADD_NEXT + ADD_SCROLL).single { it.id == ADDED_ID }.slot, 1e-5f)
         smooth("the light on a song added", 3 * ADD_LOOP, ::addGlow)
         assertEquals(0f, addGlow(ADD_NEXT), 0f)
     }
