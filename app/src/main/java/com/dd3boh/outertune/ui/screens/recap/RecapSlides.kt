@@ -1238,7 +1238,13 @@ internal fun CountdownSlide(s: SlideScope, step: Int) {
         }
         line?.let { Text(countdownWords(it, w), style = RecapType.line, color = c.ink, modifier = Modifier.enter(s, Entrance.UP, 3.6f)) }
         Grow(room)
-        Column {
+        // The list comes in once, at its first step; after that it stays where it is and only the row revealed
+        // now pops in (steadyCountdown). The step going hides its copy, so no fading, growing one shows behind.
+        val steady = steadyCountdown(s.page)
+        Column(Modifier.graphicsLayer {
+            val going = s.stage.leaving?.page?.visit == s.page.visit
+            alpha = if (going && steadyCountdown(s.stage.current)) 0f else 1f
+        }) {
             for (place in 1..r.topSongs.size) {
                 val other = r.topSongs[place - 1]
                 val now = place == rank
@@ -1246,7 +1252,13 @@ internal fun CountdownSlide(s: SlideScope, step: Int) {
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                     modifier = Modifier
-                        .enter(s, Entrance.UP, 4.4f + (place - 1) * 0.12f)
+                        .then(
+                            when {
+                                !steady -> Modifier.enter(s, Entrance.UP, 4.4f + (place - 1) * 0.12f)
+                                now -> Modifier.enter(s, Entrance.POP, 0.6f)
+                                else -> Modifier
+                            }
+                        )
                         .fillMaxWidth()
                         .height(32.dp)
                         .then(if (now) Modifier.background(RecapInk.Ink, RoundedCornerShape(8.dp)) else Modifier)

@@ -502,6 +502,10 @@ private fun PageView(
                 val w = stage.wipe
                 val gone = stage.leaving?.takeIf { it.page.visit == page.visit }
                 when {
+                    // From the countdown's second step on, the step is not revealed strip by strip: only its paper is,
+                    // and its list of songs stays where it was (his word of 22 Nov 2026: it went away and came back at
+                    // every step). What else is on it comes in by its own entrances.
+                    gone == null && steadyCountdown(page) -> drawContent()
                     w == null -> if (gone == null || !gone.covered) drawContent()
                     else -> {
                         val now = stage.clock.now
@@ -720,3 +724,6 @@ private suspend fun drawYearCard(context: android.content.Context, shown: RecapS
     val bitmaps = models.map { async { covers.bitmap(it, 600) } }.awaitAll()
     withContext(Dispatchers.Default) { RecapCards.year(context, shown, words, bitmaps) }
 }
+
+/** A countdown step after the first: its list of songs was on screen the step before and stays. */
+internal fun steadyCountdown(page: PageState): Boolean = page.kind == SlideKind.COUNTDOWN && page.step > 0
