@@ -18,6 +18,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -26,34 +28,40 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.dd3boh.outertune.R
-import com.dd3boh.outertune.together.RoomSettings
+import com.dd3boh.outertune.constants.TogetherEveryoneArrangesKey
+import com.dd3boh.outertune.constants.TogetherEveryoneSeeksKey
+import com.dd3boh.outertune.utils.rememberPreference
 
 /**
- * The host's room settings in the room's sheet (RoomSettings): a switch each, the owner's alone, heard by everyone in the
- * room at once and kept for the owner's next rooms: moving in the song and changing the queue, made to take more (dvd,
- * #testers 22 Nov 2026: "to configure who can do what, like adding/removing songs, editing queue").
+ * The host's room settings in the room's sheet (RoomSettings): set once and kept for every room it makes, as its name in
+ * rooms is, and changeable here or in Settings > Listen together, the same settings (his word of 22 Nov 2026: "like the
+ * name, its set once and remembered in the room. changeable in settings"). The room hears a change at once
+ * (TogetherSession follows them). Moving in the song and changing the queue, made to take more (dvd, #testers 22 Nov
+ * 2026: "to configure who can do what, like adding/removing songs, editing queue").
  */
 @Composable
-internal fun RoomSettingsSwitches(settings: RoomSettings?, onEveryoneSeeks: (Boolean) -> Unit, onEveryoneArranges: (Boolean) -> Unit) {
+internal fun RoomSettingsSwitches() {
     val haptics = LocalHapticFeedback.current
+    var everyoneSeeks by rememberPreference(TogetherEveryoneSeeksKey, defaultValue = false)
+    var everyoneArranges by rememberPreference(TogetherEveryoneArrangesKey, defaultValue = false)
     fun felt(on: Boolean) = haptics.performHapticFeedback(if (on) HapticFeedbackType.ToggleOn else HapticFeedbackType.ToggleOff)
     SettingSwitch(
         title = stringResource(R.string.together_everyone_seeks),
         explain = stringResource(R.string.together_everyone_seeks_explain),
-        on = settings?.everyoneSeeks == true,
+        on = everyoneSeeks,
         onChange = {
             felt(it)
-            onEveryoneSeeks(it)
+            everyoneSeeks = it
         },
     )
     // His word of 22 Nov 2026: "guests only, but they can be given perms to do so".
     SettingSwitch(
         title = stringResource(R.string.together_everyone_arranges),
         explain = null,
-        on = settings?.everyoneArranges == true,
+        on = everyoneArranges,
         onChange = {
             felt(it)
-            onEveryoneArranges(it)
+            everyoneArranges = it
         },
     )
 }

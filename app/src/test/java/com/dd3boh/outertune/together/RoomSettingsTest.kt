@@ -39,9 +39,9 @@ class RoomSettingsTest {
     fun `a new room lets only the person in control move in the song`() {
         assertFalse(RoomSettings().everyoneSeeks)
         assertFalse(session.contains("RoomSettings(everyoneSeeks = true)"))
-        // The owner starts with them, then with what it kept from its last room.
+        // The owner starts with them, then with what it set once for its rooms, unset being off.
         assertTrue("settings = if (owner) RoomSettings() else null" in session)
-        assertTrue("everyoneSeeks = stored?.get(TogetherEveryoneSeeksKey) == true," in session)
+        assertTrue("everyoneSeeks = prefs[TogetherEveryoneSeeksKey] == true" in session)
     }
 
     @Test
@@ -115,13 +115,36 @@ class RoomSettingsTest {
         assertTrue("if (!owner && from == ownerKey && message.settings != _status.value.settings) {" in session)
         val own = session.substringAfter("private fun ownSettings(settings: RoomSettings) {").substringBefore("\n    }\n")
         assertTrue("sayHere()" in own)
-        val switch = session.substringAfter("fun letEveryoneSeek(on: Boolean) {").substringBefore("\n    }\n")
-        assertTrue("if (!owner) return" in switch)
-        // The other switches as they are.
-        assertTrue("ownSettings((_status.value.settings ?: RoomSettings()).copy(everyoneSeeks = on))" in switch)
-        assertTrue("it[TogetherEveryoneSeeksKey] = on" in switch)
-        // Kept for the next room: a failure to keep it never ends this one (the room's failure handler would).
-        assertTrue("runCatching { service.dataStore.edit { it[TogetherEveryoneSeeksKey] = on } }" in switch)
+    }
+
+    /**
+     * His word of 22 Nov 2026 on the room settings: "like the name, its set once and remembered in the room. changeable
+     * in settings". The room's sheet and Settings > Listen together are two places for the same two settings, and the
+     * owner's room follows them as they change, wherever they were changed.
+     */
+    @Test
+    fun `the room's sheet and Settings share the settings, and the owner's room follows them`() {
+        val sheet = File(src, "ui/dialog/RoomSettingsSwitches.kt").readText()
+        val settings = File(src, "ui/screens/settings/ListenTogetherSettings.kt").readText()
+        for (key in listOf("TogetherEveryoneSeeksKey", "TogetherEveryoneArrangesKey")) {
+            for ((name, text) in listOf("the room's sheet" to sheet, "Settings > Listen together" to settings)) {
+                assertTrue("$name sets $key", "rememberPreference($key, defaultValue = false)" in text)
+            }
+            // Only the switches write them: the room reads them.
+            assertFalse(key, "it[$key] =" in session)
+            assertTrue(key, "prefs[$key] == true" in session.substringAfter("if (owner) scope.launch {\n            service.dataStore.data.collect { prefs ->").substringBefore("\n        }\n"))
+        }
+        // The two rows in Settings, found by its search with the words of the room's sheet.
+        for (title in listOf("R.string.together_everyone_seeks", "R.string.together_everyone_arranges")) {
+            assertTrue(title, "modifier = Modifier.settingRow($title)," in settings)
+            assertTrue(title, "title = { Text(stringResource($title)) }," in settings)
+            assertTrue(title, "title = stringResource($title)," in sheet)
+        }
+        assertTrue("description = stringResource(R.string.together_everyone_seeks_explain)," in settings)
+        assertTrue("explain = stringResource(R.string.together_everyone_seeks_explain)," in sheet)
+        val index = com.dd3boh.outertune.ui.screens.settings.SETTINGS_INDEX.filter { it.route == "settings/together" }.map { it.title }
+        assertTrue(com.dd3boh.outertune.R.string.together_everyone_seeks in index)
+        assertTrue(com.dd3boh.outertune.R.string.together_everyone_arranges in index)
     }
 
     @Test
@@ -143,7 +166,7 @@ class RoomSettingsTest {
         val sheet = File(src, "ui/dialog/TogetherDialog.kt").readText()
         val part = sheet.substringAfter("// The host's own switches for the room").substringBefore("Spacer(Modifier.height(24.dp))")
         assertTrue("if (room.owner) {" in part)
-        assertTrue("RoomSettingsSwitches(status.settings, onEveryoneSeeks = room::letEveryoneSeek, onEveryoneArranges = room::letEveryoneArrange)" in part)
+        assertTrue("RoomSettingsSwitches()" in part)
         val switches = File(src, "ui/dialog/RoomSettingsSwitches.kt").readText()
         // The whole row is the switch, read as one by TalkBack.
         assertTrue(".toggleable(value = on, role = Role.Switch, onValueChange = onChange)" in switches)
