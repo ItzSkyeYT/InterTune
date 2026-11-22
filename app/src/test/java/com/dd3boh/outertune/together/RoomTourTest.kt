@@ -46,7 +46,7 @@ class RoomTourTest {
     fun `it can be skipped at once, and a stray tap beside it does not close it`() {
         val dialog = main("ui/dialog/RoomTour.kt").substringAfter("fun RoomTourDialog(").substringBefore("\n/** One page")
         assertTrue("dismissOnClickOutside = false" in dialog)
-        assertTrue("TextButton(onClick = onDismiss, enabled = !last" in dialog)
+        assertTrue("TextButton(\n                        onClick = onDismiss,\n                        enabled = !last," in dialog)
         assertTrue("R.string.together_tour_skip" in dialog)
         // The last page's tick closes it.
         assertTrue("if (last) onDismiss() else" in dialog)

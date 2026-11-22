@@ -114,7 +114,11 @@ fun RoomTourDialog(onDismiss: () -> Unit) {
             Column(Modifier.verticalScroll(rememberScrollState())) {
                 // Skip, from the first page on. Kept in its place on the last page, where the tick is Done.
                 Row(Modifier.fillMaxWidth().padding(top = 6.dp, end = 8.dp), horizontalArrangement = Arrangement.End) {
-                    TextButton(onClick = onDismiss, enabled = !last, modifier = Modifier.alpha(if (last) 0f else 1f)) {
+                    TextButton(
+                        onClick = onDismiss,
+                        enabled = !last,
+                        modifier = if (last) Modifier.alpha(0f).clearAndSetSemantics { } else Modifier,
+                    ) {
                         Text(stringResource(R.string.together_tour_skip))
                     }
                 }

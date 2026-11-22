@@ -17,6 +17,7 @@ import androidx.compose.material.icons.rounded.Sync
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.withFrameNanos
@@ -367,6 +368,9 @@ fun RoomTourPicture(scene: RoomTourScene, running: Boolean, modifier: Modifier =
             val began = withFrameNanos { it }
             while (true) withFrameNanos { seconds.floatValue = (it - began) / 1e9f / pace }
         }
+    } else if (moving) {
+        // Out of view, back at its beginning: that is the frame it slides in with, and where it starts once in view.
+        SideEffect { seconds.floatValue = 0f }
     }
     val scheme = MaterialTheme.colorScheme
     val ink = TourInk(
@@ -382,7 +386,6 @@ fun RoomTourPicture(scene: RoomTourScene, running: Boolean, modifier: Modifier =
         songs = listOf(
             TourSong(scheme.primary, lerp(scheme.primary, scheme.primaryContainer, 0.55f)),
             TourSong(scheme.tertiary, lerp(scheme.tertiary, scheme.tertiaryContainer, 0.55f)),
-            TourSong(scheme.secondary, lerp(scheme.secondary, scheme.secondaryContainer, 0.55f)),
         ),
         // The player's Pause and the room sheet's Catch up, as people see them there.
         pause = rememberVectorPainter(Icons.Rounded.Pause),
@@ -743,7 +746,8 @@ private fun DrawScope.ownWay(t: Float, ink: TourInk) {
     val edge = width / 2f + 4.dp.toPx()
     waves(roomAt.copy(x = roomAt.x + edge), yoursAt.copy(x = yoursAt.x - edge), t, ink.accent, ownLinked(t))
     phone(roomAt, width, ink, roomSong, screen = 1f, head = ownRoomHead(t), shown = roomShown)
-    val yours = mix(roomSong, ink.songs[2], ownSongMix(t))
+    // Your own song in the room's other colour: always far from the room's, whatever the theme makes of its colours.
+    val yours = mix(roomSong, ink.songs[1 - ownRoomSong(t)], ownSongMix(t))
     val pause = ownPauseSign(t)
     val (catching, turned) = ownCatchSign(t)
     phone(
