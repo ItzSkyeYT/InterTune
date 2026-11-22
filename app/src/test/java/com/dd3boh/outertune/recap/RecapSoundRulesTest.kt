@@ -45,7 +45,7 @@ class RecapSoundRulesTest {
         // Its players are made at Open Recap and let go of at the close, before the listener's music is touched.
         assertEquals(2, Regex("""= player\(source\)""").findAll(player).count())
         val close = player.substringAfter("override fun close() {").substringBefore("\n    }\n")
-        assertTrue(close.indexOf("release()") in 0 until close.indexOf("run(steps)"))
+        assertTrue(close.indexOf("release()") in 0 until close.indexOf("run(steps.filterNot { it is Step.SlideIn })"))
     }
 
     @Test
@@ -97,7 +97,7 @@ class RecapSoundRulesTest {
     @Test
     fun `the last song goes into the queue as the song playing now, and the song it went in front of carries on from where it was`() {
         val service = code("playback/MusicService.kt")
-        val slideIn = service.substringAfter("fun slideIn(songId: String, positionMs: Long) {").substringBefore("\n    }\n")
+        val slideIn = service.substringAfter("fun slideIn(songId: String, positionMs: Long, from: ExoPlayer? = null) {").substringBefore("\n    }\n")
         // In front of the song that was current, by the listener's hand, that song set aside and not skipped.
         assertTrue("queueBoard.addSongsToQueue(q, at, listOf(song))" in slideIn)
         assertTrue("noteByHand(q, listOf(song.id))" in slideIn)
@@ -107,5 +107,32 @@ class RecapSoundRulesTest {
         // Back where it was when it comes round by itself, a seek that is not the listener's.
         assertTrue("if (reason == MEDIA_ITEM_TRANSITION_REASON_AUTO && mediaItem?.mediaId == id && at > 0 && !isCasting) {" in service)
         assertTrue("if (quietSeek) {" in service)
+    }
+
+    @Test
+    fun `the last song goes on without a gap, and the Recap's player is always let go`() {
+        // His "slight cut between when the recap ends and the end song plays", 22 Nov 2026: the player
+        // sounding the last song is kept out of the release and handed to the service.
+        val close = player.substringAfter("override fun close() {").substringBefore("\n    }\n")
+        assertTrue("holding[it]?.first == slide.songId" in close)
+        assertTrue(close.indexOf("active = null") in 0 until close.indexOf("release()"))
+        assertTrue(close.indexOf("service.slideIn(slide.songId, slide.positionMs, from = keep)") > close.indexOf("release()"))
+        val service = code("playback/MusicService.kt")
+        val slideIn = service.substringAfter("fun slideIn(songId: String, positionMs: Long, from: ExoPlayer? = null) {")
+            .substringBefore("\n    private fun startSlidIn(")
+        // Every way out before the song starts lets it go.
+        assertTrue("if (destroyed) {\n            from?.release()\n            return\n        }" in slideIn)
+        assertTrue("if (!handed) from?.release()" in slideIn)
+        assertEquals(2, Regex("""handed = true\n\s+startSlidIn\(songId, from\)""").findAll(slideIn).count())
+        val start = service.substringAfter("private fun startSlidIn(songId: String, from: ExoPlayer?) {").substringBefore("\n    }\n")
+        // This phone's own player only, and only from a Recap's player still sounding.
+        assertTrue("if (from == null || !sounding || activePlayer !== p) {\n            from?.release()\n            activePlayer.playWhenReady = true" in start)
+        // The queue's player waits, silent, until it is ready a little ahead of the Recap's, with a time limit.
+        assertTrue(start.indexOf("p.playWhenReady = false") in 0 until start.indexOf("withTimeoutOrNull(HANDOVER_WAIT_MS)"))
+        assertTrue("quietSeek = true\n                        p.seekTo(at)" in start)
+        assertTrue(start.indexOf("p.playWhenReady = true") > start.indexOf("withTimeoutOrNull(HANDOVER_WAIT_MS)"))
+        // Its volume is the service's again at the end, unless the service set it meanwhile.
+        assertTrue("if (p.volume == set) {" in start)
+        assertTrue("} finally {\n                from.release()\n            }" in start)
     }
 }

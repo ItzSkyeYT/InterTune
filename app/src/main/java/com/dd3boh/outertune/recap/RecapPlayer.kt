@@ -156,9 +156,14 @@ class RecapPlayer(
         val steps = plan.close(now)
         Log.i(TAG, "close: on page $page of ${pages.size}, ${now?.let { "${it.songId} at ${it.positionMs} ms" } ?: "nothing sounding"}: ${steps.joinToString()}")
         // The Recap lets go first, so that the listener's player, which takes audio focus as it
-        // plays, does not take it from a Recap still holding it.
+        // plays, does not take it from a Recap still holding it. All but the player sounding the last
+        // song, when it goes on in their queue: that one is handed to the service, which lets it go once
+        // the queue's player sings the song where it is, so that there is no gap (MusicService.startSlidIn).
+        val slide = steps.firstNotNullOfOrNull { it as? Step.SlideIn }
+        val keep = active?.takeIf { slide != null && holding[it]?.first == slide.songId }?.also { active = null }
         release()
-        run(steps)
+        run(steps.filterNot { it is Step.SlideIn })
+        if (slide != null) service.slideIn(slide.songId, slide.positionMs, from = keep)
     }
 
     /**

@@ -9,6 +9,7 @@
 
 package com.dd3boh.outertune.playback
 
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.flow.drop
 import com.dd3boh.outertune.models.blockedArtists
 import com.dd3boh.outertune.models.dontPlaySongs
@@ -3045,46 +3046,131 @@ class MusicService : MediaLibraryService(),
      * plays on from [positionMs], where the Recap had it, in front of the song that was current, and
      * when it ends the queue carries on, that song from where it was ([resumeAfterSlideIn]). Put in
      * as by the listener's hand, and the song it goes in front of is set aside, not skipped. With no
-     * queue at all, a queue of its own. Main thread.
+     * queue at all, a queue of its own. [from] is the Recap's own player, still sounding the song: it
+     * plays on until the queue's player takes over without a gap (startSlidIn). Main thread.
      */
-    fun slideIn(songId: String, positionMs: Long) {
+    fun slideIn(songId: String, positionMs: Long, from: ExoPlayer? = null) {
+        if (destroyed) {
+            from?.release()
+            return
+        }
         scope.launch {
-            if (destroyed) return@launch
-            val song = withContext(Dispatchers.IO) { database.song(songId).first() }?.toMediaMetadata() ?: return@launch
-            if (!qbInit.value) initQueue(onlyIfNeeded = true)
-            if (destroyed) return@launch
-            val q = queueBoard.getCurrentQueue()?.takeIf { it.getSize() > 0 }
-            if (q == null) {
-                val own = queueBoard.addQueue(song.title, listOf(song), replace = true, origin = PlayOrigin.UNKNOWN) ?: return@launch
-                own.setCurrentQueuePos(0)
-                own.lastSongPos = positionMs
-                userChoicePending = true
-                queueBoard.setCurrQueue(own, shouldResume = true)
+            // The Recap's player is let go wherever this stops short of starting the song (startSlidIn).
+            var handed = false
+            try {
+                if (destroyed) return@launch
+                val song = withContext(Dispatchers.IO) { database.song(songId).first() }?.toMediaMetadata() ?: return@launch
+                if (!qbInit.value) initQueue(onlyIfNeeded = true)
+                if (destroyed) return@launch
+                val q = queueBoard.getCurrentQueue()?.takeIf { it.getSize() > 0 }
+                if (q == null) {
+                    val own = queueBoard.addQueue(song.title, listOf(song), replace = true, origin = PlayOrigin.UNKNOWN) ?: return@launch
+                    own.setCurrentQueuePos(0)
+                    own.lastSongPos = positionMs
+                    userChoicePending = true
+                    queueBoard.setCurrQueue(own, shouldResume = true)
+                    activePlayer.prepare()
+                    handed = true
+                    startSlidIn(songId, from)
+                    Log.i(TAG, "Recap: $songId slid in at $positionMs ms, a queue of its own")
+                    return@launch
+                }
+                // After a restart the player holds nothing until play: the saved queue goes in first,
+                // at the song it stopped on, which is the one the Recap's song goes in front of.
+                if (activePlayer.currentMediaItem == null) queueBoard.setCurrQueue(q)
+                val at = activePlayer.currentMediaItemIndex
+                val current = activePlayer.currentMediaItem
+                val currentAt = activePlayer.currentPosition
+                if (current?.mediaId == songId) {
+                    // The song playing already: it plays on from where the Recap had it.
+                    quietSeek = !isCasting
+                    activePlayer.seekTo(positionMs)
+                } else {
+                    noteByHand(q, listOf(song.id))
+                    queueBoard.addSongsToQueue(q, at, listOf(song))
+                    userChoicePending = true
+                    activePlayer.seekTo(at, positionMs)
+                    if (current != null) resumeAfterSlideIn = current.mediaId to currentAt
+                }
                 activePlayer.prepare()
-                activePlayer.playWhenReady = true
-                Log.i(TAG, "Recap: $songId slid in at $positionMs ms, a queue of its own")
-                return@launch
+                handed = true
+                startSlidIn(songId, from)
+                Log.i(TAG, "Recap: $songId slid in at $positionMs ms, in front of ${current?.mediaId} at $currentAt ms")
+            } finally {
+                if (!handed) from?.release()
             }
-            // After a restart the player holds nothing until play: the saved queue goes in first,
-            // at the song it stopped on, which is the one the Recap's song goes in front of.
-            if (activePlayer.currentMediaItem == null) queueBoard.setCurrQueue(q)
-            val at = activePlayer.currentMediaItemIndex
-            val current = activePlayer.currentMediaItem
-            val currentAt = activePlayer.currentPosition
-            if (current?.mediaId == songId) {
-                // The song playing already: it plays on from where the Recap had it.
-                quietSeek = !isCasting
-                activePlayer.seekTo(positionMs)
-            } else {
-                noteByHand(q, listOf(song.id))
-                queueBoard.addSongsToQueue(q, at, listOf(song))
-                userChoicePending = true
-                activePlayer.seekTo(at, positionMs)
-                if (current != null) resumeAfterSlideIn = current.mediaId to currentAt
-            }
-            activePlayer.prepare()
+        }
+    }
+
+    /**
+     * Starts the queue's player on the song the Recap slid in. With [from], the Recap's own player still
+     * sounding it, there is no gap (his "slight cut between when the recap ends and the end song plays",
+     * 22 Nov 2026): the Recap's sings on while the queue's player makes the song ready; the queue's is then
+     * put a little ahead of it ([HANDOVER_LEAD_MS], further ahead again when a seek took longer than that),
+     * starts as the Recap's gets there, and the two cross over in [HANDOVER_FADE_MS]. This phone's own player
+     * only: a cast or routed one starts at once, as before, and so does a song not ready in [HANDOVER_WAIT_MS].
+     * The Recap's player is always let go here. Main thread.
+     */
+    private fun startSlidIn(songId: String, from: ExoPlayer?) {
+        val p = exoPlayer
+        val sounding = from != null && from.playWhenReady &&
+            (from.playbackState == Player.STATE_READY || from.playbackState == Player.STATE_BUFFERING)
+        if (from == null || !sounding || activePlayer !== p) {
+            from?.release()
             activePlayer.playWhenReady = true
-            Log.i(TAG, "Recap: $songId slid in at $positionMs ms, in front of ${current?.mediaId} at $currentAt ms")
+            return
+        }
+        p.playWhenReady = false
+        scope.launch {
+            try {
+                val t0 = SystemClock.elapsedRealtime()
+                suspend fun ready() {
+                    while (!(p.playbackState == Player.STATE_READY && p.currentMediaItem?.mediaId == songId)) delay(10)
+                }
+                var tries = 0
+                val inStep = withTimeoutOrNull(HANDOVER_WAIT_MS) {
+                    ready()
+                    var lead = HANDOVER_LEAD_MS
+                    while (tries < HANDOVER_TRIES) {
+                        tries++
+                        val at = from.currentPosition + lead
+                        val asked = SystemClock.elapsedRealtime()
+                        quietSeek = true
+                        p.seekTo(at)
+                        ready()
+                        // Started a little before the Recap's gets there: a player is heard a moment after it starts.
+                        val left = at - from.currentPosition - HANDOVER_START_MS
+                        if (left >= 0) {
+                            delay(left)
+                            return@withTimeoutOrNull true
+                        }
+                        lead += 2 * (SystemClock.elapsedRealtime() - asked)
+                    }
+                    false
+                } ?: false
+                // The crossing: the queue's player from silent up to the volume the service gave it, the Recap's
+                // down to nothing. The queue's is left alone from the moment anything else sets its volume.
+                val target = p.volume
+                var set = if (inStep) 0f else target
+                p.volume = set
+                p.playWhenReady = true
+                delay(HANDOVER_START_MS)
+                val loud = from.volume
+                for (i in 1..HANDOVER_FADE_STEPS) {
+                    delay(HANDOVER_FADE_MS / HANDOVER_FADE_STEPS)
+                    val k = i.toFloat() / HANDOVER_FADE_STEPS
+                    from.volume = loud * (1f - k)
+                    if (p.volume == set) {
+                        set = target * k
+                        p.volume = set
+                    }
+                }
+                Log.i(TAG, "Recap: handed over after ${SystemClock.elapsedRealtime() - t0} ms, " +
+                    (if (inStep) "in step after $tries seek(s)" else "not in step ($tries seek(s))") +
+                    ": the queue at ${p.currentPosition} ms, the Recap's at ${from.currentPosition} ms")
+            } finally {
+                from.release()
+            }
         }
     }
 
@@ -7519,6 +7605,15 @@ class MusicService : MediaLibraryService(),
     }
 
     companion object {
+        /** The Recap's last song, handed to the queue's player (startSlidIn): how long it may take to be ready, how far
+         *  ahead of the Recap's the queue's is put, how long a player takes to be heard, the seeks tried, the crossing. */
+        const val HANDOVER_WAIT_MS = 10_000L
+        const val HANDOVER_LEAD_MS = 250L
+        const val HANDOVER_START_MS = 40L
+        const val HANDOVER_TRIES = 3
+        const val HANDOVER_FADE_MS = 60L
+        const val HANDOVER_FADE_STEPS = 6
+
         /** The Mix playlist the debug app's trial queue counts as (see mixTrial). */
         private const val MIX_TRIAL_PLAYLIST = "mix-trial"
         /**
