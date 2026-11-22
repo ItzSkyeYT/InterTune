@@ -2607,8 +2607,11 @@
     <string name="together_propose_to">Proposer à %1$s</string>
     <string name="together_proposed_to">Proposé à %1$s</string>
     <string name="together_proposal_title">%1$s propose un titre</string>
+    <string name="together_proposal_notice">%1$s propose %2$s</string>
+    <string name="together_proposals_channel">Propositions dans les salons</string>
     <string name="together_proposal_play">Le lancer</string>
     <string name="together_proposal_later">Pas maintenant</string>
+    <string name="together_proposal_not_now">%1$s a dit : pas maintenant</string>
     <plurals name="together_proposal_more">
         <item quantity="one">Et %1$d autre après lui, de sa file d\'attente</item>
         <item quantity="many">Et %1$d autres après lui, de sa file d\'attente</item>

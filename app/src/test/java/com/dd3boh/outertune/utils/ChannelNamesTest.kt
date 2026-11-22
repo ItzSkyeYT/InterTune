@@ -12,6 +12,7 @@ import com.dd3boh.outertune.playback.MusicService
 import com.dd3boh.outertune.playback.SleepTimerNotification
 import com.dd3boh.outertune.recognition.RecogniseLaterWorker
 import com.dd3boh.outertune.recognition.RecognitionService
+import com.dd3boh.outertune.together.ProposalNotice
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -39,6 +40,7 @@ class ChannelNamesTest {
         Triple("recognition/RecognitionService.kt", RecognitionService.RESULTS_CHANNEL_ID, "recognition_phone_results_channel"),
         Triple("recognition/RecogniseLaterWorker.kt", RecogniseLaterWorker.CHANNEL_ID, "recognise_later_channel"),
         Triple("utils/BackgroundChecks.kt", BackgroundCheckWorker.CHANNEL_ID, "background_channel"),
+        Triple("together/ProposalNotice.kt", ProposalNotice.CHANNEL_ID, "together_proposals_channel"),
     )
 
     @Test

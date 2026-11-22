@@ -43,4 +43,19 @@ internal object ProposalLine {
 
     /** An answer this quick still finds the guest in the song it proposed. */
     const val QUICK_ANSWER_MS = 30_000L
+
+    /** What the proposal notification does as the line changes: see [noticeStep]. */
+    enum class NoticeStep { HIDE, KEEP, SHOW }
+
+    /**
+     * The notification follows the line ([first] waiting while this phone is in control, null otherwise): it shows that
+     * one while InterTune is not in front, stays while it is still the one asked, and goes once it is answered anywhere or
+     * control moves. In front, the card asks, and the notification of an answered one goes.
+     */
+    fun noticeStep(first: Proposal?, showing: Proposal?, inFront: Boolean): NoticeStep = when {
+        first == null -> NoticeStep.HIDE
+        first == showing -> NoticeStep.KEEP
+        inFront -> NoticeStep.HIDE
+        else -> NoticeStep.SHOW
+    }
 }

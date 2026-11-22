@@ -76,6 +76,13 @@ sealed interface TogetherMessage {
      */
     data class Propose(val songs: List<Song>, val positionMs: Long, val by: String) : TogetherMessage
 
+    /**
+     * The leader's Not now to the guest with key [to], for the song [songId] it proposed: the guest's Propose comes back
+     * instead of saying "Proposed" for good (22 Nov 2026). A build before this one never sends it, and drops it unread as
+     * a word it does not know, so it stays as it was.
+     */
+    data class NotNow(val to: String, val songId: String) : TogetherMessage
+
     /** The owner sends the phone with key [to] out of the room. */
     data class Kick(val to: String) : TogetherMessage
 
@@ -137,6 +144,7 @@ sealed interface TogetherMessage {
                 put("t", "propose"); put("pos", message.positionMs); put("by", message.by)
                 put("songs", songsJson(message.songs))
             }
+            is NotNow -> buildJsonObject { put("t", "notnow"); put("to", message.to); put("song", message.songId) }
             is Kick -> buildJsonObject { put("t", "kick"); put("to", message.to) }
             is Move -> buildJsonObject { put("t", "move"); put("to", message.to); put("code", message.sealedCode) }
             End -> buildJsonObject { put("t", "end") }
@@ -184,6 +192,7 @@ sealed interface TogetherMessage {
                     shuffle = o["shuffle"]!!.jsonPrimitive.boolean,
                 )
                 "propose" -> Propose(songsOf(o), l("pos"), s("by"))
+                "notnow" -> NotNow(s("to"), s("song"))
                 "kick" -> Kick(s("to"))
                 "move" -> Move(s("to"), s("code"))
                 "end" -> End
