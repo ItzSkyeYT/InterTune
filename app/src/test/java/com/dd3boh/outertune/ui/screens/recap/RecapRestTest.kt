@@ -87,11 +87,12 @@ class RecapRestTest {
             assertEquals(0f, curve.transform(0f), 1e-3f)
             assertEquals(1f, curve.transform(1f), 1e-3f)
         }
-        // The springs go a little past their place once, the settle by about 8% and the livelier one by 20%.
+        // The springs go a touch past their place once, the settle by about 3% and the livelier one by 6% (8% and 20%
+        // until his "not a fan of the amount of bouncyness", 22 Nov 2026).
         val settlePeak = (0..100).maxOf { RecapMotion.Settle.transform(it / 100f) }
         val bouncyPeak = (0..100).maxOf { RecapMotion.Bouncy.transform(it / 100f) }
-        assertEquals(1.083f, settlePeak, 0.005f)
-        assertEquals(1.205f, bouncyPeak, 0.005f)
+        assertEquals(1.031f, settlePeak, 0.005f)
+        assertEquals(1.062f, bouncyPeak, 0.005f)
     }
 
     @Test
