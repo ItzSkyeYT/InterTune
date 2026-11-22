@@ -8,6 +8,7 @@ package com.dd3boh.outertune.ui.screens.recap
 
 import com.dd3boh.outertune.ui.component.ScreenBackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -77,6 +78,8 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
@@ -114,8 +117,11 @@ internal class NoteDraft(text: MutableState<String>) {
     /** The last seal did not take: the slide says why, and Seal it is the way to try again. */
     var failed by mutableStateOf(false)
 
-    /** When it was sealed, on the story's clock: its seal is pressed on then. -1 for one found sealed. */
+    /** When the last was sealed, on the story's clock: the letter is sealed then (SealLetter). -1 for none sealed here. */
     var sealedAt by mutableLongStateOf(-1L)
+
+    /** The words last sealed, folded into the letter as it is sealed. */
+    var letter by mutableStateOf("")
 
     /** The paper shows what is sealed rather than a field to write in. */
     val shut: Boolean get() = sealed > 0 && !another
@@ -130,6 +136,7 @@ internal class NoteDraft(text: MutableState<String>) {
     fun kept(at: Long) {
         sealed += 1
         sealedAt = at
+        letter = text
         another = false
         failed = false
         text = ""
@@ -330,10 +337,14 @@ internal fun NoteWriteSlide(s: SlideScope, note: NoteDraft, onSeal: () -> Unit, 
         Kick(stringResource(R.string.recap_note_write_kick), s)
         val (before, after) = around(stringResource(R.string.recap_note_write_title, MARK))
         Words(before, s, at = 1f, style = RecapType.h2, colour = c.ink, strip = stringResource(R.string.recap_note_write_strip), after = after, stripAt = 1.8f, stripTurn = -3f)
+        // After Seal it the paper makes way for the letter being sealed over it, and comes back sealed (SealLetter).
+        Box {
         NotePaper(
             s, at = 2.4f, turn = -1.6f, fy = 300f, fr = 8f, line = hand.lineHeight, baseline = { first.takeIf { it >= 0f } },
             // A tap anywhere on the paper is a tap on the field, never on the story behind it.
-            modifier = Modifier.clickable(remember { MutableInteractionSource() }, indication = null) { if (!note.shut) runCatching { focus.requestFocus() } },
+            modifier = Modifier
+                .graphicsLayer { alpha = if (note.sealedAt < 0) 1f else paperUnderLetter(s.stage.clock.now - note.sealedAt, s.still) }
+                .clickable(remember { MutableInteractionSource() }, indication = null) { if (!note.shut) runCatching { focus.requestFocus() } },
         ) {
             if (note.shut) {
                 Sealed(s, note, hand, onBaseline = { first = it })
@@ -374,6 +385,8 @@ internal fun NoteWriteSlide(s: SlideScope, note: NoteDraft, onSeal: () -> Unit, 
                     }
                 }
             }
+        }
+        if (note.sealedAt >= 0) SealLetterCanvas(s, note.sealedAt, note.letter, Modifier.matchParentSize())
         }
         if (!keyboard) {
             buttons(Modifier.padding(top = 20.dp, bottom = 10.dp))
@@ -435,7 +448,7 @@ private fun NoteColumn(keyboard: Boolean, pinned: @Composable () -> Unit, conten
 
 /**
  * The notes sealed: in their place on the paper, "Sealed until your next Recap" and how many are,
- * and a red seal with a lock pressed on beside them as one is sealed.
+ * and beside them the wax seal the letter was sealed with.
  */
 @Composable
 private fun Sealed(s: SlideScope, note: NoteDraft, hand: TextStyle, onBaseline: (Float) -> Unit) {
@@ -456,29 +469,22 @@ private fun Sealed(s: SlideScope, note: NoteDraft, hand: TextStyle, onBaseline: 
             Spacer(Modifier.height(with(LocalDensity.current) { hand.lineHeight.toDp() }))
         }
         Spacer(Modifier.width(10.dp))
-        Box(
-            contentAlignment = Alignment.Center,
-            modifier = Modifier
-                .graphicsLayer {
-                    rotationZ = -10f
-                    val since = if (note.sealedAt < 0) Float.MAX_VALUE else (s.stage.clock.now - note.sealedAt).toFloat()
-                    if (s.still) {
-                        alpha = RecapMotion.Ease.transform((since / RecapMotion.CALM_FADE_MS).coerceIn(0f, 1f))
-                    } else {
-                        // Pressed on: from large and faint to its size, a touch past it and back.
-                        val e = RecapMotion.Settle.transform((since / RecapMotion.POP_MS).coerceIn(0f, 1f))
-                        alpha = (since / 160f).coerceIn(0f, 1f)
-                        scaleX = 1.8f - 0.8f * e
-                        scaleY = scaleX
-                        rotationZ = -10f - 30f * (1f - e)
-                    }
-                }
-                .size(58.dp)
-                .shadow(6.dp, CircleShape, ambientColor = RecapInk.Shade, spotColor = RecapInk.Shade)
-                .background(RecapRed, CircleShape)
-                .border(3.dp, Color.Black.copy(alpha = 0.12f), CircleShape),
-        ) {
-            Icon(Icons.Rounded.Lock, null, tint = RecapInk.Cream, modifier = Modifier.size(26.dp))
+        // The wax seal the letter was sealed with (SealLetter): red, the play triangle pressed into it.
+        Canvas(Modifier.size(52.dp).graphicsLayer { rotationZ = -10f }) {
+            val r = size.minDimension / 2f
+            drawCircle(RecapInk.Shade.copy(alpha = 0.25f), r * 0.98f, center + Offset(0f, 2.dp.toPx()))
+            drawCircle(RecapRed, r * 0.94f)
+            drawCircle(Color.Black.copy(alpha = 0.12f), r * 0.72f, style = Stroke(2.dp.toPx()))
+            val t = r * 0.4f
+            drawPath(
+                Path().apply {
+                    moveTo(center.x - t * 0.6f, center.y - t)
+                    lineTo(center.x + t, center.y)
+                    lineTo(center.x - t * 0.6f, center.y + t)
+                    close()
+                },
+                RecapInk.Cream,
+            )
         }
     }
 }
