@@ -2766,6 +2766,10 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="together_has_control">%1$s has control</string>
     <string name="together_take_back">Take back control</string>
     <string name="together_give_control">Give control</string>
+    <string name="together_give_control_to">Give control to %1$s</string>
+    <string name="together_control_yours">You\'re in control now: you choose the music for everyone.</string>
+    <string name="together_control_theirs">%1$s is in control now</string>
+    <string name="together_control_back">%1$s stopped answering, so you\'re in control again.</string>
     <string name="together_kick">Remove from the room</string>
     <string name="together_kicked">You were removed from the room</string>
     <string name="together_closed">The room was closed</string>
@@ -2814,6 +2818,7 @@ while also allowing users to translate our app as well. New, specific strings to
         <item quantity="other">And %1$d more after it, from their queue.</item>
     </plurals>
     <string name="together_removed">%1$s was removed. The room has a new code.</string>
+    <string name="together_removed_control">%1$s was removed. The room has a new code, and you\'re in control again.</string>
     <!-- Choose what's in the three-dot menus (MENU_CHOICES): a menu being edited, and the line under a trimmed one. -->
     <string name="menu_hidden">Hidden</string>
     <string name="menu_hidden_hint">Tap an entry to move it here, or back.</string>
