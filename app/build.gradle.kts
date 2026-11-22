@@ -151,7 +151,9 @@ android {
             buildConfigField("boolean", "PREVIEW_FEATURES", "false")
         }
         debug {
-            applicationIdSuffix = ".debug"
+            // A debug build under another name for test runs on a phone whose debug app holds another line (the
+            // Pixel 5's, 22 Nov 2026): -PdebugAppSuffix=.walk installs it beside that app. ".debug" otherwise.
+            applicationIdSuffix = providers.gradleProperty("debugAppSuffix").orNull ?: ".debug"
             manifestPlaceholders["carScreens"] = "true"
             manifestPlaceholders["widgetConfigTheme"] = "@style/Theme.InterTune.WidgetConfig.Wallpaper"
             // The builds that show what is held back (Unreleased.kt): this one, the preview and the beta type. Each type
