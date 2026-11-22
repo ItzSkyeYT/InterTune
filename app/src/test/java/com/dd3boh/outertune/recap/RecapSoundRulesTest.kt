@@ -131,9 +131,10 @@ class RecapSoundRulesTest {
         // by silent seeks once it is heard, with a time limit.
         assertTrue(start.indexOf("p.playWhenReady = false") in 0 until start.indexOf("withTimeoutOrNull(HANDOVER_WAIT_MS)"))
         assertTrue(start.indexOf("set = 0f\n                    p.volume = set") in 0 until start.indexOf("p.playWhenReady = true"))
-        assertTrue("quietSeek = true\n                    p.seekTo(from.currentPosition + seekMs)" in start)
-        assertTrue("quietSeek = true\n                        p.seekTo(from.currentPosition + seekMs)" in start)
-        assertTrue(start.indexOf("heard()\n                        seekMs =") > start.indexOf("p.playWhenReady = true"))
+        assertTrue("quietSeek = true\n                    p.seekTo(from.currentPosition + lead)" in start)
+        assertTrue("quietSeek = true\n                        p.seekTo(from.currentPosition + lead)" in start)
+        assertTrue(start.indexOf("heard()\n                        gap = from.currentPosition - p.currentPosition") > start.indexOf("p.playWhenReady = true"))
+        assertTrue("lead = (lead + gap).coerceIn(0L, HANDOVER_WAIT_MS / 4)" in start)
         // Its volume is the service's again at the end, unless the service set it meanwhile.
         assertTrue("if (p.volume == set) {" in start)
         assertTrue("never left silent", "} finally {\n                \n                if (p.volume == set && set != target) p.volume = target\n                from.release()\n            }" in start)

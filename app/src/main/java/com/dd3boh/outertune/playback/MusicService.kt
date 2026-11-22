@@ -3107,9 +3107,9 @@ class MusicService : MediaLibraryService(),
      * Starts the queue's player on the song the Recap slid in. With [from], the Recap's own player still
      * sounding it, there is no gap (his "slight cut between when the recap ends and the end song plays",
      * 22 Nov 2026): the Recap's sings on while the queue's player makes the song ready and starts it SILENT,
-     * a little ahead ([HANDOVER_LEAD_MS]). Once the queue's player is really heard (its place moving with the
-     * clock), the gap between the two is measured and put right by a silent seek, timed by what the last one
-     * took ([HANDOVER_IN_STEP_MS], [HANDOVER_TRIES] at most); then the two cross over in [HANDOVER_FADE_MS].
+     * a little ahead ([HANDOVER_LEAD_MS]). Once the queue's player is heard (playing, and [HANDOVER_SETTLE_MS]
+     * more), the gap between the two is measured and put right by a silent seek that lands that much further
+     * on ([HANDOVER_IN_STEP_MS], [HANDOVER_TRIES] at most); then the two cross over in [HANDOVER_FADE_MS].
      * A player takes a varying moment to be heard after it starts, which a start timed in advance cannot know:
      * the Pixel's first handovers were 14 and 143 ms apart. This phone's own player only: a cast or routed one
      * starts at once, as before, and so does a song not ready in [HANDOVER_WAIT_MS]. The Recap's player is
@@ -3133,20 +3133,11 @@ class MusicService : MediaLibraryService(),
                 suspend fun ready() {
                     while (!(p.playbackState == Player.STATE_READY && p.currentMediaItem?.mediaId == songId)) delay(10)
                 }
-                // Heard: its place has moved on with the clock three looks in a row. Right after a start or a seek the
-                // place it says only guesses ahead between the player's own updates, never for that long.
+                // Heard: playing, and a moment more for its sound to come out. Watching its place move does not work on
+                // every phone (the Pixel 5, 22 Nov 2026: never seen moving in ten seconds, its place reported in steps).
                 suspend fun heard() {
-                    var moving = 0
-                    var last = p.currentPosition
-                    var lastAt = SystemClock.elapsedRealtime()
-                    while (moving < 3) {
-                        delay(20)
-                        val now = p.currentPosition
-                        val nowAt = SystemClock.elapsedRealtime()
-                        moving = if (p.isPlaying && now - last >= (nowAt - lastAt) * 4 / 5) moving + 1 else 0
-                        last = now
-                        lastAt = nowAt
-                    }
+                    withTimeoutOrNull(2_000) { while (!p.isPlaying) delay(10) }
+                    delay(HANDOVER_SETTLE_MS)
                 }
                 var tries = 0
                 var gap = Long.MAX_VALUE
@@ -3155,21 +3146,20 @@ class MusicService : MediaLibraryService(),
                     // Silent from here until the crossing, playing a little ahead of the Recap's.
                     set = 0f
                     p.volume = set
-                    var seekMs = HANDOVER_LEAD_MS
-                    var asked = SystemClock.elapsedRealtime()
+                    var lead = HANDOVER_LEAD_MS
                     quietSeek = true
-                    p.seekTo(from.currentPosition + seekMs)
+                    p.seekTo(from.currentPosition + lead)
                     p.playWhenReady = true
                     while (true) {
                         ready()
                         heard()
-                        seekMs = SystemClock.elapsedRealtime() - asked
                         gap = from.currentPosition - p.currentPosition
                         if (abs(gap) <= HANDOVER_IN_STEP_MS || tries >= HANDOVER_TRIES) break
                         tries++
-                        asked = SystemClock.elapsedRealtime()
+                        // What the seek cost was off by the gap: the next one lands that much further on.
+                        lead = (lead + gap).coerceIn(0L, HANDOVER_WAIT_MS / 4)
                         quietSeek = true
-                        p.seekTo(from.currentPosition + seekMs)
+                        p.seekTo(from.currentPosition + lead)
                     }
                     abs(gap) <= HANDOVER_IN_STEP_MS
                 } ?: false
@@ -7633,6 +7623,7 @@ class MusicService : MediaLibraryService(),
         const val HANDOVER_WAIT_MS = 10_000L
         const val HANDOVER_LEAD_MS = 250L
         const val HANDOVER_IN_STEP_MS = 25L
+        const val HANDOVER_SETTLE_MS = 250L
         const val HANDOVER_TRIES = 3
         const val HANDOVER_FADE_MS = 80L
         const val HANDOVER_FADE_STEPS = 8
