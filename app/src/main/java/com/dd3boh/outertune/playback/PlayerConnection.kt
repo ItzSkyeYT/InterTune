@@ -21,6 +21,7 @@ import androidx.media3.common.Player.REPEAT_MODE_OFF
 import androidx.media3.common.Player.STATE_ENDED
 import androidx.media3.common.Player.STATE_IDLE
 import androidx.media3.common.Timeline
+import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.PersistentQueueKey
 import com.dd3boh.outertune.constants.PlayOrigin
 import com.dd3boh.outertune.constants.PlayingQueueKey
@@ -227,6 +228,21 @@ class PlayerConnection(
      * Add items to queue, right after current playing item
      */
     fun enqueueNext(items: List<MediaItem>) {
+        // A guest following a room has one Play next: it goes to the room (the person in control puts it next),
+        // as the queue here is only a copy of theirs. A guest on its own way keeps its own.
+        val room = service.together.value?.takeIf { it.following && !it.status.value.ownWay }
+        if (room != null) {
+            val plan = com.dd3boh.outertune.together.RoomPlayNext.plan(items.mapNotNull { it.metadata })
+            if (plan.toRoom.isNotEmpty()) {
+                plan.toRoom.forEach { room.suggest(it) }
+                val sent = plan.toRoom.size
+                val text = if (sent == 1) service.getString(R.string.together_suggested)
+                    else service.getString(R.string.together_suggested_many, sent)
+                android.widget.Toast.makeText(service, text, android.widget.Toast.LENGTH_SHORT).show()
+                if (plan.own.isNotEmpty()) service.enqueueNext(items.filter { i -> plan.own.any { it.id == i.mediaId } })
+                return
+            }
+        }
         service.enqueueNext(items)
     }
 
