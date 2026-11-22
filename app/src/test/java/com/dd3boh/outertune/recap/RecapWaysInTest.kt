@@ -25,4 +25,22 @@ class RecapWaysInTest {
         // First on the page, above the periods' chips.
         assertTrue(stats.indexOf("item(key = \"recap_banner\")") in 0 until stats.indexOf("ChipsRow("))
     }
+
+    @Test
+    fun `once watched as far as its year card, Home's banner goes, and Settings' and the Stats page's stay`() {
+        // His ask of 22 Nov 2026.
+        val story = File(sources, "ui/screens/recap/RecapScreen.kt").readText()
+        assertTrue("if (slide.kind == SlideKind.CARD || slide.kind == SlideKind.THANKS) viewModel.watched(recap.year)" in story)
+        val entry = File(sources, "ui/screens/recap/RecapEntry.kt").readText()
+        val home = entry.substringAfter("fun rememberRecapOnHome(): Int? {").substringBefore("\n}\n")
+        assertTrue("year.takeIf { inSeason && watched < (year ?: 0) }" in home)
+        val shown = entry.substringAfter("fun rememberRecapOnShow(): Int? {").substringBefore("\n}\n")
+        assertTrue("RecapWatchedKey" !in shown)
+        val model = File(sources, "viewmodels/RecapViewModel.kt").readText()
+        assertTrue("if ((it[RecapWatchedKey] ?: 0) < year) it[RecapWatchedKey] = year" in model)
+        // Settings and the Stats page go by the year on show alone.
+        for (page in listOf("ui/screens/settings/SettingsScreen.kt", "ui/screens/StatsScreen.kt")) {
+            assertTrue(page, "rememberRecapOnHome" !in File(sources, page).readText())
+        }
+    }
 }

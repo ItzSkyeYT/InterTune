@@ -19,15 +19,14 @@ import kotlin.math.sqrt
  * listeners of their own files, 22 Nov 2026 ("Chorus for local songs"): the loudest stretch of a song
  * is most often its chorus.
  *
- * The file is not decoded whole: a short stretch every [STEP_MS] ([LISTEN_MS] of it), about a second
- * for a four-minute song; [startMs] then picks the loudest run as long as the slide's piece, away from
- * the opening and the fade at the end. Plain sums over an envelope, tested on the JVM; the reading,
- * [envelope], needs the phone's decoders.
+ * The file is decoded once, straight through, its loudness kept for each [STEP_MS] ([envelope]);
+ * [startMs] then picks the loudest run as long as the slide's piece, away from the opening and the
+ * fade at the end. Plain sums over an envelope, tested on the JVM; the reading needs the phone's
+ * decoders.
  */
 object RecapChorus {
-    /** How far apart the loudness is read, and how much is heard at each place. */
+    /** How long each stretch of the loudness is. */
     const val STEP_MS = 2_000L
-    const val LISTEN_MS = 400L
 
     /** The loudest run starts after this part of the song and ends before the last of it. */
     const val SKIP_START = 0.08
@@ -69,8 +68,11 @@ object RecapChorus {
     }
 
     /**
-     * The loudness of the file at [path] every [STEP_MS] from its start (root mean square of [LISTEN_MS]
-     * decoded at each place), and its length; null where it cannot be read. Off the main thread.
+     * The loudness of the file at [path] in each [STEP_MS] from its start (the root mean square of what
+     * was decoded in it), and its length; null where it cannot be read. The file is decoded straight
+     * through, with no seeks: the first walk on the Pixel 5 (22 Nov 2026) read it a moment every two
+     * seconds after a seek each, and every start came 2 to 8 seconds late, Android's MP3 seeks landing
+     * elsewhere than they say. A four-minute song decodes in about a second. Off the main thread.
      */
     fun envelope(path: String): Pair<FloatArray, Long>? {
         val extractor = MediaExtractor()
@@ -85,54 +87,54 @@ object RecapChorus {
             val durationUs = if (format.containsKey(MediaFormat.KEY_DURATION)) format.getLong(MediaFormat.KEY_DURATION) else return null
             extractor.selectTrack(track)
             codec = MediaCodec.createDecoderByType(mime).apply { configure(format, null, null, 0); start() }
-            val points = (durationUs / 1000 / STEP_MS).toInt()
-            val out = FloatArray(points)
+            val blocks = (durationUs / 1000 / STEP_MS).toInt() + 1
+            val sums = DoubleArray(blocks)
+            val counts = LongArray(blocks)
             val info = MediaCodec.BufferInfo()
-            for (p in 0 until points) {
-                val atUs = p * STEP_MS * 1000
-                extractor.seekTo(atUs, MediaExtractor.SEEK_TO_CLOSEST_SYNC)
-                codec.flush()
-                var sum = 0.0
-                var count = 0L
-                var inputDone = false
-                var guard = 0
-                while (guard++ < 400) {
-                    if (!inputDone) {
-                        val i = codec.dequeueInputBuffer(5_000)
-                        if (i >= 0) {
-                            val size = extractor.readSampleData(codec.getInputBuffer(i)!!, 0)
-                            if (size < 0 || extractor.sampleTime > atUs + (LISTEN_MS + 200) * 1000) {
-                                codec.queueInputBuffer(i, 0, 0, 0, MediaCodec.BUFFER_FLAG_END_OF_STREAM)
-                                inputDone = true
-                            } else {
-                                codec.queueInputBuffer(i, 0, size, extractor.sampleTime, 0)
-                                extractor.advance()
-                            }
+            var inputDone = false
+            var idle = 0
+            while (idle < 200) {
+                if (!inputDone) {
+                    val i = codec.dequeueInputBuffer(10_000)
+                    if (i >= 0) {
+                        val size = extractor.readSampleData(codec.getInputBuffer(i)!!, 0)
+                        if (size < 0) {
+                            codec.queueInputBuffer(i, 0, 0, 0, MediaCodec.BUFFER_FLAG_END_OF_STREAM)
+                            inputDone = true
+                        } else {
+                            codec.queueInputBuffer(i, 0, size, extractor.sampleTime, 0)
+                            extractor.advance()
                         }
-                    }
-                    val o = codec.dequeueOutputBuffer(info, 5_000)
-                    if (o >= 0) {
-                        val float = codec.outputFormat.let { it.containsKey(MediaFormat.KEY_PCM_ENCODING) && it.getInteger(MediaFormat.KEY_PCM_ENCODING) == AudioFormat.ENCODING_PCM_FLOAT }
-                        if (info.size > 0 && info.presentationTimeUs >= atUs) {
-                            val buf = codec.getOutputBuffer(o)!!.order(ByteOrder.nativeOrder())
-                            buf.position(info.offset).limit(info.offset + info.size)
-                            if (float) {
-                                val f = buf.asFloatBuffer()
-                                while (f.hasRemaining()) { val v = f.get().toDouble(); sum += v * v; count++ }
-                            } else {
-                                val s = buf.asShortBuffer()
-                                while (s.hasRemaining()) { val v = s.get() / 32768.0; sum += v * v; count++ }
-                            }
-                        }
-                        codec.releaseOutputBuffer(o, false)
-                        val heardUs = info.presentationTimeUs - atUs
-                        if (info.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0 || heardUs >= LISTEN_MS * 1000) break
-                    } else if (inputDone && o == MediaCodec.INFO_TRY_AGAIN_LATER) {
-                        break
                     }
                 }
-                out[p] = if (count > 0) sqrt(sum / count).toFloat() else 0f
+                val o = codec.dequeueOutputBuffer(info, 10_000)
+                if (o < 0) {
+                    if (inputDone) idle++
+                    continue
+                }
+                idle = 0
+                if (info.size > 0) {
+                    // A buffer is a few tens of milliseconds: all of it counts in the block it begins in.
+                    val block = (info.presentationTimeUs / 1000 / STEP_MS).toInt().coerceIn(0, blocks - 1)
+                    val float = codec.outputFormat.let { it.containsKey(MediaFormat.KEY_PCM_ENCODING) && it.getInteger(MediaFormat.KEY_PCM_ENCODING) == AudioFormat.ENCODING_PCM_FLOAT }
+                    val buf = codec.getOutputBuffer(o)!!.order(ByteOrder.nativeOrder())
+                    buf.position(info.offset).limit(info.offset + info.size)
+                    var sum = 0.0
+                    var count = 0L
+                    if (float) {
+                        val f = buf.asFloatBuffer()
+                        while (f.hasRemaining()) { val v = f.get().toDouble(); sum += v * v; count++ }
+                    } else {
+                        val sh = buf.asShortBuffer()
+                        while (sh.hasRemaining()) { val v = sh.get() / 32768.0; sum += v * v; count++ }
+                    }
+                    sums[block] += sum
+                    counts[block] += count
+                }
+                codec.releaseOutputBuffer(o, false)
+                if (info.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) break
             }
+            val out = FloatArray(blocks) { if (counts[it] > 0) sqrt(sums[it] / counts[it]).toFloat() else 0f }
             return out to durationUs / 1000
         } catch (e: Exception) {
             return null
