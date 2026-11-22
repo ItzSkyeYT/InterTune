@@ -44,10 +44,11 @@ object DevBadge {
     }.getOrDefault(false)
 
     /** [text] as pasted, when it is the private half of [publicKey] (64 hex characters); null for anything else. */
-    fun keyOf(text: String?, publicKey: String = PUBLIC_KEY): ByteArray? = runCatching {
+    fun keyOf(text: String?, publicKey: String = PUBLIC_KEY): ByteArray? {
         val hex = text?.trim()?.lowercase()?.takeIf { HEX_64.matches(it) } ?: return null
-        hex.hexToBytes().takeIf { Secp256k1.publicKey(it).toHex() == publicKey }
-    }.getOrNull()
+        // Out of the curve's range (all zeros, or past its order): no key at all.
+        return runCatching { hex.hexToBytes().takeIf { Secp256k1.publicKey(it).toHex() == publicKey } }.getOrNull()
+    }
 }
 
 /**
