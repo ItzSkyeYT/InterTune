@@ -135,8 +135,12 @@ class RoomJoinTest {
         // His word of 21 Nov 2026: no sign on the S25U that the Pixel was joining, nor on the Pixel after Join.
         val event = session.substringAfter("private fun onEvent(event: NostrEvent) {").substringBefore("\n    }\n\n")
         assertTrue(event, "val newcomer = from !in said" in event)
-        assertTrue(event, "if (owner && newcomer && !message.owner) {" in event)
-        assertTrue(event, "R.string.together_someone_joined" in event)
+        assertTrue(event, "val joined = owner && newcomer && !message.owner" in event)
+        // by the name they chose, once the proof of InterTune's developer in their Here is checked (DevBadge), else at once
+        assertTrue(event, "if (joined) joinedLine(message.name, ok)" in event)
+        assertTrue(event, "} else if (joined) {\n                joinedLine(message.name, devs.proven(from))" in event)
+        val line = session.substringAfter("private fun joinedLine(name: String, dev: Boolean) {").substringBefore("\n    }\n")
+        assertTrue(line, "R.string.together_someone_joined" in line)
         assertTrue(session.contains("if (joiningNow) Toaster.show(service, R.string.together_joining)"))
         val answered = session.substringAfter("private fun answered(now: Long) {").substringBefore("\n    }\n")
         assertTrue(answered, "if (joiningNow) Toaster.show(service, R.string.together_youre_in)" in answered)

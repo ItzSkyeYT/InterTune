@@ -96,10 +96,14 @@ class RoomQueueTest {
     fun `the queue is composed again only when what it shows of the room changes`() {
         assertTrue("driftMs = target - local" in session.substringAfter("private fun follow() {").substringBefore("fun holdsFailed("))
         assertTrue("val roomStatus = room?.status?.collectAsState()\n" in queue)
-        assertEquals("the status read three times, each in a derivedStateOf", 3, Regex("""roomStatus\?\.value""").findAll(queue).count())
-        assertEquals(3, Regex("""derivedStateOf \{ roomStatus\?\.value""").findAll(queue).count())
+        // every read of it in a derivedStateOf: whose queue it is, who chooses and whether that is InterTune's developer
+        // (whose name the line lights, DevBadge), and whether a guest may change it
+        val reads = Regex("""roomStatus\?\.value""").findAll(queue).count()
+        assertEquals("the status read only in a derivedStateOf", reads, Regex("""derivedStateOf \{ roomStatus\?\.value""").findAll(queue).count())
         assertTrue("val roomsQueue by remember(roomStatus) {" in queue)
         assertTrue("val roomLeaderName by remember(roomStatus) { derivedStateOf { roomStatus?.value?.leaderName } }" in queue)
+        assertTrue("val roomLeaderDev by remember(roomStatus) { derivedStateOf { roomStatus?.value?.members?.any { it.leader && it.dev } == true } }" in queue)
+        assertTrue("val roomArranges by remember(roomStatus) { derivedStateOf { roomStatus?.value?.let(::guestArranges) == true } }" in queue)
     }
 
     /** The line names the song menu's item as the menu says it, in English and in French. */
