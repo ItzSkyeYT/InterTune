@@ -122,9 +122,6 @@ fun SongMenu(
     val downloadUtil = LocalDownloadUtil.current
     val clipboardManager = LocalClipboard.current
     val playerConnection = LocalPlayerConnection.current ?: return
-    // A listening room this phone is a guest in, for Play next in the room (TogetherSession.suggest).
-    val room by playerConnection.service.together.collectAsState()
-    val guestIn = room?.takeIf { it.following }
 
     val syncMode by rememberEnumPreference(key = YtmSyncModeKey, defaultValue = SyncMode.RW)
 
@@ -440,18 +437,6 @@ fun SongMenu(
         // Last of the items every song has, so that nothing anyone knows the place of moves.
         if (Unreleased.ARTIST_BLOCK && blockable.isNotEmpty()) {
             GridMenuItem(icon = BlockArtistIcon, title = R.string.menu_block_artist) { showBlockArtist = true }
-        }
-        // In a listening room as a guest: the host plays it next, for everyone. After everything else,
-        // Block artist included, so that it moves no item people know the place of.
-        if (Unreleased.LISTEN_TOGETHER && guestIn != null && !song.song.isLocal) {
-            GridMenuItem(
-                icon = Icons.Rounded.Group,
-                title = R.string.together_suggest
-            ) {
-                guestIn.suggest(song.toMediaMetadata())
-                Toaster.show(context, R.string.together_suggested, Toast.LENGTH_SHORT)
-                onDismiss()
-            }
         }
     }
 
