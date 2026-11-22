@@ -262,7 +262,12 @@ internal fun NoteWriteSlide(s: SlideScope, note: NoteDraft, onSeal: () -> Unit, 
     BackHandler(enabled = note.focused) { focusManager.clearFocus() }
     // A page that goes while its field has the keyboard leaves no field behind it thought to have it.
     DisposableEffect(Unit) { onDispose { if (focusedHere) note.focused = false } }
-    LaunchedEffect(note.again) { if (note.again) runCatching { focus.requestFocus() } }
+    // Write it again: the keyboard comes up on the new field once it is there. Asked by this page alone, never by its copy that is leaving.
+    var focusSoon by remember { mutableStateOf(false) }
+    LaunchedEffect(focusSoon) {
+        if (focusSoon) runCatching { focus.requestFocus() }
+        focusSoon = false
+    }
 
     SlideColumn { room ->
         Kick(stringResource(R.string.recap_note_write_kick), s)
@@ -319,7 +324,10 @@ internal fun NoteWriteSlide(s: SlideScope, note: NoteDraft, onSeal: () -> Unit, 
             modifier = Modifier.padding(top = 20.dp, bottom = 10.dp).enter(s, Entrance.UP, 3.4f),
         ) {
             if (note.shut) {
-                NoteButton(stringResource(R.string.recap_note_again), filled = false) { note.again = true }
+                NoteButton(stringResource(R.string.recap_note_again), filled = false) {
+                    note.again = true
+                    focusSoon = true
+                }
             } else {
                 NoteButton(stringResource(R.string.recap_note_seal), filled = true, lock = true, dim = note.text.isBlank() || note.sealing) {
                     if (note.text.isBlank()) runCatching { focus.requestFocus() } else onSeal()
