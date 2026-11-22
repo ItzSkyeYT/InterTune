@@ -25,7 +25,9 @@ import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -51,7 +53,7 @@ import kotlinx.coroutines.launch
 
 /** Where Save as a playlist has got to. */
 internal sealed interface SaveStep {
-    /** Not tapped yet in this Recap: it says Save as a playlist, and a playlist from an earlier tap is updated by it. */
+    /** Not saved yet in this Recap (it is as it opens: RecapViewModel.putPlaylistIn): it says Save as a playlist. */
     data object Idle : SaveStep
 
     data object Saving : SaveStep
@@ -116,12 +118,22 @@ internal class PlaylistFlow(
                 viewModel.say(R.string.recap_playlist_failed)
                 return@launch
             }
-            saved = result
-            save = SaveStep.Saved(result.id)
-            // The second choice follows the first tap and is never made for the listener.
-            if (copyMayBeOffered && copy == CopyStep.Hidden && result.songs.any { !it.local }) {
-                copy = if (viewModel.onYouTubeMusic(year)) CopyStep.Added(0, 0) else CopyStep.Offer
-            }
+            isSaved(result)
+        }
+    }
+
+    /** The playlist the Recap put in the library as it opened (RecapViewModel.putPlaylistIn): the card says Saved. */
+    fun took(result: RecapPlaylist.Saved) {
+        if (result.id != RecapPlaylist.idOf(year) || save is SaveStep.Saved) return
+        scope.launch { isSaved(result) }
+    }
+
+    private suspend fun isSaved(result: RecapPlaylist.Saved) {
+        saved = result
+        save = SaveStep.Saved(result.id)
+        // The second choice follows the save and is never made for the listener: a tap of its own (onCopy).
+        if (copyMayBeOffered && copy == CopyStep.Hidden && result.songs.any { !it.local }) {
+            copy = if (viewModel.onYouTubeMusic(year)) CopyStep.Added(0, 0) else CopyStep.Offer
         }
     }
 
@@ -146,7 +158,12 @@ internal class PlaylistFlow(
 internal fun rememberPlaylistFlow(shown: RecapShown, name: String, viewModel: RecapViewModel): PlaylistFlow {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    return remember(shown, name, viewModel) { PlaylistFlow(shown, name, viewModel, scope, copyMayBeOffered = context.mayPushToYouTube()) }
+    val flow = remember(shown, name, viewModel) { PlaylistFlow(shown, name, viewModel, scope, copyMayBeOffered = context.mayPushToYouTube()) }
+    // In the library as the Recap opens, with nothing to tap (RecapViewModel.putPlaylistIn).
+    val putIn by viewModel.playlist.collectAsState()
+    LaunchedEffect(shown, name) { viewModel.putPlaylistIn(shown, name) }
+    LaunchedEffect(flow, putIn) { putIn?.let(flow::took) }
+    return flow
 }
 
 /**

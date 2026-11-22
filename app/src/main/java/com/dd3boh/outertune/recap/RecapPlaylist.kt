@@ -17,8 +17,10 @@ import kotlinx.coroutines.ensureActive
 import java.time.LocalDateTime
 
 /**
- * "Save as a playlist" on the year's card: the year's most played songs as a playlist kept on the
- * phone, and, as a second and separate choice, a copy of it on YouTube Music.
+ * The year's playlist: its most played songs as a playlist kept on the phone, put in the library
+ * as the Recap opens, with nothing to tap (RecapViewModel.putPlaylistIn, 22 Nov 2026), "Save as a
+ * playlist" on the year's card when that did not work; and, as a second and separate choice, a copy
+ * of it on YouTube Music, which only a tap of its own makes.
  *
  * The songs are the Recap's own ranking ([Recap.ranking], the tops and the rest in one order), so
  * the playlist is what the Recap showed, most played first, and nothing is read from the song table

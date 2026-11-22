@@ -258,6 +258,21 @@ class RecapPlaylistTest {
         assertTrue("viewModelScope.launch(Dispatchers.IO) {\n            val result = try {\n                RecapPlaylist.putOnYouTubeMusic(" in model)
     }
 
+    @Test
+    fun `the playlist goes into the library as the Recap opens, and only the copy waits for a tap`() {
+        // His "the recap playlist needs to be added to the library, no questions asked", 22 Nov 2026.
+        val buttons = File(sources, "ui/screens/recap/RecapPlaylistButtons.kt").readText()
+        assertTrue("LaunchedEffect(shown, name) { viewModel.putPlaylistIn(shown, name) }" in buttons)
+        val model = File(sources, "viewmodels/RecapViewModel.kt").readText()
+        val putIn = model.substringAfter("fun putPlaylistIn(shown: RecapShown, name: String) {").substringBefore("\n    }\n")
+        assertTrue("once a year for this view model", "if (!putIn.add(year)) return" in putIn)
+        assertTrue("savePlaylist(shown, name)" in putIn)
+        assertFalse("putOnYouTubeMusic" in putIn)
+        // The copy on YouTube Music is made from one place only, the second button's tap.
+        assertEquals(1, Regex("""viewModel\.putOnYouTubeMusic\(""").findAll(buttons).count())
+        assertTrue("viewModel.putOnYouTubeMusic(" in buttons.substringAfter("fun onCopy() {").substringBefore("\n    }\n"))
+    }
+
     // ---- the second, separate choice: YouTube Music
 
     /** YouTube Music as the tests make it: what it was asked, and which songs it refuses. */
