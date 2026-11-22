@@ -140,6 +140,7 @@ import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.playback.PlayerConnection
 import com.dd3boh.outertune.together.RoomCode
+import com.dd3boh.outertune.together.RoomRole
 import com.dd3boh.outertune.together.TogetherSession
 import com.dd3boh.outertune.ui.utils.LocalLandscape
 import com.dd3boh.outertune.ui.utils.shrinkToFit
@@ -494,14 +495,20 @@ private fun RoomPage(room: TogetherSession, song: MediaMetadata?, onLeave: () ->
             )
         }
 
-        // Someone else leads: who, and for the owner the way back.
-        val leaderName = status.leaderName
-        if (!hostAway && !status.leading && leaderName != null) {
-            Spacer(Modifier.height(14.dp))
-            ControlRow(leaderName, canTakeBack = room.owner, onTakeBack = {
-                haptics.performHapticFeedback(HapticFeedbackType.Confirm)
-                room.takeBack()
-            })
+        // Who chooses the music and what this phone can do, in plain words (RoomRole); for the owner who gave control away, the
+        // way back as well.
+        val leaderName = status.leaderName ?: stringResource(R.string.together_someone)
+        when (RoomRole.of(room.owner, status.leading, hostAway, status.waitingForHost)) {
+            RoomRole.IN_CONTROL -> RoleLine(stringResource(R.string.together_role_in_control))
+            RoomRole.OWNER_GAVE -> {
+                Spacer(Modifier.height(14.dp))
+                ControlRow(leaderName, canTakeBack = true, onTakeBack = {
+                    haptics.performHapticFeedback(HapticFeedbackType.Confirm)
+                    room.takeBack()
+                })
+            }
+            RoomRole.GUEST -> RoleLine(stringResource(R.string.together_role_guest, leaderName))
+            null -> Unit
         }
 
         Spacer(Modifier.height(20.dp))
@@ -1188,6 +1195,13 @@ private fun Person(
             )
         }
     }
+}
+
+/** One or two plain lines on who chooses the music and what this phone can do. */
+@Composable
+private fun RoleLine(text: String) {
+    Spacer(Modifier.height(14.dp))
+    Text(text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
 }
 
 /** Someone else has control: who, and for the owner, the way to take it back. */
