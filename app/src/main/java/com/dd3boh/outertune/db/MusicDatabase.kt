@@ -8,6 +8,7 @@ import androidx.room.AutoMigration
 import androidx.room.Database
 import androidx.room.DeleteColumn
 import androidx.room.DeleteTable
+import androidx.room.InvalidationTracker
 import androidx.room.RenameColumn
 import androidx.room.Room
 import androidx.room.RoomDatabase
@@ -60,6 +61,16 @@ class MusicDatabase(
 ) : DatabaseDao by delegate.dao {
     val openHelper: SupportSQLiteOpenHelper
         get() = delegate.openHelper
+
+    /**
+     * Discover's heard set (EngineLoader.known), kept between builds until a table it is read from
+     * changes, as Room's own tracker reports it (EngineSql.KNOWN_SONGS_TABLES).
+     */
+    val heardKept = KeptUntilChanged<com.dd3boh.outertune.engine.HeardSet> { onChange ->
+        delegate.invalidationTracker.addObserver(object : InvalidationTracker.Observer(com.dd3boh.outertune.engine.EngineSql.KNOWN_SONGS_TABLES) {
+            override fun onInvalidated(tables: Set<String>) = onChange()
+        })
+    }
 
     /** Runs [block] inside one transaction on the calling thread, for a background job that must see its own writes before going on. */
     fun <T> transactionNow(block: MusicDatabase.() -> T): T = delegate.runInTransaction(java.util.concurrent.Callable { block() })

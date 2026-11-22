@@ -51,6 +51,13 @@ object EngineSql {
      * file. One query for a whole row or queue; the listen, event and playlist_song_map indexes on
      * songId serve the three lists.
      */
+    /**
+     * Every table [KNOWN_SONGS] reads, which MusicDatabase watches to drop the heard set it keeps
+     * between builds (KeptUntilChanged): a table added to the query goes here too
+     * (HeardKeptTest reads both).
+     */
+    val KNOWN_SONGS_TABLES = arrayOf("song", "song_artist_map", "artist", "listen", "event", "playlist_song_map")
+
     const val KNOWN_SONGS = """
         SELECT s.id, s.title, a.name AS artistName
         FROM song s

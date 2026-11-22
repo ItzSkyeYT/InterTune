@@ -140,11 +140,12 @@ object EngineLoader {
     const val REASON_GONE = 4
 
     /**
-     * Every song the listener knows, read once ([EngineSql.KNOWN_SONGS]): for a row that promises
-     * songs never heard, or shows "New to you", and for the queue of a Discover pick. Blocking, on
-     * the calling thread.
+     * Every song the listener knows ([EngineSql.KNOWN_SONGS]): for a row that promises songs never
+     * heard, or shows "New to you", and for the queue of a Discover pick. Read once and kept until a
+     * table it comes from changes (MusicDatabase.heardKept), since most builds come with nothing
+     * changed. Blocking, on the calling thread, when it has to read.
      */
-    fun known(database: MusicDatabase): HeardSet = HeardSet.of(database.knownSongs())
+    fun known(database: MusicDatabase): HeardSet = database.heardKept.get { HeardSet.of(database.knownSongs()) }
 
     /** The seeds column is a JSON array of ids; no library is needed to read one. */
     fun parseSeeds(json: String): List<String> =
