@@ -132,8 +132,9 @@ class RecapYearBlurTest {
         st.go(card, 0, How.ON)
         assertEquals(year.paper.paper, st.current.paper.paper)
         assertEquals(year.paper.ink, st.current.paper.ink)
+        // The page after it, whichever it is (the note to next year's you since 22 Nov 2026, then Thank you), its own paper.
         st.go(card + 1, 0, How.ON)
-        assertEquals(paperOf(SlideKind.THANKS).paper, st.current.paper.paper)
+        assertEquals(paperOf(slides[card].kind).paper, st.current.paper.paper)
     }
 
     @Test
