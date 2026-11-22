@@ -191,14 +191,14 @@ internal object Choreography {
         SlideKind.SKIPPED -> listOf(
             Poses(
                 0f, mapOf(
-                    A to pose(Paper.BLOB2, at = Spot.SKIP, dx = 10f, dy = 12f, s = 236f, r = -14f, c = listOf(Tomato, Orange), k = listOf(1f, 0.5f)),
-                    B to pose(Paper.STAR6, 382f, 96f, 58f, c = listOf(Sky), spin = 50f),
-                    C to pose(Paper.TRI, 34f, 640f, 74f, 90f, listOf(Ink)),
-                    D to pose(Paper.CIRCLE, 392f, 560f, 36f, c = listOf(Tomato)),
-                    F to pose(Paper.PILL, 408f, 330f, 112f, 64f, listOf(Sky)),
-                    R to pose(at = Spot.SKIP, s = 280f, w = 3f, c = listOf(Ink), o = 0.3f),
+                    A to pose(Paper.BLOB2, at = Spot.SKIP, s = 330f, r = -12f, c = listOf(Tomato, Orange), k = listOf(1f, 0.55f), spin = 80f),
+                    B to pose(Paper.STAR6, 388f, 352f, 48f, c = listOf(Sky), spin = 50f),
+                    C to pose(Paper.TRI, 372f, 470f, 66f, 90f, listOf(Ink)),
+                    D to pose(Paper.CIRCLE, 376f, 96f, 34f, c = listOf(Tomato)),
+                    F to pose(Paper.PILL, 26f, 128f, 92f, 40f, listOf(Sky)),
+                    R to pose(at = Spot.SKIP, s = 300f, w = 3f, c = listOf(Ink), o = 0.28f),
                     Q to hide,
-                    H to pose(x = 22f, y = 120f, s = 96f, c = listOf(Ink), o = 0.18f),
+                    H to pose(x = 384f, y = 650f, s = 96f, c = listOf(Ink), o = 0.16f),
                 )
             )
         )

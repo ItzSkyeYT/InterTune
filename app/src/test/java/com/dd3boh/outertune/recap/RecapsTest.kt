@@ -94,6 +94,7 @@ class RecapsTest {
         assertEquals("nope", k!!.songId)
         assertEquals(5, k.skips)
         assertEquals("played to the end twice all the same", 2, k.finished)
+        assertEquals("the next ones by the same rule, listed under it", listOf(SongSkips("meh", 3)), k.more)
     }
 
     @Test
@@ -126,6 +127,18 @@ class RecapsTest {
         assertEquals("disliked", recap(log).mostSkipped?.songId)
         val tie = variety(20, at(d, 8)) + (0 until 4).map { skip("even", at(d, 12, it * 2)) } + run("even", at(d, 13), 4)
         assertNull("as many skips as plays to the end is not kept skipping", recap(tie).mostSkipped)
+    }
+
+    @Test
+    fun `at most three more are listed, by the same rule`() {
+        val d = day(9, 1)
+        val names = listOf("a", "b", "c", "d", "e")
+        val log = variety(20, at(d, 8)) + names.flatMapIndexed { i, n -> (0 until 8 - i).map { skip(n, at(d, 10 + i, it * 2)) } } +
+            (0 until 9).map { skip("loved", at(d, 18, it * 2)) } + run("loved", at(d, 19), 12)
+        val k = recap(log).mostSkipped!!
+        assertEquals("a", k.songId)
+        assertEquals(listOf("b", "c", "d"), k.more.map { it.songId })
+        assertEquals(listOf(7, 6, 5), k.more.map { it.skips })
     }
 
     @Test

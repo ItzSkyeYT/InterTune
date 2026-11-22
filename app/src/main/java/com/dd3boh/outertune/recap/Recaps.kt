@@ -62,6 +62,9 @@ object Recaps {
     /** Skips a song needs to be the year's most skipped: fewer is chance, not a habit. */
     const val SKIPPED_MIN = 3
 
+    /** How many more skipped songs are listed under the one skipped most. */
+    const val SKIPPED_MORE = 3
+
     /** Recognised songs shown as covers beside their line. */
     const val RECOGNISED_SHOWN = 3
 
@@ -170,10 +173,10 @@ object Recaps {
             }
             EndReason.ENDED -> finished.merge(r.l.songId, 1, Int::plus)
         }
-        val song = skips.keys.filter { (skips[it] ?: 0) >= SKIPPED_MIN && (skips[it] ?: 0) > (finished[it] ?: 0) }
-            .maxWithOrNull(compareBy<String>({ skips[it] ?: 0 }, { -(finished[it] ?: 0) }, { lastSkip[it] ?: 0L }).thenByDescending { it })
-            ?: return null
-        return MostSkipped(song, skips[song] ?: 0, finished[song] ?: 0)
+        val ranked = skips.keys.filter { (skips[it] ?: 0) >= SKIPPED_MIN && (skips[it] ?: 0) > (finished[it] ?: 0) }
+            .sortedWith(compareByDescending<String> { skips[it] ?: 0 }.thenBy { finished[it] ?: 0 }.thenByDescending { lastSkip[it] ?: 0L }.thenBy { it })
+        val song = ranked.firstOrNull() ?: return null
+        return MostSkipped(song, skips[song] ?: 0, finished[song] ?: 0, ranked.drop(1).take(SKIPPED_MORE).map { SongSkips(it, skips[it] ?: 0) })
     }
 
     /** Each listen's time spread over the hours it ran through, from its start, as on the Stats page. */

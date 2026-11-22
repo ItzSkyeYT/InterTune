@@ -2826,6 +2826,12 @@
         <item quantity="other">Vous l\'avez quand même laissée finir %1$s fois.</item>
     </plurals>
     <string name="recap_skipped_never">Elle n\'est jamais allée jusqu\'au bout.</string>
+    <string name="recap_skipped_stamp">Zappée</string>
+    <plurals name="recap_skips">
+        <item quantity="one">%1$s fois zappée</item>
+        <item quantity="many">%1$s fois zappée</item>
+        <item quantity="other">%1$s fois zappée</item>
+    </plurals>
     <string name="recap_number_one_kick">Votre titre numéro un</string>
     <plurals name="recap_plays_unit" tools:ignore="ImpliedQuantity">
         <item quantity="one">lecture</item>

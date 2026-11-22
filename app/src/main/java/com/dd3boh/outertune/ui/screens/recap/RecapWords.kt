@@ -77,6 +77,7 @@ class RecapWords(private val context: Context, private val year: Int) {
     }
 
     fun plays(n: Int): String = context.resources.getQuantityString(R.plurals.recap_plays, n, number(n))
+    fun skips(n: Int): String = context.resources.getQuantityString(R.plurals.recap_skips, n, number(n))
 
     /**
      * The string [id] with its arguments put in, those marked true set in bold. The arguments are

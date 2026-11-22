@@ -1127,9 +1127,10 @@ private fun Dots(auto: AutoFinds, s: SlideScope, modifier: Modifier, maxHeight: 
 // ---- 6b: the one skipped most
 
 /**
- * The song moved on from most often (Recap.mostSkipped), its own song playing under it: the
- * cover, its title, the skips counting up in the slide's plum, and whether it was ever let play
- * to the end. Added 22 Nov 2026.
+ * The song moved on from most often (Recap.mostSkipped), its own song playing under it, in
+ * number one's layout but lighter (no wind-up, no confetti): the cover with a stamp on its corner,
+ * its title, the skips counting up in the slide's plum, whether it was ever let play to the end,
+ * and the next ones skipped most. Added 22 Nov 2026, the mock's v3 (his "feels empty underneath").
  */
 @Composable
 internal fun SkippedSlide(s: SlideScope) {
@@ -1139,29 +1140,51 @@ internal fun SkippedSlide(s: SlideScope) {
     val w = s.words
     val song = s.shown.song(k.songId)
     SlideColumn { room ->
-        Kick(stringResource(R.string.recap_skipped_kick), s)
-        val side = minOf(220.dp, room.width * 0.6f, room.height * 0.3f)
-        Box(Modifier.fillMaxWidth().padding(top = 10.dp, bottom = 12.dp).height(side + 24.dp), contentAlignment = Alignment.Center) {
-            Sticker(song?.cover, side, s, Modifier.anchor(s, Spot.SKIP), how = Entrance.SLAP, at = 1.2f, turn = 5f)
+        Kick(stringResource(R.string.recap_skipped_kick), s, at = 0.6f)
+        val side = minOf(240.dp, room.width * 0.62f, room.height * 0.3f)
+        Box(Modifier.fillMaxWidth().padding(top = 6.dp, bottom = 14.dp).height(side + 28.dp), contentAlignment = Alignment.Center) {
+            // In from the side, as a skipped song goes, and the stamp lands on its corner.
+            Sticker(song?.cover, side, s, Modifier.anchor(s, Spot.SKIP), how = Entrance.FLY, at = 1.2f, turn = 4f, fx = 420f, fy = 0f, fr = 24f)
+            Tag(
+                stringResource(R.string.recap_skipped_stamp), s, at = 2.4f, turn = -10f,
+                modifier = Modifier.align(Alignment.BottomCenter).offset(x = side * 0.3f, y = (-4).dp),
+            )
         }
-        Words(song?.title.orEmpty(), s, at = 2f, step = 0.2f, style = RecapType.h1.copy(fontSize = 30.sp, lineHeight = 1.em), colour = c.ink)
+        Words(song?.title.orEmpty(), s, at = 2.6f, step = 0.2f, style = RecapType.h1.copy(fontSize = 33.sp, lineHeight = 1.em), colour = c.ink)
         Text(
             song?.artists.orEmpty(), fontSize = 16.sp, lineHeight = 1.3.em, color = c.ink2, maxLines = 1, overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(top = 6.dp).enter(s, Entrance.UP, 2.6f),
+            modifier = Modifier.padding(top = 6.dp, bottom = 10.dp).enter(s, Entrance.UP, 3.2f),
         )
-        Grow(room)
-        Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Counted(k.skips.toLong(), s, at = 3f, land = 4.2f, style = RecapType.giant.copy(fontSize = 92.sp), colour = c.accent, format = { w.number(it) })
+        Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(bottom = 8.dp)) {
+            Counted(k.skips.toLong(), s, at = 3.4f, land = 5f, style = RecapType.giant.copy(fontSize = 92.sp), colour = c.accent, format = { w.number(it) })
             Text(
                 pluralStringResource(R.plurals.recap_skipped_times, k.skips),
-                style = RecapType.unit, color = c.ink, modifier = Modifier.padding(bottom = 16.dp).enter(s, Entrance.UP, 4f),
+                fontSize = 28.sp, fontWeight = FontWeight.Black, color = c.ink, modifier = Modifier.padding(bottom = 14.dp).enter(s, Entrance.UP, 3.6f),
             )
         }
         Text(
             if (k.finished > 0) pluralStringResource(R.plurals.recap_skipped_finished, k.finished, w.number(k.finished.toLong()))
             else stringResource(R.string.recap_skipped_never),
-            style = RecapType.line, color = c.ink, modifier = Modifier.padding(top = 4.dp).enter(s, Entrance.UP, 4.8f),
+            style = RecapType.line, color = c.ink, modifier = Modifier.enter(s, Entrance.UP, 4.2f),
         )
+        // The next ones, as the artists slide lists its next four.
+        if (k.more.isNotEmpty()) Column(Modifier.padding(top = 14.dp)) {
+            k.more.forEachIndexed { i, m ->
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier
+                        .height(50.dp)
+                        .enter(s, Entrance.FLY, 4.6f + i * 0.4f, fx = if (i % 2 == 1) -360f else 360f, fy = 0f, fr = if (i % 2 == 1) -12f else 12f),
+                ) {
+                    Text("${i + 2}", style = RecapType.tag.copy(fontSize = 24.sp), color = c.accent, modifier = Modifier.width(22.dp))
+                    Sticker(s.shown.song(m.songId)?.cover, 44.dp, s, how = null, turn = listOf(-5f, 4f, -3f)[i % 3])
+                    Text(s.shown.song(m.songId)?.title.orEmpty(), fontSize = 18.sp, fontWeight = FontWeight.Bold, color = c.ink, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                    Text(w.skips(m.skips), fontSize = 14.sp, color = c.ink2)
+                }
+            }
+        }
+        Grow(room)
     }
 }
 

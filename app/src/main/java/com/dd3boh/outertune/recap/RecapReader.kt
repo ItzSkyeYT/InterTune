@@ -106,6 +106,7 @@ object RecapReader {
             recap.auto?.let { add(it.stuck.songId) }
             recap.recognition?.let { addAll(it.songIds) }
             recap.newArtists?.bestFind?.let { add(it.topSongId) }
+            recap.mostSkipped?.let { k -> add(k.songId); k.more.mapTo(this) { it.songId } }
             addAll(recap.alsoPlayed)
         }.distinct()
         val songs = database.songsByIds(songIds).first().associate { it.id to shown(it) }

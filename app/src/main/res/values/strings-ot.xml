@@ -3006,6 +3006,12 @@ while also allowing users to translate our app as well. New, specific strings to
         <item quantity="other">You still let it finish %1$s times.</item>
     </plurals>
     <string name="recap_skipped_never" translatable="false">It never made it to the end.</string>
+    <!-- The stamp on the cover of the song skipped most, and each of the next ones' count. -->
+    <string name="recap_skipped_stamp" translatable="false">Skipped</string>
+    <plurals name="recap_skips" translatable="false">
+        <item quantity="one">%1$s skip</item>
+        <item quantity="other">%1$s skips</item>
+    </plurals>
     <string name="recap_number_one_kick" translatable="false">Your number one song</string>
     <plurals name="recap_plays_unit" translatable="false">
         <item quantity="one">play</item>

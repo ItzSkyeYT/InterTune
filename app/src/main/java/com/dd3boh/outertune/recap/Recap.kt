@@ -198,4 +198,13 @@ data class Rooms(val rooms: Int, val people: Int)
  * its skips, and how often it was played to the end all the same (EndReason.ENDED). Added
  * 22 Nov 2026.
  */
-data class MostSkipped(val songId: String, val skips: Int, val finished: Int)
+data class MostSkipped(
+    val songId: String,
+    val skips: Int,
+    val finished: Int,
+    /** The next ones by the same rule, at most [Recaps.SKIPPED_MORE], listed under it. */
+    val more: List<SongSkips> = emptyList(),
+)
+
+/** A song and how often it was skipped in the year. */
+data class SongSkips(val songId: String, val skips: Int)
