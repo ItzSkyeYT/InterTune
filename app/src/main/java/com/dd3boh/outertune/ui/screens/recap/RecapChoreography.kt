@@ -26,6 +26,7 @@ import com.dd3boh.outertune.ui.screens.recap.RecapInk.Plum
 import com.dd3boh.outertune.ui.screens.recap.RecapInk.Red
 import com.dd3boh.outertune.ui.screens.recap.RecapInk.Sky
 import com.dd3boh.outertune.ui.screens.recap.RecapInk.Sun
+import com.dd3boh.outertune.ui.screens.recap.RecapInk.Tomato
 import com.dd3boh.outertune.ui.screens.recap.RecapInk.Violet
 
 /** The parts of a slide a piece of paper can sit on. Each slide names its own (Modifier.anchor). */
@@ -39,6 +40,7 @@ internal object Spot {
     const val NUMERAL = "numeral"
     const val STAGE = "stage"
     const val HERO = "hero"
+    const val SKIP = "skip"
 }
 
 /** How a slide's sheet comes in over the last one. */
@@ -92,6 +94,7 @@ internal object Choreography {
         SlideKind.STREAK -> Sheet.Strips(7)
         SlideKind.ARTISTS -> Sheet.Grow(Paper.BLOB, at = -40f to 780f)
         SlideKind.ONLY_HERE -> Sheet.Grow(Paper.STAR8, from = A)
+        SlideKind.SKIPPED -> Sheet.Strips(6, vertical = true)
         SlideKind.COUNTDOWN -> if (step == 0) Sheet.Grow(Paper.SEAL, at = 207f to 368f) else Sheet.Strips(5, vertical = step % 2 == 1)
         SlideKind.NUMBER_ONE -> Sheet.Grow(Paper.CIRCLE, at = 207f to 300f)
         SlideKind.CARD -> Sheet.Grow(Paper.BURST, at = 207f to 214f)
@@ -182,6 +185,20 @@ internal object Choreography {
                     R to hide,
                     Q to hide,
                     H to hide,
+                )
+            )
+        )
+        SlideKind.SKIPPED -> listOf(
+            Poses(
+                0f, mapOf(
+                    A to pose(Paper.BLOB2, at = Spot.SKIP, dx = 10f, dy = 12f, s = 236f, r = -14f, c = listOf(Tomato, Orange), k = listOf(1f, 0.5f)),
+                    B to pose(Paper.STAR6, 382f, 96f, 58f, c = listOf(Sky), spin = 50f),
+                    C to pose(Paper.TRI, 34f, 640f, 74f, 90f, listOf(Ink)),
+                    D to pose(Paper.CIRCLE, 392f, 560f, 36f, c = listOf(Tomato)),
+                    F to pose(Paper.PILL, 408f, 330f, 112f, 64f, listOf(Sky)),
+                    R to pose(at = Spot.SKIP, s = 280f, w = 3f, c = listOf(Ink), o = 0.3f),
+                    Q to hide,
+                    H to pose(x = 22f, y = 120f, s = 96f, c = listOf(Ink), o = 0.18f),
                 )
             )
         )

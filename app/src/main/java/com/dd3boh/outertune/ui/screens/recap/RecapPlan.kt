@@ -12,7 +12,7 @@ import com.dd3boh.outertune.recap.RecapShown
 import com.dd3boh.outertune.recap.RecapSongShown
 
 /** The slides, in the mock's order. A slide the year has nothing for is left out. */
-enum class SlideKind { SINCE, MINUTES, HOUR, STREAK, ARTISTS, ONLY_HERE, COUNTDOWN, NUMBER_ONE, CARD, THANKS }
+enum class SlideKind { SINCE, MINUTES, HOUR, STREAK, ARTISTS, ONLY_HERE, SKIPPED, COUNTDOWN, NUMBER_ONE, CARD, THANKS }
 
 /**
  * One slide: the length the piece of its song is cut to for each of its [steps] (0, the last one,
@@ -53,6 +53,8 @@ fun planSlides(shown: RecapShown): List<Slide> {
             val song = r.auto?.stuck?.songId ?: r.recognition?.songIds?.firstOrNull()
             add(Slide(SlideKind.ONLY_HERE, 12_000, songAt = { shown.song(song) ?: shown.song(top.songId) }))
         }
+        // The one skipped most, its own song under it, before the countdown to number one.
+        r.mostSkipped?.let { k -> add(Slide(SlideKind.SKIPPED, 10_000, songAt = { shown.song(k.songId) })) }
         if (r.topSongs.size >= 2) {
             // Step 0 is the last of the top songs, the last step number two.
             add(Slide(SlideKind.COUNTDOWN, 6_500, steps = r.topSongs.size - 1, songAt = { step -> shown.song(r.topSongs[r.topSongs.lastIndex - step].songId) }))

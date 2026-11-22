@@ -113,6 +113,7 @@ internal fun paperOf(kind: SlideKind, step: Int = 0): SlidePaper = with(RecapInk
         SlideKind.STREAK -> SlidePaper(Mint, Ink, Violet, Cream)
         SlideKind.ARTISTS -> SlidePaper(Plum, Cream, Lemon, Ink, listOf(Pink, Lemon))
         SlideKind.ONLY_HERE -> SlidePaper(Red, Ink, Cream, Ink, listOf(Cream, Lemon))
+        SlideKind.SKIPPED -> SlidePaper(Lemon, Ink, Plum, Cream, listOf(Tomato, Sky))
         SlideKind.COUNTDOWN -> SlidePaper(COUNTDOWN_COLOURS[step.coerceIn(0, COUNTDOWN_COLOURS.lastIndex)].paper, Ink, Ink, Cream, listOf(Lemon, Blue))
         SlideKind.NUMBER_ONE -> SlidePaper(Ink, Cream, Lemon, Ink, listOf(Lemon, Pink))
         SlideKind.CARD -> SlidePaper(Cream, Ink, Ink, Cream, listOf(Blue, Lemon))

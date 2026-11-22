@@ -9,6 +9,7 @@ package com.dd3boh.outertune.ui.screens.recap
 import com.dd3boh.outertune.recap.AutoFinds
 import com.dd3boh.outertune.recap.DayAmount
 import com.dd3boh.outertune.recap.FirstSong
+import com.dd3boh.outertune.recap.MostSkipped
 import com.dd3boh.outertune.recap.Recap
 import com.dd3boh.outertune.recap.RecapPiece
 import com.dd3boh.outertune.recap.RecapShown
@@ -50,6 +51,24 @@ class RecapPlanTest {
     }
 
     private fun plan(r: Recap) = planSlides(shown(r))
+
+    @Test
+    fun `the song skipped most comes after what only InterTune has and before the countdown, its own song under it`() {
+        val r = recap().copy(mostSkipped = MostSkipped("skippy", 23, 4))
+        val ids = listOf("first", "long", "evening", "streaky", "found", "skippy") + r.topSongs.map { it.songId }
+        val slides = planSlides(RecapShown(r, ids.associateWith { RecapSongShown(it, it.uppercase(), "Someone", null, 200) }, emptyMap()))
+        val kinds = slides.map { it.kind }
+        assertEquals(kinds.indexOf(SlideKind.ONLY_HERE) + 1, kinds.indexOf(SlideKind.SKIPPED))
+        assertEquals(kinds.indexOf(SlideKind.SKIPPED) + 1, kinds.indexOf(SlideKind.COUNTDOWN))
+        val skipped = slides.single { it.kind == SlideKind.SKIPPED }
+        assertEquals("skippy", skipped.song(0)?.id)
+        assertEquals(10_000L, skipped.ms)
+    }
+
+    @Test
+    fun `a year with no song skipped three times has no such slide`() {
+        assertEquals(false, plan(recap()).any { it.kind == SlideKind.SKIPPED })
+    }
 
     @Test
     fun `a full year has the mock's ten slides in its order, each with its song`() {

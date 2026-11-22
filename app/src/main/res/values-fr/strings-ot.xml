@@ -2814,6 +2814,18 @@
     <string name="recap_line_in_a_row">%1$s fois d\'affilée le %2$s.</string>
     <string name="recap_line_best_day">%1$s lectures le %2$s, son plus grand jour.</string>
     <string name="recap_line_first">Écouté pour la première fois le %1$s.</string>
+    <string name="recap_skipped_kick">Celle que vous zappiez sans arrêt</string>
+    <plurals name="recap_skipped_times" tools:ignore="ImpliedQuantity">
+        <item quantity="one">fois zappée</item>
+        <item quantity="many">fois zappée</item>
+        <item quantity="other">fois zappée</item>
+    </plurals>
+    <plurals name="recap_skipped_finished">
+        <item quantity="one">Vous l\'avez quand même laissée finir %1$s fois.</item>
+        <item quantity="many">Vous l\'avez quand même laissée finir %1$s fois.</item>
+        <item quantity="other">Vous l\'avez quand même laissée finir %1$s fois.</item>
+    </plurals>
+    <string name="recap_skipped_never">Elle n\'est jamais allée jusqu\'au bout.</string>
     <string name="recap_number_one_kick">Votre titre numéro un</string>
     <plurals name="recap_plays_unit" tools:ignore="ImpliedQuantity">
         <item quantity="one">lecture</item>

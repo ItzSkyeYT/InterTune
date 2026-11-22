@@ -81,7 +81,7 @@ class RecapLookTest {
     @Test
     fun `two slides one after the other never share a paper`() {
         val order = listOf(START_PAPER, paperOf(SlideKind.SINCE), paperOf(SlideKind.MINUTES), paperOf(SlideKind.HOUR), paperOf(SlideKind.STREAK),
-            paperOf(SlideKind.ARTISTS), paperOf(SlideKind.ONLY_HERE)) +
+            paperOf(SlideKind.ARTISTS), paperOf(SlideKind.ONLY_HERE), paperOf(SlideKind.SKIPPED)) +
             COUNTDOWN_COLOURS.indices.map { paperOf(SlideKind.COUNTDOWN, it) } +
             listOf(paperOf(SlideKind.NUMBER_ONE), paperOf(SlideKind.CARD), paperOf(SlideKind.THANKS))
         order.zipWithNext().forEach { (a, b) -> assertNotEquals(a.paper, b.paper) }

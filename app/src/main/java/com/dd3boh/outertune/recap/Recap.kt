@@ -90,6 +90,8 @@ data class Recap(
      * Recap built by hand.
      */
     val ranking: List<String> = emptyList(),
+    /** The song skipped most often this year, when one was skipped [Recaps.SKIPPED_MIN] times or more. */
+    val mostSkipped: MostSkipped? = null,
 ) {
     /** How many days the Recap covers. */
     val days: Int get() = (lastDay - sinceDay + 1).toInt()
@@ -190,3 +192,10 @@ data class Recognitions(
 )
 
 data class Rooms(val rooms: Int, val people: Int)
+
+/**
+ * The song the listener moved on from before its end most often this year (EndReason.SKIPPED):
+ * its skips, and how often it was played to the end all the same (EndReason.ENDED). Added
+ * 22 Nov 2026.
+ */
+data class MostSkipped(val songId: String, val skips: Int, val finished: Int)

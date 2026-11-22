@@ -80,6 +80,52 @@ class RecapsTest {
 
     private fun recap(listens: List<RecapListen>) = Recaps.compute(input(listens))!!
 
+    // ---- the song skipped most (22 Nov 2026)
+
+    @Test
+    fun `the song skipped most is the one moved on from most often, with how often it still finished`() {
+        val d = day(9, 1)
+        val log = variety(20, at(d, 8)) +
+            (0 until 5).map { skip("nope", at(d, 12, it * 2)) } +
+            run("nope", at(d, 13), 2) +
+            (0 until 3).map { skip("meh", at(d, 14, it * 2)) }
+        val k = recap(log).mostSkipped
+        assertNotNull(k)
+        assertEquals("nope", k!!.songId)
+        assertEquals(5, k.skips)
+        assertEquals("played to the end twice all the same", 2, k.finished)
+    }
+
+    @Test
+    fun `fewer than three skips of any song makes no such slide`() {
+        val d = day(9, 1)
+        val log = variety(20, at(d, 8)) + (0 until Recaps.SKIPPED_MIN - 1).map { skip("nope", at(d, 12, it * 2)) }
+        assertNull(recap(log).mostSkipped)
+    }
+
+    @Test
+    fun `on equal skips the one finished the fewest times wins, then the one skipped last`() {
+        val d = day(9, 1)
+        val evenly = variety(20, at(d, 8)) +
+            (0 until 4).map { skip("finished once", at(d, 12, it * 2)) } + run("finished once", at(d, 13), 1) +
+            (0 until 4).map { skip("never finished", at(d, 14, it * 2)) }
+        assertEquals("never finished", recap(evenly).mostSkipped?.songId)
+        assertEquals(0, recap(evenly).mostSkipped?.finished)
+        val later = variety(20, at(d, 8)) +
+            (0 until 3).map { skip("early", at(d, 12, it * 2)) } +
+            (0 until 3).map { skip("late", at(day(9, 2), 12, it * 2)) }
+        assertEquals("late", recap(later).mostSkipped?.songId)
+    }
+
+    @Test
+    fun `skips from before the year do not count`() {
+        val log = (0 until 6).map { skip("last year", at(day(12, 20, 2025), 12, it * 2)) } +
+            variety(20, at(day(9, 1), 8)) +
+            (0 until 3).map { skip("this year", at(day(9, 1), 12, it * 2)) }
+        assertEquals("this year", recap(log).mostSkipped?.songId)
+        assertEquals(3, recap(log).mostSkipped?.skips)
+    }
+
     // ---- whether there is a Recap at all
 
     @Test

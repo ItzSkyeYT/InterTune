@@ -1124,6 +1124,47 @@ private fun Dots(auto: AutoFinds, s: SlideScope, modifier: Modifier, maxHeight: 
     }
 }
 
+// ---- 6b: the one skipped most
+
+/**
+ * The song moved on from most often (Recap.mostSkipped), its own song playing under it: the
+ * cover, its title, the skips counting up in the slide's plum, and whether it was ever let play
+ * to the end. Added 22 Nov 2026.
+ */
+@Composable
+internal fun SkippedSlide(s: SlideScope) {
+    val r = s.shown.recap
+    val k = r.mostSkipped ?: return
+    val c = s.paper
+    val w = s.words
+    val song = s.shown.song(k.songId)
+    SlideColumn { room ->
+        Kick(stringResource(R.string.recap_skipped_kick), s)
+        val side = minOf(220.dp, room.width * 0.6f, room.height * 0.3f)
+        Box(Modifier.fillMaxWidth().padding(top = 10.dp, bottom = 12.dp).height(side + 24.dp), contentAlignment = Alignment.Center) {
+            Sticker(song?.cover, side, s, Modifier.anchor(s, Spot.SKIP), how = Entrance.SLAP, at = 1.2f, turn = 5f)
+        }
+        Words(song?.title.orEmpty(), s, at = 2f, step = 0.2f, style = RecapType.h1.copy(fontSize = 30.sp, lineHeight = 1.em), colour = c.ink)
+        Text(
+            song?.artists.orEmpty(), fontSize = 16.sp, lineHeight = 1.3.em, color = c.ink2, maxLines = 1, overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(top = 6.dp).enter(s, Entrance.UP, 2.6f),
+        )
+        Grow(room)
+        Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Counted(k.skips.toLong(), s, at = 3f, land = 4.2f, style = RecapType.giant.copy(fontSize = 92.sp), colour = c.accent, format = { w.number(it) })
+            Text(
+                pluralStringResource(R.plurals.recap_skipped_times, k.skips),
+                style = RecapType.unit, color = c.ink, modifier = Modifier.padding(bottom = 16.dp).enter(s, Entrance.UP, 4f),
+            )
+        }
+        Text(
+            if (k.finished > 0) pluralStringResource(R.plurals.recap_skipped_finished, k.finished, w.number(k.finished.toLong()))
+            else stringResource(R.string.recap_skipped_never),
+            style = RecapType.line, color = c.ink, modifier = Modifier.padding(top = 4.dp).enter(s, Entrance.UP, 4.8f),
+        )
+    }
+}
+
 // ---- 7: the countdown
 
 @Composable

@@ -2995,6 +2995,17 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="recap_line_in_a_row" translatable="false">%1$s times in a row on %2$s.</string>
     <string name="recap_line_best_day" translatable="false">%1$s plays on %2$s, its biggest day.</string>
     <string name="recap_line_first" translatable="false">First played on %1$s.</string>
+    <!-- The Recap's slide of the song skipped most (SkippedSlide): its kicker, the unit after the count, and whether it was ever let finish. -->
+    <string name="recap_skipped_kick" translatable="false">The one you kept skipping</string>
+    <plurals name="recap_skipped_times" translatable="false">
+        <item quantity="one">skip</item>
+        <item quantity="other">skips</item>
+    </plurals>
+    <plurals name="recap_skipped_finished" translatable="false">
+        <item quantity="one">You still let it finish once.</item>
+        <item quantity="other">You still let it finish %1$s times.</item>
+    </plurals>
+    <string name="recap_skipped_never" translatable="false">It never made it to the end.</string>
     <string name="recap_number_one_kick" translatable="false">Your number one song</string>
     <plurals name="recap_plays_unit" translatable="false">
         <item quantity="one">play</item>
