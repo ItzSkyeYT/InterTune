@@ -2021,7 +2021,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="dev_key_set" translatable="false">Set, so your spanner shows in rooms</string>
     <string name="dev_key_not_set" translatable="false">Not set</string>
     <string name="dev_key_paste" translatable="false">Paste the key</string>
-    <string name="dev_key_wrong" translatable="false">That's not the developer key</string>
+    <string name="dev_key_wrong" translatable="false">That\'s not the developer key</string>
     <string name="dev_key_remove" translatable="false">Remove</string>
     <string name="stats_nothing_played">Nothing was played in this period.</string>
     <string name="sort_order_ascending">Ascending order</string>
@@ -2811,7 +2811,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="together_you">You</string>
     <string name="together_host">Host</string>
     <!-- Read out by TalkBack for the spanner on the circle of the app's developer in a room's people list (DevBadge). -->
-    <string name="together_developer">InterTune's developer</string>
+    <string name="together_developer">InterTune\'s developer</string>
     <string name="together_behind">Behind</string>
     <string name="together_ahead">Ahead</string>
     <string name="together_nothing_playing">Nothing playing yet</string>
@@ -2844,7 +2844,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="together_youre_in">You\'re in the room</string>
     <string name="together_someone_joined">%1$s joined the room</string>
     <!-- Said to the host when the app's developer joins, proven by his key (DevBadge): his name. -->
-    <string name="together_dev_joined">%1$s, InterTune's developer, joined the room</string>
+    <string name="together_dev_joined">%1$s, InterTune\'s developer, joined the room</string>
     <string name="together_someone">Someone</string>
     <string name="together_close_room">Close the room</string>
     <string name="together_song_unavailable">This song isn\'t available to you. You\'ll hear the host\'s next one.</string>
