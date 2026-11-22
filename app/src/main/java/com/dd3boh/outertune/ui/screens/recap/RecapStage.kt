@@ -262,9 +262,26 @@ internal class RecapStage(private val slides: List<Slide>, val still: Boolean, s
         return end
     }
 
-    /** How long [page] stays before the story moves on by itself: it settles, then rests. 0 for the thank-you page, which stays until it is left. */
-    fun lengthOf(page: PageState): Long =
-        if (page.at == 0 || slides[page.at - 1].ms <= 0L) 0L else settleOf(page) + RecapMotion.REST_MS
+    /**
+     * A note being written to next year's you (NOTE_WRITE): told by the story at every frame. While
+     * it is, the page stays until it is left; once let go of, it rests again from then.
+     */
+    var writing = false
+        set(value) {
+            if (field && !value) restFrom = clock.now
+            field = value
+        }
+    private var restFrom = -1L
+
+    /**
+     * How long [page] stays before the story moves on by itself: it settles, then rests. 0 for the
+     * thank-you page, which stays until it is left, and for the note's page while it is written.
+     */
+    fun lengthOf(page: PageState): Long = when {
+        page.at == 0 || slides[page.at - 1].ms <= 0L -> 0L
+        writing && page.kind == SlideKind.NOTE_WRITE -> 0L
+        else -> max(settleOf(page), restFrom - page.start) + RecapMotion.REST_MS
+    }
 
     private class Job(val at: Long, val visit: Int, val run: () -> Unit)
     private val jobs = mutableListOf<Job>()

@@ -108,6 +108,8 @@ internal val START_PAPER = SlidePaper(RecapInk.Red, RecapInk.Ink, RecapInk.Ink, 
 internal fun paperOf(kind: SlideKind, step: Int = 0): SlidePaper = with(RecapInk) {
     when (kind) {
         SlideKind.SINCE -> SlidePaper(Blue, Cream, Lemon, Ink, listOf(Lemon, Pink))
+        // Lilac, not the mock's pink: the minutes' pink comes right after it.
+        SlideKind.NOTE_READ -> SlidePaper(Lilac, Ink, Ink, Cream, listOf(Lemon, Blue))
         SlideKind.MINUTES -> SlidePaper(Pink, Ink, Lemon, Ink, listOf(Lemon, Violet))
         SlideKind.HOUR -> SlidePaper(Orange, Ink, Plum, Cream, listOf(Plum, Lemon))
         SlideKind.STREAK -> SlidePaper(Mint, Ink, Violet, Cream)
@@ -119,6 +121,7 @@ internal fun paperOf(kind: SlideKind, step: Int = 0): SlidePaper = with(RecapInk
         SlideKind.COUNTDOWN -> SlidePaper(COUNTDOWN_COLOURS[step.coerceIn(0, COUNTDOWN_COLOURS.lastIndex)].paper, Ink, Ink, Cream, listOf(Lemon, Blue))
         SlideKind.NUMBER_ONE -> SlidePaper(Ink, Cream, Lemon, Ink, listOf(Lemon, Pink))
         SlideKind.CARD -> SlidePaper(Cream, Ink, Ink, Cream, listOf(Blue, Lemon))
+        SlideKind.NOTE_WRITE -> SlidePaper(Lemon, Ink, Plum, Cream, listOf(Plum, Sky))
         SlideKind.THANKS -> SlidePaper(Red, Ink, Ink, Cream, listOf(Pink, Lemon))
     }
 }

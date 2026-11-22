@@ -51,6 +51,10 @@ import kotlin.random.Random
  *
  *     adb shell am broadcast -a dev.skye.intertune.debug.RECAP_SAMPLE -p dev.skye.intertune.debug [--ez reveal true] [--ez open true]
  *
+ * With `--es note "<text>"` instead, it only seals that text as last year's note to this year's
+ * Recap (RecapNote), written a year ago today, and opens the Recap with open: the slide "A note
+ * from your past self" can be seen on a phone that has none.
+ *
  * It finds about thirty well-known songs by name with the import's own anonymous search (a
  * search each, a second and a half apart), keeps the songs each search lists after the first as
  * well, and writes listens of them from June to yesterday: an evening habit, a long streak, a
@@ -103,6 +107,16 @@ object RecapSample {
                 val ear = intent.getBooleanExtra("ear", false)
                 // A year of the phone's own files, those already scanned, instead of songs found on YouTube (local listeners, 22 Nov 2026).
                 val local = intent.getBooleanExtra("local", false)
+                // A note sealed for last year's Recap, written a year ago today, so that this year's opens with it (NOTE_READ): nothing else is written.
+                intent.getStringExtra("note")?.let { text ->
+                    scope.launch {
+                        val year = LocalDate.now().year - 1
+                        val kept = RecapNote.save(app, year, text, LocalDate.now().minusYears(1).toEpochDay())
+                        Log.i(TAG, "note for $year ${if (kept) "sealed" else "NOT sealed"}: done")
+                        if (kept && open) RecapDoor.open(LocalDate.now().year)
+                    }
+                    return
+                }
                 // One file's loudest stretch, for the emulator (RecapChorus): nothing is written.
                 intent.getStringExtra("chorus")?.let { path ->
                     scope.launch {

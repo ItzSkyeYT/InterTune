@@ -80,11 +80,13 @@ class RecapLookTest {
 
     @Test
     fun `two slides one after the other never share a paper`() {
-        val order = listOf(START_PAPER, paperOf(SlideKind.SINCE), paperOf(SlideKind.MINUTES), paperOf(SlideKind.HOUR), paperOf(SlideKind.STREAK),
+        val order = listOf(START_PAPER, paperOf(SlideKind.SINCE), paperOf(SlideKind.NOTE_READ), paperOf(SlideKind.MINUTES), paperOf(SlideKind.HOUR), paperOf(SlideKind.STREAK),
             paperOf(SlideKind.ARTISTS), paperOf(SlideKind.ONLY_HERE), paperOf(SlideKind.SKIPPED)) +
             COUNTDOWN_COLOURS.indices.map { paperOf(SlideKind.COUNTDOWN, it) } +
-            listOf(paperOf(SlideKind.NUMBER_ONE), paperOf(SlideKind.CARD), paperOf(SlideKind.THANKS))
+            listOf(paperOf(SlideKind.NUMBER_ONE), paperOf(SlideKind.CARD), paperOf(SlideKind.NOTE_WRITE), paperOf(SlideKind.THANKS))
         order.zipWithNext().forEach { (a, b) -> assertNotEquals(a.paper, b.paper) }
+        // Last year's note can be missing: the first slide and the minutes then meet.
+        assertNotEquals(paperOf(SlideKind.SINCE).paper, paperOf(SlideKind.MINUTES).paper)
         // The first slide is the tunnel's core, blue, so the start screen opens straight into it.
         assertEquals(Choreography.start.single().set.getValue(ActorId.A).c.last(), paperOf(SlideKind.SINCE).paper)
     }

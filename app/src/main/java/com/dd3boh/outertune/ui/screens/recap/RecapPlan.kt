@@ -11,8 +11,12 @@ import com.dd3boh.outertune.recap.RecapPiece
 import com.dd3boh.outertune.recap.RecapShown
 import com.dd3boh.outertune.recap.RecapSongShown
 
-/** The slides, in the mock's order. A slide the year has nothing for is left out. */
-enum class SlideKind { SINCE, MINUTES, HOUR, STREAK, ARTISTS, ONLY_HERE, WHERE_FROM, SKIPPED, COUNTDOWN, NUMBER_ONE, CARD, THANKS }
+/**
+ * The slides, in the mock's order. A slide the year has nothing for is left out. NOTE_READ, last
+ * year's note to this year's you, comes only when one was sealed; NOTE_WRITE, the note to next
+ * year's you, always comes just before the thank-you page (his add of 22 Nov 2026, RecapNote).
+ */
+enum class SlideKind { SINCE, NOTE_READ, MINUTES, HOUR, STREAK, ARTISTS, ONLY_HERE, WHERE_FROM, SKIPPED, COUNTDOWN, NUMBER_ONE, CARD, NOTE_WRITE, THANKS }
 
 /**
  * One slide: the length the piece of its song is cut to for each of its [steps] (0, the last one,
@@ -37,6 +41,8 @@ fun planSlides(shown: RecapShown): List<Slide> {
     val top = r.topSongs.first()
     return buildList {
         add(Slide(SlideKind.SINCE, 9_000, songAt = { shown.song(r.firstSong.songId) }))
+        // Last year's note, under the first song still: as long as its words take to read.
+        shown.pastNote?.let { n -> add(Slide(SlideKind.NOTE_READ, 10_000 + noteReadMs(n.text), songAt = { shown.song(r.firstSong.songId) }, coverAt = { null })) }
         add(Slide(SlideKind.MINUTES, 10_000, songAt = { shown.song(r.mostTime?.songId ?: top.songId) }))
         add(Slide(SlideKind.HOUR, 10_000, songAt = { shown.song(r.peakSong.songId) }))
         r.streak?.let { s -> add(Slide(SlideKind.STREAK, 10_000, songAt = { shown.song(s.songId) })) }
@@ -64,9 +70,17 @@ fun planSlides(shown: RecapShown): List<Slide> {
         }
         add(Slide(SlideKind.NUMBER_ONE, 12_000, songAt = { shown.song(top.songId) }))
         add(Slide(SlideKind.CARD, 12_000, songAt = { shown.song(top.songId) }))
+        // The note to next year's you, under number two as in the mock (number one where there is none).
+        add(Slide(SlideKind.NOTE_WRITE, 12_000, songAt = { shown.song((r.topSongs.getOrNull(1) ?: top).songId) }, coverAt = { null }))
         add(Slide(SlideKind.THANKS, 0, songAt = { shown.song(r.firstSong.songId) }, coverAt = { null }))
     }
 }
+
+/**
+ * How long a note takes to read, beyond the time its paper takes to land: about 55 ms a letter, a
+ * slow reader's pace, never less than 3 s. The slide then rests 7 s more, as every slide does.
+ */
+fun noteReadMs(text: String): Long = maxOf(3_000L, text.length * 55L)
 
 /** The story's pages as its sound goes through them (RecapSound): each slide, each of the countdown's steps. */
 fun storyPages(slides: List<Slide>): List<RecapPage> =
