@@ -84,6 +84,8 @@ import com.dd3boh.outertune.utils.ReportFeed
 import com.dd3boh.outertune.utils.RunLogs
 import com.dd3boh.outertune.utils.Scrobbler
 import com.dd3boh.outertune.utils.LocalArtworkPathKeyer
+import com.dd3boh.outertune.ui.screens.recap.RecapCoverFetcher
+import com.dd3boh.outertune.ui.screens.recap.RecapMadeCoverKeyer
 import com.dd3boh.outertune.utils.dataStore
 import com.dd3boh.outertune.utils.get
 import com.dd3boh.outertune.utils.mayPushToYouTube
@@ -362,6 +364,9 @@ class App : Application(), SingletonImageLoader.Factory {
                 .components {
                     add(CoilBitmapLoader.Factory(this@App))
                     add(LocalArtworkPathKeyer())
+                    // The Recap's covers for songs that may have none (RecapMadeCover).
+                    add(RecapCoverFetcher.Factory(this@App))
+                    add(RecapMadeCoverKeyer())
                 // A downloaded song's kept cover, served from the app's own storage: see DownloadCovers.
                 add(DownloadCovers.Interceptor(filesDir))
                 }
@@ -381,6 +386,9 @@ class App : Application(), SingletonImageLoader.Factory {
             .components {
                 add(CoilBitmapLoader.Factory(this@App))
                 add(LocalArtworkPathKeyer())
+                // The Recap's covers for songs that may have none (RecapMadeCover).
+                add(RecapCoverFetcher.Factory(this@App))
+                add(RecapMadeCoverKeyer())
                 // A downloaded song's kept cover, served from the app's own storage: see DownloadCovers.
                 add(DownloadCovers.Interceptor(filesDir))
             }

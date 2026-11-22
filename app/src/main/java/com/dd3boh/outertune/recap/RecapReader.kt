@@ -22,7 +22,7 @@ import java.time.ZonedDateTime
  * A song as the Recap shows it. [cover] is what the image loader is handed; [durationS] is -1 when
  * unknown; [local] for a file on the phone, which has no heat map to start it from (RecapHeat).
  */
-data class RecapSongShown(val id: String, val title: String, val artists: String, val cover: Any?, val durationS: Int, val local: Boolean = false)
+data class RecapSongShown(val id: String, val title: String, val artists: String, val cover: Any?, val durationS: Int, val local: Boolean = false, val path: String? = null)
 
 data class RecapArtistShown(val id: String, val name: String, val picture: String?)
 
@@ -122,9 +122,16 @@ object RecapReader {
         id = song.id,
         title = song.song.title,
         artists = song.artists.joinToString(", ") { it.name },
-        cover = if (song.song.isLocal) song.song.getThumbnailModel(COVER_PX, COVER_PX) else song.song.thumbnailUrl?.resize(COVER_PX, COVER_PX),
+        // A file, or a song with no picture's address: its own picture, its folder's, or one the Recap makes (RecapMadeCover).
+        cover = if (song.song.isLocal || song.song.thumbnailUrl == null) {
+            RecapMadeCover(song.song.title, song.artists.joinToString(", ") { it.name }, if (song.song.isLocal) song.song.thumbnailUrl ?: song.song.localPath else null)
+        } else {
+            song.song.thumbnailUrl.resize(COVER_PX, COVER_PX)
+        },
         durationS = song.song.duration,
         local = song.song.isLocal,
+        // The file, where the Recap hears for its loudest stretch (RecapChorus).
+        path = if (song.song.isLocal) song.song.localPath else null,
     )
 
     private fun shown(artist: ArtistEntity) = RecapArtistShown(artist.id, artist.name, artist.thumbnailUrl?.resize(FACE_PX, FACE_PX))

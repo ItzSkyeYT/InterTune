@@ -197,9 +197,10 @@ class SessionBitmapLoader(
     }.getOrDefault(false)
 
     /**
-     * The picture inside the file at [path], decoded no larger than the system keeps, or null if
-     * the file has none. Read here rather than through Coil, whose reader for files hands back the
-     * app's logo for a file with no picture, as if it were the cover.
+     * The picture inside the file at [path], or else its folder's cover (LocalCovers), decoded no
+     * larger than the system keeps, or null if it has neither. Read here rather than through Coil,
+     * whose reader for files hands back the app's placeholder for a file with no picture, as if it
+     * were the cover.
      */
     private fun embedded(path: String): Bitmap? {
         val picture = runCatching {
@@ -210,7 +211,9 @@ class SessionBitmapLoader(
             } finally {
                 retriever.release()
             }
-        }.getOrNull() ?: return null
+        }.getOrNull()
+            // None of its own: its folder's cover, as the app's screens show it.
+            ?: return LocalCovers.of(context, path, artPx)
         return decodeSampled(picture, artPx)
     }
 }
