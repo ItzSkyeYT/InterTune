@@ -221,6 +221,9 @@ fun Thumbnail(
                             contentDescription = null,
                             modifier = Modifier.fillMaxSize()
                         )
+                        // In a room, YouTube Music's version of a file on the phone in control: a quiet tag over the cover,
+                        // inside its square, so nothing of the player moves (RoomVersionTag).
+                        RoomVersionTag(mediaMetadata?.id, Modifier.align(Alignment.BottomStart))
                     }
                 }
             }
