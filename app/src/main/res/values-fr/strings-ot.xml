@@ -2578,6 +2578,7 @@
     <string name="together_people">Dans le salon</string>
     <string name="together_you">Vous</string>
     <string name="together_host">Hôte</string>
+    <string name="together_developer">Développeur d'InterTune</string>
     <string name="together_behind">En retard</string>
     <string name="together_ahead">En avance</string>
     <string name="together_nothing_playing">Rien en lecture pour l\'instant</string>
@@ -2607,6 +2608,7 @@
     <string name="together_joining">Connexion au salon</string>
     <string name="together_youre_in">Vous êtes dans le salon</string>
     <string name="together_someone_joined">%1$s a rejoint le salon</string>
+    <string name="together_dev_joined">%1$s, le développeur d'InterTune, a rejoint le salon</string>
     <string name="together_someone">Quelqu\'un</string>
     <string name="together_close_room">Fermer le salon</string>
     <string name="together_song_unavailable">Ce titre n\'est pas disponible pour vous. Vous entendrez le suivant de l\'hôte.</string>

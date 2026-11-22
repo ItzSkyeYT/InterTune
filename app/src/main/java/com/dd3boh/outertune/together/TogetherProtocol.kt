@@ -13,6 +13,7 @@ import kotlinx.serialization.json.addJsonObject
 import kotlinx.serialization.json.boolean
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.double
 import kotlinx.serialization.json.int
 import kotlinx.serialization.json.intOrNull
@@ -60,11 +61,12 @@ sealed interface TogetherMessage {
      * is not taken after a newer one (LeadWord). Null from builds before 22 Nov 2026, taken as ever.
      * And the owner's [settings], who may do what (RoomSettings): null from anyone else, and from
      * an owner on an older build. [arranges]: this phone, given control, takes a guest's change to
-     * the queue ([Arrange]), which a build before this one drops.
+     * the queue ([Arrange]), which a build before this one drops. [dev]: the proof that this phone is
+     * InterTune's developer's (DevBadge), from his phones alone; a build before this one ignores it.
      */
     data class Here(
         val name: String, val owner: Boolean, val lead: String? = null, val leadSince: Long? = null,
-        val settings: RoomSettings? = null, val arranges: Boolean = false,
+        val settings: RoomSettings? = null, val arranges: Boolean = false, val dev: String? = null,
     ) : TogetherMessage
 
     /**
@@ -126,6 +128,8 @@ sealed interface TogetherMessage {
         const val HERE_MS = 10_000L
         /** How many songs of the leader's queue travel, the one playing first. */
         const val QUEUE_SONGS = 30
+        /** The longest a Here's developer proof is read (DevBadge's are 128): anything longer is no proof. */
+        private const val DEV_PROOF_MAX = 160
 
         /**
          * What a room carries of a song's picture: an address on YouTube's own picture servers, and nothing else. A song
@@ -158,6 +162,7 @@ sealed interface TogetherMessage {
             is Pong -> buildJsonObject { put("t", "pong"); put("c", message.askedAtMs); put("h", message.hostMs); put("to", message.to) }
             is Here -> buildJsonObject {
                 put("t", "here"); put("name", message.name); put("owner", message.owner)
+                message.dev?.let { put("dev", it) }
                 message.settings?.let { put("settings", it.toJson()) }
                 if (message.arranges) put("arranges", true)
                 message.lead?.let { put("lead", it) }
@@ -224,7 +229,10 @@ sealed interface TogetherMessage {
                 "state" -> State(s("song"), s("title"), s("artist"), l("pos"), o["playing"]!!.jsonPrimitive.boolean, o["speed"]!!.jsonPrimitive.double, l("at"))
                 "ping" -> Ping(l("c"), s("to"))
                 "pong" -> Pong(l("c"), l("h"), s("to"))
-                "here" -> Here(s("name"), o["owner"]!!.jsonPrimitive.boolean, o["lead"]?.jsonPrimitive?.content, o["since"]?.jsonPrimitive?.longOrNull)
+                "here" -> Here(
+                    s("name"), o["owner"]!!.jsonPrimitive.boolean, o["lead"]?.jsonPrimitive?.content, o["since"]?.jsonPrimitive?.longOrNull,
+                    dev = (o["dev"] as? JsonPrimitive)?.contentOrNull?.take(DEV_PROOF_MAX),
+                )
                 "suggest" -> Suggest(
                     s("song"), s("title"), s("artist"), thumbnailFor(s("thumb")), s("by"),
                     atEnd = o["end"]?.jsonPrimitive?.booleanOrNull == true,
