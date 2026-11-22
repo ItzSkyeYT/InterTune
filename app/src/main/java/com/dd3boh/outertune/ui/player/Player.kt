@@ -22,7 +22,6 @@ import com.dd3boh.outertune.LocalBatteryMode
 import androidx.compose.foundation.interaction.DragInteraction
 import androidx.compose.runtime.snapshotFlow
 import com.dd3boh.outertune.ui.menu.rememberShareLink
-import com.dd3boh.outertune.utils.Toaster
 import com.dd3boh.outertune.utils.ShareLinks
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.rememberUpdatedState
