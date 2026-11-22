@@ -582,6 +582,8 @@ private fun RoomPage(room: TogetherSession, song: MediaMetadata?, onLeave: () ->
                 )
                 status.pausedHere -> PausedHere()
                 status.songUnavailable -> SongUnavailable()
+                // A line too slow to keep up: said plainly, in place of "Catching up" for good (DataWait).
+                status.tooSlow -> RoomTooSlow()
                 // How close this phone follows is for those who want to see it (Settings > Listen together).
                 else -> if (showTiming) SyncMeter(status.driftMs, status.locked, status.toleranceMs)
             }
