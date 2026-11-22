@@ -99,7 +99,7 @@ class QueueMoveBeforePlayTest {
             "the stored queue is the one the player will play, with nothing in the player",
             sheet.contains("val movesStoredQueue = detachedHead && detachedQueue != null && detachedQueue === fallbackSeed && queueWindows.isEmpty()")
         )
-        assertTrue("its rows get handles", sheet.contains("if (!lockQueue && (!detachedHead || movesStoredQueue) && !isSearching) {"))
+        assertTrue("its rows get handles", sheet.contains("if (!lockQueue && !roomsQueue && (!detachedHead || movesStoredQueue) && !isSearching) {"))
         assertTrue(
             "the lit row follows the song that will play after a move",
             sheet.contains("val detachedPlace = remember(detachedQueue, unloadedQueueChanged) { detachedQueue?.getQueuePosShuffled() }") &&
