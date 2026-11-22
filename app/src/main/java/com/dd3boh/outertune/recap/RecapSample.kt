@@ -99,6 +99,8 @@ object RecapSample {
                 val open = intent.getBooleanExtra("open", false)
                 // A year with nothing only InterTune does: no Auto finds, nothing named by ear (WhereFromSlide).
                 val plain = intent.getBooleanExtra("plain", false)
+                // A year of the phone's own files, those already scanned, instead of songs found on YouTube (local listeners, 22 Nov 2026).
+                val local = intent.getBooleanExtra("local", false)
                 // One file's loudest stretch, for the emulator (RecapChorus): nothing is written.
                 intent.getStringExtra("chorus")?.let { path ->
                     scope.launch {
@@ -114,7 +116,7 @@ object RecapSample {
                         return@launch
                     }
                     try {
-                        if (write(app, database, reveal, plain) && open) RecapDoor.open(LocalDate.now().year)
+                        if (write(app, database, reveal, plain, local) && open) RecapDoor.open(LocalDate.now().year)
                     } catch (e: Exception) {
                         Log.w(TAG, "failed: ${e.message}", e)
                     } finally {
@@ -133,7 +135,7 @@ object RecapSample {
     }
 
     /** Writes the year; false when it was refused. Each write waits for the one before (transactionNow). */
-    private suspend fun write(context: Context, database: MusicDatabase, reveal: Boolean, plain: Boolean = false): Boolean {
+    private suspend fun write(context: Context, database: MusicDatabase, reveal: Boolean, plain: Boolean = false, local: Boolean = false): Boolean {
         val existing = database.listenCount().first()
         if (existing > MOST_EXISTING_LISTENS) {
             Log.w(TAG, "refused: this database already holds $existing listens")
@@ -143,10 +145,15 @@ object RecapSample {
         // else, so opening it sends nothing (PollChecker.recapOpened sends only a first opening).
         val thisYear = LocalDate.now().year
         context.dataStore.edit { it[ViewedPollIdsKey] = it[ViewedPollIdsKey].orEmpty() + RecapCount.id(thisYear - 1) + RecapCount.id(thisYear) }
-        Log.i(TAG, "finding ${NAMES.size} songs by name")
         val named = ArrayList<SongItem>()
         val extras = ArrayList<SongItem>()
-        for (name in NAMES) {
+        if (local) {
+            // The files already in the library, as songs of the year; nothing is searched for and nothing is written to the song table.
+            database.allLocalSongs().sortedBy { it.song.title }.mapTo(named) { SongItem(it.id, it.song.title, emptyList(), duration = it.song.duration, thumbnail = "") }
+            Log.i(TAG, "a year of ${named.size} files on this phone")
+        }
+        if (!local) Log.i(TAG, "finding ${NAMES.size} songs by name")
+        for (name in if (local) emptyList() else NAMES) {
             val found = runCatching { ImportSearch.songs(name) }
                 .onFailure { Log.w(TAG, "search failed for \"$name\": ${it.message}") }
                 .getOrNull().orEmpty()
@@ -161,11 +168,11 @@ object RecapSample {
             Log.w(TAG, "refused: only ${named.size} songs found, too few for a year")
             return false
         }
-        database.transactionNow {
+        if (!local) database.transactionNow {
             (named + extras).forEach { insert(it.toMediaMetadata()) }
         }
         // The pictures of the named songs' artists, as opening their pages would store them.
-        for (artistId in named.mapNotNull { it.artists.firstOrNull()?.id }.distinct()) {
+        for (artistId in if (local) emptyList() else named.mapNotNull { it.artists.firstOrNull()?.id }.distinct()) {
             val artist = database.artistById(artistId) ?: continue
             YouTube.artist(artistId).onSuccess { page -> database.update(artist, page) }
             delay(1000)
@@ -185,7 +192,7 @@ object RecapSample {
             it[RecapRevealedEarlyKey] = true
             it.remove(RecapPopUpShownKey)
         }
-        Log.i(TAG, "done: ${named.size} named songs, ${extras.size} more, ${listens.size} listens, ${liked.size} liked, reveal=$reveal, plain=$plain")
+        Log.i(TAG, "done: ${named.size} named songs, ${extras.size} more, ${listens.size} listens, ${liked.size} liked, reveal=$reveal, plain=$plain, local=$local")
         return true
     }
 
