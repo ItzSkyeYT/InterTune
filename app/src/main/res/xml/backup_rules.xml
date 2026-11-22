@@ -12,8 +12,13 @@
    So does the theme the window starts in (window_theme, WindowTheme): it follows the settings, which
    stay out, so restored without them it opened the first window in the old phone's theme. On
    Android 12 and later (data_extraction_rules) it also notes the splash told to this phone alone.
+   The Recap's notes to next year's you (recap-notes/, RecapNote) stay out of both: sealed with a key
+   that never leaves this phone, they could not be opened anywhere else.
 -->
 <full-backup-content>
+        <exclude
+            domain="file"
+            path="recap-notes/" />
     <exclude
         domain="file"
         path="logs/" />

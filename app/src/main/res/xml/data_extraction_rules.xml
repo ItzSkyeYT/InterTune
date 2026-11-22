@@ -20,9 +20,14 @@
    this phone has been told, and the splash Android keeps for the app is this phone's alone: carried
    over with the settings, it said the new phone was told already, and the splash there followed the
    phone's dark mode instead of the theme picked, until the theme was changed in the app.
+   The Recap's notes to next year's you (recap-notes/, RecapNote) stay out of both: sealed with a key
+   that never leaves this phone, they could not be opened anywhere else.
 -->
 <data-extraction-rules>
     <cloud-backup>
+        <exclude
+            domain="file"
+            path="recap-notes/" />
         <exclude
             domain="file"
             path="logs/" />
@@ -52,6 +57,9 @@
             path="exoplayer_internal.db" />
     </cloud-backup>
     <device-transfer>
+        <exclude
+            domain="file"
+            path="recap-notes/" />
         <exclude
             domain="file"
             path="logs/" />
