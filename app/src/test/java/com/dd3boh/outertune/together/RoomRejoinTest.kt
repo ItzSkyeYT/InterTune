@@ -158,7 +158,8 @@ class RoomRejoinTest {
         val room = body(sheet, "private fun RoomPage(")
         assertTrue("val hostAway = !room.owner && status.hostAway" in room)
         assertTrue("R.string.together_host_away" in room)
-        assertTrue("if (!hostAway && !status.leading && leaderName != null)" in room)
+        // Who chooses the music (RoomRole) gives way to the host-away line: of() is null while the host is away (RoomRoleTest).
+        assertTrue("RoomRole.of(room.owner, status.leading, hostAway, status.waitingForHost)" in room)
         assertTrue("if (!status.leading && !hostAway)" in room)
         val top = body(sheet, "fun TogetherSheet(")
         assertTrue("val ready = playerConnection.isAlive" in top)
