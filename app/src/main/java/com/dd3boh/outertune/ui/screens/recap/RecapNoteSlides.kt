@@ -13,13 +13,27 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.displayCutout
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.union
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.isImeVisible
@@ -30,7 +44,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Lock
@@ -269,7 +285,28 @@ internal fun NoteWriteSlide(s: SlideScope, note: NoteDraft, onSeal: () -> Unit, 
         focusSoon = false
     }
 
-    SlideColumn { room ->
+    val buttons: @Composable (Modifier) -> Unit = { modifier ->
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+            modifier = modifier.enter(s, Entrance.UP, 3.4f),
+        ) {
+            if (note.shut) {
+                NoteButton(stringResource(R.string.recap_note_again), filled = false) {
+                    note.again = true
+                    focusSoon = true
+                }
+            } else {
+                NoteButton(stringResource(R.string.recap_note_seal), filled = true, lock = true, dim = note.text.isBlank() || note.sealing) {
+                    if (note.text.isBlank()) runCatching { focus.requestFocus() } else onSeal()
+                }
+                NoteButton(stringResource(R.string.recap_note_not_now), filled = false, onClick = onNotNow)
+            }
+        }
+    }
+
+    // With the keyboard up, Seal it and Not now stand just above it and what is above them scrolls.
+    NoteColumn(keyboard, pinned = { buttons(Modifier.padding(top = 10.dp, bottom = 10.dp)) }) { room ->
         Kick(stringResource(R.string.recap_note_write_kick), s)
         val (before, after) = around(stringResource(R.string.recap_note_write_title, MARK))
         Words(before, s, at = 1f, style = RecapType.h2, colour = c.ink, strip = stringResource(R.string.recap_note_write_strip), after = after, stripAt = 1.8f, stripTurn = -3f)
@@ -318,34 +355,62 @@ internal fun NoteWriteSlide(s: SlideScope, note: NoteDraft, onSeal: () -> Unit, 
                 }
             }
         }
-        FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-            modifier = Modifier.padding(top = 20.dp, bottom = 10.dp).enter(s, Entrance.UP, 3.4f),
-        ) {
-            if (note.shut) {
-                NoteButton(stringResource(R.string.recap_note_again), filled = false) {
-                    note.again = true
-                    focusSoon = true
+        if (!keyboard) {
+            buttons(Modifier.padding(top = 20.dp, bottom = 10.dp))
+            val day = note.sealedDay
+            Text(
+                when {
+                    note.failed -> stringResource(R.string.recap_note_failed)
+                    note.shut -> stringResource(R.string.recap_note_sealed_line)
+                    note.again && day != null -> stringResource(R.string.recap_note_again_line, s.words.day(day))
+                    else -> stringResource(R.string.recap_note_write_line)
+                },
+                style = RecapType.quiet, color = if (note.failed) c.ink else c.ink2, modifier = Modifier.enter(s, Entrance.UP, 3.8f),
+            )
+        }
+        Grow(room)
+    }
+}
+
+/**
+ * The note's column, as every slide's (SlideColumn) but for the keyboard: its zoom is worked out on
+ * the room without it, so nothing changes size as it opens, and while it is up ([keyboard]) the
+ * room ends at its top, with [pinned] (Seal it and Not now) just above it and the rest scrolling.
+ * The song's pill stays where it is, behind the keys.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun NoteColumn(keyboard: Boolean, pinned: @Composable () -> Unit, content: @Composable ColumnScope.(SlideRoom) -> Unit) {
+    BoxWithConstraints(
+        Modifier
+            .fillMaxSize()
+            .windowInsetsPadding(WindowInsets.systemBars.union(WindowInsets.displayCutout))
+            .padding(top = 62.dp, bottom = 76.dp)
+            .consumeWindowInsets(PaddingValues(top = 62.dp, bottom = 76.dp)),
+        contentAlignment = Alignment.TopCenter,
+    ) {
+        val fontScale = LocalDensity.current.fontScale
+        val zoom = RecapFit.zoom(maxWidth, maxHeight, RecapFit.ROOM, fontScale)
+        val width = maxWidth / zoom
+        val height = maxHeight / zoom
+        // What of the keyboard is over the room, the bars and the pill's place already left out: nothing while it is down.
+        Box(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.ime.only(WindowInsetsSides.Bottom)), contentAlignment = Alignment.TopCenter) {
+            Zoomed(zoom) {
+                val room = SlideRoom(minOf(width, 480.dp) - 48.dp, height, 540.dp * maxOf(1f, fontScale))
+                val scroll = rememberScrollState()
+                Column(Modifier.widthIn(max = 480.dp).fillMaxWidth().fillMaxHeight()) {
+                    Column(
+                        Modifier
+                            .weight(1f)
+                            // Only a slide taller than its room answers a drag: one that fits never stretches.
+                            .verticalScroll(scroll, enabled = scroll.maxValue > 0)
+                            .then(if (keyboard) Modifier else Modifier.heightIn(min = height))
+                            .padding(horizontal = 24.dp)
+                    ) { content(room) }
+                    if (keyboard) Box(Modifier.padding(horizontal = 24.dp)) { pinned() }
                 }
-            } else {
-                NoteButton(stringResource(R.string.recap_note_seal), filled = true, lock = true, dim = note.text.isBlank() || note.sealing) {
-                    if (note.text.isBlank()) runCatching { focus.requestFocus() } else onSeal()
-                }
-                NoteButton(stringResource(R.string.recap_note_not_now), filled = false, onClick = onNotNow)
             }
         }
-        val day = note.sealedDay
-        Text(
-            when {
-                note.failed -> stringResource(R.string.recap_note_failed)
-                note.shut -> stringResource(R.string.recap_note_sealed_line)
-                note.again && day != null -> stringResource(R.string.recap_note_again_line, s.words.day(day))
-                else -> stringResource(R.string.recap_note_write_line)
-            },
-            style = RecapType.quiet, color = if (note.failed) c.ink else c.ink2, modifier = Modifier.enter(s, Entrance.UP, 3.8f),
-        )
-        Grow(room)
     }
 }
 

@@ -75,4 +75,25 @@ class RecapNoteSlidesTest {
         assertTrue("LaunchedEffect(keyboard) { if (!keyboard && note.focused) focusManager.clearFocus() }" in slide)
         assertTrue("note.text = it.take(RecapNote.MAX_CHARS)" in slide)
     }
+
+    @Test
+    fun `with the keyboard up, Seal it and Not now stand just above it, and the song's pill stays behind the keys`() {
+        val slide = code("ui/screens/recap/RecapNoteSlides.kt")
+        // The note is written in a column of its own: in the slides' plain one the keyboard hid both buttons (Pixel 5, 22 Nov 2026).
+        val write = slide.substringAfter("internal fun NoteWriteSlide(").substringBefore("\n}\n")
+        assertTrue("NoteColumn(keyboard, pinned = {" in write)
+        assertFalse("SlideColumn {" in write)
+        val column = slide.substringAfter("private fun NoteColumn(").substringBefore("\n}\n")
+        // Its zoom is worked out on the room without the keyboard, so nothing changes size as it opens...
+        assertFalse("safeDrawing" in column)
+        assertTrue(column.indexOf("RecapFit.zoom(") in 0 until column.indexOf("WindowInsets.ime"))
+        // ...and its room ends at the keyboard's top, the bars and the pill's place left out, the buttons under what scrolls.
+        assertTrue(".consumeWindowInsets(PaddingValues(top = 62.dp, bottom = 76.dp))" in column)
+        assertTrue("windowInsetsPadding(WindowInsets.ime.only(WindowInsetsSides.Bottom))" in column)
+        assertTrue(column.indexOf(".weight(1f)") in 0 until column.indexOf("if (keyboard) Box(Modifier.padding(horizontal = 24.dp)) { pinned() }"))
+        // The pill keeps its place on the screen: behind the keys rather than over Seal it.
+        val pill = code("ui/screens/recap/RecapScreen.kt").substringAfter("private fun SongPill(").substringBefore("\n}\n")
+        assertTrue("WindowInsets.systemBars.union(WindowInsets.displayCutout).only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal)" in pill)
+        assertFalse("safeDrawing" in pill)
+    }
 }
