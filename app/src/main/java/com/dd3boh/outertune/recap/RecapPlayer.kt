@@ -55,6 +55,9 @@ import kotlinx.coroutines.withTimeoutOrNull
  * song slid into their queue there (MusicService.slideIn). Audio focus is asked once for the whole
  * Recap, as the app asks it, and not at all when Settings has the app share it.
  *
+ * A file on the phone starts at its loudest stretch instead, read from the file itself (RecapChorus),
+ * or a third of the way in when that is not known in time.
+ *
  * One heat map is asked for per song that is not a local file, from Open Recap, in the order of
  * the pages, a page coming up asking for its own at once if it is still waiting (RecapHeat). Main
  * thread.
@@ -83,6 +86,10 @@ class RecapPlayer(
 
     private val heat = HashMap<String, Deferred<List<HeatMarker>?>>()
     private var asking: Job? = null
+
+    /** Each file's loudness, read for its loudest stretch (RecapChorus), and the job reading them in the order of the pages. */
+    private val loud = HashMap<String, Deferred<Pair<FloatArray, Long>?>>()
+    private var listening: Job? = null
     private var readying: Job? = null
     private var takingOver: Job? = null
     private var fadingIn: Job? = null
@@ -110,6 +117,11 @@ class RecapPlayer(
         // for its own at once (startOf).
         val ids = pages.mapNotNull { it.song }.filterNot { it.local }.map { it.id }.distinct()
         for (id in ids) heat[id] = scope.async(Dispatchers.IO, start = CoroutineStart.LAZY) { heatMap(id) }
+        // A file on the phone has no heat map: it is heard for its loudest stretch instead, one after another in
+        // the order of the pages, beside the heat maps (his pick for listeners of their own files, 22 Nov 2026).
+        val files = pages.mapNotNull { it.song }.filter { it.local && it.path != null }.distinctBy { it.id }
+        for (song in files) loud[song.id] = scope.async(Dispatchers.IO, start = CoroutineStart.LAZY) { song.path?.let(RecapChorus::envelope) }
+        listening = scope.launch { for (song in files) loud[song.id]?.await() }
         asking = scope.launch {
             for (id in ids) heat[id]?.await()
             for (song in pages.mapNotNull { it.song }.distinctBy { it.id }) volumeOf(song)
@@ -173,9 +185,11 @@ class RecapPlayer(
     fun release() {
         done = true
         onInterrupted = null
-        listOf(asking, readying, takingOver, fadingIn).forEach { it?.cancel() }
+        listOf(asking, listening, readying, takingOver, fadingIn).forEach { it?.cancel() }
         heat.values.forEach { it.cancel() }
         heat.clear()
+        loud.values.forEach { it.cancel() }
+        loud.clear()
         listOfNotNull(active, spare).forEach { it.release() }
         active = null
         spare = null
@@ -277,7 +291,12 @@ class RecapPlayer(
 
     /** Where [song] starts, and what said so, waiting up to [waitMs] for its heat map. */
     private suspend fun startOf(song: RecapSongShown, piece: RecapPiece, waitMs: Long): Pair<Long, String> {
-        if (song.local) return piece.fromMs to "a local file: a third of the way in"
+        if (song.local) {
+            // The wait gives up, the reading does not: a later page has it.
+            val heard = loud[song.id]?.let { d -> withTimeoutOrNull(waitMs) { d.await() } }
+            val loudest = heard?.let { (envelope, durationMs) -> RecapChorus.startMs(envelope, RecapChorus.STEP_MS, piece.lengthMs, durationMs) }
+            return if (loudest != null) loudest to "a local file: its loudest stretch" else piece.fromMs to "a local file: a third of the way in"
+        }
         // The wait gives up, the request does not: a later page has it.
         val markers = heat[song.id]?.let { d -> withTimeoutOrNull(waitMs) { d.await() } }
         val start = RecapHeat.startMs(piece, local = false, markers = markers)

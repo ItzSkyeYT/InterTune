@@ -99,6 +99,15 @@ object RecapSample {
                 val open = intent.getBooleanExtra("open", false)
                 // A year with nothing only InterTune does: no Auto finds, nothing named by ear (WhereFromSlide).
                 val plain = intent.getBooleanExtra("plain", false)
+                // One file's loudest stretch, for the emulator (RecapChorus): nothing is written.
+                intent.getStringExtra("chorus")?.let { path ->
+                    scope.launch {
+                        val heard = RecapChorus.envelope(path)
+                        val start = heard?.let { (e, d) -> RecapChorus.startMs(e, RecapChorus.STEP_MS, intent.getLongExtra("pieceMs", 10_000L), d) }
+                        Log.i(TAG, "chorus of $path: ${heard?.first?.size ?: 0} places read, ${heard?.second ?: 0} ms long, the loudest stretch from ${start ?: "nowhere"} ms")
+                    }
+                    return
+                }
                 scope.launch {
                     if (!running.tryLock()) {
                         Log.w(TAG, "already writing a sample")
