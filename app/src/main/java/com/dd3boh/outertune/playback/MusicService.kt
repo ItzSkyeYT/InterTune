@@ -3041,6 +3041,75 @@ class MusicService : MediaLibraryService(),
     }
 
     /**
+     * The InterTune Recap's last song, slid into the queue as the song playing now (RecapSound): it
+     * plays on from [positionMs], where the Recap had it, in front of the song that was current, and
+     * when it ends the queue carries on, that song from where it was ([resumeAfterSlideIn]). Put in
+     * as by the listener's hand, and the song it goes in front of is set aside, not skipped. With no
+     * queue at all, a queue of its own. Main thread.
+     */
+    fun slideIn(songId: String, positionMs: Long) {
+        scope.launch {
+            if (destroyed) return@launch
+            val song = withContext(Dispatchers.IO) { database.song(songId).first() }?.toMediaMetadata() ?: return@launch
+            if (!qbInit.value) initQueue(onlyIfNeeded = true)
+            if (destroyed) return@launch
+            val q = queueBoard.getCurrentQueue()?.takeIf { it.getSize() > 0 }
+            if (q == null) {
+                val own = queueBoard.addQueue(song.title, listOf(song), replace = true, origin = PlayOrigin.UNKNOWN) ?: return@launch
+                own.setCurrentQueuePos(0)
+                own.lastSongPos = positionMs
+                userChoicePending = true
+                queueBoard.setCurrQueue(own, shouldResume = true)
+                activePlayer.prepare()
+                activePlayer.playWhenReady = true
+                Log.i(TAG, "Recap: $songId slid in at $positionMs ms, a queue of its own")
+                return@launch
+            }
+            // After a restart the player holds nothing until play: the saved queue goes in first,
+            // at the song it stopped on, which is the one the Recap's song goes in front of.
+            if (activePlayer.currentMediaItem == null) queueBoard.setCurrQueue(q)
+            val at = activePlayer.currentMediaItemIndex
+            val current = activePlayer.currentMediaItem
+            val currentAt = activePlayer.currentPosition
+            if (current?.mediaId == songId) {
+                // The song playing already: it plays on from where the Recap had it.
+                quietSeek = !isCasting
+                activePlayer.seekTo(positionMs)
+            } else {
+                noteByHand(q, listOf(song.id))
+                queueBoard.addSongsToQueue(q, at, listOf(song))
+                userChoicePending = true
+                activePlayer.seekTo(at, positionMs)
+                if (current != null) resumeAfterSlideIn = current.mediaId to currentAt
+            }
+            activePlayer.prepare()
+            activePlayer.playWhenReady = true
+            Log.i(TAG, "Recap: $songId slid in at $positionMs ms, in front of ${current?.mediaId} at $currentAt ms")
+        }
+    }
+
+    /**
+     * The volume the app plays [songId] at, before any fade: the player's own volume and the song's
+     * levelling, as the song playing gets them. For the Recap's players, so that its songs are
+     * neither louder nor quieter than the app plays them, and the last one does not jump when it
+     * goes on in the queue.
+     */
+    suspend fun volumeFor(songId: String, isLocal: Boolean): Float {
+        val loudness = withContext(Dispatchers.IO) { database.readOrNull { formatRow(songId) }?.loudnessDb }
+        val level = Normalization.factor(loudness, isLocal, dataStore.get(AudioNormalizationKey, true))
+        return (level * heardVolume).coerceAtMost(1f)
+    }
+
+    /**
+     * The song the Recap's last song went in front of, and where it was: when that song ends and
+     * this one comes next, it carries on from there (slideIn). Cleared at the next change of song.
+     */
+    private var resumeAfterSlideIn: Pair<String, Long>? = null
+
+    /** The next seek is the app's own, putting a song back where it was: no seek of the listener's is noted for it. */
+    private var quietSeek = false
+
+    /**
      * [songs] added to [q] with Add to queue, by the listener's hand: at the end of a list somebody
      * chose, and in a radio after the listener's own songs that follow the song playing and before
      * the radio's own, which carries on after them (AddToQueue). From the swipe on a song, and from
@@ -3525,6 +3594,17 @@ class MusicService : MediaLibraryService(),
      * stream. A lyrics video cuts its sound out of the song the same way (LyricsVideo).
      */
     fun songSource(): DataSource.Factory = createDataSourceFactory(forPlayer = false)
+
+    /**
+     * The InterTune Recap's players (RecapPlayer): as [songSource], their reads and resolves kept
+     * apart from the player's stall watch, but with the player's own resolver, so that the stream a
+     * song was found on is known to the player too. The Recap's last song then goes on in the queue
+     * without being looked up again: with a resolver of their own the player asked YouTube afresh,
+     * and the song came in 1.6 and 5.0 s after Done on the emulator (29 and 30 Oct 2026). Every
+     * source reads through the player's resolver now (playerResolver), so this is [songSource]
+     * under the Recap's name.
+     */
+    fun recapSource(): DataSource.Factory = createDataSourceFactory(forPlayer = false)
 
     /**
      * [forPlayer] false for a lyrics clip: its reads go through calls of their own, which the
@@ -5897,6 +5977,16 @@ class MusicService : MediaLibraryService(),
 
     override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
         super.onMediaItemTransition(mediaItem, reason)
+        // The song the Recap's last song went in front of, come round by itself after it: from
+        // where it was, before its listen opens, so that the listen carries on the one before.
+        resumeAfterSlideIn?.let { (id, at) ->
+            resumeAfterSlideIn = null
+            if (reason == MEDIA_ITEM_TRANSITION_REASON_AUTO && mediaItem?.mediaId == id && at > 0 && !isCasting) {
+                Log.i(TAG, "Recap: $id carries on from $at ms, after the song slid in front of it")
+                quietSeek = true
+                activePlayer.seekTo(activePlayer.currentMediaItemIndex, at)
+            }
+        }
         songChanges.value += 1
         // Nothing of the new song has played yet: see readyFor. Before onPlayerError, which the
         // player calls after this when the song it moved on to failed while read ahead.
@@ -6618,6 +6708,11 @@ class MusicService : MediaLibraryService(),
             it.lastCheckpointPositionMs = newPosition.positionMs
         }
         val delta = newPosition.positionMs - oldPosition.positionMs
+        // The app putting a song back where it was (slideIn), not the listener seeking in it.
+        if (quietSeek) {
+            quietSeek = false
+            return
+        }
         if (kotlin.math.abs(delta) < 3_000) return
         noteSignal(id, if (delta < 0) SignalKind.SEEK_BACK else SignalKind.SEEK_FORWARD, newPosition.positionMs, delta / 1000f)
     }

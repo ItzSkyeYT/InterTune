@@ -180,6 +180,8 @@ import kotlinx.coroutines.launch
 import kotlin.math.min
 import kotlin.math.roundToInt
 import kotlin.random.Random
+import com.dd3boh.outertune.ui.screens.recap.RecapBanner
+import com.dd3boh.outertune.ui.screens.recap.rememberRecapOnHome
 import com.dd3boh.outertune.ui.screens.walkthrough.Tour
 import com.dd3boh.outertune.ui.screens.walkthrough.WelcomeBanner
 import com.dd3boh.outertune.ui.screens.walkthrough.WelcomeCard
@@ -264,6 +266,7 @@ fun HomeScreen(
             pollChecker.consumeOpenRequest()
         }
     }
+    val recapYear = rememberRecapOnHome()
     val ytQuickPicks by viewModel.ytQuickPicks.collectAsState()
     val quickPicksLoading by viewModel.quickPicksLoading.collectAsState()
     val discover by viewModel.discover.collectAsState()
@@ -717,6 +720,15 @@ fun HomeScreen(
             }
 
 
+
+            // The year's InterTune Recap in its season, from its reveal day to the end of January:
+            // the banner at the top of Settings, the same. First of the notes here, as it comes
+            // once a year and the others can wait under it.
+            recapYear?.let { year ->
+                item(key = "recap_banner") {
+                    RecapBanner(year, Modifier.animateItem().padding(horizontal = 12.dp, vertical = 8.dp))
+                }
+            }
 
             // Same slot reasoning as the poll banner below: above Quick picks, below the chips.
             // Shown only while YouTube is actually refusing this connection, and it takes itself

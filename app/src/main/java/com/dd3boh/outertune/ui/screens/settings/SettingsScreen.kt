@@ -82,6 +82,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.ui.unit.Dp
 import com.dd3boh.outertune.ui.utils.LocalLandscape
+import com.dd3boh.outertune.ui.screens.recap.RecapBanner
+import com.dd3boh.outertune.ui.screens.recap.rememberRecapOnShow
 
 val SETTINGS_TAG = "Settings"
 
@@ -139,6 +141,7 @@ fun SettingsScreen(
     // once"; this says "there is one now, and here it is", which is what the row needs to show.
     val pendingUpdate by LocalUpdateChecker.current.available.collectAsState()
     val updateBadgeLabel = stringResource(R.string.update_available_title)
+    val recapYear = rememberRecapOnShow()
 
     // The four cards, each a thing of its own so that they can be stacked or set two by two.
     val you: @Composable () -> Unit = {
@@ -321,7 +324,14 @@ fun SettingsScreen(
             SettingsSearchField(query, onQueryChange = { query = it }, modifier = Modifier.tourTarget(Tour.SETTINGS_SEARCH_FIELD))
             Spacer(modifier = Modifier.height(16.dp))
         }
-        if (Unreleased.SETTINGS_SEARCH && query.isNotBlank()) {
+        val searching = Unreleased.SETTINGS_SEARCH && query.isNotBlank()
+        // The year's InterTune Recap, from its reveal day: the way back to it after its pop-up, just
+        // under the search field. While something is typed the results take its place.
+        if (Unreleased.RECAP && recapYear != null && !searching) {
+            RecapBanner(recapYear)
+            Spacer(modifier = Modifier.height(16.dp))
+        }
+        if (searching) {
             val search = rememberSettingsSearch()
             val hits = remember(search, query) { search.search(query) }
             SettingsSearchResults(hits, query, onPick = { hit ->
