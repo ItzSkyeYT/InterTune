@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
@@ -28,12 +29,14 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Group
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -58,6 +61,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
@@ -97,7 +101,7 @@ fun TogetherProposalCard(connection: PlayerConnection?, modifier: Modifier = Mod
         shown?.let { proposal ->
             ProposalCard(
                 proposal = proposal,
-                onPlay = { room?.acceptProposal() },
+                onPlay = { withQueue -> room?.acceptProposal(withQueue) },
                 onNotNow = { room?.dismissProposal() },
                 container = floatingCardColor(),
                 elevation = 6.dp,
@@ -107,13 +111,15 @@ fun TogetherProposalCard(connection: PlayerConnection?, modifier: Modifier = Mod
 }
 
 /**
- * One proposal: who, their song, how many come after it from their queue (Play it puts their queue in place of the
- * room's), and the two answers. At the top of the app and in the room's sheet.
+ * One proposal: who, their song, and the two answers. Play it plays the song now, the room's queue after it. The songs
+ * after it in their queue, which every proposal carries, are a box to tick under it, off at first: the room was handed
+ * all of them unasked (#testers, 22 Nov 2026: "did it send the whole queue?"). At the top of the app and in the room's
+ * sheet.
  */
 @Composable
 internal fun ProposalCard(
     proposal: TogetherSession.Proposal,
-    onPlay: () -> Unit,
+    onPlay: (withQueue: Boolean) -> Unit,
     onNotNow: () -> Unit,
     container: Color,
     elevation: Dp,
@@ -128,6 +134,8 @@ internal fun ProposalCard(
     }
     val first = proposal.songs.first()
     val more = proposal.songs.size - 1
+    // The songs after it too, only when ticked: the song alone is the answer unless the one in control says otherwise.
+    var withQueue by remember(proposal) { mutableStateOf(false) }
     Surface(shape = RoundedCornerShape(24.dp), color = container, shadowElevation = elevation, modifier = modifier.fillMaxWidth()) {
         Column(Modifier.padding(start = 16.dp, top = 14.dp, end = 10.dp, bottom = 6.dp)) {
             // Said by TalkBack as it comes.
@@ -176,12 +184,28 @@ internal fun ProposalCard(
                 }
             }
             if (more > 0) {
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    pluralStringResource(R.plurals.together_proposal_more, more, more),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                Spacer(Modifier.height(4.dp))
+                // The box under the cover, its words under the song's name.
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .padding(end = 6.dp)
+                        .fillMaxWidth()
+                        .heightIn(min = 48.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .toggleable(value = withQueue, role = Role.Checkbox, onValueChange = { if (armed) withQueue = it }),
+                ) {
+                    Box(contentAlignment = Alignment.Center, modifier = Modifier.width(48.dp)) {
+                        Checkbox(checked = withQueue, onCheckedChange = null)
+                    }
+                    Spacer(Modifier.width(12.dp))
+                    Text(
+                        pluralStringResource(R.plurals.together_proposal_more, more, more),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
             }
             Row(
                 horizontalArrangement = Arrangement.End,
@@ -193,7 +217,7 @@ internal fun ProposalCard(
                 FilledTonalButton(onClick = {
                     if (armed) {
                         haptics.performHapticFeedback(HapticFeedbackType.Confirm)
-                        onPlay()
+                        onPlay(withQueue)
                     }
                 }) {
                     Icon(Icons.Rounded.PlayArrow, contentDescription = null, modifier = Modifier.size(ButtonDefaults.IconSize))

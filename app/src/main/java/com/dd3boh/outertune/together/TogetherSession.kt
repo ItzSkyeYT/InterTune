@@ -115,7 +115,7 @@ class TogetherSession(
         val pausedHere: Boolean = false,
         /** A guest on its own: its song is proposed to the leader and waits for an answer. */
         val proposed: Boolean = false,
-        /** The leader: guests' songs and queues, each waiting for Play it or Not now, the oldest first (ProposalLine). */
+        /** The leader: guests' songs and the queues after them, each waiting for Play it or Not now, the oldest first (ProposalLine). */
         val proposals: List<Proposal> = emptyList(),
         /** The host's song fails on this phone (YouTube refuses it here): it waits on it, and takes the next one by itself. */
         val songUnavailable: Boolean = false,
@@ -867,26 +867,44 @@ class TogetherSession(
     }
 
     /**
-     * The leader's yes: the proposed queue plays here from where the guest is by now, so the guest
-     * hears no jump when it comes back, and the room follows as it follows any song.
+     * The leader's yes: the guest's song plays now, from where the guest is by now after a quick answer, so the guest
+     * hears no jump when it comes back, and the room follows as it follows any song. The room's own queue goes on after
+     * it. The songs after it in the guest's queue, which every proposal carries (an old guest's too), come only when the
+     * one in control chose them, [withQueue]: the room was handed all of them unasked (#testers, 22 Nov 2026: "did it
+     * send the whole queue?").
      */
-    fun acceptProposal() {
+    fun acceptProposal(withQueue: Boolean = false) {
         val proposal = _status.value.proposals.firstOrNull() ?: return
         _status.value = _status.value.copy(proposals = ProposalLine.without(_status.value.proposals, proposal))
         if (!leading) return
-        val songs = proposal.songs.map(::metadataOf)
-        service.playQueue(ListQueue(items = songs), replace = true, origin = PlayOrigin.EXTERNAL)
-        Log.i(TAG, "Playing the song proposed, ${songs.first().id}, and what came after it")
+        val songs = ProposalLine.toPlay(proposal, withQueue).map(::metadataOf)
+        val player = service.exoPlayer
+        val playedBefore = player.currentMediaItem != null
+        // Next in the queue, then straight to it: the room's queue stays after it.
+        service.enqueueNext(songs.map { it.toMediaItem() })
+        Log.i(TAG, "Playing the song proposed, ${songs.first().id}, and ${songs.size - 1} after it")
         scope.launch {
-            // The queue loads a moment after it is asked for; the guest's spot is then a little further on.
+            // The queue takes the songs a moment after it is asked to.
             val first = songs.first().id
-            val loaded = withTimeoutOrNull(PROPOSAL_LOAD_MS) {
-                while (service.exoPlayer.currentMediaItem?.mediaId != first) delay(100)
-            }
+            val index = withTimeoutOrNull(PROPOSAL_LOAD_MS) {
+                var found: Int? = null
+                while (found == null) {
+                    found = proposedSongIndex(player, first, playedBefore)
+                    if (found == null) delay(100)
+                }
+                found
+            } ?: return@launch
             // From the top after a long wait for the answer (ProposalLine.startAt).
-            val at = ProposalLine.startAt(proposal.positionMs, System.currentTimeMillis() - proposal.receivedAt)
-            if (loaded != null && at > 0) service.exoPlayer.seekTo(at)
+            player.seekTo(index, ProposalLine.startAt(proposal.positionMs, System.currentTimeMillis() - proposal.receivedAt))
+            player.playWhenReady = true
         }
+    }
+
+    /** Where the song put in for a yes is: next after the song playing, or playing in a player that held nothing. */
+    private fun proposedSongIndex(player: Player, id: String, playedBefore: Boolean): Int? {
+        if (!playedBefore) return player.currentMediaItemIndex.takeIf { player.currentMediaItem?.mediaId == id }
+        val next = player.nextMediaItemIndex
+        return next.takeIf { it != C.INDEX_UNSET && player.getMediaItemAt(it).mediaId == id }
     }
 
     /** The leader's no, or its putting it off: the guest plays on its own as before. The next one waiting is asked. */

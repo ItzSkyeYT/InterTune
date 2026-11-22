@@ -56,6 +56,17 @@ class ProposalLineTest {
     }
 
     @Test
+    fun `a yes plays the song alone, and the songs after it only when chosen`() {
+        // Every proposal carries the guest's queue after its song, an old guest's too: dvd's carried 29 songs.
+        val queue = listOf("aaaaaaaaaaa", "bbbbbbbbbbb", "ccccccccccc").map { TogetherMessage.Song(it, "Title $it", "Artist", "") }
+        val proposal = Proposal(queue, positionMs = 10_000, by = "dvd", receivedAt = 0L, from = "dvd")
+        assertEquals(listOf("aaaaaaaaaaa"), ProposalLine.toPlay(proposal, withQueue = false).map { it.id })
+        assertEquals(queue, ProposalLine.toPlay(proposal, withQueue = true))
+        val alone = proposal.copy(songs = queue.take(1))
+        assertEquals(queue.take(1), ProposalLine.toPlay(alone, withQueue = true))
+    }
+
+    @Test
     fun `a quick answer plays from where the guest is by now, a late one from the top`() {
         assertEquals(10_000L + 4_000L, ProposalLine.startAt(10_000, 4_000))
         assertEquals(10_000L + ProposalLine.QUICK_ANSWER_MS, ProposalLine.startAt(10_000, ProposalLine.QUICK_ANSWER_MS))
@@ -72,7 +83,8 @@ class ProposalLineTest {
     fun `only Play it and Not now end a proposal, and control moving on`() {
         val heard = session.substringAfter("is TogetherMessage.Propose ->").substringBefore("\n            is ")
         assertTrue("it joins the line, never in place of another guest's", "ProposalLine.add(" in heard)
-        for (answer in listOf("fun acceptProposal()", "fun dismissProposal()")) {
+        for (answer in listOf("fun acceptProposal(withQueue: Boolean = false)", "fun dismissProposal()")) {
+            assertTrue(answer, answer in session)
             val body = session.substringAfter(answer).substringBefore("\n    }\n")
             assertTrue("$answer answers the one asked", "proposals.firstOrNull()" in body && "ProposalLine.without(" in body)
         }
@@ -92,6 +104,10 @@ class ProposalLineTest {
         assertFalse("AlertDialog(" in card || "Dialog(" in card || "onDismissRequest" in card || "BackHandler" in card)
         assertTrue("onClick = { if (armed) onNotNow() }" in card)
         assertTrue("delay(PROPOSAL_TAP_GUARD_MS)" in card)
+        // The songs after it are a box to tick, off for each new proposal, and only when there are some.
+        assertTrue("var withQueue by remember(proposal) { mutableStateOf(false) }" in card)
+        assertTrue(card.indexOf("if (more > 0) {") in 0 until card.indexOf("Checkbox(checked = withQueue"))
+        assertTrue("onPlay(withQueue)" in card)
         val main = File("src/main/java/com/dd3boh/outertune/MainActivity.kt").readText()
         assertTrue("on every screen, over the player too", "TogetherProposalCard(playerConnection, Modifier.align(Alignment.TopCenter))" in main)
         assertFalse("TogetherProposalDialog(" in main)

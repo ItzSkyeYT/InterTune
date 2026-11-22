@@ -41,10 +41,14 @@ class TogetherProposeTest {
     }
 
     @Test
-    fun `a yes plays them from where the guest is, and the guest is back with the room`() {
-        val accept = session.substringAfter("fun acceptProposal()").substringBefore("\n    }\n")
-        assertTrue(accept.contains("ListQueue(items = songs)"))
-        assertTrue("from the guest's spot, not the start", accept.contains("seekTo("))
+    fun `a yes plays the song now from where the guest is, and the guest is back with the room`() {
+        val accept = session.substringAfter("fun acceptProposal(withQueue: Boolean = false)").substringBefore("\n    }\n")
+        // The song alone unless the songs after it were chosen (#testers, 22 Nov 2026: "did it send the whole queue?"),
+        // put in next with the room's queue kept after it, never in place of it.
+        assertTrue(accept.contains("ProposalLine.toPlay(proposal, withQueue)"))
+        assertTrue(accept.contains("service.enqueueNext(songs.map { it.toMediaItem() })"))
+        assertFalse("the room's queue is never replaced", accept.contains("replace = true"))
+        assertTrue("from the guest's spot, not the start", accept.contains("player.seekTo(index, ProposalLine.startAt("))
         assertTrue(session.contains("message.songId == proposedSongId"))
     }
 

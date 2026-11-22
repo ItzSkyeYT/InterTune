@@ -2812,8 +2812,8 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="together_proposal_play">Play it</string>
     <string name="together_proposal_later">Not now</string>
     <plurals name="together_proposal_more">
-        <item quantity="one">And %1$d more after it, from their queue.</item>
-        <item quantity="other">And %1$d more after it, from their queue.</item>
+        <item quantity="one">And %1$d more after it, from their queue</item>
+        <item quantity="other">And %1$d more after it, from their queue</item>
     </plurals>
     <string name="together_removed">%1$s was removed. The room has a new code.</string>
     <!-- Choose what's in the three-dot menus (MENU_CHOICES): a menu being edited, and the line under a trimmed one. -->

@@ -25,6 +25,14 @@ internal object ProposalLine {
     fun without(line: List<Proposal>, answered: Proposal): List<Proposal> = line.filterNot { it == answered }
 
     /**
+     * What a yes plays: the guest's song alone, or with the songs after it in the guest's queue when the one in control
+     * chose them ([withQueue]). Every proposal carries that queue, up to TogetherMessage.QUEUE_SONGS, and the room was
+     * handed all of it unasked (dvd's 29 songs in #testers, 22 Nov 2026).
+     */
+    fun toPlay(proposal: Proposal, withQueue: Boolean): List<TogetherMessage.Song> =
+        if (withQueue) proposal.songs else proposal.songs.take(1)
+
+    /**
      * Where a proposed song starts once the person in control plays it, [waitedMs] after it came: after a quick answer,
      * where the guest is in it by now, so the guest hears no jump coming back; after a long one, from the top. A
      * proposal waits as long as the answer takes now, and by then the guest is often past the song's end, where a seek
