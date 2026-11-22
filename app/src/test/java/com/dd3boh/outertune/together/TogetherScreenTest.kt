@@ -97,7 +97,8 @@ class TogetherScreenTest {
         val picture = dialog.substringAfter("private fun InStepPicture(").substringBefore("@Composable")
         assertEquals(2, Regex("""PhoneSketch\(cover\) \{ head \}""").findAll(picture).count())
         val sketch = dialog.substringAfter("private fun PhoneSketch(").substringBefore("@Composable")
-        assertTrue(sketch.startsWith("cover: String?, head: () -> Float)"))
+        // The cover is whatever the picture loader takes (a song from a file's own picture is not a web address).
+        assertTrue(sketch.startsWith("cover: Any?, head: () -> Float)"))
         assertTrue("val x = size.width * head()" in sketch.substringAfter("Canvas(Modifier.width(46.dp).height(8.dp)) {"))
         assertEquals("read once, in the playhead's own canvas", 1, Regex("""head\(\)""").findAll(sketch).count())
     }

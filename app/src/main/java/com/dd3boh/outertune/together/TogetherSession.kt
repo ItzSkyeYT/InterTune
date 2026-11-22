@@ -23,12 +23,14 @@ import com.dd3boh.outertune.constants.TogetherToleranceKey
 import com.dd3boh.outertune.extensions.metadata
 import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.extensions.toMediaItem
+import com.dd3boh.outertune.migration.ImportSearch
 import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.playback.MusicService
 import com.dd3boh.outertune.playback.Varispeed
 import com.dd3boh.outertune.playback.queues.ListQueue
 import com.dd3boh.outertune.utils.dataStore
 import com.dd3boh.outertune.utils.ReportTrail
+import com.dd3boh.outertune.utils.Throttle
 import com.dd3boh.outertune.utils.Toaster
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineExceptionHandler
@@ -119,6 +121,13 @@ class TogetherSession(
         val proposal: Proposal? = null,
         /** The host's song fails on this phone (YouTube refuses it here): it waits on it, and takes the next one by itself. */
         val songUnavailable: Boolean = false,
+        /**
+         * Following: the one in control plays a song from its files that isn't on YouTube Music, which nothing here can
+         * play (PhoneSongs). This phone waits for the room's next song and says why.
+         */
+        val songOnlyThere: Boolean = false,
+        /** In control: this phone plays a song from its files that isn't on YouTube Music, and the others hear nothing. */
+        val songOnlyHere: Boolean = false,
         /** A guest that has heard nothing of the host for a while: it says the host is away (HostAbsence). */
         val hostAway: Boolean = false,
         /** This phone casts. Following, it then follows nothing until the cast ends (GuestCast). */
@@ -226,6 +235,13 @@ class TogetherSession(
     private val guestCast = GuestCast()
     /** The host's song this phone cannot play: see [holdsFailed]. */
     private val refusal = HostSongRefusal()
+    /** Songs from files here, as the others hear them while this phone is in control: see [PhoneSongs]. */
+    private val phoneSongs = PhoneSongs(
+        scope = scope,
+        search = ImportSearch::songs,
+        answered = ::phoneSongAnswered,
+        mayAsk = { !Throttle.isBlocked },
+    )
     /** The room's queue this phone's own was last made to match, so it is compared once per word. */
     private var matchedQueue: TogetherMessage.Queue? = null
     private var currentId: String? = service.exoPlayer.currentMediaItem?.mediaId
@@ -473,13 +489,19 @@ class TogetherSession(
     private fun sendState() {
         val player = service.exoPlayer
         val item = player.currentMediaItem ?: return
+        // A song from a file here goes as the others can hear it, its match on YouTube Music or a made-up id, never as
+        // itself, and only once it is known which: see PhoneSongs.
+        val fromFile = if (fromThisPhone(item.metadata?.isLocal, item.mediaId)) {
+            phoneSongs.forRoom(item.mediaId, item.metadata, lookUp = true) ?: return
+        } else null
+        onlyHere(fromFile is PhoneSongs.OnlyHere)
         lastSentState = System.currentTimeMillis()
         val metadata = item.mediaMetadata
         send(
             TogetherMessage.State(
-                songId = item.mediaId,
-                title = metadata.title?.toString().orEmpty(),
-                artist = metadata.artist?.toString().orEmpty(),
+                songId = fromFile?.id ?: item.mediaId,
+                title = fromFile?.title ?: metadata.title?.toString().orEmpty(),
+                artist = fromFile?.artist ?: metadata.artist?.toString().orEmpty(),
                 // Where its sound is, not its player: a leader on Bluetooth is that much behind
                 // what its player says, and the followers aim at what is heard.
                 positionMs = player.currentPosition - delayMs,
@@ -506,9 +528,10 @@ class TogetherSession(
     }
 
     /**
-     * This phone's queue from the song playing on, in the order it plays, without the songs from files on this phone: no
-     * other phone can play them, and an untagged file's name was its title, shown in every guest's queue (review 2,
-     * 18 Nov 2026). The song playing still says its own name in the State: the room shows what the host plays.
+     * This phone's queue from the song playing on, in the order it plays. A song from a file on this phone never goes as
+     * itself: no other phone can play it, and an untagged file's name was its title, shown in every guest's queue (review
+     * 2, 18 Nov 2026). It goes as the same recording on YouTube Music once one is found by its tags, and is left out while
+     * it is looked for or when none is (PhoneSongs); the next few are looked for while this phone is in control.
      */
     private fun ownQueue(): List<TogetherMessage.Song> {
         val player = service.exoPlayer
@@ -517,6 +540,7 @@ class TogetherSession(
         val window = Timeline.Window()
         val songs = mutableListOf<TogetherMessage.Song>()
         var index = player.currentMediaItemIndex
+        var ahead = 0
         while (index != C.INDEX_UNSET && songs.size < TogetherMessage.QUEUE_SONGS) {
             val item = timeline.getWindow(index, window).mediaItem
             if (!fromThisPhone(item.metadata?.isLocal, item.mediaId)) {
@@ -528,10 +552,38 @@ class TogetherSession(
                     // Never a file's path: a song from the phone has it as its picture (TogetherMessage.thumbnailFor).
                     thumbnail = TogetherMessage.thumbnailFor(metadata.artworkUri?.toString()),
                 )
+            } else {
+                val heard = phoneSongs.forRoom(item.mediaId, item.metadata, lookUp = leading && ahead++ < PhoneSongs.AHEAD)
+                if (heard is PhoneSongs.Heard) songs += heard.song
             }
             index = timeline.getNextWindowIndex(index, Player.REPEAT_MODE_OFF, player.shuffleModeEnabled)
         }
         return songs
+    }
+
+    /**
+     * A song from a file here has its answer (PhoneSongs): the room hears at once of the one playing, which waited for it,
+     * and of those to come with the queue, once none is left to look for.
+     */
+    private fun phoneSongAnswered(id: String, more: Boolean) {
+        if (!leading) return
+        if (service.exoPlayer.currentMediaItem?.mediaId == id) {
+            sendState()
+            sendQueue()
+        } else if (!more) {
+            queueSoon()
+        }
+    }
+
+    /**
+     * In control, whether the song playing is one from a file here that the others can't hear: said in the room's sheet,
+     * and once as it starts while others are in the room, so that whoever is in control knows why they hear nothing (Niko
+     * played the file in place of YouTube Music's song, and learnt it from the others, 22 Nov 2026).
+     */
+    private fun onlyHere(only: Boolean) {
+        if (only == _status.value.songOnlyHere) return
+        _status.value = _status.value.copy(songOnlyHere = only)
+        if (only && heard.isNotEmpty()) Toaster.show(service, R.string.together_song_only_here, Toast.LENGTH_LONG)
     }
 
     private fun send(message: TogetherMessage) {
@@ -646,10 +698,19 @@ class TogetherSession(
                         proposedSongId = null
                         catchUp()
                     }
+                    // A song from the files of the one in control that isn't on YouTube Music: never shown by its made-up id,
+                    // and said once as it starts, unless this phone plays on its own (holdForPhoneSong).
+                    val onlyThere = fromThisPhone(null, message.songId)
+                    if (onlyThere && !_status.value.songOnlyThere && !ownWay) {
+                        val who = said[from]?.first?.ifBlank { null } ?: service.getString(R.string.together_someone)
+                        Toaster.show(service, service.getString(R.string.together_song_only_there, who), Toast.LENGTH_LONG)
+                    }
                     _status.value = _status.value.copy(
-                        hostSong = listOf(message.title.ifBlank { message.songId }, message.artist).filter { it.isNotBlank() }.joinToString(" · "),
+                        hostSong = listOf(message.title.ifBlank { if (onlyThere) "" else message.songId }, message.artist)
+                            .filter { it.isNotBlank() }.joinToString(" · ").ifEmpty { null },
                         hostSongId = message.songId,
                         waitingForHost = false,
+                        songOnlyThere = onlyThere,
                     )
                 }
             }
@@ -899,6 +960,7 @@ class TogetherSession(
         ownWay = false
         pausedHere = false
         matchedQueue = null
+        heldFor = null
         lock.reset()
         roomQueue?.let { takeRepeat(it.repeat) }
         _status.value = _status.value.copy(ownWay = false, pausedHere = false, locked = false, proposed = false, catchUpAfterCast = false)
@@ -971,6 +1033,9 @@ class TogetherSession(
     private fun listenerPlayed(playWhenReady: Boolean) {
         val room = lastState ?: return
         if (ownWay) return
+        // The room's song is one from the files of the one in control, which nothing here can play (holdForPhoneSong): a
+        // pause or a play here changes nothing of the room's.
+        if (fromThisPhone(null, room.songId)) return
         pausedHere = PauseHere.after(pausedHere, playWhenReady, room.playing) ?: return
         lock.reset()
         if (pausedHere) ownSpeed()
@@ -1025,6 +1090,12 @@ class TogetherSession(
         if (pausedHere && player.playWhenReady) listenerPlayed(true)
         // Paused here by the listener: the room plays on, and play brings this phone back to it.
         if (ownWay || pausedHere) return
+        // A song from the files of the one in control that isn't on YouTube Music: nothing here can play it.
+        if (fromThisPhone(null, state.songId)) {
+            holdForPhoneSong(player, state)
+            return
+        }
+        heldFor = null
         val now = System.currentTimeMillis()
         if (player.currentMediaItem?.mediaId != state.songId) {
             toLeadersSong(player, state, now)
@@ -1125,6 +1196,30 @@ class TogetherSession(
         _status.value = _status.value.copy(songUnavailable = true, driftMs = null, locked = false)
         Log.i(TAG, "The leader's $songId cannot be played here: staying on it until the leader's next song")
         return true
+    }
+
+    /** The room's song this phone stopped for, as nothing here can play it: see [holdForPhoneSong]. */
+    private var heldFor: String? = null
+
+    /**
+     * The one in control plays a song from its files that isn't on YouTube Music (PhoneSongs): nothing here can play it,
+     * and its made-up id is never asked for (asked for, it failed with no word, Ti-Die's "that song isnt working", 22 Nov
+     * 2026). This phone stops, once and by the room's doing, the sheet says why, and the room's next song plays here as
+     * any other. A play pressed meanwhile is the listener's: it plays on what it had.
+     */
+    private fun holdForPhoneSong(player: Player, state: TogetherMessage.State) {
+        loadingSong = null
+        waitingFor = null
+        if (heldFor == state.songId) return
+        heldFor = state.songId
+        lock.reset()
+        ownSpeed()
+        _status.value = _status.value.copy(driftMs = null, locked = false)
+        Log.i(TAG, "The leader plays a song from its phone that isn't on YouTube Music: nothing to play here until its next one")
+        if (player.playWhenReady) {
+            mine()
+            player.playWhenReady = false
+        }
     }
 
     /** Behind the leader past what has come in, playing on until it has: see Follow.jumpNow. */
