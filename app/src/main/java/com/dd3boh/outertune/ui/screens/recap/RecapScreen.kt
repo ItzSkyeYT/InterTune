@@ -167,6 +167,10 @@ internal fun RecapStory(
     var savedStep by rememberSaveable { mutableIntStateOf(0) }
     val stage = remember(slides) { RecapStage(slides, still, savedAt, savedStep) }
     stage.onPage = { a, s -> savedAt = a; savedStep = s }
+    // The slides that reveal the year's favourites wear their covers' colours (CoverLook): read while the story starts.
+    LaunchedEffect(stage) {
+        if (CoverColours.read(context, covers, CoverLook.models(slides))) stage.coversRead()
+    }
 
     // The pieces of a slide are placed under the status bar and round the bars, as the design's are (RecapStage.pieceY).
     val density = LocalDensity.current

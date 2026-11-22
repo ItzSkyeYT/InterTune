@@ -31,9 +31,12 @@ import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.sin
 
-/** One page of the story: the start screen ([at] 0), a slide, or one step of the countdown. [visit] is new each time one comes up. */
+/**
+ * One page of the story: the start screen ([at] 0), a slide, or one step of the countdown. [visit] is new each time one comes up.
+ * [shapes]: the colours its shapes take for the design's loud ones, where it wears its cover's (CoverLook).
+ */
 @Immutable
-internal class PageState(val at: Int, val step: Int, val kind: SlideKind?, val visit: Int, val start: Long, val paper: SlidePaper)
+internal class PageState(val at: Int, val step: Int, val kind: SlideKind?, val visit: Int, val start: Long, val paper: SlidePaper, val shapes: List<Color>? = null)
 
 /** The page that went, drawn for a moment longer: under the new sheet ([covered]), or fading. */
 @Immutable
@@ -207,6 +210,16 @@ internal class RecapStage(private val slides: List<Slide>, val still: Boolean, s
     var top = 0f
     var chrome = 0f
 
+    /** The pages that wear their cover's colours, by their place in the story (CoverLook.plan): those whose covers have been read. */
+    private var looks: Map<Int, CoverLook.Look> = CoverLook.plan(slides, CoverColours::of)
+
+    /** Told when covers' colours have been read: the pages that come up from then on wear them. */
+    fun coversRead() {
+        looks = CoverLook.plan(slides, CoverColours::of)
+    }
+
+    private fun lookOf(at: Int, step: Int) = if (at == 0) null else looks[pageOf(slides, at, step)]
+
     private var visits = 0
     var current by mutableStateOf(page(startAt, startStep, How.INSTANT))
         private set
@@ -260,10 +273,10 @@ internal class RecapStage(private val slides: List<Slide>, val still: Boolean, s
     /** Told whenever the story moves to a page, to keep where it is across a turn of the phone. */
     var onPage: (Int, Int) -> Unit = { _, _ -> }
 
-    private fun paperFor(at: Int, step: Int) = if (at == 0) START_PAPER else paperOf(slides[at - 1].kind, step)
+    private fun paperFor(at: Int, step: Int) = if (at == 0) START_PAPER else lookOf(at, step)?.paper ?: paperOf(slides[at - 1].kind, step)
 
     private fun page(at: Int, step: Int, how: How) =
-        PageState(at, step, if (at == 0) null else slides[at - 1].kind, ++visits, clock.now, paperFor(at, step))
+        PageState(at, step, if (at == 0) null else slides[at - 1].kind, ++visits, clock.now, paperFor(at, step), lookOf(at, step)?.shapes)
 
     fun resize(width: Float, height: Float) {
         if (width <= 0f || height <= 0f) return
@@ -314,7 +327,10 @@ internal class RecapStage(private val slides: List<Slide>, val still: Boolean, s
         }
     }
 
-    private fun posesOf(page: PageState): List<Poses> = page.kind?.let { Choreography.of(it, page.step) } ?: Choreography.start
+    private fun posesOf(page: PageState): List<Poses> {
+        val sets = page.kind?.let { Choreography.of(it, page.step) } ?: Choreography.start
+        return page.shapes?.let { CoverLook.recolour(sets, it) } ?: sets
+    }
 
     /** Moves the story to page ([at], [step]): the new sheet comes in, the old page goes, the shapes take their new places. */
     fun go(at: Int, step: Int, how: How) {
