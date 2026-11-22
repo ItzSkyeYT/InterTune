@@ -27,14 +27,15 @@ data class RecapSongShown(val id: String, val title: String, val artists: String
 data class RecapArtistShown(val id: String, val name: String, val picture: String?)
 
 /**
- * A year's Recap with the names and covers its slides show. [pastNote]: the note sealed at the end
- * of last year's Recap for this one (RecapNote), opened once as the Recap opens, or null.
+ * A year's Recap with the names and covers its slides show. [pastNotes]: the notes sealed at the
+ * end of last year's Recap for this one (RecapNote), in the order written, opened once as the Recap
+ * opens; none where none were.
  */
 data class RecapShown(
     val recap: Recap,
     val songs: Map<String, RecapSongShown>,
     val artists: Map<String, RecapArtistShown>,
-    val pastNote: RecapNote.Note? = null,
+    val pastNotes: List<RecapNote.Note> = emptyList(),
 ) {
     fun song(id: String?): RecapSongShown? = id?.let(songs::get)
 

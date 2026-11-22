@@ -69,7 +69,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -124,7 +123,6 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.time.LocalDate
@@ -198,18 +196,20 @@ internal fun RecapStory(
     var away by remember { mutableStateOf(false) }
     var sharing by remember { mutableStateOf(false) }
     var muted by rememberSaveable { mutableStateOf(false) }
+    // "Your notes", over the start screen (RecapNotesDialog).
+    var notesOpen by rememberSaveable { mutableStateOf(false) }
     // The year card's Save as a playlist, and the second choice that follows it where the account may be changed.
     val playlist = rememberPlaylistFlow(shown, stringResource(R.string.recap_playlist_name, recap.year.toString()), viewModel)
     val page = stage.current
 
-    // The note to next year's you (NOTE_WRITE): what is typed, kept across a turn of the phone, and
-    // whether this year's is sealed already, read once off the main thread (RecapNote).
+    // The notes to next year's you (NOTE_WRITE): what is typed, kept across a turn of the phone, and
+    // how many this year's are sealed already, counted once off the main thread (RecapNote).
     val noteText = rememberSaveable { mutableStateOf("") }
     val note = remember(noteText) { NoteDraft(noteText) }
     val focusManager = LocalFocusManager.current
     LaunchedEffect(recap.year) {
-        val sealed = withContext(Dispatchers.IO) { RecapNote.read(context, recap.year) }
-        if (sealed != null && note.sealedDay == null) note.sealedDay = sealed.writtenDay
+        val count = withContext(Dispatchers.IO) { RecapNote.count(context, recap.year) }
+        note.sealed = maxOf(note.sealed, count)
     }
 
     fun next() {
@@ -237,29 +237,21 @@ internal fun RecapStory(
     }
 
     /**
-     * Seal it: the note kept on this phone (RecapNote.save, off the main thread), its seal pressed on
-     * for a moment on the story's clock, then the thank-you page. Where it could not be kept, the
-     * slide says why and its words stay for another try.
+     * Seal it: the note kept on this phone as one more of the year's (RecapNote.save, off the main
+     * thread), and the slide shows them sealed, with Write another; the story moves on by itself a
+     * rest after. Where it could not be kept, the slide says why and its words stay for another try.
      */
     fun sealNote() {
         val text = note.text.trim()
-        if (note.sealing || text.isEmpty()) return
+        if (note.sealing || text.isEmpty() || note.full) return
         note.sealing = true
         note.failed = false
         focusManager.clearFocus()
-        val visit = stage.current.visit
         scope.launch {
             val day = LocalDate.now().toEpochDay()
             val kept = withContext(Dispatchers.IO) { RecapNote.save(context, recap.year, text, day) }
-            if (kept) note.sealed(day, stage.clock.now) else note.failed = true
+            if (kept) note.kept(stage.clock.now) else note.failed = true
             note.sealing = false
-            if (!kept) return@launch
-            val until = stage.clock.now + NOTE_SEALED_MS
-            snapshotFlow { stage.clock.now }.first { it >= until }
-            if (stage.current.visit == visit) {
-                stopped = false
-                next()
-            }
         }
     }
 
@@ -368,7 +360,7 @@ internal fun RecapStory(
     fun Content(s: SlideScope) {
         val p = s.page
         if (p.at == 0) {
-            RecapStart(s, onOpen = { openStory() }, onClose = { close() })
+            RecapStart(s, onOpen = { openStory() }, onClose = { close() }, onNotes = { notesOpen = true })
             return
         }
         when (slides[p.at - 1].kind) {
@@ -472,6 +464,7 @@ internal fun RecapStory(
             )
         }
     }
+    if (notesOpen) RecapNotesDialog(onClose = { notesOpen = false })
 }
 
 /** The papers: the slide's own, and while one changes to the next the new sheet growing over the old. */

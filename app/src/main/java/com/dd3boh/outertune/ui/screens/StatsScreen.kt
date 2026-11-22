@@ -24,6 +24,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.dd3boh.outertune.ui.screens.recap.rememberRecapOnShow
 import com.dd3boh.outertune.ui.screens.recap.RecapBanner
+import com.dd3boh.outertune.ui.screens.recap.RecapNotesDialog
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.padding
 import androidx.compose.ui.platform.LocalConfiguration
@@ -132,7 +133,10 @@ fun StatsScreen(
     ) {
         recapYear?.let { year ->
             item(key = "recap_banner") {
-                RecapBanner(year, Modifier.animateItem().padding(horizontal = 12.dp, vertical = 8.dp))
+                // With the way to the notes written at the end of a Recap (his ask of 22 Nov 2026).
+                var notesOpen by rememberSaveable { mutableStateOf(false) }
+                RecapBanner(year, Modifier.animateItem().padding(horizontal = 12.dp, vertical = 8.dp), onNotes = { notesOpen = true })
+                if (notesOpen) RecapNotesDialog(onClose = { notesOpen = false })
             }
         }
         item {

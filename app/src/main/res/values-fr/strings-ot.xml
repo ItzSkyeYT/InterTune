@@ -2755,10 +2755,17 @@
     </plurals>
     <string name="recap_this_year_here">Tout ici vient de cette année, calculé sur ce téléphone.</string>
     <string name="recap_note_read_kick">De votre Recap %1$s</string>
-    <string name="recap_note_read_title">Un mot de %1$s</string>
+    <plurals name="recap_note_read_title">
+        <item quantity="one">Un mot de %1$s</item>
+        <item quantity="many">%2$s mots de %1$s</item>
+        <item quantity="other">%2$s mots de %1$s</item>
+    </plurals>
     <string name="recap_note_read_strip">vous, il y a un an</string>
     <string name="recap_note_written_on">Écrit le %1$s</string>
     <string name="recap_note_read_line">Vous pourrez écrire celui de l\'an prochain à la fin.</string>
+    <string name="recap_notes_title">Vos mots</string>
+    <string name="recap_notes_opened_by">Ouverts par votre Recap %1$s</string>
+    <string name="recap_notes_none">Les mots que vous écrivez à la fin de votre Recap apparaissent ici.</string>
     <string name="recap_minutes_kick_since">Depuis le %1$s, vous avez écouté</string>
     <string name="recap_minutes_kick_year">En %1$s, vous avez écouté</string>
     <plurals name="recap_minutes_unit" tools:ignore="ImpliedQuantity">
@@ -2919,9 +2926,14 @@
         <item quantity="other">%1$s caractères restants</item>
     </plurals>
     <string name="recap_note_sealed">Scellé jusqu\'à votre prochain Recap</string>
-    <string name="recap_note_sealed_line">Le Recap de l\'an prochain vous l\'ouvrira. Un nouveau mot prendrait sa place.</string>
-    <string name="recap_note_again">Le réécrire</string>
-    <string name="recap_note_again_line">Celui-ci remplacera le mot scellé le %1$s.</string>
+    <plurals name="recap_note_sealed_count">
+        <item quantity="one">%1$s mot scellé pour votre Recap %2$s</item>
+        <item quantity="many">%1$s mots scellés pour votre Recap %2$s</item>
+        <item quantity="other">%1$s mots scellés pour votre Recap %2$s</item>
+    </plurals>
+    <string name="recap_note_sealed_line">Le Recap de l\'an prochain ouvrira ce que vous avez scellé.</string>
+    <string name="recap_note_another">En écrire un autre</string>
+    <string name="recap_note_full">C\'est le maximum pour une année. Le Recap de l\'an prochain vous les ouvrira.</string>
     <string name="recap_note_failed">Impossible de sceller votre mot : le téléphone manque peut-être de place. Libérez-en un peu, puis touchez Sceller à nouveau.</string>
     <string name="recap_thanks_title">Merci</string>
     <!-- The thank-you words and their signature: his, approved in English and in French on 25 Oct 2026. -->
