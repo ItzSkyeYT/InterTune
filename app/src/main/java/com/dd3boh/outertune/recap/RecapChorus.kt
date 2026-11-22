@@ -35,6 +35,9 @@ object RecapChorus {
     /** A song whose loudest run is not this much louder than its quietest is flat: a third of the way in then. */
     const val MIN_CONTRAST = 1.25f
 
+    /** Runs this close to the loudest count as loud as it: the earliest of them is taken. */
+    const val NEAR = 0.03
+
     /**
      * Where the loudest run of [pieceMs] begins, from [envelope] (one loudness every [stepMs] from the
      * start of a song of [durationMs]): of runs as loud, the one beginning on a loud place, then the earlier;
@@ -46,25 +49,23 @@ object RecapChorus {
         val first = (durationMs * SKIP_START / stepMs).toInt()
         val last = minOf(envelope.size - window, ((durationMs * (1 - SKIP_END) - pieceMs) / stepMs).toInt())
         if (last < first) return null
-        var best = -1
-        var bestScore = -1.0
-        var bestSum = 0.0
-        var quietest = Double.MAX_VALUE
+        val sums = DoubleArray(last - first + 1)
+        val scores = DoubleArray(last - first + 1)
         for (i in first..last) {
             var sum = 0.0
             for (k in i until i + window) sum += envelope[k]
+            sums[i - first] = sum
             // Of runs as loud, the one that begins on a loud place: where the loud part starts, not before it.
-            val score = sum + envelope[i] * 0.5
-            if (score > bestScore) {
-                bestScore = score
-                bestSum = sum
-                best = i
-            }
-            quietest = minOf(quietest, sum)
+            scores[i - first] = sum + envelope[i] * 0.5
         }
-        if (best < 0 || quietest <= 0.0 && bestSum <= 0.0) return null
-        if (quietest > 0.0 && bestSum / quietest < MIN_CONTRAST) return null
-        return best * stepMs
+        val loudest = sums.max()
+        val quietest = sums.min()
+        if (loudest <= 0.0) return null
+        if (quietest > 0.0 && loudest / quietest < MIN_CONTRAST) return null
+        // Runs within NEAR of the best are as loud to the ear: the earliest of them, the loud part's start. The
+        // strictly loudest landed anywhere in it, by a third decimal (22 Nov 2026: 2 to 4 s late on the Pixel).
+        val top = scores.max()
+        return (first + scores.indexOfFirst { it >= top * (1 - NEAR) }) * stepMs
     }
 
     /**

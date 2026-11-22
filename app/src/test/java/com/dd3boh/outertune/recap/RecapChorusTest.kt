@@ -30,6 +30,17 @@ class RecapChorusTest {
     }
 
     @Test
+    fun `runs nearly as loud count as loud, so it starts where the loud part does`() {
+        // The blocks of a real loud stretch differ in their third decimal (the Pixel walk of 22 Nov 2026): the
+        // strictly loudest run started 2 to 4 s into it.
+        val song = song(110, quiet = 0.005f, fromS = 30, forS = 15)
+        val wobble = floatArrayOf(0.0757f, 0.0761f, 0.0763f, 0.0759f, 0.0764f, 0.0762f, 0.0760f)
+        for ((k, v) in wobble.withIndex()) song[15 + k] = v
+        song[22] = 0.054f
+        for (piece in listOf(6_500L, 10_000L, 12_000L)) assertEquals("piece $piece", 30_000L, RecapChorus.startMs(song, step, piece, 110_000L))
+    }
+
+    @Test
     fun `not in the opening nor the fade at the end`() {
         val loudStart = song(240, fromS = 0, forS = 12)
         val at = RecapChorus.startMs(loudStart.also { it[60] = 0.5f; it[61] = 0.5f }, step, 10_000L, 240_000L)
