@@ -12,6 +12,9 @@ package com.dd3boh.outertune.ui.player
 import com.dd3boh.outertune.ui.component.ProblemReportDialog
 import com.dd3boh.outertune.ui.component.PlayerErrorReport
 import com.dd3boh.outertune.ui.dialog.TogetherSheet
+import com.dd3boh.outertune.together.TogetherSession
+import com.dd3boh.outertune.together.seekHeldLine
+import com.dd3boh.outertune.utils.Toaster
 import androidx.compose.material.icons.rounded.Group
 import com.dd3boh.outertune.playback.PlayerConnection
 import com.dd3boh.outertune.playback.BatteryUse
@@ -1729,6 +1732,7 @@ fun BottomSheetPlayer(
                         gutter = hPadding,
                         color = onBackgroundColor,
                         below = controlSizes.gapAboveTransport,
+                        room = room,
                     )
 
                     // The bar's glass is a layer of its own behind the buttons, the row's size and in its
@@ -1771,6 +1775,8 @@ fun BottomSheetPlayer(
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             val shuffleModeEnabled by playerConnection.shuffleModeEnabled.collectAsState()
+                            // A guest following a room plays the room's order: shuffle and repeat say who decides (RoomOnBar.kt).
+                            val orderHeld by rememberOrderHeld(playerConnection)
 
                             Box(modifier = Modifier.weight(1f)) {
                                 // Off is the plain shuffle icon, on stands on repeat's lit box (ShuffleLook, 19 Nov 2026).
@@ -1787,6 +1793,7 @@ fun BottomSheetPlayer(
                                     // first tap loads it, as skip and play do, and as the queue's own bar does (#127).
                                     // Read straight from the player, the button stayed greyed out until play.
                                     onClick = {
+                                        if (orderHeld) return@ShuffleButton sayOrderHeld(context, playerConnection)
                                         // Under Strong as a like: read before the tap turns it.
                                         val feel = buttonFeel(turnsOff = shuffleModeEnabled)
                                         playerConnection.loadQueueIfEmpty()
@@ -1910,6 +1917,7 @@ fun BottomSheetPlayer(
                                     // leaves it as it is.
                                     enabled = true,
                                     onClick = {
+                                        if (orderHeld) return@RepeatButton sayOrderHeld(context, playerConnection)
                                         // Off, all, one, off: only from one does a tap turn it off.
                                         val feel = buttonFeel(turnsOff = repeatMode == REPEAT_MODE_ONE)
                                         playerConnection.player.toggleRepeatMode()
@@ -2601,8 +2609,17 @@ private fun SeekBar(
     color: Color,
     /** The room under the times, down to the buttons: part of the strip a drag is taken on. */
     below: Dp,
+    /** The listening room this phone is in: a guest's bar may be held, and says when it plays on its own (RoomOnBar.kt). */
+    room: TogetherSession? = null,
 ) {
     val shown = sliderPosition() ?: position()
+    // A guest whose host lets only the person in control move in the song (RoomSettings): the bar keeps its place, size
+    // and look, moves nothing, and a touch says why once the finger lifts. Ti-Die, #testers 22 Nov 2026: "itd be cool
+    // either to have the timeline be disabled or have a playhead showing the group's time area"; his pick: locked.
+    val held by rememberSeekHeld(room)
+    val context = LocalContext.current
+    val roomNow by rememberUpdatedState(room)
+    val sayHeld = { roomNow?.let { Toaster.show(context, seekHeldLine(context, it.status.value)) } }
     val seekInteraction = remember { MutableInteractionSource() }
     // The bar's own height, under which a drag must go across to be the bar's.
     var barBottom by remember { mutableIntStateOf(0) }
@@ -2616,15 +2633,15 @@ private fun SeekBar(
                 trackInset = gutter + 2.dp,
                 rtl = LocalLayoutDirection.current == LayoutDirection.Rtl,
                 barBottom = { barBottom.toFloat() },
-                onSlide = onSlide,
-                onSlideDone = onSlideDone,
+                onSlide = { if (!held) onSlide(it) },
+                onSlideDone = { if (held) sayHeld() else onSlideDone() },
             )
     ) {
     Slider(
         value = shown.toFloat(),
         valueRange = 0f..(if (duration == C.TIME_UNSET) 0f else duration.toFloat()),
-        onValueChange = { onSlide(it.toLong()) },
-        onValueChangeFinished = onSlideDone,
+        onValueChange = { if (!held) onSlide(it.toLong()) },
+        onValueChangeFinished = { if (held) sayHeld() else onSlideDone() },
         // Material 3 Expressive: a bar thumb standing clear of a thick track, with the
         // stop dot at the end, the same slider the backup settings already use.
         interactionSource = seekInteraction,
@@ -2645,7 +2662,13 @@ private fun SeekBar(
         modifier = Modifier
             .padding(horizontal = gutter)
             .onSizeChanged { barBottom = it.height }
-            .onPreviewKeyEvent(onKey)
+            .onPreviewKeyEvent { event ->
+                // Held, left and right move nothing and say why; up and down still move on.
+                if (held && (event.key == Key.DirectionLeft || event.key == Key.DirectionRight)) {
+                    if (event.type == KeyEventType.KeyDown) sayHeld()
+                    true
+                } else onKey(event)
+            }
     )
 
     Row(
@@ -2662,6 +2685,9 @@ private fun SeekBar(
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
+
+        // A guest on its own in a room: "On your own" and Catch up between the times, no taller than they are.
+        OwnWayOnBar(room, color, Modifier.weight(1f))
 
         Text(
             text = if (duration != C.TIME_UNSET) makeTimeString(duration) else "",

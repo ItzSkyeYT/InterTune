@@ -53,8 +53,10 @@ sealed interface TogetherMessage {
     /**
      * Somebody in the room, said every [HERE_MS] so the others know who is still there. The owner's
      * also says who leads, [lead] being that phone's key: the only word on it anyone takes.
+     * And the owner's [settings], who may do what (RoomSettings): null from anyone else, and from
+     * an owner on an older build.
      */
-    data class Here(val name: String, val owner: Boolean, val lead: String? = null) : TogetherMessage
+    data class Here(val name: String, val owner: Boolean, val lead: String? = null, val settings: RoomSettings? = null) : TogetherMessage
 
     /** A follower's song for the leader to play next. */
     data class Suggest(val songId: String, val title: String, val artist: String, val thumbnail: String, val by: String) : TogetherMessage
@@ -123,6 +125,7 @@ sealed interface TogetherMessage {
             is Pong -> buildJsonObject { put("t", "pong"); put("c", message.askedAtMs); put("h", message.hostMs); put("to", message.to) }
             is Here -> buildJsonObject {
                 put("t", "here"); put("name", message.name); put("owner", message.owner)
+                message.settings?.let { put("settings", it.toJson()) }
                 message.lead?.let { put("lead", it) }
             }
             is Suggest -> buildJsonObject {
@@ -172,7 +175,7 @@ sealed interface TogetherMessage {
         private fun decodeObject(o: JsonObject): TogetherMessage? {
             fun s(key: String) = o[key]!!.jsonPrimitive.content
             fun l(key: String) = o[key]!!.jsonPrimitive.long
-            return when (s("t")) {
+            val message = when (s("t")) {
                 "state" -> State(s("song"), s("title"), s("artist"), l("pos"), o["playing"]!!.jsonPrimitive.boolean, o["speed"]!!.jsonPrimitive.double, l("at"))
                 "ping" -> Ping(l("c"), s("to"))
                 "pong" -> Pong(l("c"), l("h"), s("to"))
@@ -189,6 +192,8 @@ sealed interface TogetherMessage {
                 "end" -> End
                 else -> null
             }
+            // The owner's room settings, one more field of its Here (RoomSettings): none from an older build.
+            return if (message is Here) message.copy(settings = RoomSettings.of(o["settings"])) else message
         }
     }
 }

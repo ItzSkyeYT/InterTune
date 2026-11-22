@@ -1912,6 +1912,8 @@ fun BoxScope.QueueContent(
                             .fillMaxWidth()
                             .padding(horizontal = PlayerHorizontalPadding)
                     ) {
+                        // A guest following a room plays the room's order: shuffle and repeat say who decides (RoomOnBar.kt).
+                        val orderHeld by rememberOrderHeld(playerConnection)
                         Box(modifier = Modifier.weight(1f)) {
                             // Shuffle and repeat say what they are on a long press, their state too ("Repeat
                             // off"), by the name screen readers hear (Niko, 11 Nov 2026).
@@ -1926,6 +1928,7 @@ fun BoxScope.QueueContent(
                                     color = iconButtonColor,
                                     enabled = barWorks,
                                     onClick = {
+                                        if (orderHeld) return@ShuffleButton sayOrderHeld(context, playerConnection)
                                         // As the player's: under Strong as a like, read before the tap turns it.
                                         val feel = buttonFeel(turnsOff = shuffleModeEnabled)
                                         playerConnection.loadQueueIfEmpty()
@@ -2045,6 +2048,7 @@ fun BoxScope.QueueContent(
                                     color = iconButtonColor,
                                     enabled = barWorks,
                                     onClick = {
+                                        if (orderHeld) return@RepeatButton sayOrderHeld(context, playerConnection)
                                         val feel = buttonFeel(turnsOff = repeatMode == REPEAT_MODE_ONE)
                                         playerConnection.player.toggleRepeatMode()
                                         haptic.felt(feel, HapticFeedbackType.SegmentFrequentTick)

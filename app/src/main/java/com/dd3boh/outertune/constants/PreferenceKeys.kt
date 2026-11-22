@@ -830,6 +830,9 @@ val TogetherCatchUpKey = intPreferencesKey("togetherCatchUpPercent")
 /** How late this phone's sound comes out (Bluetooth), in ms: the room's timing makes up for it. */
 val TogetherDelayKey = intPreferencesKey("togetherDelayMs")
 
+/** A host's room settings (RoomSettings), from its last room: everyone may move in the song. Unset is off. */
+val TogetherEveryoneSeeksKey = booleanPreferencesKey("togetherEveryoneSeeks")
+
 /** Add confident matches to the playlist without being asked. Continuous runs only. */
 val RecogniseAutoAddKey = booleanPreferencesKey("recogniseAutoAdd")
 
