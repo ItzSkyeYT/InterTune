@@ -187,4 +187,45 @@ class RecapCoverLookTest {
             }
         }
     }
+
+    @Test
+    fun `on the stage each step of the countdown comes in on its cover's paper, and its shapes turn to the cover's colours`() {
+        val slides = slides()
+        val main = intArrayOf(argb(20, 30, 120), argb(200, 40, 40), argb(240, 240, 240))
+        val looks = CoverLook.plan(slides) { main }
+        // Covers not read yet: the countdown comes up on its own paper.
+        var read: IntArray? = null
+        val st = RecapStage(slides, still = false, startAt = 0, startStep = 0, colours = { read }).apply { resize(1080f, 2340f) }
+        val countdown = slides.indexOfFirst { it.kind == SlideKind.COUNTDOWN } + 1
+        st.go(countdown, 0, How.ON)
+        assertEquals(paperOf(SlideKind.COUNTDOWN, 0).paper, st.current.paper.paper)
+        // Read: the next step wears its cover's colours, growing or sliding in over the last one's paper.
+        read = main
+        st.coversRead()
+        repeat(80) { st.frame(16.0, false) }
+        st.go(countdown, 1, How.ON)
+        val first = looks.getValue(pageOf(slides, countdown, 1))
+        assertEquals(WipeKind.STRIPS, st.wipe?.kind)
+        assertEquals(paperOf(SlideKind.COUNTDOWN, 0).paper, st.wipe?.under)
+        assertEquals(first.paper.paper, st.wipe?.over)
+        assertEquals(first.paper.paper, st.current.paper.paper)
+        repeat(80) { st.frame(16.0, false) }
+        st.go(countdown, 2, How.ON)
+        val next = looks.getValue(pageOf(slides, countdown, 2))
+        assertEquals(first.paper.paper, st.wipe?.under)
+        assertEquals(next.paper.paper, st.wipe?.over)
+        // The shapes on show take the cover's colours, and the design's ink and cream; none keeps a loud colour of its own.
+        repeat(80) { st.frame(16.0, false) }
+        val shown = Choreography.of(SlideKind.COUNTDOWN, 2).last().set.filterValues { !it.hide }.keys
+        val worn = shown.flatMap { st.actors[it.ordinal].last?.c.orEmpty() }
+        assertTrue(worn.any { it in next.shapes })
+        for (c in worn) assertTrue("$c", c in next.shapes || c == RecapInk.Ink || c == RecapInk.Cream || c == RecapInk.White)
+        // Number one grows in with the cover's other colours as the papers at its edge.
+        st.go(countdown + 1, 0, How.ON)
+        assertEquals(WipeKind.GROW, st.wipe?.kind)
+        assertEquals(looks.getValue(pageOf(slides, countdown + 1, 0)).shapes, st.wipe?.rims)
+        // The slide before the countdown is about no cover: its own paper.
+        st.go(countdown - 1, 0, How.BACK)
+        assertEquals(paperOf(slides[countdown - 2].kind).paper, st.current.paper.paper)
+    }
 }

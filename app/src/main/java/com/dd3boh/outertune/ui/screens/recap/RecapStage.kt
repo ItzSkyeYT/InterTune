@@ -188,7 +188,7 @@ internal class TextLines {
  * frame from the story's clock. Slides only say what is on them and when it arrives.
  */
 @Stable
-internal class RecapStage(private val slides: List<Slide>, val still: Boolean, startAt: Int, startStep: Int) {
+internal class RecapStage(private val slides: List<Slide>, val still: Boolean, startAt: Int, startStep: Int, private val colours: (Any?) -> IntArray? = CoverColours::of) {
     val clock = RecapClock()
     val actors = ActorId.entries.map { Actor(it) }
     val anchors = RecapAnchors()
@@ -210,12 +210,15 @@ internal class RecapStage(private val slides: List<Slide>, val still: Boolean, s
     var top = 0f
     var chrome = 0f
 
-    /** The pages that wear their cover's colours, by their place in the story (CoverLook.plan): those whose covers have been read. */
-    private var looks: Map<Int, CoverLook.Look> = CoverLook.plan(slides, CoverColours::of)
+    /**
+     * The pages that wear their cover's colours, by their place in the story (CoverLook.plan): those
+     * whose covers' main colours [colours] has, which are those read (CoverColours).
+     */
+    private var looks: Map<Int, CoverLook.Look> = CoverLook.plan(slides, colours)
 
     /** Told when covers' colours have been read: the pages that come up from then on wear them. */
     fun coversRead() {
-        looks = CoverLook.plan(slides, CoverColours::of)
+        looks = CoverLook.plan(slides, colours)
     }
 
     private fun lookOf(at: Int, step: Int) = if (at == 0) null else looks[pageOf(slides, at, step)]
