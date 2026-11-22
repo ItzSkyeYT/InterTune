@@ -8,6 +8,7 @@ package com.dd3boh.outertune.together
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
@@ -115,8 +116,13 @@ class RoomLocalFilesTest {
         assertFalse(fromThisPhone(isLocal = null, mediaId = "LSabcdefghi"))
         val session = File("src/main/java/com/dd3boh/outertune/together/TogetherSession.kt").readText()
         val own = session.substringAfter("private fun ownQueue()").substringBefore("private fun send(")
-        assertTrue("if (!fromThisPhone(item.metadata?.isLocal, item.mediaId)) {" in own)
-        assertTrue(own.indexOf("if (!fromThisPhone(") < own.indexOf("songs += TogetherMessage.Song("))
+        // Since 22 Nov 2026 a file goes in as the YouTube song that stands in for it (RoomStandIns), never as itself: its
+        // id in the room is the stand-in's or nothing, and only an id from there goes into the queue.
+        assertTrue(own.indexOf("val id = standIns.roomId(item.mediaId, isLocal)") in 0 until own.indexOf("songs += TogetherMessage.Song("))
+        assertTrue("if (id != null) {\n                songs += TogetherMessage.Song(\n                    id = id," in own)
+        val standIns = RoomStandIns(search = { emptyList() })
+        assertNull("a file not looked up, or with no stand-in, has no id in the room", standIns.roomId("LSabcdefgh", isLocal = true))
+        assertEquals("dQw4w9WgXcQ", standIns.roomId("dQw4w9WgXcQ", isLocal = false))
         // a guest proposes its own song first or nothing (the proposal is built from ownQueue)
         val propose = session.substringAfter("fun propose()").substringBefore("\n    }\n")
         assertTrue("it.isNotEmpty() && it.first().id == service.exoPlayer.currentMediaItem?.mediaId" in propose)
@@ -144,7 +150,9 @@ class RoomLocalFilesTest {
     fun `the session makes its queue and its suggestions with it`() {
         val session = File("src/main/java/com/dd3boh/outertune/together/TogetherSession.kt").readText()
         val own = session.substringAfter("private fun ownQueue()").substringBefore("private fun send(")
-        assertTrue("thumbnail = TogetherMessage.thumbnailFor(metadata.artworkUri?.toString())" in own)
+        // A song of the queue keeps its picture as the room carries pictures; a file's stand-in has YouTube's own (RoomStandIns).
+        assertTrue("else TogetherMessage.thumbnailFor(metadata.artworkUri?.toString())" in own)
+        assertTrue("thumbnail = if (id != item.mediaId) \"https://i.ytimg.com/vi/\$id/hqdefault.jpg\"" in own)
         assertFalse("artworkUri?.toString().orEmpty()" in session)
         assertTrue("TogetherMessage.thumbnailFor(song.thumbnailUrl)" in session.substringAfter("fun suggest(").substringBefore("fun propose("))
     }

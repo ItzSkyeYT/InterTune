@@ -29,6 +29,7 @@ import com.dd3boh.outertune.playback.Varispeed
 import com.dd3boh.outertune.playback.queues.ListQueue
 import com.dd3boh.outertune.utils.dataStore
 import com.dd3boh.outertune.utils.ReportTrail
+import com.dd3boh.outertune.utils.Throttle
 import com.dd3boh.outertune.utils.Toaster
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineExceptionHandler
@@ -226,6 +227,8 @@ class TogetherSession(
     private val guestCast = GuestCast()
     /** The host's song this phone cannot play: see [holdsFailed]. */
     private val refusal = HostSongRefusal()
+    /** The YouTube songs that stand in for this phone's files when it leads (his ask of 22 Nov 2026). */
+    private val standIns = RoomStandIns()
     /** The room's queue this phone's own was last made to match, so it is compared once per word. */
     private var matchedQueue: TogetherMessage.Queue? = null
     private var currentId: String? = service.exoPlayer.currentMediaItem?.mediaId
@@ -475,9 +478,13 @@ class TogetherSession(
         val item = player.currentMediaItem ?: return
         lastSentState = System.currentTimeMillis()
         val metadata = item.mediaMetadata
+        val isLocal = item.metadata?.isLocal
+        // A file on this phone: nobody else has it, so the room plays the YouTube song that stands in for it once one
+        // is found (RoomStandIns), and the file's own id until then, which the guests show as unavailable, as before.
+        if (standIns.toLookUp(item.mediaId, isLocal)) lookUpStandIn(item.mediaId, metadata.title, metadata.artist, item.metadata?.duration)
         send(
             TogetherMessage.State(
-                songId = item.mediaId,
+                songId = standIns.roomId(item.mediaId, isLocal) ?: item.mediaId,
                 title = metadata.title?.toString().orEmpty(),
                 artist = metadata.artist?.toString().orEmpty(),
                 // Where its sound is, not its player: a leader on Bluetooth is that much behind
@@ -488,6 +495,23 @@ class TogetherSession(
                 atMs = lastSentState,
             )
         )
+    }
+
+    /**
+     * The file [mediaId] looked up on YouTube Music (RoomStandIns). A stand-in found while the file still plays here and
+     * this phone leads goes out at once, the state and then the queue, so the guests move to it without waiting for the
+     * next word. Nothing is asked while YouTube turns this phone away (Throttle).
+     */
+    private fun lookUpStandIn(mediaId: String, title: CharSequence?, artist: CharSequence?, durationS: Int?) {
+        if (Throttle.isBlocked) return
+        scope.launch {
+            val id = standIns.lookUp(mediaId, title?.toString().orEmpty(), artist?.toString().orEmpty(), durationS)
+            Log.i(TAG, if (id != null) "A file of this phone plays in the room as $id" else "No sure YouTube song for a file of this phone")
+            if (id != null && leading && service.exoPlayer.currentMediaItem?.mediaId == mediaId) {
+                sendState()
+                sendQueue()
+            }
+        }
     }
 
     /** The queue goes out once the player is done changing it: autoplay adds songs a few at a time. */
@@ -506,9 +530,10 @@ class TogetherSession(
     }
 
     /**
-     * This phone's queue from the song playing on, in the order it plays, without the songs from files on this phone: no
-     * other phone can play them, and an untagged file's name was its title, shown in every guest's queue (review 2,
-     * 18 Nov 2026). The song playing still says its own name in the State: the room shows what the host plays.
+     * This phone's queue from the song playing on, in the order it plays. A song from a file on this phone goes in only
+     * as the YouTube song that stands in for it (RoomStandIns, 22 Nov 2026), under its own tags: no other phone can play
+     * the file, and an untagged file's name was its title, shown in every guest's queue (review 2, 18 Nov 2026), which
+     * is never looked up. The song playing still says its own name in the State: the room shows what the host plays.
      */
     private fun ownQueue(): List<TogetherMessage.Song> {
         val player = service.exoPlayer
@@ -516,18 +541,25 @@ class TogetherSession(
         if (timeline.isEmpty) return emptyList()
         val window = Timeline.Window()
         val songs = mutableListOf<TogetherMessage.Song>()
+        var lookAhead = 0
         var index = player.currentMediaItemIndex
         while (index != C.INDEX_UNSET && songs.size < TogetherMessage.QUEUE_SONGS) {
             val item = timeline.getWindow(index, window).mediaItem
-            if (!fromThisPhone(item.metadata?.isLocal, item.mediaId)) {
-                val metadata = item.mediaMetadata
+            val isLocal = item.metadata?.isLocal
+            val metadata = item.mediaMetadata
+            // A file goes in as the YouTube song that stands in for it, once found; the next few are looked up ahead.
+            val id = standIns.roomId(item.mediaId, isLocal)
+            if (id != null) {
                 songs += TogetherMessage.Song(
-                    id = item.mediaId,
+                    id = id,
                     title = metadata.title?.toString().orEmpty(),
                     artist = metadata.artist?.toString().orEmpty(),
                     // Never a file's path: a song from the phone has it as its picture (TogetherMessage.thumbnailFor).
-                    thumbnail = TogetherMessage.thumbnailFor(metadata.artworkUri?.toString()),
+                    thumbnail = if (id != item.mediaId) "https://i.ytimg.com/vi/$id/hqdefault.jpg" else TogetherMessage.thumbnailFor(metadata.artworkUri?.toString()),
                 )
+            } else if (leading && lookAhead < STAND_INS_AHEAD && standIns.toLookUp(item.mediaId, isLocal)) {
+                lookAhead++
+                lookUpStandIn(item.mediaId, metadata.title, metadata.artist, item.metadata?.duration)
             }
             index = timeline.getNextWindowIndex(index, Player.REPEAT_MODE_OFF, player.shuffleModeEnabled)
         }
@@ -1353,6 +1385,9 @@ class TogetherSession(
         )
     }
 }
+
+/** How many of the files next in the leader's queue are looked up on YouTube ahead of their turn (RoomStandIns). */
+private const val STAND_INS_AHEAD = 3
 
 /** A local song's id: "LS" and eight more (SongEntity.generateSongId), never a YouTube id's eleven characters. */
 private val LOCAL_SONG_ID = Regex("LS[A-Za-z0-9]{8}")
