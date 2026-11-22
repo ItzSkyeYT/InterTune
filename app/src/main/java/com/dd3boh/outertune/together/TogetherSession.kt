@@ -149,6 +149,8 @@ class TogetherSession(
         val songOnlyThere: Boolean = false,
         /** In control: this phone plays a song from its files that isn't on YouTube Music, and the others hear nothing. */
         val songOnlyHere: Boolean = false,
+        /** Following: the room's song is YouTube Music's version of a file on the phone in control (PhoneSongs.Heard). */
+        val songMatched: Boolean = false,
         /** A guest that has heard nothing of the host for a while: it says the host is away (HostAbsence). */
         val hostAway: Boolean = false,
         /** This phone casts. Following, it then follows nothing until the cast ends (GuestCast). */
@@ -656,6 +658,7 @@ class TogetherSession(
                 playing = player.isPlaying || (player.playWhenReady && player.playbackState == Player.STATE_BUFFERING),
                 speed = player.playbackParameters.speed.toDouble(),
                 atMs = lastSentState,
+                fromFile = fromFile is PhoneSongs.Heard,
             )
         )
     }
@@ -871,6 +874,7 @@ class TogetherSession(
                         hostSongId = message.songId,
                         waitingForHost = false,
                         songOnlyThere = onlyThere,
+                        songMatched = message.fromFile && !onlyThere,
                     )
                 }
             }
