@@ -9,6 +9,7 @@
 
 package com.dd3boh.outertune.playback
 
+import kotlin.math.abs
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.flow.drop
 import com.dd3boh.outertune.models.blockedArtists
@@ -3112,11 +3113,14 @@ class MusicService : MediaLibraryService(),
     /**
      * Starts the queue's player on the song the Recap slid in. With [from], the Recap's own player still
      * sounding it, there is no gap (his "slight cut between when the recap ends and the end song plays",
-     * 22 Nov 2026): the Recap's sings on while the queue's player makes the song ready; the queue's is then
-     * put a little ahead of it ([HANDOVER_LEAD_MS], further ahead again when a seek took longer than that),
-     * starts as the Recap's gets there, and the two cross over in [HANDOVER_FADE_MS]. This phone's own player
-     * only: a cast or routed one starts at once, as before, and so does a song not ready in [HANDOVER_WAIT_MS].
-     * The Recap's player is always let go here. Main thread.
+     * 22 Nov 2026): the Recap's sings on while the queue's player makes the song ready and starts it SILENT,
+     * a little ahead ([HANDOVER_LEAD_MS]). Once the queue's player is heard (playing, and [HANDOVER_SETTLE_MS]
+     * more), the gap between the two is measured and put right by a silent seek that lands that much further
+     * on ([HANDOVER_IN_STEP_MS], [HANDOVER_TRIES] at most); then the two cross over in [HANDOVER_FADE_MS].
+     * A player takes a varying moment to be heard after it starts, which a start timed in advance cannot know:
+     * the Pixel's first handovers were 14 and 143 ms apart. This phone's own player only: a cast or routed one
+     * starts at once, as before, and so does a song not ready in [HANDOVER_WAIT_MS]. The Recap's player is
+     * always let go here, and the queue's is never left silent. Main thread.
      */
     private fun startSlidIn(songId: String, from: ExoPlayer?) {
         val p = exoPlayer
@@ -3129,39 +3133,46 @@ class MusicService : MediaLibraryService(),
         }
         p.playWhenReady = false
         scope.launch {
+            val target = p.volume
+            var set = target
             try {
                 val t0 = SystemClock.elapsedRealtime()
                 suspend fun ready() {
                     while (!(p.playbackState == Player.STATE_READY && p.currentMediaItem?.mediaId == songId)) delay(10)
                 }
+                // Heard: playing, and a moment more for its sound to come out. Watching its place move does not work on
+                // every phone (the Pixel 5, 22 Nov 2026: never seen moving in ten seconds, its place reported in steps).
+                suspend fun heard() {
+                    withTimeoutOrNull(2_000) { while (!p.isPlaying) delay(10) }
+                    delay(HANDOVER_SETTLE_MS)
+                }
                 var tries = 0
+                var gap = Long.MAX_VALUE
                 val inStep = withTimeoutOrNull(HANDOVER_WAIT_MS) {
                     ready()
+                    // Silent from here until the crossing, playing a little ahead of the Recap's.
+                    set = 0f
+                    p.volume = set
                     var lead = HANDOVER_LEAD_MS
-                    while (tries < HANDOVER_TRIES) {
-                        tries++
-                        val at = from.currentPosition + lead
-                        val asked = SystemClock.elapsedRealtime()
-                        quietSeek = true
-                        p.seekTo(at)
+                    quietSeek = true
+                    p.seekTo(from.currentPosition + lead)
+                    p.playWhenReady = true
+                    while (true) {
                         ready()
-                        // Started a little before the Recap's gets there: a player is heard a moment after it starts.
-                        val left = at - from.currentPosition - HANDOVER_START_MS
-                        if (left >= 0) {
-                            delay(left)
-                            return@withTimeoutOrNull true
-                        }
-                        lead += 2 * (SystemClock.elapsedRealtime() - asked)
+                        heard()
+                        gap = from.currentPosition - p.currentPosition
+                        if (abs(gap) <= HANDOVER_IN_STEP_MS || tries >= HANDOVER_TRIES) break
+                        tries++
+                        // What the seek cost was off by the gap: the next one lands that much further on.
+                        lead = (lead + gap).coerceIn(0L, HANDOVER_WAIT_MS / 4)
+                        quietSeek = true
+                        p.seekTo(from.currentPosition + lead)
                     }
-                    false
+                    abs(gap) <= HANDOVER_IN_STEP_MS
                 } ?: false
+                p.playWhenReady = true
                 // The crossing: the queue's player from silent up to the volume the service gave it, the Recap's
                 // down to nothing. The queue's is left alone from the moment anything else sets its volume.
-                val target = p.volume
-                var set = if (inStep) 0f else target
-                p.volume = set
-                p.playWhenReady = true
-                delay(HANDOVER_START_MS)
                 val loud = from.volume
                 for (i in 1..HANDOVER_FADE_STEPS) {
                     delay(HANDOVER_FADE_MS / HANDOVER_FADE_STEPS)
@@ -3173,9 +3184,11 @@ class MusicService : MediaLibraryService(),
                     }
                 }
                 Log.i(TAG, "Recap: handed over after ${SystemClock.elapsedRealtime() - t0} ms, " +
-                    (if (inStep) "in step after $tries seek(s)" else "not in step ($tries seek(s))") +
+                    (if (inStep) "in step after $tries correction(s)" else "not in step ($tries correction(s), $gap ms apart)") +
                     ": the queue at ${p.currentPosition} ms, the Recap's at ${from.currentPosition} ms")
             } finally {
+                // Never left silent, whatever stopped the crossing.
+                if (p.volume == set && set != target) p.volume = target
                 from.release()
             }
         }
@@ -7634,13 +7647,14 @@ class MusicService : MediaLibraryService(),
 
     companion object {
         /** The Recap's last song, handed to the queue's player (startSlidIn): how long it may take to be ready, how far
-         *  ahead of the Recap's the queue's is put, how long a player takes to be heard, the seeks tried, the crossing. */
+         *  ahead of the Recap's the silent queue's player starts, how close is in step, the corrections tried, the crossing. */
         const val HANDOVER_WAIT_MS = 10_000L
         const val HANDOVER_LEAD_MS = 250L
-        const val HANDOVER_START_MS = 40L
+        const val HANDOVER_IN_STEP_MS = 25L
+        const val HANDOVER_SETTLE_MS = 250L
         const val HANDOVER_TRIES = 3
-        const val HANDOVER_FADE_MS = 60L
-        const val HANDOVER_FADE_STEPS = 6
+        const val HANDOVER_FADE_MS = 80L
+        const val HANDOVER_FADE_STEPS = 8
 
         /** The Mix playlist the debug app's trial queue counts as (see mixTrial). */
         private const val MIX_TRIAL_PLAYLIST = "mix-trial"

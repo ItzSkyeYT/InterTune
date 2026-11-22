@@ -127,12 +127,16 @@ class RecapSoundRulesTest {
         val start = service.substringAfter("private fun startSlidIn(songId: String, from: ExoPlayer?) {").substringBefore("\n    }\n")
         // This phone's own player only, and only from a Recap's player still sounding.
         assertTrue("if (from == null || !sounding || activePlayer !== p) {\n            from?.release()\n            activePlayer.playWhenReady = true" in start)
-        // The queue's player waits, silent, until it is ready a little ahead of the Recap's, with a time limit.
+        // The queue's player waits until it is ready, starts silent a little ahead of the Recap's, and is put in step
+        // by silent seeks once it is heard, with a time limit.
         assertTrue(start.indexOf("p.playWhenReady = false") in 0 until start.indexOf("withTimeoutOrNull(HANDOVER_WAIT_MS)"))
-        assertTrue("quietSeek = true\n                        p.seekTo(at)" in start)
-        assertTrue(start.indexOf("p.playWhenReady = true") > start.indexOf("withTimeoutOrNull(HANDOVER_WAIT_MS)"))
+        assertTrue(start.indexOf("set = 0f\n                    p.volume = set") in 0 until start.indexOf("p.playWhenReady = true"))
+        assertTrue("quietSeek = true\n                    p.seekTo(from.currentPosition + lead)" in start)
+        assertTrue("quietSeek = true\n                        p.seekTo(from.currentPosition + lead)" in start)
+        assertTrue(start.indexOf("heard()\n                        gap = from.currentPosition - p.currentPosition") > start.indexOf("p.playWhenReady = true"))
+        assertTrue("lead = (lead + gap).coerceIn(0L, HANDOVER_WAIT_MS / 4)" in start)
         // Its volume is the service's again at the end, unless the service set it meanwhile.
         assertTrue("if (p.volume == set) {" in start)
-        assertTrue("} finally {\n                from.release()\n            }" in start)
+        assertTrue("never left silent", "} finally {\n                \n                if (p.volume == set && set != target) p.volume = target\n                from.release()\n            }" in start)
     }
 }
