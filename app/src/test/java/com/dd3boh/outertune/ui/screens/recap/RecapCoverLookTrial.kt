@@ -33,8 +33,9 @@ import java.io.File
  * colours. Left, number one (the top artists' page takes the same look); right, a countdown step,
  * whose words are always the ink. Writes _looks-1.ppm and so on, four covers to a sheet, and
  * _story.ppm: the story from the streak to the year's card with the first six covers in their
- * places (the top artist, the countdown from five to two, number one), the design's own papers on
- * top and the covers' colours under them.
+ * places (the top artist, the countdown from five to two, number one), in three rows: the design's
+ * own papers, every cover's colours (no floor), and the covers' colours with CoverLook.FLOOR, where
+ * a cover too grey for a paper leaves its page the design's.
  */
 class RecapCoverLookTrial {
     private val pageW = 120
@@ -75,11 +76,12 @@ class RecapCoverLookTrial {
 
     private fun story(covers: List<Picture>, mains: List<IntArray>, file: File) {
         val slides = slides()
-        val looks = CoverLook.plan(slides) { model -> placeOf(model)?.let { mains[it] } }
+        val colours = { model: Any? -> placeOf(model)?.let { mains[it] } }
+        val rows = listOf(CoverLook.plan(slides, floor = 0.0, colours = colours), CoverLook.plan(slides, colours = colours))
         val from = slides.indexOfFirst { it.kind == SlideKind.STREAK }
         val to = slides.indexOfFirst { it.kind == SlideKind.CARD }
         val pages = (from..to).flatMap { s -> (0 until slides[s].steps).map { step -> s to step } }
-        val sheet = Picture(gap + pages.size * (pageW + gap), gap + 2 * (pageH + gap))
+        val sheet = Picture(gap + pages.size * (pageW + gap), gap + 3 * (pageH + gap))
         sheet.pixels.fill(0x202020)
         pages.forEachIndexed { n, (s, step) ->
             val slide = slides[s]
@@ -87,10 +89,12 @@ class RecapCoverLookTrial {
             val rank = if (slide.kind == SlideKind.COUNTDOWN) slide.steps + 1 - step else 1
             val design = Choreography.of(slide.kind, step).first().set[ActorId.A]?.c.orEmpty()
             val own = paperOf(slide.kind, step)
-            val look = looks[pageOf(slides, s + 1, step)]
             paste(sheet, page(slide.kind, rank, own, design, cover), gap + n * (pageW + gap), gap)
-            paste(sheet, page(slide.kind, rank, look?.paper ?: own, look?.shapes ?: design, cover), gap + n * (pageW + gap), gap + pageH + gap)
-            println("${slide.kind} $step: ${look?.let { say(it) } ?: "its own paper"}")
+            rows.forEachIndexed { r, looks ->
+                val look = looks[pageOf(slides, s + 1, step)]
+                paste(sheet, page(slide.kind, rank, look?.paper ?: own, look?.shapes ?: design, cover), gap + n * (pageW + gap), gap + (r + 1) * (pageH + gap))
+                println("${if (r == 0) "no floor  " else "with floor"} ${slide.kind} $step: ${look?.let { say(it) } ?: "its own paper"}")
+            }
         }
         write(sheet, file)
     }

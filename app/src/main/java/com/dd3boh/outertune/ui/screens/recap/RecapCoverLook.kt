@@ -36,10 +36,20 @@ import kotlin.math.sqrt
  * shapes turn to the new colours. A song from a file with no picture has the colours of the cover
  * the Recap made it (RecapMadeCover). Two pages one after the other never share a paper: where the
  * cover's main colour is too close to the page before or after, one of its others is the paper.
+ * The Recap is a celebration: a cover whose main colour is greyer than [FLOOR] (black, white and
+ * grey covers, muddy ones) leaves the page its own paper, and only its most vivid colour, where
+ * that one clears the floor, goes to the shapes.
  */
 internal object CoverLook {
     /** The slides that take their cover's colours. Empty, and every slide keeps its own paper: the one switch. */
     val KINDS: Set<SlideKind> = setOf(SlideKind.ARTISTS, SlideKind.COUNTDOWN, SlideKind.NUMBER_ONE)
+
+    /**
+     * A cover's colour makes a paper, or a shape's colour, from this much colour on (OKLab's chroma):
+     * as much as the design's palest papers have, its sky and its lilac (about 0.101). A muddy brown
+     * (0.079), a dull teal (0.064) and every grey fall short.
+     */
+    const val FLOOR = 0.1
 
     /** The words on a paper, and on an accent, read at this much or better. */
     const val LEAST = 4.5
@@ -66,28 +76,49 @@ internal object CoverLook {
     /**
      * The look of each page that takes its cover's colours, by its place in the story ([pageOf]):
      * those whose cover [colours] has (its three main colours, the main one first) and nothing for
-     * the rest, which keep their own paper.
+     * the rest, which keep their own paper. A cover whose main colour is greyer than [floor] leaves
+     * the page its own paper too, its shapes in the cover's most vivid colour where that one is not;
+     * a [floor] of 0 lets every cover make its page's paper.
      */
-    fun plan(slides: List<Slide>, colours: (Any?) -> IntArray?): Map<Int, Look> {
+    fun plan(slides: List<Slide>, floor: Double = FLOOR, colours: (Any?) -> IntArray?): Map<Int, Look> {
         if (KINDS.isEmpty()) return emptyMap()
-        class Page(val kind: SlideKind, val step: Int, val main: IntArray?)
+        class Page(val kind: SlideKind, val step: Int, val main: IntArray?) {
+            /** Its paper is its cover's: the cover's main colour has colour enough. */
+            val wears = main != null && vivid(main[0], floor)
+        }
         val pages = slides.flatMap { slide ->
-            (0 until slide.steps).map { step -> Page(slide.kind, step, if (slide.kind in KINDS) colours(slide.cover(step)) else null) }
+            (0 until slide.steps).map { step -> Page(slide.kind, step, if (slide.kind in KINDS) colours(slide.cover(step))?.takeIf { it.isNotEmpty() } else null) }
         }
         val looks = HashMap<Int, Look>()
         var before = START_PAPER.paper
         pages.forEachIndexed { i, page ->
             val main = page.main
-            before = if (main == null) paperOf(page.kind, page.step).paper else {
-                // The page after keeps clear of this one itself where it takes its cover's colours too.
-                val after = pages.getOrNull(i + 1)?.takeIf { it.main == null }?.let { paperOf(it.kind, it.step).paper }
-                val look = of(main, listOfNotNull(before, after), if (page.kind == SlideKind.COUNTDOWN) RecapInk.Ink else null)
-                looks[i] = look
-                look.paper.paper
+            val own = paperOf(page.kind, page.step)
+            before = when {
+                main == null -> own.paper
+                !page.wears -> {
+                    // Its own paper, and the cover's most vivid colour on its shapes where that one has colour enough.
+                    main.filter { vivid(it, floor) }.maxByOrNull { chroma(Color(it or OPAQUE)) }?.let { looks[i] = Look(own, shapesOn(own.paper, Color(it or OPAQUE))) }
+                    own.paper
+                }
+                else -> {
+                    // The page after keeps clear of this one itself where it wears its cover's paper too.
+                    val after = pages.getOrNull(i + 1)?.takeIf { !it.wears }?.let { paperOf(it.kind, it.step).paper }
+                    val look = of(main, listOfNotNull(before, after), if (page.kind == SlideKind.COUNTDOWN) RecapInk.Ink else null)
+                    looks[i] = look
+                    look.paper.paper
+                }
             }
         }
         return looks
     }
+
+    /** Whether [argb] has [floor] of colour or more. */
+    private fun vivid(argb: Int, floor: Double) = chroma(Color(argb or OPAQUE)) >= floor
+
+    /** The shapes on a page's own [paper]: the cover's [vivid] colour, kept clear of the paper, and the ink or the cream, whichever stands out more. */
+    private fun shapesOn(paper: Color, vivid: Color): List<Color> =
+        listOf(away(vivid, paper), listOf(RecapInk.Cream, RecapInk.Ink).maxBy { distance(it, paper) })
 
     /**
      * The look a cover of these [main] colours gives a page whose paper must stay clear of those in
