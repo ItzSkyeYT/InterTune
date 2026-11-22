@@ -43,7 +43,7 @@ class QueueSwipePickedTest {
         assertTrue("state = if (swipesPicked || window.hashCode() in pickedLeaving) pickedSwipe else ownSwipe," in rowSwipe)
         assertTrue("enabled = !inSelectMode || swipesPicked," in rowSwipe)
         // Without the flag no row swipes while songs are picked: the box is not there, as before.
-        assertTrue("if (!lockQueue && !roomsQueue && (!inSelectMode || Unreleased.QUEUE_SWIPE_PICKED) && (!detachedHead || movesStoredQueue)) {" in queue)
+        assertTrue("if (!lockQueue && !roomFixed && (!inSelectMode || Unreleased.QUEUE_SWIPE_PICKED) && (!detachedHead || movesStoredQueue)) {" in queue)
         assertEquals("one swipe box for every row", 1, Regex("""SwipeToRemoveBox\(""").findAll(queue).count())
     }
 

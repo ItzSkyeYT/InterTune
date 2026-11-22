@@ -30,19 +30,30 @@ import com.dd3boh.outertune.together.RoomSettings
 
 /**
  * The host's room settings in the room's sheet (RoomSettings): a switch each, the owner's alone, heard by everyone in the
- * room at once and kept for the owner's next rooms. One for now, made to take more (dvd, #testers 22 Nov 2026: "to
- * configure who can do what, like adding/removing songs, editing queue").
+ * room at once and kept for the owner's next rooms: moving in the song and changing the queue, made to take more (dvd,
+ * #testers 22 Nov 2026: "to configure who can do what, like adding/removing songs, editing queue").
  */
 @Composable
-internal fun RoomSettingsSwitches(settings: RoomSettings?, onEveryoneSeeks: (Boolean) -> Unit) {
+internal fun RoomSettingsSwitches(settings: RoomSettings?, onEveryoneSeeks: (Boolean) -> Unit, onEveryoneArranges: (Boolean) -> Unit) {
     val haptics = LocalHapticFeedback.current
+    fun felt(on: Boolean) = haptics.performHapticFeedback(if (on) HapticFeedbackType.ToggleOn else HapticFeedbackType.ToggleOff)
     SettingSwitch(
         title = stringResource(R.string.together_everyone_seeks),
         explain = stringResource(R.string.together_everyone_seeks_explain),
         on = settings?.everyoneSeeks == true,
         onChange = {
-            haptics.performHapticFeedback(if (it) HapticFeedbackType.ToggleOn else HapticFeedbackType.ToggleOff)
+            felt(it)
             onEveryoneSeeks(it)
+        },
+    )
+    // His word of 22 Nov 2026: "guests only, but they can be given perms to do so".
+    SettingSwitch(
+        title = stringResource(R.string.together_everyone_arranges),
+        explain = null,
+        on = settings?.everyoneArranges == true,
+        onChange = {
+            felt(it)
+            onEveryoneArranges(it)
         },
     )
 }

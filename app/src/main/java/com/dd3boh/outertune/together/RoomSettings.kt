@@ -32,14 +32,27 @@ data class RoomSettings(
      * for everyone.
      */
     val everyoneSeeks: Boolean = false,
+    /**
+     * Everyone may change the queue: a guest following the room moves and takes out songs, all but the one playing, and
+     * each change goes to the person in control (TogetherMessage.Arrange), who makes it for everyone. Off by default (his
+     * word of 22 Nov 2026: "guests only, but they can be given perms to do so"): a guest's queue is the room's to look at.
+     */
+    val everyoneArranges: Boolean = false,
 ) {
-    fun toJson(): JsonObject = buildJsonObject { put("seek", everyoneSeeks) }
+    fun toJson(): JsonObject = buildJsonObject {
+        put("seek", everyoneSeeks)
+        put("arrange", everyoneArranges)
+    }
 
     companion object {
         /** What an owner's word says, or null when it says nothing of them (an older build) or nothing readable. */
         fun of(json: JsonElement?): RoomSettings? {
             val o = json as? JsonObject ?: return null
-            return RoomSettings(everyoneSeeks = (o["seek"] as? JsonPrimitive)?.booleanOrNull ?: true)
+            return RoomSettings(
+                everyoneSeeks = (o["seek"] as? JsonPrimitive)?.booleanOrNull ?: true,
+                // No guest changed the room's queue before the switch.
+                everyoneArranges = (o["arrange"] as? JsonPrimitive)?.booleanOrNull ?: false,
+            )
         }
     }
 }
@@ -62,6 +75,14 @@ internal fun followsRoom(status: TogetherSession.Status): Boolean =
  */
 internal fun seekHeld(status: TogetherSession.Status): Boolean =
     followsRoom(status) && status.settings?.everyoneSeeks == false
+
+/**
+ * Whether this phone may change the room's queue: it follows the room ([followsRoom]), the owner lets everyone change
+ * it, and the person in control takes a guest's changes ([TogetherSession.Status.leaderArranges]). A build before this
+ * one drops them, so with one in control the queue stays the room's to look at.
+ */
+internal fun guestArranges(status: TogetherSession.Status): Boolean =
+    followsRoom(status) && status.settings?.everyoneArranges == true && status.leaderArranges
 
 /** Why a move in the song did nothing: who decides where the song is, by name, or the host while no name is known yet. */
 fun seekHeldLine(context: Context, status: TogetherSession.Status): String =

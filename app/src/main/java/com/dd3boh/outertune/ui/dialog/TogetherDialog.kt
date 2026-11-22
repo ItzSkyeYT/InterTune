@@ -613,7 +613,7 @@ private fun RoomPage(room: TogetherSession, song: MediaMetadata?, onLeave: () ->
             Hairline()
             SectionLabel(stringResource(R.string.together_room_settings))
             Spacer(Modifier.height(4.dp))
-            RoomSettingsSwitches(status.settings, onEveryoneSeeks = room::letEveryoneSeek)
+            RoomSettingsSwitches(status.settings, onEveryoneSeeks = room::letEveryoneSeek, onEveryoneArranges = room::letEveryoneArrange)
         }
         Spacer(Modifier.height(24.dp))
         OutlinedButton(

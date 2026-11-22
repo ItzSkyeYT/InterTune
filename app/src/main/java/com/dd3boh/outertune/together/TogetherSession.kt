@@ -20,6 +20,7 @@ import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.PlayOrigin
 import com.dd3boh.outertune.constants.TogetherCatchUpKey
 import com.dd3boh.outertune.constants.TogetherDelayKey
+import com.dd3boh.outertune.constants.TogetherEveryoneArrangesKey
 import com.dd3boh.outertune.constants.TogetherEveryoneSeeksKey
 import com.dd3boh.outertune.constants.TogetherToleranceKey
 import com.dd3boh.outertune.extensions.metadata
@@ -105,6 +106,8 @@ class TogetherSession(
         val ownWay: Boolean = false,
         /** The owner's room settings, who may do what: its own on the owner, else as last heard; null before, or from an older build. */
         val settings: RoomSettings? = null,
+        /** The person in control takes a guest's change to the queue (Arrange): its Here says so, a build before this one's does not. */
+        val leaderArranges: Boolean = false,
         /** The leader's last song from someone else, "title, by whom". */
         val lastSuggestion: String? = null,
         /** The others heard in the room lately, the owner first. */
@@ -355,8 +358,13 @@ class TogetherSession(
         // The owner's room settings as it left them in its last room, said in its Here (RoomSettings): once, as the room
         // opens. A change in the sheet is the room's at once (letEveryoneSeek).
         if (owner) scope.launch {
-            val stored = runCatching { service.dataStore.data.first()[TogetherEveryoneSeeksKey] }.getOrNull()
-            ownSettings(RoomSettings(everyoneSeeks = stored == true))
+            val stored = runCatching { service.dataStore.data.first() }.getOrNull()
+            ownSettings(
+                RoomSettings(
+                    everyoneSeeks = stored?.get(TogetherEveryoneSeeksKey) == true,
+                    everyoneArranges = stored?.get(TogetherEveryoneArrangesKey) == true,
+                )
+            )
         }
         scope.launch {
             while (isActive) {
@@ -484,7 +492,7 @@ class TogetherSession(
         }
     }
 
-    private fun sayHere() = send(TogetherMessage.Here(name, owner, lead = if (owner) leaderKey else null, settings = if (owner) _status.value.settings else null))
+    private fun sayHere() = send(TogetherMessage.Here(name, owner, lead = if (owner) leaderKey else null, settings = if (owner) _status.value.settings else null, arranges = true))
 
     private fun sendState() {
         val player = service.exoPlayer
@@ -643,6 +651,8 @@ class TogetherSession(
                 _status.value = _status.value.copy(settings = message.settings)
                 Log.i(TAG, "The owner's room settings: ${message.settings ?: "none said"}")
             }
+            // Whether this phone, given control, takes a guest's change to the queue (Arrange): an older build drops it.
+            if (message.arranges) arrangers += from else arrangers -= from
         }
         said.keys.retainAll(heard.keys)
         if (from == ownerKey) ownerHeardAt = now
@@ -690,6 +700,8 @@ class TogetherSession(
                     }
                 }
             }
+            // A guest's move or removal in the room's queue, while the owner lets everyone change it (RoomSettings).
+            is TogetherMessage.Arrange -> if (leading && _status.value.settings?.everyoneArranges == true) arranged(message, from)
             is TogetherMessage.Propose -> if (leading && message.songs.isNotEmpty()) {
                 _status.value = _status.value.copy(proposal = Proposal(message.songs, message.positionMs, message.by, now))
                 // By key, never by the name they chose: see RoomHealth.
@@ -804,6 +816,7 @@ class TogetherSession(
             members = members,
             leading = leading,
             leaderName = leaderKey?.takeIf { it != me }?.let { said[it]?.first }?.ifBlank { null },
+            leaderArranges = leaderKey.let { it != null && (it == me || it in arrangers) },
         )
     }
 
@@ -827,11 +840,73 @@ class TogetherSession(
      */
     fun letEveryoneSeek(on: Boolean) {
         if (!owner) return
-        ownSettings(RoomSettings(everyoneSeeks = on))
+        ownSettings((_status.value.settings ?: RoomSettings()).copy(everyoneSeeks = on))
         scope.launch {
             runCatching { service.dataStore.edit { it[TogetherEveryoneSeeksKey] = on } }
                 .onFailure { Log.w(TAG, "The room settings could not be kept for the next room", it) }
         }
+    }
+
+    /**
+     * The owner lets everyone change the queue, or only the person in control (RoomSettings), from the room's sheet. The
+     * room hears it at once, and the owner's next rooms start with it.
+     */
+    fun letEveryoneArrange(on: Boolean) {
+        if (!owner) return
+        ownSettings((_status.value.settings ?: RoomSettings()).copy(everyoneArranges = on))
+        scope.launch {
+            runCatching { service.dataStore.edit { it[TogetherEveryoneArrangesKey] = on } }
+                .onFailure { Log.w(TAG, "The room settings could not be kept for the next room", it) }
+        }
+    }
+
+    /** Who said in their Here that, given control, they take a guest's change to the queue (Arrange). */
+    private val arrangers = mutableSetOf<String>()
+
+    /**
+     * A guest that may change the room's queue ([guestArranges]) moved [songId] in its own copy, to come right after
+     * [after], the song playing when null: the person in control moves it there too (arranged), and its next queue
+     * brings it to everyone, this guest included.
+     */
+    fun arrangeMoved(songId: String, after: String?) {
+        if (!guestArranges(_status.value)) return
+        send(TogetherMessage.Arrange(songId, after = after))
+        Log.i(TAG, "Moved $songId in the room's queue")
+    }
+
+    /** A guest that may change the room's queue took [songId] out of its own copy: the person in control takes it out too. */
+    fun arrangeRemoved(songId: String) {
+        if (!guestArranges(_status.value)) return
+        send(TogetherMessage.Arrange(songId, remove = true))
+        Log.i(TAG, "Took $songId out of the room's queue")
+    }
+
+    /**
+     * A guest's change to the room's queue, made by the person in control as its own drag or swipe in the queue sheet is
+     * (Queue.kt), the queue board and the player alike, so that its next queue brings it to everyone (queueSoon). Never
+     * the song playing, which a guest does not move or take out (RoomArrange); a song or a place not in the queue here
+     * changes nothing.
+     */
+    private fun arranged(message: TogetherMessage.Arrange, from: String) {
+        val player = service.player
+        val current = player.currentMediaItemIndex
+        val ids = (0 until player.mediaItemCount).map { player.getMediaItemAt(it).mediaId }
+        val at = RoomArrange.placeOf(ids, message.songId, current) ?: return
+        if (message.remove) {
+            if (!service.queueBoard.removeCurrentQueueSong(at)) return
+            player.removeMediaItem(at)
+        } else {
+            val to = RoomArrange.moveTo(ids, at, message.after, current) ?: return
+            if (to == at) return
+            service.queueBoard.moveSong(at, to)
+            player.moveMediaItem(at, to)
+            // Where the guest put it, the adaptive queue leaves it, as after a drag here.
+            service.noteMovedByHand(message.songId)
+        }
+        // By key, never by the name they chose: see RoomHealth.
+        Log.i(TAG, "${from.take(8)} ${if (message.remove) "took out" else "moved"} ${message.songId} in the queue")
+        val by = said[from]?.first?.ifBlank { null } ?: service.getString(R.string.together_someone)
+        Toaster.show(service, service.getString(R.string.together_arranged, by))
     }
 
     /** The owner's room settings are [settings] now: everyone hears them at once, a newcomer as it comes. */

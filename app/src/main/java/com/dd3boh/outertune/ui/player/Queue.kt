@@ -165,6 +165,7 @@ import com.dd3boh.outertune.extensions.move
 import com.dd3boh.outertune.extensions.supportsWideScreen
 import com.dd3boh.outertune.extensions.toMediaItem
 import com.dd3boh.outertune.extensions.toggleRepeatMode
+import com.dd3boh.outertune.together.guestArranges
 import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.models.MultiQueueObject
 import com.dd3boh.outertune.ui.component.BottomSheet
@@ -476,6 +477,11 @@ fun BoxScope.QueueContent(
         derivedStateOf { roomStatus?.value.let { queueIsTheRooms(inRoom = it != null, leading = it?.leading == true, ownWay = it?.ownWay == true) } }
     }
     val roomLeaderName by remember(roomStatus) { derivedStateOf { roomStatus?.value?.leaderName } }
+    // Unless the host lets everyone change the queue and the person in control takes a guest's changes (guestArranges):
+    // then a guest moves and removes songs here as ever, all but the one playing, and each change goes to the person in
+    // control (TogetherSession.arrangeMoved, arrangeRemoved), whose next queue brings it to everyone.
+    val roomArranges by remember(roomStatus) { derivedStateOf { roomStatus?.value?.let(::guestArranges) == true } }
+    val roomReadOnly = roomsQueue && !roomArranges
 
     // player
     val currentWindowIndex by playerConnection.currentWindowIndex.collectAsState()
@@ -695,8 +701,8 @@ fun BoxScope.QueueContent(
     // holds nothing, and it is not asked to remove what it does not hold: the songs come out of the
     // queue board alone, as a drag moves them, and the song on the mini player is read from the
     // board again, since the one it showed may be among them. A song in the queue twice shows both
-    // rows picked, so both go. Not in the room's queue on a guest (roomsQueue): they came back.
-    val removeSelected: (() -> Unit)? = if (lockQueue || roomsQueue || (detachedHead && !movesStoredQueue)) null else {
+    // rows picked, so both go. Not in the room's queue on a guest that may not change it (roomReadOnly): they came back.
+    val removeSelected: (() -> Unit)? = if (lockQueue || roomReadOnly || (detachedHead && !movesStoredQueue)) null else {
         {
             val picked = selectedItems.toSet()
             val places = mutableSongs.indices.filter { mutableSongs[it].hashCode() in picked }.sortedDescending()
@@ -706,18 +712,22 @@ fun BoxScope.QueueContent(
             val notes = RemovalNotes(at = System.currentTimeMillis(), whole = wholeBefore(places.size))
             for (place in places) {
                 val song = mutableSongs.getOrNull(place) ?: continue
+                // Never the song the room plays, on a guest: what plays now is the person in control's.
+                if (roomArranges && place == currentWindowIndex) continue
                 if (qb.removeCurrentQueueSong(place)) {
                     notes.removals += playerConnection.service.noteRemovedByHand(song)
                     ActivityLog.note(context, database, song.id, SignalKind.REMOVED_FROM_QUEUE)
                     if (loaded) playerConnection.player.removeMediaItem(place)
                     mutableSongs.removeAt(place)
                     taken += QueueUndo.Taken(place, song)
+                    if (roomArranges) room?.arrangeRemoved(song.id)
                 }
             }
             notes.dropped = dropIfEmptied()
             if (!loaded) playerConnection.storedQueueEdited()
             haptic.performHapticFeedback(HapticFeedbackType.Confirm)
-            offerUndo(queueId, taken, notes)
+            // Not on a guest: the next queue from the person in control would take an Undo back.
+            if (!roomArranges) offerUndo(queueId, taken, notes)
             onExitSelectionMode()
         }
     }
@@ -826,6 +836,8 @@ fun BoxScope.QueueContent(
                     }
                     // Where the listener put it, the adaptive queue leaves it.
                     mutableSongs.getOrNull(to)?.id?.let { playerConnection.service.noteMovedByHand(it) }
+                    // A guest that may change the room's queue: the person in control moves it there too (Arrange).
+                    if (roomArranges) mutableSongs.getOrNull(to)?.id?.let { room?.arrangeMoved(it, after = mutableSongs.getOrNull(to - 1)?.id) }
                 }
                 // Cleared either way. A drag dropped where it started used to leave it set, and
                 // the next drag then moved from where the last one had begun.
@@ -1447,6 +1459,9 @@ fun BoxScope.QueueContent(
                 // from then goes stale. Removing a song shifts every later one down without changing
                 // its key, and a second swipe then removed the song after the one swiped.
                 val currentIndex by rememberUpdatedState(index)
+                // Not moved or swiped away: the room's queue on a guest that may not change it, and on one that may, the
+                // song the room plays.
+                val roomFixed = roomReadOnly || (roomArranges && index == currentWindowIndex)
                 ReorderableItem(
                     state = reorderableState,
                     key = QueueRows.key(window)
@@ -1470,10 +1485,12 @@ fun BoxScope.QueueContent(
                             val loaded = playerConnection.player.mediaItemCount > 0
                             if (loaded) playerConnection.player.removeMediaItem(swipedIndex)
                             mutableSongs.removeAt(swipedIndex)
+                            if (roomArranges) room?.arrangeRemoved(window.id)
                             notes.dropped = dropIfEmptied()
                             if (!loaded) playerConnection.storedQueueEdited()
                             haptic.performHapticFeedback(HapticFeedbackType.Confirm)
-                            offerUndo(queueId, listOf(QueueUndo.Taken(swipedIndex, window)), notes)
+                            // Not on a guest: the next queue from the person in control would take an Undo back.
+                            if (!roomArranges) offerUndo(queueId, listOf(QueueUndo.Taken(swipedIndex, window)), notes)
                         }
                         removed
                     }
@@ -1513,8 +1530,8 @@ fun BoxScope.QueueContent(
                                     }
                                     // Not over search results, as in a playlist: the results are not redrawn
                                     // after a move, so a second drag started from rows that were no longer
-                                    // where they showed. Nor in the room's queue on a guest (roomsQueue).
-                                    if (!lockQueue && !roomsQueue && (!detachedHead || movesStoredQueue) && !isSearching) {
+                                    // where they showed. Nor in the room's queue on a guest, where it may not be changed (roomFixed).
+                                    if (!lockQueue && !roomFixed && (!detachedHead || movesStoredQueue) && !isSearching) {
                                         Icon(
                                             imageVector = Icons.Rounded.DragHandle,
                                             contentDescription = null,
@@ -1574,8 +1591,8 @@ fun BoxScope.QueueContent(
                     Column {
                         // Before play after a restart too (movesStoredQueue), as Remove from queue is: the songs
                         // leave the saved queue alone, the player holding nothing yet. Not in the room's queue on a
-                        // guest (roomsQueue).
-                        if (!lockQueue && !roomsQueue && (!inSelectMode || Unreleased.QUEUE_SWIPE_PICKED) && (!detachedHead || movesStoredQueue)) {
+                        // guest, where it may not be changed (roomFixed).
+                        if (!lockQueue && !roomFixed && (!inSelectMode || Unreleased.QUEUE_SWIPE_PICKED) && (!detachedHead || movesStoredQueue)) {
                             SwipeToRemoveBox(
                                 onRemove = if (swipesPicked) removePickedSwiped else removeSwiped,
                                 state = if (swipesPicked || window.hashCode() in pickedLeaving) pickedSwipe else ownSwipe,

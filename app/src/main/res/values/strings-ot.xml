@@ -2779,6 +2779,9 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="together_room_settings">Room settings</string>
     <string name="together_everyone_seeks">Let everyone move in the song</string>
     <string name="together_everyone_seeks_explain">Just for them, until they catch up.</string>
+    <string name="together_everyone_arranges">Let everyone change the queue</string>
+    <!-- Said to the person in control when a guest moved or took out a song in the room's queue (Arrange): the guest's name. -->
+    <string name="together_arranged">%1$s changed the queue</string>
     <string name="together_kicked">You were removed from the room</string>
     <string name="together_closed">The room was closed</string>
     <string name="together_host_away">The host is away</string>
