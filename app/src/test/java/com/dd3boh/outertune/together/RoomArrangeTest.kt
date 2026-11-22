@@ -59,7 +59,7 @@ class RoomArrangeTest {
         assertNull(TogetherMessage.decodeFrom("""{"t":"rearrange","song":"song-b","k":"ab12"}""", "ab12"))
         assertTrue("                else -> null\n" in protocol.substringAfter("private fun decodeObject("))
         // Every Here of this build says it takes them; one from a build before says nothing, and is taken as no.
-        assertTrue("arranges = true))" in session.substringAfter("private fun sayHere()").substringBefore("\n"))
+        assertTrue("arranges = true," in session.substringAfter("private fun sayHere() = send(").substringBefore("\n    )\n"))
         val here = TogetherMessage.Here("dvd", owner = false, arranges = true)
         assertTrue((roundTrip(here) as TogetherMessage.Here).arranges)
         val old = TogetherMessage.decodeFrom("""{"t":"here","name":"dvd","owner":false,"k":"ab12"}""", "ab12") as TogetherMessage.Here
