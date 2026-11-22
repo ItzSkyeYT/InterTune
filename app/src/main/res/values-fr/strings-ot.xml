@@ -2725,6 +2725,13 @@
     <string name="recap_notes_title">Vos mots</string>
     <string name="recap_notes_opened_by">Ouverts par votre Recap %1$s</string>
     <string name="recap_notes_none">Les mots que vous écrivez à la fin de votre Recap apparaissent ici.</string>
+    <string name="recap_notes_channel">Mots du Recap</string>
+    <plurals name="recap_notes_waiting">
+        <item quantity="one">Un mot de vous, il y a un an, vous attend</item>
+        <item quantity="many">%1$d mots de vous, il y a un an, vous attendent</item>
+        <item quantity="other">%1$d mots de vous, il y a un an, vous attendent</item>
+    </plurals>
+    <string name="recap_notes_waiting_line">Votre Recap %1$s est là. Touchez pour les ouvrir.</string>
     <string name="recap_minutes_kick_since">Depuis le %1$s, vous avez écouté</string>
     <string name="recap_minutes_kick_year">En %1$s, vous avez écouté</string>
     <plurals name="recap_minutes_unit" tools:ignore="ImpliedQuantity">
