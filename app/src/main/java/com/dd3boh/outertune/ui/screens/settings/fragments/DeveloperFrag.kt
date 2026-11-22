@@ -432,6 +432,10 @@ fun ColumnScope.DeveloperFrag(navController: NavController) {
             OptInCatchUp(appScope = coroutineScope, preview = true, onDone = { catchUpPreview = false })
         }
 
+        // InterTune's developer's badge in rooms, from the developer key pasted here (together/DevBadge): every build, for
+        // the developer's phones run Preview and release builds too.
+        DeveloperKeyRow()
+
 
         Spacer(Modifier.height(100.dp))
         Row(
