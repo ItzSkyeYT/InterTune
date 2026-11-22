@@ -81,8 +81,8 @@ import kotlinx.coroutines.launch
  */
 internal enum class RoomTourPage(val scene: RoomTourScene, @StringRes val title: Int, @StringRes val body: Int) {
     IN_STEP(RoomTourScene.IN_STEP, R.string.together_tour_step_title, R.string.together_tour_step_body),
-    CONTROL(RoomTourScene.CONTROL, R.string.together_tour_control_title, R.string.together_tour_control_body),
     ADD(RoomTourScene.ADD, R.string.together_tour_add_title, R.string.together_tour_add_body),
+    CONTROL(RoomTourScene.CONTROL, R.string.together_tour_control_title, R.string.together_tour_control_body),
     OWN(RoomTourScene.OWN, R.string.together_tour_own_title, R.string.together_tour_own_body),
 }
 
