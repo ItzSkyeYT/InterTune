@@ -899,8 +899,16 @@ class TogetherSession(
         ownWay = false
         pausedHere = false
         matchedQueue = null
+        // The leader's song asked for afresh: one asked for before and never got was waited for at every look (CatchUp).
+        loadingSong = null
         lock.reset()
         roomQueue?.let { takeRepeat(it.repeat) }
+        // Stopped on an error while on its own, on the room's song: started again, or the room says it can't play here.
+        val player = service.exoPlayer
+        if (CatchUp.restarts(player.playbackState, player.currentMediaItem?.mediaId, lastState?.songId)) {
+            Log.i(TAG, "Stopped on the leader's song: starting it again")
+            player.prepare()
+        }
         _status.value = _status.value.copy(ownWay = false, pausedHere = false, locked = false, proposed = false, catchUpAfterCast = false)
         Log.i(TAG, "Catching up with the leader")
         wake.trySend(Unit)
@@ -1208,7 +1216,9 @@ class TogetherSession(
         mine(QUEUE_SWAP_MS)
         service.playQueue(
             ListQueue(items = room.songs.map(::metadataOf)),
-            playWhenReady = player.playWhenReady,
+            // As the room wants it when the swap lands, not as it was when asked: a guest that caught up from a pause of
+            // its own was paused again by it, and stayed paused here (CatchUp).
+            playWhenReady = CatchUp.swapPlays(pausedHere, lastState?.playing, player.playWhenReady),
             replace = true,
             origin = PlayOrigin.EXTERNAL,
         )
