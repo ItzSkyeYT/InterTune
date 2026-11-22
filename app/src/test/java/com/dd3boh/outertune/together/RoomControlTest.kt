@@ -98,7 +98,8 @@ class RoomControlTest {
         assertNull(old.leadSince)
         // A guest says no lead, and no time.
         assertFalse("\"since\"" in TogetherMessage.encode(TogetherMessage.Here("dvd", owner = false)))
-        assertTrue("TogetherMessage.Here(name, owner, lead = if (owner) leaderKey else null, leadSince = if (owner) leadGivenAt else null)" in session)
+        // The owner's Here carries the lead and since when (the room settings ride in the same call: RoomSettingsTest).
+        assertTrue("lead = if (owner) leaderKey else null, leadSince = if (owner) leadGivenAt else null," in session.substringAfter("private fun sayHere() = send(").substringBefore("\n    )\n"))
         assertTrue("leadGivenAt = maxOf(System.currentTimeMillis(), leadGivenAt + 1)" in body(session, "private fun lead(key: String)"))
     }
 

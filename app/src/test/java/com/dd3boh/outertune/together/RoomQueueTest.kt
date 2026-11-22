@@ -70,12 +70,16 @@ class RoomQueueTest {
             "derivedStateOf { roomStatus?.value.let { queueIsTheRooms(inRoom = it != null, leading = it?.leading == true, ownWay = it?.ownWay == true) } }" in queue
         )
         // the handle a song is dragged by, the songs' only one
-        assertTrue("if (!lockQueue && !roomsQueue && (!detachedHead || movesStoredQueue) && !isSearching) {" in queue)
+        assertTrue("if (!lockQueue && !roomFixed && (!detachedHead || movesStoredQueue) && !isSearching) {" in queue)
         assertEquals(1, Regex("""\.draggableHandle\(\)""").findAll(queue.substringAfter("val songList:")).count())
         // the swipe that takes a song away, one box for every row (QueueSwipePickedTest)
-        assertTrue("if (!lockQueue && !roomsQueue && (!inSelectMode || Unreleased.QUEUE_SWIPE_PICKED) && (!detachedHead || movesStoredQueue)) {" in queue)
+        assertTrue("if (!lockQueue && !roomFixed && (!inSelectMode || Unreleased.QUEUE_SWIPE_PICKED) && (!detachedHead || movesStoredQueue)) {" in queue)
         // the selection's Remove from queue, and with it the swipe of the picked songs
-        assertTrue("val removeSelected: (() -> Unit)? = if (lockQueue || roomsQueue || (detachedHead && !movesStoredQueue)) null else {" in queue)
+        assertTrue("val removeSelected: (() -> Unit)? = if (lockQueue || roomReadOnly || (detachedHead && !movesStoredQueue)) null else {" in queue)
+        // Read-only unless the host lets everyone change the queue and the person in control takes a guest's changes
+        // (RoomArrangeTest); then the song the room plays alone stays put.
+        assertTrue("val roomReadOnly = roomsQueue && !roomArranges" in queue)
+        assertTrue("val roomFixed = roomReadOnly || (roomArranges && index == currentWindowIndex)" in queue)
         // the line, over the songs and out of the list, while the queue on show is the one that plays
         val list = queue.substringAfter("val songList: @Composable ColumnScope.(PaddingValues) -> Unit").substringBefore("LazyColumn(")
         assertTrue("val roomLine = roomsQueue && (!detachedHead || movesStoredQueue)" in list)
@@ -92,8 +96,8 @@ class RoomQueueTest {
     fun `the queue is composed again only when what it shows of the room changes`() {
         assertTrue("driftMs = target - local" in session.substringAfter("private fun follow() {").substringBefore("fun holdsFailed("))
         assertTrue("val roomStatus = room?.status?.collectAsState()\n" in queue)
-        assertEquals("the status read twice, each in a derivedStateOf", 2, Regex("""roomStatus\?\.value""").findAll(queue).count())
-        assertEquals(2, Regex("""derivedStateOf \{ roomStatus\?\.value""").findAll(queue).count())
+        assertEquals("the status read three times, each in a derivedStateOf", 3, Regex("""roomStatus\?\.value""").findAll(queue).count())
+        assertEquals(3, Regex("""derivedStateOf \{ roomStatus\?\.value""").findAll(queue).count())
         assertTrue("val roomsQueue by remember(roomStatus) {" in queue)
         assertTrue("val roomLeaderName by remember(roomStatus) { derivedStateOf { roomStatus?.value?.leaderName } }" in queue)
     }

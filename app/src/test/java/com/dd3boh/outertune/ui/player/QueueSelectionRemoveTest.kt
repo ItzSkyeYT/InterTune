@@ -81,7 +81,7 @@ class QueueSelectionRemoveTest {
         val body = queue.substringAfter("val removeSelected").substringBefore("\n    }\n")
         assertTrue(
             "not on a locked queue, nor the room's on a guest (RoomQueueTest), nor on another queue looked at; on the saved queue before play, where the player holds nothing (QueueRemoveBeforePlayTest)",
-            "if (lockQueue || roomsQueue || (detachedHead && !movesStoredQueue)) null" in body
+            "if (lockQueue || roomReadOnly || (detachedHead && !movesStoredQueue)) null" in body
         )
         assertTrue("the last place first", ".sortedDescending()" in body)
         for (step in listOf(

@@ -174,7 +174,10 @@ class GuestCastTest {
         val moved = session.substringAfter("override fun onMediaItemTransition(").substringBefore("override fun onPositionDiscontinuity(")
         assertTrue(moved.indexOf("if (service.castOn) {") in 0 until moved.indexOf("listenerChose("))
         val sought = session.substringAfter("override fun onPositionDiscontinuity(").substringBefore("override fun onEvents(")
-        assertTrue("&& !service.castOn) listenerChose(\"a seek\")" in sought)
+        // A seek is the listener's own way, or held to the room (RoomSettings), only with no cast on.
+        assertTrue("reason == Player.DISCONTINUITY_REASON_SEEK && !service.castOn) {" in sought)
+        assertTrue(sought.indexOf("!service.castOn") in 0 until sought.indexOf("listenerChose(\"a seek\")"))
+        assertTrue(sought.indexOf("!service.castOn") < sought.indexOf("seekHeldHere("))
     }
 
     @Test

@@ -843,6 +843,12 @@ val TogetherDelayKey = intPreferencesKey("togetherDelayMs")
 /** Whether a guest sees how close it follows the host: the meter under the room's song. Off unless switched on. */
 val TogetherShowTimingKey = booleanPreferencesKey("togetherShowTiming")
 
+/** A host's room settings (RoomSettings), from its last room: everyone may move in the song. Unset is off. */
+val TogetherEveryoneSeeksKey = booleanPreferencesKey("togetherEveryoneSeeks")
+
+/** A host's room settings (RoomSettings), from its last room: everyone may change the queue. Unset is off. */
+val TogetherEveryoneArrangesKey = booleanPreferencesKey("togetherEveryoneArranges")
+
 /** Add confident matches to the playlist without being asked. Continuous runs only. */
 val RecogniseAutoAddKey = booleanPreferencesKey("recogniseAutoAdd")
 

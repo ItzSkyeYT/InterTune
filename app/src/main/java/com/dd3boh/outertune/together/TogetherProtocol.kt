@@ -58,8 +58,14 @@ sealed interface TogetherMessage {
      * also says who leads, [lead] being that phone's key: the only word on it anyone takes. And since
      * when, [leadSince] by the owner's clock: relays do not keep order, and an older word on who leads
      * is not taken after a newer one (LeadWord). Null from builds before 22 Nov 2026, taken as ever.
+     * And the owner's [settings], who may do what (RoomSettings): null from anyone else, and from
+     * an owner on an older build. [arranges]: this phone, given control, takes a guest's change to
+     * the queue ([Arrange]), which a build before this one drops.
      */
-    data class Here(val name: String, val owner: Boolean, val lead: String? = null, val leadSince: Long? = null) : TogetherMessage
+    data class Here(
+        val name: String, val owner: Boolean, val lead: String? = null, val leadSince: Long? = null,
+        val settings: RoomSettings? = null, val arranges: Boolean = false,
+    ) : TogetherMessage
 
     /**
      * A follower's song for the leader to play next, or at the end of its queue when [atEnd]. An older host
@@ -80,6 +86,14 @@ sealed interface TogetherMessage {
      * room (his word of 17 Oct 2026: shared "so the client has an idea what will happen").
      */
     data class Queue(val songs: List<Song>, val repeat: Int, val shuffle: Boolean) : TogetherMessage
+
+    /**
+     * A guest's change to the room's queue, for the person in control to make while the owner lets everyone change it
+     * (RoomSettings.everyoneArranges): [songId] moved to come right after [after], the song playing when that is null,
+     * or taken out when [remove]. A build before this one drops it, so a guest makes the change only where the person in
+     * control said in its Here that it takes them ([Here.arranges]).
+     */
+    data class Arrange(val songId: String, val after: String? = null, val remove: Boolean = false) : TogetherMessage
 
     data class Song(val id: String, val title: String, val artist: String, val thumbnail: String)
 
@@ -144,6 +158,8 @@ sealed interface TogetherMessage {
             is Pong -> buildJsonObject { put("t", "pong"); put("c", message.askedAtMs); put("h", message.hostMs); put("to", message.to) }
             is Here -> buildJsonObject {
                 put("t", "here"); put("name", message.name); put("owner", message.owner)
+                message.settings?.let { put("settings", it.toJson()) }
+                if (message.arranges) put("arranges", true)
                 message.lead?.let { put("lead", it) }
                 message.leadSince?.let { put("since", it) }
             }
@@ -158,6 +174,11 @@ sealed interface TogetherMessage {
             is Queue -> buildJsonObject {
                 put("t", "queue"); put("repeat", message.repeat); put("shuffle", message.shuffle)
                 put("songs", songsJson(message.songs))
+            }
+            is Arrange -> buildJsonObject {
+                put("t", "arrange"); put("song", message.songId)
+                message.after?.let { put("after", it) }
+                if (message.remove) put("remove", true)
             }
             is Propose -> buildJsonObject {
                 put("t", "propose"); put("pos", message.positionMs); put("by", message.by)
@@ -199,7 +220,7 @@ sealed interface TogetherMessage {
         private fun decodeObject(o: JsonObject): TogetherMessage? {
             fun s(key: String) = o[key]!!.jsonPrimitive.content
             fun l(key: String) = o[key]!!.jsonPrimitive.long
-            return when (s("t")) {
+            val message = when (s("t")) {
                 "state" -> State(s("song"), s("title"), s("artist"), l("pos"), o["playing"]!!.jsonPrimitive.boolean, o["speed"]!!.jsonPrimitive.double, l("at"))
                 "ping" -> Ping(l("c"), s("to"))
                 "pong" -> Pong(l("c"), l("h"), s("to"))
@@ -216,6 +237,7 @@ sealed interface TogetherMessage {
                     repeat = o["repeat"]!!.jsonPrimitive.int,
                     shuffle = o["shuffle"]!!.jsonPrimitive.boolean,
                 )
+                "arrange" -> Arrange(s("song"), after = o["after"]?.jsonPrimitive?.content, remove = o["remove"]?.jsonPrimitive?.content == "true")
                 "propose" -> Propose(songsOf(o), l("pos"), s("by"))
                 "notnow" -> NotNow(s("to"), s("song"))
                 "kick" -> Kick(s("to"))
@@ -223,6 +245,8 @@ sealed interface TogetherMessage {
                 "end" -> End
                 else -> null
             }
+            // The owner's room settings, one more field of its Here (RoomSettings): none from an older build.
+            return if (message is Here) message.copy(settings = RoomSettings.of(o["settings"]), arranges = o["arranges"]?.jsonPrimitive?.content == "true") else message
         }
     }
 }
