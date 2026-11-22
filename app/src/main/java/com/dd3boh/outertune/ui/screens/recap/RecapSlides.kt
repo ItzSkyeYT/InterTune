@@ -101,6 +101,7 @@ import coil3.compose.AsyncImage
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.recap.AutoFinds
 import com.dd3boh.outertune.recap.CountdownLine
+import com.dd3boh.outertune.recap.RecapSongShown
 import com.dd3boh.outertune.recap.RecapShown
 import com.dd3boh.outertune.recap.RecapStory
 import java.time.LocalDate
@@ -1037,7 +1038,7 @@ internal fun OnlySlide(s: SlideScope) {
             Text(brought + " " + stringResource(R.string.recap_auto_kept, w.number(auto.kept), w.number(auto.liked)), style = RecapType.quiet, color = c.ink2, modifier = Modifier.enter(s, Entrance.UP, 4.4f))
             Dots(auto, s, Modifier.fillMaxWidth().padding(top = 8.dp), maxHeight = minOf(150.dp, room.height * 0.18f))
             Grow(room)
-        } ?: Grow(room)
+        } ?: OnlyHero(r.recognition?.songIds?.firstOrNull()?.let { s.shown.song(it) }, r.recognition != null, s, room)
         r.recognition?.let { heard ->
             Extra(s, at = 6.2f, first = true) {
                 Box(Modifier.size(38.dp).background(RecapInk.Ink, CircleShape), contentAlignment = Alignment.Center) {
@@ -1073,6 +1074,28 @@ internal fun OnlySlide(s: SlideScope) {
             }
         }
     }
+}
+
+/**
+ * What sits on the paper flower when Auto found nothing (no count to anchor it to, 22 Nov 2026: the
+ * flower showed empty): the first song named by ear on its cover (a song with no picture has the one
+ * the Recap makes), the sound bars where that song is not known, or the huddle of the rooms.
+ */
+@Composable
+private fun ColumnScope.OnlyHero(song: RecapSongShown?, byEar: Boolean, s: SlideScope, room: SlideRoom) {
+    val side = minOf(168.dp, room.width * 0.46f)
+    Box(Modifier.fillMaxWidth().padding(vertical = 20.dp).height(side + 20.dp), contentAlignment = Alignment.Center) {
+        Box(Modifier.size(side).anchor(s, Spot.FOUND), contentAlignment = Alignment.Center) {
+            when {
+                song != null -> Sticker(song.cover, side * 0.8f, s, at = 1.2f, turn = -6f, fx = -260f, fy = 120f, fr = -30f)
+                byEar -> Box(Modifier.size(side * 0.5f).enter(s, Entrance.UP, 1.2f).background(RecapInk.Ink, CircleShape), contentAlignment = Alignment.Center) {
+                    Icon(Icons.Rounded.GraphicEq, null, tint = RecapInk.Lemon, modifier = Modifier.size(side * 0.3f))
+                }
+                else -> Box(Modifier.enter(s, Entrance.UP, 1.2f).graphicsLayer { scaleX = 2.4f; scaleY = 2.4f }) { People(Modifier.size(44.dp, 38.dp)) }
+            }
+        }
+    }
+    Grow(room)
 }
 
 /** One more thing only InterTune does, on a line of its own under a hairline of ink. */

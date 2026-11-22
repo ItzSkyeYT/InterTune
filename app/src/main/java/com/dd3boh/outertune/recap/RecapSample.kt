@@ -99,6 +99,8 @@ object RecapSample {
                 val open = intent.getBooleanExtra("open", false)
                 // A year with nothing only InterTune does: no Auto finds, nothing named by ear (WhereFromSlide).
                 val plain = intent.getBooleanExtra("plain", false)
+                // Only the songs named by ear, no Auto finds: Only on InterTune has no count for its paper flower to sit on (22 Nov 2026).
+                val ear = intent.getBooleanExtra("ear", false)
                 // A year of the phone's own files, those already scanned, instead of songs found on YouTube (local listeners, 22 Nov 2026).
                 val local = intent.getBooleanExtra("local", false)
                 // One file's loudest stretch, for the emulator (RecapChorus): nothing is written.
@@ -116,7 +118,7 @@ object RecapSample {
                         return@launch
                     }
                     try {
-                        if (write(app, database, reveal, plain, local) && open) RecapDoor.open(LocalDate.now().year)
+                        if (write(app, database, reveal, plain, local, ear) && open) RecapDoor.open(LocalDate.now().year)
                     } catch (e: Exception) {
                         Log.w(TAG, "failed: ${e.message}", e)
                     } finally {
@@ -135,7 +137,7 @@ object RecapSample {
     }
 
     /** Writes the year; false when it was refused. Each write waits for the one before (transactionNow). */
-    private suspend fun write(context: Context, database: MusicDatabase, reveal: Boolean, plain: Boolean = false, local: Boolean = false): Boolean {
+    private suspend fun write(context: Context, database: MusicDatabase, reveal: Boolean, plain: Boolean = false, local: Boolean = false, ear: Boolean = false): Boolean {
         val existing = database.listenCount().first()
         if (existing > MOST_EXISTING_LISTENS) {
             Log.w(TAG, "refused: this database already holds $existing listens")
@@ -179,7 +181,7 @@ object RecapSample {
         }
 
         val zone = ZoneId.systemDefault()
-        val year = Year(LocalDate.now(zone), zone, named, extras, plain)
+        val year = Year(LocalDate.now(zone), zone, named, extras, plain, ear)
         val listens = year.listens()
         database.transactionNow { listens.forEach { insert(it) } }
         val liked = year.liked()
@@ -197,7 +199,7 @@ object RecapSample {
     }
 
     /** The year itself, drawn from a fixed seed. */
-    private class Year(val today: LocalDate, val zone: ZoneId, val named: List<SongItem>, val extras: List<SongItem>, val plain: Boolean = false) {
+    private class Year(val today: LocalDate, val zone: ZoneId, val named: List<SongItem>, val extras: List<SongItem>, val plain: Boolean = false, val ear: Boolean = false) {
         private val random = Random(2026)
         private val listens = ArrayList<Listen>()
         private val start: LocalDate = today.minusDays(100).let { early ->
@@ -238,9 +240,9 @@ object RecapSample {
                 ratio = played.toFloat() / duration,
                 endReason = if (skip) EndReason.SKIPPED else EndReason.ENDED,
                 // Plain: what Quick picks played comes from a playlist, what was named by ear from a search.
-                origin = (if (!plain) origin else when (origin) {
+                origin = (if (!plain && !ear) origin else when (origin) {
                     PlayOrigin.QUICK_PICKS -> PlayOrigin.PLAYLIST
-                    PlayOrigin.RECOGNISED -> PlayOrigin.SEARCH
+                    PlayOrigin.RECOGNISED -> if (plain) PlayOrigin.SEARCH else origin
                     else -> origin
                 }).code,
                 originSlot = -1,
