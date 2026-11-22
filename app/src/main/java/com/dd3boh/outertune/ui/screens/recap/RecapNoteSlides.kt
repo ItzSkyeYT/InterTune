@@ -6,7 +6,7 @@
 
 package com.dd3boh.outertune.ui.screens.recap
 
-import androidx.activity.compose.BackHandler
+import com.dd3boh.outertune.ui.component.ScreenBackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -259,7 +259,7 @@ internal fun NoteWriteSlide(s: SlideScope, note: NoteDraft, onSeal: () -> Unit, 
     // The keyboard closed (Back closes it first): the field is let go of too, so the next Back leaves the Recap as ever.
     val keyboard = WindowInsets.isImeVisible
     LaunchedEffect(keyboard) { if (!keyboard && note.focused) focusManager.clearFocus() }
-    BackHandler(enabled = note.focused) { focusManager.clearFocus() }
+    ScreenBackHandler(enabled = note.focused) { focusManager.clearFocus() }
     // A page that goes while its field has the keyboard leaves no field behind it thought to have it.
     DisposableEffect(Unit) { onDispose { if (focusedHere) note.focused = false } }
     // Write it again: the keyboard comes up on the new field once it is there. Asked by this page alone, never by its copy that is leaving.

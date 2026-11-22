@@ -71,7 +71,7 @@ class RecapNoteSlidesTest {
         assertTrue(tap.indexOf("if (note.focused) {") in 0 until tap.indexOf("if (back) previous() else next()"))
         // And Back closes the keyboard, then lets go of the field, before it closes the Recap.
         val slide = code("ui/screens/recap/RecapNoteSlides.kt")
-        assertTrue("BackHandler(enabled = note.focused) { focusManager.clearFocus() }" in slide)
+        assertTrue("ScreenBackHandler(enabled = note.focused) { focusManager.clearFocus() }" in slide)
         assertTrue("LaunchedEffect(keyboard) { if (!keyboard && note.focused) focusManager.clearFocus() }" in slide)
         assertTrue("note.text = it.take(RecapNote.MAX_CHARS)" in slide)
     }
