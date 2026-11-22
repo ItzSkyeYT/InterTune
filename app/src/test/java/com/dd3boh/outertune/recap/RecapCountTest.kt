@@ -60,6 +60,7 @@ class RecapCountTest {
         val send = body("send")
         assertTrue(".header(\"User-Agent\", USER_AGENT)" in send)
         assertFalse(".put(\"id\"" in send)
-        assertTrue("\${Polls.UMAMI_URL}/api/send" in send)
+        // InterTune's own counter since 14 Nov 2026, with Umami's way of sending (the count and the polls alike).
+        assertTrue("\${Polls.COUNT_URL}/api/send" in send)
     }
 }

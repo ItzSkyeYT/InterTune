@@ -118,6 +118,17 @@ class RecapsTest {
     }
 
     @Test
+    fun `a song played to the end more often than skipped is not the one kept skipping`() {
+        val d = day(9, 1)
+        val log = variety(20, at(d, 8)) +
+            (0 until 9).map { skip("loved", at(d, 12, it * 2)) } + run("loved", at(d, 13), 12) +
+            (0 until 4).map { skip("disliked", at(d, 15, it * 2)) } + run("disliked", at(d, 16), 1)
+        assertEquals("disliked", recap(log).mostSkipped?.songId)
+        val tie = variety(20, at(d, 8)) + (0 until 4).map { skip("even", at(d, 12, it * 2)) } + run("even", at(d, 13), 4)
+        assertNull("as many skips as plays to the end is not kept skipping", recap(tie).mostSkipped)
+    }
+
+    @Test
     fun `skips from before the year do not count`() {
         val log = (0 until 6).map { skip("last year", at(day(12, 20, 2025), 12, it * 2)) } +
             variety(20, at(day(9, 1), 8)) +

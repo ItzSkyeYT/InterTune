@@ -154,8 +154,10 @@ object Recaps {
     }
 
     /**
-     * The song skipped most often in the year: moved on from before its end, [SKIPPED_MIN] times or
-     * more. On equal skips, the one played to the end the fewest times, then the one skipped last.
+     * The song skipped most often in the year: moved on from before its end [SKIPPED_MIN] times or
+     * more, and more often than it was played to the end, so a song loved and also skipped now and
+     * then (29 skips, 73 times to the end, in a real year) is not "the one you kept skipping". On
+     * equal skips, the one played to the end the fewest times, then the one skipped last.
      */
     private fun mostSkipped(rows: List<Row>): MostSkipped? {
         val skips = HashMap<String, Int>()
@@ -168,7 +170,7 @@ object Recaps {
             }
             EndReason.ENDED -> finished.merge(r.l.songId, 1, Int::plus)
         }
-        val song = skips.keys.filter { (skips[it] ?: 0) >= SKIPPED_MIN }
+        val song = skips.keys.filter { (skips[it] ?: 0) >= SKIPPED_MIN && (skips[it] ?: 0) > (finished[it] ?: 0) }
             .maxWithOrNull(compareBy<String>({ skips[it] ?: 0 }, { -(finished[it] ?: 0) }, { lastSkip[it] ?: 0L }).thenByDescending { it })
             ?: return null
         return MostSkipped(song, skips[song] ?: 0, finished[song] ?: 0)
