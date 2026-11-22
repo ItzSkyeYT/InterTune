@@ -47,8 +47,8 @@ import java.io.File
  * stickers and its numbers on squares of coloured paper. The calm shapes design's cardTop and
  * cardYear (experiments/features/recap/v5-shapes-calm/recap.src.html), to the pixel where it could
  * be. Drawn here with the Canvas at that size, as the lyrics cards are (LyricsCard), so they come
- * out the same from every phone. The slide that shows the year's card shows this very picture, so
- * what is seen is what is sent.
+ * out the same from every phone. The slide that shows the year's card shows this very picture on
+ * its blue; the one sent has the year's Living blur for paper, still and dimmed (YearBlur).
  */
 object RecapCards {
     private const val TAG = "RecapCards"
@@ -224,12 +224,19 @@ object RecapCards {
         return card
     }
 
-    /** The year on one card: five covers fanned out as stickers, the top songs and artists, three numbers on coloured paper. */
-    fun year(context: Context, shown: RecapShown, words: RecapWords, covers: List<Bitmap?>): Bitmap {
+    /**
+     * The year on one card: five covers fanned out as stickers, the top songs and artists, three
+     * numbers on coloured paper. On blue, or on [still] (YearBlur.stillBitmap) stretched to the card,
+     * with the paper's grain over it.
+     */
+    fun year(context: Context, shown: RecapShown, words: RecapWords, covers: List<Bitmap?>, still: Bitmap? = null): Bitmap {
         val recap = shown.recap
         val card = createBitmap(WIDTH, HEIGHT)
         val canvas = Canvas(card)
-        paper(canvas, RecapInk.Blue)
+        if (still == null) paper(canvas, RecapInk.Blue) else {
+            canvas.drawBitmap(still, null, RectF(0f, 0f, WIDTH.toFloat(), HEIGHT.toFloat()), Paint(Paint.FILTER_BITMAP_FLAG))
+            canvas.drawRect(0f, 0f, WIDTH.toFloat(), HEIGHT.toFloat(), Paint().apply { shader = PaperGrain.shader(2.2f) })
+        }
         shape(canvas, Paper.BURST, 930f, 330f, 560f, 0f, listOf(RecapInk.Lemon, RecapInk.Orange))
         shape(canvas, Paper.BLOB2, -90f, 1640f, 420f, 30f, listOf(RecapInk.Pink))
         shape(canvas, Paper.CIRCLE, 1010f, 1270f, 260f, 0f, listOf(RecapInk.Mint))

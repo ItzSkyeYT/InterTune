@@ -341,7 +341,7 @@ private const val SMOOTHING = 2.5f
  * much of the stretched picture shows: the layer's own, so that the picture is faded as one thing
  * and nothing as big as the screen is drawn to fade it.
  */
-private fun Modifier.drawnSmall(stretched: MutableState<Offset>, alpha: Float): Modifier = run {
+internal fun Modifier.drawnSmall(stretched: MutableState<Offset>, alpha: Float): Modifier = run {
     var stretch by stretched
     layout { measurable, constraints ->
         if (!constraints.hasBoundedWidth || !constraints.hasBoundedHeight) {

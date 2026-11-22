@@ -188,7 +188,10 @@ internal class TextLines {
  * frame from the story's clock. Slides only say what is on them and when it arrives.
  */
 @Stable
-internal class RecapStage(private val slides: List<Slide>, val still: Boolean, startAt: Int, startStep: Int, private val colours: (Any?) -> IntArray? = CoverColours::of) {
+internal class RecapStage(
+    private val slides: List<Slide>, val still: Boolean, startAt: Int, startStep: Int,
+    private val colours: (Any?) -> IntArray? = CoverColours::of, private val yearCovers: List<Any?> = emptyList(),
+) {
     val clock = RecapClock()
     val actors = ActorId.entries.map { Actor(it) }
     val anchors = RecapAnchors()
@@ -216,9 +219,14 @@ internal class RecapStage(private val slides: List<Slide>, val still: Boolean, s
      */
     private var looks: Map<Int, CoverLook.Look> = CoverLook.plan(slides, colours = colours)
 
+    /** The year card's page on a Living blur of the top three covers ([yearCovers], YearBlur), once they are read: null keeps its own paper. */
+    var year by mutableStateOf(YearBlur.of(yearCovers.map(colours)))
+        private set
+
     /** Told when covers' colours have been read: the pages that come up from then on wear them. */
     fun coversRead() {
         looks = CoverLook.plan(slides, colours = colours)
+        year = YearBlur.of(yearCovers.map(colours))
     }
 
     private fun lookOf(at: Int, step: Int) = if (at == 0) null else looks[pageOf(slides, at, step)]
@@ -276,7 +284,10 @@ internal class RecapStage(private val slides: List<Slide>, val still: Boolean, s
     /** Told whenever the story moves to a page, to keep where it is across a turn of the phone. */
     var onPage: (Int, Int) -> Unit = { _, _ -> }
 
-    private fun paperFor(at: Int, step: Int) = if (at == 0) START_PAPER else lookOf(at, step)?.paper ?: paperOf(slides[at - 1].kind, step)
+    private fun paperFor(at: Int, step: Int) = if (at == 0) START_PAPER else lookOf(at, step)?.paper ?: yearPaper(at) ?: paperOf(slides[at - 1].kind, step)
+
+    /** The year card's page on its blur: the words in the ink that reads on it (YearBlur.readable). */
+    private fun yearPaper(at: Int) = year?.takeIf { slides[at - 1].kind == SlideKind.CARD }?.paper
 
     private fun page(at: Int, step: Int, how: How) =
         PageState(at, step, if (at == 0) null else slides[at - 1].kind, ++visits, clock.now, paperFor(at, step), lookOf(at, step)?.shapes)

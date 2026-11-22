@@ -165,11 +165,13 @@ internal fun RecapStory(
     // slides.size; the step is the place in a slide of several, the countdown's.
     var savedAt by rememberSaveable { mutableIntStateOf(0) }
     var savedStep by rememberSaveable { mutableIntStateOf(0) }
-    val stage = remember(slides) { RecapStage(slides, still, savedAt, savedStep) }
+    // The year card's page lies on a Living blur of the top three covers (YearBlur).
+    val yearCovers = remember(shown) { shown.recap.topSongs.take(3).map { shown.song(it.songId)?.cover } }
+    val stage = remember(slides) { RecapStage(slides, still, savedAt, savedStep, yearCovers = yearCovers) }
     stage.onPage = { a, s -> savedAt = a; savedStep = s }
     // The slides that reveal the year's favourites wear their covers' colours (CoverLook): read while the story starts.
     LaunchedEffect(stage) {
-        if (CoverColours.read(context, covers, CoverLook.models(slides))) stage.coversRead()
+        if (CoverColours.read(context, covers, CoverLook.models(slides) + if (YearBlur.ON) yearCovers else emptyList())) stage.coversRead()
     }
 
     // The pieces of a slide are placed under the status bar and round the bars, as the design's are (RecapStage.pieceY).
@@ -289,7 +291,7 @@ internal fun RecapStory(
         }
     }
 
-    // The year on one card, drawn once: the slide shows the very picture that is shared.
+    // The year on one card, drawn once for the slide. The picture shared is that card with the year's blur, still and dimmed, for paper (YearBlur).
     var yearCard by remember(shown) { mutableStateOf<Bitmap?>(null) }
     LaunchedEffect(shown) {
         yearCard = runCatching { drawYearCard(context, shown, words, covers) }.getOrNull()
@@ -300,7 +302,12 @@ internal fun RecapStory(
         sharing = true
         scope.launch {
             try {
-                val card = if (top) drawTopCard(context, shown, words, covers) else yearCard ?: drawYearCard(context, shown, words, covers)
+                val year = stage.year
+                val card = when {
+                    top -> drawTopCard(context, shown, words, covers)
+                    year != null -> drawYearCard(context, shown, words, covers, year)
+                    else -> yearCard ?: drawYearCard(context, shown, words, covers)
+                }
                 RecapCards.share(context, card, if (top) "intertune-recap-${recap.year}-number-one" else "intertune-recap-${recap.year}")
             } catch (e: Exception) {
                 if (e is kotlinx.coroutines.CancellationException) throw e
@@ -371,6 +378,7 @@ internal fun RecapStory(
             }
     ) {
         Papers(stage)
+        YearBlurPaper(stage, moving = !paused)
         Shapes(stage)
         Grain()
         Confetti(stage)
@@ -736,11 +744,11 @@ private suspend fun drawTopCard(context: android.content.Context, shown: RecapSh
     return withContext(Dispatchers.Default) { RecapCards.top(context, shown, words, cover) }
 }
 
-/** The year on one card: the five covers fanned out as stickers. */
-private suspend fun drawYearCard(context: android.content.Context, shown: RecapShown, words: RecapWords, covers: RecapCovers): Bitmap = coroutineScope {
+/** The year on one card: the five covers fanned out as stickers; with [year], on a dimmed still of the year's blur for paper. */
+private suspend fun drawYearCard(context: android.content.Context, shown: RecapShown, words: RecapWords, covers: RecapCovers, year: YearBlur.Look? = null): Bitmap = coroutineScope {
     val models = shown.recap.topSongs.map { shown.song(it.songId)?.cover }
     val bitmaps = models.map { async { covers.bitmap(it, 600) } }.awaitAll()
-    withContext(Dispatchers.Default) { RecapCards.year(context, shown, words, bitmaps) }
+    withContext(Dispatchers.Default) { RecapCards.year(context, shown, words, bitmaps, year?.let { YearBlur.stillBitmap(it.colours) }) }
 }
 
 /** A countdown step after the first: its list of songs was on screen the step before and stays. */
