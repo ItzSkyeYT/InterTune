@@ -115,10 +115,11 @@ class TogetherScreenTest {
 
     @Test
     fun `a guest can suggest from both song menus`() {
-        // Quick picks and search results open YouTubeSongMenu, the library SongMenu: the item was in one only.
+        // There is one Play next now: both song menus call enqueueNext, which sends a guest's songs to the room.
         for (path in listOf("src/main/java/com/dd3boh/outertune/ui/menu/SongMenu.kt", "src/main/java/com/dd3boh/outertune/ui/menu/YouTubeSongMenu.kt")) {
-            assert(File(path).readText().contains("R.string.together_suggest")) { "$path has no Play next in the room" }
+            assert(File(path).readText().contains("enqueueNext")) { "$path has no Play next" }
         }
+        assert(File("src/main/java/com/dd3boh/outertune/playback/PlayerConnection.kt").readText().contains("suggestAll"))
     }
 
     @Test
