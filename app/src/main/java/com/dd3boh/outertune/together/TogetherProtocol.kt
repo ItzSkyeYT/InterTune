@@ -42,6 +42,11 @@ sealed interface TogetherMessage {
         val playing: Boolean,
         val speed: Double,
         val atMs: Long,
+        /**
+         * The song is YouTube Music's version of a file on the leader's phone (PhoneSongs.Heard): the others say it may not
+         * be exactly what the leader plays (his word of 22 Nov 2026). Sent only when true; builds before it ignore it.
+         */
+        val fromFile: Boolean = false,
     ) : TogetherMessage
 
     /** A follower asking the leader's clock, [askedAtMs] on its own. */
@@ -118,6 +123,7 @@ sealed interface TogetherMessage {
             is State -> buildJsonObject {
                 put("t", "state"); put("song", message.songId); put("title", message.title); put("artist", message.artist)
                 put("pos", message.positionMs); put("playing", message.playing); put("speed", message.speed); put("at", message.atMs)
+                if (message.fromFile) put("file", true)
             }
             is Ping -> buildJsonObject { put("t", "ping"); put("c", message.askedAtMs); put("to", message.to) }
             is Pong -> buildJsonObject { put("t", "pong"); put("c", message.askedAtMs); put("h", message.hostMs); put("to", message.to) }
@@ -173,7 +179,10 @@ sealed interface TogetherMessage {
             fun s(key: String) = o[key]!!.jsonPrimitive.content
             fun l(key: String) = o[key]!!.jsonPrimitive.long
             return when (s("t")) {
-                "state" -> State(s("song"), s("title"), s("artist"), l("pos"), o["playing"]!!.jsonPrimitive.boolean, o["speed"]!!.jsonPrimitive.double, l("at"))
+                "state" -> State(
+                    s("song"), s("title"), s("artist"), l("pos"), o["playing"]!!.jsonPrimitive.boolean, o["speed"]!!.jsonPrimitive.double, l("at"),
+                    fromFile = o["file"]?.jsonPrimitive?.boolean == true,
+                )
                 "ping" -> Ping(l("c"), s("to"))
                 "pong" -> Pong(l("c"), l("h"), s("to"))
                 "here" -> Here(s("name"), o["owner"]!!.jsonPrimitive.boolean, o["lead"]?.jsonPrimitive?.content)

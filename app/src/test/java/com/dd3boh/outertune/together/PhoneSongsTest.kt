@@ -243,6 +243,26 @@ class PhoneSongsTest {
         assertFalse("song.thumbnailUrl" in sheet || "song?.thumbnailUrl" in sheet)
     }
 
+    /** His word of 22 Nov 2026: "a little note or something saying this is a version from YTM and there's a chance it isnt what the other person is hosting". */
+    @Test
+    fun `a guest hearing YouTube Music's version of a file is told it may not be exactly the same`() {
+        val state = TogetherMessage.State("dpInstant1", "Instant Crush", "Daft Punk", 1_000, true, 1.0, t0, fromFile = true)
+        assertTrue((TogetherMessage.decode(TogetherMessage.encode(state)) as TogetherMessage.State).fromFile)
+        // Only for a match: a song on YouTube Music for everyone sends nothing new, and a build before this one never sends it.
+        assertFalse("\"file\"" in TogetherMessage.encode(state.copy(fromFile = false)))
+        val old = """{"t":"state","song":"x","title":"t","artist":"a","pos":0,"playing":true,"speed":1.0,"at":1}"""
+        assertFalse((TogetherMessage.decode(old) as TogetherMessage.State).fromFile)
+        val sent = session.substringAfter("private fun sendState()").substringBefore("\n    }\n")
+        assertTrue("fromFile = fromFile is PhoneSongs.Heard," in sent)
+        assertTrue("songMatched = message.fromFile && !onlyThere," in session)
+        assertTrue("if (!status.leading && status.songMatched && !status.waitingForHost) {" in sheet)
+        for (folder in listOf("values", "values-fr")) {
+            val xml = File("src/main/res/$folder/strings-ot.xml").readText()
+            val note = Regex("""<string name="together_song_matched">([^<]*)</string>""").find(xml)!!.groupValues[1]
+            assertTrue(note, "%1\$s" in note && "YouTube Music" in note && '—' !in note && note.length < 120)
+        }
+    }
+
     /** Both are toasts too, which show two lines of about 35 characters (ToastLengthTest), a name included. */
     @Test
     fun `the lines are short, in English and French`() {

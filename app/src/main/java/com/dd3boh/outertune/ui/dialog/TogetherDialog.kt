@@ -555,6 +555,16 @@ private fun RoomPage(room: TogetherSession, song: MediaMetadata?, onLeave: () ->
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+        // Following YouTube Music's version of a file on the phone in control: a quiet note that it may not be exactly what
+        // they play (his word of 22 Nov 2026). Never for a song that is on YouTube Music for everyone.
+        if (!status.leading && status.songMatched && !status.waitingForHost) {
+            Spacer(Modifier.height(8.dp))
+            Text(
+                stringResource(R.string.together_song_matched, status.leaderName ?: stringResource(R.string.together_someone)),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
         // In control, a song from a file here that the others can't hear: why they hear nothing (PhoneSongs).
         if (status.leading && status.songOnlyHere && status.others > 0) {
             Spacer(Modifier.height(12.dp))
