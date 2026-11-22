@@ -2910,6 +2910,8 @@
     <string name="recap_playlist_copying">Ajout à YouTube Music : %1$s sur %2$s</string>
     <string name="recap_playlist_copied">Sur YouTube Music</string>
     <string name="recap_playlist_copied_some">Sur YouTube Music : %1$s sur %2$s titres</string>
+    <string name="together_queue_theirs">%1$s choisit la musique. Ajoutez un titre avec « Suivant ».</string>
+    <string name="together_queue_host">L\'hôte choisit la musique. Ajoutez un titre avec « Suivant ».</string>
     <string name="dl_folder_cannot_open">InterTune ne peut plus ouvrir ce dossier. Les nouveaux téléchargements restent dans l\'application tant que vous ne l\'avez pas choisi à nouveau.</string>
     <string name="dl_folder_cannot_open_notice">Dossier inaccessible : les téléchargements restent dans l\'application.</string>
     <string name="dl_move_here_title">Déplacer vos téléchargements ici ?</string>

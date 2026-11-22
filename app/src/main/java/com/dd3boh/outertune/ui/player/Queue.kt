@@ -466,6 +466,17 @@ fun BoxScope.QueueContent(
     // preferences
     var lockQueue by rememberPreference(LockQueueKey, defaultValue = false)
 
+    // Listen together: a guest that follows plays the room's queue, which only the person in control changes
+    // (queueIsTheRooms). Its songs are not dragged, swiped away or removed here, and a line says whose they are. Only
+    // those two are read from the room's status, through derivedStateOf: the status changes four times a second while
+    // a guest follows a room that plays (its drift), and the whole queue would be composed again each time.
+    val room by playerConnection.service.together.collectAsState()
+    val roomStatus = room?.status?.collectAsState()
+    val roomsQueue by remember(roomStatus) {
+        derivedStateOf { roomStatus?.value.let { queueIsTheRooms(inRoom = it != null, leading = it?.leading == true, ownWay = it?.ownWay == true) } }
+    }
+    val roomLeaderName by remember(roomStatus) { derivedStateOf { roomStatus?.value?.leaderName } }
+
     // player
     val currentWindowIndex by playerConnection.currentWindowIndex.collectAsState()
     val isPlaying by playerConnection.isPlaying.collectAsState()
@@ -684,8 +695,8 @@ fun BoxScope.QueueContent(
     // holds nothing, and it is not asked to remove what it does not hold: the songs come out of the
     // queue board alone, as a drag moves them, and the song on the mini player is read from the
     // board again, since the one it showed may be among them. A song in the queue twice shows both
-    // rows picked, so both go.
-    val removeSelected: (() -> Unit)? = if (lockQueue || (detachedHead && !movesStoredQueue)) null else {
+    // rows picked, so both go. Not in the room's queue on a guest (roomsQueue): they came back.
+    val removeSelected: (() -> Unit)? = if (lockQueue || roomsQueue || (detachedHead && !movesStoredQueue)) null else {
         {
             val picked = selectedItems.toSet()
             val places = mutableSongs.indices.filter { mutableSongs[it].hashCode() in picked }.sortedDescending()
@@ -1375,9 +1386,23 @@ fun BoxScope.QueueContent(
             }
         }
 
+        // Over the songs while they are the room's on a guest, in the status bar's room above them, and still while they
+        // scroll. Not a row of the list: that is out of sight whenever the queue opens on its song, and the list's places
+        // are the queue's (the opening scroll, the song held at an edge).
+        val roomLine = roomsQueue && (!detachedHead || movesStoredQueue)
+        if (roomLine) {
+            QueueRoomLine(
+                leaderName = roomLeaderName,
+                modifier = Modifier.padding(
+                    start = contentPadding.calculateStartPadding(listDirection),
+                    top = contentPadding.calculateTopPadding(),
+                    end = contentPadding.calculateEndPadding(listDirection),
+                ),
+            )
+        }
         Box(
             modifier = Modifier
-                .padding(top = contentPadding.calculateTopPadding())
+                .padding(top = if (roomLine) 0.dp else contentPadding.calculateTopPadding())
                 .movesListFromHeldRow(lazySongsListState)
         ) {
         LazyColumn(
@@ -1488,8 +1513,8 @@ fun BoxScope.QueueContent(
                                     }
                                     // Not over search results, as in a playlist: the results are not redrawn
                                     // after a move, so a second drag started from rows that were no longer
-                                    // where they showed.
-                                    if (!lockQueue && (!detachedHead || movesStoredQueue) && !isSearching) {
+                                    // where they showed. Nor in the room's queue on a guest (roomsQueue).
+                                    if (!lockQueue && !roomsQueue && (!detachedHead || movesStoredQueue) && !isSearching) {
                                         Icon(
                                             imageVector = Icons.Rounded.DragHandle,
                                             contentDescription = null,
@@ -1548,8 +1573,9 @@ fun BoxScope.QueueContent(
                     // in a Mix queue, the next change in a line that is not swiped with the row.
                     Column {
                         // Before play after a restart too (movesStoredQueue), as Remove from queue is: the songs
-                        // leave the saved queue alone, the player holding nothing yet.
-                        if (!lockQueue && (!inSelectMode || Unreleased.QUEUE_SWIPE_PICKED) && (!detachedHead || movesStoredQueue)) {
+                        // leave the saved queue alone, the player holding nothing yet. Not in the room's queue on a
+                        // guest (roomsQueue).
+                        if (!lockQueue && !roomsQueue && (!inSelectMode || Unreleased.QUEUE_SWIPE_PICKED) && (!detachedHead || movesStoredQueue)) {
                             SwipeToRemoveBox(
                                 onRemove = if (swipesPicked) removePickedSwiped else removeSwiped,
                                 state = if (swipesPicked || window.hashCode() in pickedLeaving) pickedSwipe else ownSwipe,
