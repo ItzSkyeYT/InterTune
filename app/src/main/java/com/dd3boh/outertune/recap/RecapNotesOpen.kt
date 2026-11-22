@@ -9,9 +9,9 @@ package com.dd3boh.outertune.recap
 import android.content.Context
 import androidx.datastore.preferences.core.edit
 import com.dd3boh.outertune.BuildConfig
-import com.dd3boh.outertune.constants.RecapNotesToldKey
 import com.dd3boh.outertune.constants.RecapOpenedHereKey
 import com.dd3boh.outertune.constants.RecapRevealedEarlyKey
+import com.dd3boh.outertune.constants.RecapToldKey
 import com.dd3boh.outertune.utils.dataStore
 import kotlinx.coroutines.flow.first
 import java.time.LocalDate
@@ -38,13 +38,13 @@ object RecapNotesOpen {
     }
 
     /**
-     * The Recap of [year] is open on this phone: its notes are open everywhere from now, and as the
-     * story shows them they need no notification to say they are waiting (RecapNoteAlert).
+     * The Recap of [year] is open on this phone: its notes are open everywhere from now, and it
+     * needs no notification to say it is here (RecapAlert).
      */
     suspend fun opened(context: Context, year: Int) {
         context.dataStore.edit {
             if ((it[RecapOpenedHereKey] ?: 0) < year) it[RecapOpenedHereKey] = year
-            if ((it[RecapNotesToldKey] ?: 0) < year) it[RecapNotesToldKey] = year
+            if ((it[RecapToldKey] ?: 0) < year) it[RecapToldKey] = year
         }
     }
 }

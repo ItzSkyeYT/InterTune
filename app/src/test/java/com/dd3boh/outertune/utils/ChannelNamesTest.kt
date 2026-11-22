@@ -6,7 +6,7 @@
 
 package com.dd3boh.outertune.utils
 
-import com.dd3boh.outertune.recap.RecapNoteAlert
+import com.dd3boh.outertune.recap.RecapAlert
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.playback.ExoDownloadService
 import com.dd3boh.outertune.playback.MusicService
@@ -40,7 +40,7 @@ class ChannelNamesTest {
         Triple("recognition/RecognitionService.kt", RecognitionService.RESULTS_CHANNEL_ID, "recognition_phone_results_channel"),
         Triple("recognition/RecogniseLaterWorker.kt", RecogniseLaterWorker.CHANNEL_ID, "recognise_later_channel"),
         Triple("utils/BackgroundChecks.kt", BackgroundCheckWorker.CHANNEL_ID, "background_channel"),
-        Triple("recap/RecapNoteAlert.kt", RecapNoteAlert.CHANNEL_ID, "recap_notes_channel"),
+        Triple("recap/RecapAlert.kt", RecapAlert.CHANNEL_ID, "recap_name"),
     )
 
     @Test

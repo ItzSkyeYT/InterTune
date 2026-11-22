@@ -9,7 +9,7 @@
 
 package com.dd3boh.outertune
 
-import com.dd3boh.outertune.recap.RecapNoteAlert
+import com.dd3boh.outertune.recap.RecapAlert
 import com.dd3boh.outertune.ui.component.Haptics
 import com.dd3boh.outertune.utils.AppLanguage
 import com.dd3boh.outertune.utils.ChannelNames
@@ -197,10 +197,10 @@ class App : Application(), SingletonImageLoader.Factory {
         }
         // And at every start, for a language changed while the app was not running.
         GlobalScope.launch(Dispatchers.IO) { ChannelNames.follow(this@App) }
-        // Notes sealed for a Recap now out: told once, and looked for again on the next reveal day's morning (RecapNoteAlert).
+        // The year's Recap now out: told once, and looked for again on the next reveal day's morning (RecapAlert).
         GlobalScope.launch(Dispatchers.IO) {
-            runCatching { RecapNoteAlert.check(this@App) }
-            RecapNoteAlert.schedule(this@App)
+            runCatching { RecapAlert.check(this@App) }
+            RecapAlert.schedule(this@App)
         }
         GlobalScope.launch(Dispatchers.IO) { runCatching { RecognitionWidgetReceiver.redraw(this@App) } }
 

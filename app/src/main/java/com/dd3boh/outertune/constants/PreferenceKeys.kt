@@ -878,8 +878,8 @@ val RecapRevealedEarlyKey = booleanPreferencesKey("recapRevealedEarly")
  */
 val RecapWatchedKey = intPreferencesKey("recapWatched")
 
-/** The last year whose Recap's notes from the year before were told about in a notification (RecapNoteAlert). 0 for none. */
-val RecapNotesToldKey = intPreferencesKey("recapNotesTold")
+/** The last year whose Recap was told about in a notification, or opened here before it could be (RecapAlert). 0 for none. */
+val RecapToldKey = intPreferencesKey("recapTold")
 
 /** The latest year whose Recap was opened on this phone: its notes are open everywhere from then (RecapNotesOpen). 0 for none. */
 val RecapOpenedHereKey = intPreferencesKey("recapOpenedHere")

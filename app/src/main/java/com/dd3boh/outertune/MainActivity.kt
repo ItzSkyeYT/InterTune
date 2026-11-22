@@ -245,7 +245,7 @@ import com.dd3boh.outertune.ui.screens.walkthrough.TourTargets
 import com.dd3boh.outertune.ui.screens.walkthrough.WelcomeBack
 import com.dd3boh.outertune.ui.screens.recap.RecapEntry
 import com.dd3boh.outertune.recap.RecapDoor
-import com.dd3boh.outertune.recap.RecapNoteAlert
+import com.dd3boh.outertune.recap.RecapAlert
 import com.dd3boh.outertune.recap.RecapSample
 import com.dd3boh.outertune.ui.screens.walkthrough.WelcomeShow
 import com.dd3boh.outertune.ui.screens.walkthrough.newThingsFor
@@ -574,11 +574,11 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-    /** A tap on "A note from your past self is waiting" (RecapNoteAlert): that year's Recap opens. */
+    /** A tap on "Your 2026 InterTune Recap is here" (RecapAlert): that year's Recap opens. */
     private fun handleOpenRecap(intent: Intent?) {
-        val year = intent?.getIntExtra(RecapNoteAlert.EXTRA_OPEN_RECAP, 0) ?: 0
+        val year = intent?.getIntExtra(RecapAlert.EXTRA_OPEN_RECAP, 0) ?: 0
         if (year <= 0) return
-        intent?.removeExtra(RecapNoteAlert.EXTRA_OPEN_RECAP)
+        intent?.removeExtra(RecapAlert.EXTRA_OPEN_RECAP)
         RecapDoor.open(year)
     }
 

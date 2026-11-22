@@ -100,8 +100,9 @@ class RecapNoteSlidesTest {
         assertTrue("stage.writing = p.kind == SlideKind.NOTE_WRITE && note.writing" in loop)
         assertTrue("withContext(Dispatchers.IO) { RecapNote.save(context, recap.year, text, day) }" in screen)
         assertTrue("withContext(Dispatchers.IO) { RecapNote.count(context, recap.year) }" in screen)
-        // Last year's note is opened once, as the Recap is read.
-        assertTrue("withContext(Dispatchers.IO) { RecapNote.read(context, year - 1) }" in code("viewmodels/RecapViewModel.kt"))
+        // Last year's notes are opened once, off the main thread, as the Recap is read.
+        val model = code("viewmodels/RecapViewModel.kt")
+        assertTrue(model.indexOf("shown.copy(pastNotes = withContext(Dispatchers.IO) {") in 0 until model.indexOf("RecapNote.read(context, year - 1)"))
         // While the field has the keyboard, a tap on the story closes it rather than turning the page.
         val tap = screen.substringAfter(".pointerInput(slides) {")
         assertTrue(tap.indexOf("if (note.focused) {") in 0 until tap.indexOf("if (back) previous() else next()"))
