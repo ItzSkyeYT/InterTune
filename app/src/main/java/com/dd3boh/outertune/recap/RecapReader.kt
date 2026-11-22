@@ -122,7 +122,12 @@ object RecapReader {
         id = song.id,
         title = song.song.title,
         artists = song.artists.joinToString(", ") { it.name },
-        cover = if (song.song.isLocal) song.song.getThumbnailModel(COVER_PX, COVER_PX) else song.song.thumbnailUrl?.resize(COVER_PX, COVER_PX),
+        // A file, or a song with no picture's address: its own picture, its folder's, or one the Recap makes (RecapMadeCover).
+        cover = if (song.song.isLocal || song.song.thumbnailUrl == null) {
+            RecapMadeCover(song.song.title, song.artists.joinToString(", ") { it.name }, if (song.song.isLocal) song.song.thumbnailUrl ?: song.song.localPath else null)
+        } else {
+            song.song.thumbnailUrl.resize(COVER_PX, COVER_PX)
+        },
         durationS = song.song.duration,
         local = song.song.isLocal,
     )
