@@ -164,7 +164,6 @@ import androidx.compose.material3.MenuDefaults
 import android.view.WindowManager
 import androidx.compose.material.icons.rounded.QrCode2
 import androidx.compose.material.icons.rounded.QrCodeScanner
-import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.material3.OutlinedIconButton
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.graphics.Color
@@ -568,6 +567,7 @@ private fun RoomPage(room: TogetherSession, song: MediaMetadata?, onLeave: () ->
                     proposed = status.proposed,
                     // A song from a file on this phone: the leader could never play it.
                     canPropose = song?.isLocal != true,
+                    to = status.leaderName,
                     onPropose = {
                         haptics.performHapticFeedback(HapticFeedbackType.Confirm)
                         room.propose()
@@ -599,6 +599,17 @@ private fun RoomPage(room: TogetherSession, song: MediaMetadata?, onLeave: () ->
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
+        }
+        // A guest's song waiting for this phone's answer: here too, since this sheet covers the card at the top of the app.
+        if (status.leading) status.proposals.firstOrNull()?.let {
+            Spacer(Modifier.height(14.dp))
+            ProposalCard(
+                proposal = it,
+                onPlay = room::acceptProposal,
+                onNotNow = room::dismissProposal,
+                container = MaterialTheme.colorScheme.surfaceContainerHighest,
+                elevation = 0.dp,
+            )
         }
 
         Hairline()
@@ -993,7 +1004,7 @@ private fun PausedHere() {
 }
 
 @Composable
-private fun OwnWay(proposed: Boolean, canPropose: Boolean, onPropose: () -> Unit, onCatchUp: () -> Unit) {
+private fun OwnWay(proposed: Boolean, canPropose: Boolean, to: String?, onPropose: () -> Unit, onCatchUp: () -> Unit) {
     Column(Modifier.fillMaxWidth()) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
             Text(stringResource(R.string.together_own_way), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
@@ -1012,7 +1023,17 @@ private fun OwnWay(proposed: Boolean, canPropose: Boolean, onPropose: () -> Unit
             OutlinedButton(onClick = onPropose, enabled = !proposed, modifier = Modifier.fillMaxWidth()) {
                 Icon(Icons.AutoMirrored.Rounded.QueueMusic, contentDescription = null, modifier = Modifier.size(ButtonDefaults.IconSize))
                 Spacer(Modifier.width(ButtonDefaults.IconSpacing))
-                Text(stringResource(if (proposed) R.string.together_proposed else R.string.together_propose))
+                // Named for the one in control, [to], who is the one asked: it said "the host" while dvd had control
+                // (22 Nov 2026). Without their name yet, the song alone.
+                Text(
+                    when {
+                        to == null -> stringResource(if (proposed) R.string.together_proposed else R.string.together_propose)
+                        proposed -> stringResource(R.string.together_proposed_to, to)
+                        else -> stringResource(R.string.together_propose_to, to)
+                    },
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
             }
         }
     }
@@ -1035,39 +1056,6 @@ private fun CastOwnWay(catchUpAfter: Boolean) {
             )
         }
     }
-}
-
-/**
- * A guest's song and queue proposed to this phone, the one that leads: asked wherever the app is,
- * since the room's sheet need not be open. A yes plays them from where the guest is.
- */
-@Composable
-fun TogetherProposalDialog(connection: PlayerConnection?) {
-    val room = connection?.service?.together?.collectAsState()?.value ?: return
-    val status by room.status.collectAsState()
-    val proposal = status.proposal ?: return
-    val first = proposal.songs.first()
-    val more = proposal.songs.size - 1
-    AlertDialog(
-        onDismissRequest = room::dismissProposal,
-        icon = { Icon(Icons.AutoMirrored.Rounded.QueueMusic, contentDescription = null) },
-        title = { Text(stringResource(R.string.together_proposal_title, proposal.by)) },
-        text = {
-            Column {
-                SongRow(first.thumbnail.ifBlank { null }, first.title.ifBlank { first.id }, first.artist.ifBlank { null })
-                if (more > 0) {
-                    Spacer(Modifier.height(8.dp))
-                    Text(
-                        pluralStringResource(R.plurals.together_proposal_more, more, more),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
-        },
-        confirmButton = { TextButton(onClick = room::acceptProposal) { Text(stringResource(R.string.together_proposal_play)) } },
-        dismissButton = { TextButton(onClick = room::dismissProposal) { Text(stringResource(R.string.together_proposal_later)) } },
-    )
 }
 
 /**

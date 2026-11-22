@@ -213,7 +213,7 @@ import com.dd3boh.outertune.utils.YouTubeLink
 import com.dd3boh.outertune.ui.dialog.TogetherInviteDialog
 import com.dd3boh.outertune.ui.dialog.TogetherSheet
 import com.dd3boh.outertune.together.InviteAnswer
-import com.dd3boh.outertune.ui.dialog.TogetherProposalDialog
+import com.dd3boh.outertune.ui.dialog.TogetherProposalCard
 import com.dd3boh.outertune.ui.dialog.togetherAvailable
 import com.dd3boh.outertune.together.RoomCode
 import com.dd3boh.outertune.testerlock.TesterLock
@@ -1605,8 +1605,6 @@ class MainActivity : ComponentActivity() {
                             TogetherSheet(onDismiss = { roomScreen = false })
                         }
                     }
-                    // A guest's song proposed to this phone as the room's leader: asked wherever the app is.
-                    TogetherProposalDialog(playerConnection)
                     LaunchedEffect(pendingLaunchLink, pendingLink.link, playerConnection, oobeStatus) {
                         val link = pendingLaunchLink ?: pendingLink.link ?: return@LaunchedEffect
                         // A live one, as for the widget's songs: see PlayerConnection.isAlive.
@@ -2707,6 +2705,10 @@ class MainActivity : ComponentActivity() {
                                     .windowInsetsPadding(LocalPlayerAwareWindowInsets.current)
                                     .align(Alignment.BottomCenter)
                             )
+
+                            // A guest's song proposed to this phone while it is in control of a room: a card at the top
+                            // wherever the app is, over the player too, until Play it or Not now (TogetherProposalCard).
+                            TogetherProposalCard(playerConnection, Modifier.align(Alignment.TopCenter))
 
                             // Only after setup, so a crash during the wizard is offered once it is done.
                             if (oobeStatus >= OOBE_VERSION) CrashReportDialog()
