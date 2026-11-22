@@ -259,7 +259,25 @@ class PhoneSongsTest {
         for (folder in listOf("values", "values-fr")) {
             val xml = File("src/main/res/$folder/strings-ot.xml").readText()
             val note = Regex("""<string name="together_song_matched">([^<]*)</string>""").find(xml)!!.groupValues[1]
-            assertTrue(note, "%1\$s" in note && "YouTube Music" in note && '—' !in note && note.length < 120)
+            assertTrue(note, "%1\$s" in note && "YouTube Music" in note && '—' !in note && note.length < 140)
+        }
+    }
+
+    /** The player says it too, with a tag over the cover (his yes, 22 Nov 2026): inside the cover's square, so nothing moves. */
+    @Test
+    fun `the player tags the cover of YouTube Music's version, inside the cover so nothing of the player moves`() {
+        val thumbnail = File("src/main/java/com/dd3boh/outertune/ui/player/Thumbnail.kt").readText()
+        val cover = thumbnail.substringAfter(".aspectRatio(1f)").substringBefore("AnimatedVisibility(")
+        assertTrue("RoomVersionTag(mediaMetadata?.id, Modifier.align(Alignment.BottomStart))" in cover)
+        val tag = File("src/main/java/com/dd3boh/outertune/ui/player/RoomVersionTag.kt").readText()
+        // Only on the room's own song, for a guest, and only for a match.
+        assertTrue("if (!status.songMatched || status.leading || status.waitingForHost || shownId == null || shownId != status.hostSongId) return" in tag)
+        // A tap says what the sheet says.
+        assertTrue("R.string.together_song_version" in tag && "R.string.together_song_matched" in tag)
+        for (folder in listOf("values", "values-fr")) {
+            val xml = File("src/main/res/$folder/strings-ot.xml").readText()
+            val label = Regex("""<string name="together_song_version">([^<]*)</string>""").find(xml)!!.groupValues[1]
+            assertTrue(label, "YouTube Music" in label && label.length <= 24)
         }
     }
 
