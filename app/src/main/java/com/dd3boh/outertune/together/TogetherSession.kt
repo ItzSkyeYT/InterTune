@@ -119,6 +119,8 @@ class TogetherSession(
         val proposal: Proposal? = null,
         /** The host's song fails on this phone (YouTube refuses it here): it waits on it, and takes the next one by itself. */
         val songUnavailable: Boolean = false,
+        /** Behind the room on a line that can't keep up: what comes in never reaches where the room is (DataWait). */
+        val tooSlow: Boolean = false,
         /** A guest that has heard nothing of the host for a while: it says the host is away (HostAbsence). */
         val hostAway: Boolean = false,
         /** This phone casts. Following, it then follows nothing until the cast ends (GuestCast). */
@@ -901,6 +903,7 @@ class TogetherSession(
         matchedQueue = null
         // The leader's song asked for afresh: one asked for before and never got was waited for at every look (CatchUp).
         loadingSong = null
+        dataWait.reset()
         lock.reset()
         roomQueue?.let { takeRepeat(it.repeat) }
         // Stopped on an error while on its own, on the room's song: started again, or the room says it can't play here.
@@ -909,7 +912,7 @@ class TogetherSession(
             Log.i(TAG, "Stopped on the leader's song: starting it again")
             player.prepare()
         }
-        _status.value = _status.value.copy(ownWay = false, pausedHere = false, locked = false, proposed = false, catchUpAfterCast = false)
+        _status.value = _status.value.copy(ownWay = false, pausedHere = false, locked = false, proposed = false, catchUpAfterCast = false, tooSlow = false)
         Log.i(TAG, "Catching up with the leader")
         wake.trySend(Unit)
     }
@@ -1029,6 +1032,7 @@ class TogetherSession(
         // The host's next song: whatever failed before is behind.
         refusal.songIs(state.songId)
         if (_status.value.songUnavailable && refusal.refusedId == null) _status.value = _status.value.copy(songUnavailable = false)
+        if (dataWait.songIs(state.songId) || (_status.value.tooSlow && !dataWait.tooSlow)) _status.value = _status.value.copy(tooSlow = false)
         // Marked paused here while its player plays: the play was missed, and it is back with the room.
         if (pausedHere && player.playWhenReady) listenerPlayed(true)
         // Paused here by the listener: the room plays on, and play brings this phone back to it.
@@ -1095,7 +1099,7 @@ class TogetherSession(
         }
         health.drift(target - local)
         when (val decision = lock.decide(target, local, state.speed, now)) {
-            is Follow.Seek -> if (Follow.jumpNow(decision.positionMs, local, player.bufferedPosition)) {
+            is Follow.Seek -> if (dataWait.jumps(decision.positionMs, local, player.bufferedPosition, now)) {
                 waitingForData = false
                 seek(player, decision.positionMs)
             } else {
@@ -1113,7 +1117,10 @@ class TogetherSession(
                 speed(player, decision.speed)
             }
         }
-        _status.value = _status.value.copy(driftMs = target - local, locked = lock.locked)
+        if (dataWait.tooSlow != _status.value.tooSlow) {
+            Log.i(TAG, if (dataWait.tooSlow) "Too slow a line to keep up with the leader: playing on behind" else "The song has come in as far as the leader")
+        }
+        _status.value = _status.value.copy(driftMs = target - local, locked = lock.locked, tooSlow = dataWait.tooSlow)
     }
 
     /**
@@ -1137,6 +1144,9 @@ class TogetherSession(
 
     /** Behind the leader past what has come in, playing on until it has: see Follow.jumpNow. */
     private var waitingForData = false
+
+    /** How long it waits for that, at most: see DataWait. */
+    private val dataWait = DataWait()
 
     /** The leader plays [state]'s song and this phone does not, yet. */
     private fun toLeadersSong(player: Player, state: TogetherMessage.State, now: Long) {
