@@ -87,8 +87,8 @@ class RecapViewModel @Inject constructor(
             _state.value = try {
                 val started = System.nanoTime()
                 RecapReader.read(database, history, year)
-                    // Last year's note to this year's you, if one was sealed: opened here once, off the main thread.
-                    ?.let { shown -> shown.copy(pastNote = withContext(Dispatchers.IO) { RecapNote.read(context, year - 1) }) }
+                    // Last year's notes to this year's you, those sealed: opened here once, off the main thread.
+                    ?.let { shown -> shown.copy(pastNotes = withContext(Dispatchers.IO) { RecapNote.read(context, year - 1) }) }
                     ?.also { Log.d(TAG, "Recap $year: ${it.recap.plays} plays, ${(System.nanoTime() - started) / 1_000_000} ms") }
                     ?.let { RecapState.Ready(it) }
                     ?: RecapState.Nothing

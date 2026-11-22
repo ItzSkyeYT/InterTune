@@ -13,8 +13,8 @@ import com.dd3boh.outertune.recap.RecapSongShown
 
 /**
  * The slides, in the mock's order. A slide the year has nothing for is left out. NOTE_READ, last
- * year's note to this year's you, comes only when one was sealed; NOTE_WRITE, the note to next
- * year's you, always comes just before the thank-you page (his add of 22 Nov 2026, RecapNote).
+ * year's notes to this year's you, comes only when some were sealed; NOTE_WRITE, the notes to next
+ * year's you, always comes just before the thank-you page (his adds of 22 Nov 2026, RecapNote).
  */
 enum class SlideKind { SINCE, NOTE_READ, MINUTES, HOUR, STREAK, ARTISTS, ONLY_HERE, WHERE_FROM, SKIPPED, COUNTDOWN, NUMBER_ONE, CARD, NOTE_WRITE, THANKS }
 
@@ -41,8 +41,10 @@ fun planSlides(shown: RecapShown): List<Slide> {
     val top = r.topSongs.first()
     return buildList {
         add(Slide(SlideKind.SINCE, 9_000, songAt = { shown.song(r.firstSong.songId) }))
-        // Last year's note, under the first song still: as long as its words take to read.
-        shown.pastNote?.let { n -> add(Slide(SlideKind.NOTE_READ, 10_000 + noteReadMs(n.text), songAt = { shown.song(r.firstSong.songId) }, coverAt = { null })) }
+        // Last year's notes, under the first song still: as long as all their words take to read.
+        if (shown.pastNotes.isNotEmpty()) {
+            add(Slide(SlideKind.NOTE_READ, 10_000 + noteReadMs(shown.pastNotes.joinToString("") { it.text }), songAt = { shown.song(r.firstSong.songId) }, coverAt = { null }))
+        }
         add(Slide(SlideKind.MINUTES, 10_000, songAt = { shown.song(r.mostTime?.songId ?: top.songId) }))
         add(Slide(SlideKind.HOUR, 10_000, songAt = { shown.song(r.peakSong.songId) }))
         r.streak?.let { s -> add(Slide(SlideKind.STREAK, 10_000, songAt = { shown.song(s.songId) })) }

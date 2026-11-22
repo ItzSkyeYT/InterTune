@@ -59,6 +59,7 @@ import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -95,18 +96,19 @@ import com.dd3boh.outertune.R
 import com.dd3boh.outertune.recap.RecapNote
 
 /**
- * The note to next year's you as the story holds it (NOTE_WRITE, his add of 22 Nov 2026): kept by
- * the story rather than by its page, so a slide back and on again keeps what was typed, and [text]
- * a turn of the phone too. [sealedDay]: this year's note is sealed, written on that day.
+ * The notes to next year's you as the story holds them (NOTE_WRITE, his adds of 22 Nov 2026): kept
+ * by the story rather than by its page, so a slide back and on again keeps what was typed, and
+ * [text] a turn of the phone too. [sealed]: how many this year's Recap holds for next year's, read
+ * as the Recap opens and one more at each seal. Sealed notes are never shown or changed again.
  */
 @Stable
 internal class NoteDraft(text: MutableState<String>) {
     var text by text
     var focused by mutableStateOf(false)
-    var sealedDay by mutableStateOf<Long?>(null)
+    var sealed by mutableIntStateOf(0)
 
-    /** Writing it again, to take the place of the one sealed. */
-    var again by mutableStateOf(false)
+    /** Writing another, after some are sealed. */
+    var another by mutableStateOf(false)
     var sealing by mutableStateOf(false)
 
     /** The last seal did not take: the slide says why, and Seal it is the way to try again. */
@@ -115,23 +117,27 @@ internal class NoteDraft(text: MutableState<String>) {
     /** When it was sealed, on the story's clock: its seal is pressed on then. -1 for one found sealed. */
     var sealedAt by mutableLongStateOf(-1L)
 
-    /** The paper shows the note sealed rather than a field to write in. */
-    val shut: Boolean get() = sealedDay != null && !again
+    /** The paper shows what is sealed rather than a field to write in. */
+    val shut: Boolean get() = sealed > 0 && !another
 
-    /** The story waits while the note is written: the field has the keyboard or holds words, or they are being sealed. */
+    /** No room for another this year (RecapNote.MAX_NOTES). */
+    val full: Boolean get() = sealed >= RecapNote.MAX_NOTES
+
+    /** The story waits while a note is written: the field has the keyboard or holds words, or they are being sealed. */
     val writing: Boolean get() = sealing || (!shut && (focused || text.isNotEmpty()))
 
-    fun sealed(day: Long, at: Long) {
-        sealedDay = day
+    /** One more sealed, at [at] on the story's clock: the paper shows them sealed, ready for another. */
+    fun kept(at: Long) {
+        sealed += 1
         sealedAt = at
-        again = false
+        another = false
         failed = false
         text = ""
     }
 }
 
-/** How long the seal shows, on the story's clock, before the thank-you page comes. */
-internal const val NOTE_SEALED_MS = 1_800L
+/** How far apart, in steps, last year's papers come in one after another. */
+internal const val NOTE_STAGGER = 0.6f
 
 /**
  * The note's hand: the phone's own face in italic, on lines [size] × 30/19 apart as the design's
@@ -223,32 +229,43 @@ private fun baselineOf(baseline: Float, line: TextUnit): Dp = with(LocalDensity.
 // ---- last year's note, right after the first slide
 
 /**
- * "A note from your past self": the note sealed at the end of last year's Recap (RecapNote), on
- * its paper popping in from above, with the day it was written. It stays as long as its words
- * take to read (noteReadMs), counted from when its paper has landed.
+ * "A note from your past self": the notes sealed at the end of last year's Recap (RecapNote), in
+ * the order written, each on its taped paper popping in from above a moment after the one before,
+ * with the day it was written. Many scroll rather than shrink. The page stays as long as all their
+ * words take to read (noteReadMs), counted from when the last paper has landed.
  */
 @Composable
 internal fun NoteReadSlide(s: SlideScope) {
-    val note = s.shown.pastNote ?: return
+    val notes = s.shown.pastNotes
+    if (notes.isEmpty()) return
     val c = s.paper
     val year = s.shown.recap.year
-    val hand = remember(note.text) { noteHand(noteSize(note.text.length).sp) }
-    // Where its first line stands: a number rather than the layout, so that laying it out again changes nothing.
-    var first by remember { mutableFloatStateOf(-1f) }
-    s.arrives(2.4f, RecapMotion.FLY_MS + noteReadMs(note.text).toInt())
+    s.arrives(2.4f + (notes.size - 1) * NOTE_STAGGER, RecapMotion.FLY_MS + noteReadMs(notes.joinToString("") { it.text }).toInt())
     SlideColumn { room ->
         Kick(stringResource(R.string.recap_note_read_kick, (year - 1).toString()), s)
-        val (before, after) = around(stringResource(R.string.recap_note_read_title, MARK))
+        val (before, after) = around(pluralStringResource(R.plurals.recap_note_read_title, notes.size, MARK, s.words.number(notes.size)))
         Words(before, s, at = 1f, style = RecapType.h2, colour = c.ink, strip = stringResource(R.string.recap_note_read_strip), after = after, stripAt = 1.8f, stripTurn = -3f)
-        NotePaper(s, at = 2.4f, turn = 1.4f, fy = -320f, fr = -10f, line = hand.lineHeight, baseline = { first.takeIf { it >= 0f } }) {
-            Text(note.text, style = hand, onTextLayout = { first = it.getLineBaseline(0) })
-            Text(
-                stringResource(R.string.recap_note_written_on, s.words.day(note.writtenDay)), style = noteSmall(hand.lineHeight),
-                modifier = Modifier.paddingFromBaseline(top = baselineOf(first, hand.lineHeight)),
-            )
+        notes.forEachIndexed { i, note ->
+            val odd = i % 2 == 1
+            ReadPaper(s, note, at = 2.4f + i * NOTE_STAGGER, turn = if (odd) -1.2f else 1.4f, fr = if (odd) 8f else -10f)
         }
         Grow(room)
         Text(stringResource(R.string.recap_note_read_line), style = RecapType.quiet, color = c.ink2, modifier = Modifier.enter(s, Entrance.UP, 3.6f))
+    }
+}
+
+/** One of last year's notes on its paper: its words, a little smaller when long (noteSize), and the day it was written on the next line. */
+@Composable
+private fun ReadPaper(s: SlideScope, note: RecapNote.Note, at: Float, turn: Float, fr: Float) {
+    val hand = remember(note.text) { noteHand(noteSize(note.text.length).sp) }
+    // Where its first line stands: a number rather than the layout, so that laying it out again changes nothing.
+    var first by remember { mutableFloatStateOf(-1f) }
+    NotePaper(s, at = at, turn = turn, fy = -320f, fr = fr, line = hand.lineHeight, baseline = { first.takeIf { it >= 0f } }) {
+        Text(note.text, style = hand, onTextLayout = { first = it.getLineBaseline(0) })
+        Text(
+            stringResource(R.string.recap_note_written_on, s.words.day(note.writtenDay)), style = noteSmall(hand.lineHeight),
+            modifier = Modifier.paddingFromBaseline(top = baselineOf(first, hand.lineHeight)),
+        )
     }
 }
 
@@ -292,8 +309,9 @@ internal fun NoteWriteSlide(s: SlideScope, note: NoteDraft, onSeal: () -> Unit, 
             modifier = modifier.enter(s, Entrance.UP, 3.4f),
         ) {
             if (note.shut) {
-                NoteButton(stringResource(R.string.recap_note_again), filled = false) {
-                    note.again = true
+                // Every note is kept: another goes on a fresh paper, the sealed ones are never opened again here.
+                if (!note.full) NoteButton(stringResource(R.string.recap_note_another), filled = false) {
+                    note.another = true
                     focusSoon = true
                 }
             } else {
@@ -357,12 +375,11 @@ internal fun NoteWriteSlide(s: SlideScope, note: NoteDraft, onSeal: () -> Unit, 
         }
         if (!keyboard) {
             buttons(Modifier.padding(top = 20.dp, bottom = 10.dp))
-            val day = note.sealedDay
             Text(
                 when {
                     note.failed -> stringResource(R.string.recap_note_failed)
+                    note.shut && note.full -> stringResource(R.string.recap_note_full)
                     note.shut -> stringResource(R.string.recap_note_sealed_line)
-                    note.again && day != null -> stringResource(R.string.recap_note_again_line, s.words.day(day))
                     else -> stringResource(R.string.recap_note_write_line)
                 },
                 style = RecapType.quiet, color = if (note.failed) c.ink else c.ink2, modifier = Modifier.enter(s, Entrance.UP, 3.8f),
@@ -415,8 +432,8 @@ private fun NoteColumn(keyboard: Boolean, pinned: @Composable () -> Unit, conten
 }
 
 /**
- * The note sealed: in its place on the paper, "Sealed until your next Recap" and the day it was
- * written, and a red seal with a lock pressed on beside them as it is sealed.
+ * The notes sealed: in their place on the paper, "Sealed until your next Recap" and how many are,
+ * and a red seal with a lock pressed on beside them as one is sealed.
  */
 @Composable
 private fun Sealed(s: SlideScope, note: NoteDraft, hand: TextStyle, onBaseline: (Float) -> Unit) {
@@ -430,12 +447,10 @@ private fun Sealed(s: SlideScope, note: NoteDraft, hand: TextStyle, onBaseline: 
                     onBaseline(first)
                 },
             )
-            note.sealedDay?.let { day ->
-                Text(
-                    stringResource(R.string.recap_note_written_on, s.words.day(day)), style = noteSmall(hand.lineHeight),
-                    modifier = Modifier.paddingFromBaseline(top = baselineOf(first, hand.lineHeight)),
-                )
-            }
+            Text(
+                pluralStringResource(R.plurals.recap_note_sealed_count, note.sealed, s.words.number(note.sealed), (s.shown.recap.year + 1).toString()),
+                style = noteSmall(hand.lineHeight), modifier = Modifier.paddingFromBaseline(top = baselineOf(first, hand.lineHeight)),
+            )
             Spacer(Modifier.height(with(LocalDensity.current) { hand.lineHeight.toDp() }))
         }
         Spacer(Modifier.width(10.dp))

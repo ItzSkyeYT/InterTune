@@ -23,7 +23,7 @@ class RecapNoteSlidesTest {
     private fun code(path: String) = File("src/main/java/com/dd3boh/outertune/$path").readText()
 
     @Test
-    fun `the story waits while the note has the keyboard or holds words, and not once it is sealed`() {
+    fun `the story waits while a note has the keyboard or holds words, not once it is sealed, and another can follow up to the year's ten`() {
         val note = NoteDraft(mutableStateOf(""))
         assertFalse(note.writing)
         note.focused = true
@@ -34,16 +34,28 @@ class RecapNoteSlidesTest {
         note.sealing = true
         assertTrue(note.writing)
         note.sealing = false
-        note.sealed(20_444L, 1_234L)
+        note.kept(1_234L)
         assertTrue(note.shut)
         assertFalse(note.writing)
         assertEquals("", note.text)
-        assertEquals(20_444L, note.sealedDay)
-        // Written again, it takes the old one's place: a field again, and the story waits for it as before.
-        note.again = true
+        assertEquals(1, note.sealed)
+        // Another on a fresh paper: a field again, the story waiting for it as before, and both kept.
+        note.another = true
         assertFalse(note.shut)
         note.focused = true
         assertTrue(note.writing)
+        note.text = "And call Niko."
+        note.focused = false
+        note.kept(2_000L)
+        assertEquals(2, note.sealed)
+        assertTrue(note.shut)
+        assertFalse(note.full)
+        note.sealed = RecapNote.MAX_NOTES
+        assertTrue(note.full)
+        // The sealed ones are never shown again here, nor replaced: no way to write one over.
+        val slide = code("ui/screens/recap/RecapNoteSlides.kt")
+        assertTrue("if (!note.full) NoteButton(stringResource(R.string.recap_note_another)" in slide)
+        assertFalse("recap_note_again" in slide)
     }
 
     @Test

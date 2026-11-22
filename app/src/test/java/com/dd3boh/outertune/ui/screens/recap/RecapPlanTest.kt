@@ -156,18 +156,19 @@ class RecapPlanTest {
     }
 
     @Test
-    fun `last year's note comes right after the first slide, only when one was sealed, and stays as long as it takes to read`() {
+    fun `last year's notes come right after the first slide, only when some were sealed, and stay as long as all of them take to read`() {
         assertFalse(plan(recap()).any { it.kind == SlideKind.NOTE_READ })
         val note = RecapNote.Note("Dear me in 2026: are you still playing it on repeat?", 20_444L)
-        val slides = planSlides(shown(recap()).copy(pastNote = note))
+        val slides = planSlides(shown(recap()).copy(pastNotes = listOf(note)))
         assertEquals(listOf(SlideKind.SINCE, SlideKind.NOTE_READ, SlideKind.MINUTES), slides.take(3).map { it.kind })
-        // Under the first song still, in its own colours rather than a cover's.
+        // One slide for them all, under the first song still, in its own colours rather than a cover's.
         val read = slides[1]
         assertEquals("first", read.song(0)?.id)
         assertNull(read.cover(0))
-        // A longer note stays longer: about 55 ms a letter, never less than 3 s, before the usual rest.
-        val long = planSlides(shown(recap()).copy(pastNote = note.copy(text = "a".repeat(500)))).single { it.kind == SlideKind.NOTE_READ }
-        assertTrue(long.ms > read.ms)
+        val three = planSlides(shown(recap()).copy(pastNotes = listOf(note, note.copy(text = "And call Niko."), note.copy(text = "a".repeat(500)))))
+        assertEquals(1, three.count { it.kind == SlideKind.NOTE_READ })
+        // More words stay longer: about 55 ms a letter of all of them, never less than 3 s, before the usual rest.
+        assertTrue(three.single { it.kind == SlideKind.NOTE_READ }.ms > read.ms)
         assertEquals(27_500L, noteReadMs("a".repeat(500)))
         assertEquals(3_000L, noteReadMs("Hi"))
     }
