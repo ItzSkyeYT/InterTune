@@ -31,7 +31,9 @@ class TesterAppBuildTest {
     @Test
     fun `the beta type is the preview under the package of the Tester app, and the preview is what it was`() {
         // Three apps that install side by side, by their package: the release is the id itself.
-        val suffixes = Regex("applicationIdSuffix = \"(\\.\\w+)\"").findAll(build).map { it.groupValues[1] }.toList()
+        // The debug type's own may be swapped for a test run on a phone (-PdebugAppSuffix, 22 Nov 2026): ".debug" otherwise.
+        val suffixes = Regex("applicationIdSuffix = (?:providers\\.gradleProperty\\(\"debugAppSuffix\"\\)\\.orNull \\?: )?\"(\\.\\w+)\"")
+            .findAll(build).map { it.groupValues[1] }.toList()
         assertEquals(listOf(".debug", ".preview", ".tester"), suffixes)
         assertTrue("initWith(getByName(\"preview\"))" in beta)
         assertTrue("applicationIdSuffix = \".tester\"" in beta)
