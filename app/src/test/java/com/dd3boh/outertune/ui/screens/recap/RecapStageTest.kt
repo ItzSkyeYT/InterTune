@@ -190,6 +190,25 @@ class RecapStageTest {
     }
 
     @Test
+    fun `while a note is written its page waits, and once let go of it rests the usual time from then`() {
+        val st = stage()
+        val note = at(SlideKind.NOTE_WRITE)
+        assertEquals(slides.size - 1, note)
+        st.go(note, 0, How.ON)
+        val page = st.current
+        assertTrue(st.lengthOf(page) > 0L)
+        st.writing = true
+        assertEquals(0L, st.lengthOf(page))
+        st.run(20_000)
+        st.writing = false
+        assertEquals(st.clock.now - page.start + RecapMotion.REST_MS, st.lengthOf(page))
+        // No other page is held by it.
+        st.writing = true
+        st.go(at(SlideKind.CARD), 0, How.BACK)
+        assertTrue(st.lengthOf(st.current) > 0L)
+    }
+
+    @Test
     fun `with Remove animations on, slides cross-fade, the shapes change in place, and nothing flies`() {
         val st = stage(still = true)
         st.run(200)

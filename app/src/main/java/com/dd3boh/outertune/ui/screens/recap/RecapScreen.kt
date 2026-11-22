@@ -66,6 +66,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -89,6 +90,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalView
 import com.dd3boh.outertune.ui.player.KeepScreenOnReason
@@ -108,6 +110,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import coil3.compose.AsyncImage
 import com.dd3boh.outertune.R
+import com.dd3boh.outertune.recap.RecapNote
 import com.dd3boh.outertune.recap.RecapReader
 import com.dd3boh.outertune.recap.RecapShown
 import com.dd3boh.outertune.recap.RecapSongShown
@@ -118,8 +121,10 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.time.LocalDate
 
 /** Behind the Recap while it loads: the start screen's own red paper. */
 internal val RecapNight = RecapInk.Red
@@ -192,6 +197,16 @@ internal fun RecapStory(
     val playlist = rememberPlaylistFlow(shown, stringResource(R.string.recap_playlist_name, recap.year.toString()), viewModel)
     val page = stage.current
 
+    // The note to next year's you (NOTE_WRITE): what is typed, kept across a turn of the phone, and
+    // whether this year's is sealed already, read once off the main thread (RecapNote).
+    val noteText = rememberSaveable { mutableStateOf("") }
+    val note = remember(noteText) { NoteDraft(noteText) }
+    val focusManager = LocalFocusManager.current
+    LaunchedEffect(recap.year) {
+        val sealed = withContext(Dispatchers.IO) { RecapNote.read(context, recap.year) }
+        if (sealed != null && note.sealedDay == null) note.sealedDay = sealed.writtenDay
+    }
+
     fun next() {
         val p = stage.current
         if (p.at == 0 || stage.opening) return
@@ -214,6 +229,33 @@ internal fun RecapStory(
         sound.open(pages)
         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
         stage.open()
+    }
+
+    /**
+     * Seal it: the note kept on this phone (RecapNote.save, off the main thread), its seal pressed on
+     * for a moment on the story's clock, then the thank-you page. Where it could not be kept, the
+     * slide says why and its words stay for another try.
+     */
+    fun sealNote() {
+        val text = note.text.trim()
+        if (note.sealing || text.isEmpty()) return
+        note.sealing = true
+        note.failed = false
+        focusManager.clearFocus()
+        val visit = stage.current.visit
+        scope.launch {
+            val day = LocalDate.now().toEpochDay()
+            val kept = withContext(Dispatchers.IO) { RecapNote.save(context, recap.year, text, day) }
+            if (kept) note.sealed(day, stage.clock.now) else note.failed = true
+            note.sealing = false
+            if (!kept) return@launch
+            val until = stage.clock.now + NOTE_SEALED_MS
+            snapshotFlow { stage.clock.now }.first { it >= until }
+            if (stage.current.visit == visit) {
+                stopped = false
+                next()
+            }
+        }
     }
 
     // Away from the app, the share sheet over it included: the story waits.
@@ -241,6 +283,8 @@ internal fun RecapStory(
             stage.frame(((now - last) / 1e6).coerceIn(0.0, 100.0), paused)
             last = now
             val p = stage.current
+            // While a note to next year's you is written, its page waits (RecapStage.writing).
+            stage.writing = p.kind == SlideKind.NOTE_WRITE && note.writing
             if (p.at > 0 && !paused && !stage.opening) {
                 val length = stage.lengthOf(p)
                 if (length > 0 && stage.clock.now - p.start >= length) next()
@@ -319,6 +363,7 @@ internal fun RecapStory(
         }
         when (slides[p.at - 1].kind) {
             SlideKind.SINCE -> SinceSlide(s)
+            SlideKind.NOTE_READ -> NoteReadSlide(s)
             SlideKind.MINUTES -> MinutesSlide(s)
             SlideKind.HOUR -> HourSlide(s)
             SlideKind.STREAK -> StreakSlide(s)
@@ -329,6 +374,7 @@ internal fun RecapStory(
             SlideKind.COUNTDOWN -> CountdownSlide(s, p.step)
             SlideKind.NUMBER_ONE -> NumberOneSlide(s, sharing) { share(top = true) }
             SlideKind.CARD -> CardSlide(s, yearCard, sharing, { share(top = false) }, playlist, onOpenPlaylist)
+            SlideKind.NOTE_WRITE -> NoteWriteSlide(s, note, onSeal = { sealNote() }, onNotNow = { focusManager.clearFocus(); stopped = false; next() })
             SlideKind.THANKS -> ThanksSlide(s, onAgain = { stopped = false; stage.go(1, 0, How.ON) }, onDone = { close() })
         }
     }
@@ -351,6 +397,12 @@ internal fun RecapStory(
                 awaitEachGesture {
                     val down = awaitFirstDown(requireUnconsumed = true)
                     if (stage.current.at == 0 || stage.opening) return@awaitEachGesture
+                    // While a note is written, a tap beside its paper closes the keyboard, as Back does, rather than turning the page.
+                    if (note.focused) {
+                        waitForUpOrCancellation()?.consume()
+                        focusManager.clearFocus()
+                        return@awaitEachGesture
+                    }
                     val back = down.position.x < size.width * RecapMotion.BACK_SHARE
                     var timedOut = true
                     val up = withTimeoutOrNull(RecapMotion.HOLD_MS) { waitForUpOrCancellation().also { timedOut = false } }

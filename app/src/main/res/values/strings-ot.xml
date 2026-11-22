@@ -2907,6 +2907,11 @@ while also allowing users to translate our app as well. New, specific strings to
         <item quantity="other">Everything here comes from the %1$s days since, worked out on this phone.</item>
     </plurals>
     <string name="recap_this_year_here" translatable="false">Everything here comes from this year, worked out on this phone.</string>
+    <string name="recap_note_read_kick" translatable="false">From your %1$s Recap</string>
+    <string name="recap_note_read_title" translatable="false">A note from your %1$s</string>
+    <string name="recap_note_read_strip" translatable="false">past self</string>
+    <string name="recap_note_written_on" translatable="false">Written on %1$s</string>
+    <string name="recap_note_read_line" translatable="false">You can write next year\'s at the end.</string>
     <string name="recap_minutes_kick_since" translatable="false">Since %1$s you listened for</string>
     <string name="recap_minutes_kick_year" translatable="false">In %1$s you listened for</string>
     <plurals name="recap_minutes_unit" translatable="false">
@@ -3041,6 +3046,22 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="recap_in_a_row_on" translatable="false">On %1$s you played it %2$s times in a row.</string>
     <string name="recap_times_on" translatable="false">On %1$s you played it %2$s times.</string>
     <string name="recap_card_described" translatable="false">Your year on one card: top songs, top artists, your minutes, your hour and your longest streak</string>
+    <string name="recap_note_write_kick" translatable="false">Before you go</string>
+    <string name="recap_note_write_title" translatable="false">Write a note for %1$s</string>
+    <string name="recap_note_write_strip" translatable="false">next year\'s you</string>
+    <string name="recap_note_placeholder" translatable="false">Dear me in %1$s…</string>
+    <string name="recap_note_seal" translatable="false">Seal it</string>
+    <string name="recap_note_not_now" translatable="false">Not now</string>
+    <string name="recap_note_write_line" translatable="false">It stays sealed on this phone and in your backups. Next year\'s Recap opens it for you.</string>
+    <plurals name="recap_note_left" translatable="false">
+        <item quantity="one">%1$s character left</item>
+        <item quantity="other">%1$s characters left</item>
+    </plurals>
+    <string name="recap_note_sealed" translatable="false">Sealed until your next Recap</string>
+    <string name="recap_note_sealed_line" translatable="false">Next year\'s Recap opens it for you. A new one would take its place.</string>
+    <string name="recap_note_again" translatable="false">Write it again</string>
+    <string name="recap_note_again_line" translatable="false">This one takes the place of the note you sealed on %1$s.</string>
+    <string name="recap_note_failed" translatable="false">Your note could not be sealed: the phone may be out of space. Free some up, then tap Seal it again.</string>
     <string name="recap_thanks_title" translatable="false">Thank you</string>
     <string name="recap_thanks_words" translatable="false">Thank you for using InterTune this year. It\'s a small project I make in my free time, and I\'ve loved every bit of it (still do!). Thank you for reporting bugs, sharing ideas and translating. You\'re the reason it keeps going!</string>
     <string name="recap_thanks_signature" translatable="false">Mel</string>

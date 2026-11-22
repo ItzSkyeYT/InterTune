@@ -90,6 +90,7 @@ internal object Choreography {
     /** The sheet each slide comes in on. */
     fun sheet(kind: SlideKind, step: Int): Sheet = when (kind) {
         SlideKind.SINCE -> Sheet.Dive(Sheet.Grow(Paper.TRI, at = 207f to 380f))
+        SlideKind.NOTE_READ -> Sheet.Grow(Paper.FLOWER, at = 207f to 420f)
         SlideKind.MINUTES -> Sheet.Grow(Paper.BURST, from = B)
         SlideKind.HOUR -> Sheet.Grow(Paper.CIRCLE, from = A)
         SlideKind.STREAK -> Sheet.Strips(7)
@@ -100,6 +101,7 @@ internal object Choreography {
         SlideKind.COUNTDOWN -> if (step == 0) Sheet.Grow(Paper.SEAL, at = 207f to 368f) else Sheet.Strips(5, vertical = step % 2 == 1)
         SlideKind.NUMBER_ONE -> Sheet.Grow(Paper.CIRCLE, at = 207f to 300f)
         SlideKind.CARD -> Sheet.Grow(Paper.BURST, at = 207f to 214f)
+        SlideKind.NOTE_WRITE -> Sheet.Strips(5)
         SlideKind.THANKS -> Sheet.Grow(Paper.BLOB2, at = 207f to 780f)
     }
 
@@ -116,6 +118,21 @@ internal object Choreography {
                     R to pose(at = Spot.COVER, s = 300f, w = 3f, c = listOf(Cream), o = 0.35f),
                     Q to pose(x = 330f, y = 528f, s = 96f, r = -6f, c = listOf(Lemon)),
                     H to pose(x = 14f, y = 690f, s = 110f, c = listOf(Cream), o = 0.28f),
+                )
+            )
+        )
+        // Last year's note: a flower at the foot, a burst behind the title, the paper on its own in the middle.
+        SlideKind.NOTE_READ -> listOf(
+            Poses(
+                0f, mapOf(
+                    A to pose(Paper.FLOWER, 360f, 640f, 190f, 10f, listOf(Lemon, Cream), listOf(1f, 0.5f), spin = 50f),
+                    B to pose(Paper.BURST, 46f, 120f, 60f, c = listOf(Blue), spin = 60f),
+                    C to pose(Paper.TRI, 372f, 470f, 60f, 10f, listOf(Ink)),
+                    D to pose(Paper.CIRCLE, 380f, 110f, 30f, c = listOf(Lemon)),
+                    F to hide,
+                    R to hide,
+                    Q to hide,
+                    H to pose(x = 330f, y = 380f, s = 90f, c = listOf(Ink), o = 0.14f),
                 )
             )
         )
@@ -295,6 +312,21 @@ internal object Choreography {
                     R to pose(x = 360f, y = 560f, s = 200f, w = 3f, c = listOf(Ink), o = 0.35f),
                     Q to pose(x = 340f, y = 74f, s = 80f, r = 6f, c = listOf(Violet)),
                     H to pose(x = 40f, y = 330f, s = 100f, c = listOf(Ink), o = 0.16f),
+                )
+            )
+        )
+        // The note to next year's you: the shapes keep to the edges, clear of the paper and the keyboard.
+        SlideKind.NOTE_WRITE -> listOf(
+            Poses(
+                0f, mapOf(
+                    A to pose(Paper.BLOB, 380f, 120f, 170f, 20f, listOf(Sky, Cream), listOf(1f, 0.5f), spin = 60f),
+                    B to pose(Paper.STAR6, 40f, 640f, 52f, c = listOf(Plum), spin = 40f),
+                    C to pose(Paper.TRI, 372f, 600f, 60f, 70f, listOf(Ink)),
+                    D to pose(Paper.CIRCLE, 30f, 150f, 28f, c = listOf(Tomato)),
+                    F to pose(Paper.PILL, 410f, 380f, 96f, 30f, listOf(Plum)),
+                    R to hide,
+                    Q to hide,
+                    H to pose(x = 300f, y = 700f, s = 90f, c = listOf(Ink), o = 0.14f),
                 )
             )
         )
