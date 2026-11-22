@@ -3012,6 +3012,26 @@ while also allowing users to translate our app as well. New, specific strings to
         <item quantity="one">%1$s skip</item>
         <item quantity="other">%1$s skips</item>
     </plurals>
+    <!-- The Recap's slide of where the songs came from (WhereFromSlide), for someone with nothing for Only on InterTune: its kicker, the headline round the first source, the line about its song, a row's share, the giant share's mark, and since when. -->
+    <string name="recap_from_kick" translatable="false">Where your songs came from</string>
+    <string name="recap_from_mostly" translatable="false">Mostly from %1$s</string>
+    <string name="recap_from_top" translatable="false">%1$s came from there more than any other song: %2$s.</string>
+    <string name="recap_from_percent" translatable="false">%1$s%%</string>
+    <string name="recap_from_percent_mark" formatted="false" translatable="false">%</string>
+    <string name="recap_from_since" translatable="false">Since %1$s, when InterTune began keeping where each song came from.</string>
+    <!-- Where-from's sources: a row's name, then the same in the headline's "Mostly from …". -->
+    <string name="recap_from_playlists" translatable="false">Your playlists</string>
+    <string name="recap_from_radios" translatable="false">Radios</string>
+    <string name="recap_from_search" translatable="false">Search</string>
+    <string name="recap_from_library" translatable="false">Your library</string>
+    <string name="recap_from_home" translatable="false">Home</string>
+    <string name="recap_from_rest" translatable="false">Everything else</string>
+    <string name="recap_from_in_playlists" translatable="false">your playlists</string>
+    <string name="recap_from_in_radios" translatable="false">radios</string>
+    <string name="recap_from_in_search" translatable="false">search</string>
+    <string name="recap_from_in_library" translatable="false">your library</string>
+    <string name="recap_from_in_home" translatable="false">Home</string>
+    <string name="recap_from_in_rest" translatable="false">everything else</string>
     <string name="recap_number_one_kick" translatable="false">Your number one song</string>
     <plurals name="recap_plays_unit" translatable="false">
         <item quantity="one">play</item>

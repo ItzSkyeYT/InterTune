@@ -318,6 +318,7 @@ internal fun RecapStory(
             SlideKind.STREAK -> StreakSlide(s)
             SlideKind.ARTISTS -> ArtistsSlide(s)
             SlideKind.ONLY_HERE -> OnlySlide(s)
+            SlideKind.WHERE_FROM -> WhereFromSlide(s)
             SlideKind.SKIPPED -> SkippedSlide(s)
             SlideKind.COUNTDOWN -> CountdownSlide(s, p.step)
             SlideKind.NUMBER_ONE -> NumberOneSlide(s, sharing) { share(top = true) }

@@ -41,6 +41,7 @@ internal object Spot {
     const val STAGE = "stage"
     const val HERO = "hero"
     const val SKIP = "skip"
+    const val FROM = "from"
 }
 
 /** How a slide's sheet comes in over the last one. */
@@ -94,6 +95,7 @@ internal object Choreography {
         SlideKind.STREAK -> Sheet.Strips(7)
         SlideKind.ARTISTS -> Sheet.Grow(Paper.BLOB, at = -40f to 780f)
         SlideKind.ONLY_HERE -> Sheet.Grow(Paper.STAR8, from = A)
+        SlideKind.WHERE_FROM -> Sheet.Grow(Paper.BLOB2, from = A)
         SlideKind.SKIPPED -> Sheet.Strips(6, vertical = true)
         SlideKind.COUNTDOWN -> if (step == 0) Sheet.Grow(Paper.SEAL, at = 207f to 368f) else Sheet.Strips(5, vertical = step % 2 == 1)
         SlideKind.NUMBER_ONE -> Sheet.Grow(Paper.CIRCLE, at = 207f to 300f)
@@ -185,6 +187,20 @@ internal object Choreography {
                     R to hide,
                     Q to hide,
                     H to hide,
+                )
+            )
+        )
+        SlideKind.WHERE_FROM -> listOf(
+            Poses(
+                0f, mapOf(
+                    A to pose(Paper.BLOB2, at = Spot.FROM, dx = -6f, dy = 6f, s = 230f, r = -8f, c = listOf(Lemon, Cream), k = listOf(1f, 0.5f), spin = 70f),
+                    B to pose(Paper.STAR6, 392f, 300f, 46f, c = listOf(Plum), spin = 50f),
+                    C to pose(Paper.TRI, 30f, 120f, 54f, 30f, listOf(Ink)),
+                    D to pose(Paper.CIRCLE, 386f, 92f, 30f, c = listOf(Blue)),
+                    F to pose(Paper.PILL, 404f, 640f, 104f, -24f, listOf(Plum)),
+                    R to hide,
+                    Q to hide,
+                    H to pose(x = 28f, y = 660f, s = 90f, c = listOf(Ink), o = 0.14f),
                 )
             )
         )

@@ -92,6 +92,8 @@ data class Recap(
     val ranking: List<String> = emptyList(),
     /** The song skipped most often this year, when one was skipped [Recaps.SKIPPED_MIN] times or more. */
     val mostSkipped: MostSkipped? = null,
+    /** Where the year's plays came from, for someone with nothing for Only on InterTune: see [WhereFrom]. */
+    val whereFrom: WhereFrom? = null,
 ) {
     /** How many days the Recap covers. */
     val days: Int get() = (lastDay - sinceDay + 1).toInt()
@@ -208,3 +210,32 @@ data class MostSkipped(
 
 /** A song and how often it was skipped in the year. */
 data class SongSkips(val songId: String, val skips: Int)
+
+/**
+ * Where the year's plays were started from (PlayOrigin, grouped as [Source] says), for the slide that
+ * takes Only on InterTune's place when there is nothing for it: no Auto find kept, no song named by
+ * ear, no room. The sources by plays, at most [Recaps.FROM_ROWS] of them and the rest as one, always
+ * last, each with the song played most from it that no row above shows. Added 22 Nov 2026.
+ */
+data class WhereFrom(
+    /** The day where-from began to be kept, when that is after [Recap.sinceDay]; null otherwise. */
+    val sinceDay: Long?,
+    val rows: List<FromRow>,
+) {
+    /** Where a play began: the library takes in albums, artists and folders, where a listener of their own files plays from. */
+    enum class Source { PLAYLISTS, RADIOS, SEARCH, LIBRARY, HOME, REST }
+
+    /** Each row's share in whole percents that add up to a hundred: the largest remainders get the points left over. */
+    fun percents(): List<Int> {
+        val total = rows.sumOf { it.plays }
+        if (total <= 0) return rows.map { 0 }
+        val exact = rows.map { it.plays * 100.0 / total }
+        val whole = exact.map { it.toInt() }.toMutableList()
+        val left = 100 - whole.sum()
+        exact.indices.sortedWith(compareByDescending<Int> { exact[it] - whole[it] }.thenBy { it }).take(left).forEach { whole[it]++ }
+        return whole
+    }
+}
+
+/** One source, its plays, and the song played most from it, [songPlays] times from there. */
+data class FromRow(val source: WhereFrom.Source, val plays: Int, val songId: String, val songPlays: Int)

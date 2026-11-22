@@ -12,7 +12,7 @@ import com.dd3boh.outertune.recap.RecapShown
 import com.dd3boh.outertune.recap.RecapSongShown
 
 /** The slides, in the mock's order. A slide the year has nothing for is left out. */
-enum class SlideKind { SINCE, MINUTES, HOUR, STREAK, ARTISTS, ONLY_HERE, SKIPPED, COUNTDOWN, NUMBER_ONE, CARD, THANKS }
+enum class SlideKind { SINCE, MINUTES, HOUR, STREAK, ARTISTS, ONLY_HERE, WHERE_FROM, SKIPPED, COUNTDOWN, NUMBER_ONE, CARD, THANKS }
 
 /**
  * One slide: the length the piece of its song is cut to for each of its [steps] (0, the last one,
@@ -52,6 +52,9 @@ fun planSlides(shown: RecapShown): List<Slide> {
         if (r.auto != null || r.recognition != null || r.rooms != null) {
             val song = r.auto?.stuck?.songId ?: r.recognition?.songIds?.firstOrNull()
             add(Slide(SlideKind.ONLY_HERE, 12_000, songAt = { shown.song(song) ?: shown.song(top.songId) }))
+        } else r.whereFrom?.let { f ->
+            // Nothing only InterTune does: where the songs came from takes its place (22 Nov 2026), the first source's song under it.
+            add(Slide(SlideKind.WHERE_FROM, 11_000, songAt = { shown.song(f.rows.first().songId) ?: shown.song(top.songId) }))
         }
         // The one skipped most, its own song under it, before the countdown to number one.
         r.mostSkipped?.let { k -> add(Slide(SlideKind.SKIPPED, 10_000, songAt = { shown.song(k.songId) })) }
