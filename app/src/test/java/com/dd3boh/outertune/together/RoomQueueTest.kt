@@ -67,7 +67,7 @@ class RoomQueueTest {
     @Test
     fun `a guest that follows gets no drag, no swipe and no Remove from queue, and a line over the songs`() {
         assertTrue(
-            "val roomsQueue = queueIsTheRooms(inRoom = roomStatus != null, leading = roomStatus?.leading == true, ownWay = roomStatus?.ownWay == true)" in queue
+            "derivedStateOf { roomStatus?.value.let { queueIsTheRooms(inRoom = it != null, leading = it?.leading == true, ownWay = it?.ownWay == true) } }" in queue
         )
         // the handle a song is dragged by, the songs' only one
         assertTrue("if (!lockQueue && !roomsQueue && (!detachedHead || movesStoredQueue) && !isSearching) {" in queue)
@@ -79,8 +79,23 @@ class RoomQueueTest {
         // the line, over the songs and out of the list, while the queue on show is the one that plays
         val list = queue.substringAfter("val songList: @Composable ColumnScope.(PaddingValues) -> Unit").substringBefore("LazyColumn(")
         assertTrue("val roomLine = roomsQueue && (!detachedHead || movesStoredQueue)" in list)
-        assertTrue("leaderName = roomStatus?.leaderName," in list.substringAfter("if (roomLine) {"))
+        assertTrue("leaderName = roomLeaderName," in list.substringAfter("if (roomLine) {"))
         assertTrue(list.indexOf("QueueRoomLine(") < list.indexOf(".movesListFromHeldRow(lazySongsListState)"))
+    }
+
+    /**
+     * The room's status changes four times a second while a guest follows a room that plays (its drift, in follow): the
+     * queue reads from it only whose queue it is and who chooses, through derivedStateOf, so it is composed again only
+     * when one of them changes, never at each look.
+     */
+    @Test
+    fun `the queue is composed again only when what it shows of the room changes`() {
+        assertTrue("driftMs = target - local" in session.substringAfter("private fun follow() {").substringBefore("fun holdsFailed("))
+        assertTrue("val roomStatus = room?.status?.collectAsState()\n" in queue)
+        assertEquals("the status read twice, each in a derivedStateOf", 2, Regex("""roomStatus\?\.value""").findAll(queue).count())
+        assertEquals(2, Regex("""derivedStateOf \{ roomStatus\?\.value""").findAll(queue).count())
+        assertTrue("val roomsQueue by remember(roomStatus) {" in queue)
+        assertTrue("val roomLeaderName by remember(roomStatus) { derivedStateOf { roomStatus?.value?.leaderName } }" in queue)
     }
 
     /** The line names the song menu's item as the menu says it, in English and in French. */

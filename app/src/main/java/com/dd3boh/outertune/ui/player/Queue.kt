@@ -467,10 +467,15 @@ fun BoxScope.QueueContent(
     var lockQueue by rememberPreference(LockQueueKey, defaultValue = false)
 
     // Listen together: a guest that follows plays the room's queue, which only the person in control changes
-    // (queueIsTheRooms). Its songs are not dragged, swiped away or removed here, and a line says whose they are.
+    // (queueIsTheRooms). Its songs are not dragged, swiped away or removed here, and a line says whose they are. Only
+    // those two are read from the room's status, through derivedStateOf: the status changes four times a second while
+    // a guest follows a room that plays (its drift), and the whole queue would be composed again each time.
     val room by playerConnection.service.together.collectAsState()
-    val roomStatus = room?.status?.collectAsState()?.value
-    val roomsQueue = queueIsTheRooms(inRoom = roomStatus != null, leading = roomStatus?.leading == true, ownWay = roomStatus?.ownWay == true)
+    val roomStatus = room?.status?.collectAsState()
+    val roomsQueue by remember(roomStatus) {
+        derivedStateOf { roomStatus?.value.let { queueIsTheRooms(inRoom = it != null, leading = it?.leading == true, ownWay = it?.ownWay == true) } }
+    }
+    val roomLeaderName by remember(roomStatus) { derivedStateOf { roomStatus?.value?.leaderName } }
 
     // player
     val currentWindowIndex by playerConnection.currentWindowIndex.collectAsState()
@@ -1387,7 +1392,7 @@ fun BoxScope.QueueContent(
         val roomLine = roomsQueue && (!detachedHead || movesStoredQueue)
         if (roomLine) {
             QueueRoomLine(
-                leaderName = roomStatus?.leaderName,
+                leaderName = roomLeaderName,
                 modifier = Modifier.padding(
                     start = contentPadding.calculateStartPadding(listDirection),
                     top = contentPadding.calculateTopPadding(),
