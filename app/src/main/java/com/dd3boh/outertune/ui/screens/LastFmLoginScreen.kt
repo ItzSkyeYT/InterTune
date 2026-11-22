@@ -1,6 +1,8 @@
 package com.dd3boh.outertune.ui.screens
 
 import android.annotation.SuppressLint
+import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.compose.foundation.layout.fillMaxSize
@@ -31,6 +33,7 @@ import com.dd3boh.outertune.ui.component.NoWebViewNote
 import com.dd3boh.outertune.utils.ErrorText
 import com.dd3boh.outertune.utils.AppLanguage
 import com.dd3boh.outertune.utils.LastFmEnd
+import com.dd3boh.outertune.utils.PageFilter
 import com.dd3boh.outertune.utils.WebViewCheck
 import kotlinx.coroutines.launch
 
@@ -114,6 +117,11 @@ fun LastFmLoginScreen(
                     // in the phone's language.
                     AppLanguage.afterWebView(context)
                     webViewClient = object : WebViewClient() {
+                        // last.fm's page loads last.fm alone: its ad networks were counted as
+                        // InterTune's trackers (PageFilter, 22 Nov 2026).
+                        override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? =
+                            PageFilter.forLastFm(request)
+
                         override fun onPageFinished(view: WebView, pageUrl: String?) {
                             if (finishing) return
                             val t = token ?: return

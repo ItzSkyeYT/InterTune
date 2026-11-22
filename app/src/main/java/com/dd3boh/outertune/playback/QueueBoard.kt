@@ -37,7 +37,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import java.util.PriorityQueue
+import java.util.concurrent.PriorityBlockingQueue
 import kotlin.math.max
 import kotlin.math.min
 
@@ -902,8 +902,12 @@ class QueueBoard(
         override fun compareTo(other: PriorityJob): Int = this.priority - other.priority
     }
 
-    var queueEntity = PriorityQueue<PriorityJob>()
-    var queueSongMap = PriorityQueue<PriorityJob>()
+    // Filled on the player's thread and walked by databaseDispatcher on IO, so lists that take both
+    // at once: a plain PriorityQueue's last() threw ConcurrentModificationException when a save came
+    // in during the walk (a shuffle saves the songs), and the app closed with the shuffle unsaved
+    // (#236). This one's walk goes over a copy, and its adds and clears hold its own lock.
+    val queueEntity = PriorityBlockingQueue<PriorityJob>()
+    val queueSongMap = PriorityBlockingQueue<PriorityJob>()
     var jobActive = Mutex()
     // One save at a time, in the order they were asked for: see saveDispatcher.
     val coroutineScope = CoroutineScope(saveDispatcher + saveFailed)
@@ -974,7 +978,7 @@ class QueueBoard(
                     }
                 )
             )
-            CoroutineScope(Dispatchers.IO).launch {
+            CoroutineScope(Dispatchers.IO + saveFailed).launch {
                 databaseDispatcher()
             }
         }
@@ -1010,7 +1014,7 @@ class QueueBoard(
                     }
                 )
             )
-            CoroutineScope(Dispatchers.IO).launch {
+            CoroutineScope(Dispatchers.IO + saveFailed).launch {
                 databaseDispatcher()
             }
         }
@@ -1048,7 +1052,7 @@ class QueueBoard(
                     }
                 )
             )
-            CoroutineScope(Dispatchers.IO).launch {
+            CoroutineScope(Dispatchers.IO + saveFailed).launch {
                 databaseDispatcher()
             }
         }

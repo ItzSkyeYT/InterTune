@@ -17,7 +17,7 @@ import org.junit.Test
 import java.io.File
 
 /**
- * Three faults found by reading the playback code before 0.13 (experiments/codebase-scan/
+ * Faults found by reading the playback code before 0.13 (experiments/codebase-scan/
  * 2026-11-04-playback.md), each held here by reading the source, as NoWaitingInTransactionsTest
  * does, because each one only shows on a phone in a particular state.
  *
@@ -71,6 +71,39 @@ class PlaybackFaultsTest {
         val board = code("playback/QueueBoard.kt")
         assertTrue("val coroutineScope = CoroutineScope(saveDispatcher + saveFailed)" in board)
         assertTrue("CoroutineExceptionHandler" in board)
+    }
+
+    /**
+     * #236 (0.12.9, a Samsung on Android 17): the save loop walked its list of saves on IO with
+     * last() while the player's thread added the next one (a shuffle saves the songs), the plain
+     * PriorityQueue threw ConcurrentModificationException, and the loop's scope had no handler, so
+     * the app closed and the shuffle was never saved.
+     */
+    @Test
+    fun `a save asked for while the save loop walks its list neither throws nor ends the app`() {
+        val board = code("playback/QueueBoard.kt")
+        for (name in listOf("queueEntity", "queueSongMap")) {
+            assertTrue("$name takes adds from one thread and a walk from another", "val $name = PriorityBlockingQueue<PriorityJob>()" in board)
+        }
+        assertFalse("no plain PriorityQueue is left for the saves", "PriorityQueue<PriorityJob>()" in board.replace("PriorityBlockingQueue<PriorityJob>()", ""))
+        val launches = Regex("""(CoroutineScope\([^)]*\))\.launch \{\s*databaseDispatcher\(\)""").findAll(board).map { it.groupValues[1] }.toList()
+        assertEquals("the three saves start the loop", 3, launches.size)
+        for (scope in launches) assertTrue("the loop runs on a scope that logs a failure: $scope", "saveFailed" in scope)
+
+        // What the loop relies on, step by step as it happened: an add during the walk. The old list
+        // throws at the next step; the new one walks a copy and takes the add.
+        val old = java.util.PriorityQueue(listOf(1, 2, 3))
+        var thrown: Throwable? = null
+        try {
+            old.forEach { old.add(9) }
+        } catch (e: ConcurrentModificationException) {
+            thrown = e
+        }
+        assertTrue("the old list threw, as on the phone", thrown is ConcurrentModificationException)
+        val saves = java.util.concurrent.PriorityBlockingQueue(listOf(1, 2, 3))
+        saves.forEach { saves.add(9) }
+        assertEquals(6, saves.size)
+        assertEquals(9, saves.last())
     }
 
     @Test

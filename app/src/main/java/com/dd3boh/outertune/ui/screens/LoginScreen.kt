@@ -12,6 +12,7 @@ import android.view.View
 import android.webkit.CookieManager
 import android.webkit.JavascriptInterface
 import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.compose.BackHandler
@@ -75,6 +76,7 @@ import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.constants.VisitorDataKey
 import com.dd3boh.outertune.ui.component.FloatingTopBar
 import com.dd3boh.outertune.ui.component.NoWebViewNote
+import com.dd3boh.outertune.utils.PageFilter
 import com.dd3boh.outertune.utils.WebViewCheck
 import com.dd3boh.outertune.utils.WhyStopped
 import com.dd3boh.outertune.utils.AppLanguage
@@ -290,6 +292,11 @@ fun LoginScreen(
                             // App links taken to YouTube Music's page instead, for this page.
                             var appLinksTaken = 0
                             webViewClient = object : WebViewClient() {
+                                // Ad and tracking hosts get nothing: the sign-in needs Google's own
+                                // hosts only (PageFilter, 22 Nov 2026).
+                                override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? =
+                                    PageFilter.forSignIn(request)
+
                                 // Google's sign-in can end on an intent:// link to the YouTube Music
                                 // app, in the Play Store where it is not installed, which a web view
                                 // cannot open: "Webpage not available", and the sign-in never ended
