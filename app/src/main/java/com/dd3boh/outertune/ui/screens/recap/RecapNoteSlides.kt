@@ -170,12 +170,13 @@ private val PAPER_TOP = 26.dp
 /**
  * A sheet of lined paper, taped on and a little crooked, as the design's note has it: white with
  * its grain, faint blue rules under the words' lines and on to its foot, a strip of tape across
- * its top. It flies in at step [at] from ([fy]) away, turned [fr] more, and rests turned [turn].
+ * its top. On a slide ([s]) it flies in at step [at] from ([fy]) away, turned [fr] more, and rests
+ * turned [turn]; elsewhere it rests so from the start.
  * [baseline] is where the first line of words stands, from the top of what the paper holds.
  */
 @Composable
 internal fun NotePaper(
-    s: SlideScope,
+    s: SlideScope?,
     at: Float,
     turn: Float,
     fy: Float,
@@ -192,7 +193,8 @@ internal fun NotePaper(
     Column(
         modifier
             .padding(top = 18.dp, start = 4.dp, end = 4.dp)
-            .enter(s, Entrance.FLY, at, turn, fy = fy, fr = fr)
+            // On a slide it flies in; on the notes page it is simply there.
+            .then(if (s != null) Modifier.enter(s, Entrance.FLY, at, turn, fy = fy, fr = fr) else Modifier.graphicsLayer { rotationZ = turn })
             .drawWithContent {
                 drawContent()
                 // The tape across its top edge, its own shadow under it.
@@ -247,7 +249,7 @@ internal fun NoteReadSlide(s: SlideScope) {
         Words(before, s, at = 1f, style = RecapType.h2, colour = c.ink, strip = stringResource(R.string.recap_note_read_strip), after = after, stripAt = 1.8f, stripTurn = -3f)
         notes.forEachIndexed { i, note ->
             val odd = i % 2 == 1
-            ReadPaper(s, note, at = 2.4f + i * NOTE_STAGGER, turn = if (odd) -1.2f else 1.4f, fr = if (odd) 8f else -10f)
+            ReadPaper(s, s.words, note, at = 2.4f + i * NOTE_STAGGER, turn = if (odd) -1.2f else 1.4f, fr = if (odd) 8f else -10f)
         }
         Grow(room)
         Text(stringResource(R.string.recap_note_read_line), style = RecapType.quiet, color = c.ink2, modifier = Modifier.enter(s, Entrance.UP, 3.6f))
@@ -256,14 +258,14 @@ internal fun NoteReadSlide(s: SlideScope) {
 
 /** One of last year's notes on its paper: its words, a little smaller when long (noteSize), and the day it was written on the next line. */
 @Composable
-private fun ReadPaper(s: SlideScope, note: RecapNote.Note, at: Float, turn: Float, fr: Float) {
+internal fun ReadPaper(s: SlideScope?, words: RecapWords, note: RecapNote.Note, at: Float, turn: Float, fr: Float) {
     val hand = remember(note.text) { noteHand(noteSize(note.text.length).sp) }
     // Where its first line stands: a number rather than the layout, so that laying it out again changes nothing.
     var first by remember { mutableFloatStateOf(-1f) }
     NotePaper(s, at = at, turn = turn, fy = -320f, fr = fr, line = hand.lineHeight, baseline = { first.takeIf { it >= 0f } }) {
         Text(note.text, style = hand, onTextLayout = { first = it.getLineBaseline(0) })
         Text(
-            stringResource(R.string.recap_note_written_on, s.words.day(note.writtenDay)), style = noteSmall(hand.lineHeight),
+            stringResource(R.string.recap_note_written_on, words.day(note.writtenDay)), style = noteSmall(hand.lineHeight),
             modifier = Modifier.paddingFromBaseline(top = baselineOf(first, hand.lineHeight)),
         )
     }

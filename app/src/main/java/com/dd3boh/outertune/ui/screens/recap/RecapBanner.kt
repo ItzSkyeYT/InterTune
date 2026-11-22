@@ -6,7 +6,9 @@
 
 package com.dd3boh.outertune.ui.screens.recap
 
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -36,10 +38,11 @@ import com.dd3boh.outertune.recap.RecapDoor
 /**
  * "Your InterTune Recap" at the top of Settings, in the Recap's own colours, from its reveal day
  * until the next year's: the way back to it after its pop-up, whenever wanted. [year] is the one
- * on show (rememberRecapOnShow). A tap opens it full screen, as it opened the first time.
+ * on show (rememberRecapOnShow). A tap opens it full screen, as it opened the first time. Given
+ * [onNotes] (the Stats page's), a "Your notes" button under its line opens the notes page.
  */
 @Composable
-fun RecapBanner(year: Int, modifier: Modifier = Modifier) {
+fun RecapBanner(year: Int, modifier: Modifier = Modifier, onNotes: (() -> Unit)? = null) {
     val shape = CardDefaults.elevatedShape
     Box(
         modifier
@@ -64,6 +67,17 @@ fun RecapBanner(year: Int, modifier: Modifier = Modifier) {
                     fontSize = 14.sp, lineHeight = 1.3.em, color = Color.White.copy(alpha = 0.78f),
                     modifier = Modifier.padding(top = 2.dp),
                 )
+                if (onNotes != null) {
+                    Text(
+                        stringResource(R.string.recap_notes_title), fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1,
+                        modifier = Modifier
+                            .padding(top = 10.dp)
+                            .clip(RoundedCornerShape(16.dp))
+                            .border(1.5.dp, Color.White.copy(alpha = 0.7f), RoundedCornerShape(16.dp))
+                            .clickable(role = Role.Button, onClick = onNotes)
+                            .padding(horizontal = 12.dp, vertical = 6.dp),
+                    )
+                }
             }
             Spacer(Modifier.width(12.dp))
             Text(

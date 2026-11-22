@@ -194,6 +194,8 @@ internal fun RecapStory(
     var away by remember { mutableStateOf(false) }
     var sharing by remember { mutableStateOf(false) }
     var muted by rememberSaveable { mutableStateOf(false) }
+    // "Your notes", over the start screen (RecapNotesDialog).
+    var notesOpen by rememberSaveable { mutableStateOf(false) }
     // The year card's Save as a playlist, and the second choice that follows it where the account may be changed.
     val playlist = rememberPlaylistFlow(shown, stringResource(R.string.recap_playlist_name, recap.year.toString()), viewModel)
     val page = stage.current
@@ -351,7 +353,7 @@ internal fun RecapStory(
     fun Content(s: SlideScope) {
         val p = s.page
         if (p.at == 0) {
-            RecapStart(s, onOpen = { openStory() }, onClose = { close() })
+            RecapStart(s, onOpen = { openStory() }, onClose = { close() }, onNotes = { notesOpen = true })
             return
         }
         when (slides[p.at - 1].kind) {
@@ -453,6 +455,7 @@ internal fun RecapStory(
             )
         }
     }
+    if (notesOpen) RecapNotesDialog(onClose = { notesOpen = false })
 }
 
 /** The papers: the slide's own, and while one changes to the next the new sheet growing over the old. */

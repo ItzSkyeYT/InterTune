@@ -162,6 +162,9 @@ object RecapNote {
     /** How many notes [year] holds under [dir], those that would not open included: what [MAX_NOTES] counts. */
     internal fun countIn(dir: File, year: Int): Int = envelopes(dir)?.get(year)?.size ?: 0
 
+    /** How many notes each year holds under [dir], by the year whose Recap sealed them, none opened. */
+    internal fun yearsIn(dir: File): Map<Int, Int> = envelopes(dir).orEmpty().mapValues { it.value.size }
+
     /** Seals [text] as one more of [year]'s notes; false where it could not be kept or the year is full. Off the main thread. */
     fun save(context: Context, year: Int, text: String, writtenDay: Long): Boolean = saveIn(context.filesDir, year, text, writtenDay)
 
@@ -170,4 +173,7 @@ object RecapNote {
 
     /** How many notes [year] holds. Off the main thread. */
     fun count(context: Context, year: Int): Int = countIn(context.filesDir, year)
+
+    /** How many notes each year holds, by the year whose Recap sealed them. Off the main thread. */
+    fun years(context: Context): Map<Int, Int> = yearsIn(context.filesDir)
 }

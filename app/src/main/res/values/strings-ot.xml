@@ -2915,6 +2915,9 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="recap_note_read_strip" translatable="false">past self</string>
     <string name="recap_note_written_on" translatable="false">Written on %1$s</string>
     <string name="recap_note_read_line" translatable="false">You can write next year\'s at the end.</string>
+    <string name="recap_notes_title" translatable="false">Your notes</string>
+    <string name="recap_notes_opened_by" translatable="false">Opened by your %1$s Recap</string>
+    <string name="recap_notes_none" translatable="false">Notes you write at the end of your Recap show up here.</string>
     <string name="recap_minutes_kick_since" translatable="false">Since %1$s you listened for</string>
     <string name="recap_minutes_kick_year" translatable="false">In %1$s you listened for</string>
     <plurals name="recap_minutes_unit" translatable="false">
