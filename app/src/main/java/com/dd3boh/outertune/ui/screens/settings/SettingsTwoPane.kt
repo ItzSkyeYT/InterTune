@@ -101,6 +101,8 @@ import com.dd3boh.outertune.ui.utils.AskForMusicOnOpening
 import com.dd3boh.outertune.ui.utils.LocalLandscape
 import com.dd3boh.outertune.ui.utils.headerPaneInsets
 import com.dd3boh.outertune.ui.utils.paneInsets
+import com.dd3boh.outertune.ui.screens.recap.RecapBanner
+import com.dd3boh.outertune.ui.screens.recap.rememberRecapOnShow
 
 /** One screen of settings as the list names it: where it is, what it is called, its picture. */
 internal data class SettingsCategory(val route: String, @StringRes val title: Int, val icon: ImageVector)
@@ -274,6 +276,7 @@ fun SettingsTwoPane(
     ScreenBackHandler(enabled = open.size > 1, onBack = up)
     val pendingUpdate by LocalUpdateChecker.current.available.collectAsState()
     val updateBadgeLabel = stringResource(R.string.update_available_title)
+    val recapYear = rememberRecapOnShow()
     // The tour points at the four groups of every build; the Testers page's group, first where there is one, is not the tour's.
     val groupTargets = List(groups.size - 4) { null } + listOf(Tour.SETTINGS_YOU, Tour.SETTINGS_LOOK_AND_SOUND, Tour.SETTINGS_KEPT, Tour.SETTINGS_REST)
     // While something is typed in the search, its results are the list, and the one opened on the
@@ -307,6 +310,12 @@ fun SettingsTwoPane(
         ) {
             if (Unreleased.SETTINGS_SEARCH) {
                 SettingsSearchField(query, onQueryChange, Modifier.padding(bottom = 12.dp).tourTarget(Tour.SETTINGS_SEARCH_FIELD))
+            }
+            // The year's InterTune Recap, from its reveal day, just under the search field: it opens
+            // full screen, over both panes. While something is typed the results take its place.
+            if (Unreleased.RECAP && recapYear != null && !searching) {
+                RecapBanner(recapYear)
+                Spacer(Modifier.height(10.dp))
             }
             if (searching) {
                 val search = rememberSettingsSearch()

@@ -22,6 +22,7 @@ import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.os.Build
 import android.appwidget.AppWidgetManager
+import android.content.BroadcastReceiver
 import android.content.ComponentName
 import android.os.Bundle
 import android.os.SystemClock
@@ -243,6 +244,8 @@ import com.dd3boh.outertune.ui.screens.walkthrough.SETTINGS_WALK
 import com.dd3boh.outertune.ui.screens.walkthrough.TourStop
 import com.dd3boh.outertune.ui.screens.walkthrough.TourTargets
 import com.dd3boh.outertune.ui.screens.walkthrough.WelcomeBack
+import com.dd3boh.outertune.ui.screens.recap.RecapEntry
+import com.dd3boh.outertune.recap.RecapSample
 import com.dd3boh.outertune.ui.screens.walkthrough.WelcomeShow
 import com.dd3boh.outertune.ui.screens.walkthrough.newThingsFor
 import com.dd3boh.outertune.ui.screens.walkthrough.owedThingsFor
@@ -547,6 +550,7 @@ class MainActivity : ComponentActivity() {
     val activeCount: ActiveCount get() = lazyActiveCount.get()
 
     lateinit var activityLauncher: ActivityLauncherHelper
+    private var recapSample: BroadcastReceiver? = null
     lateinit var connectivityObserver: NetworkConnectivityObserver
 
     private var playerConnection by mutableStateOf<PlayerConnection?>(null)
@@ -777,6 +781,8 @@ class MainActivity : ComponentActivity() {
         lifecycle.removeObserver(controllerViewModel)
         playerConnection?.dispose()
         playerConnection = null
+        RecapSample.stop(this, recapSample)
+        recapSample = null
 
         super.onDestroy()
     }
@@ -844,6 +850,8 @@ class MainActivity : ComponentActivity() {
             intent?.let(::handlePlayFromSearch)
         }
         WindowCompat.setDecorFitsSystemWindows(window, false)
+        // A made-up year to look at the Recap with, from adb, in a debug build only: see RecapSample.
+        recapSample = RecapSample.listen(this, database)
 
         activityLauncher = ActivityLauncherHelper(this)
 
@@ -2038,6 +2046,16 @@ class MainActivity : ComponentActivity() {
                         ) {
                             AccountNoticeDialog(onDone = { setAccountNoticeSeen(true) })
                         }
+
+                        // The InterTune Recap: from its reveal day it opens by itself once, after
+                        // whatever came up first; and whenever the banner in Settings asks.
+                        RecapEntry(
+                            setupDone = oobeStatus >= OOBE_VERSION,
+                            quiet = catchUpOpen || welcomeOpen || tourState.running || tourFromWelcome || updatePromptVisible ||
+                                accountNoticeOwed(setupDone = oobeStatus >= OOBE_VERSION, signedIn = signedIn, seen = accountNoticeSeen),
+                            // The playlist the year card saved, opened as a playlist of the library is (Playlist.navigationRoute).
+                            onOpenPlaylist = { id -> navController.navigate("local_playlist/$id") },
+                        )
 
                         /*
                          * A word when the phone's battery saver puts the app on Saver (SaverNote): what

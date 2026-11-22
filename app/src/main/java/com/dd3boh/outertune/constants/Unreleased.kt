@@ -621,6 +621,25 @@ object Unreleased {
     val CAST_AIRPLAY = true
 
     /**
+     * InterTune Recap, the year told as a story (recap/Recaps.kt, ui/screens/recap): worked out on
+     * the phone from the listen log, nothing uploaded. From the reveal day (RecapCalendar) it opens
+     * once by itself, full screen and easy to close, and after that a banner at the top of Settings
+     * opens it whenever wanted. Its first opening each year is counted as a banner's is, from
+     * every install (PollChecker.recapOpened). The builds that have it (the debug app, the Preview,
+     * the Tester app) have two rows in the developer options, one that opens it at once and one that
+     * makes today the reveal day; the debug app alone has a made-up year to write from adb
+     * (RecapSample).
+     *
+     * For the December release: the numbers, the slides, the share cards and the way in, and the
+     * sound under the slides (RecapSound): each slide's song from its Most replayed peak, the
+     * listener's music paused while it plays, the last song slid into their queue at the end. Its
+     * texts are held back from translators for now. When it ships: set this to true and add its
+     * name to ReleasedFlagsTest, or delete it with the checks that read it, in RecapEntry (twice),
+     * SettingsScreen, SettingsTwoPane, DeveloperFrag and RecapSample.
+     */
+    val RECAP = BuildConfig.PREVIEW_FEATURES
+
+    /**
      * Songs put in with Play next stay next when a song is picked out of a list: they play right
      * after the picked song, in the order they stood, then the list (PlayNextWaiting), as Spotify's
      * "Next in queue" does. Asked for in issue #42 (23 Oct 2026). Without it a pick leaves them in
