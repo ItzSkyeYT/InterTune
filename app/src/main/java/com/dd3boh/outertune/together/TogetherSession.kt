@@ -683,10 +683,22 @@ class TogetherSession(
                     thumbnailUrl = message.thumbnail.ifBlank { null },
                     genre = null,
                 )
-                service.enqueueNext(listOf(song.toMediaItem()))
-                Log.i(TAG, "${from.take(8)} suggested ${message.songId}: next in the queue")
-                _status.value = _status.value.copy(lastSuggestion = "${message.title}, ${message.by}")
-                Toaster.show(service, service.getString(R.string.together_from_guest, message.by, message.title), Toast.LENGTH_LONG)
+                if (message.batch.isBlank() || message.count <= 1) {
+                    putSuggested(listOf(song), message.atEnd, message.by)
+                } else {
+                    // One action's songs, sorted by their place whatever order the relays brought them in.
+                    val key = "$from/${message.batch}"
+                    val first = suggestions.isNew(key)
+                    val whole = suggestions.add(key, message.index, message.count, song)
+                    if (whole != null) {
+                        putSuggested(whole, message.atEnd, message.by)
+                    } else if (first) {
+                        scope.launch {
+                            delay(SUGGEST_WAIT_MS)
+                            suggestions.flush(key)?.let { putSuggested(it, message.atEnd, message.by) }
+                        }
+                    }
+                }
             }
             is TogetherMessage.Kick -> if (from == ownerKey && message.to == me) {
                 Log.i(TAG, "Sent out of the room by its owner")
@@ -840,9 +852,42 @@ class TogetherSession(
     }
 
     /** A follower's song for the leader to play next. */
-    fun suggest(song: MediaMetadata) {
-        send(TogetherMessage.Suggest(song.id, song.title, song.artists.joinToString { it.name }, TogetherMessage.thumbnailFor(song.thumbnailUrl), name))
-        Log.i(TAG, "Suggested ${song.id} to the room")
+    fun suggest(song: MediaMetadata) = suggestAll(listOf(song), atEnd = false)
+
+    /**
+     * A follower's songs for the leader: in [songs]' order after the song playing, or at the end of its queue when
+     * [atEnd]. One batch, each message with its place, so a newer host sorts them; an older host takes them as they
+     * arrive (and puts an "end" next), which is why the "next" ones are sent last-first (RoomPlayNext.sendOrder).
+     */
+    fun suggestAll(songs: List<MediaMetadata>, atEnd: Boolean) {
+        val batch = java.util.UUID.randomUUID().toString().take(8)
+        RoomPlayNext.sendOrder(songs, atEnd).forEach { (i, song) ->
+            send(
+                TogetherMessage.Suggest(
+                    song.id, song.title, song.artists.joinToString { it.name },
+                    TogetherMessage.thumbnailFor(song.thumbnailUrl), name,
+                    atEnd = atEnd, batch = if (songs.size > 1) batch else "", index = i, count = songs.size,
+                )
+            )
+        }
+        Log.i(TAG, "Suggested ${songs.size} songs to the room (${if (atEnd) "end" else "next"})")
+    }
+
+    private val suggestions = RoomPlayNext.Collector<MediaMetadata>()
+
+    /** The leader puts what a guest added in its queue, in one go, and says so once. */
+    private fun putSuggested(songs: List<MediaMetadata>, atEnd: Boolean, by: String) {
+        if (songs.isEmpty()) return
+        val items = songs.map { it.toMediaItem() }
+        if (atEnd) service.enqueueEnd(items) else service.enqueueNext(items)
+        Log.i(TAG, "A guest added ${songs.size} songs: ${if (atEnd) "end" else "next"} in the queue")
+        _status.value = _status.value.copy(lastSuggestion = "${songs.first().title}, $by")
+        val text = when {
+            songs.size > 1 -> service.getString(R.string.together_from_guest_many, by, songs.size)
+            atEnd -> service.getString(R.string.together_from_guest_end, by, songs.first().title)
+            else -> service.getString(R.string.together_from_guest, by, songs.first().title)
+        }
+        Toaster.show(service, text, Toast.LENGTH_LONG)
     }
 
     /**
@@ -1313,6 +1358,9 @@ class TogetherSession(
 
     companion object {
         private const val TAG = "Together"
+
+        /** How long a host waits for the rest of a guest's batch of songs before using what came. */
+        private const val SUGGEST_WAIT_MS = 2500L
 
         /** The follower's look every two seconds: in the phone's log, not in a report. */
         private const val SYNC_TAG = "TogetherSync"

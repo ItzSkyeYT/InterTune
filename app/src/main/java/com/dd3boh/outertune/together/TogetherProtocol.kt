@@ -11,9 +11,11 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.addJsonObject
 import kotlinx.serialization.json.boolean
+import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.double
 import kotlinx.serialization.json.int
+import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -56,8 +58,17 @@ sealed interface TogetherMessage {
      */
     data class Here(val name: String, val owner: Boolean, val lead: String? = null) : TogetherMessage
 
-    /** A follower's song for the leader to play next. */
-    data class Suggest(val songId: String, val title: String, val artist: String, val thumbnail: String, val by: String) : TogetherMessage
+    /**
+     * A follower's song for the leader to play next, or at the end of its queue when [atEnd]. An older host
+     * does not know "end" and puts it next, which is acceptable. [batch], [index] and [count] say it is one of
+     * [count] songs of one action, [index] 0 being the one that plays first: relays do not keep the order of
+     * messages, so a newer host collects the batch and sorts it. Older hosts (and old guests, who send none of
+     * the three) go by arrival, which is why a guest still sends "next" songs last-first.
+     */
+    data class Suggest(
+        val songId: String, val title: String, val artist: String, val thumbnail: String, val by: String,
+        val atEnd: Boolean = false, val batch: String = "", val index: Int = 0, val count: Int = 1,
+    ) : TogetherMessage
 
     /**
      * The leader's queue from the song playing on, in the order it plays, what autoplay added
@@ -128,6 +139,10 @@ sealed interface TogetherMessage {
             is Suggest -> buildJsonObject {
                 put("t", "suggest"); put("song", message.songId); put("title", message.title); put("artist", message.artist)
                 put("thumb", thumbnailFor(message.thumbnail)); put("by", message.by)
+                if (message.atEnd) put("end", true)
+                if (message.batch.isNotBlank() && message.count > 1) {
+                    put("batch", message.batch); put("i", message.index); put("n", message.count)
+                }
             }
             is Queue -> buildJsonObject {
                 put("t", "queue"); put("repeat", message.repeat); put("shuffle", message.shuffle)
@@ -177,7 +192,13 @@ sealed interface TogetherMessage {
                 "ping" -> Ping(l("c"), s("to"))
                 "pong" -> Pong(l("c"), l("h"), s("to"))
                 "here" -> Here(s("name"), o["owner"]!!.jsonPrimitive.boolean, o["lead"]?.jsonPrimitive?.content)
-                "suggest" -> Suggest(s("song"), s("title"), s("artist"), thumbnailFor(s("thumb")), s("by"))
+                "suggest" -> Suggest(
+                    s("song"), s("title"), s("artist"), thumbnailFor(s("thumb")), s("by"),
+                    atEnd = o["end"]?.jsonPrimitive?.booleanOrNull == true,
+                    batch = o["batch"]?.jsonPrimitive?.content.orEmpty().take(16),
+                    index = o["i"]?.jsonPrimitive?.intOrNull ?: 0,
+                    count = (o["n"]?.jsonPrimitive?.intOrNull ?: 1).coerceIn(1, 64),
+                )
                 "queue" -> Queue(
                     songs = songsOf(o),
                     repeat = o["repeat"]!!.jsonPrimitive.int,
