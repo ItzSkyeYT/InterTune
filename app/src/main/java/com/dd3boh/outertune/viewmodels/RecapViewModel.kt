@@ -121,8 +121,8 @@ class RecapViewModel @Inject constructor(
     }
 
     /**
-     * The year card's Save as a playlist: the year's most played songs as a playlist on this phone,
-     * made or, if an earlier tap made it, updated (RecapPlaylist.save). Null where it did not work.
+     * The year's most played songs as a playlist on this phone, as the Recap opens (putPlaylistIn) and from
+     * the year card's button: made, or updated if it is there already (RecapPlaylist.save). Null where it did not work.
      */
     suspend fun savePlaylist(shown: RecapShown, name: String): RecapPlaylist.Saved? = withContext(Dispatchers.IO) {
         try {
@@ -135,6 +135,25 @@ class RecapViewModel @Inject constructor(
         } catch (e: Exception) {
             reportException(e)
             null
+        }
+    }
+
+    /**
+     * The year's playlist, put in the library by the Recap itself as it opens, with nothing to tap (his "the
+     * recap playlist needs to be added to the library, no questions asked", 22 Nov 2026): made the first
+     * time, its songs brought up to date at each opening after (RecapPlaylist.save). The year card then says
+     * Saved, with Open. Once a year for this view model; where it did not work, the card's button is there.
+     */
+    private val _playlist = MutableStateFlow<RecapPlaylist.Saved?>(null)
+    val playlist: StateFlow<RecapPlaylist.Saved?> = _playlist.asStateFlow()
+    private val putIn = HashSet<Int>()
+
+    fun putPlaylistIn(shown: RecapShown, name: String) {
+        val year = shown.recap.year
+        if (!putIn.add(year)) return
+        viewModelScope.launch {
+            val saved = savePlaylist(shown, name)
+            if (saved == null) putIn.remove(year) else _playlist.value = saved
         }
     }
 

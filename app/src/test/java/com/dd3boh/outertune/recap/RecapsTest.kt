@@ -244,7 +244,8 @@ class RecapsTest {
         credit("a2", "UCalpha", "UCbeta")
         credit("b1", "UCbeta")
         credit("c1", "UCgamma")
-        credit("loc", "LA_local")
+        credits += RecapCredit("loc", "LA_local", 0, name = "Our Band", local = true)
+        firstCredits["loc"] = "LA_local"
         credit("d1", "UCdelta")
         credit("g1", "UCdelta")
         credit("e1", "UCepsilon")
@@ -299,11 +300,11 @@ class RecapsTest {
     }
 
     @Test
-    fun `top artists count every credit, YouTube artists only, as the Stats page's row does`() {
+    fun `top artists count every credit, as the Stats page's row does, the artists of the phone's files included`() {
         val r = recap(aChart())
-        // a2 is a play for both of its artists; the local artist's seven plays are left out.
-        assertEquals(listOf("UCalpha", "UCbeta", "UCdelta", "UCgamma", "UCepsilon"), r.topArtists.map { it.artistId })
-        assertEquals(listOf(11, 9, 5, 3, 2), r.topArtists.map { it.plays })
+        // a2 is a play for both of its artists; the local artist's seven plays count (22 Nov 2026).
+        assertEquals(listOf("UCalpha", "UCbeta", "LA_local", "UCdelta", "UCgamma"), r.topArtists.map { it.artistId })
+        assertEquals(listOf(11, 9, 7, 5, 3), r.topArtists.map { it.plays })
         val alpha = r.topArtists[0]
         assertEquals(2, alpha.songs)
         assertEquals("a1", alpha.topSongId)
@@ -313,6 +314,24 @@ class RecapsTest {
         // Artists with a play by first credit, the local one among them, as the Stats page counts them.
         assertEquals(7, r.artists)
         assertEquals(9, r.songs)
+    }
+
+    @Test
+    fun `an artist of the phone's files counts as the YouTube artist of the same name, and one with no name not at all`() {
+        // His "it should also work well with local songs", 22 Nov 2026.
+        credits += RecapCredit("yt", "UCband", 0, name = "The Band")
+        credits += RecapCredit("file", "LA_band", 0, name = " the band", local = true)
+        credits += RecapCredit("mine", "LA_mine", 0, name = "Only On Files", local = true)
+        credits += RecapCredit("blank", "LA_blank", 0, name = " ", local = true)
+        credits += RecapCredit("odd", "MPLAodd", 0, name = "No Page")
+        val from = at(day(9, 1), 8)
+        val log = run("yt", from, 3) + run("file", from + 60 * minute, 4) + run("mine", from + 120 * minute, 5) +
+            run("blank", from + 180 * minute, 6) + run("odd", from + 240 * minute, 2) + variety(5, at(day(9, 2), 8))
+        val r = recap(log)
+        assertEquals(listOf("UCband", "LA_mine"), r.topArtists.map { it.artistId })
+        assertEquals("three plays from YouTube and four from a file", listOf(7, 5), r.topArtists.map { it.plays })
+        assertEquals(2, r.topArtists[0].songs)
+        assertEquals("the file is the band's most played song", "file", r.topArtists[0].topSongId)
     }
 
     @Test

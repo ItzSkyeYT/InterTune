@@ -26,13 +26,15 @@ object RecapSql {
     """
 
     /**
-     * Every artist credited on every song heard since :from, each at its place. Top artists count
-     * every credit, as the Stats page's Most played artists row does: a song by two artists is a
-     * play for each of them.
+     * Every artist credited on every song heard since :from, each at its place, with the artist's name
+     * and whether it is one of the phone's own files (empty and false where the artist has no row).
+     * Top artists count every credit, as the Stats page's Most played artists row does: a song by two
+     * artists is a play for each of them.
      */
     const val CREDITS = """
-        SELECT m.songId, m.artistId, m.position
+        SELECT m.songId, m.artistId, m.position, COALESCE(a.name, '') AS name, COALESCE(a.isLocal, 0) AS local
         FROM song_artist_map m
+        LEFT JOIN artist a ON a.id = m.artistId
         WHERE m.songId IN (SELECT songId FROM listen WHERE endedAt >= :from AND endReason != 6)
     """
 

@@ -34,8 +34,11 @@ data class RecapListen(
     val contextChip: Int = 0,
 )
 
-/** One artist credited on a song, at its place: [com.dd3boh.outertune.db.RecapSql.CREDITS]. */
-data class RecapCredit(val songId: String, val artistId: String, val position: Int)
+/**
+ * One artist credited on a song, at its place, with the artist's [name] and whether it is an artist
+ * of the phone's own files ([local]): [com.dd3boh.outertune.db.RecapSql.CREDITS].
+ */
+data class RecapCredit(val songId: String, val artistId: String, val position: Int, val name: String = "", val local: Boolean = false)
 
 /** How much listening a stretch of time holds: [com.dd3boh.outertune.db.RecapSql.AMOUNT]. */
 data class RecapAmount(val plays: Int, val playedMs: Long)

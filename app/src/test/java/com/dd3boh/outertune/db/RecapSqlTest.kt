@@ -82,6 +82,18 @@ class RecapSqlTest {
     }
 
     @Test
+    fun `each credit carries its artist's name and whether the artist is one of the phone's files`() {
+        song("yt", "UCband")
+        exec("INSERT INTO song(id, title, duration, liked) VALUES ('file', 'file', 200, 0)")
+        exec("INSERT INTO artist(id, name, lastUpdateTime, isLocal) VALUES ('LAfile', 'The Band', 0, 1)")
+        exec("INSERT INTO song_artist_map(songId, artistId, position) VALUES ('file', 'LAfile', 0)")
+        listen("yt", t)
+        listen("file", t + minute)
+        val rows = query(RecapSql.CREDITS, t) { Triple(it.getString("artistId"), it.getString("name"), it.getBoolean("local")) }
+        assertEquals(setOf(Triple("UCband", "UCband", false), Triple("LAfile", "The Band", true)), rows.toSet())
+    }
+
+    @Test
     fun `the liked songs among those heard since a moment`() {
         song("loved", "UCa", liked = true)
         song("not", "UCa")

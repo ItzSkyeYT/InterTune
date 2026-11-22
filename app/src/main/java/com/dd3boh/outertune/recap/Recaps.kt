@@ -11,6 +11,7 @@ import com.dd3boh.outertune.constants.PlayOrigin
 import com.dd3boh.outertune.engine.ContextChip
 import com.dd3boh.outertune.stats.ListeningInsights
 import java.time.LocalDate
+import java.util.Locale
 
 /**
  * Works out a year's InterTune Recap from the listen log, on the phone. Nothing here is sent
@@ -23,8 +24,9 @@ import java.time.LocalDate
  *
  * Songs are ranked by plays, then by time: by time alone a four hour mix played once would come
  * second. Top artists count every artist credited on a song, as the Stats page's Most played
- * artists row does, and only YouTube artists, who have a page and a picture. New artists and the
- * count of artists go by a song's first credit, as the Stats page's findings do.
+ * artists row does: YouTube artists, who have a page and a picture, and, unlike that row, the
+ * artists of the phone's own files, whose picture is their top song's cover (22 Nov 2026). New
+ * artists and the count of artists go by a song's first credit, as the Stats page's findings do.
  */
 object Recaps {
     const val MINUTE_MS = 60_000L
@@ -80,6 +82,9 @@ object Recaps {
     }
 
     fun isYouTubeArtist(id: String) = id.startsWith("UC") || id.startsWith("FEmusic_library_privately_owned_artist")
+
+    /** A name as two artists are told to be one by: case and the spaces round it aside. */
+    private fun nameKey(name: String) = name.trim().lowercase(Locale.ROOT)
 
     fun compute(input: RecapInput): Recap? {
         val firstDayOfYear = LocalDate.of(input.year, 1, 1).toEpochDay()
@@ -295,10 +300,27 @@ object Recaps {
         return best to bestDay
     }
 
-    /** Every credited artist, a play each and the time heard each; YouTube artists only, the most played first. */
+    /**
+     * Every credited artist, a play each and the time heard each, the most played first: YouTube artists,
+     * and the artists of the phone's own files (his "it should also work well with local songs", 22 Nov
+     * 2026). A files' artist with the name of a YouTube artist heard in the year counts as that artist, so
+     * that the same singer heard from files and from YouTube adds up; one with no name is left out.
+     */
     private fun topArtists(rows: List<Row>, plays: List<Row>, credits: List<RecapCredit>): List<TopArtist> {
+        // The YouTube artist each name stands for: the most credited one, where two share a name.
+        val byName = credits.filter { isYouTubeArtist(it.artistId) && it.name.isNotBlank() }
+            .groupBy { nameKey(it.name) }
+            .mapValues { (_, same) ->
+                same.groupingBy { it.artistId }.eachCount().entries
+                    .sortedWith(compareByDescending<Map.Entry<String, Int>> { it.value }.thenBy { it.key }).first().key
+            }
+        fun counted(c: RecapCredit): String? = when {
+            isYouTubeArtist(c.artistId) -> c.artistId
+            c.local && c.name.isNotBlank() -> byName[nameKey(c.name)] ?: c.artistId
+            else -> null
+        }
         val artistsOf = credits.groupBy { it.songId }
-            .mapValues { (_, own) -> own.sortedBy { it.position }.map { it.artistId }.distinct().filter(::isYouTubeArtist) }
+            .mapValues { (_, own) -> own.sortedBy { it.position }.mapNotNull(::counted).distinct() }
         val artistPlays = HashMap<String, Int>()
         val artistTime = HashMap<String, Long>()
         val artistSongPlays = HashMap<String, HashMap<String, Int>>()
