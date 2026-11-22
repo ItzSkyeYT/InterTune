@@ -16,6 +16,9 @@
    they are this phone's, in a file of their own beside the settings, out of the cloud backup with
    the rest of datastore/ and out of a transfer by name.
 
+   So does the developer key (DevKey), pasted in by InterTune's developer on a phone of his: it goes
+   nowhere but where he puts it, out of the cloud backup with datastore/ and out of a transfer by name.
+
    The theme the window starts in (window_theme, WindowTheme) stays out of both too. It notes what
    this phone has been told, and the splash Android keeps for the app is this phone's alone: carried
    over with the settings, it said the new phone was told already, and the splash there followed the
@@ -58,6 +61,9 @@
         <exclude
             domain="file"
             path="datastore/report_draft.preferences_pb" />
+        <exclude
+            domain="file"
+            path="datastore/dev_key.preferences_pb" />
         <exclude
             domain="sharedpref"
             path="window_theme.xml" />

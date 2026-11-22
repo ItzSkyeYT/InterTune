@@ -477,6 +477,8 @@ fun BoxScope.QueueContent(
         derivedStateOf { roomStatus?.value.let { queueIsTheRooms(inRoom = it != null, leading = it?.leading == true, ownWay = it?.ownWay == true) } }
     }
     val roomLeaderName by remember(roomStatus) { derivedStateOf { roomStatus?.value?.leaderName } }
+    // InterTune's developer in control: his name lit in the line (TogetherDev).
+    val roomLeaderDev by remember(roomStatus) { derivedStateOf { roomStatus?.value?.members?.any { it.leader && it.dev } == true } }
     // Unless the host lets everyone change the queue and the person in control takes a guest's changes (guestArranges):
     // then a guest moves and removes songs here as ever, all but the one playing, and each change goes to the person in
     // control (TogetherSession.arrangeMoved, arrangeRemoved), whose next queue brings it to everyone.
@@ -1405,6 +1407,7 @@ fun BoxScope.QueueContent(
         if (roomLine) {
             QueueRoomLine(
                 leaderName = roomLeaderName,
+                leaderDev = roomLeaderDev,
                 modifier = Modifier.padding(
                     start = contentPadding.calculateStartPadding(listDirection),
                     top = contentPadding.calculateTopPadding(),
