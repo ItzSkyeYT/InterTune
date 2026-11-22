@@ -12,8 +12,9 @@ import java.time.MonthDay
 /**
  * When the Recap shows. Once a year, from one reveal day, it opens by itself over the app, as a
  * full-screen pop-up that can be closed, and only once. From then on a banner at the top of
- * Settings opens it whenever wanted, until the next year's comes, and the same banner stands at
- * the top of Home for the pop-up's weeks. Plain dates, no clock: the caller says what today is.
+ * Settings (and of the Stats page) opens it whenever wanted, until the next year's comes, and the
+ * same banner stands at the top of Home for the pop-up's weeks, until it was watched as far as its
+ * year card (rememberRecapOnHome). Plain dates, no clock: the caller says what today is.
  */
 object RecapCalendar {
     /** The first year there is a Recap of. */

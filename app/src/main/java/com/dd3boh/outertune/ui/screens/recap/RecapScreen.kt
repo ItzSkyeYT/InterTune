@@ -249,6 +249,8 @@ internal fun RecapStory(
         if (page.at == 0) return@LaunchedEffect
         val slide = slides[page.at - 1]
         haptic.performHapticFeedback(if (slide.kind == SlideKind.NUMBER_ONE) HapticFeedbackType.LongPress else HapticFeedbackType.TextHandleMove)
+        // As far as the year card: watched, and Home's banner goes for the year (his ask of 22 Nov 2026).
+        if (slide.kind == SlideKind.CARD || slide.kind == SlideKind.THANKS) viewModel.watched(recap.year)
         // Opened already, unless the window was drawn again past its start screen.
         sound.open(pages)
         sound.show(pageOf(slides, page.at, page.step))

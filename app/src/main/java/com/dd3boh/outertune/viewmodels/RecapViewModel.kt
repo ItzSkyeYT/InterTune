@@ -16,6 +16,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.RecapPlaylistOnYouTubeMusicKey
+import com.dd3boh.outertune.constants.RecapWatchedKey
 import com.dd3boh.outertune.db.MusicDatabase
 import com.dd3boh.outertune.playback.MusicService
 import com.dd3boh.outertune.recap.RecapPlayer
@@ -94,6 +95,16 @@ class RecapViewModel @Inject constructor(
                 reportException(e)
                 RecapState.Nothing
             }
+        }
+    }
+
+    /**
+     * The story reached its year card: watched, so Home's banner is gone for [year] (RecapWatchedKey);
+     * Settings' and the Stats page's stay. Kept on this phone only, never sent.
+     */
+    fun watched(year: Int) {
+        viewModelScope.launch {
+            runCatching { context.dataStore.edit { if ((it[RecapWatchedKey] ?: 0) < year) it[RecapWatchedKey] = year } }
         }
     }
 

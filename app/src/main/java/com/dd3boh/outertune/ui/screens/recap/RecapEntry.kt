@@ -56,6 +56,7 @@ import com.dd3boh.outertune.LocalPlayerConnection
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.RecapPopUpShownKey
 import com.dd3boh.outertune.constants.RecapRevealedEarlyKey
+import com.dd3boh.outertune.constants.RecapWatchedKey
 import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.recap.RecapCalendar
 import com.dd3boh.outertune.recap.RecapDoor
@@ -128,16 +129,18 @@ fun rememberRecapOnShow(): Int? {
 
 /**
  * The year whose Recap the banner at the top of Home opens, or null: [rememberRecapOnShow]'s, in
- * its season only (RecapCalendar.onHome). Settings keeps its banner the whole year.
+ * its season only (RecapCalendar.onHome), and only until it was watched as far as its year card
+ * (RecapWatchedKey, his ask of 22 Nov 2026). Settings and the Stats page keep their banner the whole year.
  */
 @Composable
 fun rememberRecapOnHome(): Int? {
     val year = rememberRecapOnShow()
     val revealedEarly by rememberPreference(RecapRevealedEarlyKey, defaultValue = false)
+    val watched by rememberPreference(RecapWatchedKey, defaultValue = 0)
     val inSeason = remember(year, revealedEarly) {
         year != null && RecapCalendar.onHome(LocalDate.now(), revealedEarly && BuildConfig.PREVIEW_FEATURES)
     }
-    return year.takeIf { inSeason }
+    return year.takeIf { inSeason && watched < (year ?: 0) }
 }
 
 /**

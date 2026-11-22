@@ -872,6 +872,13 @@ val RecapPopUpShownKey = intPreferencesKey("recapPopUpShown")
 val RecapRevealedEarlyKey = booleanPreferencesKey("recapRevealedEarly")
 
 /**
+ * The last year whose InterTune Recap was watched as far as its year card (his ask of 22 Nov 2026):
+ * Home's banner is then gone for that year (rememberRecapOnHome), and Settings' and the Stats page's
+ * stay. 0 for never.
+ */
+val RecapWatchedKey = intPreferencesKey("recapWatched")
+
+/**
  * The years whose Recap playlist has been put on YouTube Music from this phone, on the listener's
  * second tap (RecapPlaylist), so that the year card does not offer it a second time and make a
  * second playlist in the account. Years, written as text.
