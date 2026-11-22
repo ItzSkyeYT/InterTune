@@ -50,15 +50,13 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.window.DialogWindowProvider
 import androidx.core.view.WindowCompat
-import com.dd3boh.outertune.BuildConfig
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.RecapRevealedEarlyKey
-import com.dd3boh.outertune.recap.RecapCalendar
 import com.dd3boh.outertune.recap.RecapNote
+import com.dd3boh.outertune.recap.RecapNotesOpen
 import com.dd3boh.outertune.utils.rememberPreference
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import java.time.LocalDate
 
 /** One row of the notes page: a year's notes opened by its Recap, or those still sealed for one to come. */
 internal sealed interface NotesShelf {
@@ -71,14 +69,14 @@ internal sealed interface NotesShelf {
 
 /**
  * The notes page's rows, newest Recap first, from how many notes each year keeps ([counts], by the
- * year whose Recap sealed them: their words are for the next year's). Those whose Recap is out on
- * [onShow] (RecapCalendar.yearOnShow) are opened with [open], off the main thread; the rest stay
- * sealed and only counted, and [open] is never asked for them.
+ * year whose Recap sealed them: their words are for the next year's). Those open by the one rule
+ * (RecapNotesOpen, [upTo]) are opened with [open], off the main thread; the rest stay sealed and
+ * only counted, and [open] is never asked for them.
  */
-internal fun notesShelf(counts: Map<Int, Int>, onShow: Int?, open: (Int) -> List<RecapNote.Note>): List<NotesShelf> =
+internal fun notesShelf(counts: Map<Int, Int>, upTo: Int?, open: (Int) -> List<RecapNote.Note>): List<NotesShelf> =
     counts.filterValues { it > 0 }.keys.sortedDescending().mapNotNull { kept ->
         val recap = kept + 1
-        if (onShow != null && recap <= onShow) open(kept).takeIf { it.isNotEmpty() }?.let { NotesShelf.Opened(recap, it) }
+        if (RecapNotesOpen.open(kept, upTo)) open(kept).takeIf { it.isNotEmpty() }?.let { NotesShelf.Opened(recap, it) }
         else NotesShelf.Sealed(recap, counts.getValue(kept))
     }
 
@@ -114,8 +112,7 @@ private fun RecapNotesPage(onClose: () -> Unit) {
     val revealedEarly by rememberPreference(RecapRevealedEarlyKey, defaultValue = false)
     var shelf by remember { mutableStateOf<List<NotesShelf>?>(null) }
     LaunchedEffect(revealedEarly) {
-        val onShow = RecapCalendar.yearOnShow(LocalDate.now(), revealedEarly && BuildConfig.PREVIEW_FEATURES)
-        shelf = withContext(Dispatchers.IO) { notesShelf(RecapNote.years(context), onShow) { RecapNote.read(context, it) } }
+        shelf = withContext(Dispatchers.IO) { notesShelf(RecapNote.years(context), RecapNotesOpen.upTo(context)) { RecapNote.read(context, it) } }
     }
     // Days with their year, whatever the year: these come from several.
     val words = remember(context) { RecapWords(context, 0) }

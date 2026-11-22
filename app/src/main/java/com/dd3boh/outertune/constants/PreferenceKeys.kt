@@ -881,6 +881,9 @@ val RecapWatchedKey = intPreferencesKey("recapWatched")
 /** The last year whose Recap's notes from the year before were told about in a notification (RecapNoteAlert). 0 for none. */
 val RecapNotesToldKey = intPreferencesKey("recapNotesTold")
 
+/** The latest year whose Recap was opened on this phone: its notes are open everywhere from then (RecapNotesOpen). 0 for none. */
+val RecapOpenedHereKey = intPreferencesKey("recapOpenedHere")
+
 /**
  * The years whose Recap playlist has been put on YouTube Music from this phone, on the listener's
  * second tap (RecapPlaylist), so that the year card does not offer it a second time and make a

@@ -22,15 +22,12 @@ import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
-import com.dd3boh.outertune.BuildConfig
 import com.dd3boh.outertune.MainActivity
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.RecapNotesToldKey
-import com.dd3boh.outertune.constants.RecapRevealedEarlyKey
 import com.dd3boh.outertune.utils.dataStore
 import kotlinx.coroutines.flow.first
 import java.time.Duration
-import java.time.LocalDate
 import java.time.LocalDateTime
 import java.util.concurrent.TimeUnit
 
@@ -55,22 +52,22 @@ object RecapNoteAlert {
     private const val MORNING = 10
 
     /**
-     * The Recap whose notes are to be told about, and how many there are: the Recap on show
-     * ([onShow], RecapCalendar.yearOnShow), not told about yet ([toldYear], 0 for none), with notes
-     * sealed for it, those kept under the year before ([counts], RecapNote.years). Null otherwise.
+     * The Recap whose notes are to be told about, and how many there are: the latest this phone can
+     * watch ([upTo], RecapNotesOpen: the moment its notes open everywhere), not told about yet
+     * ([toldYear], 0 for none), with notes sealed for it, those kept under the year before ([counts],
+     * RecapNote.years). Null otherwise.
      */
-    fun due(onShow: Int?, toldYear: Int, counts: Map<Int, Int>): Pair<Int, Int>? {
-        val recap = onShow ?: return null
-        if (toldYear >= recap) return null
+    fun due(upTo: Int?, toldYear: Int, counts: Map<Int, Int>): Pair<Int, Int>? {
+        val recap = upTo ?: return null
+        if (toldYear >= recap || !RecapNotesOpen.open(recap - 1, upTo)) return null
         val count = counts[recap - 1] ?: 0
         return if (count > 0) recap to count else null
     }
 
     /** Looks once and tells if it is due, remembering it was told. Off the main thread. */
     suspend fun check(context: Context) {
-        val prefs = context.dataStore.data.first()
-        val onShow = RecapCalendar.yearOnShow(LocalDate.now(), prefs[RecapRevealedEarlyKey] == true && BuildConfig.PREVIEW_FEATURES)
-        val (recap, count) = due(onShow, prefs[RecapNotesToldKey] ?: 0, RecapNote.years(context)) ?: return
+        val told = context.dataStore.data.first()[RecapNotesToldKey] ?: 0
+        val (recap, count) = due(RecapNotesOpen.upTo(context), told, RecapNote.years(context)) ?: return
         if (post(context, recap, count)) context.dataStore.edit { it[RecapNotesToldKey] = recap }
     }
 

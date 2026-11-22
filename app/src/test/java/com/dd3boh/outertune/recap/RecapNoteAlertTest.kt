@@ -18,18 +18,18 @@ class RecapNoteAlertTest {
     @Test
     fun `told once a year, when that year's Recap is out and notes were sealed for it`() {
         val counts = mapOf(2025 to 2, 2026 to 1)
-        assertEquals(2026 to 2, RecapNoteAlert.due(onShow = 2026, toldYear = 0, counts = counts))
+        assertEquals(2026 to 2, RecapNoteAlert.due(upTo = 2026, toldYear = 0, counts = counts))
         // Told: not again that year. The next year's Recap tells about its own.
-        assertNull(RecapNoteAlert.due(onShow = 2026, toldYear = 2026, counts = counts))
-        assertEquals(2027 to 1, RecapNoteAlert.due(onShow = 2027, toldYear = 2026, counts = counts))
+        assertNull(RecapNoteAlert.due(upTo = 2026, toldYear = 2026, counts = counts))
+        assertEquals(2027 to 1, RecapNoteAlert.due(upTo = 2027, toldYear = 2026, counts = counts))
     }
 
     @Test
     fun `no notes, notes for a Recap not out yet, or no Recap out: no notification`() {
-        assertNull(RecapNoteAlert.due(onShow = 2026, toldYear = 0, counts = emptyMap()))
-        assertNull(RecapNoteAlert.due(onShow = 2026, toldYear = 0, counts = mapOf(2025 to 0)))
-        assertNull(RecapNoteAlert.due(onShow = 2026, toldYear = 0, counts = mapOf(2026 to 3)))
-        assertNull(RecapNoteAlert.due(onShow = null, toldYear = 0, counts = mapOf(2025 to 1)))
+        assertNull(RecapNoteAlert.due(upTo = 2026, toldYear = 0, counts = emptyMap()))
+        assertNull(RecapNoteAlert.due(upTo = 2026, toldYear = 0, counts = mapOf(2025 to 0)))
+        assertNull(RecapNoteAlert.due(upTo = 2026, toldYear = 0, counts = mapOf(2026 to 3)))
+        assertNull(RecapNoteAlert.due(upTo = null, toldYear = 0, counts = mapOf(2025 to 1)))
     }
 
     @Test
