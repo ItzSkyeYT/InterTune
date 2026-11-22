@@ -25,6 +25,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.ListThumbnailSize
+import com.dd3boh.outertune.ui.dialog.NamedLine
 
 /**
  * Whether the queue on this phone is the room's (Listen together): a guest that follows plays the queue of the person
@@ -38,10 +39,11 @@ internal fun queueIsTheRooms(inRoom: Boolean, leading: Boolean, ownWay: Boolean)
 /**
  * The line over the queue's songs while they are the room's ([queueIsTheRooms]): who chooses the music, by the name
  * their phone goes by in rooms ([leaderName], the host until it is known), and how to add a song. Its picture is the
- * room's own, centred where the rows' covers are, and its words start where their titles do.
+ * room's own, centred where the rows' covers are, and its words start where their titles do. The name is lit when it
+ * is InterTune's developer's ([leaderDev], NamedLine).
  */
 @Composable
-internal fun QueueRoomLine(leaderName: String?, modifier: Modifier = Modifier) {
+internal fun QueueRoomLine(leaderName: String?, modifier: Modifier = Modifier, leaderDev: Boolean = false) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier
@@ -59,11 +61,18 @@ internal fun QueueRoomLine(leaderName: String?, modifier: Modifier = Modifier) {
         }
         // The cover's padding and the title's, 6 and 6.
         Spacer(Modifier.width(12.dp))
-        Text(
-            text = if (leaderName != null) stringResource(R.string.together_queue_theirs, leaderName)
-            else stringResource(R.string.together_queue_host),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        if (leaderName != null) {
+            NamedLine(
+                R.string.together_queue_theirs, leaderName, glow = leaderDev,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        } else {
+            Text(
+                text = stringResource(R.string.together_queue_host),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
     }
 }

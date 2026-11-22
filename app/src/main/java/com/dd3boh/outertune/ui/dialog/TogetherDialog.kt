@@ -11,6 +11,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.widget.Toast
+import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
@@ -503,16 +504,18 @@ private fun RoomPage(room: TogetherSession, song: MediaMetadata?, onLeave: () ->
         // Who chooses the music and what this phone can do, in plain words (RoomRole); for the owner who gave control away, the
         // way back as well.
         val leaderName = status.leaderName ?: stringResource(R.string.together_someone)
+        // InterTune's developer in control: his name lit in the line (TogetherDev).
+        val leaderDev = status.leaderName != null && status.members.any { it.leader && it.dev }
         when (RoomRole.of(room.owner, status.leading, hostAway, status.waitingForHost)) {
             RoomRole.IN_CONTROL -> RoleLine(stringResource(R.string.together_role_in_control))
             RoomRole.OWNER_GAVE -> {
                 Spacer(Modifier.height(14.dp))
-                ControlRow(leaderName, canTakeBack = true, onTakeBack = {
+                ControlRow(leaderName, canTakeBack = true, glow = leaderDev, onTakeBack = {
                     haptics.performHapticFeedback(HapticFeedbackType.Confirm)
                     room.takeBack()
                 })
             }
-            RoomRole.GUEST -> RoleLine(stringResource(R.string.together_role_guest, leaderName))
+            RoomRole.GUEST -> RoleLine(R.string.together_role_guest, leaderName, glow = leaderDev)
             null -> Unit
         }
 
@@ -653,6 +656,7 @@ private fun RoomPage(room: TogetherSession, song: MediaMetadata?, onLeave: () ->
             members = status.members,
             meOwner = room.owner,
             meLeading = status.leading,
+            meDev = status.dev,
             onGiveControl = { haptics.performHapticFeedback(HapticFeedbackType.Confirm); room.handOver(it) },
             onKick = { haptics.performHapticFeedback(HapticFeedbackType.Reject); room.kick(it) },
         )
@@ -1132,6 +1136,7 @@ private fun People(
     members: List<TogetherSession.Member>,
     meOwner: Boolean,
     meLeading: Boolean,
+    meDev: Boolean,
     onGiveControl: (TogetherSession.Member) -> Unit,
     onKick: (TogetherSession.Member) -> Unit,
 ) {
@@ -1139,7 +1144,7 @@ private fun People(
     val haptics = LocalHapticFeedback.current
     val myName by produceState(phoneModel()) { value = togetherName(context) }
     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Person(stringResource(R.string.together_you), myName, initials(myName), owner = meOwner, leader = meLeading, you = true)
+        Person(stringResource(R.string.together_you), myName, initials(myName), owner = meOwner, leader = meLeading, you = true, dev = meDev)
         members.forEach { member ->
             key(member.key) {
                 val shown = remember { MutableTransitionState(false).apply { targetState = true } }
@@ -1147,7 +1152,7 @@ private fun People(
                 AnimatedVisibility(shown, enter = fadeIn(tween(220)) + scaleIn(tween(220), initialScale = 0.85f)) {
                     Box {
                         Person(
-                            member.name.ifBlank { "?" }, null, initials(member.name), owner = member.owner, leader = member.leader,
+                            member.name.ifBlank { "?" }, null, initials(member.name), owner = member.owner, leader = member.leader, dev = member.dev,
                             onPress = if (meOwner) {
                                 {
                                     haptics.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -1195,6 +1200,8 @@ private fun Person(
     owner: Boolean,
     leader: Boolean,
     you: Boolean = false,
+    /** InterTune's developer, proven (TogetherSession.Member.dev): his badge, and his name lit (TogetherDev). */
+    dev: Boolean = false,
     onPress: (() -> Unit)? = null,
 ) {
     val ring = BottomSheetDefaults.ContainerColor
@@ -1238,10 +1245,23 @@ private fun Person(
                         .padding(2.dp),
                 )
             }
+            // InterTune's developer: his badge where the host's star goes, or across from it when he is the host.
+            if (dev) {
+                DevBadgeMark(
+                    ring,
+                    Modifier
+                        .align(if (owner) Alignment.BottomStart else Alignment.BottomEnd)
+                        .offset(x = if (owner) (-3).dp else 3.dp, y = 3.dp),
+                )
+            }
         }
         Spacer(Modifier.height(6.dp))
         // Two lines: a phone's name ("Galaxy S25 Ultra") was cut after its first word or two on one.
-        Text(name, style = MaterialTheme.typography.labelMedium, maxLines = 2, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
+        if (dev) {
+            GlowingName(name, 0, name.length, style = MaterialTheme.typography.labelMedium, maxLines = 2, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
+        } else {
+            Text(name, style = MaterialTheme.typography.labelMedium, maxLines = 2, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
+        }
         if (detail != null) {
             Text(
                 detail,
@@ -1252,6 +1272,8 @@ private fun Person(
                 textAlign = TextAlign.Center,
             )
         }
+        // Room for the halo under the developer's name, which the press's rounded clip would cut.
+        if (dev) Spacer(Modifier.height(4.dp))
     }
 }
 
@@ -1262,9 +1284,16 @@ private fun RoleLine(text: String) {
     Text(text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
 }
 
+/** The same with who chooses the music in it, [name], lit when it is InterTune's developer ([glow], NamedLine). */
+@Composable
+private fun RoleLine(@StringRes id: Int, name: String, glow: Boolean) {
+    Spacer(Modifier.height(14.dp))
+    NamedLine(id, name, glow, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+}
+
 /** Someone else has control: who, and for the owner, the way to take it back. */
 @Composable
-private fun ControlRow(name: String, canTakeBack: Boolean, onTakeBack: () -> Unit) {
+private fun ControlRow(name: String, canTakeBack: Boolean, onTakeBack: () -> Unit, glow: Boolean = false) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
@@ -1275,11 +1304,7 @@ private fun ControlRow(name: String, canTakeBack: Boolean, onTakeBack: () -> Uni
     ) {
         Icon(Icons.Rounded.PlayCircle, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
         Spacer(Modifier.width(10.dp))
-        Text(
-            stringResource(R.string.together_has_control, name),
-            style = MaterialTheme.typography.bodyMedium,
-            modifier = Modifier.weight(1f),
-        )
+        NamedLine(R.string.together_has_control, name, glow, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
         if (canTakeBack) TextButton(onClick = onTakeBack) { Text(stringResource(R.string.together_take_back)) }
     }
 }

@@ -157,6 +157,8 @@ class TogetherSession(
         val casting: Boolean = false,
         /** On its own way for its cast alone: it catches up by itself when the cast ends. */
         val catchUpAfterCast: Boolean = false,
+        /** This phone holds InterTune's developer key (DevKey), and says so in its Here with a proof (DevBadge). */
+        val dev: Boolean = false,
     )
 
     /**
@@ -165,8 +167,11 @@ class TogetherSession(
      */
     data class Proposal(val songs: List<TogetherMessage.Song>, val positionMs: Long, val by: String, val receivedAt: Long, val from: String = "")
 
-    /** Someone else in the room: [key] is their key for this session, the name their phone's. */
-    data class Member(val key: String, val name: String, val owner: Boolean, val leader: Boolean) {
+    /**
+     * Someone else in the room: [key] is their key for this session, the name their phone's. [dev]: their Here proved
+     * it is InterTune's developer's phone (DevBadge), checked here against the developer key.
+     */
+    data class Member(val key: String, val name: String, val owner: Boolean, val leader: Boolean, val dev: Boolean = false) {
         val id: String get() = key.take(8)
     }
 
@@ -261,6 +266,10 @@ class TogetherSession(
     private val greeted = mutableSetOf<String>()
     /** Sent out by the owner: their messages are not read. */
     private val sentOut = mutableSetOf<String>()
+    /** Who proved in their Here to be InterTune's developer (DevBadge). */
+    private val devs = RoomDevs()
+    /** This phone's proof that it is InterTune's developer's, said in its Here: only while it holds the key (DevKey). */
+    private var devProof: String? = null
     /** The sealed words taken, so that a copy is not taken twice (TakenSeals). */
     private val seals = TakenSeals()
     /** Wakes the room's look before its time is up: what needs one soon (lookEveryMs). */
@@ -436,6 +445,18 @@ class TogetherSession(
                 _status.value = _status.value.copy(toleranceMs = tuning.toleranceMs)
             }
         }
+        // A phone of InterTune's developer's, holding the developer key (DevKey), says so in its Here with a proof made
+        // for this room and this phone's key in it (DevBadge): from as soon as the key is there, or put in. Nothing for
+        // anyone else.
+        scope.launch {
+            DevKey.flow(service).collect { key ->
+                val proof = key?.let { withContext(Dispatchers.Default) { DevBadge.prove(it, code.tag, me) } }
+                if ((proof == null) == (devProof == null)) return@collect
+                devProof = proof
+                _status.value = _status.value.copy(dev = proof != null)
+                sayHere()
+            }
+        }
         // The owner's room settings as it left them in its last room, said in its Here (RoomSettings): once, as the room
         // opens. A change in the sheet is the room's at once (letEveryoneSeek).
         if (owner) scope.launch {
@@ -580,7 +601,7 @@ class TogetherSession(
     private fun sayHere() = send(
         TogetherMessage.Here(
             name, owner, lead = if (owner) leaderKey else null, leadSince = if (owner) leadGivenAt else null,
-            settings = if (owner) _status.value.settings else null, arranges = true,
+            settings = if (owner) _status.value.settings else null, arranges = true, dev = devProof,
         )
     )
 
@@ -623,6 +644,12 @@ class TogetherSession(
 
     /** The name [key] said in the room, or "Someone" before it is heard. */
     private fun nameOf(key: String): String = said[key]?.first?.ifBlank { null } ?: service.getString(R.string.together_someone)
+
+    /** The host sees a newcomer come in by the name they chose, and InterTune's developer as such ([dev], DevBadge). */
+    private fun joinedLine(name: String, dev: Boolean) {
+        val who = name.ifBlank { service.getString(R.string.together_someone) }
+        Toaster.show(service, service.getString(if (dev) R.string.together_dev_joined else R.string.together_someone_joined, who))
+    }
 
     /**
      * A phone played for the room without control: one that missed the owner's word (its connection lost and back, or a
@@ -810,8 +837,20 @@ class TogetherSession(
             said[from] = message.name to message.owner
             // The host sees each newcomer come in, by the name they chose (his word of 21 Nov 2026: no sign on the S25U
             // that the Pixel was joining). Once: a guest heard again after a while away comes in again.
-            if (owner && newcomer && !message.owner) {
-                Toaster.show(service, service.getString(R.string.together_someone_joined, message.name.ifBlank { service.getString(R.string.together_someone) }))
+            // InterTune's developer's phone, by the proof in its Here (DevBadge): checked off the main thread, once a proof;
+            // the host's line for a newcomer waits for the check to name him so.
+            val joined = owner && newcomer && !message.owner
+            val proof = message.dev
+            if (devs.due(from, proof) && proof != null) {
+                scope.launch {
+                    val ok = withContext(Dispatchers.Default) { DevBadge.verifies(proof, code.tag, from) }
+                    devs.answer(from, proof, ok)
+                    Log.i(TAG, if (ok) "${from.take(8)} is InterTune's developer" else "${from.take(8)} sent a developer proof that fails")
+                    publish()
+                    if (joined) joinedLine(message.name, ok)
+                }
+            } else if (joined) {
+                joinedLine(message.name, devs.proven(from))
             }
             if (message.owner && ownerKey == null) {
                 ownerKey = from
@@ -1032,7 +1071,7 @@ class TogetherSession(
     private fun publish() {
         val members = heard.keys.map { key ->
             val (name, saidOwner) = said[key] ?: ("" to false)
-            Member(key, name, owner = saidOwner || key == ownerKey, leader = key == leaderKey)
+            Member(key, name, owner = saidOwner || key == ownerKey, leader = key == leaderKey, dev = devs.proven(key))
         }.sortedWith(compareByDescending<Member> { it.owner }.thenByDescending { it.leader })
         _status.value = _status.value.copy(
             others = heard.size,
