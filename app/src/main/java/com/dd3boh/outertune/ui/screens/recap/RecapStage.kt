@@ -214,11 +214,11 @@ internal class RecapStage(private val slides: List<Slide>, val still: Boolean, s
      * The pages that wear their cover's colours, by their place in the story (CoverLook.plan): those
      * whose covers' main colours [colours] has, which are those read (CoverColours).
      */
-    private var looks: Map<Int, CoverLook.Look> = CoverLook.plan(slides, colours)
+    private var looks: Map<Int, CoverLook.Look> = CoverLook.plan(slides, colours = colours)
 
     /** Told when covers' colours have been read: the pages that come up from then on wear them. */
     fun coversRead() {
-        looks = CoverLook.plan(slides, colours)
+        looks = CoverLook.plan(slides, colours = colours)
     }
 
     private fun lookOf(at: Int, step: Int) = if (at == 0) null else looks[pageOf(slides, at, step)]

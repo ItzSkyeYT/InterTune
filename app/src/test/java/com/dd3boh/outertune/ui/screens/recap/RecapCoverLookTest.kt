@@ -123,7 +123,7 @@ class RecapCoverLookTest {
 
     /** Every page's paper in the story's order, the start screen's first, with [colours] for the covers. */
     private fun papers(slides: List<Slide>, colours: (Any?) -> IntArray?): List<Pair<String, SlidePaper>> {
-        val looks = CoverLook.plan(slides, colours)
+        val looks = CoverLook.plan(slides, colours = colours)
         return listOf("start" to START_PAPER) + slides.flatMap { slide ->
             (0 until slide.steps).map { step -> "${slide.kind} $step" to (looks[pageOf(slides, slides.indexOf(slide) + 1, step)]?.paper ?: paperOf(slide.kind, step)) }
         }
@@ -227,5 +227,42 @@ class RecapCoverLookTest {
         // The slide before the countdown is about no cover: its own paper.
         st.go(countdown - 1, 0, How.BACK)
         assertEquals(paperOf(slides[countdown - 2].kind).paper, st.current.paper.paper)
+    }
+
+    @Test
+    fun `a cover too grey for a paper leaves the page its own, its shapes in the cover's most vivid colour where that one has colour enough`() {
+        val slides = slides()
+        val pages = slides.flatMap { slide -> (0 until slide.steps).map { slide.kind to it } }
+        val wearing = CoverLook.models(slides).size
+        fun chroma(c: Color) = lab(c.toArgb()).let { hypot(it[1], it[2]) }
+        fun apart(a: Color, b: Color): Double {
+            val d = abs(hue(lab(a.toArgb())) - hue(lab(b.toArgb()))) % 360
+            return if (d > 180) 360 - d else d
+        }
+        // Black, grey and white: every page as the design has it, its shapes too. So with a muddy brown, an olive and a white.
+        val grey = intArrayOf(argb(96, 96, 96), argb(164, 164, 164), argb(232, 232, 232))
+        assertTrue(CoverLook.plan(slides) { grey }.isEmpty())
+        assertTrue(CoverLook.plan(slides) { intArrayOf(argb(150, 92, 82), argb(150, 147, 76), argb(230, 230, 232)) }.isEmpty())
+        // Grey with a vivid blue in it: the page's own paper, words and accent, and the blue on its shapes with the ink or the cream.
+        val blue = Color(argb(40, 80, 220))
+        val withBlue = CoverLook.plan(slides) { intArrayOf(argb(96, 96, 96), blue.toArgb(), argb(232, 232, 232)) }
+        assertEquals(wearing, withBlue.size)
+        for ((i, look) in withBlue) {
+            val (kind, step) = pages[i]
+            val own = paperOf(kind, step)
+            assertEquals("$kind $step", own.paper, look.paper.paper)
+            assertEquals("$kind $step", own.ink, look.paper.ink)
+            assertEquals("$kind $step", own.accent, look.paper.accent)
+            assertTrue("$kind $step ${look.shapes}", apart(look.shapes[0], blue) < 8)
+            assertTrue("$kind $step ${look.shapes}", look.shapes[1] == RecapInk.Ink || look.shapes[1] == RecapInk.Cream)
+        }
+        // A loud magenta makes its pages' papers; with no floor at all, so would the grey.
+        val magenta = CoverLook.plan(slides) { intArrayOf(argb(218, 25, 195), argb(36, 200, 12), argb(232, 232, 232)) }
+        assertEquals(wearing, magenta.size)
+        for ((i, look) in magenta) assertNotEquals("${pages[i]}", paperOf(pages[i].first, pages[i].second).paper, look.paper.paper)
+        assertEquals(wearing, CoverLook.plan(slides, floor = 0.0) { grey }.size)
+        // The design's loud papers and those of the covers the Recap makes all have colour enough: the floor is no higher than theirs.
+        val loud = with(RecapInk) { listOf(Red, Blue, Lemon, Pink, Mint, Orange, Sky, Lilac, Tomato, Plum) } + RecapCoverFetcher.PAPERS.map { it.first }
+        for (c in loud) assertTrue("$c ${chroma(c)}", chroma(c) >= CoverLook.FLOOR)
     }
 }
