@@ -2527,6 +2527,16 @@
     <!-- Listen together (TogetherDialog), step 1, debug and Preview builds. -->
     <string name="together_title">Écouter ensemble</string>
     <string name="together_intro">Créez un salon et partagez son code, ou tapez le code d\'un ami. Tout le monde entend ce que joue l\'hôte, sur son propre téléphone.</string>
+    <string name="together_tour_entry">Comment marchent les salons</string>
+    <string name="together_tour_skip">Passer</string>
+    <string name="together_tour_step_title">Le même titre, au même moment</string>
+    <string name="together_tour_step_body">Tout le monde dans le salon entend le même titre au même moment, chacun sur son téléphone. Créez un salon et partagez le lien ou le code.</string>
+    <string name="together_tour_control_title">Une personne choisit la musique</string>
+    <string name="together_tour_control_body">Au début, c\'est l\'hôte. L\'hôte peut donner la main à quelqu\'un et la reprendre, ou retirer quelqu\'un du salon.</string>
+    <string name="together_tour_add_title">Tout le monde peut ajouter un titre</string>
+    <string name="together_tour_add_body">« Suivant » envoie un titre au salon, et il passe ensuite pour tout le monde. Si la personne qui a la main lance un titre de ses fichiers, les autres l\'entendent depuis YouTube Music.</string>
+    <string name="together_tour_own_title">La pause, juste pour vous</string>
+    <string name="together_tour_own_body">La pause n\'arrête que votre musique. Un autre titre, et vous écoutez de votre côté : Rattraper vous ramène, ou proposez votre titre. L\'hôte décide qui peut se déplacer dans le titre.</string>
     <string name="together_start">Créer un salon</string>
     <string name="together_code">Code du salon</string>
     <string name="together_join">Rejoindre</string>

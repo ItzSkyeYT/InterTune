@@ -213,6 +213,7 @@ import com.dd3boh.outertune.ui.dialog.TogetherInviteDialog
 import com.dd3boh.outertune.ui.dialog.TogetherSheet
 import com.dd3boh.outertune.together.InviteAnswer
 import com.dd3boh.outertune.ui.dialog.TogetherProposalDialog
+import com.dd3boh.outertune.ui.dialog.RoomTourOnFirstRoom
 import com.dd3boh.outertune.ui.dialog.togetherAvailable
 import com.dd3boh.outertune.together.RoomCode
 import com.dd3boh.outertune.utils.urlEncode
@@ -1595,6 +1596,8 @@ class MainActivity : ComponentActivity() {
                     }
                     // A guest's song proposed to this phone as the room's leader: asked wherever the app is.
                     TogetherProposalDialog(playerConnection)
+                    // How rooms work, by itself the first time this phone is in a room, however it got there.
+                    RoomTourOnFirstRoom(playerConnection)
                     LaunchedEffect(pendingLaunchLink, pendingLink.link, playerConnection, oobeStatus) {
                         val link = pendingLaunchLink ?: pendingLink.link ?: return@LaunchedEffect
                         // A live one, as for the widget's songs: see PlayerConnection.isAlive.
