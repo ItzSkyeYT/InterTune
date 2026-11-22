@@ -110,6 +110,7 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
@@ -301,8 +302,10 @@ fun TogetherSheet(onDismiss: () -> Unit) {
                     .padding(bottom = 16.dp)
             ) {
                 if (room == null) {
+                    // As the player draws it: a song from a file has the file's path there, and showed nothing.
+                    val coverPx = with(LocalDensity.current) { 46.dp.roundToPx() }
                     StartPage(
-                        cover = song?.thumbnailUrl,
+                        cover = song?.getThumbnailModel(coverPx, coverPx),
                         onStart = {
                             scope.launch {
                                 if (needsName(context.dataStore.data.first()[TogetherNameKey])) askingName = true
@@ -330,7 +333,7 @@ fun TogetherSheet(onDismiss: () -> Unit) {
 }
 
 @Composable
-private fun StartPage(cover: String?, onStart: () -> Unit, onJoin: (RoomCode) -> Unit) {
+private fun StartPage(cover: Any?, onStart: () -> Unit, onJoin: (RoomCode) -> Unit) {
     val context = LocalContext.current
     val clipboard = LocalClipboard.current
     var typed by rememberSaveable { mutableStateOf("") }
@@ -548,13 +551,27 @@ private fun RoomPage(room: TogetherSession, song: MediaMetadata?, onLeave: () ->
         SectionLabel(stringResource(R.string.together_playing))
         Spacer(Modifier.height(12.dp))
         val hostSong = status.hostSong
+        val coverPx = with(LocalDensity.current) { 56.dp.roundToPx() }
         when {
-            // The cover and the names from this phone's own player when it plays what the room plays.
+            // The cover and the names from this phone's own player when it plays what the room plays. The cover as the
+            // player draws it: a song from a file has the file's path there, and showed an empty square (Niko, 22 Nov 2026).
             song != null && (status.leading || song.id == status.hostSongId) ->
-                SongRow(song.thumbnailUrl, song.title, song.artists.joinToString { it.name })
+                SongRow(song.getThumbnailModel(coverPx, coverPx), song.title, song.artists.joinToString { it.name })
+            // A song from the files of the one in control that isn't on YouTube Music: its name if its tags gave one, and
+            // why nothing plays here (PhoneSongs).
+            !status.leading && status.songOnlyThere && !status.waitingForHost -> SongOnlyThere(hostSong, status.leaderName)
             !status.leading && hostSong != null -> SongRow(null, hostSong, null)
             else -> Text(
                 stringResource(R.string.together_nothing_playing),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        // In control, a song from a file here that the others can't hear: why they hear nothing (PhoneSongs).
+        if (status.leading && status.songOnlyHere && status.others > 0) {
+            Spacer(Modifier.height(12.dp))
+            Text(
+                stringResource(R.string.together_song_only_here),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -581,6 +598,8 @@ private fun RoomPage(room: TogetherSession, song: MediaMetadata?, onLeave: () ->
                     },
                 )
                 status.pausedHere -> PausedHere()
+                // Said with the song, above (SongOnlyThere).
+                status.songOnlyThere -> Unit
                 status.songUnavailable -> SongUnavailable()
                 // A line too slow to keep up: said plainly, in place of "Catching up" for good (DataWait).
                 status.tooSlow -> RoomTooSlow()
@@ -662,7 +681,7 @@ private fun RoomPage(room: TogetherSession, song: MediaMetadata?, onLeave: () ->
 
 /** Two phones on the same song at the same moment: the cover on both, one playhead, waves from the host to the other. */
 @Composable
-private fun InStepPicture(cover: String?, modifier: Modifier = Modifier) {
+private fun InStepPicture(cover: Any?, modifier: Modifier = Modifier) {
     val motion = rememberInfiniteTransition(label = "in step")
     val head by motion.animateFloat(0.08f, 0.92f, infiniteRepeatable(tween(7000, easing = LinearEasing)), label = "head")
     val wave by motion.animateFloat(0f, 1f, infiniteRepeatable(tween(2100, easing = LinearEasing)), label = "wave")
@@ -691,7 +710,7 @@ private fun InStepPicture(cover: String?, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun PhoneSketch(cover: String?, head: () -> Float) {
+private fun PhoneSketch(cover: Any?, head: () -> Float) {
     val primary = MaterialTheme.colorScheme.primary
     val track = MaterialTheme.colorScheme.outlineVariant
     val lines = MaterialTheme.colorScheme.onSurfaceVariant
@@ -882,7 +901,7 @@ private fun CodeChips(code: RoomCode, modifier: Modifier = Modifier, onClick: ((
 }
 
 @Composable
-private fun SongRow(cover: String?, title: String, artist: String?) {
+private fun SongRow(cover: Any?, title: String, artist: String?) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Box(
             contentAlignment = Alignment.Center,
@@ -1006,6 +1025,26 @@ private fun SongUnavailable() {
         style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
+}
+
+/**
+ * The one in control, [name] (null while not known), plays a song from their files that isn't on YouTube Music
+ * (PhoneSongs): its name, [song], when its tags gave one, and why nothing plays here. The room's next song plays here
+ * by itself.
+ */
+@Composable
+private fun SongOnlyThere(song: String?, name: String?) {
+    Column(Modifier.fillMaxWidth()) {
+        if (song != null) {
+            SongRow(null, song, null)
+            Spacer(Modifier.height(12.dp))
+        }
+        Text(
+            stringResource(R.string.together_song_only_there, name ?: stringResource(R.string.together_someone)),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
 }
 
 /** A follower paused by its listener: the room goes on, and play brings this phone back to it. */
