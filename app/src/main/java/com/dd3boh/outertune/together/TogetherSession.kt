@@ -115,8 +115,8 @@ class TogetherSession(
         val pausedHere: Boolean = false,
         /** A guest on its own: its song is proposed to the leader and waits for an answer. */
         val proposed: Boolean = false,
-        /** The leader: a guest's song and queue, waiting for a yes or a no. */
-        val proposal: Proposal? = null,
+        /** The leader: guests' songs and queues, each waiting for Play it or Not now, the oldest first (ProposalLine). */
+        val proposals: List<Proposal> = emptyList(),
         /** The host's song fails on this phone (YouTube refuses it here): it waits on it, and takes the next one by itself. */
         val songUnavailable: Boolean = false,
         /** A guest that has heard nothing of the host for a while: it says the host is away (HostAbsence). */
@@ -127,8 +127,11 @@ class TogetherSession(
         val catchUpAfterCast: Boolean = false,
     )
 
-    /** A guest's own song and the queue after it, proposed to this phone as the leader: see [propose]. */
-    data class Proposal(val songs: List<TogetherMessage.Song>, val positionMs: Long, val by: String, val receivedAt: Long)
+    /**
+     * A guest's own song and the queue after it, proposed to this phone as the leader: see [propose]. [from] is the
+     * guest's key in the room, so that its newer proposal takes the place of its older one; never shown.
+     */
+    data class Proposal(val songs: List<TogetherMessage.Song>, val positionMs: Long, val by: String, val receivedAt: Long, val from: String = "")
 
     /** Someone else in the room: [key] is their key for this session, the name their phone's. */
     data class Member(val key: String, val name: String, val owner: Boolean, val leader: Boolean) {
@@ -670,7 +673,9 @@ class TogetherSession(
                 }
             }
             is TogetherMessage.Propose -> if (leading && message.songs.isNotEmpty()) {
-                _status.value = _status.value.copy(proposal = Proposal(message.songs, message.positionMs, message.by, now))
+                // It waits for Play it or Not now, after any other guest's (ProposalLine).
+                val proposal = Proposal(message.songs, message.positionMs, message.by, now, from)
+                _status.value = _status.value.copy(proposals = ProposalLine.add(_status.value.proposals, proposal))
                 // By key, never by the name they chose: see RoomHealth.
                 Log.i(TAG, "${from.take(8)} proposed ${message.songs.first().id} and ${message.songs.size - 1} after it")
             }
@@ -750,6 +755,7 @@ class TogetherSession(
     private fun lead(key: String) {
         if (key == leaderKey && lastState != null) return
         Log.i(TAG, "The lead is with ${if (key == me) "this phone" else key.take(8)}")
+        if (key != leaderKey) proposalsAfterLeadMoved()
         leaderKey = key
         gap = ClockGap()
         pingsToLeader = 0
@@ -865,8 +871,8 @@ class TogetherSession(
      * hears no jump when it comes back, and the room follows as it follows any song.
      */
     fun acceptProposal() {
-        val proposal = _status.value.proposal ?: return
-        _status.value = _status.value.copy(proposal = null)
+        val proposal = _status.value.proposals.firstOrNull() ?: return
+        _status.value = _status.value.copy(proposals = ProposalLine.without(_status.value.proposals, proposal))
         if (!leading) return
         val songs = proposal.songs.map(::metadataOf)
         service.playQueue(ListQueue(items = songs), replace = true, origin = PlayOrigin.EXTERNAL)
@@ -877,13 +883,26 @@ class TogetherSession(
             val loaded = withTimeoutOrNull(PROPOSAL_LOAD_MS) {
                 while (service.exoPlayer.currentMediaItem?.mediaId != first) delay(100)
             }
-            if (loaded != null) service.exoPlayer.seekTo(proposal.positionMs + (System.currentTimeMillis() - proposal.receivedAt))
+            // From the top after a long wait for the answer (ProposalLine.startAt).
+            val at = ProposalLine.startAt(proposal.positionMs, System.currentTimeMillis() - proposal.receivedAt)
+            if (loaded != null && at > 0) service.exoPlayer.seekTo(at)
         }
     }
 
-    /** The leader's no, or its putting it off: the guest plays on its own as before. */
+    /** The leader's no, or its putting it off: the guest plays on its own as before. The next one waiting is asked. */
     fun dismissProposal() {
-        _status.value = _status.value.copy(proposal = null)
+        val proposal = _status.value.proposals.firstOrNull() ?: return
+        _status.value = _status.value.copy(proposals = ProposalLine.without(_status.value.proposals, proposal))
+    }
+
+    /**
+     * Control moved to another phone. Proposals are for whoever is in control: the songs proposed to this phone can't be
+     * played from here any more, and the one this phone proposed went to someone no longer in control, so Propose comes
+     * back for the new one.
+     */
+    private fun proposalsAfterLeadMoved() {
+        proposedSongId = null
+        _status.value = _status.value.copy(proposals = emptyList(), proposed = false)
     }
 
     /**
