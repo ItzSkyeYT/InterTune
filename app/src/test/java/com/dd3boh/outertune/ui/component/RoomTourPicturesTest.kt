@@ -107,7 +107,8 @@ class RoomTourPicturesTest {
         // Room is made before the song lands, and it lands before the song playing ends.
         assertEquals(1f, addRoom(ADD_LEAVE + ADD_FLIGHT), 0f)
         assertTrue(ADD_LEAVE + ADD_FLIGHT < ADD_NEXT)
-        assertTrue(addFlight(ADD_LEAVE + ADD_FLIGHT) >= 1f)
+        // A moment after it is due: the sum and the division round a float just under 1 at the very moment.
+        assertTrue(addFlight(ADD_LEAVE + ADD_FLIGHT + 0.001f) >= 1f)
         assertEquals(0f, addScroll(ADD_NEXT), 0f)
         assertEquals(1f, addScroll(ADD_NEXT + ADD_SCROLL), 0f)
         // Each loop begins with the song the loop before added, so it ends where the next begins.

@@ -2527,7 +2527,7 @@
     <!-- Listen together (TogetherDialog), step 1, debug and Preview builds. -->
     <string name="together_title">Écouter ensemble</string>
     <string name="together_intro">Créez un salon et partagez son code, ou tapez le code d\'un ami. Tout le monde entend ce que joue l\'hôte, sur son propre téléphone.</string>
-    <string name="together_tour_entry">Comment marchent les salons</string>
+    <string name="together_tour_entry">Comment fonctionnent les salons</string>
     <string name="together_tour_skip">Passer</string>
     <string name="together_tour_step_title">Le même titre, au même moment</string>
     <string name="together_tour_step_body">Tout le monde dans le salon entend le même titre au même moment, chacun sur son téléphone. Créez un salon et partagez le lien ou le code.</string>
