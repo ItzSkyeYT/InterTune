@@ -59,8 +59,8 @@ internal object RecapMotion {
         Entrance.DROP -> DROP_MS
     }
 
-    /** A little past, then back: the badges, the words, the buttons. */
-    val Spring: Easing = CubicBezierEasing(0.2f, 1.3f, 0.35f, 1f)
+    /** A touch past, then back: the badges, the words, the buttons (softened 22 Nov 2026, his word: too bouncy). */
+    val Spring: Easing = CubicBezierEasing(0.2f, 1.08f, 0.35f, 1f)
 
     /** Quick out, gentle in. */
     val Snap: Easing = CubicBezierEasing(0.2f, 0.9f, 0.25f, 1f)
@@ -71,27 +71,27 @@ internal object RecapMotion {
     /** The web's "ease": colours and fades. */
     val Ease: Easing = CubicBezierEasing(0.25f, 0.1f, 0.25f, 1f)
 
-    /** A damped spring: 8% past its place once, then a settle that comes to rest by the end. */
+    /** A damped spring: 3% past its place once, then a settle that comes to rest by the end (8% until his "not a fan of the amount of bouncyness", 22 Nov 2026). */
     val Settle: Easing = Sampled(
         0f, 0.0159f, 0.0587f, 0.1216f, 0.1985f, 0.2842f, 0.3742f, 0.4649f, 0.5533f, 0.6373f, 0.7152f, 0.7857f, 0.8484f, 0.9028f, 0.949f,
-        0.9873f, 1.0181f, 1.042f, 1.0597f, 1.072f, 1.0795f, 1.083f, 1.0833f, 1.0809f, 1.0766f, 1.0708f, 1.064f, 1.0567f, 1.0491f, 1.0416f,
-        1.0343f, 1.0275f, 1.0212f, 1.0155f, 1.0103f, 1.0059f, 1.0024f, 0.9999f, 0.9983f, 0.9975f, 0.9973f, 0.9975f, 0.9979f, 0.9985f, 0.999f,
-        0.9994f, 0.9998f, 0.9999f, 1f,
+        0.9873f, 1.0068f, 1.0157f, 1.0224f, 1.027f, 1.0298f, 1.0311f, 1.0312f, 1.0303f, 1.0287f, 1.0266f, 1.024f, 1.0213f, 1.0184f, 1.0156f,
+        1.0129f, 1.0103f, 1.008f, 1.0058f, 1.0039f, 1.0022f, 1.0009f, 1f, 0.9994f, 0.9991f, 0.999f, 0.9991f, 0.9992f, 0.9994f, 0.9996f,
+        0.9998f, 0.9999f, 1f, 1f,
     )
 
-    /** A livelier spring: 20% past, a small swing back, then rest. Number one's burst opening. */
+    /** A livelier spring: 6% past, a small swing back, then rest (20% until 22 Nov 2026). Number one's burst opening. */
     val Bouncy: Easing = Sampled(
-        0f, 0.0301f, 0.1104f, 0.2258f, 0.3624f, 0.508f, 0.6522f, 0.787f, 0.9064f, 1.0067f, 1.0861f, 1.1441f, 1.1818f, 1.2012f, 1.205f,
-        1.1961f, 1.1776f, 1.1526f, 1.1239f, 1.0939f, 1.0646f, 1.0376f, 1.0139f, 0.9943f, 0.9791f, 0.9682f, 0.9614f, 0.9582f, 0.9581f, 0.9605f,
-        0.9647f, 0.97f, 0.976f, 0.9823f, 0.9886f, 0.9941f, 0.9984f, 1.0015f, 1.0034f, 1.0041f, 1.0041f, 1.0035f, 1.0026f, 1.0018f, 1.001f,
-        1.0005f, 1.0002f, 1f, 1f,
+        0f, 0.0301f, 0.1104f, 0.2258f, 0.3624f, 0.508f, 0.6522f, 0.787f, 0.9064f, 1.002f, 1.0258f, 1.0432f, 1.0545f, 1.0604f, 1.0615f,
+        1.0588f, 1.0533f, 1.0458f, 1.0372f, 1.0282f, 1.0194f, 1.0113f, 1.0042f, 0.9983f, 0.9937f, 0.9905f, 0.9884f, 0.9875f, 0.9874f, 0.9881f,
+        0.9894f, 0.991f, 0.9928f, 0.9947f, 0.9966f, 0.9982f, 0.9995f, 1.0005f, 1.001f, 1.0012f, 1.0012f, 1.001f, 1.0008f, 1.0005f, 1.0003f,
+        1.0002f, 1.0001f, 1f, 1f,
     )
 
     // ---- the parts of a slide arriving, each once
 
     const val UP_MS = 700
     const val SLAP_MS = 500
-    val SlapEasing: Easing = CubicBezierEasing(0.3f, 0.7f, 0.3f, 1.15f)
+    val SlapEasing: Easing = CubicBezierEasing(0.3f, 0.7f, 0.3f, 1.04f)
     const val FLY_MS = 1150
     const val POP_MS = 900
     const val FADE_MS = 600
@@ -116,7 +116,7 @@ internal object RecapMotion {
     const val COUNT_IN_MS = 320
     val CountInEasing: Easing = CubicBezierEasing(0.2f, 0.9f, 0.25f, 1f)
     const val LAND_MS = 500
-    val LandEasing: Easing = CubicBezierEasing(0.2f, 1.5f, 0.4f, 1f)
+    val LandEasing: Easing = CubicBezierEasing(0.2f, 1.15f, 0.4f, 1f)
 
     /** The value of a number counting up to [target] from step [at] to step [land], [elapsed] ms into its slide. */
     fun counted(target: Long, at: Float, land: Float, elapsed: Float): Long {
@@ -127,15 +127,15 @@ internal object RecapMotion {
     // ---- the charts drawing themselves, once
 
     const val BAR_MS = 550
-    val BarEasing: Easing = CubicBezierEasing(0.2f, 1.4f, 0.4f, 1f)
+    val BarEasing: Easing = CubicBezierEasing(0.2f, 1.1f, 0.4f, 1f)
     const val BAR_FROM = 2.5f
     const val BAR_GAP_MS = 7f
     const val RAY_MS = 600
-    val RayEasing: Easing = CubicBezierEasing(0.2f, 1.3f, 0.4f, 1f)
+    val RayEasing: Easing = CubicBezierEasing(0.2f, 1.08f, 0.4f, 1f)
     const val RAY_FROM = 1.5f
     const val RAY_GAP_MS = 30f
     const val TILE_MS = 450
-    val TileEasing: Easing = CubicBezierEasing(0.3f, 1.6f, 0.5f, 1f)
+    val TileEasing: Easing = CubicBezierEasing(0.3f, 1.15f, 0.5f, 1f)
     const val TILE_FROM = 2.5f
     const val TILE_GAP_MS = 22f
 

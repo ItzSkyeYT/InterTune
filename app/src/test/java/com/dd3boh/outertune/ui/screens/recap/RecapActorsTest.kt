@@ -41,7 +41,7 @@ class RecapActorsTest {
         val t = Track(0f)
         t.go(100f, now = 1_000, delay = 0, ms = 1_100, curve = RecapMotion.Settle)
         assertEquals(0f, t.at(1_000), 1e-3f)
-        assertTrue((1_000..2_100).any { t.at(it.toLong()) > 104f })
+        assertTrue((1_000..2_100).any { t.at(it.toLong()) > 102f })
         assertEquals(100f, t.at(2_100), 1e-3f)
         assertEquals(100f, t.at(9_999), 1e-3f)
         // Sent somewhere else on the way, it sets off from where it is.

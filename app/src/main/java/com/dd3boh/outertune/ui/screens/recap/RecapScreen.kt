@@ -91,6 +91,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalView
+import com.dd3boh.outertune.ui.player.KeepScreenOnReason
+import com.dd3boh.outertune.ui.player.KeepScreenOnController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.customActions
@@ -262,6 +264,15 @@ internal fun RecapStory(
 
     // The bars of the phone follow the paper: dark icons on a light one, light on a dark one.
     val view = LocalView.current
+    // The screen stays awake while the story plays (his ask of 22 Nov 2026): each slide holds 7 s after it
+    // settles and the songs play on, and a phone that dims after half a minute cut the story off. Not on the
+    // start screen, not while it is paused; given up when the Recap closes. Through the one owner of the flag
+    // (KeepScreenOnController), so the player's own reasons for it are left as they are.
+    val playing = page.at > 0 && !stopped
+    DisposableEffect(view, playing) {
+        KeepScreenOnController.set(view, KeepScreenOnReason.RECAP, playing)
+        onDispose { KeepScreenOnController.set(view, KeepScreenOnReason.RECAP, false) }
+    }
     val lightPaper = !page.paper.dark
     LaunchedEffect(lightPaper) {
         (view.parent as? DialogWindowProvider)?.window?.let { window ->

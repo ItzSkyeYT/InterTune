@@ -17,6 +17,8 @@ enum class KeepScreenOnReason {
     IMMERSIVE_LANDSCAPE,
     RECOGNITION,
     LYRICS_VIDEO,
+    /** The InterTune Recap while its story plays (22 Nov 2026). */
+    RECAP,
 }
 
 /**
@@ -41,7 +43,7 @@ class KeepScreenOnReasons {
 /**
  * Single owner of a View's [View.keepScreenOn][android.view.View.setKeepScreenOn] flag, shared by
  * every reason that wants the screen held awake (lyrics in the open player, immersive landscape
- * while playing, recognition listening, a lyrics video being made).
+ * while playing, recognition listening, a lyrics video being made, the Recap's story playing).
  *
  * keepScreenOn is one boolean on one View, so two places writing it directly race: whichever
  * disposes last wins and silently clears the other's request. Each caller here instead adds or
