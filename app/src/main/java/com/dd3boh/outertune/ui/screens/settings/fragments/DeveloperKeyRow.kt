@@ -6,8 +6,6 @@
 
 package com.dd3boh.outertune.ui.screens.settings.fragments
 
-import androidx.compose.ui.Modifier
-import com.dd3boh.outertune.ui.screens.settings.settingRow
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Build
@@ -47,7 +45,6 @@ internal fun DeveloperKeyRow() {
     var asking by remember { mutableStateOf(false) }
 
     PreferenceEntry(
-        modifier = Modifier.settingRow(R.string.dev_key),
         title = { Text(stringResource(R.string.dev_key)) },
         description = stringResource(if (set) R.string.dev_key_set else R.string.dev_key_not_set),
         icon = { Icon(Icons.Filled.Build, null) },

@@ -209,6 +209,7 @@ class SettingsIndexTest {
         /** Files whose rows are left out altogether, and why. */
         val LEFT_OUT_FILES = mapOf(
             "fragments/DeveloperFrag.kt" to "The developer's own settings, hidden behind a switch and never translated.",
+            "fragments/DeveloperKeyRow.kt" to "The developer's key, in the same hidden block as DeveloperFrag's rows.",
             "EngineDeveloperSettings.kt" to "The engine's tuning constants, for the developer.",
         )
 
