@@ -466,6 +466,7 @@ internal fun RecapStory(
                 night = page.paper.dark,
                 still = still,
                 muted = muted,
+                sounding = !(held || stopped || away),
                 onMute = { muted = !muted },
                 modifier = Modifier.align(Alignment.BottomCenter).graphicsLayer { alpha = chrome },
             )
@@ -710,7 +711,7 @@ internal fun CloseButton(onClose: () -> Unit, modifier: Modifier = Modifier, tin
  * with it, one after another, and stand still. With Remove animations on, the two cross-fade.
  */
 @Composable
-private fun SongPill(song: RecapSongShown?, night: Boolean, still: Boolean, muted: Boolean, onMute: () -> Unit, modifier: Modifier = Modifier) {
+private fun SongPill(song: RecapSongShown?, night: Boolean, still: Boolean, muted: Boolean, onMute: () -> Unit, modifier: Modifier = Modifier, sounding: Boolean = true) {
     if (song == null) return
     val shape = RoundedCornerShape(26.dp)
     Row(
@@ -755,7 +756,7 @@ private fun SongPill(song: RecapSongShown?, night: Boolean, still: Boolean, mute
             }
         }
         Spacer(Modifier.width(10.dp))
-        SoundBars(song, muted, still)
+        SoundBars(muted, still, sounding)
         // Mutes the story's sound and lets it play on unheard (RecapSound.mute).
         Box(Modifier.size(40.dp).clip(CircleShape).clickable(onClick = onMute), contentAlignment = Alignment.Center) {
             Icon(
@@ -768,28 +769,25 @@ private fun SongPill(song: RecapSongShown?, night: Boolean, still: Boolean, mute
     }
 }
 
-/** Four sound bars in lemon that stand still; with each new song they rise once, one after another. */
+/**
+ * The sound bars, in lemon: the app's own playing indicator (PlayingIndicator), moving while the
+ * slide's song sounds (his ask of 22 Nov 2026: "those little bars at the bottom need to be
+ * animated") and resting with it, the sound off, the story paused or held, or Remove animations
+ * on. In the room the still bars had, four of them. Never held for being under the player: the
+ * Recap is over everything.
+ */
 @Composable
-private fun SoundBars(song: RecapSongShown, muted: Boolean, still: Boolean) {
-    val heights = floatArrayOf(0.5f, 0.95f, 0.68f, 0.38f)
-    val rise = remember { List(4) { Animatable(1f) } }
-    LaunchedEffect(song.id) {
-        if (still) return@LaunchedEffect
-        rise.forEachIndexed { i, bar ->
-            launch {
-                bar.snapTo(0f)
-                delay(220L + i * 60L)
-                bar.animateTo(1f, tween(RecapMotion.EQ_MS, easing = RecapMotion.Bouncy))
-            }
-        }
-    }
-    Canvas(Modifier.padding(start = 2.dp).size(19.dp, 16.dp)) {
-        val bar = 2.75.dp.toPx()
-        val gap = (size.width - 4 * bar) / 3
-        for (i in 0 until 4) {
-            val h = size.height * if (muted) 0.25f else (0.12f + (heights[i] - 0.12f) * rise[i].value)
-            drawRoundRect(RecapInk.Lemon, Offset(i * (bar + gap), size.height - h), Size(bar, h), CornerRadius(bar / 2))
-        }
+private fun SoundBars(muted: Boolean, still: Boolean, sounding: Boolean) {
+    androidx.compose.runtime.CompositionLocalProvider(com.dd3boh.outertune.ui.component.LocalHiddenByPlayer provides { false }) {
+        com.dd3boh.outertune.ui.component.PlayingIndicator(
+            color = RecapInk.Lemon,
+            modifier = Modifier.padding(start = 2.dp).size(19.dp, 16.dp),
+            bars = 4,
+            // Four bars and their three gaps (each one and a half bars wide) in the 19 dp the still ones took.
+            barWidth = 19.dp / 8.5f,
+            cornerRadius = 19.dp / 17f,
+            isPlaying = sounding && !muted && !still,
+        )
     }
 }
 
