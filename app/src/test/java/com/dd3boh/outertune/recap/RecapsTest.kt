@@ -80,6 +80,53 @@ class RecapsTest {
 
     private fun recap(listens: List<RecapListen>) = Recaps.compute(input(listens))!!
 
+    // ---- where the songs came from (22 Nov 2026)
+
+    /** [n] plays of [song] started from [origin], one after another from [t], four minutes apart. */
+    private fun from(song: String, origin: PlayOrigin, n: Int, t: LongArray) =
+        (0 until n).map { listen(song, t[0], origin = origin.code, session = t[0]).also { t[0] += 4 * minute } }
+
+    @Test
+    fun `where the plays came from, by source, the rest as one and last, each source with a song of its own`() {
+        val t = longArrayOf(at(day(9, 1), 8))
+        val log = from("p1", PlayOrigin.PLAYLIST, 12, t) + from("p2", PlayOrigin.PLAYLIST, 3, t) +
+            from("r1", PlayOrigin.RADIO, 9, t) + from("s1", PlayOrigin.SEARCH, 6, t) +
+            // The library takes in albums and the folders screen's plays: where a listener of their own files plays from.
+            from("a1", PlayOrigin.ALBUM, 3, t) + from("f1", PlayOrigin.LIBRARY, 2, t) +
+            // Home is the fifth source by name: into the rest, with the queue and the history.
+            from("h1", PlayOrigin.QUICK_PICKS, 4, t) + from("q1", PlayOrigin.QUEUE, 2, t) + from("p1", PlayOrigin.HISTORY, 1, t) +
+            // Not kept (backfilled): left out.
+            from("u1", PlayOrigin.UNKNOWN, 7, t)
+        val f = recap(log).whereFrom!!
+        assertEquals(
+            listOf(WhereFrom.Source.PLAYLISTS, WhereFrom.Source.RADIOS, WhereFrom.Source.SEARCH, WhereFrom.Source.LIBRARY, WhereFrom.Source.REST),
+            f.rows.map { it.source },
+        )
+        assertEquals(listOf(15, 9, 6, 5, 7), f.rows.map { it.plays })
+        assertEquals("each its most played song, none twice", listOf("p1", "r1", "s1", "a1", "h1"), f.rows.map { it.songId })
+        assertEquals(listOf(12, 9, 6, 3, 4), f.rows.map { it.songPlays })
+        assertEquals("whole percents that add up to a hundred", listOf(36, 21, 14, 12, 17), f.percents())
+        assertNull("the live log began with the year: nothing to say about since when", f.sinceDay)
+    }
+
+    @Test
+    fun `where-from says nothing with too few plays kept, nearly all from one place, or none from a named place`() {
+        val t = longArrayOf(at(day(9, 1), 8))
+        assertNull("19 plays kept", recap(from("a", PlayOrigin.PLAYLIST, 10, t) + from("b", PlayOrigin.SEARCH, 9, t) + from("u", PlayOrigin.UNKNOWN, 20, t)).whereFrom)
+        assertNull("nine in ten from the library", recap(from("l", PlayOrigin.LIBRARY, 27, t) + from("s", PlayOrigin.SEARCH, 3, t)).whereFrom)
+        assertNotNull("eight in ten from the library", recap(from("l", PlayOrigin.LIBRARY, 24, t) + from("s", PlayOrigin.SEARCH, 6, t)).whereFrom)
+        assertNull("the queue and the history only", recap(from("q", PlayOrigin.QUEUE, 15, t) + from("h", PlayOrigin.HISTORY, 10, t)).whereFrom)
+    }
+
+    @Test
+    fun `where-from says since when, where the live log began after the year's first day`() {
+        val march = longArrayOf(at(day(3, 1), 8))
+        val september = longArrayOf(at(day(9, 11), 8))
+        val log = from("old", PlayOrigin.UNKNOWN, 12, march) + from("p", PlayOrigin.PLAYLIST, 12, september) + from("s", PlayOrigin.SEARCH, 10, september)
+        val f = Recaps.compute(input(log, firstLiveAt = at(day(9, 11), 8)))!!.whereFrom!!
+        assertEquals(day(9, 11).toEpochDay(), f.sinceDay)
+    }
+
     // ---- the song skipped most (22 Nov 2026)
 
     @Test

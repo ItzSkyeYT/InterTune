@@ -81,6 +81,23 @@ object Recaps {
         var play = false
     }
 
+    /** Where-from (WhereFrom): at most this many sources by name, the rest as one; the plays it needs; the share no one source may reach. */
+    const val FROM_ROWS = 4
+    const val FROM_MIN_PLAYS = 20
+    const val FROM_MOST_PERCENT = 90
+
+    /** The source a play's [origin] counts under on the where-from slide; null where it was not kept. */
+    fun sourceOf(origin: Int): WhereFrom.Source? = when (origin) {
+        PlayOrigin.UNKNOWN.code -> null
+        PlayOrigin.PLAYLIST.code -> WhereFrom.Source.PLAYLISTS
+        PlayOrigin.RADIO.code -> WhereFrom.Source.RADIOS
+        PlayOrigin.SEARCH.code -> WhereFrom.Source.SEARCH
+        // The folders screen plays as the library does (FolderScreen): a listener of their own files plays from here.
+        PlayOrigin.LIBRARY.code, PlayOrigin.ALBUM.code, PlayOrigin.ARTIST.code, PlayOrigin.LOCAL_FILES.code -> WhereFrom.Source.LIBRARY
+        PlayOrigin.QUICK_PICKS.code, PlayOrigin.HOME_ROW.code, PlayOrigin.WIDGET.code, PlayOrigin.DISCOVER.code -> WhereFrom.Source.HOME
+        else -> WhereFrom.Source.REST
+    }
+
     fun isYouTubeArtist(id: String) = id.startsWith("UC") || id.startsWith("FEmusic_library_privately_owned_artist")
 
     /** A name as two artists are told to be one by: case and the spaces round it aside. */
@@ -158,7 +175,37 @@ object Recaps {
             rooms = rooms(input, firstDayOfYear, lastDay),
             ranking = ranked.take(PLAYLIST),
             mostSkipped = mostSkipped(rows),
+            whereFrom = whereFrom(plays, input, sinceDay),
         )
+    }
+
+    /**
+     * Where the year's plays were started from (WhereFrom), of those whose origin was kept. Null with
+     * fewer than [FROM_MIN_PLAYS] of them, or with one source at [FROM_MOST_PERCENT] percent or more,
+     * where the slide would have nothing to say. Backfilled rows have no origin: from when the live
+     * log began, then, as for Auto's finds.
+     */
+    private fun whereFrom(plays: List<Row>, input: RecapInput, sinceDay: Long): WhereFrom? {
+        val known = plays.mapNotNull { p -> sourceOf(p.l.origin)?.let { it to p } }
+        if (known.size < FROM_MIN_PLAYS) return null
+        val bySource = known.groupBy({ it.first }, { it.second })
+        val named = bySource.filterKeys { it != WhereFrom.Source.REST }.entries
+            .sortedWith(compareByDescending<Map.Entry<WhereFrom.Source, List<Row>>> { it.value.size }.thenBy { it.key.ordinal })
+        val first = named.firstOrNull() ?: return null
+        if (first.value.size * 100 >= known.size * FROM_MOST_PERCENT) return null
+        val rest = named.drop(FROM_ROWS).flatMap { it.value } + bySource[WhereFrom.Source.REST].orEmpty()
+        val used = HashSet<String>()
+        fun row(source: WhereFrom.Source, from: List<Row>): FromRow {
+            val counts = from.groupingBy { it.l.songId }.eachCount()
+            val order = counts.keys.sortedWith(compareByDescending<String> { counts[it] ?: 0 }.thenBy { it })
+            val song = order.firstOrNull { it !in used } ?: order.first()
+            used += song
+            return FromRow(source, from.size, song, counts[song] ?: 0)
+        }
+        val rows = named.take(FROM_ROWS).map { row(it.key, it.value) } +
+            listOfNotNull(rest.takeIf { it.isNotEmpty() }?.let { row(WhereFrom.Source.REST, it) })
+        val liveDay = input.bounds.firstLiveAt?.let { ListeningInsights.localDay(it, plays.first().l.tzOffsetMin) }
+        return WhereFrom(liveDay?.takeIf { it > sinceDay }, rows)
     }
 
     /**

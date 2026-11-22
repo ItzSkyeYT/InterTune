@@ -7,6 +7,7 @@
 package com.dd3boh.outertune.ui.screens.recap
 
 import com.dd3boh.outertune.recap.AutoFinds
+import com.dd3boh.outertune.recap.FromRow
 import com.dd3boh.outertune.recap.DayAmount
 import com.dd3boh.outertune.recap.FirstSong
 import com.dd3boh.outertune.recap.MostSkipped
@@ -19,8 +20,11 @@ import com.dd3boh.outertune.recap.SongAmount
 import com.dd3boh.outertune.recap.Streak
 import com.dd3boh.outertune.recap.TopArtist
 import com.dd3boh.outertune.recap.TopSong
+import com.dd3boh.outertune.recap.WhereFrom
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
@@ -51,6 +55,23 @@ class RecapPlanTest {
     }
 
     private fun plan(r: Recap) = planSlides(shown(r))
+
+    @Test
+    fun `with nothing only InterTune does, where the songs came from takes its place, its first source's song under it`() {
+        val f = WhereFrom(null, listOf(FromRow(WhereFrom.Source.LIBRARY, 30, "found", 9), FromRow(WhereFrom.Source.SEARCH, 10, "first", 2)))
+        val slides = plan(recap(auto = null).copy(whereFrom = f))
+        val kinds = slides.map { it.kind }
+        assertFalse(SlideKind.ONLY_HERE in kinds)
+        assertEquals(kinds.indexOf(SlideKind.ARTISTS) + 1, kinds.indexOf(SlideKind.WHERE_FROM))
+        assertEquals("found", slides.single { it.kind == SlideKind.WHERE_FROM }.song(0)?.id)
+        // Something only InterTune does: that, and no where-from.
+        val with = plan(recap().copy(whereFrom = f)).map { it.kind }
+        assertTrue(SlideKind.ONLY_HERE in with)
+        assertFalse(SlideKind.WHERE_FROM in with)
+        // Nothing for either: neither, the story one slide shorter.
+        val neither = plan(recap(auto = null)).map { it.kind }
+        assertFalse(SlideKind.ONLY_HERE in neither || SlideKind.WHERE_FROM in neither)
+    }
 
     @Test
     fun `the song skipped most comes after what only InterTune has and before the countdown, its own song under it`() {

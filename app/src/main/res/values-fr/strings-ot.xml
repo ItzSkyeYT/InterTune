@@ -2832,6 +2832,24 @@
         <item quantity="many">%1$s fois zappée</item>
         <item quantity="other">%1$s fois zappée</item>
     </plurals>
+    <string name="recap_from_kick">D\'où venaient vos titres</string>
+    <string name="recap_from_mostly">Surtout %1$s</string>
+    <string name="recap_from_top">%1$s en est venu plus que tout autre titre : %2$s.</string>
+    <string name="recap_from_percent">%1$s %%</string>
+    <string name="recap_from_percent_mark" formatted="false">%</string>
+    <string name="recap_from_since">Depuis le %1$s, quand InterTune a commencé à noter d\'où venait chaque titre.</string>
+    <string name="recap_from_playlists">Vos playlists</string>
+    <string name="recap_from_radios">Radios</string>
+    <string name="recap_from_search">Recherche</string>
+    <string name="recap_from_library">Votre bibliothèque</string>
+    <string name="recap_from_home">Accueil</string>
+    <string name="recap_from_rest">Tout le reste</string>
+    <string name="recap_from_in_playlists">vos playlists</string>
+    <string name="recap_from_in_radios">les radios</string>
+    <string name="recap_from_in_search">la recherche</string>
+    <string name="recap_from_in_library">votre bibliothèque</string>
+    <string name="recap_from_in_home">l\'accueil</string>
+    <string name="recap_from_in_rest">tout le reste</string>
     <string name="recap_number_one_kick">Votre titre numéro un</string>
     <plurals name="recap_plays_unit" tools:ignore="ImpliedQuantity">
         <item quantity="one">lecture</item>

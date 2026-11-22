@@ -6,6 +6,8 @@
 
 package com.dd3boh.outertune.ui.screens.recap
 
+import androidx.compose.foundation.layout.fillMaxHeight
+import com.dd3boh.outertune.recap.WhereFrom
 import android.graphics.Bitmap
 import android.os.Build
 import androidx.compose.foundation.Canvas
@@ -1186,6 +1188,114 @@ internal fun SkippedSlide(s: SlideScope) {
         }
         Grow(room)
     }
+}
+
+// ---- 6, for someone with nothing only InterTune does: where the songs came from
+
+/**
+ * Where the year's plays came from (Recap.whereFrom), in Only on InterTune's place when there is
+ * nothing for it, the first source's song playing under it: that source's share counting up beside
+ * the song played most from it, "Mostly from" it on the accent's strip, a bar for each source with
+ * the song played most from it, and since when, where the where-from began after the Recap's first
+ * day. Added 22 Nov 2026, the mock's s6w; built for a listener of their own files as for anyone (his
+ * "intertune has a lot of local music users").
+ */
+@Composable
+internal fun WhereFromSlide(s: SlideScope) {
+    val f = s.shown.recap.whereFrom ?: return
+    val c = s.paper
+    val w = s.words
+    val percents = remember(f) { f.percents() }
+    val first = f.rows.first()
+    val song = s.shown.song(first.songId)
+    SlideColumn { room ->
+        Kick(stringResource(R.string.recap_from_kick), s, at = 0.6f)
+        val side = minOf(112.dp, room.width * 0.28f)
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier.fillMaxWidth().padding(top = 2.dp, bottom = 4.dp),
+        ) {
+            Row(verticalAlignment = Alignment.Bottom, modifier = Modifier.weight(1f)) {
+                Counted(
+                    percents.first().toLong(), s, at = 1.2f, land = 3f, style = RecapType.giant.copy(fontSize = 150.sp), colour = c.ink,
+                    format = { w.number(it) }, fit = true, spot = Spot.FROM,
+                )
+                Text(
+                    stringResource(R.string.recap_from_percent_mark), style = RecapType.giant.copy(fontSize = 60.sp), color = c.ink,
+                    modifier = Modifier.padding(start = 2.dp, bottom = 20.dp).enter(s, Entrance.UP, 2.6f),
+                )
+            }
+            Sticker(song?.cover, side, s, at = 2.0f, turn = 7f, fx = 300f, fy = -80f, fr = 30f)
+        }
+        val (before, after) = around(stringResource(R.string.recap_from_mostly, MARK))
+        Words(
+            before, s, at = 2.4f, style = RecapType.h2, colour = c.ink, strip = stringResource(headlineOf(first.source)), after = after,
+            stripAt = 3.1f, stripTurn = -3f, modifier = Modifier.padding(bottom = 8.dp),
+        )
+        Text(
+            w.bold(R.string.recap_from_top, song?.title.orEmpty() to true, w.plays(first.songPlays) to false),
+            style = RecapType.line, color = c.ink, modifier = Modifier.enter(s, Entrance.UP, 3.5f),
+        )
+        Column(Modifier.padding(top = 14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            f.rows.forEachIndexed { i, row ->
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier
+                        .height(52.dp)
+                        .enter(s, Entrance.FLY, 3.9f + i * 0.28f, fx = if (i % 2 == 1) -360f else 360f, fy = 0f, fr = 0f),
+                ) {
+                    Sticker(s.shown.song(row.songId)?.cover, 44.dp, s, how = null, turn = listOf(-5f, 4f, -3f, 5f, -4f)[i % 5])
+                    Text(
+                        stringResource(labelOf(row.source)), fontSize = 17.sp, fontWeight = FontWeight.Bold, color = c.ink,
+                        maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.width(minOf(126.dp, room.width * 0.34f)),
+                    )
+                    // The first source's bar in the accent, the others in ink, each as long as its share of the first's.
+                    Box(Modifier.weight(1f).height(14.dp).clip(RoundedCornerShape(7.dp)).background(RecapInk.Ink.copy(alpha = 0.13f))) {
+                        Box(
+                            Modifier
+                                .fillMaxHeight()
+                                .fillMaxWidth((percents[i].toFloat() / percents.first().coerceAtLeast(1)).coerceIn(0.04f, 1f))
+                                .clip(RoundedCornerShape(7.dp))
+                                .background(if (i == 0) c.accent else RecapInk.Ink),
+                        )
+                    }
+                    Text(
+                        stringResource(R.string.recap_from_percent, w.number(percents[i].toLong())), style = RecapType.tag.copy(fontSize = 21.sp),
+                        color = c.ink, maxLines = 1, softWrap = false,
+                    )
+                }
+            }
+        }
+        f.sinceDay?.let { since ->
+            Text(
+                stringResource(R.string.recap_from_since, w.day(since)), style = RecapType.quiet, color = c.ink2,
+                modifier = Modifier.padding(top = 14.dp).enter(s, Entrance.UP, 5.6f),
+            )
+        }
+        Grow(room)
+    }
+}
+
+/** A source's name on its row. */
+private fun labelOf(source: WhereFrom.Source): Int = when (source) {
+    WhereFrom.Source.PLAYLISTS -> R.string.recap_from_playlists
+    WhereFrom.Source.RADIOS -> R.string.recap_from_radios
+    WhereFrom.Source.SEARCH -> R.string.recap_from_search
+    WhereFrom.Source.LIBRARY -> R.string.recap_from_library
+    WhereFrom.Source.HOME -> R.string.recap_from_home
+    WhereFrom.Source.REST -> R.string.recap_from_rest
+}
+
+/** A source as the headline's "Mostly from" names it. */
+private fun headlineOf(source: WhereFrom.Source): Int = when (source) {
+    WhereFrom.Source.PLAYLISTS -> R.string.recap_from_in_playlists
+    WhereFrom.Source.RADIOS -> R.string.recap_from_in_radios
+    WhereFrom.Source.SEARCH -> R.string.recap_from_in_search
+    WhereFrom.Source.LIBRARY -> R.string.recap_from_in_library
+    WhereFrom.Source.HOME -> R.string.recap_from_in_home
+    WhereFrom.Source.REST -> R.string.recap_from_in_rest
 }
 
 // ---- 7: the countdown

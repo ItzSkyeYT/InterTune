@@ -88,4 +88,15 @@ class RecapLookTest {
         // The first slide is the tunnel's core, blue, so the start screen opens straight into it.
         assertEquals(Choreography.start.single().set.getValue(ActorId.A).c.last(), paperOf(SlideKind.SINCE).paper)
     }
+
+    @Test
+    fun `where the songs came from never shares a paper with a slide that can come next to it`() {
+        val from = paperOf(SlideKind.WHERE_FROM).paper
+        // Before it the artists, or the streak or the hour where those are missing; after it the song
+        // skipped most, the countdown's first step, or number one where there is no countdown.
+        for (kind in listOf(SlideKind.HOUR, SlideKind.STREAK, SlideKind.ARTISTS, SlideKind.SKIPPED, SlideKind.NUMBER_ONE)) {
+            assertNotEquals(kind.name, paperOf(kind).paper, from)
+        }
+        assertNotEquals(paperOf(SlideKind.COUNTDOWN, 0).paper, from)
+    }
 }

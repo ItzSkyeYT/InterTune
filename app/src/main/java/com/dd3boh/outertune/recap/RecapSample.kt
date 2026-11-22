@@ -97,13 +97,15 @@ object RecapSample {
             override fun onReceive(c: Context, intent: Intent) {
                 val reveal = intent.getBooleanExtra("reveal", false)
                 val open = intent.getBooleanExtra("open", false)
+                // A year with nothing only InterTune does: no Auto finds, nothing named by ear (WhereFromSlide).
+                val plain = intent.getBooleanExtra("plain", false)
                 scope.launch {
                     if (!running.tryLock()) {
                         Log.w(TAG, "already writing a sample")
                         return@launch
                     }
                     try {
-                        if (write(app, database, reveal) && open) RecapDoor.open(LocalDate.now().year)
+                        if (write(app, database, reveal, plain) && open) RecapDoor.open(LocalDate.now().year)
                     } catch (e: Exception) {
                         Log.w(TAG, "failed: ${e.message}", e)
                     } finally {
@@ -122,7 +124,7 @@ object RecapSample {
     }
 
     /** Writes the year; false when it was refused. Each write waits for the one before (transactionNow). */
-    private suspend fun write(context: Context, database: MusicDatabase, reveal: Boolean): Boolean {
+    private suspend fun write(context: Context, database: MusicDatabase, reveal: Boolean, plain: Boolean = false): Boolean {
         val existing = database.listenCount().first()
         if (existing > MOST_EXISTING_LISTENS) {
             Log.w(TAG, "refused: this database already holds $existing listens")
@@ -161,7 +163,7 @@ object RecapSample {
         }
 
         val zone = ZoneId.systemDefault()
-        val year = Year(LocalDate.now(zone), zone, named, extras)
+        val year = Year(LocalDate.now(zone), zone, named, extras, plain)
         val listens = year.listens()
         database.transactionNow { listens.forEach { insert(it) } }
         val liked = year.liked()
@@ -174,12 +176,12 @@ object RecapSample {
             it[RecapRevealedEarlyKey] = true
             it.remove(RecapPopUpShownKey)
         }
-        Log.i(TAG, "done: ${named.size} named songs, ${extras.size} more, ${listens.size} listens, ${liked.size} liked, reveal=$reveal")
+        Log.i(TAG, "done: ${named.size} named songs, ${extras.size} more, ${listens.size} listens, ${liked.size} liked, reveal=$reveal, plain=$plain")
         return true
     }
 
     /** The year itself, drawn from a fixed seed. */
-    private class Year(val today: LocalDate, val zone: ZoneId, val named: List<SongItem>, val extras: List<SongItem>) {
+    private class Year(val today: LocalDate, val zone: ZoneId, val named: List<SongItem>, val extras: List<SongItem>, val plain: Boolean = false) {
         private val random = Random(2026)
         private val listens = ArrayList<Listen>()
         private val start: LocalDate = today.minusDays(100).let { early ->
@@ -219,7 +221,12 @@ object RecapSample {
                 durationMs = duration,
                 ratio = played.toFloat() / duration,
                 endReason = if (skip) EndReason.SKIPPED else EndReason.ENDED,
-                origin = origin.code,
+                // Plain: what Quick picks played comes from a playlist, what was named by ear from a search.
+                origin = (if (!plain) origin else when (origin) {
+                    PlayOrigin.QUICK_PICKS -> PlayOrigin.PLAYLIST
+                    PlayOrigin.RECOGNISED -> PlayOrigin.SEARCH
+                    else -> origin
+                }).code,
                 originSlot = -1,
                 queueId = 0,
                 autoplayDepth = 0,
@@ -312,7 +319,7 @@ object RecapSample {
         /** The number one, the song Auto found, and a few of Auto's other finds. */
         fun liked(): List<String> = listOf(hit.id, stuck.id) + autoBrought.filterIndexed { i, _ -> i % 9 == 4 }.map { it.id }
 
-        fun heard(): List<Heard> = byEar.mapIndexed { i, song ->
+        fun heard(): List<Heard> = if (plain) emptyList() else byEar.mapIndexed { i, song ->
             Heard(
                 title = song.title,
                 artist = song.artists.joinToString(", ") { it.name },
