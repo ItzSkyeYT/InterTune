@@ -21,7 +21,7 @@
     <string name="player_background_gradient">Dégradé</string>
     <string name="player_background_style">Style d\'arrière-plan du lecteur</string>
     <string name="player_background_living">Flou vivant</string>
-    <string name="player_living_strength">Intensité du flou dynamique</string>
+    <string name="player_living_strength">Intensité du Flou vivant</string>
     <string name="player_living_smoothing">Douceur du Flou vivant</string>
     <string name="living_tune_open">Régler en plein écran</string>
     <string name="living_tune_three_colours">Trois couleurs</string>
@@ -109,7 +109,7 @@
     <string name="sync_progress_success">Synchronisation terminée</string>
     <string name="tab_arrangement_home_required">L\'onglet Accueil est obligatoire.</string>
     <string name="scanner_manual_btn">Déclencher la synchronisation manuelle</string>
-    <string name="scanner_missing_storage_perm">L\'analyse de médias locaux nécessite l\'autorisations d\'accès au stockage pour fonctionner</string>
+    <string name="scanner_missing_storage_perm">L\'analyse des médias locaux a besoin de l\'autorisation d\'accès au stockage.</string>
     <string name="scanner_scan_fail">Échec de l\'analyse</string>
     <string name="scanner_ytm_link_fail">La tâche de liaison des artistes YouTube a échoué</string>
     <string name="scanner_ytm_link_success">Le travail de création de liens vers les artistes YouTube est terminé</string>
@@ -515,7 +515,7 @@
     <string name="proximity_step_far">Restez là sans bouger.</string>
     <string name="proximity_step_back">Revenez vers le téléphone.</string>
     <string name="proximity_step_done">Test de proximité terminé. Vous pouvez reprendre le téléphone.</string>
-    <string name="head_tracking_3d">Inclinaison de la voie également</string>
+    <string name="head_tracking_3d">Suivre aussi l\'inclinaison</string>
     <string name="head_tracking_3d_description">Regarder en haut et en bas déplace aussi le son. Utilise plus de batterie.</string>
     <string name="head_tracking_3d_explain">Regarder en haut ou en bas déplace aussi le son, pas seulement tourner la tête. Cela consomme un peu plus de batterie, et la musique s\'interrompt un instant quand vous changez ce réglage.</string>
     <string name="head_tracking_recentre">Recentrer</string>
