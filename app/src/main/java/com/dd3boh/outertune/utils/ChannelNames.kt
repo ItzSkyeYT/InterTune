@@ -16,6 +16,7 @@ import com.dd3boh.outertune.playback.MusicService
 import com.dd3boh.outertune.playback.SleepTimerNotification
 import com.dd3boh.outertune.recognition.RecogniseLaterWorker
 import com.dd3boh.outertune.recognition.RecognitionService
+import com.dd3boh.outertune.together.ProposalNotice
 
 /**
  * The names of the app's notification channels, as Android's own Settings > Notifications > InterTune lists them,
@@ -39,6 +40,7 @@ object ChannelNames {
         RecognitionService.RESULTS_CHANNEL_ID to R.string.recognition_phone_results_channel,
         RecogniseLaterWorker.CHANNEL_ID to R.string.recognise_later_channel,
         BackgroundCheckWorker.CHANNEL_ID to R.string.background_channel,
+        ProposalNotice.CHANNEL_ID to R.string.together_proposals_channel,
     )
 
     /**
