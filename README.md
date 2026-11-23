@@ -208,11 +208,16 @@ Every change in detail, and why this fork exists: [docs/FEATURES.md](https://git
 What's being worked on, roughly in order. `[x]` is done, `[~]` is built and being tested, `[ ]` is still to do. Nothing here has a date, and plans can change. Ideas are welcome in #feature-requests on [Discord](https://discord.gg/68jmqhMjXk) or as a [GitHub issue](https://github.com/ItzSkyeYT/InterTune/issues/new/choose).
 
 <details>
-<summary><b>Next: 0.13</b> · 39 of 46 done, 2 to test</summary>
+<summary><b>Next: 0.13</b> · 41 of 51 done, 6 to test</summary>
 
 `[x]` Listen together: one person plays, friends follow the same song in real time\
 `[x]` In a room, a guest who casts to a TV or speaker plays on their own, and catches up with the room when the cast ends\
 `[x]` Invites to a room keep its code out of the website's logs and out of chat apps' link previews\
+`[~]` In a room everyone sees who's picking the music, and the host can hand control to someone and take it back\
+`[~]` Propose a song to whoever's picking the music, they get a notification with Play it or Not now\
+`[x]` Room settings: the host chooses if everyone can move in the song or change the queue\
+`[~]` Songs from your own files play in a room as their YouTube Music version\
+`[x]` How rooms work: a short tutorial that also walks you through the room's sheet\
 `[x]` AirPlay speakers in the cast list\
 `[x]` The equalizer and volume levelling on AirPlay speakers too, and Signal path shows the speaker you cast to\
 `[x]` Casting to speakers that only take uncompressed audio, like a Zeppelin Wireless\
@@ -241,7 +246,7 @@ What's being worked on, roughly in order. `[x]` is done, `[~]` is built and bein
 `[x]` A short note when the phone's battery saver pauses things like word-by-word lyrics\
 `[x]` A radio keeps going when YouTube Music refuses it: other ways to ask, then picks from your own listening\
 `[x]` Stats shows how many of the songs you liked InterTune found for you, and where\
-`[ ]` Your year in InterTune, a recap *(in progress)*\
+`[~]` Your year in InterTune, a recap\
 `[ ]` Premium accounts get the 256 kbps stream\
 `[x]` Choose what's in the three-dot menus\
 `[ ]` Lyrics videos\
