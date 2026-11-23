@@ -1410,14 +1410,25 @@ class TogetherSession(
      * plays on its own, the leader's music no longer forced on it, until Catch up. Not a pause:
      * see [listenerPlayed].
      */
-    private fun listenerChose(what: String) {
-        if (lastState == null || ownWay || System.currentTimeMillis() < ownCommandUntil) return
+    private fun listenerChose(what: String, pressed: Boolean = false) {
+        // A button pressed here is the listener's whatever the room did a moment before (skipOnOwn).
+        if (lastState == null || ownWay || (!pressed && System.currentTimeMillis() < ownCommandUntil)) return
         ownWay = true
         pausedHere = false
         lock.reset()
         ownSpeed()
         _status.value = _status.value.copy(ownWay = true, driftMs = null, locked = false, pausedHere = false)
         Log.i(TAG, "The listener chose $what: playing on their own until Catch up")
+    }
+
+    /**
+     * Next pressed here while someone else is in control, with nothing after the song here (RoomSkip): this phone goes its
+     * own way at once, as after any skip in the room, so that the room's next word does not put its queue back while the
+     * radio it asked for loads. Catch up brings it back.
+     */
+    fun skipOnOwn() {
+        if (leading) return
+        listenerChose("Next with nothing after", pressed = true)
     }
 
     /**
