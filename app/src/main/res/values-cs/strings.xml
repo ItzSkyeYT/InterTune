@@ -288,4 +288,10 @@
     <string name="use_login_for_browse">Použít účet pro procházení obsahu</string>
     <string name="use_login_for_browse_desc">Může ovlivnit obsah, který se vám zobrazí – při přihlášení například mohou být zobrazena například alba, která jsou dostupná pouze s Premium účtem</string>
     <string name="action_login">Přihlásit se</string>
+    <string name="favorite_artists">Oblíbení umělci</string>
+    <string name="crash_report_title">InterTune při posledním spuštěním spadl</string>
+    <string name="crash_report_text">Omlouváme se. Chyba níže zůstala lokálně zaznamenaná a nic nebylo posláno. Nahlášení pomáhá k rychlejší opravě chyb.</string>
+    <string name="crash_report_github">Nahlásit na Github</string>
+    <string name="crash_report_copy">Kopírovat</string>
+    <string name="crash_report_copied">Chyba zkopírována</string>
 </resources>
