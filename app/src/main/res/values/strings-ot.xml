@@ -2881,6 +2881,9 @@ while also allowing users to translate our app as well. New, specific strings to
         <item quantity="one">Removed %1$d song</item>
         <item quantity="other">Removed %1$d songs</item>
     </plurals>
+    <!-- Over the queue's songs on a guest that follows a listening room (QueueRoomLine), where songs are not moved or removed: whose queue it is, by the name of the person in control, or the host until their name is known. Play next is the song menu's item. -->
+    <string name="together_queue_theirs">%1$s chooses the music. Add a song with Play next.</string>
+    <string name="together_queue_host">The host chooses the music. Add a song with Play next.</string>
     <!-- A download folder saved that does not open (DownloadFolderState): under its row on Settings > Storage, and said once, in a toast (so 70 characters at most, ToastLengthTest), when a download cannot be moved into it. Then the question after a folder is chosen while downloads are still inside the app. -->
     <string name="dl_folder_cannot_open">InterTune can\'t open this folder any more. New downloads stay inside the app until you choose it again.</string>
     <string name="dl_folder_cannot_open_notice">InterTune can\'t open your download folder. Downloads stay in the app.</string>
