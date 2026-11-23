@@ -2610,6 +2610,10 @@
     <string name="together_someone">Quelqu\'un</string>
     <string name="together_close_room">Fermer le salon</string>
     <string name="together_song_unavailable">Ce titre n\'est pas disponible pour vous. Vous entendrez le suivant de l\'hôte.</string>
+    <string name="together_song_only_there">%1$s passe un titre qui n\'est que sur son téléphone.</string>
+    <string name="together_song_only_here">Ce titre n\'est que sur votre téléphone, personne d\'autre ne l\'entend.</string>
+    <string name="together_song_matched">%1$s passe un titre de son téléphone, donc vous entendez la version YouTube Music. Ce n\'est peut-être pas exactement la même.</string>
+    <string name="together_song_version">Version YouTube Music</string>
     <string name="together_paused_here">En pause ici. Appuyez sur lecture pour revenir où en est le salon.</string>
     <string name="together_catch_up_after_cast">Vous rattraperez le salon à la fin du cast.</string>
     <string name="together_in_room">Dans un salon</string>

@@ -101,10 +101,12 @@ class RoomLocalFilesTest {
     /**
      * The path was gone, but a local song still went to the room by name, and an untagged file's name is its title
      * ("Recording 2026-11-18 call with Jane"): in the queue every 30 s and in a guest's proposal, shown in every guest's
-     * queue though no guest can play it (review 2, 18 Nov 2026). Now local songs stay out of both.
+     * queue though no guest can play it (review 2, 18 Nov 2026). Local songs stayed out of both. Since 22 Nov 2026 one
+     * goes in as the same recording on YouTube Music when its tags find one (PhoneSongs): the match's id, name and cover,
+     * never the file's own (PhoneSongsTest).
      */
     @Test
-    fun `songs from files on the phone stay out of the room's queue and a guest's proposal`() {
+    fun `songs from files on the phone go to the room's queue only as their match on YouTube Music`() {
         // by what the app knows of the song, or failing that by a local id's shape
         assertTrue(fromThisPhone(isLocal = true, mediaId = "LSabcdefgh"))
         assertTrue(fromThisPhone(isLocal = null, mediaId = "LSabcdefgh"))
@@ -117,6 +119,12 @@ class RoomLocalFilesTest {
         val own = session.substringAfter("private fun ownQueue()").substringBefore("private fun send(")
         assertTrue("if (!fromThisPhone(item.metadata?.isLocal, item.mediaId)) {" in own)
         assertTrue(own.indexOf("if (!fromThisPhone(") < own.indexOf("songs += TogetherMessage.Song("))
+        // A song from a file adds its match and nothing of its own: no id, name or picture of the item.
+        val fromFile = own.substringAfter("} else {").substringBefore("index = timeline.getNextWindowIndex(")
+        assertTrue("if (heard is PhoneSongs.Heard) songs += heard.song" in fromFile)
+        for (part in listOf("TogetherMessage.Song(", "item.mediaMetadata", "metadata.title", "artworkUri", "localPath")) {
+            assertFalse(part, part in fromFile)
+        }
         // a guest proposes its own song first or nothing (the proposal is built from ownQueue)
         val propose = session.substringAfter("fun propose()").substringBefore("\n    }\n")
         assertTrue("it.isNotEmpty() && it.first().id == service.exoPlayer.currentMediaItem?.mediaId" in propose)

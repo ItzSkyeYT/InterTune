@@ -2817,6 +2817,10 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="together_someone">Someone</string>
     <string name="together_close_room">Close the room</string>
     <string name="together_song_unavailable">This song isn\'t available to you. You\'ll hear the host\'s next one.</string>
+    <string name="together_song_only_there">%1$s is playing a song that\'s only on their phone.</string>
+    <string name="together_song_only_here">This song is only on your phone, so the others can\'t hear it.</string>
+    <string name="together_song_matched">%1$s is playing a song from their phone, so you\'re hearing the YouTube Music version. It might not be exactly the same.</string>
+    <string name="together_song_version">YouTube Music version</string>
     <string name="together_paused_here">Paused here. Press play to go back to where the room is.</string>
     <string name="together_catch_up_after_cast">You\'ll catch up when the cast ends.</string>
     <string name="together_in_room">In a room</string>
