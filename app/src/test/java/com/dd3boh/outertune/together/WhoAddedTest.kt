@@ -243,7 +243,8 @@ class WhoAddedTest {
         // a skip of it rests nothing, as it teaches nothing
         assertTrue("learned = closed.play?.learn ?: true" in service)
         assertTrue("endReason == EndReason.SKIPPED && learned &&" in service)
-        // a room moved to a new code keeps whose each song was
+        // a room moved to a new code keeps whose each song was: a move makes a new key, never one from RoomMemory
         assertTrue("carried = room.carriedSongs()" in body(service, "fun moveTogether("))
+        assertTrue("hostHeardAt = hostHeardAt ?: 0L, carried = carried)" in body(service, "fun startTogether("))
     }
 }

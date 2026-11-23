@@ -596,7 +596,7 @@ class MusicService : MediaLibraryService(),
         // Another room in its place: the one it replaces ends, and an owner's says so. Not when the room carries on under
         // a new code (moveTogether): its people have moved with it.
         together.value?.let { if (moving) it.stop() else it.closeNow() }
-        val session = if (identity != null) TogetherSession(this, code, owner, relays, name, identity, hostHeardAt = hostHeardAt ?: 0L, lead = lead, carried = carried)
+        val session = if (identity != null) TogetherSession(this, code, owner, relays, name, identity, hostHeardAt = hostHeardAt ?: 0L, lead = lead)
         else TogetherSession(this, code, owner, relays, name, hostHeardAt = hostHeardAt ?: 0L, carried = carried)
         together.value = session
         session.start()
