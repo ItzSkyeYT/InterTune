@@ -19,7 +19,7 @@ package com.dd3boh.outertune.together
  */
 object DevBadge {
     /** The developer key's public half, x-only. The private half is in no build and nowhere in the repo. */
-    const val PUBLIC_KEY = "dad8bbd0400b4d4f5ee584061a5d210b1751a34636abae71c83429998ced7ca9"
+    const val PUBLIC_KEY = "b09ba3abe3af12452a2c02e16dbe39421d14f9a8e9f9a185050e464ea798a45c"
 
     /** What a proof signs, apart from the room's tag and the sender: these proofs, and nothing else the key may sign. */
     private const val DOMAIN = "intertune/together/dev/"

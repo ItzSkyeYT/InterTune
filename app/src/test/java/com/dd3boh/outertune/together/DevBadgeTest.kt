@@ -66,8 +66,8 @@ class DevBadgeTest {
     fun `the developer key's own proof holds against the key in the app`() {
         val tag = "00112233445566778899aabbccddeeff"
         val sender = "50929b74c1a04954b78b4b6035e97a5e078a5a0f28ec96d547bfee9ace803ac0"
-        val proof = "2100b598468bde3f702288998262641d1b6aaddff5d685192b87b5690c05f1ea" +
-            "e18333a18e9de7f899deead6b7dddae0c1e9882069c73dd9f8a37e8d5aba366e"
+        val proof = "188efe4f8a2707dde64c121d82ccb41d0504f8670b3b6d2bff28c7b93d7c9420" +
+            "2db6d3ff8e30b33da15e47ac3f2f79371fdc0a980142808c5ad08e1d7a79b856"
         assertTrue(DevBadge.verifies(proof, tag, sender))
         assertFalse(DevBadge.verifies(proof, "00112233445566778899aabbccddeefe", sender))
         assertFalse(DevBadge.verifies(proof, tag, phone))
