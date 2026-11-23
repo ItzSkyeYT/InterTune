@@ -3226,6 +3226,19 @@ while also allowing users to translate our app as well. New, specific strings to
         <item quantity="one">%d song moves once it stops playing</item>
         <item quantity="other">%d songs move once they stop playing</item>
     </plurals>
+    <!-- The extra copies of downloads a bug of 0.12 left in the download folder ("Song [id].mka (1)"), on a card at the top of Library > Downloaded songs (DownloadCopiesCleanup, Unreleased.DOWNLOAD_COPIES_CLEANUP): %1$d how many files, %2$s the room they take ("4 GB"). Then its line while they go, and the toast once they have gone. Held from translators until it ships. -->
+    <string name="dl_copies_title" translatable="false">Extra copies of your songs</string>
+    <plurals name="dl_copies_body" translatable="false">
+        <item quantity="one">A bug left %1$d extra copy of a song in your download folder, taking up %2$s. Removing it keeps one file per song.</item>
+        <item quantity="other">A bug left %1$d extra copies of your songs in your download folder, taking up %2$s. Removing them keeps one file per song.</item>
+    </plurals>
+    <string name="dl_copies_remove" translatable="false">Remove</string>
+    <string name="dl_copies_not_now" translatable="false">Not now</string>
+    <string name="dl_copies_removing" translatable="false">Removing the extra copies: %1$d of %2$d</string>
+    <plurals name="dl_copies_removed" translatable="false">
+        <item quantity="one">Removed %1$d extra copy (%2$s)</item>
+        <item quantity="other">Removed %1$d extra copies (%2$s)</item>
+    </plurals>
     <!-- Downloading songs, simpler (DownloadsSimpleLook): the words of the simpler page he chose, C (experiments/features/downloads-simple). The Storage page in plain words, the one row for where downloads go, the choice of two, and what Download says of where a song goes. The words of the ways not chosen go with the switch. -->
     <string name="dl_simple_size_folder">In your folder: %s</string>
     <string name="dl_simple_clear_confirm">Remove the downloads kept inside the app? Songs in your folder stay.</string>

@@ -469,6 +469,72 @@ class DownloadDirectoryManagerOt(private var context: Context, private var dir: 
         return read
     }
 
+    // ---- The extra copies of downloads a name clash made (DownloadCopies, DownloadCopiesCleanup)
+
+    /** The main folder's own path on the phone, as the database has a file's, or null when it has none. */
+    fun mainFolderPath(): String? = mainDir?.let { dir -> runCatching { fileFromUri(context, dir.uri)?.absolutePath?.trimEnd('/') }.getOrNull() }
+
+    /**
+     * The main folder's files that are ours (DownloadCopies.parse), each with its size, from a listing
+     * of that folder alone: never an extra folder, never a folder inside it. Null when it cannot be
+     * listed; nothing listed when it lists as empty, as dvd's did, which [lookUp] gets round.
+     */
+    fun ourFilesListed(): DownloadCopies.Listed? {
+        val listed = (mainDir as? TreeDocumentFileOt)?.listFilesOrNull() ?: return null
+        val ours = listed.mapNotNull { file ->
+            val name = file.name ?: return@mapNotNull null
+            if (DownloadCopies.parse(name) == null) return@mapNotNull null
+            described(file.uri)?.let { DownloadCopies.File(it.name, it.size, file.uri.toString()) }
+        }
+        return DownloadCopies.Listed(listed.size, ours)
+    }
+
+    /** Whether a file of the main folder can be looked at by its name ([lookUp]): on the phone's own storage and its cards. */
+    fun canLookUp(): Boolean = mainDir?.let { rootOf(it) } != null
+
+    /** The main folder's file called [name] as it is now, or null when there is none, or the folder cannot be asked. */
+    fun lookUp(name: String): DownloadCopies.File? {
+        val main = mainDir?.let { rootOf(it) } ?: return null
+        val uri = DocumentsContract.buildDocumentUriUsingTree(main.dir.uri, childDocumentId(main.documentId, name))
+        return described(uri)?.let { DownloadCopies.File(it.name, it.size, uri.toString()) }
+    }
+
+    /** The file at [key] as it is now, or null when it is gone, or the folder cannot be asked. */
+    fun lookAt(key: String): DownloadCopies.File? = described(Uri.parse(key))?.let { DownloadCopies.File(it.name, it.size, key) }
+
+    /** Deletes the extra copy at [key] and takes it out of the folder's list, under the lock of [deleteFile]. Whether it went. */
+    @Synchronized
+    fun removeCopy(key: String): Boolean {
+        val uri = Uri.parse(key)
+        val gone = runCatching { DocumentsContract.deleteDocument(context.contentResolver, uri) }.getOrDefault(false)
+        if (gone) {
+            availableFiles = availableFiles.filterNot { it.uri == uri }.toSet()
+            runCatching { DocumentsContract.getDocumentId(uri) }.getOrNull()?.let { songFileIds.remove(it) }
+        }
+        return gone
+    }
+
+    /**
+     * [mediaId]'s one file left at [key], renamed to [name] first when one is given: its address from
+     * now on, in the folder's list as a listed file is. A rename that fails leaves it as it was, under
+     * its old address.
+     */
+    fun keepFile(mediaId: String, key: String, name: String?): Uri {
+        var uri = Uri.parse(key)
+        if (name != null) {
+            val renamed = runCatching { DocumentsContract.renameDocument(context.contentResolver, uri, name) }
+                .onFailure { Log.w(TAG, "Could not name the file kept of $mediaId $name", it) }
+                .getOrNull()
+            if (renamed != null) {
+                val old = uri
+                synchronized(this) { availableFiles = availableFiles.filterNot { it.uri == old }.toSet() }
+                uri = renamed
+            }
+        }
+        described(uri)?.let { adopt(mediaId, TreeDocumentFileOt(null, context, uri, it.name, it.mime)) }
+        return uri
+    }
+
     /** Files found under a folder keep that folder's tree in their address. */
     private fun isInMainDir(file: DocumentFile): Boolean {
         val main = mainDir ?: return false
