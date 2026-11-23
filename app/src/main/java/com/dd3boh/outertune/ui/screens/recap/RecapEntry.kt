@@ -62,6 +62,7 @@ import com.dd3boh.outertune.recap.RecapCalendar
 import com.dd3boh.outertune.recap.RecapDoor
 import com.dd3boh.outertune.recap.RecapReader
 import com.dd3boh.outertune.recap.RecapSound
+import com.dd3boh.outertune.ui.utils.OpensOnScreen
 import com.dd3boh.outertune.utils.rememberPreference
 import com.dd3boh.outertune.viewmodels.RecapState
 import com.dd3boh.outertune.viewmodels.RecapViewModel
@@ -108,7 +109,8 @@ fun RecapEntry(setupDone: Boolean, quiet: Boolean, onOpenPlaylist: (String) -> U
         RecapDoor.opened()
     }
 
-    open?.let { year -> RecapDialog(year, onClose = { open = null }, onOpenPlaylist = onOpenPlaylist) }
+    // Opened by itself, or by a door asked from outside the screen: its window only while the app is on screen.
+    open?.let { year -> OpensOnScreen { RecapDialog(year, onClose = { open = null }, onOpenPlaylist = onOpenPlaylist) } }
 }
 
 /**

@@ -22,6 +22,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.app.NotificationManagerCompat
 import androidx.datastore.preferences.core.edit
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.withStarted
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.PhoneAudioExplainedKey
 import com.dd3boh.outertune.utils.dataStore
@@ -116,16 +117,21 @@ class PhoneListenActivity : ComponentActivity() {
     private fun explainThenAsk() {
         lifecycleScope.launch {
             if (dataStore.data.first()[PhoneAudioExplainedKey] == true) return@launch askForTheSound()
-            AlertDialog.Builder(PhoneAudio.dialogContext(this@PhoneListenActivity))
-                .setTitle(R.string.recognition_phone_tile)
-                .setMessage(R.string.recognition_phone_note)
-                .setPositiveButton(R.string.recognition_phone_continue) { _, _ ->
-                    lifecycleScope.launch { dataStore.edit { it[PhoneAudioExplainedKey] = true } }
-                    askForTheSound()
-                }
-                .setNegativeButton(android.R.string.cancel) { _, _ -> finish() }
-                .setOnCancelListener { finish() }
-                .show()
+            // The read can end after this screen has gone away, and a dialog needs a screen Android
+            // still has (#197): it waits for the screen to be up, and one that is closing asks nothing.
+            withStarted<Unit> {
+                if (isFinishing) return@withStarted
+                AlertDialog.Builder(PhoneAudio.dialogContext(this@PhoneListenActivity))
+                    .setTitle(R.string.recognition_phone_tile)
+                    .setMessage(R.string.recognition_phone_note)
+                    .setPositiveButton(R.string.recognition_phone_continue) { _, _ ->
+                        lifecycleScope.launch { dataStore.edit { it[PhoneAudioExplainedKey] = true } }
+                        askForTheSound()
+                    }
+                    .setNegativeButton(android.R.string.cancel) { _, _ -> finish() }
+                    .setOnCancelListener { finish() }
+                    .show()
+            }
         }
     }
 
