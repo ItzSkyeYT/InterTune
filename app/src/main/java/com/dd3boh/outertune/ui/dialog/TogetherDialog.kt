@@ -436,23 +436,22 @@ private fun RoomPage(room: TogetherSession, song: MediaMetadata?, onLeave: () ->
     val invite = stringResource(R.string.together_invite_line, room.code.webLink)
     var showingQr by rememberSaveable { mutableStateOf(false) }
     if (showingQr) RoomQrDialog(room.code, onDismiss = { showingQr = false })
-    // The owner's leaving ends the room for everyone: asked first (his word of 17 Oct 2026).
+    // The owner's leaving is asked first (his word of 17 Oct 2026): hand the room on, the others carrying on, or close it
+    // for everyone (his find of 23 Nov 2026, RoomLeaveDialog). Who would get it is looked at as the sheet draws, with
+    // every word in the room.
     var confirmingClose by rememberSaveable { mutableStateOf(false) }
     if (confirmingClose) {
-        AlertDialog(
-            onDismissRequest = { confirmingClose = false },
-            icon = { Icon(Icons.AutoMirrored.Rounded.Logout, contentDescription = null) },
-            title = { Text(stringResource(R.string.together_close_room_title)) },
-            text = { Text(stringResource(R.string.together_close_room_text)) },
-            confirmButton = {
-                TextButton(onClick = {
-                    confirmingClose = false
-                    onLeave()
-                }) { Text(stringResource(R.string.together_close_room), color = MaterialTheme.colorScheme.error) }
+        RoomLeaveDialog(
+            choice = room.leaveChoice(),
+            onHandOn = {
+                haptics.performHapticFeedback(HapticFeedbackType.Confirm)
+                if (room.handOnAndLeave()) confirmingClose = false
             },
-            dismissButton = {
-                TextButton(onClick = { confirmingClose = false }) { Text(stringResource(android.R.string.cancel)) }
+            onClose = {
+                confirmingClose = false
+                onLeave()
             },
+            onDismiss = { confirmingClose = false },
         )
     }
 
@@ -667,6 +666,7 @@ private fun RoomPage(room: TogetherSession, song: MediaMetadata?, onLeave: () ->
             meOwner = room.owner,
             meLeading = status.leading,
             meDev = status.dev,
+            canGiveControl = room::canGiveControl,
             onGiveControl = { haptics.performHapticFeedback(HapticFeedbackType.Confirm); room.handOver(it) },
             onKick = { haptics.performHapticFeedback(HapticFeedbackType.Reject); room.kick(it) },
         )
@@ -698,8 +698,8 @@ private fun RoomPage(room: TogetherSession, song: MediaMetadata?, onLeave: () ->
         ) {
             Icon(Icons.AutoMirrored.Rounded.Logout, contentDescription = null, modifier = Modifier.size(ButtonDefaults.IconSize))
             Spacer(Modifier.width(ButtonDefaults.IconSpacing))
-            // The owner's leaving closes the room for everyone, and says so.
-            Text(stringResource(if (room.owner) R.string.together_close_room else R.string.together_leave))
+            // Everyone leaves the same way; the owner is then asked whether the room goes on without it (RoomLeaveDialog).
+            Text(stringResource(R.string.together_leave))
         }
         WalkTo(WalkStop.LEAVE)
         // The tour of a room, any time (RoomTour).
@@ -1152,6 +1152,8 @@ private fun People(
     meOwner: Boolean,
     meLeading: Boolean,
     meDev: Boolean,
+    /** Whether [onGiveControl] is offered for a member: not to an older build by a host that was handed the room (RoomHandOn). */
+    canGiveControl: (TogetherSession.Member) -> Boolean,
     onGiveControl: (TogetherSession.Member) -> Unit,
     onKick: (TogetherSession.Member) -> Unit,
 ) {
@@ -1176,7 +1178,7 @@ private fun People(
                             } else null,
                         )
                         DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                            if (!member.leader) {
+                            if (!member.leader && canGiveControl(member)) {
                                 DropdownMenuItem(
                                     // Who gets it, by name (testers, 22 Nov 2026: control changed hands and nobody knew to whom).
                                     text = {

@@ -2545,7 +2545,7 @@
     <string name="together_walk_people_host">Tout le monde dans le salon. Touchez quelqu\'un pour lui donner la main ou le retirer du salon.</string>
     <string name="together_walk_settings">Les réglages de votre salon, pour choisir si tout le monde peut se déplacer dans le titre ou modifier la file d\'attente.</string>
     <string name="together_walk_leave">Partez quand vous voulez, les autres continuent d\'écouter.</string>
-    <string name="together_walk_close">Ça ferme le salon pour tout le monde.</string>
+    <string name="together_walk_close">Partez quand vous voulez. Vous pouvez confier le salon à quelqu\'un pour que tout le monde continue d\'écouter, ou le fermer.</string>
     <string name="together_start">Créer un salon</string>
     <string name="together_code">Code du salon</string>
     <string name="together_join">Rejoindre</string>
@@ -2618,6 +2618,8 @@
     <string name="together_control_yours">Vous avez la main : vous choisissez la musique pour tout le monde.</string>
     <string name="together_control_theirs">%1$s a la main maintenant</string>
     <string name="together_control_back">%1$s ne répond plus, alors vous reprenez la main.</string>
+    <string name="together_hosts_now">%1$s est l\'hôte du salon maintenant</string>
+    <string name="together_host_yours">Vous êtes l\'hôte maintenant : vous choisissez la musique pour tout le monde.</string>
     <string name="together_kick">Retirer du salon</string>
     <string name="together_room_settings">Réglages du salon</string>
     <string name="together_everyone_seeks">Laisser chacun se déplacer dans le titre</string>
@@ -2663,6 +2665,10 @@
     <string name="together_qr_hint">Pointez l\'appareil photo de l\'autre téléphone ici. Il ouvre le salon dans InterTune.</string>
     <string name="together_close_room_title">Fermer le salon ?</string>
     <string name="together_close_room_text">Tout le monde le quitte, et son code ne marche plus.</string>
+    <string name="together_close_room_older">Pour le confier à quelqu\'un, les autres doivent mettre à jour InterTune.</string>
+    <string name="together_leave_title">Quitter le salon ?</string>
+    <string name="together_hand_on">Le confier à %1$s</string>
+    <string name="together_hand_on_text">Tout le monde continue d\'écouter, avec %1$s comme hôte.</string>
     <string name="together_scan">Scanner un code QR</string>
     <string name="together_scan_hint">Pointez l\'appareil photo vers le code QR de l\'autre téléphone.</string>
     <string name="together_scan_refused">Le scan a besoin de l\'appareil photo. Autorisez-le pour InterTune dans les réglages du téléphone, ou tapez le code.</string>

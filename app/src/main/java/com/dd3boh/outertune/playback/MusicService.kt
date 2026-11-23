@@ -565,6 +565,14 @@ class MusicService : MediaLibraryService(),
     }
 
     /**
+     * This phone hosts the room [code] now: its host handed it on as it left (together/RoomHandOn). Kept so, so that it
+     * comes back to it as its host, with the key it had there (RoomMemory.hosted).
+     */
+    fun roomHosted(code: RoomCode) {
+        scope.launch(Dispatchers.IO) { roomMemory.hosted(code) }
+    }
+
+    /**
      * Opens a room, hosting or following, in place of any already open. Main thread. Null on a service that has
      * stopped: a room made there is held by nothing and stopped by nothing (onDestroy has run), and went on saying it
      * was the host to a screen that was no longer there. The app keeps the stopped service for a moment after it comes

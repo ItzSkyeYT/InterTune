@@ -6,6 +6,7 @@
 
 package com.dd3boh.outertune.together
 
+import com.dd3boh.outertune.utils.ReportTrail
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -101,7 +102,8 @@ class RoomJoinTest {
         val words = Regex("""^\s+[A-Z_]+\("([^"]*)"\),?$""", RegexOption.MULTILINE)
             .findAll(trail.substringAfter("enum class Room(val words: String) {").substringBefore("\n    }\n"))
             .map { it.groupValues[1] }.toList()
-        assertEquals(15, words.size)
+        // Every step's words read, however many steps there are.
+        assertEquals(ReportTrail.Room.entries.size, words.size)
         words.forEach { assertFalse(it, '$' in it || '%' in it) }
         // The session's log lines that reports keep never carry the code.
         assertFalse(Regex("""Log\.[iwe]\(TAG, "[^"\n]*\$\{?code\b""").containsMatchIn(session))

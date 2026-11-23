@@ -63,6 +63,15 @@ class RoomMemory(private val file: File) {
         read()?.takeIf { it.code == code.raw }?.let { write(it.copy(lead = key)) }
     }
 
+    /**
+     * This phone hosts the room [code] now, handed it by its host as it left (RoomHandOn): it comes back as its host, with
+     * the key it had there. Only if it is still the room kept, as for [touch].
+     */
+    @Synchronized
+    fun hosted(code: RoomCode) {
+        read()?.takeIf { it.code == code.raw }?.let { write(it.copy(owner = true)) }
+    }
+
     @Synchronized
     fun forget() {
         runCatching { file.delete() }
