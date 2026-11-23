@@ -155,7 +155,11 @@ fun RoomTourDialog(onDismiss: () -> Unit) {
                     )
                     FilledIconButton(onClick = {
                         haptics.performHapticFeedback(HapticFeedbackType.ContextClick)
-                        if (last) onDismiss() else scope.launch { pager.animateScrollToPage(pager.currentPage + 1) }
+                        // Done goes on to the walk over the room's sheet, when one is on screen (RoomWalk); Skip skips both.
+                        if (last) {
+                            if (RoomWalkAsk.areas > 0) RoomWalkAsk.wanted = true
+                            onDismiss()
+                        } else scope.launch { pager.animateScrollToPage(pager.currentPage + 1) }
                     }) {
                         Icon(
                             if (last) Icons.Rounded.Check else Icons.AutoMirrored.Rounded.ArrowForward,

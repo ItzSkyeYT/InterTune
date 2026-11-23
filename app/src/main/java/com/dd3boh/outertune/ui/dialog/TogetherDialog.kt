@@ -320,10 +320,13 @@ fun TogetherSheet(onDismiss: () -> Unit) {
                         },
                     )
                 } else {
-                    RoomPage(room, song, onLeave = {
-                        haptics.performHapticFeedback(HapticFeedbackType.ToggleOff)
-                        room.leave()
-                    })
+                    // The walk over this page after the tour's pages (RoomWalk).
+                    RoomWalkArea(owner = room.owner) {
+                        RoomPage(room, song, onLeave = {
+                            haptics.performHapticFeedback(HapticFeedbackType.ToggleOff)
+                            room.leave()
+                        })
+                    }
                 }
             }
         }
@@ -500,6 +503,9 @@ private fun RoomPage(room: TogetherSession, song: MediaMetadata?, onLeave: () ->
         // Who chooses the music and what this phone can do, in plain words (RoomRole); for the owner who gave control away, the
         // way back as well.
         val leaderName = status.leaderName ?: stringResource(R.string.together_someone)
+        // Every role line starts with 14 dp of space (in RoleLine, or the Spacer before ControlRow): the walk's outline
+        // starts under it, clear of the line above. With no role line the stop has no height and is left out.
+        WalkFrom(WalkStop.ROLE, inset = 14.dp)
         when (RoomRole.of(room.owner, status.leading, hostAway, status.waitingForHost)) {
             RoomRole.IN_CONTROL -> RoleLine(stringResource(R.string.together_role_in_control))
             RoomRole.OWNER_GAVE -> {
@@ -512,8 +518,10 @@ private fun RoomPage(room: TogetherSession, song: MediaMetadata?, onLeave: () ->
             RoomRole.GUEST -> RoleLine(stringResource(R.string.together_role_guest, leaderName))
             null -> Unit
         }
+        WalkTo(WalkStop.ROLE)
 
         Spacer(Modifier.height(20.dp))
+        WalkFrom(WalkStop.INVITE)
         SectionLabel(stringResource(R.string.together_code))
         Spacer(Modifier.height(10.dp))
         CodeChips(room.code, onClick = ::copy)
@@ -543,8 +551,10 @@ private fun RoomPage(room: TogetherSession, song: MediaMetadata?, onLeave: () ->
                 Text(stringResource(R.string.together_share), maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
+        WalkTo(WalkStop.INVITE)
 
         Hairline()
+        WalkFrom(WalkStop.PLAYING)
         SectionLabel(stringResource(R.string.together_playing))
         Spacer(Modifier.height(12.dp))
         val hostSong = status.hostSong
@@ -630,7 +640,9 @@ private fun RoomPage(room: TogetherSession, song: MediaMetadata?, onLeave: () ->
                 )
             }
         }
+        WalkTo(WalkStop.PLAYING)
         // A guest's song waiting for this phone's answer: here too, since this sheet covers the card at the top of the app.
+        WalkFrom(WalkStop.PROPOSAL)
         if (status.leading) status.proposals.firstOrNull()?.let {
             Spacer(Modifier.height(14.dp))
             ProposalCard(
@@ -641,8 +653,10 @@ private fun RoomPage(room: TogetherSession, song: MediaMetadata?, onLeave: () ->
                 elevation = 0.dp,
             )
         }
+        WalkTo(WalkStop.PROPOSAL)
 
         Hairline()
+        WalkFrom(WalkStop.PEOPLE)
         SectionLabel(stringResource(R.string.together_people))
         Spacer(Modifier.height(12.dp))
         People(
@@ -652,6 +666,7 @@ private fun RoomPage(room: TogetherSession, song: MediaMetadata?, onLeave: () ->
             onGiveControl = { haptics.performHapticFeedback(HapticFeedbackType.Confirm); room.handOver(it) },
             onKick = { haptics.performHapticFeedback(HapticFeedbackType.Reject); room.kick(it) },
         )
+        WalkTo(WalkStop.PEOPLE)
         if (!status.leading) {
             Spacer(Modifier.height(14.dp))
             Text(
@@ -663,11 +678,14 @@ private fun RoomPage(room: TogetherSession, song: MediaMetadata?, onLeave: () ->
         // The host's own switches for the room, who may do what (RoomSettings), the same as in Settings > Listen together.
         if (room.owner) {
             Hairline()
+            WalkFrom(WalkStop.SETTINGS)
             SectionLabel(stringResource(R.string.together_room_settings))
             Spacer(Modifier.height(4.dp))
             RoomSettingsSwitches()
+            WalkTo(WalkStop.SETTINGS)
         }
         Spacer(Modifier.height(24.dp))
+        WalkFrom(WalkStop.LEAVE)
         OutlinedButton(
             onClick = { if (room.owner) confirmingClose = true else onLeave() },
             colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
@@ -679,6 +697,7 @@ private fun RoomPage(room: TogetherSession, song: MediaMetadata?, onLeave: () ->
             // The owner's leaving closes the room for everyone, and says so.
             Text(stringResource(if (room.owner) R.string.together_close_room else R.string.together_leave))
         }
+        WalkTo(WalkStop.LEAVE)
         // The tour of a room, any time (RoomTour).
         Spacer(Modifier.height(8.dp))
         HowRoomsWork(Modifier.align(Alignment.CenterHorizontally))

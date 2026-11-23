@@ -2739,6 +2739,15 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="together_tour_add_body">Just press Play next on a song and it\'ll play after the current one, for everyone in the room.</string>
     <string name="together_tour_own_title">Your own way</string>
     <string name="together_tour_own_body">Pausing only pauses for you. You can listen on your own but catch up whenever you want.</string>
+    <string name="together_walk_role">This tells you who\'s picking the music right now, and what you can do.</string>
+    <string name="together_walk_invite">Send the link to your friends, or let them scan the QR code.</string>
+    <string name="together_walk_playing">This is what the room\'s playing. If you\'re listening on your own, just press Catch up to get back in.</string>
+    <string name="together_walk_proposal">When someone proposes a song it shows up here, just press Play it or Not now.</string>
+    <string name="together_walk_people">Everyone in the room. The star is the host and the ring is whoever\'s picking the music.</string>
+    <string name="together_walk_people_host">Everyone in the room. Tap on someone to give them control or remove them from the room.</string>
+    <string name="together_walk_settings">Your room settings, so you can choose if everyone can move in the song or change the queue.</string>
+    <string name="together_walk_leave">Leave whenever you want, the others keep listening.</string>
+    <string name="together_walk_close">This closes the room for everyone.</string>
     <string name="together_start">Start a room</string>
     <string name="together_code">Room code</string>
     <string name="together_join">Join</string>
