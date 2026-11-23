@@ -2743,9 +2743,15 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="together_invite_line">Join my room on InterTune:\n%1$s</string>
     <string name="together_own_way">Playing on your own</string>
     <string name="together_catch_up">Catch up</string>
-    <string name="together_suggest">Play next in the room</string>
-    <string name="together_suggested">Sent to the host</string>
+    <string name="together_suggested">Added to the room: it plays next</string>
+    <string name="together_suggested_many">Added to the room: %1$d songs play next</string>
+    <string name="together_suggested_end">Added to the end of the room\'s queue</string>
+    <string name="together_suggested_many_end">%1$d songs added to the end of the room\'s queue</string>
+    <string name="together_suggested_cut">%1$d songs added to the room; the rest stayed out</string>
+    <string name="together_suggested_files">Songs from your files can\'t be played by the others</string>
     <string name="together_from_guest">%1$s suggested %2$s: it plays next</string>
+    <string name="together_from_guest_end">%1$s added %2$s to the end of the queue</string>
+    <string name="together_from_guest_many">%1$s added %2$d songs to the queue</string>
     <string name="together_last_suggestion">Last from a guest: %1$s</string>
     <string name="together_live_hosting">You\'re hosting</string>
     <string name="together_live_guest">You joined a room</string>
@@ -2761,7 +2767,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="together_behind">Behind</string>
     <string name="together_ahead">Ahead</string>
     <string name="together_nothing_playing">Nothing playing yet</string>
-    <string name="together_suggest_hint">To suggest a song, long-press it and choose Play next in the room.</string>
+    <string name="together_suggest_hint">To add a song to the room, long-press it and choose Play next.</string>
     <string name="together_you_control">You have control</string>
     <string name="together_has_control">%1$s chooses the music for now.</string>
     <string name="together_role_in_control">You choose the music. Anyone in the room can add songs.</string>

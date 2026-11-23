@@ -2541,9 +2541,15 @@
     <string name="together_invite_line">Rejoins mon salon sur InterTune :\n%1$s</string>
     <string name="together_own_way">Vous écoutez de votre côté</string>
     <string name="together_catch_up">Rattraper</string>
-    <string name="together_suggest">Jouer ensuite dans le salon</string>
-    <string name="together_suggested">Envoyé à l\'hôte</string>
+    <string name="together_suggested">Ajouté au salon : il passe ensuite</string>
+    <string name="together_suggested_many">Ajoutés au salon : %1$d titres passent ensuite</string>
+    <string name="together_suggested_end">Ajouté à la fin de la file du salon</string>
+    <string name="together_suggested_many_end">%1$d titres ajoutés à la fin de la file du salon</string>
+    <string name="together_suggested_cut">%1$d titres ajoutés au salon ; les autres sont restés dehors</string>
+    <string name="together_suggested_files">Les titres de vos fichiers ne peuvent pas être lus par les autres</string>
     <string name="together_from_guest">%1$s propose %2$s : il passe ensuite</string>
+    <string name="together_from_guest_end">%1$s a ajouté %2$s à la fin de la file</string>
+    <string name="together_from_guest_many">%1$s a ajouté %2$d titres à la file</string>
     <string name="together_last_suggestion">Dernier d\'un invité : %1$s</string>
     <string name="together_live_hosting">Vous êtes l\'hôte</string>
     <string name="together_live_guest">Vous avez rejoint un salon</string>
@@ -2559,7 +2565,7 @@
     <string name="together_behind">En retard</string>
     <string name="together_ahead">En avance</string>
     <string name="together_nothing_playing">Rien en lecture pour l\'instant</string>
-    <string name="together_suggest_hint">Pour proposer un titre, appuyez longuement dessus et choisissez Jouer ensuite dans le salon.</string>
+    <string name="together_suggest_hint">Pour ajouter un titre au salon, appuyez longuement dessus et choisissez Suivant.</string>
     <string name="together_you_control">Vous avez la main</string>
     <string name="together_has_control">%1$s choisit la musique pour l\'instant.</string>
     <string name="together_role_in_control">Vous choisissez la musique. Tout le monde dans le salon peut ajouter des titres.</string>
