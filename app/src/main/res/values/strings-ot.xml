@@ -2798,6 +2798,11 @@ while also allowing users to translate our app as well. New, specific strings to
         <item quantity="one">%1$s added %2$d song to the queue</item>
         <item quantity="other">%1$s added %2$d songs to the queue</item>
     </plurals>
+    <!-- Said to the person in control of a listening room who starts a whole album, playlist or radio: the songs put in the queue by hand that hadn't played yet stay, right after its first song (RoomTap). -->
+    <plurals name="together_kept_added">
+        <item quantity="one">%1$d added song still plays next</item>
+        <item quantity="other">%1$d added songs still play next</item>
+    </plurals>
     <string name="together_last_suggestion">Last from a guest: %1$s</string>
     <string name="together_live_hosting">You\'re hosting</string>
     <string name="together_live_guest">You joined a room</string>

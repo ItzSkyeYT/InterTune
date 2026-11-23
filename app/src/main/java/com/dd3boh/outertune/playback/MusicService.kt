@@ -243,6 +243,7 @@ import com.dd3boh.outertune.playback.ListenReporting.AddressFrom
 import com.dd3boh.outertune.playback.queues.ListQueue
 import com.dd3boh.outertune.playback.queues.Queue
 import com.dd3boh.outertune.playback.queues.YouTubeQueue
+import com.dd3boh.outertune.together.RoomTap
 import com.dd3boh.outertune.together.TogetherSession
 import com.dd3boh.outertune.together.RoomCode
 import com.dd3boh.outertune.together.RoomMemory
@@ -2685,7 +2686,7 @@ class MusicService : MediaLibraryService(),
 
     fun toggleStartRadio() {
         val mediaMetadata = activePlayer.currentMetadata ?: return
-        playQueue(YouTubeQueue.radio(mediaMetadata), isRadio = true)
+        playQueue(YouTubeQueue.radio(mediaMetadata), isRadio = true, radioAsked = true)
     }
 
 
@@ -2714,6 +2715,11 @@ class MusicService : MediaLibraryService(),
         tappedAt: Long? = null,
         /** The card's row was the one built under the Discover chip, as Home knew it at the tap (NeverHeardQueue.isPick). */
         discoverRow: Boolean = false,
+        /**
+         * Start radio, asked for on a song, whose queue is the one a card's tap starts: in a listening room a whole start,
+         * where a song tapped plays next and now (RoomTap).
+         */
+        radioAsked: Boolean = false,
     ) {
         // Radio was already a flag; it is also an origin, and the more useful of the two.
         val playOrigin = if (origin == PlayOrigin.UNKNOWN && isRadio) PlayOrigin.RADIO else origin
@@ -2723,10 +2729,6 @@ class MusicService : MediaLibraryService(),
         pendingTap = tappedAt
         val runId = System.currentTimeMillis()
 
-        queuePlaylistId = queue.playlistId
-        // Whatever the last start left unsaid is for that start alone.
-        radioStopped.value = null
-        radioFromInterTune.value = null
         // do not use scope.launch ... it breaks randomly... why is this bug back???
         CoroutineScope(Dispatchers.Main).launch {
             // This coroutine is not a child of anything onDestroy cancels, so it checks
@@ -2734,6 +2736,15 @@ class MusicService : MediaLibraryService(),
             // body runs on a later turn of the main loop than the launch, and QueueStart does
             // after each point where it suspends.
             if (destroyed) return@launch
+            // On the phone in control of a listening room, a song tapped plays next and now, and the room's queue stays
+            // after it (RoomTap): the queue playing is kept, and nothing below, which starts a new one, is for it.
+            if (roomTap(queue, radioAsked, origin, playWhenReady)) return@launch
+            queuePlaylistId = queue.playlistId
+            // Whatever the last start left unsaid is for that start alone.
+            radioStopped.value = null
+            radioFromInterTune.value = null
+            // And a whole list or a radio there keeps the songs put in by hand that have not played (roomStartEnds).
+            val roomStart = roomStartBegins()
             Log.d(TAG, "playQueue: Resolving additional queue data...")
             // Before the queue loads, whose song changes are this start's: the stop on a song not
             // to play or a blocked artist's is the queue before's, and a list's Play or Shuffle
@@ -2786,6 +2797,8 @@ class MusicService : MediaLibraryService(),
                                     origin = origin,
                                     originSlot = originSlot,
                                     discoverRow = discoverRow,
+                                    // The radio asked for again: in a room too, not a song tapped (RoomTap).
+                                    radioAsked = true,
                                 )
                             }
                         }
@@ -2793,9 +2806,107 @@ class MusicService : MediaLibraryService(),
             }
             // The steps stop where they are when the service is torn down under them.
             if (destroyed) return@launch
+            // What a room's start kept goes back in where it landed, loaded or failed, once no later start will.
+            roomStart?.let(::roomStartEnds)
 
             Log.d(TAG, "playQueue: Queue additional data resolution complete")
         }
+    }
+
+    /** The whole starts made in a room still waiting for an answer, and what they kept: see RoomTap.Starts. Main thread. */
+    private val roomStarts = RoomTap.Starts<MultiQueueObject, MediaMetadata>()
+
+    /**
+     * A song tapped on the phone in control of a listening room (RoomTap): put in right after the song playing, or moved
+     * there when it is further on in the queue already, and played, every song after it where it was. The room hears of
+     * it as of any song change (TogetherSession's listener). False when this is no such tap, and the start goes on as
+     * ever: outside a room, on a phone that follows someone, for a whole list or a radio asked for, and while the player
+     * holds nothing to keep. Main thread.
+     */
+    private fun roomTap(queue: Queue, radioAsked: Boolean, origin: PlayOrigin, playWhenReady: Boolean): Boolean {
+        if (together.value?.following != false || !qbInit.value) return false
+        val song = RoomTap.songOf(queue, radioAsked) ?: return false
+        val q = queueBoard.getCurrentQueue() ?: return false
+        val player = activePlayer
+        if (player.currentMediaItem == null || q.getSize() == 0) return false
+        // This tap is the last one: a start still waiting for its answer would load over it.
+        queueStart.drop()
+        val (from, kept) = roomStarts.tap()
+        letGoOfBlockedStop()
+        unpickedStart = 0L
+        val current = player.currentMediaItemIndex
+        val ids = (0 until player.mediaItemCount).map { player.getMediaItemAt(it).mediaId }
+        val at = when (val step = RoomTap.step(ids, current, song.id)) {
+            RoomTap.Step.Playing -> null
+            is RoomTap.Step.Move -> step.to.also {
+                if (step.from != step.to) {
+                    queueBoard.moveSong(step.from, step.to)
+                    player.moveMediaItem(step.from, step.to)
+                }
+            }
+            is RoomTap.Step.Insert -> step.at.also {
+                noteByHand(q, listOf(song.id))
+                queueBoard.addSongsToQueue(q, it, listOf(song))
+            }
+        }
+        if (at != null) {
+            // Its listen is the tap's, from where it was tapped; the queue keeps its own origin.
+            if (origin != PlayOrigin.UNKNOWN) pendingOrigin = origin
+            player.seekTo(at, (queue as? ListQueue)?.position ?: 0L)
+        } else {
+            // The song playing plays on: no song change will read the mark.
+            userChoicePending = false
+            pendingTap = null
+        }
+        // A whole start still waiting, dropped for this tap: what it kept goes on after the song tapped.
+        putBackRoomSongs(from, kept)
+        player.prepare()
+        player.playWhenReady = playWhenReady
+        Log.i(TAG, "Room: a song tapped plays ${if (at == null) "on" else "next and now, the queue after it as it was"}")
+        return true
+    }
+
+    /**
+     * A start in a room: its number, and the songs put in by hand ahead in the queue playing kept for it (RoomTap.Starts),
+     * while this phone is in control of a room; null otherwise. Main thread.
+     */
+    private fun roomStartBegins(): Long? {
+        val q = queueBoard.getCurrentQueue()
+        val inRoom = together.value?.following == false && q != null && activePlayer.currentMediaItem != null
+        return roomStarts.begin(q.takeIf { inRoom }, if (inRoom && q != null) handAddedIn(q, playing = true) else null)
+    }
+
+    /** The start numbered [n] has loaded, or failed: what the room's starts kept goes back, when it is the last of them. */
+    private fun roomStartEnds(n: Long) {
+        val (from, kept) = roomStarts.end(n) ?: return
+        putBackRoomSongs(from, kept)
+    }
+
+    /** The songs put in by hand after the song playing in [q] (RoomTap.handAdded): the player's place when [playing], else the queue's. */
+    private fun handAddedIn(q: MultiQueueObject, playing: Boolean): List<MediaMetadata> {
+        if (q.getSize() == 0) return emptyList()
+        val at = if (playing) activePlayer.currentMediaItemIndex else q.getQueuePosShuffled()
+        return RoomTap.handAdded(q.getCurrentQueueShuffled(), at, heard.byHandIn(q.id, q.runId)) { it.id }
+    }
+
+    /**
+     * The songs put in by hand that a room's whole start left out of the queue playing now, [kept] from the queue the
+     * room played, [from], and those put into it while the start waited, go back in right after the song playing, in
+     * their order, put in by hand there too; and out of [from], so that they are not waiting there twice. Said once.
+     */
+    private fun putBackRoomSongs(from: MultiQueueObject?, kept: List<MediaMetadata>) {
+        val now = queueBoard.getCurrentQueue() ?: return
+        if (activePlayer.currentMediaItem == null) return
+        val waited = from?.takeIf { it !== now && queueBoard.getAllQueues().any { q -> q === it } }?.let { handAddedIn(it, playing = false) }.orEmpty()
+        val all = kept + waited.filter { w -> kept.none { it === w } }
+        val current = activePlayer.currentMediaItemIndex
+        val back = RoomTap.toPutBack(all, now.getCurrentQueueShuffled().drop(current + 1), activePlayer.currentMediaItem?.mediaId) { it.id }
+        if (back.isEmpty()) return
+        noteByHand(now, back.map { it.id })
+        queueBoard.addSongsToQueue(now, now.playNextIndex(current).coerceIn(0, now.getSize()), back)
+        if (from != null && from !== now) queueBoard.takeOut(from, back)
+        Log.i(TAG, "Room: ${back.size} songs put in by hand go on after the new start's first song")
+        Toaster.show(this, resources.getQuantityString(R.plurals.together_kept_added, back.size, back.size))
     }
 
     /** The songs put in with Play next that have not played yet. Main thread. See [PlayNextWaiting]. */

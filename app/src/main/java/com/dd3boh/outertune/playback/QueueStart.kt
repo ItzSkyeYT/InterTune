@@ -80,6 +80,15 @@ internal class QueueStart(private val service: Target) {
      */
     private var lastStart = 0L
 
+    /**
+     * A start that does not go through [run] has been made: a song tapped in a listening room, which plays in the queue
+     * playing (RoomTap). A run still waiting for its answer is dropped, as for a newer tap: its answer would load over
+     * that song. Main thread.
+     */
+    fun drop() {
+        lastStart++
+    }
+
     /** What the steps ask of the service. Every call is made on the main thread. */
     interface Target {
         /** True once the service is being torn down: nothing more is asked of it after that. */

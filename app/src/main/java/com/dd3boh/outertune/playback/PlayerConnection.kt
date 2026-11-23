@@ -202,6 +202,8 @@ class PlayerConnection(
          * never heard, as a Discover something new card's does by its origin (NeverHeardQueue).
          */
         discoverRow: Boolean = false,
+        /** Start radio on a song: in a listening room a whole start, not a song tapped (RoomTap). */
+        radioAsked: Boolean = false,
     ) {
         service.playQueue(
             queue = queue,
@@ -213,6 +215,7 @@ class PlayerConnection(
             originSlot = originSlot,
             tappedAt = tappedAt,
             discoverRow = discoverRow,
+            radioAsked = radioAsked,
         )
     }
 
