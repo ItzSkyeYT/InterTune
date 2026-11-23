@@ -99,7 +99,7 @@ android {
             obfuscated(service("polls.gistUrl"))
         )
         // The same signed document on the other hosts, asked at once with the gist (SignedDocument.kt),
-        // and the one asked only when those give nothing (Codeberg).
+        // and the one asked only when those give nothing (GitLab).
         buildConfigField(
             "int[]",
             "POLLS_MIRRORS",

@@ -86,13 +86,13 @@ class CheckedPicturesTest {
         val news = SignedDocument.open(File(dir, "news.json").readText(), SignedDocument.NEWS, listOf(main), 0, emptySet(), now) as SignedDocument.Accepted
         val known = CheckedPictures.read(news.payload)[url]!!
         assertEquals(CheckedPictures.sha256("RIFF....WEBPVP8 the release picture".toByteArray()), known.sha256)
-        // The hosts are the ones the signed document names, not a list in the app: this sample was signed while the
-        // fourth host was Codeberg (GitLab since 18 Nov 2026), and the app takes them as written.
+        // The hosts are the ones the signed document names, not a list in the app: the app takes them as written.
+        // The sample is made again with tools/announce/make_app_fixtures.py when the tool's hosts change.
         assertEquals(
             listOf(
                 "https://intertune.app/news/p/${known.sha256}.webp",
                 "https://intertune-count.intertune.workers.dev/news/p/${known.sha256}.webp",
-                "https://codeberg.org/ItzSkyeYT/intertune-news/raw/branch/main/news/p/${known.sha256}.webp",
+                "https://gitlab.com/itzskyeyt/intertune-news/-/raw/main/news/p/${known.sha256}.webp",
             ),
             known.mirrors,
         )
