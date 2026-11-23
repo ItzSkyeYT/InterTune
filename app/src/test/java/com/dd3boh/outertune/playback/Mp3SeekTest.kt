@@ -11,13 +11,19 @@ import androidx.media3.common.DataReader
 import androidx.media3.common.Format
 import androidx.media3.common.util.ParsableByteArray
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.extractor.Extractor
 import androidx.media3.extractor.ExtractorInput
 import androidx.media3.extractor.ExtractorOutput
 import androidx.media3.extractor.PositionHolder
 import androidx.media3.extractor.SeekMap
 import androidx.media3.extractor.TrackOutput
+import androidx.media3.extractor.flac.FlacExtractor
 import androidx.media3.extractor.mp3.Mp3Extractor
+import androidx.media3.extractor.ogg.OggExtractor
+import androidx.media3.extractor.ts.AdtsExtractor
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.EOFException
@@ -37,21 +43,28 @@ class Mp3SeekTest {
     private class Result(val seekMap: SeekMap, val read: Long)
 
     /** Reads the whole file through an Mp3Extractor, then returns what it ended up knowing. */
-    private fun run(data: ByteArray, flags: Int, readTo: Long = Long.MAX_VALUE): Result {
-        val extractor = Mp3Extractor(flags)
+    private fun run(data: ByteArray, flags: Int, readTo: Long = Long.MAX_VALUE): Result =
+        run(data, Mp3Extractor(flags), readTo)
+
+    /** The same through any extractor; [sniffFirst] sniffs it first, as media3 does when it has several. */
+    private fun run(data: ByteArray, extractor: Extractor, readTo: Long = Long.MAX_VALUE, sniffFirst: Boolean = false): Result {
         var map: SeekMap? = null
         val output = object : ExtractorOutput {
             override fun track(id: Int, type: Int): TrackOutput = SinkTrack()
             override fun endTracks() {}
             override fun seekMap(seekMap: SeekMap) { map = seekMap }
         }
-        extractor.init(output)
         val input = MemoryInput(data)
+        if (sniffFirst) {
+            assertTrue(extractor.sniff(input))
+            input.resetPeekPosition()
+        }
+        extractor.init(output)
         val holder = PositionHolder()
         while (input.pos < readTo) {
             val r = extractor.read(input, holder)
-            if (r == androidx.media3.extractor.Extractor.RESULT_END_OF_INPUT) break
-            if (r == androidx.media3.extractor.Extractor.RESULT_SEEK) input.pos = holder.position
+            if (r == Extractor.RESULT_END_OF_INPUT) break
+            if (r == Extractor.RESULT_SEEK) input.pos = holder.position
         }
         return Result(map!!, input.pos)
     }
@@ -102,12 +115,85 @@ class Mp3SeekTest {
         assertEquals(120_000_000.0, p.timeUs.toDouble(), 1_000_000.0)
     }
 
+    private fun seekerName(r: Result) = r.seekMap.javaClass.simpleName
+
     @Test
-    fun thePlayersFactoryTurnsIndexSeekingOn() {
-        val factory = seekableMp3Extractors()
-        // What the flag does is the test above; here the factory is checked by the field it was given.
-        val field = factory.javaClass.getDeclaredField("mp3Flags").apply { isAccessible = true }
-        assertTrue(field.getInt(factory) and Mp3Extractor.FLAG_ENABLE_INDEX_SEEKING != 0)
+    fun thePlayersFactoryReadsAnMp3WithoutHeaderByIndexAndFindsItsLength() {
+        for (sniff in listOf(false, true)) {
+            val r = run(bytes("chorus-vbr-noxing.mp3"), PerFileMp3Extractor(), sniffFirst = sniff)
+            assertEquals("IndexSeeker", seekerName(r))
+            assertTrue(r.seekMap.isSeekable)
+            assertEquals(180_000_000.0, r.seekMap.durationUs.toDouble(), 1_000_000.0)
+            assertEquals(120_000_000.0, r.seekMap.getSeekPoints(120_000_000L).first.timeUs.toDouble(), 1_000_000.0)
+        }
+    }
+
+    @Test
+    fun thePlayersFactoryLeavesAnMp3WithAHeaderToItsOwnSeekTable() {
+        for (sniff in listOf(false, true)) {
+            val r = run(bytes("chorus-vbr-xing.mp3"), PerFileMp3Extractor(), sniffFirst = sniff)
+            assertFalse(seekerName(r) == "IndexSeeker")
+            assertTrue(r.seekMap.isSeekable)
+            assertEquals(180_000_000.0, r.seekMap.durationUs.toDouble(), 1_000_000.0)
+        }
+    }
+
+    @Test
+    fun thePlayersFactorySwapsOnlyTheMp3Extractor() {
+        // media3's own list needs a real Uri (Uri.EMPTY is null off a phone), so the swap is checked on a list like it.
+        val media3s = arrayOf<Extractor>(FlacExtractor(), Mp3Extractor(), AdtsExtractor(), OggExtractor())
+        val ours = swapMp3Extractor(media3s)
+        assertEquals(media3s.size, ours.size)
+        assertTrue(ours[1] is PerFileMp3Extractor)
+        assertEquals(0, ours.count { it is Mp3Extractor })
+        assertTrue(ours[0] === media3s[0] && ours[2] === media3s[2] && ours[3] === media3s[3])
+        // Both of media3's ways in go through the swap.
+        val src = File("src/main/java/com/dd3boh/outertune/playback/SeekableMp3.kt").readText()
+        assertTrue(src.contains("override fun createExtractors(): Array<Extractor> = swap(inner.createExtractors())"))
+        assertTrue(src.contains("swap(inner.createExtractors(uri, responseHeaders))"))
+    }
+
+    /** An MPEG 1 Layer III frame header, 128 kbps at 44.1 kHz, stereo or mono, then zeros. */
+    private fun frame(mono: Boolean, size: Int = 417): ByteArray =
+        ByteArray(size).also { it[0] = 0xFF.toByte(); it[1] = 0xFB.toByte(); it[2] = 0x90.toByte(); it[3] = (if (mono) 0xC4 else 0x64).toByte() }
+
+    /** The same in MPEG 2 (22.05 kHz). */
+    private fun frameMpeg2(mono: Boolean): ByteArray =
+        ByteArray(300).also { it[0] = 0xFF.toByte(); it[1] = 0xF3.toByte(); it[2] = 0x90.toByte(); it[3] = (if (mono) 0xC4 else 0x64).toByte() }
+
+    private fun ByteArray.with(at: Int, tag: String) = also { tag.forEachIndexed { k, c -> this[at + k] = c.code.toByte() } }
+
+    @Test
+    fun theSeekHeaderIsFoundWhereEachKindOfFrameKeepsIt() {
+        assertTrue(hasSeekHeader(frame(mono = false).with(36, "Xing")))
+        assertTrue(hasSeekHeader(frame(mono = false).with(36, "Info")))
+        assertTrue(hasSeekHeader(frame(mono = true).with(21, "Xing")))
+        assertTrue(hasSeekHeader(frameMpeg2(mono = false).with(21, "Info")))
+        assertTrue(hasSeekHeader(frameMpeg2(mono = true).with(13, "Xing")))
+        assertTrue(hasSeekHeader(frame(mono = false).with(36, "VBRI")))
+        // A few stray bytes before the first frame.
+        assertTrue(hasSeekHeader(ByteArray(7) + frame(mono = false).with(36, "Xing")))
+    }
+
+    @Test
+    fun noSeekHeaderMeansIndexSeeking() {
+        assertFalse(hasSeekHeader(frame(mono = false)))
+        // The tag in the wrong place for its frame (a mono frame's place in a stereo one).
+        assertFalse(hasSeekHeader(frame(mono = false).with(21, "Xing")))
+        assertFalse(hasSeekHeader(ByteArray(0)))
+        assertFalse(hasSeekHeader(ByteArray(400)))
+        // Layer II (an MP2) has no such header.
+        val mp2 = frame(mono = false).also { it[1] = 0xFD.toByte() }.with(36, "Xing")
+        assertFalse(hasSeekHeader(mp2))
+    }
+
+    @Test
+    fun anId3TagIsMeasuredWithItsFooter() {
+        val tag = byteArrayOf('I'.code.toByte(), 'D'.code.toByte(), '3'.code.toByte(), 4, 0, 0, 0, 0, 2, 1)
+        assertEquals(10 + 257, id3TagSize(tag))
+        assertEquals(10 + 257 + 10, id3TagSize(tag.copyOf().also { it[5] = 0x10 }))
+        assertNull(id3TagSize(tag.copyOf().also { it[8] = 0x80.toByte() }))
+        assertNull(id3TagSize(frame(mono = false).copyOf(10)))
     }
 
     @Test
