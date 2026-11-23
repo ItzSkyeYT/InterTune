@@ -78,6 +78,23 @@ class RoomPresenceTest {
     }
 
     @Test
+    fun `a room after another is a new session, and nothing of who was in the one before goes into it`() {
+        val service = File("src/main/java/com/dd3boh/outertune/playback/MusicService.kt").readText()
+        val start = service.substringAfter("    fun startTogether(").substringBefore("\n    }\n")
+        // Another code: the room before stops, and a session of its own is made for this one.
+        assertTrue(start, "if (moving) it.stop() else it.closeNow()" in start)
+        assertTrue(start, "TogetherSession(this, code, owner, relays, name" in start)
+        // Nothing of who was in a room is handed to the next: no parameter of a session carries anyone.
+        val params = session.substringAfter("class TogetherSession(").substringBefore(") {\n    data class Status(")
+            .lines().map { it.trim() }.filter { it.isNotEmpty() && !it.startsWith("*") && !it.startsWith("/") }
+            .mapNotNull { Regex("""^(?:private val |val )?(\w+):\s*(.+?),?$""").find(it)?.groupValues }
+        assertTrue(params.toString(), params.size >= 5)
+        for ((_, name, type) in params) {
+            assertFalse("$name: $type", name in setOf("heard", "said", "members", "people") || "Member" in type || "RoomPresence" in type)
+        }
+    }
+
+    @Test
     fun `the room's look takes off whoever has gone, whether or not a word comes in`() {
         val look = session.substringAfter("castLook()\n").substringBefore("withTimeoutOrNull(every)")
         assertTrue(look, "watchMembers()" in look)
