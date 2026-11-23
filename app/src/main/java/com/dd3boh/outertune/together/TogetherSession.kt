@@ -1637,6 +1637,9 @@ class TogetherSession(
             matchedQueue = null
             lock.reset()
             mine(SONG_SWITCH_MS)
+            // The room's song is a play somebody started: asked of YouTube even if this phone set it
+            // aside as gone (AskedFor). Its one more try later is this phone's own, and is not.
+            service.askedFor(state.songId)
             // Straight to the leader's spot: from 0:00 the song was fetched twice, its start and
             // then the leader's spot, which on a slow line took seconds (his ask of 26 Oct 2026).
             // Not arriving: the spot is asked for already, and a second jump while it loads
@@ -1668,6 +1671,8 @@ class TogetherSession(
         // A queue resolves for a moment before its song arrives: all of that is the room's doing.
         // And the leader chose it, not this listener: learning must not read it as their pick.
         mine(SONG_SWITCH_MS)
+        // Asked of YouTube even if this phone set it aside as gone, as above (AskedFor).
+        service.askedFor(state.songId)
         val songs = queue?.map(::metadataOf) ?: listOf(
             MediaMetadata(
                 id = state.songId,

@@ -148,6 +148,16 @@ internal object StandInMemory {
      */
     const val NONE_MS = 3L * 24 * 60 * 60 * 1000
 
+    /**
+     * How long a song looked for in vain, and set aside as gone, is not asked of YouTube at all when
+     * the app comes to it by itself (StandIns' setAside). A day after the search, where it was the
+     * three days of [NONE_MS], which are the search's: the note stops the loops it was made for, the
+     * same song asked at every song change or every try, and those come within minutes. Three days
+     * kept a song YouTube had refused for a while out of every queue and radio long after it was
+     * back (23 Nov 2026). The search itself still waits [NONE_MS].
+     */
+    const val ASIDE_MS = 24L * 60 * 60 * 1000
+
     /** Far more than a library has dead songs in play; the oldest go first. */
     const val MAX = 300
 
@@ -164,6 +174,10 @@ internal object StandInMemory {
     /** Whether [id] was looked for lately and nothing was surely it. */
     fun lookedInVain(memory: Memory, id: String, now: Long): Boolean =
         memory.of[id]?.let { it.standIn == null && now - it.at in 0 until NONE_MS } == true
+
+    /** Whether [id] was looked for in vain within [ASIDE_MS]: as [lookedInVain], for the note a song set aside goes by. */
+    fun asideLately(memory: Memory, id: String, now: Long): Boolean =
+        memory.of[id]?.let { it.standIn == null && now - it.at in 0 until ASIDE_MS } == true
 
     /** The id to ask YouTube about for [id]: its stand-in while it has one, itself otherwise. */
     fun idFor(id: String, now: Long = System.currentTimeMillis()): String = known(current, id, now) ?: id
@@ -253,13 +267,14 @@ internal class GoneRun {
  * a whole lookup there in its place: see [Lookup].
  *
  * [setAside] says whether a song is set aside as gone (GoneSongs: the Exclusions page lists it,
- * with Lift). Such a song, looked for in vain these last days, is not asked again at every tap:
- * it fails at once as gone, with nothing asked of YouTube and nothing searched. On 21 Oct 2026 a
- * song set aside at its third tap was walked and searched for at ten more. Within the three days
- * of [StandInMemory.NONE_MS] only, after which it is asked again, as a copy may have been put up
- * or the id come back; and at once when it is lifted. Never when the listener asks for it again
- * ([playbackData]'s askedAgain: Retry, or Play on the song the music stopped on): only the
- * player's own passes, the queue reaching it and its replays, are spared the walk.
+ * with Lift). Such a song, looked for in vain lately, is not asked again whenever the app comes to
+ * it: it fails at once as gone, with nothing asked of YouTube and nothing searched. On 21 Oct 2026
+ * a song set aside at its third tap was walked and searched for at ten more. Within a day of the
+ * search only ([StandInMemory.ASIDE_MS]), after which it is asked again, as a copy may have been
+ * put up or the id come back; and at once when it is lifted. Never when somebody asks for it
+ * ([playbackData]'s askedAgain: a play somebody started, AskedFor, and Play on the song the
+ * music stopped on): it is asked once more, and only the app's own passes, the queue or a radio
+ * reaching it, the next song read ahead, its own tries, are spared the walk.
  */
 internal class StandIns(
     private val resolve: suspend (String) -> Result<YTPlayerUtils.PlaybackData>,
@@ -338,12 +353,17 @@ internal class StandIns(
     private suspend fun look(videoId: String, lookup: Lookup, askedAgain: Boolean): Result<Played> {
         val dead = mutableSetOf(videoId)
         val known = StandInMemory.known(StandInMemory.current, videoId, now())
-        // Set aside as gone and looked for in vain lately: not asked again at every tap, see
-        // setAside. Nothing is counted in the run or reported: YouTube was not asked.
-        if (!askedAgain && known == null && StandInMemory.lookedInVain(StandInMemory.current, videoId, now()) && setAside(videoId)) {
-            log("[$videoId] set aside as gone from YouTube, and looked for in vain lately: not asked again for now")
-            lookup.note(SET_ASIDE)
-            return Result.failure(YTPlayerUtils.SongUnavailable(NOT_ASKED))
+        // Set aside as gone and looked for in vain lately: not asked again when the app comes to
+        // it by itself, see setAside. Nothing is counted in the run or reported: YouTube was not
+        // asked. A play somebody started asks once more, and says so.
+        if (known == null && StandInMemory.asideLately(StandInMemory.current, videoId, now()) && setAside(videoId)) {
+            if (!askedAgain) {
+                log("[$videoId] set aside as gone from YouTube, and looked for in vain lately: not asked again for now")
+                lookup.note(SET_ASIDE)
+                return Result.failure(YTPlayerUtils.SongUnavailable(NOT_ASKED))
+            }
+            log("[$videoId] set aside as gone from YouTube, asked again: a play somebody started")
+            lookup.note(ASKED_AGAIN)
         }
         if (known != null) {
             val played = lookup.walk("stand-in", known)
@@ -485,6 +505,9 @@ internal class StandIns(
 
         /** For the error report, in place of a walk: see setAside. */
         const val SET_ASIDE = "not asked: set aside as gone, and looked for in vain these last days"
+
+        /** For the error report, before the walk a play somebody started makes of a song set aside: see setAside. */
+        const val ASKED_AGAIN = "asked again: set aside as gone, a play somebody started"
 
         /** The failure's words, for the log and the error's details: the player shows its own sentence for any song that is gone. */
         const val NOT_ASKED = "Set aside as gone from YouTube, not asked again for now"

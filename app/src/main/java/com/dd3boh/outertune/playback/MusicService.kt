@@ -723,6 +723,15 @@ class MusicService : MediaLibraryService(),
      */
     @Volatile private var stoppedOn: String? = null
 
+    /**
+     * The songs somebody started a play of: the player's next fetch of each asks YouTube once, even
+     * for a song set aside as gone (StandIns). See [AskedFor].
+     */
+    private val askedSongs = AskedFor()
+
+    /** Somebody started a play of [songId]: the song a room moves to, Retry, a tap in the queue. See [AskedFor]. */
+    fun askedFor(songId: String) = askedSongs.asked(songId)
+
     /** Where each streamed song is fetched from, until the player fails on it: see [StreamAddresses]. */
     private val streamAddresses = StreamAddresses()
 
@@ -2868,6 +2877,10 @@ class MusicService : MediaLibraryService(),
         override fun renameQueue(queue: MultiQueueObject, title: String) = queueBoard.renameQueue(queue, title)
 
         override fun setCurrQueue(queue: MultiQueueObject?, shouldResume: Boolean) {
+            // The song a start plays first is somebody's pick (a tap, a radio started from it, a
+            // room's song): asked of YouTube even if it was set aside as gone, once for the start,
+            // however often the start loads it (AskedFor). Before the player has it.
+            queue?.let { q -> q.queue.getOrNull(q.queuePos)?.let { askedSongs.asked(it.id, start = q.runId.takeIf { run -> run != 0L }) } }
             queueBoard.setCurrQueue(queue, shouldResume)
         }
 
@@ -2987,6 +3000,8 @@ class MusicService : MediaLibraryService(),
      * Add items to queue, right after current playing item
      */
     fun enqueueNext(items: List<MediaItem>) {
+        // Each asked of YouTube when it comes to play, even one set aside as gone (AskedFor).
+        askedSongs.asked(items.map { it.mediaId })
         scope.launch {
             // With no queue to put them in, the songs play as a new queue: the board is down (the
             // mini player swiped away) or holds none (a fresh install, Persistent queue off after a
@@ -3031,6 +3046,8 @@ class MusicService : MediaLibraryService(),
      * Add items to end of current queue
      */
     fun enqueueEnd(items: List<MediaItem>) {
+        // Each asked of YouTube when it comes to play, even one set aside as gone (AskedFor).
+        askedSongs.asked(items.map { it.mediaId })
         // With the queue board down, as it is once the mini player has been swiped away, the
         // songs play as a new queue, as they do from Play next. They used to go to the end of the
         // dismissed queue instead, where nothing showed them and nothing played them. A board with
@@ -3934,7 +3951,7 @@ class MusicService : MediaLibraryService(),
                 }
             }
 
-            val one = fetches ?: return fetch(mediaId, position, staleQuality, partialCopy, said)
+            val one = fetches ?: return fetch(mediaId, position, staleQuality, partialCopy, said, ahead)
             return one.run(mediaId) {
                 // Fetched by the other reader while this one waited, the upgrade or the clearing
                 // of a partial copy done with it: its answer is this one's.
@@ -3944,7 +3961,7 @@ class MusicService : MediaLibraryService(),
                     Log.i(TAG, "$said: remote song (fetched for it a moment ago)")
                     ResolvedSong.KnownStream(fetched, format)
                 } else {
-                    fetch(mediaId, position, staleQuality, partialCopy, said)
+                    fetch(mediaId, position, staleQuality, partialCopy, said, ahead)
                 }
             }
         }
@@ -3966,9 +3983,10 @@ class MusicService : MediaLibraryService(),
         /**
          * The song's stream fetched from YouTube, its row and its address kept, with what a copy
          * already here needs done about it: [staleQuality] and [partialCopy] as [resolve] found
-         * them, for a read from [position]. [said] names the resolve in the log, AHEAD or PLAYING.
+         * them, for a read from [position]. [said] names the resolve in the log, AHEAD or PLAYING,
+         * and [ahead] is the read ahead's, which never takes a play's ask (AskedFor).
          */
-        private fun fetch(mediaId: String, position: Long, staleQuality: Boolean, partialCopy: Boolean, said: String): ResolvedSong {
+        private fun fetch(mediaId: String, position: Long, staleQuality: Boolean, partialCopy: Boolean, said: String, ahead: Boolean): ResolvedSong {
             Log.i(TAG, "$said: remote song (online fetch)")
 
             // The whole resolve within RouteTimes.RESOLVE_MS of waiting: each step has its own
@@ -3984,13 +4002,18 @@ class MusicService : MediaLibraryService(),
                 // Refused in the player under the visitorData the app has now: see SongRoutes.refused.
                 refusedByPlayer = songRoutes.refused(mediaId, SystemClock.elapsedRealtime(), YouTube.visitorData.orEmpty()),
             )
+            // A play somebody started asks YouTube once, even for a song set aside as gone, and so
+            // does Play on the song the music stopped on. The read ahead is the app's own, and never
+            // takes a play's ask: the player's fetch of the song does (AskedFor).
+            val askedNow = !ahead && askedSongs.take(mediaId)
+            val askedAgain = askedNow || (stoppedByError && stoppedOn == mediaId)
             // The answers of this walk come after this: the developer's "Stream over SABR only" starts from one of them.
             val resolveBegan = System.currentTimeMillis()
             val played = runBlocking(Dispatchers.IO) {
                 try {
                     // The developer's "The next song fetched is gone from YouTube", debug builds only: see FaultInjection.callsGone.
                     if (FaultInjection.callsGone(mediaId)) Result.failure(YTPlayerUtils.SongUnavailable("This video is not available (fault injection)"))
-                    else withinResolveTime(context = wish) { standIns.playbackData(mediaId, askedAgain = stoppedByError && stoppedOn == mediaId) }
+                    else withinResolveTime(context = wish) { standIns.playbackData(mediaId, askedAgain = askedAgain) }
                 } catch (e: StepTimedOut) {
                     Log.w(TAG, "$said: [$mediaId] no stream within ${StepLog.limit(e.ms)}, given up as a timeout")
                     Result.failure(e)

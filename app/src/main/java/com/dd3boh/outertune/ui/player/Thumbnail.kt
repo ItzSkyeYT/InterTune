@@ -258,8 +258,9 @@ fun Thumbnail(
                 ThumbnailPlaybackError(
                     error = error,
                     // Prepared and played: a stop on an error leaves the player paused, so prepare
-                    // alone would have loaded the song again and stayed silent.
-                    retry = playerConnection.player::playSafe,
+                    // alone would have loaded the song again and stayed silent. And asked of
+                    // YouTube again, even a song the app set aside as gone (AskedFor).
+                    retry = { playerConnection.askAgain(); playerConnection.player.playSafe() },
                     onSignIn = onSignIn,
                     onProxy = onProxy,
                     onReport = onReport,
