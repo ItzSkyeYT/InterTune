@@ -67,6 +67,7 @@ import com.dd3boh.outertune.constants.TogetherTourSeenKey
 import com.dd3boh.outertune.playback.PlayerConnection
 import com.dd3boh.outertune.ui.component.RoomTourPicture
 import com.dd3boh.outertune.ui.component.RoomTourScene
+import com.dd3boh.outertune.ui.utils.OpensOnScreen
 import com.dd3boh.outertune.utils.dataStore
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -242,5 +243,6 @@ fun RoomTourOnFirstRoom(connection: PlayerConnection?) {
         context.dataStore.edit { it[TogetherTourSeenKey] = true }
         showing = true
     }
-    if (showing) RoomTourDialog(onDismiss = { showing = false })
+    // It comes up by itself as the room starts, not for a tap: its window waits for the app to be on screen.
+    if (showing) OpensOnScreen { RoomTourDialog(onDismiss = { showing = false }) }
 }
