@@ -3309,6 +3309,8 @@ class MusicService : MediaLibraryService(),
             q.id, item.mediaId, item.mediaMetadata.title?.toString(),
             item.metadata?.artists?.map { it.name }.orEmpty(), item.metadata?.duration ?: -1,
             runId = q.runId, radio = q.playlistId != null,
+            // Someone else's song in a listening room, carried into the queue loaded under it (WhoAdded).
+            learns = together.value?.learnsFrom(item.mediaId) != false,
         )
         if (heard.runKey == before) return
         heard.takeRestored()?.let { Log.d(TAG, AdaptivePass.restoredLine(it)) }

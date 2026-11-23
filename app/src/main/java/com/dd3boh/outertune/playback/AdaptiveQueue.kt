@@ -340,14 +340,15 @@ object AdaptiveQueue {
          * queue loaded under it, as Start radio on the song playing loads its radio. Noted there as
          * [note] notes a song, and liked there when it was liked where it came from, so leaving it
          * early is no verdict against a song liked. The like's picks were the run before's to put in.
+         * Not [learns], as [note] has it: someone else's song in a listening room.
          */
         fun carriedOn(
             queue: Long, id: String, title: String?, artists: List<String> = emptyList(), durationSec: Int = -1,
-            runId: Long = 0L, radio: Boolean = false,
+            runId: Long = 0L, radio: Boolean = false, learns: Boolean = true,
         ) {
             val liked = run.recent.firstOrNull()?.takeIf { it.song.id == id }?.liked == true
-            note(queue, id, title, artists, durationSec, runId, radio)
-            if (liked) run.recent.firstOrNull()?.takeIf { it.song.id == id && !it.liked }?.let { entry ->
+            note(queue, id, title, artists, durationSec, runId, radio, learns)
+            if (liked && learns) run.recent.firstOrNull()?.takeIf { it.song.id == id && !it.liked }?.let { entry ->
                 entry.liked = true
                 kept(entry)
             }
