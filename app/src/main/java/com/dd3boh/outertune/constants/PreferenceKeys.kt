@@ -398,6 +398,14 @@ val SimilarSourceKey = stringPreferencesKey("similarSource")
 val FavouritesStrictKey = booleanPreferencesKey("favouritesStrict")
 /** When the Last.fm catch-up last finished, so it runs once even for a listener who never changes the setting. */
 val LastFmCaughtUpAtKey = longPreferencesKey("lastFmCaughtUpAt")
+/** The same for ListenBrainz's similar songs (Unreleased.LB_SIMILAR): a catch-up with Last.fm does not count for it. */
+val ListenBrainzCaughtUpAtKey = longPreferencesKey("listenBrainzCaughtUpAt")
+/**
+ * When ListenBrainz first stood beside YouTube for similar songs on this install (Unreleased.LB_SIMILAR). How
+ * similar songs are split, under Both, learns from the cards after it only, so cards Last.fm proposed before are
+ * not counted as ListenBrainz's.
+ */
+val ListenBrainzSimilarSinceKey = longPreferencesKey("listenBrainzSimilarSince")
 /** Build the engine row in the background while another source is showing, to compare a day later. */
 val ShadowComparisonKey = booleanPreferencesKey("shadowComparison")
 /** A skip before the middle of a liked or often-played song rests it from the engine row for a week. */

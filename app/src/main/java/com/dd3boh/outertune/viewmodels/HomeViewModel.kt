@@ -73,6 +73,9 @@ import com.dd3boh.outertune.engine.SHADOW_ROW_KEY
 import com.dd3boh.outertune.engine.quickPicksRowKey
 import com.dd3boh.outertune.utils.similarSourceOf
 import com.dd3boh.outertune.utils.LastFmSimilar
+import com.dd3boh.outertune.utils.LbSimilar
+import com.dd3boh.outertune.utils.ListenBrainzSimilar
+import com.dd3boh.outertune.constants.ListenBrainzSimilarSinceKey
 import com.dd3boh.outertune.constants.orOffered
 import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.db.entities.RowBuild
@@ -108,6 +111,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -153,6 +157,7 @@ class HomeViewModel @Inject constructor(
     val database: MusicDatabase,
     val syncUtils: SyncUtils,
     private val lastFmSimilar: LastFmSimilar,
+    private val listenBrainzSimilar: ListenBrainzSimilar,
 ) : ViewModel() {
 
     // ---- Impressions: what Quick picks showed, so the engine can learn from what was passed over.
@@ -593,7 +598,7 @@ class HomeViewModel @Inject constructor(
     private fun lastFmShare(mode: SimilarSource, now: Long): Double? =
         if (mode != SimilarSource.BOTH) null
         else runCatching {
-            SourceMix.share(database.sourceEvidence(now - SourceMix.WINDOW_MS), java.util.TimeZone.getDefault().getOffset(now) / 60_000).share
+            SourceMix.share(database.sourceEvidence(LbSimilar.evidenceSince(now, context.dataStore[ListenBrainzSimilarSinceKey])), java.util.TimeZone.getDefault().getOffset(now) / 60_000).share
         }.onFailure { Log.w("HomeViewModel", "Could not work out the Last.fm share", it) }.getOrDefault(0.5)
 
     init {
@@ -1803,7 +1808,8 @@ class HomeViewModel @Inject constructor(
             AiFilter.changes.map { Triple(it.mode, it.markedAi, it.notAi) }.distinctUntilChanged().drop(1).collect { tidyRows() }
         }
         viewModelScope.launch {
-            lastFmSimilar.caughtUpAt.drop(1).collect {
+            // ListenBrainz's in Last.fm's place with Unreleased.LB_SIMILAR, whichever has just caught up.
+            merge(lastFmSimilar.caughtUpAt.drop(1), listenBrainzSimilar.caughtUpAt.drop(1)).collect {
                 engineInputCache = null
                 lastEngineBuildAt = 0L
                 // Discover walks the same graph, and without this it kept the old source's row for

@@ -52,6 +52,7 @@ import com.dd3boh.outertune.constants.PollsEnabledKey
 import com.dd3boh.outertune.constants.SimilarFromLastFmKey
 import com.dd3boh.outertune.constants.SimilarSource
 import com.dd3boh.outertune.constants.SimilarSourceKey
+import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.engine.SimilarSources
 import com.dd3boh.outertune.utils.lastFmQuestionAskable
 import com.dd3boh.outertune.constants.UsageCountEnabledKey
@@ -404,10 +405,14 @@ fun UsageCountOptInCard() {
  *
  * Nothing at all in a build without a Last.fm key or while the engine is held back: there is
  * nothing to ask for there.
+ *
+ * With ListenBrainz in Last.fm's place (Unreleased.LB_SIMILAR) it is the same card and the same
+ * choice, in ListenBrainz's words: what goes to it, and that no account is needed.
  */
 @Composable
 fun LastFmSimilarOptInCard() {
     if (!lastFmQuestionAskable()) return
+    val listenBrainz = Unreleased.LB_SIMILAR
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
 
@@ -440,12 +445,12 @@ fun LastFmSimilarOptInCard() {
         if (!SimilarSources.asked(stored, oldSwitch)) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text(
-                    text = stringResource(R.string.lastfm_opt_in_title),
+                    text = stringResource(if (listenBrainz) R.string.listenbrainz_similar_opt_in_title else R.string.lastfm_opt_in_title),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                 )
                 Text(
-                    text = stringResource(R.string.lastfm_opt_in_body),
+                    text = stringResource(if (listenBrainz) R.string.listenbrainz_similar_opt_in_body else R.string.lastfm_opt_in_body),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 4.dp)
@@ -469,7 +474,7 @@ fun LastFmSimilarOptInCard() {
             }
         } else {
             SwitchPreference(
-                title = { Text(stringResource(R.string.lastfm_opt_in_enabled)) },
+                title = { Text(stringResource(if (listenBrainz) R.string.listenbrainz_similar_opt_in_enabled else R.string.lastfm_opt_in_enabled)) },
                 description = stringResource(R.string.oobe_lastfm_answered),
                 icon = { Icon(Icons.Rounded.Hub, null) },
                 checked = SimilarSources.stored(stored, oldSwitch) != SimilarSource.YOUTUBE,

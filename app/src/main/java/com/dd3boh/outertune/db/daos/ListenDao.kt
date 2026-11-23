@@ -142,6 +142,19 @@ interface ListenDao {
     @Query(RelatedSql.LASTFM_CATCH_UP)
     fun lastFmCatchUp(since: Long, limit: Int): List<PlayedSong>
 
+    /** ListenBrainz's similar recordings, in Last.fm's place with Unreleased.LB_SIMILAR: see ListenBrainzSimilar. */
+    @Query(RelatedSql.LISTENBRAINZ_FETCHED_AT)
+    fun listenBrainzSimilarFetchedAt(songId: String): Long?
+
+    @Query(RelatedSql.DELETE_LISTENBRAINZ_SIMILAR)
+    fun deleteListenBrainzSimilar(songId: String)
+
+    @Query(RelatedSql.INSERT_LISTENBRAINZ_EDGE)
+    fun insertListenBrainzEdge(songId: String, relatedSongId: String, fetchedAt: Long)
+
+    @Query(RelatedSql.LISTENBRAINZ_CATCH_UP)
+    fun listenBrainzCatchUp(since: Long, limit: Int): List<PlayedSong>
+
     // ---- The engine's input, see engine/EngineLoader.kt. Plain rows, no entities.
     @Query(EngineSql.SONGS)
     fun engineSongs(): List<EngineSongRow>
@@ -239,13 +252,17 @@ interface ListenDao {
     @Query(EngineSql.CARD_TREND)
     fun engineCardTrend(from: Long, mid: Long, to: Long, lean: Int): Flow<CardTrendRow>
 
-    /** One source's edges, RelatedSongMap.SOURCE_YOUTUBE or SOURCE_LASTFM. */
+    /** One source's edges, RelatedSongMap.SOURCE_YOUTUBE, SOURCE_LASTFM or SOURCE_LISTENBRAINZ. */
     @Query(RelatedSql.ENGINE_EDGES)
     fun engineEdges(source: Int): List<EngineEdgeRow>
 
     /** Both sources' edges merged, one per pair, for Both. */
     @Query(RelatedSql.ENGINE_EDGES_ALL)
     fun engineEdgesAll(): List<EngineEdgeRow>
+
+    /** The same with ListenBrainz's in Last.fm's place (Unreleased.LB_SIMILAR). */
+    @Query(RelatedSql.ENGINE_EDGES_ALL_LISTENBRAINZ)
+    fun engineEdgesAllListenBrainz(): List<EngineEdgeRow>
 
     /** What the Last.fm share in Both is learned from, see SourceMix. */
     @Query(EngineSql.SOURCE_EVIDENCE)

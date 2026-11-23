@@ -38,6 +38,8 @@ import com.dd3boh.outertune.engine.TrendWindows
 import com.dd3boh.outertune.constants.EngineCopyLoadedKey
 import com.dd3boh.outertune.constants.QuickPicksLeanKey
 import com.dd3boh.outertune.utils.dataStore
+import com.dd3boh.outertune.utils.LbSimilar
+import com.dd3boh.outertune.constants.ListenBrainzSimilarSinceKey
 import com.dd3boh.outertune.utils.get
 import androidx.datastore.preferences.core.edit
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -61,7 +63,8 @@ class RecommendationsViewModel @Inject constructor(
     /** Where the Last.fm share stands and on what evidence, worked out again whenever a card is graded. */
     val sourceMix = database.gradedByTeam().map {
         val now = System.currentTimeMillis()
-        SourceMix.share(database.sourceEvidence(now - SourceMix.WINDOW_MS), java.util.TimeZone.getDefault().getOffset(now) / 60_000)
+        // With ListenBrainz in Last.fm's place (Unreleased.LB_SIMILAR), only its cards since it took that place.
+        SourceMix.share(database.sourceEvidence(LbSimilar.evidenceSince(now, context.dataStore[ListenBrainzSimilarSinceKey])), java.util.TimeZone.getDefault().getOffset(now) / 60_000)
     }.flowOn(Dispatchers.IO)
     val calibration = database.engineCalibration()
     val weights = database.engineWeightsFlow()

@@ -1088,7 +1088,13 @@ private fun SetupQuestion.texts(fromFdroid: Boolean) = when (this) {
         line = R.string.setup_count_line,
         short = R.string.setup_count_short,
     )
-    SetupQuestion.LASTFM -> QuestionTexts(
+    // ListenBrainz's words with it in Last.fm's place (Unreleased.LB_SIMILAR): the same question, the same answer.
+    SetupQuestion.LASTFM -> if (Unreleased.LB_SIMILAR) QuestionTexts(
+        icon = Icons.Rounded.Hub,
+        question = R.string.listenbrainz_similar_question,
+        line = R.string.listenbrainz_similar_line,
+        short = R.string.listenbrainz_similar_short,
+    ) else QuestionTexts(
         icon = Icons.Rounded.Hub,
         question = R.string.setup_lastfm_question,
         line = R.string.setup_lastfm_line,

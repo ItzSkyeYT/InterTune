@@ -104,6 +104,40 @@ object RelatedSql {
     """
 
     /**
+     * ListenBrainz's similar recordings, source 2, in Last.fm's place with Unreleased.LB_SIMILAR
+     * (ListenBrainzSimilar). Its own source, so Last.fm's lists kept from before are neither read
+     * as ListenBrainz's nor replaced by them, and without the flag nothing here is asked. These
+     * four are the four above for Last.fm, word for word but the source.
+     */
+    const val LISTENBRAINZ_FETCHED_AT =
+        "SELECT MIN(fetchedAt) FROM related_song_map WHERE songId = :songId AND source = 2"
+
+    const val DELETE_LISTENBRAINZ_SIMILAR =
+        "DELETE FROM related_song_map WHERE songId = :songId AND source = 2"
+
+    /** One ListenBrainz edge, written only when both songs exist, for the reason [INSERT_LASTFM_EDGE] gives. */
+    const val INSERT_LISTENBRAINZ_EDGE = """
+        INSERT INTO related_song_map(songId, relatedSongId, fetchedAt, source)
+        SELECT :songId, :relatedSongId, :fetchedAt, 2
+        WHERE EXISTS (SELECT 1 FROM song WHERE id = :songId)
+          AND EXISTS (SELECT 1 FROM song WHERE id = :relatedSongId)
+    """
+
+    /** The songs [LASTFM_CATCH_UP] reads, those with no ListenBrainz list yet. */
+    const val LISTENBRAINZ_CATCH_UP = """
+        SELECT s.id AS id, s.title AS title,
+            (SELECT a.name FROM song_artist_map m JOIN artist a ON a.id = m.artistId
+             WHERE m.songId = s.id ORDER BY m.position LIMIT 1) AS artist
+        FROM song s
+        LEFT JOIN (SELECT songId, MAX(startedAt) AS heardAt FROM listen
+                   WHERE startedAt >= :since AND playedMs >= 30000 GROUP BY songId) h ON h.songId = s.id
+        WHERE (h.songId IS NOT NULL OR s.liked)
+          AND NOT EXISTS (SELECT 1 FROM related_song_map r WHERE r.songId = s.id AND r.source = 2)
+        ORDER BY h.heardAt IS NULL, h.heardAt DESC, s.likedDate DESC
+        LIMIT :limit
+    """
+
+    /**
      * The engine's graph: the chosen source's edges, and YouTube's for any seed the chosen source
      * has none for. With YouTube chosen that is simply YouTube's.
      *
@@ -114,9 +148,12 @@ object RelatedSql {
      * sources for every seed, measured earlier, found the fewest new songs of all. The fallback
      * also means switching to Last.fm changes nothing for the worse on the day: a seed has YouTube's
      * list until it has one of its own.
+     *
+     * The chosen source is Last.fm's (1) or, in its place, ListenBrainz's (2, Unreleased.LB_SIMILAR):
+     * either one's edge carries bit 2, the second source's, and YouTube's bit 1.
      */
     const val ENGINE_EDGES = """
-        SELECT songId, relatedSongId, CASE r.source WHEN 1 THEN 2 ELSE 1 END AS sources FROM related_song_map r
+        SELECT songId, relatedSongId, CASE r.source WHEN 0 THEN 1 ELSE 2 END AS sources FROM related_song_map r
         WHERE r.source = :source
            OR (r.source = 0 AND NOT EXISTS
                 (SELECT 1 FROM related_song_map c WHERE c.songId = r.songId AND c.source = :source))
@@ -130,5 +167,15 @@ object RelatedSql {
         SELECT songId, relatedSongId,
             MAX(CASE source WHEN 0 THEN 1 ELSE 0 END) + MAX(CASE source WHEN 1 THEN 2 ELSE 0 END) AS sources
         FROM related_song_map WHERE source IN (0, 1) GROUP BY songId, relatedSongId
+    """
+
+    /**
+     * Both with ListenBrainz in Last.fm's place (Unreleased.LB_SIMILAR): YouTube's and ListenBrainz's
+     * lists merged the same way, bit 2 for ListenBrainz's, and Last.fm's kept from before left out.
+     */
+    const val ENGINE_EDGES_ALL_LISTENBRAINZ = """
+        SELECT songId, relatedSongId,
+            MAX(CASE source WHEN 0 THEN 1 ELSE 0 END) + MAX(CASE source WHEN 2 THEN 2 ELSE 0 END) AS sources
+        FROM related_song_map WHERE source IN (0, 2) GROUP BY songId, relatedSongId
     """
 }

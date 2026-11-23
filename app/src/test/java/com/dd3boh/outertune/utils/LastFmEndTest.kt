@@ -331,12 +331,13 @@ class LastFmEndTest {
         )
         LastFmEnd.clock = { dayBefore }
         assumeTrue(Unreleased.ENGINE)
+        // Last.fm's way, as without ListenBrainz in its place (Unreleased.LB_SIMILAR): ListenBrainzSimilarTest has that one.
         assertEquals(
             listOf(SimilarSource.BOTH, SimilarSource.LASTFM, SimilarSource.LASTFM, SimilarSource.YOUTUBE),
-            stored.map(::similarSourceOf),
+            stored.map { similarSourceOf(it, listenBrainz = false) },
         )
         LastFmEnd.clock = { theDay }
-        assertEquals(List(4) { SimilarSource.YOUTUBE }, stored.map(::similarSourceOf))
+        assertEquals(List(4) { SimilarSource.YOUTUBE }, stored.map { similarSourceOf(it, listenBrainz = false) })
         // Only read: the choice is there again should Last.fm ever be.
         assertEquals(SimilarSource.BOTH.name, stored[0][SimilarSourceKey])
     }
@@ -344,19 +345,21 @@ class LastFmEndTest {
     @Test
     fun `setup and the questions after an update stop asking about Last-fm`() {
         assumeTheBuildHasAKey()
+        // Last.fm's question, as without ListenBrainz in its place (Unreleased.LB_SIMILAR): ListenBrainzSimilarTest has that one.
         LastFmEnd.clock = { dayBefore }
-        assertEquals(Unreleased.ENGINE, lastFmQuestionAskable())
+        assertEquals(Unreleased.ENGINE, lastFmQuestionAskable(listenBrainz = false))
         LastFmEnd.clock = { theDay }
-        assertFalse(lastFmQuestionAskable())
-        assertFalse(SetupQuestion.LASTFM in catchUpQuestions(mutablePreferencesOf(), lastFmQuestionAskable()).asked)
+        assertFalse(lastFmQuestionAskable(listenBrainz = false))
+        assertFalse(SetupQuestion.LASTFM in catchUpQuestions(mutablePreferencesOf(), lastFmQuestionAskable(listenBrainz = false)).asked)
     }
 
     @Test
     fun `Recommendations hides the choice, and a catch-up stops when Last-fm closes on its way`() {
         // The choice of where similar songs come from is drawn only with a key, which reads as
-        // empty from the date: no Both or Last.fm only left to pick that would do nothing.
+        // empty from the date: no Both or Last.fm only left to pick that would do nothing. Or with
+        // ListenBrainz in Last.fm's place (Unreleased.LB_SIMILAR), which needs none.
         val recommendations = File("src/main/java/com/dd3boh/outertune/ui/screens/settings/RecommendationsSettings.kt").readText()
-        val gate = recommendations.indexOf("if (BuiltInKeys.lastFmApiKey.isNotEmpty()) {")
+        val gate = recommendations.indexOf("if (listenBrainz || BuiltInKeys.lastFmApiKey.isNotEmpty()) {")
         assertTrue(gate in 0 until recommendations.indexOf("settingRow(R.string.similar_source)"))
         // The catch-up looks again before each song, and stops as one that gave up: nothing is
         // recorded, and Home is not told of neighbours that never came.

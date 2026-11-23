@@ -121,6 +121,8 @@ import com.dd3boh.outertune.constants.MediaSessionConstants.CommandToggleShuffle
 import com.dd3boh.outertune.constants.MediaSessionConstants.CommandToggleStartRadio
 import com.dd3boh.outertune.constants.PauseListenHistoryKey
 import com.dd3boh.outertune.constants.LastFmCaughtUpAtKey
+import com.dd3boh.outertune.constants.ListenBrainzCaughtUpAtKey
+import com.dd3boh.outertune.constants.ListenBrainzSimilarSinceKey
 import com.dd3boh.outertune.constants.SimilarSource
 import com.dd3boh.outertune.constants.PauseRemoteListenHistoryKey
 import com.dd3boh.outertune.constants.HeadTracking3dKey
@@ -259,6 +261,7 @@ import com.dd3boh.outertune.utils.LoudnessRepair
 import com.dd3boh.outertune.utils.NetworkConnectivityObserver
 import com.dd3boh.outertune.utils.Scrobbler
 import com.dd3boh.outertune.utils.LastFmSimilar
+import com.dd3boh.outertune.utils.ListenBrainzSimilar
 import com.dd3boh.outertune.utils.similarSourceOf
 import com.dd3boh.outertune.utils.SyncUtils
 import com.dd3boh.outertune.utils.FailureMemo
@@ -689,6 +692,10 @@ class MusicService : MediaLibraryService(),
 
     @Inject
     lateinit var lastFmSimilar: LastFmSimilar
+
+    /** In Last.fm's place for similar songs with Unreleased.LB_SIMILAR, asked where lastFmSimilar was. */
+    @Inject
+    lateinit var listenBrainzSimilar: ListenBrainzSimilar
 
     lateinit var connectivityObserver: NetworkConnectivityObserver
     val waitingForNetworkConnection = MutableStateFlow(false)
@@ -1823,7 +1830,9 @@ class MusicService : MediaLibraryService(),
             // launch can settle before this first read. Switched to Both or Last.fm only while
             // running, it also catches up on the songs rows are built around, and it does so once
             // for a listener who said yes but has never caught up. Switched back to YouTube only,
-            // the catch-up stops.
+            // the catch-up stops. With ListenBrainz in Last.fm's place (Unreleased.LB_SIMILAR) all of
+            // it is ListenBrainz's, its catch-up owed once on its own key, and the moment it first
+            // stands beside YouTube is written down, for the split under Both to learn from then on.
             var similarRead = false
             dataStore.data.map { similarSourceOf(it) }.distinctUntilChanged()
                 .collectLatest(scope) { mode ->
@@ -1833,13 +1842,17 @@ class MusicService : MediaLibraryService(),
                     similarRead = true
                     asksLastFm = on
                     if (on) withContext(Dispatchers.IO) {
+                        val listenBrainz = Unreleased.LB_SIMILAR
                         try {
-                            val never = dataStore.data.first()[LastFmCaughtUpAtKey] == null
-                            if ((switchedOn || never) && lastFmSimilar.catchUp())
-                                dataStore.edit { it[LastFmCaughtUpAtKey] = System.currentTimeMillis() }
+                            if (listenBrainz && dataStore.data.first()[ListenBrainzSimilarSinceKey] == null)
+                                dataStore.edit { if (it[ListenBrainzSimilarSinceKey] == null) it[ListenBrainzSimilarSinceKey] = System.currentTimeMillis() }
+                            val caughtUpKey = if (listenBrainz) ListenBrainzCaughtUpAtKey else LastFmCaughtUpAtKey
+                            val never = dataStore.data.first()[caughtUpKey] == null
+                            if ((switchedOn || never) && (if (listenBrainz) listenBrainzSimilar.catchUp() else lastFmSimilar.catchUp()))
+                                dataStore.edit { it[caughtUpKey] = System.currentTimeMillis() }
                         } catch (e: Exception) {
                             if (e is kotlinx.coroutines.CancellationException) throw e
-                            Log.w(TAG, "Last.fm catch-up failed", e)
+                            Log.w(TAG, "${if (listenBrainz) "ListenBrainz" else "Last.fm"} catch-up failed", e)
                         }
                     }
                 }
@@ -2576,12 +2589,13 @@ class MusicService : MediaLibraryService(),
         // Last.fm's similar tracks, when similar songs come from Both or Last.fm only. Asked first
         // because YouTube's lookup below returns early when it fails, and the two do not depend on
         // each other. YouTube's is still fetched either way: Quick picks and the version links
-        // come from it whichever source the engine reads.
-        val similarDone = !asksLastFm || lastFmSimilar.ensure(
-            mediaId,
-            song?.song?.title ?: mediaMetadata.title,
-            mediaMetadata.artists.firstOrNull()?.name,
-        )
+        // come from it whichever source the engine reads. ListenBrainz's in their place with
+        // Unreleased.LB_SIMILAR, asked about the same song by the same names.
+        val similarTitle = song?.song?.title ?: mediaMetadata.title
+        val similarArtist = mediaMetadata.artists.firstOrNull()?.name
+        val similarDone = !asksLastFm ||
+            if (Unreleased.LB_SIMILAR) listenBrainzSimilar.ensure(mediaId, similarTitle, similarArtist)
+            else lastFmSimilar.ensure(mediaId, similarTitle, similarArtist)
         // A list is fetched once, and fetched again after 90 days for at most ten seeds a day,
         // never while YouTube is throttling us. A legacy list of unknown age (fetchedAt 0) stays.
         val fetchedAt = database.relatedFetchedAt(mediaId)
@@ -2955,7 +2969,10 @@ class MusicService : MediaLibraryService(),
                 fun read(block: MusicDatabase.() -> List<Song>): List<MediaMetadata> =
                     filter.blocked.library(database.readOrNull(block).orEmpty()).map { it.toMediaMetadata() }.filterNot(filter.dontPlay::covers)
                 val sources = LocalRadio.Sources(
-                    lastFm = read { radioListedFor(id, RelatedSongMap.SOURCE_LASTFM, n) },
+                    // With ListenBrainz in Last.fm's place (Unreleased.LB_SIMILAR) its list, and Last.fm's
+                    // kept from before for a song it has none for.
+                    lastFm = (if (Unreleased.LB_SIMILAR) read { radioListedFor(id, RelatedSongMap.SOURCE_LISTENBRAINZ, n) } else emptyList())
+                        .ifEmpty { read { radioListedFor(id, RelatedSongMap.SOURCE_LASTFM, n) } },
                     youtube = read { radioListedFor(id, RelatedSongMap.SOURCE_YOUTUBE, n) },
                     heardWith = read { radioHeardWith(id, n) },
                     listing = read { radioListing(id, n) },

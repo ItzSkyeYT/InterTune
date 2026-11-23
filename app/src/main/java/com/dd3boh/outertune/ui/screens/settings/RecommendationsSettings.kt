@@ -231,10 +231,12 @@ fun RecommendationsSettings(
             }
             // Needs the Last.fm key built into the app. A build without one, or a copy not signed with
             // the release key, has nothing to ask with, so the choice is not shown rather than shown
-            // doing nothing, and the app acts as YouTube only.
-            if (BuiltInKeys.lastFmApiKey.isNotEmpty()) {
+            // doing nothing, and the app acts as YouTube only. ListenBrainz in Last.fm's place
+            // (Unreleased.LB_SIMILAR) needs no key, and the choice and its words are its own.
+            val listenBrainz = Unreleased.LB_SIMILAR
+            if (listenBrainz || BuiltInKeys.lastFmApiKey.isNotEmpty()) {
                 val similarTitle = stringResource(R.string.similar_source)
-                val similarInfo = stringResource(R.string.similar_source_info)
+                val similarInfo = stringResource(if (listenBrainz) R.string.similar_source_listenbrainz_info else R.string.similar_source_info)
                 EnumListPreference(
                     modifier = Modifier.tourTarget(SettingJumps.SIMILAR_SOURCE).settingRow(R.string.similar_source),
                     title = { Text(similarTitle) },
@@ -245,7 +247,7 @@ fun RecommendationsSettings(
                         when (it) {
                             SimilarSource.BOTH -> stringResource(R.string.similar_source_both)
                             SimilarSource.YOUTUBE -> stringResource(R.string.similar_source_youtube)
-                            SimilarSource.LASTFM -> stringResource(R.string.similar_source_lastfm)
+                            SimilarSource.LASTFM -> stringResource(if (listenBrainz) R.string.similar_source_listenbrainz else R.string.similar_source_lastfm)
                         }
                     },
                     onValueSelected = onSimilarSourceChange,
@@ -261,8 +263,8 @@ fun RecommendationsSettings(
                         } else {
                             val lastFm = (mix.share * 100).roundToInt()
                             listOf(
-                                stringResource(R.string.similar_mix_share, percentText(lastFm, Locale.getDefault()), percentText(100 - lastFm, Locale.getDefault())),
-                                stringResource(R.string.similar_mix_lastfm_line, mix.lastFm.per100, mix.lastFm.cards.roundToInt()),
+                                stringResource(if (listenBrainz) R.string.similar_mix_share_listenbrainz else R.string.similar_mix_share, percentText(lastFm, Locale.getDefault()), percentText(100 - lastFm, Locale.getDefault())),
+                                stringResource(if (listenBrainz) R.string.similar_mix_listenbrainz_line else R.string.similar_mix_lastfm_line, mix.lastFm.per100, mix.lastFm.cards.roundToInt()),
                                 stringResource(R.string.similar_mix_youtube_line, mix.youTube.per100, mix.youTube.cards.roundToInt()),
                                 pluralStringResource(R.plurals.similar_mix_days, mix.days, mix.days),
                             ).joinToString("\n")
