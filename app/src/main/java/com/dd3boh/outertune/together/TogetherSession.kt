@@ -258,7 +258,7 @@ class TogetherSession(
     private var settleUntil = 0L
     private var lastSentState = 0L
     private var pingsToLeader = 0
-    private val heard = mutableMapOf<String, Long>()
+    private val heard = RoomPresence(MEMBER_TIMEOUT_MS)
     /** What each one said of themselves in their Here: their name and whether they made the room. */
     private val said = mutableMapOf<String, Pair<String, Boolean>>()
     /** Whom the owner has answered at once, so a newcomer learns who leads without waiting. */
@@ -508,6 +508,7 @@ class TogetherSession(
                 if (!leading) follow()
                 watchHost()
                 watchLeader()
+                watchMembers()
                 // Four looks a second while the room plays; one every two seconds while it is paused there and here, or
                 // while this phone leads. A word from the leader, a play or a pause here, a new lead or Catch up wakes it.
                 val every = lookEveryMs(leading, lastState?.playing, service.exoPlayer.playWhenReady)
@@ -619,6 +620,18 @@ class TogetherSession(
         lead(me)
         sayHere()
         inControl(me, wentQuiet = gone)
+    }
+
+    /**
+     * Who is still in the room, at every look: a phone not heard for [MEMBER_TIMEOUT_MS] has gone and comes off the list,
+     * whether or not anyone else speaks (RoomPresence). Only a word coming in took anyone off before, and the last guest
+     * to leave stayed on its host's list for good.
+     */
+    private fun watchMembers() {
+        if (!heard.dropQuiet(System.currentTimeMillis())) return
+        said.keys.retainAll(heard.keys)
+        Log.i(TAG, "Someone in the room went quiet for ${MEMBER_TIMEOUT_MS / 1000} s: off the list")
+        publish()
     }
 
     /**
@@ -827,7 +840,7 @@ class TogetherSession(
             queueSoon()
         }
         heard[from] = now
-        heard.entries.removeAll { now - it.value > MEMBER_TIMEOUT_MS }
+        heard.dropQuiet(now)
         if (message is TogetherMessage.Here) {
             val newcomer = from !in said
             said[from] = message.name to message.owner
