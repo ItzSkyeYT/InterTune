@@ -7,7 +7,9 @@
 package com.dd3boh.outertune.engine
 
 import com.dd3boh.outertune.constants.SimilarSource
+import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.db.MusicDatabase
+import com.dd3boh.outertune.db.entities.RelatedSongMap
 import java.io.File
 import java.util.TimeZone
 
@@ -39,13 +41,17 @@ data class EngineSeedsRow(val builtAt: Long, val seeds: String)
  * the same shapes from a copy of a real database.
  */
 object EngineLoader {
-    /** [mode] is where similar songs come from; the caller has already applied similarSourceOf. */
+    /**
+     * [mode] is where similar songs come from; the caller has already applied similarSourceOf. Its second source is
+     * Last.fm's lists, or ListenBrainz's in their place with [listenBrainz] (Unreleased.LB_SIMILAR).
+     */
     fun load(
         database: MusicDatabase,
         now: Long = System.currentTimeMillis(),
         bucket: Int? = null,
         chip: Int = ContextChip.AUTO,
         mode: SimilarSource = SimilarSource.YOUTUBE,
+        listenBrainz: Boolean = Unreleased.LB_SIMILAR,
     ): EngineInput {
         val tz = TimeZone.getDefault().getOffset(now) / 60_000
         val (gone, exclusions) = splitGone(database.engineExclusions(now))
@@ -65,8 +71,8 @@ object EngineLoader {
             listens = listens,
             edges = when (mode) {
                 SimilarSource.YOUTUBE -> database.engineEdges(0)
-                SimilarSource.LASTFM -> database.engineEdges(1)
-                SimilarSource.BOTH -> database.engineEdgesAll()
+                SimilarSource.LASTFM -> database.engineEdges(if (listenBrainz) RelatedSongMap.SOURCE_LISTENBRAINZ else 1)
+                SimilarSource.BOTH -> if (listenBrainz) database.engineEdgesAllListenBrainz() else database.engineEdgesAll()
             }.map { Edge(it.songId, it.relatedSongId, it.sources) },
             versionLinks = database.engineVersionLinks().map { VersionLink(it.songId, it.versionId) },
             seen = database.engineSeen(now - 14 * day).map { SeenCard(it.songId, it.visibleAt) },

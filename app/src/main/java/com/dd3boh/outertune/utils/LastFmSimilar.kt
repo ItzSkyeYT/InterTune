@@ -39,13 +39,20 @@ import kotlin.coroutines.cancellation.CancellationException
  */
 /**
  * Whether the first-run questions still owe the Last.fm one: only in a build that has a key and
- * shows the engine, since anywhere else there is nothing to ask for.
+ * shows the engine, since anywhere else there is nothing to ask for. With [listenBrainz]
+ * (Unreleased.LB_SIMILAR) the question is ListenBrainz's, which needs no key, so it is owed
+ * wherever the engine is shown, after 1 December too.
  */
-fun lastFmQuestionAskable(): Boolean = BuiltInKeys.lastFmApiKey.isNotEmpty() && Unreleased.ENGINE
+fun lastFmQuestionAskable(listenBrainz: Boolean = Unreleased.LB_SIMILAR): Boolean =
+    (listenBrainz || BuiltInKeys.lastFmApiKey.isNotEmpty()) && Unreleased.ENGINE
 
-fun similarSourceOf(prefs: Preferences): SimilarSource = SimilarSources.effective(
+/**
+ * With [listenBrainz] (Unreleased.LB_SIMILAR) the second source is ListenBrainz (ListenBrainzSimilar),
+ * which needs no key and does not close with Last.fm: the stored choice holds whatever the date.
+ */
+fun similarSourceOf(prefs: Preferences, listenBrainz: Boolean = Unreleased.LB_SIMILAR): SimilarSource = SimilarSources.effective(
     SimilarSources.stored(prefs[SimilarSourceKey], prefs[SimilarFromLastFmKey]),
-    hasKey = BuiltInKeys.lastFmApiKey.isNotEmpty(),
+    hasKey = listenBrainz || BuiltInKeys.lastFmApiKey.isNotEmpty(),
     engineOn = Unreleased.ENGINE,
 )
 

@@ -1005,12 +1005,18 @@
     <string name="lastfm_opt_in_yes">Oui, utiliser les deux</string>
     <string name="lastfm_opt_in_enabled">Titres similaires via Last.fm aussi</string>
     <string name="oobe_lastfm_answered">Vous pouvez changer cela à tout moment dans Paramètres, sous Recommandations.</string>
+    <string name="listenbrainz_similar_opt_in_title" translatable="false">Des titres similaires via ListenBrainz aussi ?</string>
+    <string name="listenbrainz_similar_opt_in_body" translatable="false">Meilleures recommandations peut interroger ListenBrainz en plus de YouTube pour des titres proches des vôtres, et privilégier celui qui en trouve que vous gardez. ListenBrainz ne reçoit que le nom et l\'artiste de chaque titre écouté, et une fois ceux écoutés le mois dernier ou aimés. Aucun compte nécessaire, et vous pouvez changer cela dans Paramètres, sous Recommandations.</string>
+    <string name="listenbrainz_similar_opt_in_enabled" translatable="false">Titres similaires via ListenBrainz aussi</string>
     <string name="similar_source_both">Les deux, en apprenant laquelle vous préférez</string>
     <string name="similar_source_youtube">YouTube uniquement</string>
     <string name="similar_source_lastfm">Last.fm uniquement</string>
+    <string name="similar_source_listenbrainz" translatable="false">ListenBrainz uniquement</string>
     <string name="similar_mix">Répartition des titres similaires</string>
     <string name="similar_mix_share">Last.fm %1$s, YouTube %2$s</string>
+    <string name="similar_mix_share_listenbrainz" translatable="false">ListenBrainz %1$s, YouTube %2$s</string>
     <string name="similar_mix_lastfm_line">Last.fm : %1$.1f écoutées pour 100, sur %2$d cartes</string>
+    <string name="similar_mix_listenbrainz_line" translatable="false">ListenBrainz : %1$.1f écoutées pour 100, sur %2$d cartes</string>
     <string name="similar_mix_youtube_line">YouTube : %1$.1f écoutées pour 100, sur %2$d cartes</string>
     <plurals name="similar_mix_days">
         <item quantity="one">Sur %1$d jour d\'écoute</item>
@@ -1381,6 +1387,7 @@
     <string name="rank_with_listening_info">Remet la « Sélection Rapide » dans un ordre qui vous ressemble : les titres écoutés souvent, récemment ou aimés passent devant. Rien n\'est ajouté ni retiré.</string>
     <string name="recommendations_engine_title_info">Des titres proches de ce que vous écoutez, vos favoris anciens et récents, d\'autres titres de vos artistes et quelques surprises. Ils s\'affichent quand « Source de la Sélection Rapide » est sur « Meilleures recommandations » ou « Essayer les deux » : tirez l\'accueil vers le bas pour voir un changement.</string>
     <string name="similar_source_info">Où « Meilleures recommandations » et « Découvrir du nouveau » cherchent des titres proches des vôtres. Avec « Les deux » ou « Last.fm uniquement », le nom et l\'artiste des titres que vous écoutez ou aimez sont envoyés à Last.fm, sans compte. « YouTube uniquement » n\'envoie rien à Last.fm.</string>
+    <string name="similar_source_listenbrainz_info" translatable="false">Où « Meilleures recommandations » et « Découvrir du nouveau » cherchent des titres proches des vôtres. Avec « Les deux » ou « ListenBrainz uniquement », le nom et l\'artiste des titres que vous écoutez ou aimez sont envoyés à ListenBrainz, sans compte. « YouTube uniquement » n\'envoie rien à ListenBrainz.</string>
     <string name="show_reasons_info">Chaque carte dit pourquoi elle est là : un titre avec lequel elle va, un artiste que vous écoutez, un j\'aime, ou parce qu\'elle est nouvelle pour vous. Un joker est tiré au hasard pour varier.</string>
     <string name="exclusions_info">Appuyez longuement sur une carte de la « Sélection Rapide » pour « Pas ce titre », « Moins de cet artiste » ou « Jamais cet artiste ». Cela ne touche que les recommandations, jamais la recherche, votre bibliothèque ou vos playlists. Levez-en une ici pour annuler.</string>
     <string name="rest_songs_i_skip_info">Passez tôt un titre favori, et il sort de « Meilleures recommandations » pendant une semaine. Vous pouvez le faire revenir plus tôt depuis « Exclusions ».</string>
@@ -1689,6 +1696,9 @@
     <string name="setup_lastfm_question">Utiliser aussi Last.fm pour les titres similaires ?</string>
     <string name="setup_lastfm_line">Envoie à Last.fm le nom et l\'artiste de chaque titre écouté, pour en trouver de semblables.</string>
     <string name="setup_lastfm_short">Last.fm</string>
+    <string name="listenbrainz_similar_question" translatable="false">Utiliser aussi ListenBrainz pour les titres similaires ?</string>
+    <string name="listenbrainz_similar_line" translatable="false">Envoie à ListenBrainz le nom et l\'artiste de chaque titre écouté, pour en trouver de semblables. Aucun compte nécessaire.</string>
+    <string name="listenbrainz_similar_short" translatable="false">ListenBrainz</string>
     <string name="setup_no_thanks">Non merci</string>
     <string name="setup_yes">Oui</string>
     <string name="setup_no">Non</string>

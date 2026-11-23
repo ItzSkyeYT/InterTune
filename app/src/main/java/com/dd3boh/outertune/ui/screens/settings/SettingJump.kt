@@ -101,6 +101,7 @@ object SettingJumps {
             R.string.spatial_audio_surround to spatialAudio,
             R.string.similar_source_youtube to similarSource,
             R.string.similar_source_lastfm to similarSource,
+            R.string.similar_source_listenbrainz to similarSource,
         )
     }
 

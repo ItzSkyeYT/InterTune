@@ -753,6 +753,10 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="setup_lastfm_question">Use Last.fm for similar songs too?</string>
     <string name="setup_lastfm_line">Sends Last.fm the title and artist of each song you play, to find more like it.</string>
     <string name="setup_lastfm_short">Last.fm</string>
+    <!-- Setup's question with ListenBrainz in Last.fm's place for similar songs (Unreleased.LB_SIMILAR), held from translators until it ships. -->
+    <string name="listenbrainz_similar_question" translatable="false">Use ListenBrainz for similar songs too?</string>
+    <string name="listenbrainz_similar_line" translatable="false">Sends ListenBrainz the title and artist of each song you play, to find more like it. No account needed.</string>
+    <string name="listenbrainz_similar_short" translatable="false">ListenBrainz</string>
     <string name="setup_no_thanks">No thanks</string>
     <string name="setup_yes">Yes</string>
     <string name="setup_no">No</string>
@@ -1353,12 +1357,19 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="lastfm_opt_in_yes">Yes, use both</string>
     <string name="lastfm_opt_in_enabled">Similar songs from Last.fm too</string>
     <string name="oobe_lastfm_answered">You can change this any time in Settings, under Recommendations.</string>
+    <!-- The same card in ListenBrainz's words (Unreleased.LB_SIMILAR). Its yes and the line under its switch are Last.fm's, which name no service. -->
+    <string name="listenbrainz_similar_opt_in_title" translatable="false">Similar songs from ListenBrainz too?</string>
+    <string name="listenbrainz_similar_opt_in_body" translatable="false">Best recommendations can ask ListenBrainz as well as YouTube for songs like yours, and lean toward the one that finds songs you keep. It only gets the title and artist of each song you play, plus once the ones you played last month or liked. No account needed, and you can change this in Settings, under Recommendations.</string>
+    <string name="listenbrainz_similar_opt_in_enabled" translatable="false">Similar songs from ListenBrainz too</string>
     <string name="similar_source_both">Both, learning which you prefer</string>
     <string name="similar_source_youtube">YouTube only</string>
     <string name="similar_source_lastfm">Last.fm only</string>
+    <string name="similar_source_listenbrainz" translatable="false">ListenBrainz only</string>
     <string name="similar_mix">How similar songs are split</string>
     <string name="similar_mix_share">Last.fm %1$s, YouTube %2$s</string>
+    <string name="similar_mix_share_listenbrainz" translatable="false">ListenBrainz %1$s, YouTube %2$s</string>
     <string name="similar_mix_lastfm_line">Last.fm: %1$.1f heard per 100 of %2$d cards</string>
+    <string name="similar_mix_listenbrainz_line" translatable="false">ListenBrainz: %1$.1f heard per 100 of %2$d cards</string>
     <string name="similar_mix_youtube_line">YouTube: %1$.1f heard per 100 of %2$d cards</string>
     <plurals name="similar_mix_days">
         <item quantity="one">From %1$d day of listening</item>
@@ -1710,6 +1721,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="rank_with_listening_info">Puts \"Quick picks\" in an order that suits you: songs you play often, lately or liked come first. Nothing is added or removed.</string>
     <string name="recommendations_engine_title_info">Songs like what you play, favourites old and new, more from your artists and a few surprises. They show when \"Quick picks source\" is \"Best recommendations\" or \"Try both\", so pull down on Home to see a change.</string>
     <string name="similar_source_info">Where \"Best recommendations\" and \"Discover something new\" look for songs like yours. With \"Both\" or \"Last.fm only\", the title and artist of songs you play or like go to Last.fm, with no account. \"YouTube only\" sends Last.fm nothing.</string>
+    <string name="similar_source_listenbrainz_info" translatable="false">Where \"Best recommendations\" and \"Discover something new\" look for songs like yours. With \"Both\" or \"ListenBrainz only\", the title and artist of songs you play or like go to ListenBrainz, no account needed. \"YouTube only\" sends ListenBrainz nothing.</string>
     <string name="show_reasons_info">Each card says why it\'s there: a song it goes with, an artist you play, a like, or that it\'s new to you. A wildcard is picked at random to keep things fresh.</string>
     <string name="exclusions_info">Long-press a card in \"Quick picks\" for \"Not this song\", \"Less of this artist\" or \"Never this artist\". This only affects recommendations, never search, your library or playlists. Lift one here to undo it.</string>
     <string name="rest_songs_i_skip_info">Skip a favourite early and it sits out of \"Best recommendations\" for a week. You can bring it back early from \"Exclusions\".</string>

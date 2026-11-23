@@ -28,11 +28,13 @@ data class RelatedSongMap(
     @ColumnInfo(index = true) val relatedSongId: String,
     /** When this edge was fetched; 0 for edges older than the column, which are never refreshed. */
     @ColumnInfo(defaultValue = "0") val fetchedAt: Long = 0,
-    /** 0 YouTube related, 1 Last.fm similar. */
+    /** 0 YouTube related, 1 Last.fm similar, 2 ListenBrainz similar. */
     @ColumnInfo(defaultValue = "0") val source: Int = 0,
 ) {
     companion object {
         const val SOURCE_YOUTUBE = 0
         const val SOURCE_LASTFM = 1
+        /** ListenBrainz's similar recordings, in Last.fm's place with Unreleased.LB_SIMILAR (ListenBrainzSimilar). */
+        const val SOURCE_LISTENBRAINZ = 2
     }
 }

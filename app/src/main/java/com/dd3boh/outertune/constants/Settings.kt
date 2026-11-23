@@ -277,7 +277,10 @@ enum class SimilarSource {
     BOTH,
     /** YouTube's related lists alone, which is what every build without a Last.fm key does. */
     YOUTUBE,
-    /** Last.fm's similar tracks, with YouTube's list for a song Last.fm has none for. */
+    /**
+     * Last.fm's similar tracks, with YouTube's list for a song Last.fm has none for. With Unreleased.LB_SIMILAR,
+     * ListenBrainz's similar recordings in their place: the second source, whichever it is (similarSourceOf).
+     */
     LASTFM,
 }
 

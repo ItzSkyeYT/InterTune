@@ -1259,6 +1259,21 @@ object Unreleased {
     val LISTENBRAINZ = true
 
     /**
+     * ListenBrainz's similar songs in the place Last.fm's had (his question of 23 Nov 2026: barely a week left to
+     * test them before Last.fm's key stops on 1 December). Where the app asked Last.fm for a played song's similar
+     * songs it asks ListenBrainz's open labs API (ListenBrainzSimilar, through ListenBrainzLabs): the song named by
+     * its title and artist, then the recordings people play near it, matched to songs on the phone (SimilarMatch)
+     * and kept as a source of their own (RelatedSongMap.SOURCE_LISTENBRAINZ). A song it has nothing for keeps
+     * YouTube's list, as a song Last.fm did not know did. No account, no token. The same choice as Last.fm's
+     * (Similar songs from, the setup question, the card), its words saying ListenBrainz; those texts are held from
+     * translators, French beside them. Measured on 18 Nov 2026 (experiments/recs-trial-1118/REPORT.md): far ahead
+     * of YouTube's list where it answers, which is about a third of today's songs. Without the flag everything is
+     * as before: Last.fm in that place until 1 December, YouTube alone after. To ship: set this to true and add it
+     * to ReleasedFlagsTest.
+     */
+    val LB_SIMILAR = BuildConfig.PREVIEW_FEATURES
+
+    /**
      * Vibration, one row under Look and feel > Behavior (his ask of 20 Nov 2026, the more haptics of 0.13 played on his
      * S25U: "the haptics aren't really noticeable... how custom can we make them?"): Off, Light or Strong, with one buzz
      * of the pick as it is made. Light is today's haptics, exactly: the view's own feedback, which Android's Touch
