@@ -2990,7 +2990,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="recap_notes_title" translatable="false">Your notes</string>
     <string name="recap_notes_opened_by" translatable="false">Opened by your %1$s Recap</string>
     <string name="recap_notes_none" translatable="false">Notes you write at the end of your Recap show up here.</string>
-    <string name="recap_alert_title" translatable="false">Your %1$s InterTune Recap is here</string>
+    <string name="recap_alert_title" translatable="false">Your %1$s Recap is here</string>
     <string name="recap_alert_line" translatable="false">Your year in music, ready when you are.</string>
     <plurals name="recap_alert_notes" translatable="false">
         <item quantity="one">And a note from your past self</item>

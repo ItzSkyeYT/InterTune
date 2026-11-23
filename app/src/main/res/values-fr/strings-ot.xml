@@ -2795,7 +2795,7 @@
     <string name="recap_notes_title">Vos mots</string>
     <string name="recap_notes_opened_by">Ouverts par votre Recap %1$s</string>
     <string name="recap_notes_none">Les mots que vous écrivez à la fin de votre Recap apparaissent ici.</string>
-    <string name="recap_alert_title">Votre InterTune Recap %1$s est là</string>
+    <string name="recap_alert_title">Votre Recap %1$s est là</string>
     <string name="recap_alert_line">Votre année en musique, prête quand vous l\'êtes.</string>
     <plurals name="recap_alert_notes" tools:ignore="ImpliedQuantity">
         <item quantity="one">Et un mot de vous, il y a un an</item>

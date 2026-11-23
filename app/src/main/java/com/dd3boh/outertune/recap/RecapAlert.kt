@@ -41,7 +41,7 @@ import java.time.LocalDateTime
 import java.util.concurrent.TimeUnit
 
 /**
- * "Your 2026 InterTune Recap is here" (his ask of 22 Nov 2026: "recap as a notification", "with
+ * "Your 2026 Recap is here" (his ask of 22 Nov 2026: "recap as a notification", "with
  * highest priority"): once a year, when the year's Recap is out (RecapCalendar, the debug options'
  * early reveal included) in its season and holds enough music, as the pop-up does (RecapEntry), a
  * heads-up notification on its own channel; a tap opens the Recap. Its second line says how many
