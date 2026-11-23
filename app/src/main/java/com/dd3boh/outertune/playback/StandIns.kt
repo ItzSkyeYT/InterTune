@@ -152,9 +152,10 @@ internal object StandInMemory {
      * How long a song looked for in vain, and set aside as gone, is not asked of YouTube at all when
      * the app comes to it by itself (StandIns' setAside). A day after the search, where it was the
      * three days of [NONE_MS], which are the search's: the note stops the loops it was made for, the
-     * same song asked at every song change or every try, and those come within minutes. Three days
-     * kept a song YouTube had refused for a while out of every queue and radio long after it was
-     * back (23 Nov 2026). The search itself still waits [NONE_MS].
+     * same song asked at every song change or every try, and those come within minutes. With three
+     * days, a song YouTube refused once, for a while or only where the phone was, stayed refused for
+     * that long wherever the app came to it by itself (23 Nov 2026). The search itself still waits
+     * [NONE_MS].
      */
     const val ASIDE_MS = 24L * 60 * 60 * 1000
 
@@ -270,8 +271,9 @@ internal class GoneRun {
  * with Lift). Such a song, looked for in vain lately, is not asked again whenever the app comes to
  * it: it fails at once as gone, with nothing asked of YouTube and nothing searched. On 21 Oct 2026
  * a song set aside at its third tap was walked and searched for at ten more. Within a day of the
- * search only ([StandInMemory.ASIDE_MS]), after which it is asked again, as a copy may have been
- * put up or the id come back; and at once when it is lifted. Never when somebody asks for it
+ * search only ([StandInMemory.ASIDE_MS]), after which it is asked again, as the id may have come
+ * back, and searched for again after [StandInMemory.NONE_MS], as a copy may have been put up; and
+ * at once when it is lifted. Never when somebody asks for it
  * ([playbackData]'s askedAgain: a play somebody started, AskedFor, and Play on the song the
  * music stopped on): it is asked once more, and only the app's own passes, the queue or a radio
  * reaching it, the next song read ahead, its own tries, are spared the walk.
