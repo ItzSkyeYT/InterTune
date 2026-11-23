@@ -53,6 +53,7 @@ import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import com.dd3boh.outertune.R
@@ -107,17 +108,21 @@ internal class RoomWalkState {
 
 internal val LocalRoomWalk = staticCompositionLocalOf<RoomWalkState?> { null }
 
-/** Where [stop] begins in the sheet. */
+/**
+ * Where [stop] begins in the sheet: [inset] lower than the mark, for a part that starts with its own space above it
+ * (the role line's), so the outline does not reach into the line before it.
+ */
 @Composable
-internal fun WalkFrom(stop: WalkStop) = WalkMark(stop, top = true)
+internal fun WalkFrom(stop: WalkStop, inset: Dp = 0.dp) = WalkMark(stop, top = true, inset = inset)
 
 /** Where [stop] ends in the sheet. */
 @Composable
 internal fun WalkTo(stop: WalkStop) = WalkMark(stop, top = false)
 
 @Composable
-private fun WalkMark(stop: WalkStop, top: Boolean) {
+private fun WalkMark(stop: WalkStop, top: Boolean, inset: Dp = 0.dp) {
     val walk = LocalRoomWalk.current ?: return
+    val insetPx = with(androidx.compose.ui.platform.LocalDensity.current) { inset.toPx() }
     Spacer(
         Modifier
             .fillMaxWidth()
@@ -125,7 +130,7 @@ private fun WalkMark(stop: WalkStop, top: Boolean) {
             .onGloballyPositioned { mark ->
                 val area = walk.area ?: return@onGloballyPositioned
                 if (!area.isAttached || !mark.isAttached) return@onGloballyPositioned
-                val y = area.localPositionOf(mark, Offset.Zero).y
+                val y = area.localPositionOf(mark, Offset.Zero).y + insetPx
                 if (top) walk.tops[stop] = y else walk.feet[stop] = y
             }
     )

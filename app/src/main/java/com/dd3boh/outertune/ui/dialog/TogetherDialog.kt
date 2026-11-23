@@ -509,7 +509,9 @@ private fun RoomPage(room: TogetherSession, song: MediaMetadata?, onLeave: () ->
         val leaderName = status.leaderName ?: stringResource(R.string.together_someone)
         // InterTune's developer in control: his name lit in the line (TogetherDev).
         val leaderDev = status.leaderName != null && status.members.any { it.leader && it.dev }
-        WalkFrom(WalkStop.ROLE)
+        // Every role line starts with 14 dp of space (in RoleLine, or the Spacer before ControlRow): the walk's outline
+        // starts under it, clear of the line above. With no role line the stop has no height and is left out.
+        WalkFrom(WalkStop.ROLE, inset = 14.dp)
         when (RoomRole.of(room.owner, status.leading, hostAway, status.waitingForHost)) {
             RoomRole.IN_CONTROL -> RoleLine(stringResource(R.string.together_role_in_control))
             RoomRole.OWNER_GAVE -> {

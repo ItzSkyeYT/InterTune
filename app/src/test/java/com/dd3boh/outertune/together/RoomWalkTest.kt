@@ -33,12 +33,12 @@ class RoomWalkTest {
     fun `every part of the room's page is marked from its top to its foot`() {
         val page = main("ui/dialog/TogetherDialog.kt").substringAfter("private fun RoomPage(").substringBefore("\n/** Two phones")
         for (stop in WalkStop.entries) {
-            val from = page.indexOf("WalkFrom(WalkStop.${stop.name})")
+            val from = page.indexOf("WalkFrom(WalkStop.${stop.name}")
             val to = page.indexOf("WalkTo(WalkStop.${stop.name})")
             assertTrue("$stop is not marked", from >= 0 && to > from)
         }
         // In the sheet's order, so the walk goes down the sheet.
-        val order = WalkStop.entries.map { page.indexOf("WalkFrom(WalkStop.${it.name})") }
+        val order = WalkStop.entries.map { page.indexOf("WalkFrom(WalkStop.${it.name}") }
         assertEquals(order.sorted(), order)
         assertTrue("RoomWalkArea(owner = room.owner)" in main("ui/dialog/TogetherDialog.kt"))
     }
