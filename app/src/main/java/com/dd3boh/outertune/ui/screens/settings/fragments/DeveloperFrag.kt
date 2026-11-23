@@ -93,6 +93,7 @@ import com.dd3boh.outertune.ui.component.LyricsWordsLook
 import com.dd3boh.outertune.ui.component.PreferenceEntry
 import com.dd3boh.outertune.ui.component.SwitchPreference
 import com.dd3boh.outertune.ui.screens.OptInCatchUp
+import com.dd3boh.outertune.ui.screens.recap.RecapSealRow
 import com.dd3boh.outertune.ui.screens.settings.SETTINGS_TAG
 import com.dd3boh.outertune.utils.FaultInjection
 import com.dd3boh.outertune.utils.Throttle
@@ -264,6 +265,8 @@ fun ColumnScope.DeveloperFrag(navController: NavController) {
                     }
                 },
             )
+            // How a note to next year's you is sealed, to compare the takes (debug app only).
+            if (Unreleased.RECAP_SEAL_TAKES) RecapSealRow()
         }
         if (VisionosTest.offered(testBuild = BuildConfig.PREVIEW_FEATURES, identities = Unreleased.VISIONOS_IDENTITIES, fallback = Unreleased.WEB_FALLBACK)) {
             // One row over the two keys. As two switches, "this app's VISIONOS" and "VISIONOS",

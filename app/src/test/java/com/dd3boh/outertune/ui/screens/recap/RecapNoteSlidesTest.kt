@@ -77,9 +77,14 @@ class RecapNoteSlidesTest {
         // Otherwise the paper makes way for the letter, then comes back sealed.
         assertEquals(0f, paperUnderLetter(100L, still = false), 0f)
         assertEquals(1f, paperUnderLetter(SealLetter.TOTAL_MS + 300L, still = false), 0f)
-        // Sealing it is the story's, on its clock: the letter is drawn over the paper from the moment it is kept.
+        // Sealing it is the story's, on its clock: the take is drawn over the paper from the moment it is kept,
+        // and the take of before is this letter, as it was (RecapSealTakesTest has the others).
         val slide = code("ui/screens/recap/RecapNoteSlides.kt")
-        assertTrue("if (note.sealedAt >= 0) SealLetterCanvas(s, note.sealedAt, note.letter, Modifier.matchParentSize())" in slide)
+        assertTrue("if (note.sealedAt >= 0) SealOver(take, s, note, places, WRITE_TURN, Modifier.matchParentSize())" in slide)
+        val takes = code("ui/screens/recap/RecapSealTakes.kt")
+        assertTrue("SealLetterCanvas(s, note.sealedAt, note.letter, modifier)" in takes)
+        assertEquals(SealLetter.TOTAL_MS + 300, SealTakes.totalMs(SealTake.BEFORE))
+        assertEquals(0f, SealTakes.paperAlpha(SealTake.BEFORE, 100L, still = false), 0f)
     }
 
     @Test

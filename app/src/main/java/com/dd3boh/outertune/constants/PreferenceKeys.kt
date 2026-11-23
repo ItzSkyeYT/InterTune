@@ -881,6 +881,12 @@ val RecapPopUpShownKey = intPreferencesKey("recapPopUpShown")
 val RecapRevealedEarlyKey = booleanPreferencesKey("recapRevealedEarly")
 
 /**
+ * The debug app's way of sealing a note in the Recap (Unreleased.RECAP_SEAL_TAKES): one by its name
+ * in SealTake, or absent for SealTake.DEFAULT. Read only with the flag on.
+ */
+val RecapSealTakeKey = stringPreferencesKey("recapSealTake")
+
+/**
  * The last year whose InterTune Recap was watched as far as its year card (his ask of 22 Nov 2026):
  * Home's banner is then gone for that year (rememberRecapOnHome), and Settings' and the Stats page's
  * stay. 0 for never.

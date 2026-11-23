@@ -640,6 +640,17 @@ object Unreleased {
     val RECAP = BuildConfig.PREVIEW_FEATURES
 
     /**
+     * Ways a note to next year's you can be sealed in the Recap, to compare on a screen (his "god the
+     * sealing animation looks so ass", 23 Nov 2026): the developer options' "DEBUG: Recap seal" picks
+     * one (SealTake), and so does the debug sample's `--es seal a` (b, c or before), for recordings.
+     * Without the flag the row is not there, the pick is never read, and every build plays
+     * SealTake.DEFAULT. To be removed, with the takes not kept, once he has picked.
+     *
+     * Debug builds only, kept out of the previews that testers get.
+     */
+    val RECAP_SEAL_TAKES = BuildConfig.DEBUG && BuildConfig.BUILD_TYPE == "debug"
+
+    /**
      * Songs put in with Play next stay next when a song is picked out of a list: they play right
      * after the picked song, in the order they stood, then the list (PlayNextWaiting), as Spotify's
      * "Next in queue" does. Asked for in issue #42 (23 Oct 2026). Without it a pick leaves them in
