@@ -2567,14 +2567,26 @@
     <string name="together_order_held_host">L\'hôte décide de l\'aléatoire et de la répétition</string>
     <string name="together_catch_up">Rattraper</string>
     <string name="together_suggested">Ajouté au salon : il passe ensuite</string>
-    <string name="together_suggested_many">Ajoutés au salon : %1$d titres passent ensuite</string>
+    <plurals name="together_suggested_many">
+        <item quantity="one">Ajouté au salon : %1$d titre passe ensuite</item>
+        <item quantity="other">Ajoutés au salon : %1$d titres passent ensuite</item>
+    </plurals>
     <string name="together_suggested_end">Ajouté à la fin de la file du salon</string>
-    <string name="together_suggested_many_end">%1$d titres ajoutés à la fin de la file du salon</string>
-    <string name="together_suggested_cut">%1$d titres ajoutés au salon ; les autres sont restés dehors</string>
+    <plurals name="together_suggested_many_end">
+        <item quantity="one">%1$d titre ajouté à la fin de la file du salon</item>
+        <item quantity="other">%1$d titres ajoutés à la fin de la file du salon</item>
+    </plurals>
+    <plurals name="together_suggested_cut">
+        <item quantity="one">%1$d titre ajouté au salon ; les autres sont restés dehors</item>
+        <item quantity="other">%1$d titres ajoutés au salon ; les autres sont restés dehors</item>
+    </plurals>
     <string name="together_suggested_files">Les titres de vos fichiers ne peuvent pas être lus par les autres</string>
     <string name="together_from_guest">%1$s propose %2$s : il passe ensuite</string>
     <string name="together_from_guest_end">%1$s a ajouté %2$s à la fin de la file</string>
-    <string name="together_from_guest_many">%1$s a ajouté %2$d titres à la file</string>
+    <plurals name="together_from_guest_many">
+        <item quantity="one">%1$s a ajouté %2$d titre à la file</item>
+        <item quantity="other">%1$s a ajouté %2$d titres à la file</item>
+    </plurals>
     <string name="together_last_suggestion">Dernier d\'un invité : %1$s</string>
     <string name="together_live_hosting">Vous êtes l\'hôte</string>
     <string name="together_live_guest">Vous avez rejoint un salon</string>

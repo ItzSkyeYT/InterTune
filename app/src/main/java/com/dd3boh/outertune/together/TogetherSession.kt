@@ -1239,7 +1239,7 @@ class TogetherSession(
         Log.i(TAG, "A guest added ${songs.size} songs: ${if (atEnd) "end" else "next"} in the queue")
         _status.value = _status.value.copy(lastSuggestion = "${songs.first().title}, $by")
         val text = when {
-            songs.size > 1 -> service.getString(R.string.together_from_guest_many, by, songs.size)
+            songs.size > 1 -> service.resources.getQuantityString(R.plurals.together_from_guest_many, songs.size, by, songs.size)
             atEnd -> service.getString(R.string.together_from_guest_end, by, songs.first().title)
             else -> service.getString(R.string.together_from_guest, by, songs.first().title)
         }
