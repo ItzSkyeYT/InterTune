@@ -2772,14 +2772,26 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="together_order_held_host">The host decides on shuffle and repeat</string>
     <string name="together_catch_up">Catch up</string>
     <string name="together_suggested">Added to the room: it plays next</string>
-    <string name="together_suggested_many">Added to the room: %1$d songs play next</string>
+    <plurals name="together_suggested_many">
+        <item quantity="one">Added to the room: %1$d song plays next</item>
+        <item quantity="other">Added to the room: %1$d songs play next</item>
+    </plurals>
     <string name="together_suggested_end">Added to the end of the room\'s queue</string>
-    <string name="together_suggested_many_end">%1$d songs added to the end of the room\'s queue</string>
-    <string name="together_suggested_cut">%1$d songs added to the room; the rest stayed out</string>
+    <plurals name="together_suggested_many_end">
+        <item quantity="one">%1$d song added to the end of the room\'s queue</item>
+        <item quantity="other">%1$d songs added to the end of the room\'s queue</item>
+    </plurals>
+    <plurals name="together_suggested_cut">
+        <item quantity="one">%1$d song added to the room; the rest stayed out</item>
+        <item quantity="other">%1$d songs added to the room; the rest stayed out</item>
+    </plurals>
     <string name="together_suggested_files">Songs from your files can\'t be played by the others</string>
     <string name="together_from_guest">%1$s suggested %2$s: it plays next</string>
     <string name="together_from_guest_end">%1$s added %2$s to the end of the queue</string>
-    <string name="together_from_guest_many">%1$s added %2$d songs to the queue</string>
+    <plurals name="together_from_guest_many">
+        <item quantity="one">%1$s added %2$d song to the queue</item>
+        <item quantity="other">%1$s added %2$d songs to the queue</item>
+    </plurals>
     <string name="together_last_suggestion">Last from a guest: %1$s</string>
     <string name="together_live_hosting">You\'re hosting</string>
     <string name="together_live_guest">You joined a room</string>

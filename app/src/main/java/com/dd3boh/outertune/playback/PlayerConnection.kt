@@ -260,9 +260,9 @@ class PlayerConnection(
             room.suggestAll(plan.toRoom, atEnd)
             val n = plan.toRoom.size
             lines += when {
-                plan.dropped > 0 -> service.getString(R.string.together_suggested_cut, n)
+                plan.dropped > 0 -> service.resources.getQuantityString(R.plurals.together_suggested_cut, n, n)
                 n == 1 -> service.getString(if (atEnd) R.string.together_suggested_end else R.string.together_suggested)
-                else -> service.getString(if (atEnd) R.string.together_suggested_many_end else R.string.together_suggested_many, n)
+                else -> service.resources.getQuantityString(if (atEnd) R.plurals.together_suggested_many_end else R.plurals.together_suggested_many, n, n)
             }
         }
         // Not added to the guest's own queue either: the room's queue would overwrite it.
