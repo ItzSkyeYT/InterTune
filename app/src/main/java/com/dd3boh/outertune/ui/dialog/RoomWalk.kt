@@ -181,11 +181,17 @@ private fun WalkOver(walk: RoomWalkState, owner: Boolean) {
     val edge = MaterialTheme.colorScheme.primary
     var bubbleHeight by remember { mutableStateOf(0) }
     val bring = remember { BringIntoViewRequester() }
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    val padPx = with(density) { pad.toPx() }
+    // The line sits under the part where it fits, over it near the foot of the sheet.
+    val gapPx = with(density) { (pad + 12.dp).toPx() }
+    fun lineTop(top: Float, foot: Float) = if (foot + gapPx + bubbleHeight <= walk.height) foot + gapPx else top - gapPx - bubbleHeight
     // Taps on the sheet under it do nothing while the walk is on.
     Box(
         Modifier
             .fillMaxWidth()
-            .height(with(androidx.compose.ui.platform.LocalDensity.current) { walk.height.toDp() })
+            .height(with(density) { walk.height.toDp() })
+            .bringIntoViewRequester(bring)
             .pointerInput(Unit) { detectTapGestures { } }
     ) {
         Canvas(Modifier.fillMaxWidth().height(with(androidx.compose.ui.platform.LocalDensity.current) { walk.height.toDp() })) {
@@ -206,10 +212,7 @@ private fun WalkOver(walk: RoomWalkState, owner: Boolean) {
                 style = Stroke(2.dp.toPx()),
             )
         }
-        // Under the part where it fits, over it near the foot of the sheet.
-        val gapPx = with(androidx.compose.ui.platform.LocalDensity.current) { (pad + 12.dp).toPx() }
-        val under = foot + gapPx + bubbleHeight <= walk.height
-        val y = if (under) foot + gapPx else top - gapPx - bubbleHeight
+        val y = lineTop(top, foot)
         val last = walk.at >= stops.lastIndex
         Surface(
             shape = RoundedCornerShape(16.dp),
@@ -218,8 +221,7 @@ private fun WalkOver(walk: RoomWalkState, owner: Boolean) {
             modifier = Modifier
                 .fillMaxWidth()
                 .offset { IntOffset(0, y.roundToInt()) }
-                .onSizeChanged { bubbleHeight = it.height }
-                .bringIntoViewRequester(bring),
+                .onSizeChanged { bubbleHeight = it.height },
         ) {
             Column(Modifier.padding(start = 16.dp, end = 8.dp, top = 14.dp, bottom = 6.dp)) {
                 Text(stringResource(if (owner) stop.hostLine else stop.line), style = MaterialTheme.typography.bodyMedium)
@@ -238,5 +240,12 @@ private fun WalkOver(walk: RoomWalkState, owner: Boolean) {
             }
         }
     }
-    LaunchedEffect(stop, bubbleHeight) { bring.bringIntoView() }
+    // The part and its line come into view together. Started from How rooms work at the sheet's foot, the first parts
+    // are above the screen, and bringing only the line left the part it speaks of out of sight (23 Nov 2026).
+    LaunchedEffect(stop, bubbleHeight) {
+        val top = walk.tops.getValue(stop)
+        val foot = walk.feet.getValue(stop)
+        val line = lineTop(top, foot)
+        bring.bringIntoView(Rect(0f, minOf(top - padPx, line), 1f, maxOf(foot + padPx, line + bubbleHeight)))
+    }
 }
