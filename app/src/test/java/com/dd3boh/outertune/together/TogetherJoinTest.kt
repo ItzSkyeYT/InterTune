@@ -108,7 +108,10 @@ class TogetherJoinTest {
     @Test
     fun `the session asks before every jump of the following`() {
         val follow = session.substringAfter("private fun follow()").substringBefore("\n    }\n")
-        assertTrue(follow.contains("is Follow.Seek -> if (Follow.jumpNow(decision.positionMs, local, player.bufferedPosition))"))
+        // Through DataWait, which asks Follow.jumpNow first and bounds the wait it says (DataWaitTest).
+        assertTrue(follow.contains("is Follow.Seek -> if (dataWait.jumps(decision.positionMs, local, player.bufferedPosition, now))"))
+        val wait = File("src/main/java/com/dd3boh/outertune/together/CatchUp.kt").readText()
+        assertTrue(wait.substringAfter("fun jumps(").substringBefore("\n    }\n").contains("if (Follow.jumpNow(targetMs, localMs, bufferedMs))"))
     }
 
     @Test

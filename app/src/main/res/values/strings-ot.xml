@@ -2737,6 +2737,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="together_following">Following the host</string>
     <string name="together_in_step">In step, %1$d ms apart</string>
     <string name="together_catching_up">Catching up, %1$d ms apart</string>
+    <string name="together_too_slow">Your connection is too slow to keep up with the room. You\'ll hear it a bit behind.</string>
     <string name="together_leave">Leave</string>
     <string name="together_join_title">Join this listening room?</string>
     <string name="together_share">Share</string>
