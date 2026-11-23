@@ -2222,10 +2222,11 @@ while also allowing users to translate our app as well. New, specific strings to
     </plurals>
     <string name="queue_from_search">“%1$s”</string>
     <string name="support_title">Support InterTune</string>
-    <string name="support_text">InterTune is free and has no ads. To give something back, use InterTune\'s Ko-fi and say in your message if you want your name here. For crypto, message the developer on Discord.</string>
+    <string name="support_text">InterTune is free and has no ads. To give something back, use InterTune\'s Ko-fi or GitHub Sponsors and say if you want your name here. For crypto, message the developer on Discord.</string>
     <string name="support_thanks">Thanks to those who already gave:</string>
     <string name="support_discord">Open Discord</string>
     <string name="support_kofi">Donate on Ko-fi</string>
+    <string name="support_github">Sponsor on GitHub</string>
     <plurals name="list_queued_here">
         <item quantity="one">%1$d song added to the end of this queue</item>
         <item quantity="other">%1$d songs added to the end of this queue</item>
@@ -2632,6 +2633,27 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="new_downloads_move_here">Choose the folder here. Songs you downloaded before can move there with it.</string>
     <string name="new_original_audio_title">Podcasts and videos in their own language</string>
     <string name="new_original_audio_body">When YouTube dubs a podcast or a video into other languages, InterTune now plays the language it was made in.</string>
+    <string name="new_together_title">Listen together</string>
+    <string name="new_together_body">Start a room and your friends hear what you play, in step, each on their own phone. Listen together is on Home, beside Account, and in the player\'s menu.</string>
+    <string name="new_airplay_title">AirPlay speakers in the cast list</string>
+    <string name="new_airplay_body">The cast button now finds AirPlay speakers too, and the equalizer and Audio normalization are heard on them.</string>
+    <string name="new_listenbrainz_title">Scrobble to ListenBrainz</string>
+    <string name="new_listenbrainz_body">Last.fm stops on 1 December. Connect a ListenBrainz account and each song you finish goes to your profile there.</string>
+    <string name="new_listenbrainz_way">Your accounts and what they keep in sync are set in here, ListenBrainz too.</string>
+    <string name="new_listenbrainz_here">Connect with the user token from your ListenBrainz settings. Each song you finish then goes to your profile.</string>
+    <string name="new_vibration_title">Vibration you can feel</string>
+    <string name="new_vibration_body">Off, Light or Strong, in Look and feel. Strong, the default, gives each button its own feel.</string>
+    <string name="new_vibration_way">How the app looks, moves and vibrates is set in here.</string>
+    <string name="new_vibration_here">Strong gives each button its own feel, and Light the same at half the strength. Off turns it off.</string>
+    <string name="new_metrolist_title">Move over from Metrolist</string>
+    <string name="new_metrolist_body">Import from Metrolist brings your likes, playlists, plays and the lyrics you edited over from a Metrolist backup.</string>
+    <string name="new_metrolist_way">Backups, and libraries from other apps, are brought in here.</string>
+    <string name="new_metrolist_here">Pick a backup made in Metrolist. You see what it holds before anything is imported.</string>
+    <string name="new_custom_order_title">Your library in your own order</string>
+    <string name="new_custom_order_body">Sort your playlists, albums or artists by Custom order, then drag them where you want them, on the Library page too.</string>
+    <string name="new_file_format_title">Downloads as MP3, M4A, FLAC or WAV</string>
+    <string name="new_file_format_body">File format, in Storage and downloads, saves songs as files other apps and cars can play, at a bitrate that follows what YouTube sent.</string>
+    <string name="new_file_format_here">Pick the format your other apps or your car read best. The bitrate follows what YouTube sent unless you pick one.</string>
     <!-- What's new in 0.12.8 (Walkthrough.kt, V0_12_8). -->
     <string name="new_report_send_title">Send a report to InterTune</string>
     <string name="new_report_send_body">Report a problem can now send the report to InterTune itself, no GitHub account needed. Or share it as a file to post on Discord.</string>
