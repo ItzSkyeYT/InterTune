@@ -915,6 +915,21 @@ val PollFetchVersionKey = intPreferencesKey("pollFetchVersion")
  */
 val CachedPollsJsonKey = stringPreferencesKey("cachedPollsJson")
 
+/**
+ * The last news document believed, its signed payload only (SignedDocument): the questions, the news and the
+ * playback block as the maintainer signed them. From 0.13 it takes the place of [CachedPollsJsonKey], which
+ * kept whatever the gist said and is never read again.
+ */
+val SignedNewsKey = stringPreferencesKey("signedNews")
+
+/** The highest number of each signed document taken: a lower one is refused, so an old one is never served again. */
+val SignedNewsSeqKey = longPreferencesKey("signedNewsSeq")
+val SignedDonorsSeqKey = longPreferencesKey("signedDonorsSeq")
+val SignedUpdateSeqKey = longPreferencesKey("signedUpdateSeq")
+
+/** Signing keys a document signed with the spare key withdrew: nothing they sign is believed again. */
+val RevokedSigningKeysKey = stringSetPreferencesKey("revokedSigningKeys")
+
 /** The names last read from README > Donors (Donors.kt), one per line, shown in About > Support InterTune. */
 val DonorsCacheKey = stringPreferencesKey("donorsCache")
 

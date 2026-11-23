@@ -98,6 +98,18 @@ android {
             "POLLS_URL",
             obfuscated(service("polls.gistUrl"))
         )
+        // The same signed document on the other hosts, asked at once with the gist (SignedDocument.kt),
+        // and the one asked only when those give nothing (GitLab).
+        buildConfigField(
+            "int[]",
+            "POLLS_MIRRORS",
+            obfuscated(service("polls.mirrors"))
+        )
+        buildConfigField(
+            "int[]",
+            "POLLS_LAST_RESORT",
+            obfuscated(service("polls.lastResort"))
+        )
         buildConfigField(
             "int[]",
             "POLLS_COUNT_URL",

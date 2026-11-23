@@ -20,6 +20,9 @@ import com.dd3boh.outertune.constants.LastPollFetchKey
 import com.dd3boh.outertune.constants.Polls
 import com.dd3boh.outertune.constants.PollFetchVersionKey
 import com.dd3boh.outertune.constants.PollsEnabledKey
+import com.dd3boh.outertune.constants.RevokedSigningKeysKey
+import com.dd3boh.outertune.constants.SignedNewsKey
+import com.dd3boh.outertune.constants.SignedNewsSeqKey
 import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.extensions.isInternetConnected
 import com.dd3boh.outertune.recap.RecapCount
@@ -49,7 +52,9 @@ import javax.inject.Singleton
  *
  * WHAT LEAVES THE DEVICE, in full, because this is the part that has to be true when the modal
  * says the answer is anonymous:
- *  - a GET for the poll list, which reveals only that some InterTune install looked
+ *  - a GET for the poll list, which reveals only that some InterTune install looked: to the gist,
+ *    intertune.app and the counter worker at once, and to GitLab only when those three give
+ *    nothing to believe (Polls.SOURCES, Polls.LAST_RESORT, SignedDocument)
  *  - on answering, one POST carrying the poll id and its question, the chosen options' ids and
  *    labels, the words typed into an "Other" box when there are some, and the app version;
  *    a follow-up question's picks go in that same event, as "<optionId>/<followUpOptionId>"
@@ -180,26 +185,60 @@ class PollChecker @Inject constructor(
             return@withContext restoreFromCache()
         }
 
-        val body = runCatching {
-            client.newCall(Request.Builder().url(Polls.POLLS_URL).build())
-                .execute().use { response ->
-                    if (!response.isSuccessful) return@runCatching null
-                    response.body?.string()
+        // The gist, intertune.app and the counter worker at once, the newest document the maintainer signed
+        // winning wherever it is, and GitLab only when those give nothing (SignedDocument). Only the signed
+        // part is read.
+        val highest = store.get(SignedNewsSeqKey, 0L)
+        val revoked = store.get(RevokedSigningKeysKey, emptySet())
+        val (hosts, lastResort) = sources()
+        val walk = SignedSources.best(hosts, { SignedSources.fetch(it) }, lastResort) {
+            SignedDocument.open(it, SignedDocument.NEWS, SigningKeys.BUILT_IN, highest, revoked, now)
+        }
+        walk.notes.forEach { Log.i(TAG, it) }
+        val taken = walk.found?.accepted ?: run {
+            // Only stamp the clock once something actually answered, so one flaky moment does not
+            // suppress fetching for the whole interval. A signed document refused (an older copy) is
+            // an answer; nothing, or a page that is not a document (a hotel's sign-in), is not.
+            if (walk.answered) {
+                context.dataStore.edit {
+                    it[LastPollFetchKey] = now
+                    it[PollFetchVersionKey] = BuildConfig.VERSION_CODE
                 }
-        }.getOrNull() ?: run {
-            Log.i(TAG, "Poll fetch failed, leaving the last fetch time alone so it retries")
+            } else {
+                Log.i(TAG, "Poll fetch failed, leaving the last fetch time alone so it retries")
+            }
             return@withContext restoreFromCache()
         }
 
-        // Only stamp the clock once something actually answered, so one flaky moment does not
-        // suppress fetching for the whole interval.
         context.dataStore.edit {
             it[LastPollFetchKey] = now
-            it[CachedPollsJsonKey] = body
+            it[SignedNewsKey] = taken.payload
             it[PollFetchVersionKey] = BuildConfig.VERSION_CODE
+            // The unsigned copy kept by the builds before 0.13: never read again.
+            it.remove(CachedPollsJsonKey)
         }
+        SignedSources.remember(context, taken, SignedNewsSeqKey)
 
-        pick(body)
+        pick(taken.payload)
+    }
+
+    /**
+     * The hosts the document is fetched from, and the last resort: [Polls.SOURCES] and [Polls.LAST_RESORT],
+     * or on a debug build the lines of files/news-sources.txt while it is there (those after a line "then"
+     * being the last resort), to try a host that is down or a forged copy on an emulator
+     * (docs/announcements.md). Only adb (run-as) can put it there. Never in a release.
+     */
+    private fun sources(): Pair<List<String>, List<String>> {
+        if (BuildConfig.DEBUG) {
+            runCatching { File(context.filesDir, SOURCES_STAND_IN).takeIf { it.isFile }?.readLines() }.getOrNull()
+                ?.map { it.trim() }?.filter { it.isNotEmpty() && !it.startsWith("#") }
+                ?.takeIf { it.isNotEmpty() }
+                ?.let { lines ->
+                    val split = lines.indexOf("then").takeIf { it >= 0 } ?: lines.size
+                    return lines.take(split) to lines.drop(split + 1)
+                }
+        }
+        return Polls.SOURCES to Polls.LAST_RESORT
     }
 
     /**
@@ -226,10 +265,21 @@ class PollChecker @Inject constructor(
     private fun standIn(): String? = if (!BuildConfig.DEBUG) null
     else runCatching { File(context.filesDir, STAND_IN).takeIf { it.isFile }?.readText() }.getOrNull()
 
-    /** Re-reads the cached document and picks again, since what counts as unanswered has moved. */
+    /**
+     * Re-reads the cached document and picks again, since what counts as unanswered has moved. Only the
+     * signed one taken last, and only until its expiry: past it nothing it said stands, its playback block
+     * included.
+     */
     private suspend fun restoreFromCache(): Poll? {
-        val cached = context.dataStore.get(CachedPollsJsonKey, "")
+        val cached = context.dataStore.get(SignedNewsKey, "")
         if (cached.isEmpty()) return null
+        if (!SignedDocument.inDate(cached, System.currentTimeMillis())) {
+            RemoteRoutes.read(null, BuildConfig.VERSION_CODE, 0L)
+            CheckedPictures.use(null)
+            _current.value = null
+            _currentAnnouncement.value = null
+            return null
+        }
         return pick(cached)
     }
 
@@ -244,6 +294,8 @@ class PollChecker @Inject constructor(
         // The playback block rides in the same document: see RemoteRoutes. Read whatever the two
         // switches say, since it is about playback and shows nothing.
         RemoteRoutes.read(json, BuildConfig.VERSION_CODE, store.get(LastPollFetchKey, 0L))
+        // And the pictures' hashes, for whatever this document puts on screen: see CheckedPictures.
+        CheckedPictures.use(json)
         val answered = store.get(AnsweredPollIdsKey, emptySet())
         val dismissed = store.get(DismissedPollIdsKey, emptySet())
 
@@ -467,6 +519,8 @@ class PollChecker @Inject constructor(
             it.remove(AnsweredPollIdsKey)
             it.remove(DismissedPollIdsKey)
             it.remove(CachedPollsJsonKey)
+            // Fetched again at the next check. The highest number taken stays: an older document is still refused.
+            it.remove(SignedNewsKey)
             it.remove(LastPollFetchKey)
             // Announcements too: once read one never came back, even for whoever wanted to look
             // at it again. What was counted stays counted, so reading it again sends nothing.
@@ -480,6 +534,9 @@ class PollChecker @Inject constructor(
 
         /** The stand-in document's name in the app's files: see standIn. */
         private const val STAND_IN = "poll-stand-in.json"
+
+        /** The stand-in list of hosts in the app's files, debug builds only: see sources. */
+        private const val SOURCES_STAND_IN = "news-sources.txt"
 
         /**
          * What one answer sends, every key of it: the question and its id, the labels and the ids
