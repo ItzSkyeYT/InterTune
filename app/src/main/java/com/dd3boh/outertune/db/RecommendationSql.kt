@@ -54,6 +54,10 @@ object RecommendationSql {
      * Now it filters to the seeds first and counts distinct seeds, so the ranking means what the
      * name says. DISTINCT because related_song_map can hold the same pair twice, which a plain COUNT
      * would read as two seeds agreeing.
+     *
+     * A play whose listen is not to be learned from seeds nothing: someone else's song in a
+     * listening room (his word of 23 Nov 2026, together/WhoAdded), a queue told "Don't learn from
+     * this", a session forgotten. Still a play, counted and listed as ever.
      */
     const val QUICK_PICKS = """
         SELECT song.*
@@ -62,6 +66,7 @@ object RecommendationSql {
               WHERE source = 0 AND songId IN (SELECT songId
                                FROM (SELECT songId
                                      FROM event
+                                     WHERE NOT EXISTS (SELECT 1 FROM listen WHERE listen.sourceEventId = event.id AND listen.learn = 0)
                                      ORDER BY ROWID DESC
                                      LIMIT 5)
                                UNION
@@ -69,6 +74,7 @@ object RecommendationSql {
                                FROM (SELECT songId
                                      FROM event
                                      WHERE timestamp > :now - 86400000 * 7
+                                         AND NOT EXISTS (SELECT 1 FROM listen WHERE listen.sourceEventId = event.id AND listen.learn = 0)
                                      GROUP BY songId
                                      ORDER BY SUM(playTime) DESC
                                      LIMIT 5)
