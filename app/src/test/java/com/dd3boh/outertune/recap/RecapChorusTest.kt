@@ -41,6 +41,18 @@ class RecapChorusTest {
     }
 
     @Test
+    fun `time is the samples decoded, so a file whose timestamps are guessed still lands right`() {
+        // A variable-bitrate MP3 without a header: Android guessed 48 s for 3 minutes (23 Nov 2026). 100 s of samples at
+        // 44.1 kHz is block 50 of 2 s whatever the guess.
+        assertEquals(50, RecapChorus.blockAt(4_410_000L, 44_100, 2_000L))
+        assertEquals(0, RecapChorus.blockAt(0L, 48_000, 2_000L))
+        assertEquals(1, RecapChorus.blockAt(96_000L, 48_000, 2_000L))
+        val code = File("src/main/java/com/dd3boh/outertune/recap/RecapChorus.kt").readText()
+        assertTrue("the reader counts its time by the samples", "blockAt(frames, rate, STEP_MS)" in code)
+        assertTrue("and its length", "frames * 1000 / rate" in code)
+    }
+
+    @Test
     fun `not in the opening nor the fade at the end`() {
         val loudStart = song(240, fromS = 0, forS = 12)
         val at = RecapChorus.startMs(loudStart.also { it[60] = 0.5f; it[61] = 0.5f }, step, 10_000L, 240_000L)
