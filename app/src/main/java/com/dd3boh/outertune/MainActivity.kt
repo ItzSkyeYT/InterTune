@@ -576,7 +576,7 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-    /** A tap on "Your 2026 InterTune Recap is here" (RecapAlert): that year's Recap opens. */
+    /** A tap on "Your 2026 Recap is here" (RecapAlert): that year's Recap opens. */
     private fun handleOpenRecap(intent: Intent?) {
         val year = intent?.getIntExtra(RecapAlert.EXTRA_OPEN_RECAP, 0) ?: 0
         if (year <= 0) return

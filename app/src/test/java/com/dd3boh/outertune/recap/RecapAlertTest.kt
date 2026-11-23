@@ -13,7 +13,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
 
-/** "Your 2026 InterTune Recap is here": once a year, when it is out with enough music, its notes named only when there are some. */
+/** "Your 2026 Recap is here": once a year, when it is out with enough music, its notes named only when there are some. */
 class RecapAlertTest {
     private fun code(path: String) = File("src/main/java/com/dd3boh/outertune/$path").readText()
 
