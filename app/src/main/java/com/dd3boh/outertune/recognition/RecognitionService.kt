@@ -387,16 +387,15 @@ class RecognitionService : Service() {
     private fun post(notification: android.app.Notification) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val manager = getSystemService(NotificationManager::class.java)
-            if (manager.getNotificationChannel(RESULTS_CHANNEL_ID) == null) {
-                // Its own channel, heard: a song found while scrolling is worth a sound and a
-                // banner, where the listening notification above it is silent.
-                manager.createNotificationChannel(
-                    android.app.NotificationChannel(
-                        RESULTS_CHANNEL_ID, getString(R.string.recognition_phone_results_channel),
-                        NotificationManager.IMPORTANCE_HIGH,
-                    )
+            // Its own channel, heard: a song found while scrolling is worth a sound and a
+            // banner, where the listening notification above it is silent. Made each time, so its
+            // name in Android's settings is in the app's language now (ChannelNames).
+            manager.createNotificationChannel(
+                android.app.NotificationChannel(
+                    RESULTS_CHANNEL_ID, getString(R.string.recognition_phone_results_channel),
+                    NotificationManager.IMPORTANCE_HIGH,
                 )
-            }
+            )
         }
         runCatching { androidx.core.app.NotificationManagerCompat.from(this).notify(RESULT_NOTIFICATION_ID, notification) }
             .onFailure { Log.w(TAG, "Could not post the song found on this phone", it) }
@@ -409,7 +408,9 @@ class RecognitionService : Service() {
         // NotificationManagerCompat posts fine without one.
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val manager = getSystemService(NotificationManager::class.java)
-        if (manager.getNotificationChannel(CHANNEL_ID) == null) manager.createNotificationChannel(
+        // Made each time, which renames a channel that is there (ChannelNames) and keeps what the
+        // listener set on it.
+        manager.createNotificationChannel(
             NotificationChannel(
                 CHANNEL_ID,
                 getString(R.string.recognition_service_channel),
@@ -417,7 +418,7 @@ class RecognitionService : Service() {
             ).apply { setShowBadge(false) }
         )
         // Seen, not heard: it pops up over the video once, with no sound to land in the video's.
-        if (manager.getNotificationChannel(PHONE_CHANNEL_ID) == null) manager.createNotificationChannel(
+        manager.createNotificationChannel(
             NotificationChannel(
                 PHONE_CHANNEL_ID,
                 getString(R.string.recognition_service_title_phone),
@@ -449,14 +450,14 @@ class RecognitionService : Service() {
 
     companion object {
         private const val TAG = "RecognitionService"
-        private const val CHANNEL_ID = "song_recognition"
-        private const val PHONE_CHANNEL_ID = "song_recognition_phone"
+        internal const val CHANNEL_ID = "song_recognition"
+        internal const val PHONE_CHANNEL_ID = "song_recognition_phone"
         private const val NOTIFICATION_ID = 4243
         const val ACTION_STOP = "com.dd3boh.outertune.recognition.STOP"
         private const val EXTRA_CONSENT_CODE = "consent_code"
         private const val EXTRA_CONSENT_DATA = "consent_data"
         private const val EXTRA_HEADLESS = "headless"
-        private const val RESULTS_CHANNEL_ID = "song_recognition_results"
+        internal const val RESULTS_CHANNEL_ID = "song_recognition_results"
         private const val RESULT_NOTIFICATION_ID = 4244
 
         fun start(context: Context) {

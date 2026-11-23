@@ -57,6 +57,9 @@ import com.zionhuang.innertube.YouTube
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.time.LocalDateTime
+import androidx.compose.ui.platform.LocalHapticFeedback
+import com.dd3boh.outertune.ui.component.tapTick
+import com.dd3boh.outertune.ui.player.likeName
 
 @Composable
 fun AlbumMenu(
@@ -131,8 +134,10 @@ fun AlbumMenu(
         showLikedIcon = false,
         badges = {},
         trailingContent = {
+            val haptic = LocalHapticFeedback.current
             IconButton(
                 onClick = {
+                    haptic.tapTick()
                     database.query {
                         update(album.album.toggleLike())
                     }
@@ -141,7 +146,7 @@ fun AlbumMenu(
                 Icon(
                     painter = painterResource(if (album.album.bookmarkedAt != null) R.drawable.favorite else R.drawable.favorite_border),
                     tint = if (album.album.bookmarkedAt != null) MaterialTheme.colorScheme.error else LocalContentColor.current,
-                    contentDescription = null
+                    contentDescription = likeName(album.album.bookmarkedAt != null)
                 )
             }
         }

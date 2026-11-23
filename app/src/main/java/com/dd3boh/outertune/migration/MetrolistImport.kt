@@ -14,6 +14,8 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.longOrNull
+import java.time.LocalDateTime
+import java.time.ZoneOffset
 
 /**
  * Bringing a Metrolist library over (his word of 14 Nov 2026, for 0.13). A Metrolist backup is a zip holding its
@@ -21,9 +23,11 @@ import kotlinx.serialization.json.longOrNull
  * 14 Nov). Metrolist and InterTune both come from InnerTune, so the tables both databases have keep the same keys and
  * the same meaning, and dates are stored alike: epoch milliseconds in UTC on both sides. What is copied is every
  * column both tables have, read from the two databases themselves, so a later Metrolist version is read the same way.
+ * Their download dates and their songs that are files on their phone or computer stay out: neither plays here.
  *
- * Nothing of ours is replaced or removed. A row we already have stays as it is, except that a song liked or added to
- * the library there is liked or added here too. A play we already have is not added twice, a month's play count is
+ * Nothing of ours is removed. A row we already have stays as it is, except that a song liked or added to the library
+ * there is liked or added here too, with its date, and gets their artist and album links beside ours; the import's
+ * question says so (metrolist_import_summary). A play we already have is not added twice, a month's play count is
  * the larger of the two, and a playlist we already have, or already follow on YouTube, is not made again: the same
  * backup brought over twice changes nothing the second time.
  *
@@ -53,7 +57,24 @@ object MetrolistImport {
     private val OURS_ONLY = setOf("queue", "queue_song_map")
 
     /** The maps and the per-song tables, copied as they are once their songs, artists and albums are in. */
-    private val PER_SONG = listOf("song_artist_map", "song_album_map", "album_artist_map", "format", "lyrics")
+    internal val PER_SONG = listOf("song_artist_map", "song_album_map", "album_artist_map", "format", "lyrics")
+
+    /**
+     * What a row of these tables points to, as (its column, our table), found there by id. A row of theirs whose song,
+     * artist, album or playlist is not in ours is left out. Room turns foreign keys on for ours, and OR IGNORE does not
+     * cover a foreign key, so one such row (an orphan, which nothing in Metrolist looks for) failed the whole import,
+     * every time. The per-song tables with no foreign key (format, lyrics, playCount) keep to our songs the same way.
+     */
+    internal val PARENTS: Map<String, List<Pair<String, String>>> = mapOf(
+        "song_artist_map" to listOf("songId" to "song", "artistId" to "artist"),
+        "song_album_map" to listOf("songId" to "song", "albumId" to "album"),
+        "album_artist_map" to listOf("albumId" to "album", "artistId" to "artist"),
+        "playlist_song_map" to listOf("playlistId" to "playlist", "songId" to "song"),
+        "event" to listOf("songId" to "song"),
+        "format" to listOf("id" to "song"),
+        "lyrics" to listOf("id" to "song"),
+        "playCount" to listOf("song" to "song"),
+    )
 
     enum class Refusal {
         /** Not a database Metrolist wrote. */
@@ -122,6 +143,7 @@ object MetrolistImport {
                 .orEmpty()
             val rank = HashMap<String, Int>().apply { order.forEachIndexed { i, id -> putIfAbsent(id, i) } }
             songs.withIndex().sortedBy { (i, song) -> rank[song.id] ?: (order.size + i) }.map { it.value }.distinctBy { it.id }
+                .filterNot { it.id.startsWith(LOCAL_ID) }
         }.getOrDefault(emptyList())
     }
 
@@ -130,13 +152,14 @@ object MetrolistImport {
 
     fun summary(theirs: Db, liked: List<LikedSong> = emptyList()): Summary {
         val likedIds = HashSet<Any?>()
-        theirs.query("SELECT id FROM song WHERE liked = 1") { r -> likedIds += r[0] }
+        val local = local(theirs)
+        theirs.query("SELECT id FROM song WHERE liked = 1 AND NOT ($local)") { r -> likedIds += r[0] }
         liked.forEach { likedIds += it.id }
         return Summary(
-            inLibrary = count(theirs, "SELECT COUNT(*) FROM song WHERE inLibrary IS NOT NULL"),
+            inLibrary = count(theirs, "SELECT COUNT(*) FROM song WHERE inLibrary IS NOT NULL AND NOT ($local)"),
             liked = likedIds.size,
             playlists = count(theirs, "SELECT COUNT(*) FROM playlist"),
-            plays = count(theirs, "SELECT COUNT(*) FROM event" + playsOnly(theirs)),
+            plays = count(theirs, "SELECT COUNT(*) FROM event" + plays(theirs)),
         )
     }
 
@@ -147,16 +170,22 @@ object MetrolistImport {
      * Copies [theirs] into [ours], which the caller holds in one transaction, then likes the new app's [liked] songs,
      * newest first: they are given liked dates a second apart from [now] back, so Liked keeps their order.
      */
-    fun merge(theirs: Db, ours: Db, liked: List<LikedSong> = emptyList(), now: Long = System.currentTimeMillis()): Result {
+    fun merge(theirs: Db, ours: Db, liked: List<LikedSong> = emptyList(), now: Long = storedNow()): Result {
         refusal(theirs)?.let { throw IllegalArgumentException("not a Metrolist database: $it") }
         val before = counts(ours)
         val both = theirs.tables() intersect ours.tables()
 
         copy(theirs, ours, "artist")
         copy(theirs, ours, "album")
-        copy(theirs, ours, "song")
+        // Not the songs that are files on their phone or computer, which only Metrolist can read: here they would be
+        // songs on the phone with no file, that never play. Nor their download dates: a date here means downloaded
+        // here (DownloadSql), while their downloads are in Metrolist's own storage, so their songs were listed under
+        // Downloaded, offline too, until the next start found no file. Their rows (links, plays, lyrics) stay out with
+        // them, as rows with no song (PARENTS).
+        val local = local(theirs)
+        copy(theirs, ours, "song", leaveOut = setOf("dateDownload"), where = " WHERE NOT ($local)")
         // A song both have: liked or in the library there is liked or in the library here. Ours stays otherwise.
-        theirs.query("SELECT id, liked, likedDate, inLibrary FROM song WHERE liked = 1 OR inLibrary IS NOT NULL") { r ->
+        theirs.query("SELECT id, liked, likedDate, inLibrary FROM song WHERE (liked = 1 OR inLibrary IS NOT NULL) AND NOT ($local)") { r ->
             if (truthy(r[1])) ours.exec("UPDATE song SET liked = 1, likedDate = COALESCE(likedDate, ?) WHERE id = ? AND liked = 0", listOf(r[2], r[0]))
             if (r[3] != null) ours.exec("UPDATE song SET inLibrary = ? WHERE id = ? AND inLibrary IS NULL", listOf(r[3], r[0]))
         }
@@ -167,36 +196,41 @@ object MetrolistImport {
         theirs.query("SELECT id, bookmarkedAt FROM artist WHERE bookmarkedAt IS NOT NULL") { r ->
             ours.exec("UPDATE artist SET bookmarkedAt = ? WHERE id = ? AND bookmarkedAt IS NULL", listOf(r[1], r[0]))
         }
-        for (table in PER_SONG) if (table in both) copy(theirs, ours, table)
+        for (table in PER_SONG) if (table in both) {
+            if (table == "lyrics") copy(theirs, ours, table, where = lyricsFound(theirs), read = lyricsRead(theirs))
+            else copy(theirs, ours, table)
+        }
 
         playlists(theirs, ours)
 
         // Plays: theirs that we do not have already. The new app's plays fetched from YouTube's history are left out:
         // they were not played in Metrolist, and their length is not known.
-        theirs.query("SELECT songId, timestamp, playTime FROM event" + playsOnly(theirs)) { r ->
+        theirs.query("SELECT songId, timestamp, playTime FROM event" + plays(theirs)) { r ->
             ours.exec(
                 "INSERT INTO event (songId, timestamp, playTime) SELECT ?, ?, ? " +
-                        "WHERE NOT EXISTS (SELECT 1 FROM event WHERE songId = ? AND timestamp = ?)",
-                listOf(r[0], r[1], r[2], r[0], r[1]),
+                        "WHERE NOT EXISTS (SELECT 1 FROM event WHERE songId = ? AND timestamp = ?) AND EXISTS (SELECT 1 FROM song WHERE id = ?)",
+                listOf(r[0], r[1], r[2], r[0], r[1], r[0]),
             )
         }
         if ("playCount" in both) theirs.query("SELECT song, year, month, count FROM playCount") { r ->
-            if (ours.exec("INSERT OR IGNORE INTO playCount (song, year, month, count) VALUES (?, ?, ?, ?)", r) == 0)
+            if (ours.exec("INSERT OR IGNORE INTO playCount (song, year, month, count) SELECT ?, ?, ?, ? WHERE EXISTS (SELECT 1 FROM song WHERE id = ?)", r + listOf(r[0])) == 0)
                 ours.exec("UPDATE playCount SET count = MAX(count, ?) WHERE song = ? AND year = ? AND month = ?", listOf(r[3], r[0], r[1], r[2]))
         }
         if ("search_history" in both) theirs.query("SELECT query FROM search_history ORDER BY id") { r ->
             ours.exec("INSERT INTO search_history (query) SELECT ? WHERE NOT EXISTS (SELECT 1 FROM search_history WHERE query = ?)", listOf(r[0], r[0]))
         }
+        // isLocal is written, not left to its DEFAULT false, which SQLite before 3.23 (Android 7 to 10) stores as the
+        // text 'false': every isLocal = 0 test then misses the row (LgAlbumRepair works round the same).
         liked.forEachIndexed { i, song ->
             val at = now - i * 1_000L
             ours.exec(
-                "INSERT OR IGNORE INTO song (id, title, duration, thumbnailUrl, albumId, albumName, liked, likedDate) VALUES (?, ?, ?, ?, ?, ?, 1, ?)",
+                "INSERT OR IGNORE INTO song (id, title, duration, thumbnailUrl, albumId, albumName, liked, likedDate, isLocal) VALUES (?, ?, ?, ?, ?, ?, 1, ?, 0)",
                 listOf(song.id, song.title, song.durationSeconds ?: -1L, song.thumbnail, song.albumId, song.albumName, at),
             )
             ours.exec("UPDATE song SET liked = 1, likedDate = COALESCE(likedDate, ?) WHERE id = ? AND liked = 0", listOf(at, song.id))
             song.artists.forEachIndexed { position, (artistId, name) ->
                 if (artistId == null) return@forEachIndexed
-                ours.exec("INSERT OR IGNORE INTO artist (id, name, lastUpdateTime) VALUES (?, ?, 0)", listOf(artistId, name))
+                ours.exec("INSERT OR IGNORE INTO artist (id, name, lastUpdateTime, isLocal) VALUES (?, ?, 0, 0)", listOf(artistId, name))
                 ours.exec("INSERT OR IGNORE INTO song_artist_map (songId, artistId, position) VALUES (?, ?, ?)", listOf(song.id, artistId, position))
             }
         }
@@ -226,22 +260,78 @@ object MetrolistImport {
         val id = columns.indexOf("id")
         val browseId = columns.indexOf("browseId")
         val made = ArrayList<Any>()
+        val toOurs = numbers(ours, "playlist", columns)
         theirs.query("SELECT ${list(columns)} FROM playlist") { r ->
             val browse = if (browseId >= 0) r[browseId] else null
             if (r[id] in ids || (browse != null && browse in followed)) return@query
-            if (ours.exec(insert("playlist", columns), r) > 0) made += r[id]!!
+            if (ours.exec(insert("playlist", columns), toOurs(r)) > 0) {
+                made += r[id]!!
+                // One of their own, with no YouTube playlist behind it: Metrolist leaves isLocal false for those
+                // (its own reading is "isLocal or no browseId"), ours says it with isLocal. Without it the playlist
+                // could not be edited, nor offered in Add to playlist, while sync is Read only.
+                ours.exec("UPDATE playlist SET isLocal = 1 WHERE id = ? AND browseId IS NULL", listOf(r[id]))
+            }
         }
         val songs = shared(theirs, ours, "playlist_song_map") - "id"
+        val (insertSong, songArgs) = insertIfParents("playlist_song_map", songs)
         for (playlist in made) theirs.query("SELECT ${list(songs)} FROM playlist_song_map WHERE playlistId = ? ORDER BY position, id", listOf(playlist)) { r ->
-            ours.exec("INSERT INTO playlist_song_map (${list(songs)}) VALUES (${marks(songs)})", r)
+            ours.exec(insertSong, songArgs(r))
         }
     }
 
-    /** Every row of theirs we do not have, by key, with the columns both tables have. */
-    private fun copy(theirs: Db, ours: Db, table: String) {
-        val columns = shared(theirs, ours, table)
+    /**
+     * Every row of theirs we do not have, by key, with the columns both tables have but [leaveOut], and of their rows
+     * only those [where] (an SQL WHERE clause, with its leading space) takes. A column named in [read] is read from
+     * theirs as that SQL expression instead of as itself.
+     */
+    private fun copy(
+        theirs: Db,
+        ours: Db,
+        table: String,
+        leaveOut: Set<String> = emptySet(),
+        where: String = "",
+        read: Map<String, String> = emptyMap(),
+    ) {
+        val columns = shared(theirs, ours, table) - leaveOut
         if (columns.isEmpty()) return
-        theirs.query("SELECT ${list(columns)} FROM \"$table\"") { r -> ours.exec(insert(table, columns), r) }
+        val toOurs = numbers(ours, table, columns)
+        val (sql, args) = insertIfParents(table, columns)
+        val select = columns.joinToString(",") { read[it] ?: "\"$it\"" }
+        theirs.query("SELECT $select FROM \"$table\"$where") { r -> ours.exec(sql, args(toOurs(r))) }
+    }
+
+    /**
+     * [insert] for a row of [table] all of whose [PARENTS] are in ours, and nothing for one that has a parent missing:
+     * the statement, and what makes its arguments from a row (its values, then the id of each parent).
+     */
+    private fun insertIfParents(table: String, columns: List<String>): Pair<String, (List<Any?>) -> List<Any?>> {
+        val parents = PARENTS[table].orEmpty().filter { (column, _) -> column in columns }
+        if (parents.isEmpty()) return insert(table, columns) to { row: List<Any?> -> row }
+        val at = parents.map { (column, _) -> columns.indexOf(column) }
+        val sql = "INSERT OR IGNORE INTO \"$table\" (${list(columns)}) SELECT ${marks(columns)} WHERE " +
+                parents.joinToString(" AND ") { (_, parent) -> "EXISTS (SELECT 1 FROM \"$parent\" WHERE id = ?)" }
+        return sql to { row: List<Any?> -> row + at.map { row[it] } }
+    }
+
+    /**
+     * What turns a row of theirs into one ours reads right: a 'true' or 'false' text in a column of ours that holds a
+     * number becomes 1 or 0. Metrolist added true/false columns with DEFAULT true or DEFAULT false, which SQLite before
+     * 3.23 (Android 7 to 10) stores as that text for the rows there were then. Metrolist rewrites them itself from its
+     * version 59 (its BooleanDefaultsMigration), which a backup of its Android app (36 to 39) has not been through.
+     * Room reads such a text as 0, 'true' included, and an SQL test like isLocal = 0 misses it.
+     */
+    private fun numbers(ours: Db, table: String, columns: List<String>): (List<Any?>) -> List<Any?> {
+        val integer = HashSet<String>()
+        ours.query("PRAGMA table_info(\"$table\")") { r -> if ("${r[2]}".equals("INTEGER", ignoreCase = true)) integer += "${r[1]}" }
+        val at = columns.indices.filterTo(HashSet()) { columns[it] in integer }
+        return { row -> if (at.none { row[it] is String }) row else row.mapIndexed { i, v -> if (i in at) number(v) else v } }
+    }
+
+    private fun number(value: Any?): Any? = when {
+        value !is String -> value
+        value.equals("true", ignoreCase = true) -> 1L
+        value.equals("false", ignoreCase = true) -> 0L
+        else -> value
     }
 
     private fun shared(theirs: Db, ours: Db, table: String): List<String> {
@@ -253,8 +343,57 @@ object MetrolistImport {
     private fun list(columns: List<String>) = columns.joinToString(",") { "\"$it\"" }
     private fun marks(columns: List<String>) = columns.joinToString(",") { "?" }
 
-    /** The new app keeps plays fetched from YouTube's history beside its own: only its own count as plays here. */
-    private fun playsOnly(theirs: Db) = if ("source" in theirs.columns("event")) " WHERE source != 'YOUTUBE'" else ""
+    /**
+     * The plays that come over, as a WHERE clause: not those of their local songs, which stay out, and not the new
+     * app's plays fetched from YouTube's history, kept beside its own: only its own count as plays here.
+     */
+    private fun plays(theirs: Db) = " WHERE songId NOT IN (SELECT id FROM song WHERE ${local(theirs)})" +
+            if ("source" in theirs.columns("event")) " AND source != 'YOUTUBE'" else ""
+
+    /**
+     * Their songs that are files on their phone or computer, as an SQL condition on their song table: Metrolist marks
+     * them with isLocal (1, or the text 'true' from an old Android, see [numbers]) and the new app also by an id that
+     * starts with "local_".
+     */
+    private fun local(theirs: Db) = (if ("isLocal" in theirs.columns("song")) "isLocal IN (1, 'true') OR " else "") +
+            "substr(id, 1, ${LOCAL_ID.length}) = '$LOCAL_ID'"
+
+    /**
+     * Now, as the database keeps a date: the phone's wall clock written as if it were UTC, as Converters writes a
+     * LocalDateTime. True UTC (System.currentTimeMillis) put the new app's likes an hour behind a like made here a
+     * minute before, in France, so Liked did not show them first; in the Americas, hours ahead, in the future.
+     */
+    internal fun storedNow(): Long = LocalDateTime.now().atZone(ZoneOffset.UTC).toInstant().toEpochMilli()
+
+    /** How the new Metrolist app's local songs' ids begin. */
+    private const val LOCAL_ID = "local_"
+
+    /**
+     * Their lyrics that are lyrics, as a WHERE clause: not their marks for a song with none. Here any stored row is the
+     * song's lyrics for good (LyricsHelper asks again only on Refetch), so a mark would hide lyrics another source has.
+     * Metrolist's Android app writes the text LYRICS_NOT_FOUND for a miss, offline and on a timeout too; the new app an
+     * empty text with the provider LYRICS_NOT_FOUND_V2.
+     */
+    private fun lyricsFound(theirs: Db): String {
+        val columns = theirs.columns("lyrics")
+        val found = "trim(lyrics) != '' AND lyrics != 'LYRICS_NOT_FOUND'" +
+                if ("provider" in columns) " AND provider IS NOT 'LYRICS_NOT_FOUND_V2'" else ""
+        // Lyrics written or edited by hand in the new app are lyrics too, whatever its provider's row says.
+        return if (USER_LYRICS in columns) " WHERE trim($USER_LYRICS) != '' OR ($found)" else " WHERE $found"
+    }
+
+    /**
+     * Their lyrics as the song's lyrics here: the new app's own (written or edited by hand there, kept apart from the
+     * provider's in [USER_LYRICS]) where there are any, which it shows before any provider's; else the provider's.
+     * Only the lyrics column was copied before, so lyrics someone had typed there came over as the provider's text.
+     */
+    private fun lyricsRead(theirs: Db): Map<String, String> =
+        if (USER_LYRICS in theirs.columns("lyrics")) {
+            mapOf("lyrics" to "CASE WHEN trim($USER_LYRICS) != '' THEN $USER_LYRICS ELSE lyrics END")
+        } else emptyMap()
+
+    /** The new Metrolist app's column for a song's lyrics written or edited by hand (its LyricsEntity.userLyrics). */
+    private const val USER_LYRICS = "userLyrics"
 
     private fun truthy(value: Any?) = when (value) {
         is Number -> value.toLong() != 0L

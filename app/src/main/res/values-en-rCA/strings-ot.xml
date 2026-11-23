@@ -17,7 +17,6 @@
     <string name="oobe_update_auto_description">Download it in the background so it\'s ready. Android still asks you first.</string>
     <string name="oobe_polls_answered">You can change this any time in Settings, under Questions and news.</string>
     <string name="poll_title">A question from InterTune</string>
-    <string name="poll_banner_hint">Tap to answer, or dismiss with the cross</string>
     <string name="poll_dismiss">Dismiss this question</string>
     <string name="poll_close">Close</string>
     <string name="poll_send">Send my answer</string>
@@ -62,7 +61,6 @@
     <string name="oobe_update_check_title">Tell you about updates?</string>
     <string name="oobe_update_check_yes">Yes, check</string>
     <string name="player_glass_intensity">Glass intensity</string>
-    <string name="player_glass_intensity_description">Higher is clearer and bends the light more, lower looks more solid.</string>
     <string name="player_glass_intensity_value">%1$d%%</string>
     <string name="player_liquid_glass">Liquid glass</string>
     <string name="player_liquid_glass_description">Floating glass panels for the navigation bar, mini player and controls, with richer colours behind the player.</string>
@@ -108,7 +106,6 @@
     <string name="image_cache_max_size">Maximum artwork cache size</string>
     <string name="max_queues_description">How many queues to keep. The oldest goes when you pass this.</string>
     <string name="enable_proxy_description">Send YouTube Music requests and streams through another server first. Pictures, lyrics and the other services the app uses still connect directly. Leave this off unless you know you need it.</string>
-    <string name="show_liked_and_downloaded_playlist_description">Show Liked songs and Downloaded songs as playlists in your library.</string>
 
     <!-- Descriptions for rows whose titles alone did not say what they do -->
     <string name="pause_listen_history_description">Stop adding songs to your history. Nothing already in it is removed.</string>
@@ -217,7 +214,6 @@
     <!-- Quick picks leans toward: a standing choice for Best recommendations. The option names are the poll's answers. -->
     <string name="quick_picks_lean">Quick picks leans toward</string>
     <string name="quick_picks_lean_auto">Auto</string>
-    <string name="quick_picks_lean_new">Songs I have never heard</string>
     <string name="quick_picks_lean_artist">More from artists I keep coming back to</string>
     <string name="quick_picks_lean_forgotten">Things I loved and forgot about</string>
     <string name="quick_picks_lean_similar">Songs that fit what I am playing now</string>
@@ -225,10 +221,7 @@
     <string name="quick_picks_lean_description_compare">About %1$d of the 20 cards and %2$d of the first four, since Try both gives half the row to the other source.</string>
     <string name="quick_picks_lean_not_source">Applies when Quick picks source is Best recommendations or Try both.</string>
     <string name="quick_picks_lean_set_aside_chip">The %1$s chip on Home takes over while it is on.</string>
-    <string name="quick_picks_lean_set_aside_new_only">New songs only takes over while it is on.</string>
-    <string name="quick_picks_lean_new_only_strict">With New songs only on, Best recommendations picks only songs you have never even started, as long as there are enough.</string>
     <string name="quick_picks_lean_info">\"Auto\" is the usual mix, and the other choices give most of the row to one kind of song. \"Songs that fit what I am playing now\" also updates as you listen.</string>
-    <string name="quick_picks_leaning_new">Leaning toward songs you have never heard</string>
     <string name="quick_picks_leaning_artist">Leaning toward artists you keep coming back to</string>
     <string name="quick_picks_leaning_forgotten">Leaning toward things you loved and forgot about</string>
     <string name="quick_picks_leaning_similar">Leaning toward what you are playing now</string>
@@ -236,14 +229,12 @@
     <string name="quick_picks_leaning_short">%1$s: only %2$d right now, the rest is the usual mix</string>
     <string name="quick_picks_leaning_none">%1$s: nothing yet, so this is the usual mix for now</string>
     <string name="quick_picks_leaning_forgotten_none">Nothing you loved has been quiet for 45 days yet, so this is the usual mix for now</string>
-    <string name="chip_lean_new">Never heard</string>
     <string name="chip_lean_artist">Your artists</string>
     <string name="chip_lean_forgotten">Forgotten</string>
     <string name="chip_lean_similar">Playing now</string>
     <string name="why_these_lean">Leaning toward: %1$s, %2$d of the %3$d cards on screen</string>
-    <string name="adventurousness_description_lean_new">Set by Quick picks leaning toward songs you have never heard: %1$d of 20 cards.</string>
     <string name="recommendations_summary_too_early_choice">Too early to tell which way it is going since you changed what Quick picks leans toward.</string>
-    <string name="context_chips_info">The first chip is your usual row. The others steer it until you switch back: \"Discover\" to new songs, \"Favourites\" to ones you liked, \"Focus\", \"Chill\" and \"Party\" to what you play in that mood. The last chip works with any of them.</string>
+    <string name="context_chips_info">The first chip is your usual row. The others steer it until you switch back: \"Discover\" to songs you have never heard, \"Favourites\" to ones you liked, \"Focus\", \"Chill\" and \"Party\" to what you play in that mood.</string>
     <string name="share_link_kind_title">Links you share</string>
     <string name="share_link_youtube_music">YouTube Music link</string>
     <string name="share_link_page">A page for any music app</string>

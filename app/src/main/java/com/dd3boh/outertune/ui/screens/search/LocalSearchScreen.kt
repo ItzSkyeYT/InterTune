@@ -18,6 +18,11 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.NavigateNext
 import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.Language
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
@@ -33,6 +38,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.navigation.NavController
@@ -75,6 +81,8 @@ fun LocalSearchScreen(
     query: String,
     navController: NavController,
     onDismiss: () -> Unit,
+    /** The same words searched on YouTube Music, offered when the library has nothing for them. */
+    onSearchOnline: ((String) -> Unit)? = null,
     viewModel: LocalSearchViewModel = hiltViewModel(),
 ) {
     val context = LocalContext.current
@@ -260,11 +268,43 @@ fun LocalSearchScreen(
                 item(
                     key = "no_result"
                 ) {
-                    EmptyPlaceholder(
-                        icon = Icons.Rounded.Search,
-                        text = stringResource(R.string.no_results_found),
-                        modifier = Modifier.animateItem()
-                    )
+                    // Says where it looked, and offers the other search for the same words: with the
+                    // bar on the library, a song that is not saved was only ever "No results found"
+                    // (#200), and nothing on the page said that YouTube Music was not asked. That line
+                    // stays, in the 41 languages it has; the place it looked goes under it under All and
+                    // Songs (saysNotInLibrary), a new text as nothing translated says it, and the button
+                    // wears the bar's own translated words.
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .animateItem()
+                    ) {
+                        EmptyPlaceholder(
+                            icon = Icons.Rounded.Search,
+                            text = stringResource(R.string.no_results_found),
+                        )
+                        if (saysNotInLibrary(result.filter)) {
+                            Text(
+                                text = stringResource(R.string.library_search_none),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.padding(horizontal = 12.dp)
+                            )
+                        }
+                        if (onSearchOnline != null) {
+                            TextButton(onClick = { onSearchOnline(result.query) }) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Language,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                Text(searchOnlineLabel(stringResource(R.string.search_yt_music)))
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -284,3 +324,17 @@ fun LocalSearchScreen(
         )
     }
 }
+
+/**
+ * The button that searches YouTube Music for the same words, in the words the search bar shows for
+ * it, translated in some 40 languages, without the bar's trailing "…": the button searches at once,
+ * nothing more is asked.
+ */
+internal fun searchOnlineLabel(barText: String): String = barText.trimEnd('…', '.', ' ', '\u00A0')
+
+/**
+ * Whether an empty search under [filter] says the song is not in the library: under All and Songs
+ * only. Under Albums, Artists or Playlists it finds nothing for a song that is in the library ("c"
+ * under Albums), and saying it is not there was untrue.
+ */
+internal fun saysNotInLibrary(filter: LocalFilter): Boolean = filter == LocalFilter.ALL || filter == LocalFilter.SONG

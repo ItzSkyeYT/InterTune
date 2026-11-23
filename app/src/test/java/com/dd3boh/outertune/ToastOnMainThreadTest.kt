@@ -28,7 +28,7 @@ class ToastOnMainThreadTest {
     )
     private val onMain = Regex(
         """\bwithContext\((Dispatchers\.)?Main|\blaunch\(Dispatchers\.Main|\brunBlocking\(Dispatchers\.Main""" +
-            """|\bHandler\(Looper\.getMainLooper\(\)\)\.post|\brunOnUiThread\b"""
+            """|\bHandler\(Looper\.getMainLooper\(\)\)\.post|\brunOnUiThread\b|\bCoroutineScope\((Dispatchers\.)?Main"""
     )
     private val suspendFunction = Regex("""\bsuspend\b(\s+\w+)*\s+fun\b""")
 
@@ -39,6 +39,11 @@ class ToastOnMainThreadTest {
 
     /** The indices of [lines] that make a toast off the main thread. */
     private fun offMainToasts(lines: List<String>): List<Int> = lines.indices.filter { "Toast.makeText" in lines[it] || "Toaster.show(" in lines[it] }.filter { at ->
+        // A block opened on the toast's own line, before it: withContext(Dispatchers.Main) { Toaster.show(...) }.
+        val call = listOf("Toast.makeText", "Toaster.show(").map { lines[at].indexOf(it) }.filter { it >= 0 }.min()
+        val before = lines[at].substring(0, call)
+        if (onMain.containsMatchIn(before)) return@filter false
+        if (offMain.containsMatchIn(before)) return@filter true
         var depth = 0
         for (j in at - 1 downTo maxOf(0, at - 400)) {
             val line = lines[j]
@@ -103,9 +108,19 @@ class ToastOnMainThreadTest {
                     Toast.makeText(context, R.string.m3u_import_playlist_failed, Toast.LENGTH_SHORT).show()
                 }
             }
+            suspend fun sameLine(context: Context) {
+                withContext(Dispatchers.Main) { Toaster.show(context, R.string.m3u_import_playlist_failed, Toast.LENGTH_SHORT) }
+            }
+            suspend fun scoped(context: Context) {
+                CoroutineScope(Dispatchers.Main.immediate).launch { Toaster.show(context, R.string.m3u_import_playlist_failed, Toast.LENGTH_SHORT) }
+            }
+            suspend fun sameLineOff(context: Context) {
+                withContext(Dispatchers.IO) { Toaster.show(context, R.string.m3u_import_playlist_failed, Toast.LENGTH_SHORT) }
+            }
         """.trimIndent().lines()
-        // The suspend function's own toast and the one in the scanner's scope; not the one switched
-        // to Main, the plain function's (a click, on Main), or the one posted to the main looper.
-        assertEquals(listOf(9, 24), offMainToasts(was).map { it + 1 })
+        // The suspend function's own toast, the one in the scanner's scope and the one switched to IO
+        // on its own line; not the one switched to Main, the plain function's (a click, on Main), the
+        // one posted to the main looper, nor those sent to Main on their own line.
+        assertEquals(listOf(9, 24, 38), offMainToasts(was).map { it + 1 })
     }
 }

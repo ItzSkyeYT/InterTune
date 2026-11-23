@@ -10,7 +10,6 @@ import android.content.ClipData
 import android.content.Context
 import android.content.Intent
 import android.os.Build
-import android.provider.Settings
 import android.widget.Toast
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
@@ -53,6 +52,7 @@ import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -110,8 +110,11 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
@@ -124,10 +127,12 @@ import androidx.compose.ui.text.input.TransformedText
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.dd3boh.outertune.LocalPlayerConnection
+import com.dd3boh.outertune.BuildConfig
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.TogetherNameKey
 import com.dd3boh.outertune.constants.TogetherRelaysKey
@@ -135,6 +140,7 @@ import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.playback.PlayerConnection
 import com.dd3boh.outertune.together.RoomCode
+import com.dd3boh.outertune.together.RoomRole
 import com.dd3boh.outertune.together.TogetherSession
 import com.dd3boh.outertune.ui.utils.LocalLandscape
 import com.dd3boh.outertune.ui.utils.shrinkToFit
@@ -157,7 +163,6 @@ import androidx.compose.material3.MenuDefaults
 import android.view.WindowManager
 import androidx.compose.material.icons.rounded.QrCode2
 import androidx.compose.material.icons.rounded.QrCodeScanner
-import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.material3.OutlinedIconButton
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.graphics.Color
@@ -177,6 +182,30 @@ val togetherAvailable: Boolean
     get() = Unreleased.LISTEN_TOGETHER && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
 
 /**
+ * The room the sheet shows: the service's, or while a new service brings back the room it showed (the old one stopped
+ * while the app was away: MusicService.rejoinSavedRoom), that room still. Before, the sheet fell to its start page for
+ * that moment and the room slid in again at every return to the app (Ti-Die, #testers 20 Nov 2026: "the open animation
+ * plays each time").
+ */
+internal class RoomOnScreen<T : Any> {
+    private var last: T? = null
+
+    fun of(live: T?, comingBack: Boolean): T? = (live ?: last?.takeIf { comingBack }).also { last = it }
+}
+
+/** Material's drag handle with 8dp above and below instead of 22dp: the room sheet's on a phone on its side. */
+@Composable
+private fun SlimDragHandle() {
+    Surface(
+        modifier = Modifier.padding(vertical = 8.dp),
+        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+        shape = MaterialTheme.shapes.extraLarge,
+    ) {
+        Box(Modifier.size(width = 32.dp, height = 4.dp))
+    }
+}
+
+/**
  * Listen together, from the player's menu. Out of a room: two phones on one song, a big Start, and
  * the field for a friend's code. In one: its code to pass on, the song the room plays, for a guest
  * how close it follows, and who is in.
@@ -187,27 +216,47 @@ fun TogetherSheet(onDismiss: () -> Unit) {
     val context = LocalContext.current
     val playerConnection = LocalPlayerConnection.current ?: return
     val service = playerConnection.service
-    val session by service.together.collectAsState()
+    // Each service's own flows from its first frame (key): a collected value stays the old service's until the new flow
+    // speaks, a frame later, and in that frame a room on its way back looked gone.
+    val live = key(service) { service.together.collectAsState().value }
+    val coming = key(service) { service.togetherComing.collectAsState().value }
+    val onScreen = remember { RoomOnScreen<TogetherSession>() }
+    val session = onScreen.of(live, comingBack = !playerConnection.isAlive || coming)
     val song by playerConnection.mediaMetadata.collectAsState()
     val scope = rememberCoroutineScope()
     val haptics = LocalHapticFeedback.current
     val landscape = LocalLandscape.current
 
+    // The service the app held before it came back from another app has stopped, and a room made on it would be held
+    // by nothing (MusicService.startTogether). Its room is on its way back with the next one, which the sheet is
+    // drawn again with: until then it shows the room it showed, or with none, neither a start page nor a room.
+    val ready = playerConnection.isAlive || session != null
+
     fun open(code: RoomCode, owner: Boolean) {
+        if (!playerConnection.isAlive) return
         haptics.performHapticFeedback(HapticFeedbackType.Confirm)
         scope.launch { service.startTogether(code, owner, togetherRelays(context), togetherName(context)) }
     }
 
-    // Starting a room with no name set asks for one first; Continue keeps it in the setting.
+    // Starting or joining a room with no name set asks for one first; Continue keeps it in the setting. A guest is asked
+    // as a host is: without a name, the phone's own went to everyone in the room, and people often give it theirs
+    // (18 Nov 2026).
     var askingName by rememberSaveable { mutableStateOf(false) }
+    // The room joined once the name is given, by its code; none for a room of one's own.
+    var joinAfterName by rememberSaveable { mutableStateOf<String?>(null) }
     if (askingName) {
         NameBeforeRoomDialog(
-            onDismiss = { askingName = false },
+            onDismiss = {
+                askingName = false
+                joinAfterName = null
+            },
             onContinue = { name ->
                 askingName = false
+                val join = joinAfterName?.let(RoomCode::parse)
+                joinAfterName = null
                 scope.launch {
                     context.dataStore.edit { it[TogetherNameKey] = name }
-                    open(RoomCode.generate(), owner = true)
+                    if (join != null) open(join, owner = false) else open(RoomCode.generate(), owner = true)
                 }
             },
         )
@@ -215,13 +264,27 @@ fun TogetherSheet(onDismiss: () -> Unit) {
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
+        // Upright, the sheet stands below the status bar, and its page never asks for the bar's room. Material's sheet
+        // gives its page the bar's room less as far as the sheet is up under the bar, so a page nearly as tall as the
+        // screen was taller the higher the sheet went: where it comes to rest moved as it moved, and Material put it
+        // there at once. It jumped at the end of its opening and, dragged down slowly, sprang back every few frames
+        // instead of following the finger (his Pixel 5 in a room, 21 Nov 2026).
+        modifier = if (landscape.active) Modifier else Modifier.windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top)),
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         sheetMaxWidth = landscape.panelWidth(BottomSheetDefaults.SheetMaxWidth),
+        // On a phone on its side the sheet stands in the middle, clear of the status bar's icons at the sides: no room is
+        // kept for the status bar at its top, and its handle is a slim one. The status bar's height and the standard
+        // handle's 22dp above and below made a forehead of about 90dp on a screen 480dp high, and Close the room fell
+        // off the bottom (his S25U, 21 Nov 2026).
+        dragHandle = if (landscape.active) ({ SlimDragHandle() }) else ({ BottomSheetDefaults.DragHandle() }),
         contentWindowInsets = {
-            if (landscape.active) WindowInsets.safeDrawing.only(WindowInsetsSides.Vertical) else WindowInsets.safeDrawing
+            if (landscape.active) WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom)
+            else WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom)
         },
     ) {
-        AnimatedContent(
+        if (!ready) Box(Modifier.fillMaxWidth().padding(vertical = 56.dp), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator()
+        } else AnimatedContent(
             targetState = session,
             contentKey = { it?.code?.raw },
             transitionSpec = {
@@ -237,21 +300,33 @@ fun TogetherSheet(onDismiss: () -> Unit) {
                     .padding(bottom = 16.dp)
             ) {
                 if (room == null) {
+                    // As the player draws it: a song from a file has the file's path there, and showed nothing.
+                    val coverPx = with(LocalDensity.current) { 46.dp.roundToPx() }
                     StartPage(
-                        cover = song?.thumbnailUrl,
+                        cover = song?.getThumbnailModel(coverPx, coverPx),
                         onStart = {
                             scope.launch {
                                 if (needsName(context.dataStore.data.first()[TogetherNameKey])) askingName = true
                                 else open(RoomCode.generate(), owner = true)
                             }
                         },
-                        onJoin = { open(it, owner = false) },
+                        onJoin = { code ->
+                            scope.launch {
+                                if (needsName(context.dataStore.data.first()[TogetherNameKey])) {
+                                    joinAfterName = code.raw
+                                    askingName = true
+                                } else open(code, owner = false)
+                            }
+                        },
                     )
                 } else {
-                    RoomPage(room, song, onLeave = {
-                        haptics.performHapticFeedback(HapticFeedbackType.ToggleOff)
-                        room.leave()
-                    })
+                    // The walk over this page after the tour's pages (RoomWalk).
+                    RoomWalkArea(owner = room.owner) {
+                        RoomPage(room, song, onLeave = {
+                            haptics.performHapticFeedback(HapticFeedbackType.ToggleOff)
+                            room.leave()
+                        })
+                    }
                 }
             }
         }
@@ -259,7 +334,7 @@ fun TogetherSheet(onDismiss: () -> Unit) {
 }
 
 @Composable
-private fun StartPage(cover: String?, onStart: () -> Unit, onJoin: (RoomCode) -> Unit) {
+private fun StartPage(cover: Any?, onStart: () -> Unit, onJoin: (RoomCode) -> Unit) {
     val context = LocalContext.current
     val clipboard = LocalClipboard.current
     var typed by rememberSaveable { mutableStateOf("") }
@@ -342,6 +417,9 @@ private fun StartPage(cover: String?, onStart: () -> Unit, onJoin: (RoomCode) ->
             Spacer(Modifier.width(ButtonDefaults.IconSpacing))
             Text(stringResource(R.string.together_scan))
         }
+        // The tour of a room, before starting or joining one (RoomTour).
+        Spacer(Modifier.height(8.dp))
+        HowRoomsWork()
     }
 }
 
@@ -352,7 +430,9 @@ private fun RoomPage(room: TogetherSession, song: MediaMetadata?, onLeave: () ->
     val haptics = LocalHapticFeedback.current
     val status by room.status.collectAsState()
     val copied = stringResource(R.string.together_copied)
-    val invite = stringResource(R.string.together_invite_text, room.code.pretty, room.code.webLink)
+    // One short line and the link, the code inside it (Ti-Die, #testers 21 Nov 2026: chat apps show the link's preview;
+    // his pick of the same day).
+    val invite = stringResource(R.string.together_invite_line, room.code.webLink)
     var showingQr by rememberSaveable { mutableStateOf(false) }
     if (showingQr) RoomQrDialog(room.code, onDismiss = { showingQr = false })
     // The owner's leaving ends the room for everyone: asked first (his word of 17 Oct 2026).
@@ -408,17 +488,40 @@ private fun RoomPage(room: TogetherSession, song: MediaMetadata?, onLeave: () ->
             }
         }
 
-        // Someone else leads: who, and for the owner the way back.
-        val leaderName = status.leaderName
-        if (!status.leading && leaderName != null) {
+        // A guest that has heard nothing of the host for a while says so, in one line, where it said who has control or
+        // that it waits; the others come back as the host does (HostAbsence).
+        val hostAway = !room.owner && status.hostAway
+        if (hostAway) {
             Spacer(Modifier.height(14.dp))
-            ControlRow(leaderName, canTakeBack = room.owner, onTakeBack = {
-                haptics.performHapticFeedback(HapticFeedbackType.Confirm)
-                room.takeBack()
-            })
+            Text(
+                stringResource(R.string.together_host_away),
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
 
+        // Who chooses the music and what this phone can do, in plain words (RoomRole); for the owner who gave control away, the
+        // way back as well.
+        val leaderName = status.leaderName ?: stringResource(R.string.together_someone)
+        // Every role line starts with 14 dp of space (in RoleLine, or the Spacer before ControlRow): the walk's outline
+        // starts under it, clear of the line above. With no role line the stop has no height and is left out.
+        WalkFrom(WalkStop.ROLE, inset = 14.dp)
+        when (RoomRole.of(room.owner, status.leading, hostAway, status.waitingForHost)) {
+            RoomRole.IN_CONTROL -> RoleLine(stringResource(R.string.together_role_in_control))
+            RoomRole.OWNER_GAVE -> {
+                Spacer(Modifier.height(14.dp))
+                ControlRow(leaderName, canTakeBack = true, onTakeBack = {
+                    haptics.performHapticFeedback(HapticFeedbackType.Confirm)
+                    room.takeBack()
+                })
+            }
+            RoomRole.GUEST -> RoleLine(stringResource(R.string.together_role_guest, leaderName))
+            null -> Unit
+        }
+        WalkTo(WalkStop.ROLE)
+
         Spacer(Modifier.height(20.dp))
+        WalkFrom(WalkStop.INVITE)
         SectionLabel(stringResource(R.string.together_code))
         Spacer(Modifier.height(10.dp))
         CodeChips(room.code, onClick = ::copy)
@@ -448,15 +551,22 @@ private fun RoomPage(room: TogetherSession, song: MediaMetadata?, onLeave: () ->
                 Text(stringResource(R.string.together_share), maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
+        WalkTo(WalkStop.INVITE)
 
         Hairline()
+        WalkFrom(WalkStop.PLAYING)
         SectionLabel(stringResource(R.string.together_playing))
         Spacer(Modifier.height(12.dp))
         val hostSong = status.hostSong
+        val coverPx = with(LocalDensity.current) { 56.dp.roundToPx() }
         when {
-            // The cover and the names from this phone's own player when it plays what the room plays.
+            // The cover and the names from this phone's own player when it plays what the room plays. The cover as the
+            // player draws it: a song from a file has the file's path there, and showed an empty square (Niko, 22 Nov 2026).
             song != null && (status.leading || song.id == status.hostSongId) ->
-                SongRow(song.thumbnailUrl, song.title, song.artists.joinToString { it.name })
+                SongRow(song.getThumbnailModel(coverPx, coverPx), song.title, song.artists.joinToString { it.name })
+            // A song from the files of the one in control that isn't on YouTube Music: its name if its tags gave one, and
+            // why nothing plays here (PhoneSongs).
+            !status.leading && status.songOnlyThere && !status.waitingForHost -> SongOnlyThere(hostSong, status.leaderName)
             !status.leading && hostSong != null -> SongRow(null, hostSong, null)
             else -> Text(
                 stringResource(R.string.together_nothing_playing),
@@ -464,12 +574,37 @@ private fun RoomPage(room: TogetherSession, song: MediaMetadata?, onLeave: () ->
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        if (!status.leading) {
+        // Following YouTube Music's version of a file on the phone in control: a quiet note that it may not be exactly what
+        // they play (his word of 22 Nov 2026). Never for a song that is on YouTube Music for everyone.
+        if (!status.leading && status.songMatched && !status.waitingForHost) {
+            Spacer(Modifier.height(8.dp))
+            Text(
+                stringResource(R.string.together_song_matched, status.leaderName ?: stringResource(R.string.together_someone)),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        // In control, a song from a file here that the others can't hear: why they hear nothing (PhoneSongs).
+        if (status.leading && status.songOnlyHere && status.others > 0) {
+            Spacer(Modifier.height(12.dp))
+            Text(
+                stringResource(R.string.together_song_only_here),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        if (!status.leading && !hostAway) {
             Spacer(Modifier.height(16.dp))
             when {
                 status.waitingForHost -> Waiting()
+                // On its own while this phone casts (GuestCast), without Catch up and Propose, which work on the phone's own
+                // player.
+                status.ownWay && status.casting -> CastOwnWay(catchUpAfter = status.catchUpAfterCast)
                 status.ownWay -> OwnWay(
                     proposed = status.proposed,
+                    // A song from a file on this phone: the leader could never play it.
+                    canPropose = song?.isLocal != true,
+                    to = status.leaderName,
                     onPropose = {
                         haptics.performHapticFeedback(HapticFeedbackType.Confirm)
                         room.propose()
@@ -480,7 +615,11 @@ private fun RoomPage(room: TogetherSession, song: MediaMetadata?, onLeave: () ->
                     },
                 )
                 status.pausedHere -> PausedHere()
+                // Said with the song, above (SongOnlyThere).
+                status.songOnlyThere -> Unit
                 status.songUnavailable -> SongUnavailable()
+                // A line too slow to keep up: said plainly, in place of "Catching up" for good (DataWait).
+                status.tooSlow -> RoomTooSlow()
                 else -> SyncMeter(status.driftMs, status.locked, status.toleranceMs)
             }
         }
@@ -501,8 +640,23 @@ private fun RoomPage(room: TogetherSession, song: MediaMetadata?, onLeave: () ->
                 )
             }
         }
+        WalkTo(WalkStop.PLAYING)
+        // A guest's song waiting for this phone's answer: here too, since this sheet covers the card at the top of the app.
+        WalkFrom(WalkStop.PROPOSAL)
+        if (status.leading) status.proposals.firstOrNull()?.let {
+            Spacer(Modifier.height(14.dp))
+            ProposalCard(
+                proposal = it,
+                onPlay = room::acceptProposal,
+                onNotNow = room::dismissProposal,
+                container = MaterialTheme.colorScheme.surfaceContainerHighest,
+                elevation = 0.dp,
+            )
+        }
+        WalkTo(WalkStop.PROPOSAL)
 
         Hairline()
+        WalkFrom(WalkStop.PEOPLE)
         SectionLabel(stringResource(R.string.together_people))
         Spacer(Modifier.height(12.dp))
         People(
@@ -512,6 +666,7 @@ private fun RoomPage(room: TogetherSession, song: MediaMetadata?, onLeave: () ->
             onGiveControl = { haptics.performHapticFeedback(HapticFeedbackType.Confirm); room.handOver(it) },
             onKick = { haptics.performHapticFeedback(HapticFeedbackType.Reject); room.kick(it) },
         )
+        WalkTo(WalkStop.PEOPLE)
         if (!status.leading) {
             Spacer(Modifier.height(14.dp))
             Text(
@@ -520,7 +675,17 @@ private fun RoomPage(room: TogetherSession, song: MediaMetadata?, onLeave: () ->
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+        // The host's own switches for the room, who may do what (RoomSettings), the same as in Settings > Listen together.
+        if (room.owner) {
+            Hairline()
+            WalkFrom(WalkStop.SETTINGS)
+            SectionLabel(stringResource(R.string.together_room_settings))
+            Spacer(Modifier.height(4.dp))
+            RoomSettingsSwitches()
+            WalkTo(WalkStop.SETTINGS)
+        }
         Spacer(Modifier.height(24.dp))
+        WalkFrom(WalkStop.LEAVE)
         OutlinedButton(
             onClick = { if (room.owner) confirmingClose = true else onLeave() },
             colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
@@ -532,18 +697,24 @@ private fun RoomPage(room: TogetherSession, song: MediaMetadata?, onLeave: () ->
             // The owner's leaving closes the room for everyone, and says so.
             Text(stringResource(if (room.owner) R.string.together_close_room else R.string.together_leave))
         }
+        WalkTo(WalkStop.LEAVE)
+        // The tour of a room, any time (RoomTour).
+        Spacer(Modifier.height(8.dp))
+        HowRoomsWork(Modifier.align(Alignment.CenterHorizontally))
     }
 }
 
 /** Two phones on the same song at the same moment: the cover on both, one playhead, waves from the host to the other. */
 @Composable
-private fun InStepPicture(cover: String?, modifier: Modifier = Modifier) {
+private fun InStepPicture(cover: Any?, modifier: Modifier = Modifier) {
     val motion = rememberInfiniteTransition(label = "in step")
     val head by motion.animateFloat(0.08f, 0.92f, infiniteRepeatable(tween(7000, easing = LinearEasing)), label = "head")
     val wave by motion.animateFloat(0f, 1f, infiniteRepeatable(tween(2100, easing = LinearEasing)), label = "wave")
     val waveColor = MaterialTheme.colorScheme.primary
     Row(modifier, verticalAlignment = Alignment.CenterVertically) {
-        PhoneSketch(cover, head)
+        // The playhead as a function, read only where it is drawn: as a number it made both phones, their covers
+        // included, compose again on every frame for as long as the picture showed (performance review, 18 Nov 2026).
+        PhoneSketch(cover) { head }
         Canvas(Modifier.size(width = 56.dp, height = 72.dp)) {
             for (i in 0 until 3) {
                 val p = (wave + i / 3f) % 1f
@@ -559,12 +730,12 @@ private fun InStepPicture(cover: String?, modifier: Modifier = Modifier) {
                 )
             }
         }
-        PhoneSketch(cover, head)
+        PhoneSketch(cover) { head }
     }
 }
 
 @Composable
-private fun PhoneSketch(cover: String?, head: Float) {
+private fun PhoneSketch(cover: Any?, head: () -> Float) {
     val primary = MaterialTheme.colorScheme.primary
     val track = MaterialTheme.colorScheme.outlineVariant
     val lines = MaterialTheme.colorScheme.onSurfaceVariant
@@ -602,7 +773,7 @@ private fun PhoneSketch(cover: String?, head: Float) {
         Spacer(Modifier.height(10.dp))
         Canvas(Modifier.width(46.dp).height(8.dp)) {
             val y = size.height / 2
-            val x = size.width * head
+            val x = size.width * head()
             drawLine(track, Offset(0f, y), Offset(size.width, y), strokeWidth = 2.dp.toPx(), cap = StrokeCap.Round)
             drawLine(primary, Offset(0f, y), Offset(x, y), strokeWidth = 2.dp.toPx(), cap = StrokeCap.Round)
             drawCircle(primary, radius = 3.5.dp.toPx(), center = Offset(x, y))
@@ -634,17 +805,24 @@ private fun Hairline() {
     HorizontalDivider(Modifier.padding(vertical = 20.dp), color = MaterialTheme.colorScheme.outlineVariant)
 }
 
-/** On while a relay answers, with a slow pulse; grey while none does. */
+/** On while a relay answers, with a slow pulse; grey and still while none does. */
 @Composable
 private fun LiveDot(connected: Boolean) {
-    val color = if (connected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
-    val pulse by rememberInfiniteTransition(label = "live")
-        .animateFloat(0f, 1f, infiniteRepeatable(tween(1600, easing = LinearOutSlowInEasing)), label = "pulse")
     // As wide as the dot, so that it lines up with the text above and below; the pulse spills over.
-    Canvas(Modifier.size(8.dp)) {
-        val r = size.minDimension / 2
-        if (connected) drawCircle(color.copy(alpha = 0.35f * (1f - pulse)), radius = r + pulse * 5.dp.toPx())
-        drawCircle(color, radius = r)
+    if (!connected) {
+        // No animation at all then: one ran anyway and drew the same grey dot on every frame (performance review,
+        // 18 Nov 2026).
+        val grey = MaterialTheme.colorScheme.outline
+        Canvas(Modifier.size(8.dp)) { drawCircle(grey, radius = size.minDimension / 2) }
+    } else {
+        val color = MaterialTheme.colorScheme.primary
+        val pulse by rememberInfiniteTransition(label = "live")
+            .animateFloat(0f, 1f, infiniteRepeatable(tween(1600, easing = LinearOutSlowInEasing)), label = "pulse")
+        Canvas(Modifier.size(8.dp)) {
+            val r = size.minDimension / 2
+            drawCircle(color.copy(alpha = 0.35f * (1f - pulse)), radius = r + pulse * 5.dp.toPx())
+            drawCircle(color, radius = r)
+        }
     }
 }
 
@@ -748,7 +926,7 @@ private fun CodeChips(code: RoomCode, modifier: Modifier = Modifier, onClick: ((
 }
 
 @Composable
-private fun SongRow(cover: String?, title: String, artist: String?) {
+private fun SongRow(cover: Any?, title: String, artist: String?) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Box(
             contentAlignment = Alignment.Center,
@@ -780,12 +958,13 @@ private fun SongRow(cover: String?, title: String, artist: String?) {
 }
 
 /**
- * How far this phone is from the host: a dot on a line, behind to the left and ahead to the right,
- * on a square-root scale so that the few ms that matter show and 400 ms reaches the end. The band
- * in the middle is in step, and the dot takes the main colour inside it.
+ * How far this phone is from the host: a dot on a line, behind on the side "Behind" is written (the left, or the right
+ * in a right-to-left language) and ahead on the other, on a square-root scale so that the few ms that matter show and
+ * 400 ms reaches the end. The band in the middle is in step, and the dot takes the main colour inside it.
  */
 @Composable
 private fun SyncMeter(driftMs: Long?, locked: Boolean, toleranceMs: Long) {
+    val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
     // Locked, it is in step by its own measure: it leaves gaps within the tolerance be.
     val inStep = driftMs != null && (locked || abs(driftMs) <= IN_STEP_MS)
     val dot by animateColorAsState(
@@ -796,8 +975,15 @@ private fun SyncMeter(driftMs: Long?, locked: Boolean, toleranceMs: Long) {
     val track = MaterialTheme.colorScheme.outlineVariant
     val band = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
     val tick = MaterialTheme.colorScheme.outline
-    Column(Modifier.fillMaxWidth()) {
+    // One stop for TalkBack: the line above, then the side the dot is on, in words. Behind or ahead was only where
+    // the dot sat, and the two words under the line were read the same whatever it did.
+    Column(Modifier.fillMaxWidth().semantics(mergeDescendants = true) { }) {
         val apart = abs(driftMs ?: 0L).toInt()
+        val side = when {
+            (driftMs ?: 0L) > 0L -> stringResource(R.string.together_behind)
+            (driftMs ?: 0L) < 0L -> stringResource(R.string.together_ahead)
+            else -> null
+        }
         Text(
             when {
                 driftMs == null -> stringResource(R.string.together_following)
@@ -811,6 +997,7 @@ private fun SyncMeter(driftMs: Long?, locked: Boolean, toleranceMs: Long) {
             Modifier
                 .fillMaxWidth()
                 .height(18.dp)
+                .semantics { if (side != null) contentDescription = side }
         ) {
             val y = size.height / 2
             val ends = 7.dp.toPx()
@@ -821,19 +1008,22 @@ private fun SyncMeter(driftMs: Long?, locked: Boolean, toleranceMs: Long) {
             val bandHalf = reach * meterPlace(toleranceMs)
             drawLine(band, Offset(half - bandHalf, y), Offset(half + bandHalf, y), strokeWidth = 10.dp.toPx(), cap = StrokeCap.Round)
             drawLine(tick, Offset(half, y - 6.dp.toPx()), Offset(half, y + 6.dp.toPx()), strokeWidth = 1.5.dp.toPx())
-            if (driftMs != null) drawCircle(dot, radius = 6.dp.toPx(), center = Offset(half - place * reach, y))
+            if (driftMs != null) drawCircle(dot, radius = 6.dp.toPx(), center = Offset(half + meterX(place, rtl) * reach, y))
         }
         Row(Modifier.fillMaxWidth()) {
             Text(
                 stringResource(R.string.together_behind),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                // Drawn only, as its pair: TalkBack hears the side the dot is on from the line's own words (side).
+                modifier = Modifier.clearAndSetSemantics { },
             )
             Spacer(Modifier.weight(1f))
             Text(
                 stringResource(R.string.together_ahead),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.clearAndSetSemantics { },
             )
         }
     }
@@ -862,6 +1052,26 @@ private fun SongUnavailable() {
     )
 }
 
+/**
+ * The one in control, [name] (null while not known), plays a song from their files that isn't on YouTube Music
+ * (PhoneSongs): its name, [song], when its tags gave one, and why nothing plays here. The room's next song plays here
+ * by itself.
+ */
+@Composable
+private fun SongOnlyThere(song: String?, name: String?) {
+    Column(Modifier.fillMaxWidth()) {
+        if (song != null) {
+            SongRow(null, song, null)
+            Spacer(Modifier.height(12.dp))
+        }
+        Text(
+            stringResource(R.string.together_song_only_there, name ?: stringResource(R.string.together_someone)),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
 /** A follower paused by its listener: the room goes on, and play brings this phone back to it. */
 @Composable
 private fun PausedHere() {
@@ -873,7 +1083,7 @@ private fun PausedHere() {
 }
 
 @Composable
-private fun OwnWay(proposed: Boolean, onPropose: () -> Unit, onCatchUp: () -> Unit) {
+private fun OwnWay(proposed: Boolean, canPropose: Boolean, to: String?, onPropose: () -> Unit, onCatchUp: () -> Unit) {
     Column(Modifier.fillMaxWidth()) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
             Text(stringResource(R.string.together_own_way), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
@@ -884,48 +1094,47 @@ private fun OwnWay(proposed: Boolean, onPropose: () -> Unit, onCatchUp: () -> Un
                 Text(stringResource(R.string.together_catch_up))
             }
         }
-        Spacer(Modifier.height(10.dp))
         // What this phone plays on its own, offered to the one who leads, queue and all (his ask of
-        // 17 Oct 2026). Sent once; another song of its own can be proposed again.
-        OutlinedButton(onClick = onPropose, enabled = !proposed, modifier = Modifier.fillMaxWidth()) {
-            Icon(Icons.AutoMirrored.Rounded.QueueMusic, contentDescription = null, modifier = Modifier.size(ButtonDefaults.IconSize))
-            Spacer(Modifier.width(ButtonDefaults.IconSpacing))
-            Text(stringResource(if (proposed) R.string.together_proposed else R.string.together_propose))
+        // 17 Oct 2026). Sent once; another song of its own can be proposed again. Not for a song from a file on this
+        // phone, which no other phone can play (TogetherSession.propose).
+        if (canPropose) {
+            Spacer(Modifier.height(10.dp))
+            OutlinedButton(onClick = onPropose, enabled = !proposed, modifier = Modifier.fillMaxWidth()) {
+                Icon(Icons.AutoMirrored.Rounded.QueueMusic, contentDescription = null, modifier = Modifier.size(ButtonDefaults.IconSize))
+                Spacer(Modifier.width(ButtonDefaults.IconSpacing))
+                // Named for the one in control, [to], who is the one asked: it said "the host" while dvd had control
+                // (22 Nov 2026). Without their name yet, the song alone.
+                Text(
+                    when {
+                        to == null -> stringResource(if (proposed) R.string.together_proposed else R.string.together_propose)
+                        proposed -> stringResource(R.string.together_proposed_to, to)
+                        else -> stringResource(R.string.together_propose_to, to)
+                    },
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
     }
 }
 
 /**
- * A guest's song and queue proposed to this phone, the one that leads: asked wherever the app is,
- * since the room's sheet need not be open. A yes plays them from where the guest is.
+ * A guest on its own while this phone casts: the own way's line, and for one that stopped following for the cast, that it
+ * catches up when the cast ends (his pick of 20 Nov 2026).
  */
 @Composable
-fun TogetherProposalDialog(connection: PlayerConnection?) {
-    val room = connection?.service?.together?.collectAsState()?.value ?: return
-    val status by room.status.collectAsState()
-    val proposal = status.proposal ?: return
-    val first = proposal.songs.first()
-    val more = proposal.songs.size - 1
-    AlertDialog(
-        onDismissRequest = room::dismissProposal,
-        icon = { Icon(Icons.AutoMirrored.Rounded.QueueMusic, contentDescription = null) },
-        title = { Text(stringResource(R.string.together_proposal_title, proposal.by)) },
-        text = {
-            Column {
-                SongRow(first.thumbnail.ifBlank { null }, first.title.ifBlank { first.id }, first.artist.ifBlank { null })
-                if (more > 0) {
-                    Spacer(Modifier.height(8.dp))
-                    Text(
-                        pluralStringResource(R.plurals.together_proposal_more, more, more),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
-        },
-        confirmButton = { TextButton(onClick = room::acceptProposal) { Text(stringResource(R.string.together_proposal_play)) } },
-        dismissButton = { TextButton(onClick = room::dismissProposal) { Text(stringResource(R.string.together_proposal_later)) } },
-    )
+private fun CastOwnWay(catchUpAfter: Boolean) {
+    Column(Modifier.fillMaxWidth()) {
+        Text(stringResource(R.string.together_own_way), style = MaterialTheme.typography.bodyMedium)
+        if (catchUpAfter) {
+            Spacer(Modifier.height(6.dp))
+            Text(
+                stringResource(R.string.together_catch_up_after_cast),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
 }
 
 /**
@@ -943,7 +1152,7 @@ private fun People(
 ) {
     val context = LocalContext.current
     val haptics = LocalHapticFeedback.current
-    val myName by produceState(phoneName(context)) { value = togetherName(context) }
+    val myName by produceState(phoneModel()) { value = togetherName(context) }
     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Person(stringResource(R.string.together_you), myName, initials(myName), owner = meOwner, leader = meLeading, you = true)
         members.forEach { member ->
@@ -964,7 +1173,13 @@ private fun People(
                         DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                             if (!member.leader) {
                                 DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.together_give_control)) },
+                                    // Who gets it, by name (testers, 22 Nov 2026: control changed hands and nobody knew to whom).
+                                    text = {
+                                        Text(
+                                            if (member.name.isBlank()) stringResource(R.string.together_give_control)
+                                            else stringResource(R.string.together_give_control_to, member.name)
+                                        )
+                                    },
                                     leadingIcon = { Icon(Icons.Rounded.PlayCircle, contentDescription = null) },
                                     onClick = { menu = false; onGiveControl(member) },
                                 )
@@ -998,11 +1213,12 @@ private fun Person(
     onPress: (() -> Unit)? = null,
 ) {
     val ring = BottomSheetDefaults.ContainerColor
+    // One stop for TalkBack per person, as their name, Host and the phone's name; the tap that opens the menu says so.
     val pressable = if (onPress != null) {
         Modifier
             .clip(RoundedCornerShape(12.dp))
-            .combinedClickable(onClick = onPress, onLongClick = onPress)
-    } else Modifier
+            .combinedClickable(onClickLabel = stringResource(R.string.options), onClick = onPress, onLongClick = onPress)
+    } else Modifier.semantics(mergeDescendants = true) { }
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(76.dp).then(pressable)) {
         Box {
             Box(
@@ -1018,6 +1234,8 @@ private fun Person(
                     initials,
                     style = MaterialTheme.typography.titleMedium,
                     color = if (you) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
+                    // Drawn only: TalkBack read them first, letter by letter, before the name they come from.
+                    modifier = Modifier.clearAndSetSemantics { },
                 )
             }
             if (owner) {
@@ -1052,6 +1270,13 @@ private fun Person(
     }
 }
 
+/** One or two plain lines on who chooses the music and what this phone can do. */
+@Composable
+private fun RoleLine(text: String) {
+    Spacer(Modifier.height(14.dp))
+    Text(text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+}
+
 /** Someone else has control: who, and for the owner, the way to take it back. */
 @Composable
 private fun ControlRow(name: String, canTakeBack: Boolean, onTakeBack: () -> Unit) {
@@ -1074,13 +1299,13 @@ private fun ControlRow(name: String, canTakeBack: Boolean, onTakeBack: () -> Uni
     }
 }
 
-/** Whether a room's owner is asked for a name first: none is set in Settings > Listen together. */
+/** Whether someone starting or joining a room is asked for a name first: none is set in Settings > Listen together. */
 internal fun needsName(stored: String?): Boolean = stored.isNullOrBlank()
 
 /** The most a name can be, as in Settings > Listen together. */
 private const val NAME_LENGTH = 40
 
-/** Asked when someone starts a room and has no name set: one field, Continue saves it and starts the room. */
+/** Asked when someone starts or joins a room and has no name set: one field, Continue saves it and goes on. */
 @Composable
 private fun NameBeforeRoomDialog(onDismiss: () -> Unit, onContinue: (String) -> Unit) {
     var name by rememberSaveable { mutableStateOf("") }
@@ -1104,27 +1329,38 @@ private fun NameBeforeRoomDialog(onDismiss: () -> Unit, onContinue: (String) -> 
     )
 }
 
-/** The relays a room uses: the public ones, or in a debug build those of TogetherRelaysKey when set. */
+/**
+ * The relays a room uses: the public ones, or in a debug build those of TogetherRelaysKey when set (the test kit's own
+ * relay). Read in every build, a key restored from a debug build's backup pointed a release at a relay it refuses, and
+ * its rooms never connected (18 Nov 2026).
+ */
 suspend fun togetherRelays(context: Context): List<String> =
     context.dataStore.data.first()[TogetherRelaysKey]
+        ?.takeIf { BuildConfig.DEBUG }
         ?.split(',')?.map { it.trim() }?.filter { it.isNotEmpty() }?.takeIf { it.isNotEmpty() }
         ?: TogetherSession.PUBLIC_RELAYS
 
-/** The name the others see: the one set in Settings > Listen together, else the phone's own. */
+/** The name the others see: the one set in Settings > Listen together, else the phone's model. */
 suspend fun togetherName(context: Context): String =
-    context.dataStore.data.first()[TogetherNameKey]?.trim()?.takeIf { it.isNotEmpty() }?.take(40) ?: phoneName(context)
+    context.dataStore.data.first()[TogetherNameKey]?.trim()?.takeIf { it.isNotEmpty() }?.take(40) ?: phoneModel()
 
-/** The phone's own name from its settings ("Galaxy S25 Ultra"), else its model. */
-fun phoneName(context: Context): String {
-    val named = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N_MR1) {
-        Settings.Global.getString(context.contentResolver, Settings.Global.DEVICE_NAME)
-    } else null
-    return named?.trim()?.takeIf { it.isNotEmpty() }?.take(40) ?: Build.MODEL
-}
+/**
+ * What a phone with no name set is called in a room: its model ("Pixel 5", "SM-S938B"), never its own name from
+ * Android's settings, which people often set to their own. A name cleared in Settings after joining sent that name
+ * unasked (review 2, 18 Nov 2026).
+ */
+fun phoneModel(): String = Build.MODEL?.trim()?.takeIf { it.isNotEmpty() }?.take(40) ?: "Android"
 
 /** Up to two letters for someone's circle: the first of each of the first two words of their phone's name. */
 internal fun initials(name: String): String =
     name.split(' ', '_', '-').filter { it.isNotBlank() }.take(2).joinToString("") { it.first().uppercase() }.ifEmpty { "?" }
+
+/**
+ * Where the meter's dot sits for [place] (meterPlace), from -1 at the left end to 1 at the right: behind on the side
+ * "Behind" is written. A Canvas does not turn round with a right-to-left layout as the words under it do, and in Arabic,
+ * Hebrew or Persian a phone behind showed its dot under "Ahead" (review of 0.13, 18 Nov 2026).
+ */
+internal fun meterX(place: Float, rtl: Boolean): Float = if (rtl) place else -place
 
 /** Where a gap sits on the meter, from -1 to 1 (positive: behind): the square root of its share of 400 ms. */
 internal fun meterPlace(driftMs: Long): Float {
@@ -1184,18 +1420,35 @@ fun TogetherInviteDialog(code: RoomCode, playerConnection: PlayerConnection?, on
     playerConnection ?: return
     val scope = rememberCoroutineScope()
     val haptics = LocalHapticFeedback.current
-    AlertDialog(
+    suspend fun join() {
+        playerConnection.service.startTogether(code, owner = false, relays = togetherRelays(context), name = togetherName(context))
+        onDone()
+    }
+    // With no name set, one is asked for first, as in the sheet; Cancel there goes back to the invite.
+    var askingName by rememberSaveable { mutableStateOf(false) }
+    if (askingName) {
+        NameBeforeRoomDialog(
+            onDismiss = { askingName = false },
+            onContinue = { name ->
+                askingName = false
+                scope.launch {
+                    context.dataStore.edit { it[TogetherNameKey] = name }
+                    join()
+                }
+            },
+        )
+    } else AlertDialog(
         onDismissRequest = onDone,
         icon = { Icon(Icons.Rounded.Group, contentDescription = null) },
         title = { Text(stringResource(R.string.together_join_title)) },
         // Held to a width: chips that fill the dialog stretched it to the edges of the screen.
         text = { CodeChips(code, Modifier.widthIn(max = 320.dp)) },
         confirmButton = {
-            TextButton(onClick = {
+            // Not on a service that has stopped: see MusicService.startTogether.
+            TextButton(enabled = playerConnection.isAlive, onClick = {
                 haptics.performHapticFeedback(HapticFeedbackType.Confirm)
                 scope.launch {
-                    playerConnection.service.startTogether(code, owner = false, relays = togetherRelays(context), name = togetherName(context))
-                    onDone()
+                    if (needsName(context.dataStore.data.first()[TogetherNameKey])) askingName = true else join()
                 }
             }) { Text(stringResource(R.string.together_join)) }
         },

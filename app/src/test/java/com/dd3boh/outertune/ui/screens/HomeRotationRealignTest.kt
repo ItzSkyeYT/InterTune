@@ -32,6 +32,22 @@ class HomeRotationRealignTest {
         }
     }
 
+    /**
+     * 18 Nov 2026, his S25U again (Preview 57ae8ec1f, which has the realign): upright, Quick picks stopped a
+     * quarter column in after a fling. Each row's snap was remembered with the column's share of the width
+     * of Home's first drawing; drawn first on its side (two columns, 0.475), it went on snapping upright
+     * (one column, 0.94) at 0.475 / 2 - 0.94 / 2 of the width, a quarter column to the left.
+     */
+    @Test
+    fun `every row snaps for the column width of the moment, not the first one`() {
+        listOf("quickPicks", "discover", "forgottenFavorites").forEach { row ->
+            assertTrue(
+                "$row's snap is made again when the column's share of the width changes",
+                home.contains("val ${row}SnapLayoutInfoProvider = remember(${row}LazyGridState, horizontalLazyGridItemWidthFactor) {"),
+            )
+        }
+    }
+
     @Test
     fun `the realign keeps the same first column and never jumps to the start`() {
         val effect = home.substringAfter("LaunchedEffect(horizontalLazyGridItemWidth) {").substringBefore("\n        }\n")

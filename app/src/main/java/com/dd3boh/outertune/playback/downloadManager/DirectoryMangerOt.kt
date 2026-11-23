@@ -9,6 +9,7 @@ import androidx.documentfile.provider.DocumentFile
 import androidx.documentfile.provider.TreeDocumentFileOt
 import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.db.entities.Song
+import com.dd3boh.outertune.playback.FolderFileCheck
 import com.dd3boh.outertune.utils.scanners.LocalMediaScanner.Companion.scanDfRecursive
 import com.dd3boh.outertune.utils.scanners.documentFileFromUri
 import com.dd3boh.outertune.utils.scanners.fileFromUri
@@ -79,6 +80,18 @@ class DownloadDirectoryManagerOt(private var context: Context, private var dir: 
         this.context = context
         this.dir = dir
         configuredExtraDirs = extraDirs
+        // No folder of the person's own (the default, or Inside the app chosen): downloads stay
+        // inside the app, and the extra folders are read all the same. They used to go with the
+        // main folder, and the next start's scan took every song in them out of Downloads.
+        if (dir.toString().isBlank()) {
+            mainDir = null
+            val (opened, unreadable) = openExtras(context, extraDirs)
+            allDirs = opened
+            unreadableExtraDirs = unreadable
+            _folderState.value = DownloadFolderState.of(pathSaved = false, opened = false)
+            Log.i(TAG, "No download folder of its own, ${allDirs.size} extra folders read")
+            return
+        }
         try {
             mainDir = documentFileFromUri(context, dir)
             if (mainDir == null || !mainDir!!.isDirectory) {
@@ -90,18 +103,8 @@ class DownloadDirectoryManagerOt(private var context: Context, private var dir: 
 //                documentFileFromUri(context, dir)?.createFile("audio/mka", ".nomedia")
 //            }
 
-            val newAllDirs = mutableListOf<DocumentFile>()
-            newAllDirs.add(mainDir!!)
-            val unreadable = mutableListOf<Uri>()
-            for (extraUri in extraDirs.filterNot { it == dir }) {
-                val extraDf = documentFileFromUri(context, extraUri)
-                if (extraDf != null && extraDf.isDirectory) {
-                    newAllDirs.add(extraDf)
-                } else {
-                    unreadable.add(extraUri)
-                }
-            }
-            allDirs = newAllDirs.toList()
+            val (extras, unreadable) = openExtras(context, extraDirs.filterNot { it == dir })
+            allDirs = listOf(mainDir!!) + extras
             unreadableExtraDirs = unreadable
             Log.i(TAG, "Download manager initialized successfully. ${allDirs.size}")
             _folderState.value = DownloadFolderState.of(pathSaved = dir.toString().isNotBlank(), opened = true)
@@ -123,6 +126,21 @@ class DownloadDirectoryManagerOt(private var context: Context, private var dir: 
             // it once (DownloadUtil).
             _folderState.value = DownloadFolderState.of(pathSaved = dir.toString().isNotBlank(), opened = false)
         }
+    }
+
+    /** The extra folders [extraDirs] opened, and the ones that would not open. */
+    private fun openExtras(context: Context, extraDirs: List<Uri>): Pair<List<DocumentFile>, List<Uri>> {
+        val opened = mutableListOf<DocumentFile>()
+        val unreadable = mutableListOf<Uri>()
+        for (extraUri in extraDirs) {
+            val extraDf = runCatching { documentFileFromUri(context, extraUri) }.getOrNull()
+            if (extraDf != null && extraDf.isDirectory) {
+                opened.add(extraDf)
+            } else {
+                unreadable.add(extraUri)
+            }
+        }
+        return opened to unreadable
     }
 
     /**
@@ -154,7 +172,6 @@ class DownloadDirectoryManagerOt(private var context: Context, private var dir: 
     }
 
     fun saveFile(mediaId: String, input: InputStream, displayName: String?): Uri? {
-        val resolver = context.contentResolver
         val directory = DocumentFile.fromTreeUri(context, dir)
 
         if (directory == null || !directory.isDirectory) {
@@ -162,24 +179,52 @@ class DownloadDirectoryManagerOt(private var context: Context, private var dir: 
         }
 
         val fileName = "$displayName [$mediaId].mka"
-        val newFile = directory.createFile("audio/mka", fileName) ?: return null
-
-        try {
-            // A stream that would not open used to return the new file's address all the same,
-            // for an empty file.
-            val out = resolver.openOutputStream(newFile.uri) ?: throw IOException("Could not open $fileName")
-            out.use { input.copyTo(it) }
-        } catch (e: Exception) {
-            // Not left behind half written, where the next scan would take it for the download.
-            newFile.delete()
-            throw e
-        }
+        // Whole or not at all (writeWhole): a half file under this name was taken for the download.
+        val newFile = writeWhole(directory, fileName) { out -> input.copyTo(out) } ?: return null
         // In the list at once, as a song file is (saveSongFile): the player finds a download in the
         // folder through it, and Remove download deletes through it. Left out until the next full
         // scan, the song was streamed meanwhile and Remove download did nothing.
         addAvailable(TreeDocumentFileOt(null, context, newFile.uri, newFile.name ?: fileName, "audio/mka"))
         return newFile.uri
     }
+
+    /**
+     * Writes [fileName] into [directory] whole or not at all: under a name of its own while [write]
+     * runs (PartialFiles), renamed to [fileName] once it is all there. The app ended halfway leaves
+     * that part, which is never taken for a song and goes at a later full listing; a write that
+     * fails deletes it. Null when the folder makes no file; a write or a rename that fails throws.
+     * The file it gives back has the name the folder gave it ("Song (1).opus" next to another).
+     * A folder whose files cannot be renamed, or that will not make the part, gets the final name
+     * from the start, as before, and has only the delete on failure, as the automatic backup does
+     * (AutoBackup.write): the move never fails where it used to work.
+     */
+    private fun writeWhole(directory: DocumentFile, fileName: String, write: (OutputStream) -> Unit): DocumentFile? {
+        val partName = PartialFiles.nameWhileWritten(fileName)
+        val made = directory.createFile(PartialFiles.MIME_TYPE, partName)
+        val renames = made != null && canRename(made.uri)
+        val file = if (renames) made!! else {
+            made?.delete()
+            directory.createFile(MimeTypeMap.getSingleton().getMimeTypeFromExtension(fileName.substringAfterLast('.')) ?: "audio/mka", fileName) ?: return null
+        }
+        val whole = try {
+            // A stream that would not open used to return the new file's address all the same,
+            // for an empty file.
+            val out = context.contentResolver.openOutputStream(file.uri) ?: throw IOException("Could not open ${file.name}")
+            out.use(write)
+            if (!renames) file.uri else DocumentsContract.renameDocument(context.contentResolver, file.uri, fileName)
+                ?: throw IOException("Could not name $partName $fileName")
+        } catch (e: Exception) {
+            file.delete()
+            throw e
+        }
+        return TreeDocumentFileOt(null, context, whole)
+    }
+
+    /** Whether the folder can rename [document]: the internal storage and cards can. */
+    private fun canRename(document: Uri): Boolean = runCatching {
+        context.contentResolver.query(document, arrayOf(DocumentsContract.Document.COLUMN_FLAGS), null, null, null)
+            ?.use { c -> c.moveToFirst() && (c.getInt(0) and DocumentsContract.Document.FLAG_SUPPORTS_RENAME) != 0 }
+    }.getOrNull() ?: false
 
     /** Under the same lock as [deleteFile], so a save and a delete at the same moment cannot undo each other in the list. */
     @Synchronized
@@ -197,22 +242,16 @@ class DownloadDirectoryManagerOt(private var context: Context, private var dir: 
         if (directory == null || !directory.isDirectory) {
             throw IOException("Invalid directory")
         }
-        // The type Android itself gives the extension: given another, a provider may add the
-        // extension of that type to the name, as in "Song.opus.ogg".
+        // The type Android itself gives the extension, for the list below: the file is made as a
+        // part (writeWhole), whose type keeps its name as given, and takes the extension's type
+        // once renamed.
         val extension = fileName.substringAfterLast('.')
         val mimeType = MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension) ?: "application/octet-stream"
-        val newFile = directory.createFile(mimeType, fileName) ?: return null
-        try {
-            val out = context.contentResolver.openOutputStream(newFile.uri) ?: throw IOException("Could not open $fileName")
-            out.use { stream ->
-                val buffered = BufferedOutputStream(stream, 64 * 1024)
-                write(buffered)
-                buffered.flush()
-            }
-        } catch (e: Exception) {
-            newFile.delete()
-            throw e
-        }
+        val newFile = writeWhole(directory, fileName) { stream ->
+            val buffered = BufferedOutputStream(stream, 64 * 1024)
+            write(buffered)
+            buffered.flush()
+        } ?: return null
         documentId(newFile)?.let { songFileIds[it] = mediaId }
         val saved = TreeDocumentFileOt(null, context, newFile.uri, newFile.name ?: fileName, mimeType)
         addAvailable(saved)
@@ -228,6 +267,8 @@ class DownloadDirectoryManagerOt(private var context: Context, private var dir: 
      */
     fun idOf(file: DocumentFile): String? {
         val name = file.name ?: return null
+        // A file being written, or one a move left half written: no song's, though its name may say one (PartialFiles).
+        if (PartialFiles.isPartial(name)) return null
         if (SongFileNames.isSongFile(name)) {
             return documentId(file)?.let { songFileIds[it] } ?: SongFileNames.idInName(name)
         }
@@ -256,6 +297,99 @@ class DownloadDirectoryManagerOt(private var context: Context, private var dir: 
             }.getOrNull()
             if (read != null) songFileIds[docId] = read else notSongs += docId
         }
+    }
+
+    /**
+     * A download folder of the phone's own storage, whose files' document ids are the folder's own id,
+     * "/" and their name ("primary:Music/InterTune/Song [id].mka"): [path] on the phone, [documentId]
+     * the folder's. Null for a folder of another provider, whose ids say nothing of a path.
+     */
+    private class FolderRoot(val dir: DocumentFile, val path: String, val documentId: String)
+
+    private fun rootOf(dir: DocumentFile): FolderRoot? = runCatching {
+        if (dir.uri.authority != EXTERNAL_STORAGE_AUTHORITY) return@runCatching null
+        val path = fileFromUri(context, dir.uri)?.absolutePath?.trimEnd('/') ?: return@runCatching null
+        FolderRoot(dir, path, DocumentsContract.getDocumentId(dir.uri))
+    }.getOrNull()
+
+    /** [uri]'s name, type and size as its provider has them, or null when it gives no row (no such file, or no answer). */
+    private fun document(uri: Uri): TreeDocumentFileOt? = runCatching {
+        context.contentResolver.query(
+            uri,
+            arrayOf(DocumentsContract.Document.COLUMN_DISPLAY_NAME, DocumentsContract.Document.COLUMN_MIME_TYPE, DocumentsContract.Document.COLUMN_SIZE),
+            null, null, null,
+        )?.use { c ->
+            if (!c.moveToFirst()) return@use null
+            val name = c.getColumnIndex(DocumentsContract.Document.COLUMN_DISPLAY_NAME).takeIf { it >= 0 }?.let(c::getString)
+            val mime = c.getColumnIndex(DocumentsContract.Document.COLUMN_MIME_TYPE).takeIf { it >= 0 }?.let(c::getString)
+            val size = c.getColumnIndex(DocumentsContract.Document.COLUMN_SIZE).takeIf { it >= 0 && !c.isNull(it) }?.let(c::getLong)
+            // An empty file is no song: a write that never began.
+            if (name == null || size == 0L) null else TreeDocumentFileOt(null, context, uri, name, mime)
+        }
+    }.getOrNull()
+
+    /**
+     * Looks at each song's own file, at the path the database has for it ([paths], by song), one by
+     * one: for the songs a full listing did not bring. A listing can come back short, and a song
+     * whose file was right there lost its download to it; the liked catch up then fetched it again
+     * and the move put a second copy beside the first (dvd, 20 Nov 2026). A file found is in the list
+     * from now on, as if listed, for the player, Remove download and the move.
+     *
+     * GONE: the folder answers and has no such file (FileRemoval's rule), or the path is under no
+     * download folder of today's (the folder was changed since: a scan always let those go).
+     * UNKNOWN: the folder does not answer either. Only the phone's own storage can be asked this way
+     * (FolderRoot); a song under another provider's folder reads as UNKNOWN, and is kept.
+     */
+    fun lookAgain(paths: Map<String, String>): Map<String, FolderFileCheck> {
+        if (paths.isEmpty()) return emptyMap()
+        val roots = allDirs.mapNotNull { rootOf(it) }
+        val answers = HashMap<String, Boolean>()
+        val checked = paths.mapValues { (id, path) ->
+            val root = roots.firstOrNull { path.startsWith(it.path + "/") }
+                ?: return@mapValues if (allDirs.size == roots.size) FolderFileCheck.GONE else FolderFileCheck.UNKNOWN
+            val uri = DocumentsContract.buildDocumentUriUsingTree(root.dir.uri, childDocumentId(root.documentId, path.removePrefix(root.path + "/")))
+            val found = document(uri)
+            if (found != null) {
+                adopt(id, found)
+                FolderFileCheck.THERE
+            } else if (answers.getOrPut(root.path) { root.dir.exists() }) {
+                FolderFileCheck.GONE
+            } else {
+                FolderFileCheck.UNKNOWN
+            }
+        }
+        val there = checked.count { it.value == FolderFileCheck.THERE }
+        val gone = checked.count { it.value == FolderFileCheck.GONE }
+        Log.i(TAG, "Looked again at ${paths.size} songs the listing did not bring: $there there, $gone gone, ${paths.size - there - gone} not known")
+        return checked
+    }
+
+    /** [file], found by a look of its own, is [mediaId]'s from now on, in the list as a listed one is. */
+    private fun adopt(mediaId: String, file: TreeDocumentFileOt) {
+        val name = file.name ?: return
+        if (SongFileNames.isSongFile(name)) documentId(file)?.let { songFileIds[it] = mediaId }
+        synchronized(this) {
+            availableFiles = availableFiles.filterNot { it.uri == file.uri }.toSet() + file
+        }
+    }
+
+    /**
+     * The song's own file already in a download folder, which a move or a download keeps rather than
+     * write a second copy beside it: at the path the database has for it ([recordedPath]), or in the
+     * main folder under the name a download of it has always had, "<title> [<id>].mka". Looked at
+     * directly, so a listing that came back short does not hide it. Null when there is none to keep.
+     * Each "(1)" in dvd's folder was a download written beside its own earlier file (20 Nov 2026).
+     */
+    fun fileAlreadyThere(mediaId: String, displayName: String?, recordedPath: String?): Uri? {
+        if (recordedPath != null && lookAgain(mapOf(mediaId to recordedPath))[mediaId] == FolderFileCheck.THERE) {
+            isExists(mediaId)?.let { return it.uri }
+        }
+        val main = mainDir?.let { rootOf(it) } ?: return null
+        val name = fatName("$displayName [$mediaId].mka")
+        val found = document(DocumentsContract.buildDocumentUriUsingTree(main.dir.uri, childDocumentId(main.documentId, name))) ?: return null
+        Log.i(TAG, "$name is in the download folder already: kept, no second copy")
+        adopt(mediaId, found)
+        return found.uri
     }
 
     /** Files found under a folder keep that folder's tree in their address. */
@@ -297,6 +431,16 @@ class DownloadDirectoryManagerOt(private var context: Context, private var dir: 
                 }
                 scanDfRecursive(d, result, true)
             }
+            // Parts a move left half written when the app was ended: never a song, and gone from the
+            // main folder once no move can be writing them. The extra folders are never changed.
+            val now = System.currentTimeMillis()
+            result.removeAll { file ->
+                PartialFiles.isPartial(file.name).also { partial ->
+                    if (partial && isInMainDir(file) && PartialFiles.leftBehind(file.lastModified(), now)) {
+                        runCatching { file.delete() }.onSuccess { Log.i(TAG, "A part a move left behind goes: ${file.name}") }
+                    }
+                }
+            }
             unlistedDirs = unlistedDownloadDirs(
                 main = dir.toString(),
                 mainOpened = mainDir != null,
@@ -306,6 +450,8 @@ class DownloadDirectoryManagerOt(private var context: Context, private var dir: 
             ).map(Uri::parse)
             learnSongFiles(result, knownPaths)
             this.availableFiles = result.toSet()
+            // Said, so that a report shows a listing that came back short (dvd, 20 Nov 2026).
+            Log.i(TAG, "Listed ${result.size} files in ${allDirs.size - unlistable.size} of ${allDirs.size} download folders")
         }
 
         for (file in result) {
@@ -341,6 +487,25 @@ class DownloadDirectoryManagerOt(private var context: Context, private var dir: 
 
         return result.filter { it.name != null }.sumOf { it.length() }
     }
+}
+
+/** The provider of the phone's own storage and its cards, the one whose document ids hold a path. */
+const val EXTERNAL_STORAGE_AUTHORITY = "com.android.externalstorage.documents"
+
+/**
+ * The id of the document [relative] under the folder [folderId], as the phone's own storage names
+ * them: "primary:Music/InterTune" and "Song [id].mka" make "primary:Music/InterTune/Song [id].mka",
+ * and a volume's top, "primary:", makes "primary:Song [id].mka".
+ */
+fun childDocumentId(folderId: String, relative: String): String =
+    if (folderId.endsWith(":") || folderId.endsWith("/")) folderId + relative else "$folderId/$relative"
+
+/**
+ * [name] as the phone's own storage writes it (FileUtils.buildValidFatFilename): each character a
+ * FAT card refuses becomes "_", so "What? [id].mka" is found as the "What_ [id].mka" it made.
+ */
+fun fatName(name: String): String = buildString(name.length) {
+    for (c in name) append(if (c.code < 0x20 || c.code == 0x7F || c in "\"*/:<>?\\|") '_' else c)
 }
 
 /**
@@ -397,10 +562,11 @@ fun fileRemoval(deleted: Boolean, fileThere: () -> Boolean, folderThere: () -> B
  *
  * A main folder that is set but could not be opened means nothing was walked, the extra folders
  * included, since doInit gives up on all of them together, so every one of them counts. A blank
- * main folder means nothing is set up (the default, or right after Reset), which is not a folder
- * that failed: counting it would make its unknown path cover every downloaded song, and nothing
- * downloaded could ever be cleared again. Otherwise the extras that could not be opened and the
- * folders that opened but could not be listed.
+ * main folder means none of the person's own (the default, Reset, or Inside the app chosen), which
+ * is not a folder that failed: counting it would make its unknown path cover every downloaded song,
+ * and nothing downloaded could ever be cleared again. The extra folders are read without one all
+ * the same, so theirs count as with one: the extras that could not be opened and the folders that
+ * opened but could not be listed.
  */
 fun unlistedDownloadDirs(
     main: String,
@@ -409,7 +575,7 @@ fun unlistedDownloadDirs(
     unopenedExtras: List<String>,
     unlistable: List<String>,
 ): List<String> = when {
-    main.isBlank() -> emptyList()
+    main.isBlank() -> unopenedExtras + unlistable
     !mainOpened -> listOf(main) + extras.filterNot { it == main }
     else -> unopenedExtras + unlistable
 }

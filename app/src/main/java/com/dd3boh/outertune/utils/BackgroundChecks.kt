@@ -143,15 +143,14 @@ class BackgroundCheckWorker(
         // throws. NotificationCompat below posts fine without one.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val manager = context.getSystemService(NotificationManager::class.java)
-            if (manager.getNotificationChannel(CHANNEL_ID) == null) {
-                manager.createNotificationChannel(
-                    NotificationChannel(
-                        CHANNEL_ID,
-                        context.getString(R.string.background_channel),
-                        NotificationManager.IMPORTANCE_DEFAULT,
-                    )
+            // Made each time, so its name in Android's settings is in the app's language now (ChannelNames).
+            manager.createNotificationChannel(
+                NotificationChannel(
+                    CHANNEL_ID,
+                    context.getString(R.string.background_channel),
+                    NotificationManager.IMPORTANCE_DEFAULT,
                 )
-            }
+            )
         }
 
         val open = PendingIntent.getActivity(
@@ -185,7 +184,7 @@ class BackgroundCheckWorker(
 
     companion object {
         private const val TAG = "BackgroundCheck"
-        private const val CHANNEL_ID = "background_checks"
+        internal const val CHANNEL_ID = "background_checks"
         private const val WORK_NAME = "background_checks"
         /** Read by MainActivity to open the question rather than merely the app. */
         const val EXTRA_OPEN_POLL = "com.dd3boh.outertune.OPEN_POLL"

@@ -1,6 +1,8 @@
 package com.dd3boh.outertune.ui.screens
 
 import android.annotation.SuppressLint
+import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.compose.foundation.layout.fillMaxSize
@@ -14,6 +16,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -26,7 +29,12 @@ import com.dd3boh.outertune.LocalPlayerAwareWindowInsets
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.LocalScrobbler
 import com.dd3boh.outertune.ui.component.FloatingTopBar
+import com.dd3boh.outertune.ui.component.NoWebViewNote
 import com.dd3boh.outertune.utils.ErrorText
+import com.dd3boh.outertune.utils.AppLanguage
+import com.dd3boh.outertune.utils.LastFmEnd
+import com.dd3boh.outertune.utils.PageFilter
+import com.dd3boh.outertune.utils.WebViewCheck
 import kotlinx.coroutines.launch
 
 /**
@@ -52,6 +60,9 @@ fun LastFmLoginScreen(
     var authorizeUrl by remember { mutableStateOf<String?>(null) }
     var finishing by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
+    // Last.fm closed by the time the login failed (LastFmEnd): the refusal of the key was the
+    // reason, and the card's own words say it better than Last.fm's.
+    var closed by remember { mutableStateOf(false) }
 
     // Ask for the token before showing anything, since the page to load is built from it.
     LaunchedEffect(Unit) {
@@ -60,12 +71,26 @@ fun LastFmLoginScreen(
                 token = t
                 authorizeUrl = url
             }
-            .onFailure { error = ErrorText.withoutAddresses(it.message ?: "") }
+            .onFailure {
+                closed = LastFmEnd.closed()
+                error = ErrorText.withoutAddresses(it.message ?: "")
+            }
     }
 
     val message = error
     val url = authorizeUrl
-    if (message != null) {
+    // Last.fm's page is a web view too, which threw on a phone whose web view cannot start (#221).
+    val context = LocalContext.current
+    val webViewWorks = remember { WebViewCheck.works(context) }
+    if (!webViewWorks) {
+        Box(
+            modifier = Modifier
+                .windowInsetsPadding(LocalPlayerAwareWindowInsets.current)
+                .fillMaxSize(),
+        ) {
+            NoWebViewNote()
+        }
+    } else if (message != null) {
         // Closing the screen without a word was the old behaviour, and it made a rejected API key
         // look like a dead button. Say what happened instead.
         Box(
@@ -76,7 +101,8 @@ fun LastFmLoginScreen(
             contentAlignment = Alignment.Center,
         ) {
             Text(
-                text = stringResource(R.string.lastfm_login_failed, message),
+                text = if (closed) stringResource(R.string.lastfm_ended_description)
+                else stringResource(R.string.lastfm_login_failed, message),
                 textAlign = TextAlign.Center,
             )
         }
@@ -87,7 +113,15 @@ fun LastFmLoginScreen(
                 .fillMaxSize(),
             factory = { context ->
                 WebView(context).apply {
+                    // Before Android 13 the first WebView of the process puts the app's words back
+                    // in the phone's language.
+                    AppLanguage.afterWebView(context)
                     webViewClient = object : WebViewClient() {
+                        // last.fm's page loads last.fm alone: its ad networks were counted as
+                        // InterTune's trackers (PageFilter, 22 Nov 2026).
+                        override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? =
+                            PageFilter.forLastFm(request)
+
                         override fun onPageFinished(view: WebView, pageUrl: String?) {
                             if (finishing) return
                             val t = token ?: return

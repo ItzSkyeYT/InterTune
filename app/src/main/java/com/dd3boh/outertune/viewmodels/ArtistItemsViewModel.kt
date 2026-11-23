@@ -9,6 +9,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.dd3boh.outertune.models.ItemsPage
 import com.dd3boh.outertune.utils.reportException
+import com.dd3boh.outertune.utils.ContentLocale
 import com.zionhuang.innertube.YouTube
 import com.zionhuang.innertube.models.BrowseEndpoint
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -40,6 +41,8 @@ class ArtistItemsViewModel @Inject constructor(
             }
         }
         load()
+        // Another language for YouTube (the app's, or the YouTube Music rows): the page loads again in it.
+        viewModelScope.launch { ContentLocale.changes.collect { load() } }
     }
 
     /** The first page, again after a failure. */

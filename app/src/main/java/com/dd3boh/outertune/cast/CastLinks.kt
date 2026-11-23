@@ -32,6 +32,9 @@ object CastLinks {
                 userAgent = "${sender.appName}/${sender.appVersion}",
                 audit = BuildConfig.DEBUG,
                 sound = sound,
+                // The debug app alone answers a speaker from any address, for the emulator's NAT. Not the
+                // Preview, which is debuggable too: it is the release's trial and answers only the speaker.
+                anyAddress = BuildConfig.DEBUG && BuildConfig.BUILD_TYPE == "debug",
             )
         }
     }

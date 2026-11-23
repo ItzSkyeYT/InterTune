@@ -72,6 +72,7 @@ import java.io.IOException
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneOffset
+import java.util.concurrent.atomic.AtomicInteger
 import com.dd3boh.outertune.utils.Toaster
 
 class LocalMediaScanner(val context: Context, scannerImpl: ScannerImpl) {
@@ -92,14 +93,34 @@ class LocalMediaScanner(val context: Context, scannerImpl: ScannerImpl) {
     /**
      * The scan folders the last scanLocal could not list, as absolute paths, null for one whose
      * path is not known. Songs under them are left alone by the disable passes. See
-     * ScanMerge.coveredByUnlistedRoot.
+     * ScanMerge.coveredByUnlistedRoot. For the MediaStore sync, the folders MediaStore had no
+     * answer for (MediaStoreAnswer).
      */
     private var unlistedRoots: List<String?> = emptyList()
+
+    /**
+     * What the last scan met in each scan folder, and how many songs it found and could not read.
+     * The page that started the scan says something when it found nothing (ScanReport).
+     */
+    var lastFolders: List<ScanReport.Folder> = emptyList()
+        private set
+    private val unreadable = AtomicInteger(0)
+    val unreadableFiles: Int get() = unreadable.get()
+
+    /**
+     * Songs found in a scan folder whose files have no path the scanner can open: a folder picked in a place of the
+     * picker whose ids are not paths (#243: Downloads' numbered files on Android 9). They are left out of the
+     * library and said apart from the unreadable ones, since the way out is to add the folder again.
+     */
+    private val elsewhere = AtomicInteger(0)
+    val elsewhereFiles: Int get() = elsewhere.get()
 
     suspend fun advancedScan(
         uri: Uri,
     ): SongTempData {
-        val file = fileFromUri(context, uri) ?: throw IOException("Could not access file")
+        // Not an IOException: in the full sync, one such song ended the whole scan ("Scanner failed: Could not access
+        // file", #243). It is counted and left out instead, like a song that cannot be read.
+        val file = fileFromUri(context, uri) ?: throw NoFilePathException("No file path for $uri")
         return advancedScan(file)
     }
 
@@ -184,7 +205,11 @@ class LocalMediaScanner(val context: Context, scannerImpl: ScannerImpl) {
         val excludedScanPaths = uriListFromString(excludedScanPaths)
 
         val unlisted = ArrayList<Uri>()
-        val found = getScanFiles(scanPaths, excludedScanPaths, context, unlisted)
+        val report = ArrayList<ScanReport.Folder>()
+        unreadable.set(0)
+        elsewhere.set(0)
+        val found = getScanFiles(scanPaths, excludedScanPaths, context, unlisted, report)
+        lastFolders = report
         // absoluteFilePathFromUri, not fileFromUri: unlisted holds the scan paths as the picker
         // returned them, tree addresses with no document part, which fileFromUri throws on from
         // API 30 (and reads as an unknown root before it). getScanFiles already built each one's
@@ -462,6 +487,8 @@ class LocalMediaScanner(val context: Context, scannerImpl: ScannerImpl) {
         // TODO: duplicate songs with different paths will cycle through paths, causing it to be synced instead of ignored...
         val allSongs = database.allLocalSongs().fastMapNotNull { it.song.localPath }.toSet()
         val converted = newSongs.fastMapNotNull { fileFromUri(context, it)?.absolutePath }
+        // The songs with no path were dropped here without a word: a scan of such a folder found "no music" (#243).
+        elsewhere.addAndGet(newSongs.size - converted.size)
         val delta = converted.minus(allSongs)
         Log.d(TAG, "Songs found: ${delta.size}")
         val mod = if (newSongs.size < 20) {
@@ -509,6 +536,7 @@ class LocalMediaScanner(val context: Context, scannerImpl: ScannerImpl) {
                                     scannerProgressCurrent.value = scannerProgressProbe.value
                                 }
                             } catch (e: InvalidAudioFileException) {
+                                unreadable.incrementAndGet()
                                 ret = null
                             }
                             ret
@@ -635,6 +663,10 @@ class LocalMediaScanner(val context: Context, scannerImpl: ScannerImpl) {
                                 }
                                 ret
                             } catch (e: InvalidAudioFileException) {
+                                unreadable.incrementAndGet()
+                                null
+                            } catch (e: NoFilePathException) {
+                                elsewhere.incrementAndGet()
                                 null
                             }
                         }
@@ -736,9 +768,13 @@ class LocalMediaScanner(val context: Context, scannerImpl: ScannerImpl) {
         val contentResolver: ContentResolver = context.contentResolver
         // No folder to look in: nothing to scan, and nothing in the library changes. Going on would
         // also have disabled every local song below, since none of them would have been found.
+        unreadable.set(0)
+        elsewhere.set(0)
         val (selection, selectionArgs) = mediaStoreSelection(scanPaths.map { absoluteFilePathFromUri(context, it) })
             ?: run {
                 Log.w(TAG, "------------ SYNC: No scan folder to look in, MediaStore sync skipped ------------")
+                // Every folder's path was unknown: none of them could be looked in.
+                lastFolders = scanPaths.map { ScanReport.Folder(folderName(context, it), listed = false, found = 0) }
                 scannerState.value = 0
                 return
             }
@@ -896,6 +932,32 @@ class LocalMediaScanner(val context: Context, scannerImpl: ScannerImpl) {
             }
         }
 
+        // A folder MediaStore gave nothing for, where the library has songs, is one it cannot speak for: it
+        // answers nothing for a folder with a .nomedia file in it, or one Android has not indexed yet. Its
+        // songs are kept below, not disabled with every song that is missing from the answer. This took
+        // every local song out of the library at once. See MediaStoreAnswer.
+        val folderPaths = scanPaths.map { absoluteFilePathFromUri(context, it) }
+        val answered = mediaStoreSongs.mapNotNull { it.song.song.localPath }
+        val kept = MediaStoreAnswer.foldersToKeep(
+            folderPaths, answered, database.allLocalSongs().fastMapNotNull { it.song.localPath }, excludedAbsolutePaths
+        )
+        unlistedRoots = kept
+        if (kept.isNotEmpty()) {
+            Log.w(TAG, "MediaStore gave nothing for ${kept.size} scan folder(s), their songs are kept as they are: $kept")
+        }
+
+        // What each folder gave, for the note a scan ends with. A folder whose path is not known was
+        // left out of the query above.
+        lastFolders = scanPaths.mapIndexed { i, uri ->
+            val path = folderPaths[i]
+            ScanReport.Folder(
+                folderName(context, uri),
+                listed = path != null,
+                found = if (path == null) 0 else answered.count { it.startsWith(path.trimEnd('/') + "/") },
+                kept = path != null && path in kept,
+            )
+        }
+
         // TODO: duplicate songs with different paths will cycle through paths, causing it to be synced instead of ignored...
         val finalSongs = if (!refreshExisting) {
             val allSongs = database.allLocalSongs().fastMapNotNull { it.song.localPath }.toSet()
@@ -920,7 +982,7 @@ class LocalMediaScanner(val context: Context, scannerImpl: ScannerImpl) {
         }
         // we handle disabling songs here instead
         scannerState.value = 3
-        disableSongsByPath(mediaStoreSongs.mapNotNull { it.song.song.localPath }, database)
+        disableSongsByPath(answered, database)
         finalize(database)
         scannerState.value = 0
 
@@ -1275,12 +1337,15 @@ class LocalMediaScanner(val context: Context, scannerImpl: ScannerImpl) {
          *
          * @param unlisted collects the scan folders that could not be listed at all, which would
          * otherwise read as empty.
+         * @param report collects, for each scan folder, whether it could be listed and how many
+         * songs were found in it (ScanReport).
          */
         fun getScanFiles(
             scanPaths: List<Uri>,
             excludedScanPaths: List<Uri>,
             context: Context,
             unlisted: MutableList<Uri>? = null,
+            report: MutableList<ScanReport.Folder>? = null,
         ): List<Uri> {
             val allSongs = ArrayList<Uri>()
             val excludedIds = excludedScanPaths.mapNotNull {
@@ -1296,9 +1361,11 @@ class LocalMediaScanner(val context: Context, scannerImpl: ScannerImpl) {
             resultingPaths.forEach { path ->
                 try {
                     val file = documentFileFromUri(context, path)
-                    if (file == null || (file as? TreeDocumentFileOt)?.listFilesOrNull() == null) {
+                    val listed = file != null && (file as? TreeDocumentFileOt)?.listFilesOrNull() != null
+                    if (!listed) {
                         unlisted?.add(path)
                     }
+                    var foundHere = 0
                     if (file != null) {
                         val songsHere = ArrayList<DocumentFile>()
                         scanDfRecursive(file, songsHere) {
@@ -1317,7 +1384,7 @@ class LocalMediaScanner(val context: Context, scannerImpl: ScannerImpl) {
                             return@scanDfRecursive true
                         }
 
-                        allSongs.addAll(songsHere.fastFilter { incl ->
+                        val keptHere = songsHere.fastFilter { incl ->
                             // A found file's own address keeps the tree it was found under, so its
                             // path never starts with an excluded folder's own tree address, and
                             // the text comparison never matched a real file. Compared by document
@@ -1325,8 +1392,11 @@ class LocalMediaScanner(val context: Context, scannerImpl: ScannerImpl) {
                             // A file whose id cannot be read is kept.
                             val fileDocId = runCatching { DocumentsContract.getDocumentId(incl.uri) }.getOrNull()
                             fileDocId == null || excludedIds.none { FolderNesting.isSameOrInsideId(fileDocId, it) }
-                        }.map { it.uri })
+                        }.map { it.uri }
+                        foundHere = keptHere.size
+                        allSongs.addAll(keptHere)
                     }
+                    report?.add(ScanReport.Folder(folderName(context, path), listed, foundHere))
                 } catch (e: FileNotFoundException) {
                     e.printStackTrace()
                     throw Exception("oh well idk man this should never happen")
@@ -1671,5 +1741,8 @@ fun mediaStoreSelection(folders: List<String?>): Pair<String, Array<String>>? {
 }
 
 class InvalidAudioFileException(message: String) : Throwable(message)
+
+/** A song found in a scan folder with no file path the scanner can open (#243). */
+class NoFilePathException(message: String) : Throwable(message)
 class ScannerAbortException(message: String) : Throwable(message)
 class ScannerCriticalFailureException(message: String) : Throwable(message)

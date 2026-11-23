@@ -11,6 +11,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.preferencesDataStore
+import com.dd3boh.outertune.constants.NeverHeardToDiscover
 import com.dd3boh.outertune.constants.NewInstallSongCache
 import com.dd3boh.outertune.lyrics.LyricsTimingOnTime
 import com.dd3boh.outertune.extensions.toEnum
@@ -19,16 +20,20 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlin.properties.ReadOnlyProperty
+import com.dd3boh.outertune.ui.player.ClassicPinsBefore013
+import com.dd3boh.outertune.ui.player.CastPinAtUpdate
+import com.dd3boh.outertune.ui.player.PinsBefore013
 
 /**
  * The file itself, reached only through [dataStore], so that no write goes round the copy in memory.
  * A new install's song cache is written in as the file is first read: see [NewInstallSongCache].
  * At the same moment, once, the lyrics timing saved before the lyrics clock was put right is moved
- * 100 ms later: see [LyricsTimingOnTime].
+ * 100 ms later: see [LyricsTimingOnTime]. New songs only and Never heard land on the Discover chip:
+ * see [NeverHeardToDiscover].
  */
 private val Context.settingsFile: DataStore<Preferences> by preferencesDataStore(
     name = "settings",
-    produceMigrations = { listOf(NewInstallSongCache, LyricsTimingOnTime) },
+    produceMigrations = { listOf(NewInstallSongCache, LyricsTimingOnTime, PinsBefore013, ClassicPinsBefore013, CastPinAtUpdate, NeverHeardToDiscover) },
 )
 
 @Volatile

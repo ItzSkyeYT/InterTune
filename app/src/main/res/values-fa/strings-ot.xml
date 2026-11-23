@@ -95,7 +95,6 @@
     <string name="lyrics_prefer_local">ترجیح دادن متن آهنگ محلی</string>
     <string name="lyrics_prefer_local_description">قبل از استفاده از همه ارائه دهندگان ابری، فایل‌های متن ترانه محلی را در اولویت قرار دهید. برای اولویت بندی ارائه دهندگان ابری، این گزینه را خاموش کنید</string>
     <string name="lyrics_settings_title">متن آهنگ ها</string>
-    <string name="lyrics_trim_title">فاصله های اطراف متن آهنگ را حذف کند</string>
     <string name="local_library_enable_title">رسانه محلی را فعال کند</string>
     <string name="local_library_enable_description">در صورت غیرفعال کردن، کتابخانه محلی برنامه پنهان میشود</string>
     <string name="local_player_settings_title">رسانه محلی</string>
@@ -261,7 +260,6 @@
     <string name="oobe_update_check_title">درباره به‌روزرسانی‌ها به شما اطلاع دهیم؟</string>
     <string name="oobe_update_check_yes">بله، بررسی کن</string>
     <string name="player_glass_intensity">شدت شیشه</string>
-    <string name="player_glass_intensity_description">مقدار بیشتر یعنی شفاف‌تر و با شکست نور بیشتر؛ مقدار کمتر به سطح‌های ساده و توپر نزدیک‌تر است</string>
     <string name="player_glass_intensity_value">%1$d%%</string>
     <string name="player_liquid_glass">شیشه مایع</string>
     <string name="player_liquid_glass_description">پنل‌های شیشه‌ای شناور برای نوار ناوبری، پخش‌کننده کوچک و دکمه‌های پخش، و رنگ‌های پررنگ‌تر تصویر آلبوم در پشت صفحه در حال پخش</string>
@@ -285,7 +283,6 @@
     <string name="oobe_update_auto_description">آن را در پس‌زمینه دانلود می‌کند تا هر وقت خواستید آماده باشد. اندروید همچنان از شما تأیید می‌خواهد.</string>
     <string name="oobe_polls_answered">این را هر وقت خواستید می‌توانید در تنظیمات، بخش پرسش‌ها، تغییر دهید.</string>
     <string name="poll_title">پرسشی از InterTune</string>
-    <string name="poll_banner_hint">برای پاسخ ضربه بزنید، یا با ضربدر ببندید</string>
     <string name="poll_dismiss">نادیده گرفتن این پرسش</string>
     <string name="poll_close">بستن</string>
     <string name="poll_send">ارسال پاسخ من</string>
@@ -346,7 +343,6 @@
     <string name="image_cache_max_size">بیشینهٔ اندازهٔ حافظهٔ موقت کاورها</string>
     <string name="max_queues_description">برنامه هم‌زمان چند صف نگه می‌دارد. وقتی از این عدد بگذرید، قدیمی‌ترین حذف می‌شود.</string>
     <string name="enable_proxy_description">درخواست‌ها و پخش‌های YouTube Music ابتدا از سرور دیگری بگذرند. تصویرها، متن ترانه‌ها و سرویس‌های دیگری که برنامه از آن‌ها استفاده می‌کند همچنان مستقیم وصل می‌شوند. اگر مطمئن نیستید لازمش دارید، خاموش بگذارید.</string>
-    <string name="show_liked_and_downloaded_playlist_description">آهنگ‌های پسندیده و آهنگ‌های دانلودشده را به‌صورت فهرست پخش در کتابخانه‌تان نشان بده.</string>
     <string name="pause_listen_history_description">دیگر آهنگی به تاریخچهٔ شما اضافه نشود. چیزی که از قبل در آن است حذف نمی‌شود.</string>
     <string name="pause_remote_listen_history_description">دیگر به YouTube Music نگو چه پخش می‌کنی. تاریخچهٔ داخل این برنامه در هر صورت ادامه می‌یابد.</string>
     <string name="clear_listen_history_description">هر چه برنامه دربارهٔ آنچه پخش کرده‌اید ثبت کرده حذف کن.</string>

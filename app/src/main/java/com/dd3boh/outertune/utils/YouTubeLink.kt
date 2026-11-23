@@ -42,12 +42,28 @@ sealed interface YouTubeLink {
          */
         private val SITE_HOSTS = setOf("intertune.app", "www.intertune.app")
 
-        /** The characters of YouTube's ids. Anything else is not one, and would not survive a route. */
-        private val ID = Regex("[A-Za-z0-9_-]+")
+        /**
+         * The characters of YouTube's ids. Anything else is not one, and would not survive a route. Nor would the
+         * word null, which Navigation reads in a route as no value at all: a link with list=null in it opened
+         * online_playlist/null, and the app closed (#244).
+         */
+        private val ID = Regex("(?!null$)[A-Za-z0-9_-]+")
 
         /** The share page's own rules for its ids (site/s/index.html): a song's has 11 characters, a list's 10 to 80. */
         private val PAGE_SONG = Regex("[A-Za-z0-9_-]{11}")
         private val PAGE_LIST = Regex("[A-Za-z0-9_-]{10,80}")
+
+        /** A video's id, as YouTube makes them: 11 characters. The addresses with the id in the path take only that. */
+        private val VIDEO_ID = Regex("[A-Za-z0-9_-]{11}")
+
+        /** The YouTube app's own scheme, which the manifest takes as well: vnd.youtube:<id>, or a YouTube address after it. */
+        private val APP_SCHEMES = setOf("vnd.youtube", "vnd.youtube.launch")
+
+        /** A web address inside other words. What closes a bracket or a quote around it is not part of it. */
+        private val LINK_IN_TEXT = Regex("""https?://[^\s<>"'()\[\]{}]+""", RegexOption.IGNORE_CASE)
+
+        /** The end of a sentence after an address, which no YouTube address ends with. */
+        private val SENTENCE_END = charArrayOf('.', ',', ';', ':', '!', '?')
 
         /**
          * The link in [text], or null when it is not one.
@@ -56,10 +72,21 @@ sealed interface YouTubeLink {
          * links: "watch" parsed as a path with no video id, "c" and "channel" as a channel page,
          * "playlist" as a playlist with no id, and the search did nothing or opened a blank page.
          * Only an http or https address on a YouTube host, or the share page's, counts now.
+         *
+         * With words around it (the title another app's Share puts before its link, "look at this",
+         * brackets, a full stop), the first address in them that opens something. The whole text was
+         * taken for the address, which it is not, and nothing opened and nothing was said.
          */
         fun parse(text: String): YouTubeLink? {
-            val uri = runCatching { URI(text.trim()) }.getOrNull() ?: return null
+            val whole = text.trim()
+            return address(whole) ?: LINK_IN_TEXT.findAll(whole).firstNotNullOfOrNull { address(it.value.trimEnd(*SENTENCE_END)) }
+        }
+
+        /** What one address opens, or null. */
+        private fun address(text: String): YouTubeLink? {
+            val uri = runCatching { URI(text) }.getOrNull() ?: return null
             val scheme = uri.scheme?.lowercase()
+            if (scheme in APP_SCHEMES) return youtubeApp(uri.rawSchemeSpecificPart)
             if (scheme != OWN_SCHEME && scheme !in setOf("http", "https")) return null
             val host = uri.host?.lowercase() ?: return null
             val path = uri.rawPath.orEmpty().split('/').filter { it.isNotEmpty() }.map(::decode)
@@ -78,10 +105,34 @@ sealed interface YouTubeLink {
                 "channel", "c" -> segments.getOrNull(1)?.takeIf { it.matches(ID) }?.let(::Channel)
                 "watch" -> query["v"]?.takeIf { it.matches(ID) }?.let { Video(it, list) }
                 "play" -> if (scheme != OWN_SCHEME) null else query["v"]?.takeIf { it.matches(ID) }?.let { Video(it, list, playNow = true) }
+                // A Short, a live's own page, and the old player's address: the video's id comes next. Only YouTube's,
+                // and the manifest hands the app /v/ and /embed/ links: they opened Home and nothing else.
+                "shorts", "live", "v" -> if (scheme == OWN_SCHEME) null else idAfter(segments)?.let { Video(it, list) }
+                // A video in another site's page; the whole of a list in one is the list.
+                "embed" -> when {
+                    scheme == OWN_SCHEME -> null
+                    segments.getOrNull(1) == "videoseries" -> list?.let(::Playlist)
+                    else -> idAfter(segments)?.let { Video(it, list) }
+                }
                 // Only an album's: the other pages YouTube Music browses have links of their own above.
                 "browse" -> segments.getOrNull(1)?.takeIf { it.matches(ID) && it.startsWith("MPRE") }?.let(::Album)
                 else -> null
             }
+        }
+
+        /** The video's id in the part after the page's name. The old player's addresses put their options after an &. */
+        private fun idAfter(segments: List<String>): String? =
+            segments.getOrNull(1)?.substringBefore('&')?.takeIf { it.matches(VIDEO_ID) }
+
+        /**
+         * The YouTube app's links (vnd.youtube:<id>, vnd.youtube://<id>), which the manifest takes and which opened
+         * nothing: the video, or the YouTube address one carries after the scheme.
+         */
+        private fun youtubeApp(rest: String?): YouTubeLink? {
+            val part = rest.orEmpty().removePrefix("//")
+            val id = part.substringBefore('?').substringBefore('&').substringBefore('#').substringBefore('/')
+            if (id.matches(VIDEO_ID)) return Video(id, null)
+            return if ('/' in part) address("https://$part") else null
         }
 
         /**

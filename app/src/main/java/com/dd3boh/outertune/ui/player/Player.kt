@@ -9,7 +9,12 @@
 
 package com.dd3boh.outertune.ui.player
 
+import com.dd3boh.outertune.ui.component.ProblemReportDialog
+import com.dd3boh.outertune.ui.component.PlayerErrorReport
 import com.dd3boh.outertune.ui.dialog.TogetherSheet
+import com.dd3boh.outertune.together.TogetherSession
+import com.dd3boh.outertune.together.seekHeldLine
+import com.dd3boh.outertune.utils.Toaster
 import androidx.compose.material.icons.rounded.Group
 import com.dd3boh.outertune.playback.PlayerConnection
 import com.dd3boh.outertune.playback.BatteryUse
@@ -32,6 +37,7 @@ import com.dd3boh.outertune.constants.PlayerButtonsStyle
 import com.dd3boh.outertune.constants.PlayerButtonsStyleKey
 import com.dd3boh.outertune.constants.PlayerPinsKey
 import com.dd3boh.outertune.constants.QueueButtonKey
+import com.dd3boh.outertune.constants.OutputPillKey
 import com.dd3boh.outertune.constants.QueueBackClosesPlayerKey
 import com.dd3boh.outertune.constants.QueueLeftOpenKey
 import androidx.compose.material.icons.automirrored.rounded.QueueMusic
@@ -47,6 +53,13 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import com.dd3boh.outertune.ui.component.LongPressLabel
+import com.dd3boh.outertune.ui.component.SeekRumble
+import com.dd3boh.outertune.ui.component.hapticsLive
+import com.dd3boh.outertune.ui.component.segmentTick
+import com.dd3boh.outertune.ui.component.tapTick
+import com.dd3boh.outertune.ui.component.Feel
+import com.dd3boh.outertune.ui.component.buttonFeel
+import com.dd3boh.outertune.ui.component.felt
 import com.dd3boh.outertune.ui.component.rememberSleepTimerState
 import com.dd3boh.outertune.ui.component.openProxySetting
 import androidx.compose.material3.Icon
@@ -62,6 +75,11 @@ import android.app.Activity
 import android.content.res.Configuration
 import android.util.Log
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandHorizontally
+import androidx.compose.animation.shrinkHorizontally
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateDpAsState
@@ -196,6 +214,11 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.toggleableState
+import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.TextUnit
@@ -245,7 +268,6 @@ import com.dd3boh.outertune.constants.SwipeToDismissPlayerKey
 import com.dd3boh.outertune.constants.GroupedPlayerControlsKey
 import com.dd3boh.outertune.constants.PlayerGlassIntensityKey
 import com.dd3boh.outertune.constants.PlayerLiquidGlassKey
-import com.dd3boh.outertune.extensions.isPowerSaver
 import com.dd3boh.outertune.extensions.metadata
 import com.dd3boh.outertune.extensions.supportsWideScreen
 import com.dd3boh.outertune.extensions.tabMode
@@ -271,9 +293,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
 import kotlin.math.max
-
-/** The repeat button off: the repeat icon at this strength, as the media notification draws it (his word, 5 Nov 2026). */
-internal const val REPEAT_OFF_ALPHA = 0.4f
 
 @SuppressLint("UnusedBoxWithConstraintsScope")
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class, ExperimentalLayoutApi::class)
@@ -306,6 +325,13 @@ fun BottomSheetPlayer(
             state.collapseSoft()
         }
     }
+    // Report a problem opened from the error screen, kept here, where the player held either way reads it.
+    // The error screen kept it itself, and that screen sits at another place on a phone on its side, so
+    // turning the phone while the page was open closed it. Open until it is closed, with the error it was
+    // opened for, even if the player has moved on from that error meanwhile.
+    var errorReport by remember { mutableStateOf<PlayerErrorReport?>(null) }
+    val reportError: (PlayerErrorReport) -> Unit = remember { { report: PlayerErrorReport -> errorReport = report } }
+    errorReport?.let { report -> ProblemReportDialog(onDismiss = { errorReport = null }, playerError = report) }
 
     // Focus follows the sheet for the keys: opened from the mini player, it lands on play and
     // pause; closed again, it goes back to the mini player's title. Left alone it vanished with
@@ -430,6 +456,10 @@ fun BottomSheetPlayer(
     // Back from the queue closes the whole player, and the player opens where it was left (#30).
     val queueBackClosesPlayer by rememberPreference(QueueBackClosesPlayerKey, defaultValue = false)
     var queueLeftOpen by rememberPreference(QueueLeftOpenKey, defaultValue = false)
+    // The pill under the controls naming where the music plays. With CAST_AT_TOP (his pick of 15 Nov
+    // 2026) it is a switch that is off, and the cast button stands at the top right instead.
+    val outputPillSwitch by rememberPreference(OutputPillKey, defaultValue = false)
+    val outputPill = !Unreleased.CAST_AT_TOP || outputPillSwitch
 
     // Read again on a new song as well as on a new state, since the loop below only reads while the
     // player is ready. A song changed while the one before was still loading kept that song's place
@@ -443,6 +473,10 @@ fun BottomSheetPlayer(
     var duration by rememberSaveable(playbackState, songId) {
         mutableLongStateOf(playerConnection.player.duration)
     }
+    // The seek bar's faint rumble while it is dragged (Unreleased.HAPTICS_MORE, #176), and below Android 14 its
+    // stand-in (segmentTick).
+    val seekRumble = remember { SeekRumble() }
+    val tickLive = remember { hapticsLive(context) }
     var sliderPosition by remember {
         mutableStateOf<Long?>(null)
     }
@@ -486,7 +520,10 @@ fun BottomSheetPlayer(
     val chosenPlayerBackground =
         if (playerBackground == PlayerBackgroundStyle.LIVING && !Unreleased.LIVING_BACKGROUND) DEFAULT_PLAYER_BACKGROUND
         else BatteryUse.playerBackground(playerBackground, LocalBatteryMode.current, DEFAULT_PLAYER_BACKGROUND)
-    val effectivePlayerBackground = if (chosenPlayerBackground == PlayerBackgroundStyle.BLUR && context.supportsWideScreen()) {
+    // Blur is swapped for the Gradient on a tablet only, where the blurred cover would be stretched over a big
+    // window. Not on a phone on its side: its window is then as wide as a small tablet's, and it kept its Blur
+    // upright but showed the Gradient sideways, or nothing at all (Niko, #testers, 18 Nov 2026).
+    val effectivePlayerBackground = if (chosenPlayerBackground == PlayerBackgroundStyle.BLUR && LocalConfiguration.current.smallestScreenWidthDp >= 600) {
         PlayerBackgroundStyle.GRADIENT
     } else {
         chosenPlayerBackground
@@ -496,7 +533,10 @@ fun BottomSheetPlayer(
     LaunchedEffect(mediaMetadata, effectivePlayerBackground) {
         // Keyed on the EFFECTIVE style. Keying on the raw preference would mean a tablet that has
         // BLUR selected never extracts any colours, and then renders a gradient of nothing.
-        if (effectivePlayerBackground != PlayerBackgroundStyle.GRADIENT || context.isPowerSaver()) {
+        // Not skipped under Android's battery saver either: the Gradient then had no colours and the player went
+        // black (18 Nov 2026). One palette of a 100px cover per song costs next to nothing, and Battery use's
+        // Saver already takes the costly backgrounds away.
+        if (effectivePlayerBackground != PlayerBackgroundStyle.GRADIENT) {
             return@LaunchedEffect
         }
 
@@ -509,9 +549,8 @@ fun BottomSheetPlayer(
             )
 
             val bitmap = result.image?.toBitmap()?.extractGradientColors()
-            bitmap?.let {
-                gradientColors = it
-            }
+            // A cover that cannot be read still gives a gradient: the plain grey of a cover with no colour.
+            gradientColors = bitmap ?: gradientColors.ifEmpty { NO_COVER_GRADIENT }
         }
     }
 
@@ -664,6 +703,27 @@ fun BottomSheetPlayer(
     // Focus following the sheet, see playPauseFocus. Not to play and pause when the player opens
     // on the queue, which Back from the queue closing the player leaves open in it: they are
     // closed to the keys under the queue, which asks for focus itself as the player opens.
+    // Connected's room circle by the title (connectedButtons) slides out from under the pair the first time it can be
+    // seen arrive: the player open with no sheet over it (a sheet is a window of its own, so the player's loses the
+    // focus), so a room started from a sheet or from Home is seen arriving as the sheet goes or the player opens (his
+    // word of 20 Nov 2026: "when you join the circle slides in ... so it looks smooth"). Held here, where it lives while
+    // the player is collapsed and its full view is not drawn. Once there it stays, through every opening of the room
+    // after, and through a room coming back with a new music service (MusicService.togetherComing).
+    val circleRoom by playerConnection.service.together.collectAsState()
+    val circleRoomComing by playerConnection.service.togetherComing.collectAsState()
+    val windowFocused = LocalWindowInfo.current.isWindowFocused
+    var roomCircleShown by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(circleRoom != null, state.isExpanded, windowFocused, circleRoomComing) {
+        when {
+            circleRoom == null && (circleRoomComing || !playerConnection.isAlive) -> Unit
+            circleRoom == null -> roomCircleShown = false
+            !roomCircleShown && state.isExpanded && windowFocused -> {
+                delay(300)
+                roomCircleShown = true
+            }
+        }
+    }
+
     var sheetWasOpen by remember { mutableStateOf(false) }
     LaunchedEffect(state.isExpanded, state.isCollapsed) {
         val keys = inputModeManager.inputMode == InputMode.Keyboard
@@ -1003,10 +1063,21 @@ fun BottomSheetPlayer(
                 SleepTimerDialog(playerConnection) { showSleepTimerDialog = false }
             }
 
-            // A listening room's button, only while one is on. In both styles it comes right before
-            // the menu, so that the menu stays last (his word of 17 Oct 2026). It opens the room.
+            // A listening room's button, only while one is on. It opens the room, and the menu stays
+            // last (his word of 17 Oct 2026). With ROOM_AT_FREE_END it goes at the free end of its
+            // row, where nothing is pushed, so the buttons never move when a room starts or ends (his
+            // rule of 15 Nov 2026); without it, as in a release, right before the menu in both styles.
             val room by playerConnection.service.together.collectAsState()
             val inRoom = room != null
+            val roomAtFreeEnd = inRoom && Unreleased.ROOM_AT_FREE_END
+            val roomBeforeMenu = inRoom && !Unreleased.ROOM_AT_FREE_END
+            // Connected's room button sits by the title, at the free end of the pair, in the normal player (his pick
+            // of 19 Nov 2026): the row under the controls never takes it, so nothing there moves or narrows when a
+            // room starts or ends, at any width. A full row on a 360 dp phone had no room for it even hung at 42 dp,
+            // and every button moved and narrowed from 56 to 52 dp. The pair is anchored at the end, so share and
+            // like stay where they are and the title is one segment narrower while the room lasts. In every build:
+            // rooms are in no release yet. A small player keeps it in its row, counted in with the others.
+            val roomByTitle = inRoom && !compactPlayer
             var showRoom by rememberSaveable { mutableStateOf(false) }
             if (showRoom) TogetherSheet(onDismiss = { showRoom = false })
 
@@ -1036,7 +1107,8 @@ fun BottomSheetPlayer(
             // With the queue on a button, this is the only way the queue sheet comes up.
             val openQueue: () -> Unit = {
                 queueSheetState.expandSoft()
-                haptic.performHapticFeedback(HapticFeedbackType.ContextClick)
+                // With more haptics the button it is on ticks, as every button of the player does.
+                if (!Unreleased.HAPTICS_MORE) haptic.performHapticFeedback(HapticFeedbackType.ContextClick)
             }
 
             // Classic: circles beside the title. Tertiary on the timer while it runs, and a
@@ -1066,7 +1138,9 @@ fun BottomSheetPlayer(
                     contentDescription = likeName(currentSong?.song?.liked == true),
                     container = MaterialTheme.colorScheme.primary,
                     content = MaterialTheme.colorScheme.onPrimary,
-                    onClick = playerConnection::toggleLike
+                    onClick = playerConnection::toggleLike,
+                    // Under Strong a like is two clicks, taking it back the tap's tick.
+                    tap = if (currentSong?.song?.liked == true) Feel.TICK else Feel.DOUBLE,
                 )
             }
             val roomCircle: @Composable () -> Unit = {
@@ -1077,6 +1151,21 @@ fun BottomSheetPlayer(
                     content = MaterialTheme.colorScheme.onPrimary,
                     onClick = { showRoom = true }
                 )
+            }
+            // The cast button as one of the player's buttons (PlayerPin.CAST), filled in the timer's on colour while a
+            // receiver plays. Not on a tablet's two panes, which keep theirs at the top right, nor without casting.
+            val castLook = rememberCastLook()
+            val castShown = castLook != null && !tabletTwoPane
+            val castCircle: @Composable () -> Unit = {
+                castLook?.let { cast ->
+                    PlayerCircleButton(
+                        painter = rememberVectorPainter(cast.icon),
+                        contentDescription = cast.description,
+                        container = if (cast.casting) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.primary,
+                        content = if (cast.casting) MaterialTheme.colorScheme.onTertiary else MaterialTheme.colorScheme.onPrimary,
+                        onClick = cast.open,
+                    )
+                }
             }
             val menuCircle: @Composable () -> Unit = {
                 PlayerCircleButton(
@@ -1111,7 +1200,8 @@ fun BottomSheetPlayer(
                     contentDescription = stringResource(R.string.toggle_lyrics),
                     container = if (showLyrics) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.primary,
                     content = if (showLyrics) MaterialTheme.colorScheme.onTertiary else MaterialTheme.colorScheme.onPrimary,
-                    onClick = toggleLyrics
+                    onClick = toggleLyrics,
+                    on = showLyrics,
                 )
             }
             val pinCircle: @Composable (PlayerPin) -> Unit = { pin ->
@@ -1120,19 +1210,32 @@ fun BottomSheetPlayer(
                     PlayerPin.LYRICS -> lyricsCircle()
                     PlayerPin.TIMER -> timerCircle()
                     PlayerPin.LIKE -> likeCircle()
+                    PlayerPin.CAST -> castCircle()
                 }
+            }
+            /** A pin the player can draw now: share needs a link, the cast button casting (and no tablet's own). */
+            fun drawable(pin: PlayerPin): Boolean = when (pin) {
+                PlayerPin.SHARE -> canShareSong
+                PlayerPin.CAST -> castShown
+                else -> true
             }
 
             /** Classic's pins by the title, as many as fit there beside the queue's circle or without it. */
             fun classicPins(queueCircle: Boolean): List<PlayerPin> =
-                pins[PinPlace.CLASSIC].orEmpty()
-                    .takeLast(PlayerPins.classicMost(queueCircle))
-                    .filter { it != PlayerPin.SHARE || canShareSong }
+                PlayerPins.fit(PinPlace.CLASSIC, pins[PinPlace.CLASSIC].orEmpty(), PlayerPins.classicMost(queueCircle))
+                    .filter(::drawable)
 
             val classicButtons: @Composable RowScope.() -> Unit = {
                 Log.v(TAG, "PLR-3.xa")
                 Spacer(modifier = Modifier.width(10.dp))
 
+                // A room's circle, with ROOM_AT_FREE_END, first: the row stands at the end of its
+                // line, beside the title or at the top of the column, so its first place is the free
+                // end, and the circle there leaves the timer, the heart and the menu where they were.
+                if (roomAtFreeEnd) {
+                    roomCircle()
+                    Spacer(modifier = Modifier.width(7.dp))
+                }
                 if (queueLayout.queueButton) {
                     queueCircle()
                     Spacer(modifier = Modifier.width(7.dp))
@@ -1141,7 +1244,8 @@ fun BottomSheetPlayer(
                     pinCircle(pin)
                     Spacer(modifier = Modifier.width(7.dp))
                 }
-                if (inRoom) {
+                // Without it, as in a release, right before the menu.
+                if (roomBeforeMenu) {
                     roomCircle()
                     Spacer(modifier = Modifier.width(7.dp))
                 }
@@ -1161,18 +1265,16 @@ fun BottomSheetPlayer(
                     verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterVertically),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    // The queue first and the menu last with the pins between, half on each side; a
-                    // listening room's circle, while one is on, right before the menu.
+                    // The queue first and the menu last with the pins between, half on each side, and a
+                    // listening room's circle while one is on: see classicSideColumns.
                     val pinned = classicPins(queueCircle = true)
-                    val count = pinned.size + 2 + (if (inRoom) 1 else 0)
-                    val onLeft = (count + 1) / 2
-                    for (i in 0 until count) {
-                        if ((i < onLeft) != left) continue
-                        when {
-                            i == 0 -> queueCircle()
-                            i == count - 1 -> menuCircle()
-                            inRoom && i == count - 2 -> roomCircle()
-                            else -> pinCircle(pinned[i - 1])
+                    val (onLeft, onRight) = classicSideColumns(pinned, inRoom, roomAtFreeEnd = Unreleased.ROOM_AT_FREE_END)
+                    for (circle in if (left) onLeft else onRight) {
+                        when (circle) {
+                            SideCircle.Queue -> queueCircle()
+                            SideCircle.Room -> roomCircle()
+                            SideCircle.Menu -> menuCircle()
+                            is SideCircle.Pin -> pinCircle(circle.pin)
                         }
                     }
                 }
@@ -1205,6 +1307,7 @@ fun BottomSheetPlayer(
                         onClick = playerConnection::toggleLike,
                         backdrop = buttonBackdrop,
                         glassIntensity = glassIntensity,
+                        tap = if (liked) Feel.TICK else Feel.DOUBLE,
                     )
                     PlayerPin.TIMER -> PlayerActionSegment(
                         painter = rememberVectorPainter(Icons.Rounded.Timer),
@@ -1225,7 +1328,21 @@ fun BottomSheetPlayer(
                         onClick = toggleLyrics,
                         backdrop = buttonBackdrop,
                         glassIntensity = glassIntensity,
+                        on = showLyrics,
                     )
+                    // In share's colours, the timer's on colour while a receiver plays.
+                    PlayerPin.CAST -> castLook?.let { cast ->
+                        PlayerActionSegment(
+                            painter = rememberVectorPainter(cast.icon),
+                            contentDescription = cast.description,
+                            shape = shape,
+                            container = if (cast.casting) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.secondaryContainer,
+                            content = if (cast.casting) MaterialTheme.colorScheme.onTertiary else MaterialTheme.colorScheme.onSecondaryContainer,
+                            onClick = cast.open,
+                            backdrop = buttonBackdrop,
+                            glassIntensity = glassIntensity,
+                        )
+                    }
                 }
             }
 
@@ -1233,13 +1350,38 @@ fun BottomSheetPlayer(
                 Log.v(TAG, "PLR-3.xa")
                 Spacer(modifier = Modifier.width(10.dp))
 
-                val titlePins = pins[PinPlace.CONNECTED_TITLE].orEmpty().filter { it != PlayerPin.SHARE || canShareSong }
+                val titlePins = pins[PinPlace.CONNECTED_TITLE].orEmpty().filter(::drawable)
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(ConnectedButtonGap),
+                    verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.offset(y = 4.dp)
                 ) {
-                    titlePins.forEachIndexed { i, pin ->
-                        titleSegment(pin, connectedShape(first = i == 0, last = i == titlePins.lastIndex))
+                    // The room's own circle (roomByTitle), out of the pair so it reads as something extra and not one
+                    // of the pinned buttons (Ti-Die, his yes of 20 Nov 2026). It slides out from under the pair as a
+                    // room starts, and back under it as it ends; the pair does not move.
+                    AnimatedVisibility(
+                        visible = roomCircleShown && roomByTitle,
+                        enter = expandHorizontally(expandFrom = Alignment.End) + slideInHorizontally { it },
+                        exit = shrinkHorizontally(shrinkTowards = Alignment.End) + slideOutHorizontally { it },
+                    ) {
+                        Row {
+                            PlayerActionSegment(
+                                painter = rememberVectorPainter(Icons.Rounded.Group),
+                                contentDescription = stringResource(R.string.together_in_room),
+                                shape = CircleShape,
+                                circle = true,
+                                container = MaterialTheme.colorScheme.primary,
+                                content = MaterialTheme.colorScheme.onPrimary,
+                                onClick = { showRoom = true },
+                                backdrop = buttonBackdrop,
+                                glassIntensity = glassIntensity,
+                            )
+                            if (titlePins.isNotEmpty()) Spacer(Modifier.width(RoomCircleGap))
+                        }
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(ConnectedButtonGap)) {
+                        titlePins.forEachIndexed { i, pin ->
+                            titleSegment(pin, connectedShape(first = i == 0, last = i == titlePins.lastIndex))
+                        }
                     }
                 }
             }
@@ -1280,7 +1422,13 @@ fun BottomSheetPlayer(
             // always has it, so there it is simply one of four, all centred together.
             val quickActions: @Composable () -> Unit = {
                 val inactive = onBackgroundColor.copy(alpha = 0.12f)
-                val rowPins = pins[PinPlace.CONNECTED_ROW].orEmpty().filter { it != PlayerPin.SHARE || canShareSong }
+                val rowPins = pins[PinPlace.CONNECTED_ROW].orEmpty().filter(::drawable)
+                // The room's segment is in this row only in a small player (roomInRow): the normal player has it by
+                // the title (roomByTitle). Here it is counted in with the rest, first with ROOM_AT_FREE_END, else right
+                // before the menu, and the row is centred with it in.
+                val roomInRow = inRoom && !roomByTitle
+                val rowRoomFirst = roomAtFreeEnd && roomInRow
+                val rowRoomBeforeMenu = roomBeforeMenu && roomInRow
                 val actionWidth = if (compactPlayer) {
                     compactQuickActionWidth(
                         rowWidth = windowWidth() - hPadding * 2,
@@ -1294,7 +1442,7 @@ fun BottomSheetPlayer(
                     PlayerActionSegment(
                         painter = rememberVectorPainter(Icons.AutoMirrored.Rounded.QueueMusic),
                         contentDescription = stringResource(R.string.queue),
-                        shape = connectedShape(first = true, last = false),
+                        shape = connectedShape(first = !rowRoomFirst, last = false),
                         container = inactive,
                         filled = false,
                         content = onBackgroundColor,
@@ -1304,17 +1452,34 @@ fun BottomSheetPlayer(
                         onClick = openQueue,
                     )
                 }
+                val roomSegment: @Composable (Boolean) -> Unit = { first ->
+                    PlayerActionSegment(
+                        painter = rememberVectorPainter(Icons.Rounded.Group),
+                        contentDescription = stringResource(R.string.together_in_room),
+                        shape = connectedShape(first = first, last = false),
+                        container = MaterialTheme.colorScheme.primary,
+                        filled = true,
+                        content = MaterialTheme.colorScheme.onPrimary,
+                        width = actionWidth,
+                        backdrop = buttonBackdrop,
+                        glassIntensity = glassIntensity,
+                        onClick = { showRoom = true },
+                    )
+                }
+                // No room's segment hangs off this row any more (CentredRow's hangingFirst is not asked for): in the
+                // normal player it is by the title, and a small player counts it in with the rest.
                 CentredRow(
                     gap = ConnectedButtonGap,
                     gutter = hPadding,
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = hPadding)
-                        .padding(top = 16.dp)
+                        .padding(top = ConnectedRowGap.above(compactPlayer))
                 ) {
+                    if (rowRoomFirst) roomSegment(true)
                     if (queueLayout.queueButton) queueSegment()
                     rowPins.forEachIndexed { i, pin ->
-                        val shape = connectedShape(first = i == 0 && !queueLayout.queueButton, last = false)
+                        val shape = connectedShape(first = i == 0 && !queueLayout.queueButton && !rowRoomFirst, last = false)
                         val liked = currentSong?.song?.liked == true
                         when (pin) {
                             PlayerPin.LYRICS -> PlayerActionSegment(
@@ -1328,6 +1493,7 @@ fun BottomSheetPlayer(
                                 backdrop = buttonBackdrop,
                                 glassIntensity = glassIntensity,
                                 onClick = toggleLyrics,
+                                on = showLyrics,
                             )
                             PlayerPin.TIMER -> PlayerActionSegment(
                                 painter = rememberVectorPainter(Icons.Rounded.Timer),
@@ -1366,27 +1532,29 @@ fun BottomSheetPlayer(
                                 backdrop = buttonBackdrop,
                                 glassIntensity = glassIntensity,
                                 onClick = playerConnection::toggleLike,
+                                tap = if (liked) Feel.TICK else Feel.DOUBLE,
                             )
+                            PlayerPin.CAST -> castLook?.let { cast ->
+                                PlayerActionSegment(
+                                    painter = rememberVectorPainter(cast.icon),
+                                    contentDescription = cast.description,
+                                    shape = shape,
+                                    container = if (cast.casting) MaterialTheme.colorScheme.primary else inactive,
+                                    filled = cast.casting,
+                                    content = if (cast.casting) MaterialTheme.colorScheme.onPrimary else onBackgroundColor,
+                                    width = actionWidth,
+                                    backdrop = buttonBackdrop,
+                                    glassIntensity = glassIntensity,
+                                    onClick = cast.open,
+                                )
+                            }
                         }
                     }
-                    if (inRoom) {
-                        PlayerActionSegment(
-                            painter = rememberVectorPainter(Icons.Rounded.Group),
-                            contentDescription = stringResource(R.string.together_in_room),
-                            shape = connectedShape(first = rowPins.isEmpty() && !queueLayout.queueButton, last = false),
-                            container = MaterialTheme.colorScheme.primary,
-                            filled = true,
-                            content = MaterialTheme.colorScheme.onPrimary,
-                            width = actionWidth,
-                            backdrop = buttonBackdrop,
-                            glassIntensity = glassIntensity,
-                            onClick = { showRoom = true },
-                        )
-                    }
+                    if (rowRoomBeforeMenu) roomSegment(rowPins.isEmpty() && !queueLayout.queueButton)
                     PlayerActionSegment(
                         painter = rememberVectorPainter(Icons.Rounded.MoreVert),
                         contentDescription = stringResource(R.string.options),
-                        shape = connectedShape(first = rowPins.isEmpty() && !inRoom && !queueLayout.queueButton, last = true),
+                        shape = connectedShape(first = rowPins.isEmpty() && !roomInRow && !queueLayout.queueButton, last = true),
                         container = inactive,
                         filled = false,
                         content = onBackgroundColor,
@@ -1453,6 +1621,7 @@ fun BottomSheetPlayer(
                                         initialDelayMillis = 3000
                                     )
                                     .clickable(enabled = mediaMetadata.album != null) {
+                                        haptic.tapTick()
                                         navController.navigate("album/${mediaMetadata.album!!.id}")
                                         state.collapseSoft()
                                     }
@@ -1473,6 +1642,7 @@ fun BottomSheetPlayer(
                                             initialDelayMillis = 5000
                                         )
                                         .clickable(enabled = artist.id != null) {
+                                            haptic.tapTick()
                                             mediaMetadata?.id?.let { ActivityLog.note(context, database, it, SignalKind.ARTIST_PAGE) }
                                             navController.navigate("artist/${artist.id}")
                                             state.collapseSoft()
@@ -1506,10 +1676,18 @@ fun BottomSheetPlayer(
                         sliderPosition = { sliderPosition },
                         onSlide = {
                             sliderPosition = it
-                            // slider too granular for this haptic to feel right
-    //                    haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
+                            // A tick for each move was too granular to feel right; one each fortieth of
+                            // the bar the finger travels is a faint rumble (#176).
+                            if (Unreleased.HAPTICS_MORE && seekRumble.tick(it, shownDuration)) {
+                                haptic.segmentTick(currentView, tickLive, frequent = true)
+                            }
+                            // A click as the bar hits its start or its end, where the click on letting go used to be.
+                            if (Unreleased.HAPTICS_MORE && seekRumble.hitsEnd(it, shownDuration)) {
+                                haptic.segmentTick(currentView, tickLive)
+                            }
                         },
                         onSlideDone = {
+                            seekRumble.reset()
                             sliderPosition?.let {
                                 if (playerConnection.player.currentMediaItem == null) {
                                     // Nothing is loaded yet, so there is nothing to seek: move where
@@ -1524,8 +1702,8 @@ fun BottomSheetPlayer(
                                     position = it
                                 }
                             }
+                            // No haptic on letting go: after the ticks it felt odd (Ti-Die, 20 Nov 2026). The ends click instead.
                             sliderPosition = null
-                            haptic.performHapticFeedback(HapticFeedbackType.Confirm)
                         },
                         // From the keys, left and right seek in steps of a few seconds, which a
                         // whole song's worth of one percent nudges was not. Up and down move on
@@ -1554,6 +1732,7 @@ fun BottomSheetPlayer(
                         gutter = hPadding,
                         color = onBackgroundColor,
                         below = controlSizes.gapAboveTransport,
+                        room = room,
                     )
 
                     // The bar's glass is a layer of its own behind the buttons, the row's size and in its
@@ -1596,20 +1775,30 @@ fun BottomSheetPlayer(
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             val shuffleModeEnabled by playerConnection.shuffleModeEnabled.collectAsState()
+                            // A guest following a room plays the room's order: shuffle and repeat say who decides (RoomOnBar.kt).
+                            val orderHeld by rememberOrderHeld(playerConnection)
 
                             Box(modifier = Modifier.weight(1f)) {
-                                ResizableIconButton(
-                                    icon = if (shuffleModeEnabled) R.drawable.shuffle_on else R.drawable.shuffle_off,
+                                // Off is the plain shuffle icon, on stands on repeat's lit box (ShuffleLook, 19 Nov 2026).
+                                ShuffleButton(
+                                    on = shuffleModeEnabled,
                                     modifier = Modifier
                                         .size(transportIconSize)
                                         .padding(4.dp)
                                         .align(Alignment.Center)
                                         .named(shuffleName(shuffleModeEnabled)),
                                     color = onBackgroundColor,
-                                    enabled = playerConnection.player.currentMediaItem != null,
+                                    enabled = true,
+                                    // After a cold start the player holds nothing and shows the saved queue: the
+                                    // first tap loads it, as skip and play do, and as the queue's own bar does (#127).
+                                    // Read straight from the player, the button stayed greyed out until play.
                                     onClick = {
+                                        if (orderHeld) return@ShuffleButton sayOrderHeld(context, playerConnection)
+                                        // Under Strong as a like: read before the tap turns it.
+                                        val feel = buttonFeel(turnsOff = shuffleModeEnabled)
+                                        playerConnection.loadQueueIfEmpty()
                                         playerConnection.triggerShuffle()
-                                        haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
+                                        haptic.felt(feel, HapticFeedbackType.SegmentFrequentTick)
                                     }
                                 )
                             }
@@ -1625,7 +1814,7 @@ fun BottomSheetPlayer(
                                     color = onBackgroundColor,
                                     onClick = {
                                         playerConnection.loadQueueIfEmpty().seekToPrevious()
-                                        haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
+                                        haptic.felt(Feel.FIRM, HapticFeedbackType.SegmentFrequentTick)
                                     }
                                 )
                             }
@@ -1639,9 +1828,8 @@ fun BottomSheetPlayer(
                                             .align(Alignment.Center)
                                             .named(seekBackName()),
                                         color = onBackgroundColor,
-                                        enabled = playerConnection.player.currentMediaItem != null,
                                         onClick = {
-                                            playerConnection.player.seekTo(playerConnection.player.currentPosition - seekIncrement.millisec)
+                                            playerConnection.loadQueueIfEmpty().let { it.seekTo(it.currentPosition - seekIncrement.millisec) }
                                         }
                                     )
                                 }
@@ -1686,11 +1874,10 @@ fun BottomSheetPlayer(
                                             .align(Alignment.Center)
                                             .named(seekForwardName()),
                                         color = onBackgroundColor,
-                                        enabled = playerConnection.player.currentMediaItem != null,
                                         onClick = {
                                             //ExoPlayer seek increment can only be set in builder
                                             //playerConnection.player.seekForward()
-                                            playerConnection.player.seekTo(playerConnection.player.currentPosition + seekIncrement.millisec)
+                                            playerConnection.loadQueueIfEmpty().let { it.seekTo(it.currentPosition + seekIncrement.millisec) }
                                         }
                                     )
                                 }
@@ -1711,30 +1898,30 @@ fun BottomSheetPlayer(
                                         // Cold start: the restored queue is only in the queue board until
                                         // something loads it into the player, same as Previous and Play above.
                                         playerConnection.loadQueueIfEmpty().seekToNext()
-                                        haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
+                                        haptic.felt(Feel.FIRM, HapticFeedbackType.SegmentFrequentTick)
                                     }
                                 )
                             }
 
                             Box(modifier = Modifier.weight(1f)) {
-                                ResizableIconButton(
-                                    icon = when (repeatMode) {
-                                        // Off is the repeat icon greyed out, as the notification draws it (his word, 5 Nov 2026).
-                                        REPEAT_MODE_OFF -> R.drawable.repeat_on
-                                        REPEAT_MODE_ALL -> R.drawable.repeat_on
-                                        REPEAT_MODE_ONE -> R.drawable.repeat_one
-                                        else -> throw IllegalStateException()
-                                    },
+                                // Off is the plain repeat icon, all and one stand on a lit box (his pick 3B, 15 Nov 2026).
+                                RepeatButton(
+                                    mode = repeatMode,
                                     modifier = Modifier
                                         .size(transportIconSize)
                                         .padding(4.dp)
                                         .align(Alignment.Center)
                                         .named(repeatName(repeatMode)),
-                                    color = if (repeatMode == REPEAT_MODE_OFF) onBackgroundColor.copy(alpha = REPEAT_OFF_ALPHA) else onBackgroundColor,
-                                    enabled = playerConnection.player.currentMediaItem != null,
+                                    color = onBackgroundColor,
+                                    // A setting of the player's: an empty one takes it too, and loading the saved queue
+                                    // leaves it as it is.
+                                    enabled = true,
                                     onClick = {
+                                        if (orderHeld) return@RepeatButton sayOrderHeld(context, playerConnection)
+                                        // Off, all, one, off: only from one does a tap turn it off.
+                                        val feel = buttonFeel(turnsOff = repeatMode == REPEAT_MODE_ONE)
                                         playerConnection.player.toggleRepeatMode()
-                                        haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
+                                        haptic.felt(feel, HapticFeedbackType.SegmentFrequentTick)
                                     }
                                 )
                             }
@@ -1778,6 +1965,9 @@ fun BottomSheetPlayer(
                     slots = if (seekIncrement != SeekIncrement.OFF) 6 else 4,
                     gutter = hPadding,
                 )
+                // The cover is the size the phone shows it upright and no bigger, see landscapeCoverSide.
+                // The controls beside it keep their column, so nothing but the cover changes.
+                val coverSide = landscapeCoverSide(LocalConfiguration.current.smallestScreenWidthDp.dp)
                 Row(modifier = Modifier.fillMaxSize()) {
                     // The queue sheet's peek is reserved on the controls column alone, not on this
                     // Row. The arrow is horizontally centred on the window, well clear of the
@@ -1799,9 +1989,11 @@ fun BottomSheetPlayer(
                                     .animateContentSize(),
                                 showLyricsOnClick = true,
                                 customMediaMetadata = mediaMetadata,
+                                maxSide = coverSide,
                                 lyricsBottomPadding = queueClearance,
                                 onSignIn = leaveForSignIn,
                                 onProxy = leaveForProxy,
+                                onReport = reportError,
                             )
                         } else {
                             SwipeableArtwork(
@@ -1819,13 +2011,14 @@ fun BottomSheetPlayer(
                                         .animateContentSize(),
                                     showLyricsOnClick = true,
                                     customMediaMetadata = it,
+                                    maxSide = coverSide,
                                     lyricsBottomPadding = queueClearance,
                                     onSignIn = leaveForSignIn,
                                     onProxy = leaveForProxy,
+                                    onReport = reportError,
                                 )
                             }
                         }
-
                     }
 
                     Column(
@@ -1926,6 +2119,7 @@ fun BottomSheetPlayer(
                                 customMediaMetadata = mediaMetadata,
                                 onSignIn = leaveForSignIn,
                                 onProxy = leaveForProxy,
+                                onReport = reportError,
                             )
                         } else {
                             SwipeableArtwork(
@@ -1946,13 +2140,15 @@ fun BottomSheetPlayer(
                                     customMediaMetadata = it,
                                     onSignIn = leaveForSignIn,
                                     onProxy = leaveForProxy,
+                                    onReport = reportError,
                                 )
                             }
                         }
 
-                        // Laid over the empty top right corner, under the status bar, so nothing
-                        // else on the player moves or changes size for it. Only on a tablet's two
-                        // panes now: everywhere else the output button says and does more.
+                        // A tablet's two panes show no buttons by the title, so the cast button stays laid
+                        // over the empty top right corner there, under the status bar, so nothing else on
+                        // the player moves or changes size for it. Everywhere else it is one of the
+                        // player's buttons since 0.13 (PlayerPin.CAST, his word of 20 Nov 2026).
                         if (tabletTwoPane) {
                             CastButton(
                                 tint = onBackgroundColor,
@@ -2017,10 +2213,11 @@ fun BottomSheetPlayer(
                             // when the block has to shrink.
                             if (!compactPlayer) Spacer(Modifier.height(24.dp))
                         }
-                        if (queueLayout.outputRoom > 0.dp) {
+                        if (queueLayout.outputRoom > 0.dp && outputPill) {
                             // Where the music is coming out, in the half of the queue's strip its
                             // arrow gave up, drawn a little into the gap above so that it sits in
-                            // the middle of the two. Nothing above it has moved for it.
+                            // the middle of the two. Nothing above it has moved for it. Switched
+                            // off, the half stays empty, so the arrow and the controls stay put.
                             Box(
                                 contentAlignment = Alignment.Center,
                                 modifier = Modifier
@@ -2119,8 +2316,9 @@ fun BottomSheetPlayer(
         // Drawn after the queue's sheet. Its collapsed strip lies across the bottom of the window,
         // and under it the pill was seen and could not be pressed: the tap opened the queue. Gone
         // once the queue is most of the way up. Not on a small upright window, where that corner
-        // is the play row's.
-        if (isLandscape && queueLayout.outputRoom == 0.dp && !tabletTwoPane && mediaMetadata != null && !queueCovers) {
+        // is the play row's. Only with the Output button on: the cast button is one of the player's
+        // buttons, in a narrow window on its side too (above the title there).
+        if (outputPill && isLandscape && queueLayout.outputRoom == 0.dp && !tabletTwoPane && mediaMetadata != null && !queueCovers) {
             OutputButton(
                 tint = onBackgroundColor,
                 wide = false,
@@ -2132,6 +2330,8 @@ fun BottomSheetPlayer(
                     .padding(end = 24.dp, bottom = 10.dp)
             )
         }
+        // The cast sheet, one for the whole player, whichever button opened it.
+        CastPickerHost()
     }
 }
 
@@ -2178,6 +2378,22 @@ internal fun landscapeControlsWidth(available: Dp, playButton: Dp, slots: Int, g
     val needed = LandscapeTransportSlot * slots + playButton + PlayButtonGap * 2 + gutter * 2
     return (available / 2).coerceAtLeast(needed).coerceAtMost(available * 0.62f)
 }
+
+/** The Gradient's colours for a cover that cannot be read, the same greys extractGradientColors falls back to. */
+private val NO_COVER_GRADIENT = listOf(Color(0xFF595959), Color(0xFF0D0D0D))
+
+/**
+ * The side of the cover on a phone on its side: the cover the same phone shows upright, which is
+ * the screen's short side less the player's gutter on either side.
+ *
+ * On its side the cover took all the height the window had, all but 16dp above and below, where
+ * upright it has 32dp of margin all round, and beside the controls it looked huge (15 Nov 2026).
+ * It is held to this, and to the room it is given if that is less. Where the strip of covers that
+ * swipes to skip is on, it already came out at this size, by the 16dp that strip adds above and
+ * below, and it still does.
+ */
+internal fun landscapeCoverSide(shortSide: Dp, gutter: Dp = PlayerHorizontalPadding): Dp =
+    (shortSide - gutter * 2).coerceAtLeast(0.dp)
 
 /**
  * Whether some queue list is genuinely on screen right now, i.e. whether the adaptive queue must
@@ -2243,6 +2459,9 @@ private fun Modifier.shrinkToFitHeight(keepClearAtTop: Int = 0): Modifier = layo
 
 // Wide enough apart to read as separate buttons that belong together, not one slab with a seam.
 private val ConnectedButtonGap = 6.dp
+
+/** Between the room's own circle and the buttons by the title: twice the pair's own gap, so it reads as apart. */
+private val RoomCircleGap = 12.dp
 private val QuickActionWidth = 56.dp
 
 /** Material 3 Expressive connected buttons: fully round on the group's outer ends, 8dp between. */
@@ -2273,6 +2492,14 @@ private fun CentredRow(
     gap: Dp,
     gutter: Dp,
     modifier: Modifier = Modifier,
+    /**
+     * Whether the first button hangs off the start of the others, which are centred as they are
+     * without it (quickRowPositionsHanging): a listening room's, so that the others never move as a
+     * room starts and ends. It takes no width from them, and hangs at an icon's width where its own
+     * reaches too far (quickRowWidths). In a row with no room even for that, it is centred with
+     * them after all.
+     */
+    hangingFirst: Boolean = false,
     buttons: @Composable () -> Unit,
 ) {
     Layout(content = buttons, modifier = modifier) { measurables, constraints ->
@@ -2287,12 +2514,17 @@ private fun CentredRow(
         val width = if (constraints.hasBoundedWidth) constraints.maxWidth
         else natural.sum() + gapPx * (natural.size - 1).coerceAtLeast(0)
 
-        // Only a row too wide for its room gives other widths, and only to the buttons that give way.
-        val widths = fitQuickActionWidths(natural, gapPx, quickRowRoom(width, gutter), QuickActionIconOnlyWidth.roundToPx())
+        // Only a row too wide for its room gives other widths, and only to the buttons that give way. A
+        // hung first button takes nothing from the others, and hangs at an icon's width where its own
+        // reaches too far: see quickRowWidths.
+        val fitted = quickRowWidths(natural, gap, width, gutter, hangingFirst)
+        val widths = fitted.widths
         val placeables = measurables.mapIndexed { i, measurable ->
             measurable.measure(if (widths[i] == natural[i]) loose else loose.copy(minWidth = widths[i], maxWidth = widths[i]))
         }
-        val positions = quickRowPositions(IntArray(placeables.size) { placeables[it].width }, gap, width, layoutDirection)
+        val placed = IntArray(placeables.size) { placeables[it].width }
+        val positions = (if (fitted.hung) quickRowPositionsHanging(placed, gap, width, gutter, layoutDirection) else null)
+            ?: quickRowPositions(placed, gap, width, layoutDirection)
         val height = constraints.constrainHeight(placeables.maxOfOrNull { it.height } ?: 0)
 
         layout(width, height) {
@@ -2377,8 +2609,17 @@ private fun SeekBar(
     color: Color,
     /** The room under the times, down to the buttons: part of the strip a drag is taken on. */
     below: Dp,
+    /** The listening room this phone is in: a guest's bar may be held, and says when it plays on its own (RoomOnBar.kt). */
+    room: TogetherSession? = null,
 ) {
     val shown = sliderPosition() ?: position()
+    // A guest whose host lets only the person in control move in the song (RoomSettings): the bar keeps its place, size
+    // and look, moves nothing, and a touch says why once the finger lifts. Ti-Die, #testers 22 Nov 2026: "itd be cool
+    // either to have the timeline be disabled or have a playhead showing the group's time area"; his pick: locked.
+    val held by rememberSeekHeld(room)
+    val context = LocalContext.current
+    val roomNow by rememberUpdatedState(room)
+    val sayHeld = { roomNow?.let { Toaster.show(context, seekHeldLine(context, it.status.value)) } }
     val seekInteraction = remember { MutableInteractionSource() }
     // The bar's own height, under which a drag must go across to be the bar's.
     var barBottom by remember { mutableIntStateOf(0) }
@@ -2392,15 +2633,15 @@ private fun SeekBar(
                 trackInset = gutter + 2.dp,
                 rtl = LocalLayoutDirection.current == LayoutDirection.Rtl,
                 barBottom = { barBottom.toFloat() },
-                onSlide = onSlide,
-                onSlideDone = onSlideDone,
+                onSlide = { if (!held) onSlide(it) },
+                onSlideDone = { if (held) sayHeld() else onSlideDone() },
             )
     ) {
     Slider(
         value = shown.toFloat(),
         valueRange = 0f..(if (duration == C.TIME_UNSET) 0f else duration.toFloat()),
-        onValueChange = { onSlide(it.toLong()) },
-        onValueChangeFinished = onSlideDone,
+        onValueChange = { if (!held) onSlide(it.toLong()) },
+        onValueChangeFinished = { if (held) sayHeld() else onSlideDone() },
         // Material 3 Expressive: a bar thumb standing clear of a thick track, with the
         // stop dot at the end, the same slider the backup settings already use.
         interactionSource = seekInteraction,
@@ -2421,7 +2662,13 @@ private fun SeekBar(
         modifier = Modifier
             .padding(horizontal = gutter)
             .onSizeChanged { barBottom = it.height }
-            .onPreviewKeyEvent(onKey)
+            .onPreviewKeyEvent { event ->
+                // Held, left and right move nothing and say why; up and down still move on.
+                if (held && (event.key == Key.DirectionLeft || event.key == Key.DirectionRight)) {
+                    if (event.type == KeyEventType.KeyDown) sayHeld()
+                    true
+                } else onKey(event)
+            }
     )
 
     Row(
@@ -2438,6 +2685,9 @@ private fun SeekBar(
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
+
+        // A guest on its own in a room: "On your own" and Catch up between the times, no taller than they are.
+        OwnWayOnBar(room, color, Modifier.weight(1f))
 
         Text(
             text = if (duration != C.TIME_UNSET) makeTimeString(duration) else "",
@@ -2472,6 +2722,17 @@ internal fun rememberTabMode(): Boolean {
  */
 private val SHARE_NUDGE = (-1).dp
 
+/**
+ * A button that turns something on and off, as lyrics: TalkBack says it as a switch, with Android's own
+ * "On" or "Off", where the picture says it only by its colour. It said "Toggle lyrics" the same either way.
+ * Nothing for [on] null, a button that only does something.
+ */
+private fun Modifier.onOffState(on: Boolean?): Modifier =
+    if (on == null) this else semantics {
+        role = Role.Switch
+        toggleableState = ToggleableState(on)
+    }
+
 @Composable
 private fun PlayerCircleButton(
     painter: Painter,
@@ -2480,7 +2741,12 @@ private fun PlayerCircleButton(
     content: Color,
     onClick: () -> Unit,
     nudge: Dp = 0.dp,
+    /** For a button that turns something on and off, whether it is on ([onOffState]); null for one that only acts. */
+    on: Boolean? = null,
+    /** What a tap feels like under the Vibration setting's Strong (Haptics): a like's own, else as [buttonFeel] says of [on]. */
+    tap: Feel = buttonFeel(turnsOff = on),
 ) {
+    val haptic = LocalHapticFeedback.current
     // A long press says the button's own name (LongPressLabel), nothing shown otherwise. The label's box
     // takes the place of the circle, offset as it was.
     OptionalLongPressLabel(contentDescription, Modifier.offset(y = 5.dp)) {
@@ -2490,7 +2756,11 @@ private fun PlayerCircleButton(
                 .size(36.dp)
                 .clip(CircleShape)
                 .background(container)
-                .clickable(onClick = onClick)
+                .clickable {
+                    haptic.tapTick(tap)
+                    onClick()
+                }
+                .onOffState(on)
         ) {
             Icon(
                 painter = painter,
@@ -2519,15 +2789,21 @@ private fun PlayerActionSegment(
     filled: Boolean = true,
     /** Moves the icon sideways, for a glyph whose weight is off its middle ([SHARE_NUDGE]). */
     nudge: Dp = 0.dp,
+    /** For a button that turns something on and off, whether it is on ([onOffState]); null for one that only acts. */
+    on: Boolean? = null,
+    /** What a tap feels like under the Vibration setting's Strong (Haptics): a like's own, else as [buttonFeel] says of [on]. */
+    tap: Feel = buttonFeel(turnsOff = on),
+    /** A round button of its own, as high as it is wide: the room's beside the buttons by the title. */
+    circle: Boolean = false,
 ) {
+    val haptic = LocalHapticFeedback.current
     // A long press says the button's own name (LongPressLabel), nothing shown otherwise.
     OptionalLongPressLabel(contentDescription) {
         Row(
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
-                .height(40.dp)
-                .widthIn(min = width)
+                .then(if (circle) Modifier.size(40.dp) else Modifier.height(40.dp).widthIn(min = width))
                 .clip(shape)
                 .then(
                     // Frosted, with no lens, highlight or shadow. Those draw a bright rim, and at this
@@ -2553,8 +2829,12 @@ private fun PlayerActionSegment(
                         )
                     else Modifier.background(container)
                 )
-                .clickable(onClick = onClick)
-                .padding(horizontal = 10.dp)
+                .clickable {
+                    haptic.tapTick(tap)
+                    onClick()
+                }
+                .onOffState(on)
+                .padding(horizontal = if (circle) 0.dp else 10.dp)
         ) {
             Icon(
                 painter = painter,

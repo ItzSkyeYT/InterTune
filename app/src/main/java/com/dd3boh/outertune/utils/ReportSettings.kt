@@ -32,7 +32,6 @@ import com.dd3boh.outertune.constants.InnerTubeCookieKey
 import com.dd3boh.outertune.constants.LikedAutoDownloadKey
 import com.dd3boh.outertune.constants.LikedAutodownloadMode
 import com.dd3boh.outertune.constants.LyricSourcePrefKey
-import com.dd3boh.outertune.constants.LyricTrimKey
 import com.dd3boh.outertune.constants.LyricsSourceOrderKey
 import com.dd3boh.outertune.constants.MaxSongCacheSizeKey
 import com.dd3boh.outertune.constants.ProxyEnabledKey
@@ -143,7 +142,6 @@ object ReportSettings {
     private val youTubeLyrics = Flag(EnableYouTubeLyricsKey, "YouTube Music lyrics", true)
     private val youTubeCaptions = Flag(EnableYouTubeCaptionsKey, "YouTube captions", true)
     private val localFirst = Flag(LyricSourcePrefKey, "prefer saved lyrics", true)
-    private val trim = Flag(LyricTrimKey, "trim lyrics", false)
     private val sourceOrder = Custom(LyricsSourceOrderKey, "source order", "custom")
 
     private val keepListening = Flag(RecogniseKeepListeningKey, "keep listening", false)
@@ -156,7 +154,7 @@ object ReportSettings {
     private val AREAS: Map<Area, List<Spec>> = mapOf(
         Area.PLAYBACK to listOf(audioQuality, normalisation, skipSilence, offload, equalizer, spatial, fade, skipOnError, ProxySpec, battery),
         Area.DOWNLOADS to listOfNotNull(audioQuality, DownloadQualitySpec.takeIf { Unreleased.DOWNLOAD_QUALITY }, wifiOnly, likedDownload, downloadFolder, fileFormat.takeIf { Unreleased.DOWNLOAD_FORMATS }, bitrate.takeIf { Unreleased.DOWNLOAD_FORMATS }, ProxySpec, battery),
-        Area.LYRICS to listOf(kuGou, lrcLib, betterLyrics, youTubeLyrics, youTubeCaptions, localFirst, trim, sourceOrder),
+        Area.LYRICS to listOf(kuGou, lrcLib, betterLyrics, youTubeLyrics, youTubeCaptions, localFirst, sourceOrder),
         Area.RECOGNITION to listOf(keepListening, pauseOnSpeaker, listenSeconds, autoAdd, keepAwake),
         Area.CASTING to listOf(audioQuality, ProxySpec, battery),
     )

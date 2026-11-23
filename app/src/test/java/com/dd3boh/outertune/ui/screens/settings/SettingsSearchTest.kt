@@ -211,11 +211,26 @@ class SettingsSearchTest {
 
     @Test
     fun `two settings of one name on one screen are told apart by what they hang from`() {
-        val fades = inEnglish.search("fade length").filter { it.title == "Fade length" }
+        // Since Ti-Die's review (his answers of 19 Nov 2026) the sleep timer's fade is one row, so the pair of fade
+        // lengths on one screen is made up here, to keep the rule guarded for the next pair.
+        val twins = SettingsSearchIndex(
+            listOf(
+                SettingEntry(Tour.ROUTE_PLAYER, R.string.transition_fade_length, under = R.string.transition_fade),
+                SettingEntry(Tour.ROUTE_PLAYER, R.string.transition_fade_length, under = R.string.sleep_timer_fade),
+            ),
+            settingsGroups(true).flatten(),
+            text(english),
+        )
+        val fades = twins.search("fade length").filter { it.title == "Fade length" }
         assertEquals(2, fades.size)
         assertEquals(
             setOf("Fade between tracks", "Fade out before stopping").map { listOf(english["player_and_audio"], it).joinToString(" › ") }.toSet(),
             fades.map { it.place }.toSet(),
+        )
+        // The real index: one fade length now, alone on its screen, so its place is the screen alone.
+        assertEquals(
+            listOf(english["player_and_audio"]),
+            inEnglish.search("fade length").filter { it.title == "Fade length" }.map { it.place },
         )
     }
 
@@ -234,6 +249,24 @@ class SettingsSearchTest {
         assertEquals(Tour.ROUTE_PRIVACY, jump.route)
         assertEquals(R.string.advanced, jump.fold)
         assertEquals(settingMark(R.string.enable_proxy), jump.instead)
+    }
+
+    @Test
+    fun `the folder's row is listed by the name it shows, and found by today's row's name and its search words`() {
+        // The page everyone has from 0.13 (DownloadsSimpleLook.C) draws "Where downloads go" where today's page
+        // draws "Set external download folder…". The search listed it by today's name (the emulator, 19 Nov 2026).
+        val hit = inEnglish.search("where downloads go").first()
+        assertEquals("Where downloads go", hit.title)
+        assertEquals(settingMark(R.string.dl_simple_where_title), hit.entry!!.jump().target)
+        for (typed in listOf("download folder", "SD card", "external download folder", "Set external download folder…")) {
+            assertTrue(typed, "Where downloads go" in titles(inEnglish, typed).take(3))
+            assertFalse("today's row is not drawn, and found for $typed", "Set external download folder…" in titles(inEnglish, typed))
+        }
+        assertEquals("Où vont les téléchargements", titles(inFrench, "où vont les téléchargements").first())
+        assertTrue("Où vont les téléchargements" in titles(inFrench, "dossier de téléchargement").take(3))
+        // Where its name is not translated yet, the words of today's row's name, which is, still find it.
+        val inGerman = SettingsSearchIndex.of(text(strings("values-de")), engine = true)
+        assertTrue("Where downloads go" in titles(inGerman, "Download-Ordner").take(3))
     }
 
     // The words

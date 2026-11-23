@@ -214,4 +214,38 @@ class LibrarySqlTest {
         album("LBsecond", "Greatest Hits", local = true)
         assertEquals(listOf("LBfirst"), ids(LibrarySql.LOCAL_ALBUM_BY_TITLE.replace(":title", "'Greatest Hits'")))
     }
+
+    private fun titled(id: String, title: String, inLibrary: Boolean = true) = exec(
+        "INSERT INTO song(id, title, duration, liked, inLibrary) VALUES ('$id', '$title', 200, 0, ${if (inLibrary) 1 else "NULL"})"
+    )
+
+    /** The search's three first, as the overview asks: the rows were stored in this order. */
+    private fun firstThree(sql: String, query: String) = ids(sql.replace(":query", "'$query'").replace(":previewSize", "3"))
+
+    @Test
+    fun `a song called just what was typed is among the overview's three, first`() {
+        // Ti-Die's library, 18 Nov 2026: "c" by Toe came ninth under the others with a c.
+        for ((id, title) in listOf("s1" to "Cicada", "s2" to "Crushxd", "s3" to "Apple Cider", "s4" to "Chemicals", "s5" to "Comfortable",
+            "s6" to "Attracted to You", "s7" to "Shut up My Moms Calling", "s8" to "Clementine", "s9" to "c")) titled(id, title)
+        titled("out", "c", inLibrary = false)
+        assertEquals(listOf("s9", "s4", "s1"), firstThree(LibrarySql.SEARCH_SONGS, "c"))
+        assertEquals(listOf("s9", "s4", "s1"), firstThree(LibrarySql.SEARCH_SONGS, "C"))
+        // A word that starts with it before the rest, A to Z between equals.
+        assertEquals(listOf("s7", "s4", "s1"), ids(search(LibrarySql.SEARCH_SONGS, "ca")))
+    }
+
+    @Test
+    fun `albums, artists and playlists named as typed come first too`() {
+        album("a1", "Greatest Hits of Love", local = false)
+        album("a2", "Love", local = false)
+        album("a3", "Lovers", local = false)
+        exec("UPDATE album SET bookmarkedAt = 1")
+        assertEquals(listOf("a2", "a3", "a1"), ids(search(LibrarySql.SEARCH_ALBUMS, "love")))
+        exec("INSERT INTO artist(id, name, lastUpdateTime, bookmarkedAt) VALUES ('x1', 'Tiptoe Club', 0, 1), ('x2', 'Toe', 0, 1), ('x3', 'Toenails', 0, 1)")
+        assertEquals(listOf("x2", "x3", "x1"), ids(search(LibrarySql.SEARCH_ARTISTS, "toe")))
+        playlist("p1", "Road trip", bookmarked = true, local = false)
+        playlist("p2", "Old road", bookmarked = true, local = false)
+        playlist("p3", "Road", bookmarked = true, local = false)
+        assertEquals(listOf("p3", "p1", "p2"), ids(search(LibrarySql.SEARCH_PLAYLISTS, "road")))
+    }
 }

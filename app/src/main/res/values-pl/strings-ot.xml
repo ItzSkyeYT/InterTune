@@ -66,7 +66,6 @@
     <string name="head_tracking_response_instant">Natychmiastowa</string>
     <string name="head_tracking_response_explain">„Płynna” nigdy nie przestrzeli, ale wydaje się lekko spóźniona. „Szybka” i „Natychmiastowa” działają od razu, ale mogą przestrzelić, gdy przestajesz obracać głowę. „Zrównoważona” jest pomiędzy nimi.</string>
     <string name="proximity_volume">Ciszej, gdy się oddalasz</string>
-    <string name="proximity_volume_description">Traktuje telefon jako miejsce, z którego płynie muzyka.</string>
     <string name="proximity_volume_explain">Odejdź od telefonu, a muzyka powoli stanie się trochę cichsza, jakby telefon był głośnikiem. Nigdy nie milknie całkiem.\n\nWymaga słuchawek Bluetooth i uprawnienia Androida „Urządzenia w pobliżu”: odległość jest oceniana na podstawie siły ich sygnału.</string>
     <string name="proximity_probe">Dziennik sygnału Bluetooth</string>
     <string name="proximity_probe_stop">Zatrzymaj zapis</string>
@@ -217,7 +216,6 @@
     <string name="player_background_gradient">Gradient kolorów</string>
     <string name="player_background_living">Żywe rozmycie</string>
     <string name="player_living_strength">Siła Żywego rozmycia</string>
-    <string name="player_living_strength_description">Jak bardzo tło i poświata wokół okładki poruszają się z muzyką. Przy 0 tylko powoli dryfują.</string>
     <string name="player_living_smoothing">Wygładzanie Żywego rozmycia</string>
     <string name="player_living_colours">Kolory Żywego rozmycia</string>
     <string name="player_living_colours_main">Trzy kolory okładki: po jednym dla basu, wokalu i wysokich tonów</string>
@@ -227,7 +225,6 @@
     <string name="player_living_sample_play">Włącz utwór do dostrajania</string>
     <string name="player_living_sample_queue">Dostrajanie Żywego rozmycia</string>
     <string name="player_living_sample_nothing">Nie masz jeszcze żadnego utworu do odtworzenia. Włącz jakiś, a potem wróć tutaj.</string>
-    <string name="player_living_smoothing_description">Jak łagodnie podąża za muzyką. Przy niskiej wartości skacze z każdym uderzeniem, przy wysokiej narasta i dłużej wybrzmiewa.</string>
     <string name="player_background_style">Styl tła odtwarzacza</string>
     <string name="show_liked_and_downloaded_playlist">Pokaż playlisty polubionych i pobranych utworów w bibliotece</string>
     <string name="slim_navbar_title">Wąski pasek nawigacji</string>
@@ -290,7 +287,6 @@
     <string name="oobe_polls_answered">Możesz to zmienić w każdej chwili w Ustawieniach, w sekcji Pytania i wiadomości.</string>
     <string name="oobe_usage_count_answered">Możesz to zmienić w każdej chwili w Ustawieniach, w sekcji Anonimowe zliczanie.</string>
     <string name="poll_title">Pytanie od InterTune</string>
-    <string name="poll_banner_hint">Dotknij, aby odpowiedzieć, lub zamknij krzyżykiem</string>
     <string name="poll_dismiss">Odrzuć to pytanie</string>
     <string name="poll_close">Zamknij</string>
     <string name="poll_send">Wyślij moją odpowiedź</string>
@@ -402,7 +398,6 @@
     <string name="lyrics_prefer_local_description">Priorytetyzuj rozwiązanie lokalnych plików tekstowych przed użyciem wszystkich dostawców z chmury. Wyłącz tę opcję aby priorytetyzować dostawców z chmury</string>
     <string name="lyrics_settings_title">Tekst</string>
     <string name="lyrics_synced_clickable">Klikalny tekst</string>
-    <string name="lyrics_trim_title">Usuń spacje naokoło tekstów</string>
     <string name="local_library_enable_title">Włącz media lokalne</string>
     <string name="local_library_enable_description">Wyłącznie spowoduje ukrycie lokalnej biblioteki z aplikacji</string>
     <string name="local_player_settings_title">Media lokalne</string>
@@ -472,7 +467,6 @@
     <string name="player_liquid_glass_description">Pływające szklane panele paska nawigacji, mini odtwarzacza i przycisków sterowania oraz bogatsze kolory okładki w tle ekranu odtwarzania</string>
     <string name="player_liquid_glass_description_legacy">Bogatsze kolory okładki w tle ekranu odtwarzania. Pływające szklane panele wymagają Androida 13 lub nowszego</string>
     <string name="player_glass_intensity">Intensywność szkła</string>
-    <string name="player_glass_intensity_description">Wyżej: bardziej przezroczyste i mocniej załamane; niżej: bliżej zwykłych, jednolitych powierzchni</string>
     <string name="player_glass_intensity_value">%1$d%%</string>
     <string name="player_glass_preview_needs_13">Podgląd szkła na żywo wymaga Androida 13 lub nowszego</string>
     <string name="player_glass_preview_side_navigation">Podgląd szkła na żywo nie jest dostępny przy bocznej nawigacji</string>
@@ -648,7 +642,6 @@
     <string name="image_cache_max_size">Maksymalny rozmiar pamięci podręcznej okładek</string>
     <string name="max_queues_description">Ile kolejek aplikacja trzyma naraz. Najstarsza jest usuwana, gdy przekroczysz tę liczbę.</string>
     <string name="enable_proxy_description">Przepuszczaj żądania i strumienie YouTube Music najpierw przez inny serwer. Obrazy, teksty piosenek i pozostałe usługi, z których korzysta aplikacja, nadal łączą się bezpośrednio. Zostaw to wyłączone, chyba że wiesz, że tego potrzebujesz.</string>
-    <string name="show_liked_and_downloaded_playlist_description">Pokazuj Polubione i Pobrane jako playlisty w Twojej bibliotece.</string>
     <string name="pause_listen_history_description">Przestań dodawać utwory do historii. Nic z tego, co już w niej jest, nie zostanie usunięte.</string>
     <string name="pause_remote_listen_history_description">Przestań przekazywać YouTube Music, czego słuchasz. Historia wewnątrz tej aplikacji działa dalej tak czy inaczej.</string>
     <string name="clear_listen_history_description">Usuń wszystko, co aplikacja zapisała o tym, czego słuchałeś.</string>
@@ -835,7 +828,6 @@
     <string name="tour_closer_entry">Przegląd ustawień</string>
     <string name="tour_closer_login">Zalogowanie się na konto YouTube Music przenosi tu Twoje playlisty, polubienia i rekomendacje. Aplikacja działa też bez tego.</string>
     <string name="tour_closer_lastfm">Dla osób z profilem Last.fm: po połączeniu utwory, których słuchasz tu do końca, są do niego dodawane.</string>
-    <string name="tour_closer_ytm_sync">Biblioteka tutaj i ta na Twoim koncie YouTube Music są automatycznie utrzymywane w zgodzie. Bez zalogowania nie ma z czym synchronizować.</string>
     <string name="tour_closer_sync_mode">Wybierz tryb tylko do odczytu, jeśli polubienia i playlisty utworzone tutaj mają tu zostać i nigdy nie trafiać na Twoje konto.</string>
     <string name="tour_closer_quick_picks_source">Kto wybiera utwory w wierszu Szybki wybór na górze ekranu głównego. Zmienia tylko ten jeden wiersz i nic poza nim.</string>
     <string name="tour_closer_content_language">Język, w którym odpowiada YouTube Music: nazwy utworów i artystów oraz tytuły wierszy na ekranie głównym.</string>
@@ -1149,8 +1141,6 @@
     <string name="familiarity">Znajome utwory</string>
     <string name="familiarity_description">Jaka część wiersza Najlepsze rekomendacje przypada utworom często słuchanym w ostatnich dwóch tygodniach, do których pora wrócić: %1$d z 20 kart. Utwory, które już się przejadły, same ustępują miejsca.</string>
     <string name="why_these_lane_again">Do których wracasz: %1$d</string>
-    <string name="new_songs_only">Tylko nowe utwory</string>
-    <string name="new_songs_only_description">Każda karta w wierszu Najlepsze rekomendacje to utwór dla Ciebie nowy.</string>
     <string name="similar_source">Źródło podobnych utworów</string>
     <string name="login_reassurance">To strona logowania samego Google. InterTune nigdy nie widzi Twojego hasła. Zachowuje tylko dane logowania, które przekazuje YouTube Music.</string>
     <string name="login_secure">Bezpieczne połączenie</string>
@@ -1558,7 +1548,6 @@
     <string name="rank_with_listening_info">Ustawia wiersz „Szybki wybór” w kolejności, która Ci pasuje: utwory często odtwarzane, ostatnio słuchane lub polubione zwykle są pierwsze. Nic nie jest dodawane ani usuwane. Nie zmienia wiersza, gdy wypełniają go „Najlepsze rekomendacje” lub „Wypróbuj oba”.</string>
     <string name="recommendations_engine_title_info">Wiersz ma dwadzieścia kart: utwory powiązane z tym, czego słuchasz, utwory, do których ciągle wracasz, więcej od Twoich artystów, dawni ulubieńcy, o których ostatnio cicho, i kilka nowych dla Ciebie. Te ustawienia działają, gdy „Źródło szybkich propozycji” to „Najlepsze rekomendacje” lub „Wypróbuj oba”. Przeciągnij w dół na ekranie głównym, aby zobaczyć zmianę.</string>
     <string name="similar_source_info">Gdzie „Najlepsze rekomendacje” i „Odkryj coś nowego” szukają utworów podobnych do tych, których słuchasz. Przy „Oba” lub „Tylko Last.fm” tytuł i wykonawca odtwarzanych lub polubionych utworów trafiają do Last.fm, nic więcej i bez konta. „Tylko YouTube” nie wysyła do Last.fm niczego.</string>
-    <string name="new_songs_only_info">Cały wiersz przypada utworom, których nie słuchano dalej niż mniej więcej do połowy. Utwór pominięty na początku nadal liczy się jako nowy. „Odkrywanie nowości” i „Znajome utwory” przestają mieć znaczenie, gdy to jest włączone. Wiersz może być krótszy, a wtedy „Szybki wybór” pokazuje inne źródło.</string>
     <string name="show_reasons_info">Każda karta podaje główny powód, dla którego się tam znalazła: utwór, do którego pasuje, artystę, którego słuchasz, polubienie albo to, że jest dla Ciebie nowa. Niespodzianka to karta wybrana losowo, żeby wiersz był świeży.</string>
     <string name="exclusions_info">Przytrzymaj kartę w „Szybkim wyborze”, aby wybrać „Nie ten utwór”, „Mniej tego artysty” (na miesiąc) lub „Nigdy tego artysty”. Filtrują one tylko wiersze rekomendacji, nigdy wyszukiwanie, Twoją bibliotekę ani playlisty. Ta strona pokazuje, co jest aktywne, a „Przywróć” usuwa wykluczenie.</string>
     <string name="rest_songs_i_skip_info">Pomiń utwór, który lubisz lub często odtwarzasz, przed jego połową, a przez tydzień nie pojawi się w wierszu „Najlepsze rekomendacje”. Pominięcie w pierwszych trzydziestu sekundach się nie liczy. Odpoczynek możesz zakończyć wcześniej na stronie „Wykluczenia”.</string>
@@ -1574,7 +1563,7 @@
     <string name="recommendations_learned_title_info">Wszystko poniżej jest przechowywane w aplikacji na tym telefonie i nigdy nie jest wysyłane. Kopia zapasowa to obejmuje. W sekcji „Prywatność i historia” opcja „Wstrzymaj historię odtwarzania” przestaje to zapisywać, a „Wyczyść historię odtwarzania” to usuwa.</string>
     <string name="recommendations_where_from_info">Każde miejsce liczy, ile razy zaczęto z niego słuchać. Utwory grające potem nie są liczone ponownie. Utwór wybrany samodzielnie uczy więcej niż taki, który po prostu grał dalej, a wyszukiwanie liczy się najbardziej. Gdy widnieje „nie zapisano”, aplikacja nie zanotowała, skąd zaczęło się słuchanie.</string>
     <string name="recommendations_recent_title_info">Ostatnie trzydzieści odsłuchań, z których się uczą, od najnowszych. Każdy wiersz mówi, jak skończyło się odtwarzanie, ile utworu słuchano i skąd go włączono. Dopisek „pominięte w nauce” oznacza, że kazano zapomnieć to odsłuchanie albo utwór grał z kolejki ustawionej na „Nie ucz się z tego”.</string>
-    <string name="context_chips_info">Pierwszy przycisk to Twój zwykły wiersz. Pozostałe przechylają go, dopóki nie wrócisz: „Odkrywaj” w stronę utworów dla Ciebie nowych, „Ulubione” w stronę polubionych, a „Skupienie”, „Relaks” i „Impreza” w stronę tego, czego słuchasz, gdy każdy z nich jest włączony. Ostatni przycisk działa niezależnie, z każdym z nich.</string>
+    <string name="context_chips_info">Pierwszy przycisk to Twój zwykły wiersz. Pozostałe przechylają go, dopóki nie wrócisz: „Odkrywaj” w stronę utworów dla Ciebie nowych, „Ulubione” w stronę polubionych, a „Skupienie”, „Relaks” i „Impreza” w stronę tego, czego słuchasz, gdy każdy z nich jest włączony.</string>
     <string name="context_chips">Przyciski Szybkiego wyboru</string>
     <string name="explain_what_this_does">Co robi: %1$s</string>
     <string name="explain_close">Zamknij</string>
@@ -1798,7 +1787,6 @@
     </plurals>
     <string name="quick_picks_lean">Nastawienie Szybkiego wyboru</string>
     <string name="quick_picks_lean_auto">Auto</string>
-    <string name="quick_picks_lean_new">Utwory dla mnie nowe</string>
     <string name="quick_picks_lean_artist">Więcej od artystów, do których ciągle wracam</string>
     <string name="quick_picks_lean_forgotten">Zapomniani ulubieńcy</string>
     <string name="quick_picks_lean_similar">Utwory pasujące do tego, czego teraz słucham</string>
@@ -1806,10 +1794,7 @@
     <string name="quick_picks_lean_description_compare">Około %1$d z 20 kart i %2$d z pierwszych czterech, bo „Wypróbuj oba” oddaje połowę wiersza drugiemu źródłu.</string>
     <string name="quick_picks_lean_not_source">Działa, gdy „Źródło szybkich propozycji” to „Najlepsze rekomendacje” lub „Wypróbuj oba”.</string>
     <string name="quick_picks_lean_set_aside_chip">Przycisk „%1$s” na ekranie głównym przejmuje kontrolę, gdy jest włączony.</string>
-    <string name="quick_picks_lean_set_aside_new_only">„Tylko nowe utwory” przejmuje kontrolę, gdy jest włączone.</string>
-    <string name="quick_picks_lean_new_only_strict">Przy włączonym „Tylko nowe utwory” Najlepsze rekomendacje wybierają tylko utwory, których nigdy nawet nie zaczęto, o ile jest ich dość.</string>
     <string name="quick_picks_lean_info">„Auto” to zwykły miks, oparty na tym, czego nauczyły się „Najlepsze rekomendacje”. Każdy inny wybór oddaje większość kart jednemu rodzajowi utworów. „Utwory pasujące do tego, czego teraz słucham” przebudowuje też „Szybki wybór”, gdy posłuchasz kilku utworów z innego miejsca.</string>
-    <string name="quick_picks_leaning_new">Nastawienie na utwory dla Ciebie nowe</string>
     <string name="quick_picks_leaning_artist">Nastawienie na artystów, do których ciągle wracasz</string>
     <string name="quick_picks_leaning_forgotten">Nastawienie na zapomnianych ulubieńców</string>
     <string name="quick_picks_leaning_similar">Nastawienie na to, czego teraz słuchasz</string>
@@ -1817,12 +1802,10 @@
     <string name="quick_picks_leaning_short">%1$s: na razie tylko %2$d, reszta to zwykły miks</string>
     <string name="quick_picks_leaning_none">%1$s: jeszcze nic, więc na razie to zwykły miks</string>
     <string name="quick_picks_leaning_forgotten_none">Żaden ulubiony utwór nie milczy jeszcze od 45 dni, więc na razie to zwykły miks</string>
-    <string name="chip_lean_new">Niesłuchane</string>
     <string name="chip_lean_artist">Twoi artyści</string>
     <string name="chip_lean_forgotten">Zapomniane</string>
     <string name="chip_lean_similar">Teraz grane</string>
     <string name="why_these_lean">Nastawienie: %1$s, %2$d z %3$d kart na ekranie</string>
-    <string name="adventurousness_description_lean_new">Ustalone przez nastawienie Szybkiego wyboru na utwory dla Ciebie nowe: %1$d z 20 kart.</string>
     <string name="share_link_kind_title">Udostępniane linki</string>
     <string name="share_link_youtube_music">Link do YouTube Music</string>
     <string name="share_link_page">Strona dla każdej aplikacji muzycznej</string>

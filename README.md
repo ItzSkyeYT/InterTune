@@ -37,9 +37,39 @@ InterTune is a free, open-source YouTube Music client for Android, forked from [
 [<img src="https://raw.githubusercontent.com/RookieEnough/Orion-Store/refs/heads/main/assets/orion-badge.png" alt="Get it on Orion Store" height="60">](https://rookieenough.github.io/Orion-Data/redirect.html?id=intertune)
 [<img src="https://raw.githubusercontent.com/ItzSkyeYT/InterTune/visionos-fix/assets/badge_openapk.png" alt="Get it on OpenAPK" height="60">](https://www.openapk.net/intertune/dev.skye.intertune/)
 
-Android 7.0 or later. Once installed, InterTune finds new versions by itself if you let it.
+Android 7.0 or later. Once installed, InterTune updates itself.
 
 </div>
+
+<details>
+<summary><b>Android won't install it?</b></summary>
+
+Google wants every Android app to come from a developer who sent them their ID. I won't do that, so your phone will block InterTune until you tell it not to. That's already happening in Brazil, Indonesia, Singapore and Thailand, and everywhere else from 2027. It doesn't matter where the APK comes from: GitHub, Obtainium and F-Droid all get blocked the same way.
+
+Pick whatever fits you:
+
+| Your situation | What to do |
+|---|---|
+| Just a phone, and waiting a day is fine | Google's switch, steps below |
+| Just a phone, but you want it now | [anyapk](https://github.com/sam1am/anyapk), which installs over wireless debugging (Android 11 or newer) |
+| You already use Shizuku | Obtainium, with Settings > Installation method set to Shizuku. Updates go in by themselves |
+| Rooted | Any root installer, or Shizuku started with root |
+| You have a computer | `adb install` the APK, same as always |
+| On a ROM without Google's apps (LineageOS, GrapheneOS...) | Nothing, this doesn't touch you |
+| InterTune is already installed | It keeps working, only updates get stopped. Sort out one of the above before the next one |
+
+Google's switch:
+
+1. Settings > About phone, tap Build number 7 times
+2. Open Developer options and turn on "Allow apps from unverified developers". It'll ask for your PIN and a restart
+3. Wait 24 hours (Google's choice, not mine)
+4. Go back to that same setting and finish. Pick "indefinitely", the 7 day one runs out after a week
+
+You can switch Developer options back off after that and InterTune still updates.
+
+On a Samsung, Auto Blocker stops installs as well. Turn it off for the install and back on after if you want.
+
+</details>
 
 ## Screenshots
 
@@ -60,11 +90,12 @@ Android 7.0 or later. Once installed, InterTune finds new versions by itself if 
 
 **Playback**
 
+- Listen together: friends hear the same song at the same time, from a code or a QR *(0.13)*
 - Songs play to the end, with several ways round it when YouTube refuses a stream
 - Songs YouTube gave a new id play again, or are set aside with the reason
 - Fade between tracks, and a sleep timer that fades out
 - Radios that learn from your skips and likes, and swap in fresh picks
-- Cast to a Chromecast, an FCast receiver or a DLNA TV
+- Cast to a Chromecast, an FCast receiver, a DLNA TV or an AirPlay speaker *(AirPlay in 0.13)*
 - The highest audio quality available, with the real codec and bitrate shown
 
 </td>
@@ -77,6 +108,7 @@ Android 7.0 or later. Once installed, InterTune finds new versions by itself if 
 - Head tracking where the phone allows it
 - Quieter as you walk away from the phone, on Bluetooth headphones
 - Volume levelling that works, and a volume slider that goes past 100%
+- Varispeed: the pitch follows the speed, like a record *(0.13)*
 
 </td>
 </tr>
@@ -88,7 +120,7 @@ Android 7.0 or later. Once installed, InterTune finds new versions by itself if 
 - Best recommendations: Quick picks made on your phone from how you listen
 - See why each song is there, and steer the row with dials and moods
 - A second row of songs you have never played
-- Similar songs from Last.fm, if you want them
+- Don't play this song, or block an artist: radios and Shuffle never bring them back *(0.13)*
 - A Home without hour-long mixes or previews
 
 </td>
@@ -100,6 +132,7 @@ Android 7.0 or later. Once installed, InterTune finds new versions by itself if 
 - Keep listening runs in the background with the screen off
 - It can fill a playlist with everything it hears
 - It tells a sped-up edit or a remix from the original
+- It works offline, and names the song once you're back online *(0.13)*
 
 </td>
 </tr>
@@ -109,9 +142,12 @@ Android 7.0 or later. Once installed, InterTune finds new versions by itself if 
 **Library**
 
 - Import playlists from Spotify, Apple Music, Deezer, Tidal, Amazon Music, SoundCloud, Qobuz or a CSV file
+- Bring your whole library over from Metrolist *(0.13)*
 - Your own music files beside YouTube Music
 - Downloads for offline listening, which can wait for Wi-Fi
-- Sync that never loses songs, and Last.fm scrobbling
+- Downloads as MP3, M4A, FLAC or WAV, with the title, artist and cover, at a quality of their own *(0.13)*
+- Your playlists, albums and artists in your own order *(0.13)*
+- Sync that never loses songs, and scrobbling to ListenBrainz in place of Last.fm *(0.13)*
 - Automatic backups, a history of every play, and stats that stay on your phone
 
 </td>
@@ -120,6 +156,7 @@ Android 7.0 or later. Once installed, InterTune finds new versions by itself if 
 **Lyrics**
 
 - Synced lyrics from LRCLIB and KuGou
+- Choose which lyrics sources are used, and in what order *(0.13)*
 - Search for other lyrics, or edit them yourself
 - Chinese lyrics found in either script
 - A line in Latin letters under Japanese (romaji, kanji kept), Korean, Chinese, Russian and more, from Android 10
@@ -137,6 +174,7 @@ Android 7.0 or later. Once installed, InterTune finds new versions by itself if 
 - Layouts for a phone on its side and for tablets
 - A home screen widget
 - Android Auto with "Hey Google, play"
+- Choose what's in the three-dot menus, and how strongly the buttons vibrate *(0.13)*
 - A three-page setup, and a page of what is new after each update
 
 </td>
@@ -153,6 +191,8 @@ Android 7.0 or later. Once installed, InterTune finds new versions by itself if 
 </tr>
 </table>
 
+Marked *(0.13)*: coming in the next version.
+
 Every change in detail, and why this fork exists: [docs/FEATURES.md](https://github.com/ItzSkyeYT/InterTune/blob/visionos-fix/docs/FEATURES.md)
 
 ## Good to know
@@ -168,60 +208,85 @@ Every change in detail, and why this fork exists: [docs/FEATURES.md](https://git
 What's being worked on, roughly in order. `[x]` is done, `[~]` is built and being tested, `[ ]` is still to do. Nothing here has a date, and plans can change. Ideas are welcome in #feature-requests on [Discord](https://discord.gg/68jmqhMjXk) or as a [GitHub issue](https://github.com/ItzSkyeYT/InterTune/issues/new/choose).
 
 <details>
-<summary><b>Next: 0.13</b> · 6 of 37 done, 25 to test</summary>
+<summary><b>Next: 0.13</b> · 39 of 46 done, 2 to test</summary>
 
-`[~]` Listen together: one person plays, friends follow the same song in real time\
+`[x]` Listen together: one person plays, friends follow the same song in real time\
+`[x]` In a room, a guest who casts to a TV or speaker plays on their own, and catches up with the room when the cast ends\
+`[x]` Invites to a room keep its code out of the website's logs and out of chat apps' link previews\
 `[x]` AirPlay speakers in the cast list\
-`[~]` The equalizer and volume levelling on AirPlay speakers too, and Signal path shows the speaker you cast to\
-`[~]` Casting to speakers that only take uncompressed audio, like a Zeppelin Wireless\
-`[~]` Don't play this song: radios, autoplay and Shuffle never bring it back ([#78](https://github.com/ItzSkyeYT/InterTune/issues/78))\
-`[~]` Pick several songs in the queue and remove them at once\
-`[~]` Swipe a song out of the queue, and Undo brings it back ([#141](https://github.com/ItzSkyeYT/InterTune/issues/141))\
-`[~]` Android Auto's search finds songs on YouTube Music, not only in your library ([#112](https://github.com/ItzSkyeYT/InterTune/issues/112))\
-`[~]` Block an artist\
-`[~]` Your playlists in your own order, dragged where you want them\
-`[~]` What's playing works offline and names the song once you're back online ([#48](https://github.com/ItzSkyeYT/InterTune/issues/48))\
-`[~]` Albums carry on into a radio when they end\
+`[x]` The equalizer and volume levelling on AirPlay speakers too, and Signal path shows the speaker you cast to\
+`[x]` Casting to speakers that only take uncompressed audio, like a Zeppelin Wireless\
+`[x]` Don't play this song: radios, autoplay and Shuffle never bring it back ([#78](https://github.com/ItzSkyeYT/InterTune/issues/78))\
+`[x]` Pick several songs in the queue and remove them at once\
+`[x]` Swipe a song out of the queue, and Undo brings it back ([#141](https://github.com/ItzSkyeYT/InterTune/issues/141))\
+`[x]` Block an artist\
+`[x]` Your playlists in your own order, dragged where you want them\
+`[x]` What's playing works offline and names the song once you're back online ([#48](https://github.com/ItzSkyeYT/InterTune/issues/48))\
+`[x]` What you have heard shows each song with its cover and menu, like every other list\
+`[~]` Scrobbling to ListenBrainz, in place of Last.fm from 1 December ([#159](https://github.com/ItzSkyeYT/InterTune/issues/159))\
+`[x]` Albums carry on into a radio when they end\
 `[~]` A sleep timer with more ways to stop: at a clock time, or at the end of the song, the album or the queue\
-`[~]` Pick a playlist's cover\
-`[~]` Downloads other apps can use: .m4a or .opus files with the title, artist and cover\
-`[~]` Downloads at a quality of their own, apart from the streaming quality\
-`[~]` Downloads as MP3, M4A, FLAC or WAV, at a bitrate that follows what YouTube sent, and Export to folder\
-`[~]` Liked songs kept in sync with your downloads: unliking removes a download the app made itself ([#64](https://github.com/ItzSkyeYT/InterTune/issues/64))\
-`[~]` The volume past 100% turns the music up without distorting it ([#93](https://github.com/ItzSkyeYT/InterTune/issues/93))\
-`[~]` On mobile data, Auto quality takes a middle stream instead of the smallest ([#88](https://github.com/ItzSkyeYT/InterTune/issues/88))\
-`[~]` A floating dock without the glass on Android 11 and 12\
-`[~]` Tempo in 1% steps between 90% and 110%\
-`[~]` The playing song stays in view at the top or bottom of a long queue ([#81](https://github.com/ItzSkyeYT/InterTune/issues/81))\
-`[~]` Choose which lyrics sources are used, and in what order\
+`[x]` Pick a playlist's cover\
+`[x]` Downloads other apps can use: .m4a or .opus files with the title, artist and cover\
+`[x]` Downloads at a quality of their own, apart from the streaming quality\
+`[x]` Downloads as MP3, M4A, FLAC or WAV, at a bitrate that follows what YouTube sent, and Export to folder\
+`[x]` Liked songs kept in sync with your downloads: unliking removes a download the app made itself ([#64](https://github.com/ItzSkyeYT/InterTune/issues/64))\
+`[x]` A floating dock without the glass on Android 11 and 12\
+`[x]` Tempo in 1% steps between 90% and 110%\
+`[x]` The playing song stays in view at the top or bottom of a long queue ([#81](https://github.com/ItzSkyeYT/InterTune/issues/81))\
+`[x]` Choose which lyrics sources are used, and in what order\
 `[x]` Find songs you saved twice, in Liked or your library ([#47](https://github.com/ItzSkyeYT/InterTune/issues/47))\
 `[x]` A Widgets page in Settings: each widget on your home screen, how it looks and its main choices\
 `[x]` An Animations switch, for older and smaller phones\
+`[x]` A short note when the phone's battery saver pauses things like word-by-word lyrics\
 `[x]` A radio keeps going when YouTube Music refuses it: other ways to ask, then picks from your own listening\
 `[x]` Stats shows how many of the songs you liked InterTune found for you, and where\
 `[ ]` Your year in InterTune, a recap *(in progress)*\
 `[ ]` Premium accounts get the 256 kbps stream\
-`[~]` Choose what's in the three-dot menus\
+`[x]` Choose what's in the three-dot menus\
 `[ ]` Lyrics videos\
 `[ ]` Better word by word lyrics\
-`[~]` Albums and artists in your own order too\
+`[x]` Albums and artists in your own order too\
 `[ ]` Match your library from another service by logging in to it\
-`[ ]` Bring your library over from a Metrolist backup, from its Android app or its new one *(in progress)*
+`[x]` Repeat and shuffle on a lit box when they're on, so off no longer looks greyed out ([#182](https://github.com/ItzSkyeYT/InterTune/issues/182))\
+`[x]` The cast button with the player's buttons by the title, where you can move it like them, and a small badge on the mini player during a cast or a room\
+`[x]` Remove a song on your phone from the library, or leave out a whole folder, with Undo\
+`[x]` A playlist's search looks on YouTube Music too, with an add button on each song\
+`[x]` Varispeed: the pitch follows the speed, like a record ([#225](https://github.com/ItzSkyeYT/InterTune/issues/225))\
+`[x]` More haptic feedback, and a Vibration setting: Off, Light or Strong ([#176](https://github.com/ItzSkyeYT/InterTune/issues/176))\
+`[x]` A full-screen tuner for Living blur's colours and movement\
+`[x]` Bring your library over from a Metrolist backup, from its Android app or its new one
+
+</details>
+
+<details>
+<summary><b>0.14: recommendations rebuilt</b></summary>
+
+`[ ]` One engine for Quick picks, the queue and radios, Home's shelves and Discover, rebuilt from the ground up *(in progress)*\
+`[ ]` New signals: the songs you just played, when you skip, what you replay and what you find again yourself\
+`[ ]` Learning on your phone that's fair to new songs, starting from what works for many listeners\
+`[ ]` The reason for each pick, on a long press\
+`[ ]` Testers first, then everyone once it beats today's picks\
+`[ ]` The player's background on one full-screen page, every style and its settings together
 
 </details>
 
 <details>
 <summary><b>After 0.13</b></summary>
 
+`[ ]` A switch to keep Liquid glass's layout, the player and its buttons where they are, drawn without the glass\
+`[ ]` The "Group the player buttons" setting goes, the buttons stay grouped as they are by default\
+`[ ]` Discord Rich Presence: what you play on your Discord profile, off until you turn it on (it signs in to Discord as you)\
+`[ ]` Connect your devices over your Wi-Fi: a phone, watch, TV or tablet as the remote or the speaker, paired once, off until you turn it on *(after 0.14)*\
+`[ ]` Paste or share a YouTube link to play it as a song and download it *(0.13.5)*\
 `[ ]` Speed dial on Home\
 `[ ]` Lyrics in big lines, each singer on their own side, with a menu to fix them or pick where they come from\
 `[ ]` The queue: radio choices as chips, and a lock\
 `[ ]` Roomier settings, and one page for the services InterTune connects to\
-`[ ]` ListenBrainz ([#159](https://github.com/ItzSkyeYT/InterTune/issues/159))\
+`[ ]` Playlist folders\
 `[ ]` Music videos ([#96](https://github.com/ItzSkyeYT/InterTune/issues/96))\
 `[ ]` Bring your library over from InnerTune, ViMusic, SimpMusic or Kreate\
-`[ ]` A thumbs down that YouTube Music hears too ([#171](https://github.com/ItzSkyeYT/InterTune/issues/171))\
-`[ ]` More haptic feedback ([#176](https://github.com/ItzSkyeYT/InterTune/issues/176))\
+`[~]` A thumbs down that YouTube Music hears too, then a Dislike button in the notification ([#171](https://github.com/ItzSkyeYT/InterTune/issues/171))\
 `[ ]` Unison as a lyrics source ([#145](https://github.com/ItzSkyeYT/InterTune/issues/145))\
 `[ ]` Lyrics translated by AI with your own key, if you turn it on ([#177](https://github.com/ItzSkyeYT/InterTune/issues/177))\
 `[ ]` A page with every poll, to see or change what you answered\
@@ -230,7 +295,9 @@ What's being worked on, roughly in order. `[x]` is done, `[~]` is built and bein
 `[~]` Spatial audio for surround recordings, and Strength, Room and Ambience controls\
 `[~]` Similar artists in the Favourite artists mix\
 `[ ]` Tablets: settings in two panes, and the player as a side pane that can show lyrics *(in progress)* ([#140](https://github.com/ItzSkyeYT/InterTune/issues/140))\
-`[ ]` A look made for foldable and flip phones *(in progress)*
+`[ ]` A look made for foldable and flip phones *(in progress)*\
+`[ ]` Play or shuffle the whole Quick picks row from its title\
+`[ ]` Your own songs: an artist or genre with & or a comma in its name stays whole
 
 </details>
 
@@ -245,7 +312,8 @@ What's being worked on, roughly in order. `[x]` is done, `[~]` is built and bein
 `[ ]` AirPlay 2 speakers\
 `[ ]` A web player, to listen from a computer's browser\
 `[ ]` A Wear OS app: a remote for your phone, and music on the watch itself *(in progress)*\
-`[ ]` What you're playing on your Discord profile *(being looked at)*
+`[ ]` What you're playing on your Discord profile *(being looked at)*\
+`[ ]` Animations reworked to feel even smoother
 
 </details>
 
@@ -285,7 +353,7 @@ Thank you so much, everyone, for your support in this growing project!
 
 <p align="center"><a href="https://github.com/3SSF"><img src="https://github.com/3SSF.png?size=128" width="64" height="64" alt="3SSF"></a><br><b><a href="https://github.com/3SSF">3SSF</a></b><br><sub>The first code from outside: a music note on local songs with no cover (<a href="https://github.com/ItzSkyeYT/InterTune/pull/161">#161</a>) · November 2026</sub></p>
 
-<p align="center"><b>Want to help?</b> <a href="CONTRIBUTING.md">CONTRIBUTING.md</a> says how to build it, and the <a href="https://discord.gg/68jmqhMjXk">Discord server</a> is the place to ask for a first task.</p>
+<p align="center"><b>Want to help?</b> <a href=".github/CONTRIBUTING.md">CONTRIBUTING.md</a> says how to build it, and the <a href="https://discord.gg/68jmqhMjXk">Discord server</a> is the place to ask for a first task.</p>
 
 ## Donors
 
@@ -299,11 +367,13 @@ Thank you so much, everyone, for your support in this growing project!
 
 <p align="center"><img src="https://raw.githubusercontent.com/ItzSkyeYT/InterTune/visionos-fix/assets/donors/geogos.png" width="64" height="64" alt="Geogos"><br><b>Geogos</b><br><sub>The first on PayPal · November 2026</sub></p>
 
+<p align="center"><img src="https://raw.githubusercontent.com/ItzSkyeYT/InterTune/visionos-fix/assets/donors/tortoulitortontonbbo.png" width="64" height="64" alt="Tortouli (TortonT on bbo)"><br><b>Tortouli (TortonT on bbo)</b><br><sub>Gave on Ko-fi · November 2026</sub></p>
+
 <p align="center"><sub>Some donors chose not to be named here. Thank you to them too.</sub></p>
 
 <!-- The app's About > Support InterTune and the site read the donors' names from this table (utils/Donors.kt, tools/site/build.py):
      one cell a donor, the name in bold first. A new donor goes in both here and above.
-<table><tr><td><b>Dismorphism</b></td><td><b>Ti-Die</b></td><td><b>frances</b></td><td><b>Geogos</b></td></tr></table>
+<table><tr><td><b>Dismorphism</b></td><td><b>Ti-Die</b></td><td><b>frances</b></td><td><b>Geogos</b></td><td><b>Tortouli (TortonT on bbo)</b></td></tr></table>
 -->
 
 <br>
@@ -321,8 +391,8 @@ InterTune stands on a lot of other people's work.
 | Project | By | For |
 |---|---|---|
 | [InnerTune](https://github.com/z-huang/InnerTune) | [Zion Huang](https://github.com/z-huang) | The app it all started from |
-| [OuterTune](https://github.com/OuterTune/OuterTune) | [Michael Zh](https://github.com/mikooomich) · [Davide Garberi](https://github.com/DD3Boh) | The fork InterTune is built on, where the heavy lifting is |
-| [AsterTune](https://github.com/yuuichi-s/AsterTune) | [yuuichi-s](https://github.com/yuuichi-s) | The same `VISIONOS` fix, found on its own; how a signed-in play reaches the right channel's YouTube history follows its request (6ea96c90), and the po token page works the way its does |
+| [OuterTune](https://github.com/OuterTune/OuterTune) | [Michael Zh](https://github.com/mikooomich) · [Davide Garberi](https://github.com/DD3Boh) | The fork InterTune is built on, where the most work is from |
+| [AsterTune](https://github.com/yuuichi-s/AsterTune) | [yuuichi-s](https://github.com/yuuichi-s) | The same `VISIONOS` fix, found on their own; how a signed-in play reaches the right channel's YouTube history follows its request (6ea96c90), and the po token page works the way its does |
 | [Metrolist](https://github.com/MetrolistGroup/Metrolist) | [MetrolistGroup](https://github.com/MetrolistGroup) | A lot of inspiration, this README included |
 | [Essentials](https://github.com/sameerasw/essentials) · [sameerasw.com](https://sameerasw.com) | [Sameera Wijerathna](https://github.com/sameerasw) | The design language the app and its site learn from |
 
@@ -340,15 +410,14 @@ InterTune stands on a lot of other people's work.
 | Who | For |
 |---|---|
 | [rii2609](https://github.com/rii2609) | The idea for Liquid glass |
-| [cchery2512](https://github.com/cchery2512) | Reporting the M3U import bugs |
-| Everyone who [reports issues](https://github.com/ItzSkyeYT/InterTune/issues) | Finding what needs fixing |
+| Everyone who [reports issues](https://github.com/ItzSkyeYT/InterTune/issues) | Finding what needs fixing, as well as great ideas |
 | Everyone translating on [Weblate](https://hosted.weblate.org/engage/intertune/) | InterTune in your language |
 
 ## Licence
 
 GPL-3.0-only. See [LICENSE](https://github.com/ItzSkyeYT/InterTune/tree/visionos-fix/LICENSE).
 
-Forking InterTune? Read the [fork rules](FORKS.md) first: they apply before you share a single build.
+Forking InterTune? Read the [fork rules](docs/FORKS.md) first: they apply before you share a single build.
 
 <details>
 <summary>Why "only"</summary>

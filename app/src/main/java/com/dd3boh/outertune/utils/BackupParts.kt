@@ -16,6 +16,8 @@ import com.dd3boh.outertune.constants.DataSyncIdKey
 import com.dd3boh.outertune.constants.InnerTubeCookieKey
 import com.dd3boh.outertune.constants.LastFmSessionKey
 import com.dd3boh.outertune.constants.LastFmUsernameKey
+import com.dd3boh.outertune.constants.ListenBrainzTokenKey
+import com.dd3boh.outertune.constants.ListenBrainzUserKey
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -41,11 +43,12 @@ data class BackupParts(
     val anything: Boolean get() = library || settings
 }
 
-/** The settings that sign in to an account: YouTube Music's and Last.fm's. */
+/** The settings that sign in to an account: YouTube Music's, Last.fm's and ListenBrainz's. */
 object SignIns {
     val KEYS: List<Preferences.Key<String>> = listOf(
         InnerTubeCookieKey, DataSyncIdKey, AccountNameKey, AccountEmailKey, AccountChannelHandleKey,
         LastFmSessionKey, LastFmUsernameKey,
+        ListenBrainzTokenKey, ListenBrainzUserKey,
     )
 
     fun without(prefs: Preferences): Preferences =

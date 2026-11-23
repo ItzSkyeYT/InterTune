@@ -9,6 +9,10 @@
 
 package com.dd3boh.outertune
 
+import com.dd3boh.outertune.recap.RecapAlert
+import com.dd3boh.outertune.ui.component.Haptics
+import com.dd3boh.outertune.utils.AppLanguage
+import com.dd3boh.outertune.utils.ChannelNames
 import com.dd3boh.outertune.utils.AppProxySelector
 import com.dd3boh.outertune.utils.ProxyAddress
 import com.dd3boh.outertune.utils.ProxyAtStart
@@ -17,6 +21,9 @@ import com.dd3boh.outertune.models.DontPlay
 import com.dd3boh.outertune.models.AiArtistList
 import com.dd3boh.outertune.models.AiFilter
 import com.dd3boh.outertune.models.AiFilterMode
+import androidx.glance.appwidget.updateAll
+import com.dd3boh.outertune.widget.MusicWidget
+import com.dd3boh.outertune.widget.RecognitionWidgetReceiver
 import com.dd3boh.outertune.widget.WidgetEntryPoint
 import dagger.hilt.android.EntryPointAccessors
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -48,12 +55,8 @@ import coil3.request.transitionFactory
 import com.dd3boh.outertune.constants.AccountChannelHandleKey
 import com.dd3boh.outertune.constants.AccountEmailKey
 import com.dd3boh.outertune.constants.AccountNameKey
-import com.dd3boh.outertune.constants.ContentCountryKey
-import com.dd3boh.outertune.constants.ContentLanguageKey
-import com.dd3boh.outertune.constants.CountryCodeToName
 import com.dd3boh.outertune.constants.DataSyncIdKey
 import com.dd3boh.outertune.constants.InnerTubeCookieKey
-import com.dd3boh.outertune.constants.LanguageCodeToName
 import com.dd3boh.outertune.constants.LastAlbumSyncKey
 import com.dd3boh.outertune.constants.LastArtistSyncKey
 import com.dd3boh.outertune.constants.LastFullSyncKey
@@ -65,7 +68,6 @@ import com.dd3boh.outertune.constants.MaxImageCacheSizeKey
 import com.dd3boh.outertune.constants.ProxyEnabledKey
 import com.dd3boh.outertune.constants.ProxyTypeKey
 import com.dd3boh.outertune.constants.ProxyUrlKey
-import com.dd3boh.outertune.constants.SYSTEM_DEFAULT
 import com.dd3boh.outertune.constants.StandInsKey
 import com.dd3boh.outertune.constants.StreamOrderKey
 import com.dd3boh.outertune.constants.UseLoginForBrowse
@@ -81,7 +83,10 @@ import com.dd3boh.outertune.utils.CrashLog
 import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.utils.ReportFeed
 import com.dd3boh.outertune.utils.RunLogs
+import com.dd3boh.outertune.utils.Scrobbler
 import com.dd3boh.outertune.utils.LocalArtworkPathKeyer
+import com.dd3boh.outertune.ui.screens.recap.RecapCoverFetcher
+import com.dd3boh.outertune.ui.screens.recap.RecapMadeCoverKeyer
 import com.dd3boh.outertune.utils.dataStore
 import com.dd3boh.outertune.utils.get
 import com.dd3boh.outertune.utils.mayPushToYouTube
@@ -98,9 +103,9 @@ import com.dd3boh.outertune.constants.SignedNewsKey
 import com.dd3boh.outertune.constants.LastPollFetchKey
 import com.dd3boh.outertune.utils.YTPlayerUtils
 import com.zionhuang.innertube.YouTube
-import com.zionhuang.innertube.models.YouTubeLocale
-import com.zionhuang.kugou.KuGou
 import dagger.hilt.android.HiltAndroidApp
+import com.dd3boh.outertune.listenbrainz.ListenBrainzWorker
+import com.dd3boh.outertune.listenbrainz.ListenOutbox
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
@@ -111,12 +116,35 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import java.net.Proxy
 import java.net.ProxySelector
-import java.util.Locale
 import com.dd3boh.outertune.utils.Toaster
 
 @HiltAndroidApp
 class App : Application(), SingletonImageLoader.Factory {
     private val TAG = App::class.simpleName.toString()
+
+    /**
+     * Before Android 13 the app's language is ours to apply (AppLanguage): here for everything that
+     * is not a screen, the services, the widget's receivers, the workers and the notifications,
+     * which all read the app's own resources. Before the content providers are made, so the
+     * phone's search too.
+     */
+    override fun attachBaseContext(base: Context) {
+        super.attachBaseContext(base)
+        AppLanguage.applyToProcess(base)
+    }
+
+    /**
+     * A change of the phone's configuration puts the app's own resources back to the phone's
+     * language before Android 13 (AppLanguage.applyToProcess). From Android 13 it may be the moment
+     * the app's language changed under it, from Android's own App languages page, with no screen
+     * made again to say so (the music playing): AppLanguage.follow takes it from here. Before 13
+     * the language only changes through the row in Settings, which makes the screen again.
+     */
+    override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
+        super.onConfigurationChanged(newConfig)
+        AppLanguage.applyToProcess(this)
+        if (android.os.Build.VERSION.SDK_INT >= 33) AppLanguage.follow(this)
+    }
 
     @OptIn(DelicateCoroutinesApi::class, ExperimentalCoroutinesApi::class)
     override fun onCreate() {
@@ -129,10 +157,16 @@ class App : Application(), SingletonImageLoader.Factory {
         if (Unreleased.PREVIOUS_LOGS) GlobalScope.launch(Dispatchers.IO) { RunLogs.start(this@App) }
         // What Report a problem tells of the last few minutes: the app in front or not, the settings changed.
         ReportFeed.start(this)
+        // The Vibration setting reads the settings and the vibrator from here (Unreleased.HAPTICS_FEEL). Nothing is read yet.
+        Haptics.start(this)
         // Before anything can read a built-in key: until it has run they all read as empty.
         BuiltInKeys.verify(this)
         // Before anything reads Battery use: the phone's battery saver can turn Saver on (PhoneBatterySaver).
         PhoneBatterySaver.start(this)
+        // Plays still waiting for ListenBrainz go once there is a connection: a look for the file, off the main thread.
+        if (Unreleased.LISTENBRAINZ) GlobalScope.launch(Dispatchers.IO) {
+            if (ListenOutbox.anyWaiting(this@App)) ListenBrainzWorker.schedule(this@App)
+        }
 
         if (BuildConfig.DEBUG) {
             System.setProperty("kotlinx.coroutines.debug", "on")
@@ -141,6 +175,9 @@ class App : Application(), SingletonImageLoader.Factory {
         // 0.11 and 0.11.1 showed a test row that wrote the Bluetooth devices nearby to files in
         // this folder, which Android backs up. Nothing ever read them, so they go.
         GlobalScope.launch(Dispatchers.IO) { ProximityProbe.forgetOldLogs(getExternalFilesDir(null)) }
+        // From 1 December 2026 Last.fm takes nothing from this app (LastFmEnd), so its account
+        // goes too, once: a sign-in nobody can use stays out of the settings and of backups.
+        GlobalScope.launch(Dispatchers.IO) { Scrobbler.forgetIfClosed(dataStore) }
 
         instance = this;
         // Every request that changes the account asks this first, so "Read only" and signed out
@@ -150,20 +187,26 @@ class App : Application(), SingletonImageLoader.Factory {
         // process does not wait for it to be fetched again: see NewPipe.kt.
         YouTube.newPipeCacheDir = cacheDir.resolve("newpipe-http")
 
-        val locale = Locale.getDefault()
-        val languageTag = locale.toLanguageTag().replace("-Hant", "") // replace zh-Hant-* to zh-*
-        YouTube.locale = YouTubeLocale(
-            gl = dataStore[ContentCountryKey]?.takeIf { it != SYSTEM_DEFAULT }
-                ?: locale.country.takeIf { it in CountryCodeToName }
-                ?: "US",
-            hl = dataStore[ContentLanguageKey]?.takeIf { it != SYSTEM_DEFAULT }
-                ?: locale.language.takeIf { it in LanguageCodeToName }
-                ?: languageTag.takeIf { it in LanguageCodeToName }
-                ?: "en"
-        )
-        if (languageTag == "zh-TW") {
-            KuGou.useTraditionalChinese = true
+        // What YouTube is asked in: the two content rows, else the language the app speaks. Again
+        // whenever that changes (AppLanguage.follow), so a new app language shows on Home at once.
+        AppLanguage.follow(this)
+        // The widgets keep the words they were last drawn with: drawn again in a new language. So do
+        // the names of the notification channels in Android's own settings (ChannelNames).
+        GlobalScope.launch(Dispatchers.IO) {
+            AppLanguage.changes.collect {
+                runCatching { MusicWidget().updateAll(this@App) }
+                runCatching { RecognitionWidgetReceiver.redraw(this@App) }
+                ChannelNames.follow(this@App)
+            }
         }
+        // And at every start, for a language changed while the app was not running.
+        GlobalScope.launch(Dispatchers.IO) { ChannelNames.follow(this@App) }
+        // The year's Recap now out: told once, and looked for again on the next reveal day's morning (RecapAlert).
+        GlobalScope.launch(Dispatchers.IO) {
+            runCatching { RecapAlert.check(this@App) }
+            RecapAlert.schedule(this@App)
+        }
+        GlobalScope.launch(Dispatchers.IO) { runCatching { RecognitionWidgetReceiver.redraw(this@App) } }
 
         // The proxy every client takes once, here: the settings page offers a restart while the one
         // set there differs (#68). See ProxyAtStart.
@@ -338,6 +381,9 @@ class App : Application(), SingletonImageLoader.Factory {
                     // The pictures of the news, each checked against the hash its signed document gives.
                     add(CheckedPictureFetcher.Factory(cacheDir.resolve(CheckedPictures.FOLDER)))
                     add(CheckedPictureKeyer())
+                    // The Recap's covers for songs that may have none (RecapMadeCover).
+                    add(RecapCoverFetcher.Factory(this@App))
+                    add(RecapMadeCoverKeyer())
                 // A downloaded song's kept cover, served from the app's own storage: see DownloadCovers.
                 add(DownloadCovers.Interceptor(filesDir))
                 }
@@ -360,6 +406,9 @@ class App : Application(), SingletonImageLoader.Factory {
                 // The pictures of the news, each checked against the hash its signed document gives.
                 add(CheckedPictureFetcher.Factory(cacheDir.resolve(CheckedPictures.FOLDER)))
                 add(CheckedPictureKeyer())
+                // The Recap's covers for songs that may have none (RecapMadeCover).
+                add(RecapCoverFetcher.Factory(this@App))
+                add(RecapMadeCoverKeyer())
                 // A downloaded song's kept cover, served from the app's own storage: see DownloadCovers.
                 add(DownloadCovers.Interceptor(filesDir))
             }

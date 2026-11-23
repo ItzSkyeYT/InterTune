@@ -42,11 +42,12 @@ class DownloadFilesWiringTest {
     }
 
     @Test
-    fun `a full scan knows song files by the database's paths, read before it clears them`() {
+    fun `a full scan knows song files by the database's paths, read before anything is written`() {
         val scan = util.substringAfter("private suspend fun scanDownloadsLocked()").substringBefore("companion object")
-        val listed = scan.indexOf("localMgr.getAvailableFiles(false, knownPaths(database.downloadedOrQueuedSongs().first()))")
-        assertTrue(listed > 0)
-        assertTrue(listed < scan.indexOf("database.removeAllDownloadedSongs()"))
+        val recorded = scan.indexOf("val dbDownloads = database.downloadedOrQueuedSongs().first()")
+        val listed = scan.indexOf("localMgr.getAvailableFiles(false, knownPaths(dbDownloads))")
+        assertTrue(recorded in 0 until listed)
+        assertTrue(listed < scan.indexOf("database.transactionNow {"))
         assertTrue("a rescan too", folder.contains("getAvailableFiles(false, knownPaths(mediaId))"))
     }
 

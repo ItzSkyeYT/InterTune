@@ -41,7 +41,6 @@
     <string name="lyrics_settings_title">자막</string>
     <string name="lyrics_multiline_title">다중 행 가사 읽기</string>
     <string name="lyrics_multiline_description">자막 리더</string>
-    <string name="lyrics_trim_title">자막 줄 사이의 공백 지우기</string>
     <string name="lyrics_prefer_local">로컬 가사 파일을 우선</string>
     <string name="flat_subfolders_title">하위 폴더 평탄화</string>
     <string name="auto_scanner_title">자동 스캔</string>
@@ -251,7 +250,6 @@
     <string name="oobe_update_check_title">업데이트를 알려드릴까요?</string>
     <string name="oobe_update_check_yes">네, 확인할게요</string>
     <string name="player_glass_intensity">글래스 강도</string>
-    <string name="player_glass_intensity_description">높을수록 더 투명하고 굴절이 강해지며, 낮을수록 평범한 불투명 면에 가까워집니다</string>
     <string name="player_glass_intensity_value">%1$d%%</string>
     <string name="player_liquid_glass">리퀴드 글래스</string>
     <string name="player_liquid_glass_description">네비게이션 바, 미니 플레이어, 재생 컨트롤을 떠 있는 유리 패널로 표시하고, 재생 화면 뒤 앨범 아트 색을 더 풍부하게 표현합니다</string>
@@ -275,7 +273,6 @@
     <string name="oobe_update_auto_description">백그라운드에서 미리 받아 두어 필요할 때 바로 쓸 수 있게 합니다. 그래도 Android가 확인을 요청합니다.</string>
     <string name="oobe_polls_answered">설정의 질문에서 언제든지 바꿀 수 있습니다.</string>
     <string name="poll_title">InterTune의 질문</string>
-    <string name="poll_banner_hint">탭하여 답하거나 X로 닫으세요</string>
     <string name="poll_dismiss">이 질문 닫기</string>
     <string name="poll_close">닫기</string>
     <string name="poll_send">내 답변 보내기</string>
@@ -336,7 +333,6 @@
     <string name="image_cache_max_size">앨범 아트 캐시 최대 크기</string>
     <string name="max_queues_description">앱이 한 번에 유지하는 대기열 수입니다. 이 수를 넘으면 가장 오래된 것이 사라집니다.</string>
     <string name="enable_proxy_description">YouTube Music 요청과 스트림을 먼저 다른 서버를 거치게 합니다. 이미지, 가사, 앱이 사용하는 다른 서비스는 여전히 직접 연결됩니다. 필요하다고 확신하지 않는다면 꺼 두세요.</string>
-    <string name="show_liked_and_downloaded_playlist_description">좋아요 표시한 곡과 다운로드한 곡을 라이브러리에 재생목록으로 표시합니다.</string>
     <string name="pause_listen_history_description">기록에 곡을 더 이상 추가하지 않습니다. 이미 있는 항목은 지워지지 않습니다.</string>
     <string name="pause_remote_listen_history_description">무엇을 재생하는지 YouTube Music에 알리지 않습니다. 이 앱 안의 기록은 어느 쪽이든 계속됩니다.</string>
     <string name="clear_listen_history_description">재생한 내용에 대해 앱이 기록한 모든 것을 삭제합니다.</string>
@@ -392,7 +388,6 @@
     <string name="head_tracking_response_instant">즉시</string>
     <string name="head_tracking_response_explain">\"부드럽게\" 설정은 절대 지나치지 않지만 약간 느린 느낌을 줍니다. \"빠르게\"와 \"즉시\" 설정은 즉각적으로 반응하지만 고개를 멈출 때 지나쳐 갈 수 있습니다. \"균형 있게\" 설정은 이 둘 사이의 균형을 잡아줍니다.</string>
     <string name="proximity_volume">멀어질수록 소리가 작아짐</string>
-    <string name="proximity_volume_description">휴대폰을 음악이 나오는 위치로 간주합니다.</string>
     <string name="proximity_probe">블루투스 신호 로그</string>
     <string name="proximity_probe_stop">로그 중지</string>
     <string name="proximity_probe_description">현재 위치에서 거리가 얼마나 정확하게 측정되는지 확인합니다.</string>

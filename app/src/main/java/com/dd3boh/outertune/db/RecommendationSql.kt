@@ -14,6 +14,32 @@ package com.dd3boh.outertune.db
 object RecommendationSql {
 
     /**
+     * The songs the listener chose not to play, each with its title and first artist as the library has them, so that
+     * its other uploads are known by them (DontPlay): Don't play this song (reason 5) and Don't play set over Not this
+     * song (6, ExclusionsViewModel.REASON_DONT_PLAY_BANNED). Not this song alone (a ban, 1) keeps to Home's rows.
+     */
+    const val DONT_PLAY_SONGS = "SELECT x.targetId AS id, COALESCE(song.title, x.label) AS title, " +
+            "(SELECT artist.name FROM song_artist_map JOIN artist ON artist.id = song_artist_map.artistId " +
+            "WHERE song_artist_map.songId = x.targetId ORDER BY song_artist_map.position LIMIT 1) AS artist " +
+            "FROM recommendation_exclusion x LEFT JOIN song ON song.id = x.targetId " +
+            "WHERE x.kind = 1 AND x.reason IN (5, 6)"
+
+    /** Lifting Don't play this song from a song: a plain one goes, a row of any other reason stays as it is. */
+    const val LIFT_DONT_PLAY = "DELETE FROM recommendation_exclusion WHERE kind = 1 AND reason = 5 AND targetId = :songId"
+
+    /**
+     * And one set over Not this song is that ban again: the song may play anywhere, and stays out of the recommendation
+     * rows as the listener had asked before. Don't play used to write over the ban, and lifting it lost it.
+     */
+    const val LIFT_DONT_PLAY_BANNED = "UPDATE recommendation_exclusion SET reason = 1 WHERE kind = 1 AND reason = 6 AND targetId = :songId"
+
+    /**
+     * Whether a song is kept from playing by Don't play this song or Dislike now, set over Not this song (6) or not (5):
+     * what Dislike reads once YouTube Music has answered. With 5 alone, a Dislike over Not this song read as lifted.
+     */
+    const val IS_DONT_PLAY = "SELECT EXISTS(SELECT 1 FROM recommendation_exclusion WHERE kind = 1 AND reason IN (5, 6) AND targetId = :songId)"
+
+    /**
      * Songs related to your seed songs, ranked by how many of the seeds point at each one.
      *
      * The inherited version grouped every related row in the whole history before filtering, then

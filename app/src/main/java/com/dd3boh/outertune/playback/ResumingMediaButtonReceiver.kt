@@ -67,6 +67,11 @@ class ResumingMediaButtonReceiver : MediaButtonReceiver() {
         if (hook) Log.i(TAG, "The key is the headset's hook, handed on as play/pause")
         if (!startService) Log.i(TAG, "Nothing to resume, so the media button does not start the player")
         else Log.i(TAG, if (MusicService.isRunning) "The media button goes to the player running" else "The media button starts the player")
+        // media3 hands Android this very intent next, with startForegroundService (1.8.0's
+        // handleIntentAndMaybeStartTheService), and Android's time for the start begins there: the
+        // service counts from now, not from the process's start, which came before the app's own
+        // start and the read of the saved queue (MediaButtonStart.sinceStart).
+        if (startService) MediaButtonStart.markHanded(intent)
         return startService
     }
 

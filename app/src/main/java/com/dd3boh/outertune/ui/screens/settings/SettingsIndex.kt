@@ -19,6 +19,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.ENABLE_FFMETADATAEX
 import com.dd3boh.outertune.constants.Unreleased
+import com.dd3boh.outertune.playback.downloadManager.DownloadsSimpleLook
 import com.dd3boh.outertune.ui.dialog.togetherAvailable
 import com.dd3boh.outertune.ui.screens.walkthrough.Tour
 import com.dd3boh.outertune.ui.screens.walkthrough.TourTargets
@@ -30,7 +31,7 @@ import java.text.Normalizer
  * @param description the line under the row, when it is the same words whatever the setting is
  *   set to. A line that says the value, or what is going on, is not one to search.
  * @param words other words it is found by: a string of search words (search_words_*), which is
- *   never shown, or the names of its choices.
+ *   never shown, the names of its choices, or the name of the row it took the place of.
  * @param fold the heading of the fold it is under (SettingsClickToReveal), opened on the way to it.
  * @param under the title of the row to light instead when this one is not on its screen: the
  *   switch it hangs from, or the row that stands in its place.
@@ -85,9 +86,10 @@ val SETTINGS_INDEX: List<SettingEntry> = listOf(
     SettingEntry(Tour.ROUTE_ACCOUNT, R.string.use_login_for_browse, R.string.use_login_for_browse_desc),
     SettingEntry(Tour.ROUTE_ACCOUNT, R.string.lastfm_connect, R.string.lastfm_connect_description, under = R.string.lastfm_scrobble, words = listOf(R.string.search_words_lastfm)),
     SettingEntry(Tour.ROUTE_ACCOUNT, R.string.lastfm_scrobble, R.string.lastfm_scrobble_description, under = R.string.lastfm_connect, words = listOf(R.string.search_words_lastfm)),
-    SettingEntry(Tour.ROUTE_ACCOUNT, R.string.ytm_sync, words = listOf(R.string.search_words_ytm_sync)),
+    SettingEntry(Tour.ROUTE_ACCOUNT, R.string.listenbrainz_connect, R.string.listenbrainz_connect_description, under = R.string.listenbrainz_scrobble, words = listOf(R.string.search_words_listenbrainz), there = Unreleased.LISTENBRAINZ),
+    SettingEntry(Tour.ROUTE_ACCOUNT, R.string.listenbrainz_scrobble, R.string.listenbrainz_scrobble_description, under = R.string.listenbrainz_connect, words = listOf(R.string.search_words_listenbrainz), there = Unreleased.LISTENBRAINZ),
     SettingEntry(Tour.ROUTE_ACCOUNT, R.string.scanner_manual_btn, words = listOf(R.string.search_words_sync_now)),
-    SettingEntry(Tour.ROUTE_ACCOUNT, R.string.sync_mode),
+    SettingEntry(Tour.ROUTE_ACCOUNT, R.string.sync_mode, words = listOf(R.string.ytm_sync, R.string.search_words_ytm_sync)),
     SettingEntry(Tour.ROUTE_ACCOUNT, R.string.sync_conflict_title),
 
     // Library and content
@@ -98,8 +100,9 @@ val SETTINGS_INDEX: List<SettingEntry> = listOf(
     SettingEntry(Tour.ROUTE_LIBRARY, R.string.hide_video_songs, R.string.hide_video_songs_description),
     SettingEntry(Tour.ROUTE_LIBRARY, R.string.ai_filter, words = listOf(R.string.ai_filter_recommendations, R.string.ai_filter_everywhere), there = Unreleased.AI_FILTER),
     SettingEntry(Tour.ROUTE_LIBRARY, R.string.blocked_artists, words = listOf(R.string.search_words_blocked_artists), there = Unreleased.ARTIST_BLOCK),
-    SettingEntry(Tour.ROUTE_LIBRARY, R.string.content_language, words = listOf(R.string.search_words_language)),
-    SettingEntry(Tour.ROUTE_LIBRARY, R.string.content_country, words = listOf(R.string.search_words_country)),
+    SettingEntry(Tour.ROUTE_LIBRARY, R.string.app_language, words = listOf(R.string.search_words_language)),
+    SettingEntry(Tour.ROUTE_LIBRARY, R.string.youtube_language, words = listOf(R.string.search_words_language)),
+    SettingEntry(Tour.ROUTE_LIBRARY, R.string.youtube_country, words = listOf(R.string.search_words_country)),
     SettingEntry(Tour.ROUTE_LIBRARY, R.string.show_liked_and_downloaded_playlist, fold = R.string.advanced),
     SettingEntry(Tour.ROUTE_LIBRARY, R.string.flat_subfolders_title, R.string.flat_subfolders_description, fold = R.string.advanced),
 
@@ -121,15 +124,16 @@ val SETTINGS_INDEX: List<SettingEntry> = listOf(
     SettingEntry(Tour.ROUTE_LOOK_AND_FEEL, R.string.pure_black, R.string.pure_black_description, words = listOf(R.string.search_words_pure_black)),
     SettingEntry(Tour.ROUTE_LOOK_AND_FEEL, R.string.player_background_style, words = listOf(R.string.player_background_blur, R.string.player_background_living, R.string.player_background_gradient)),
     SettingEntry(Tour.ROUTE_LOOK_AND_FEEL, R.string.player_living_colours, under = R.string.player_background_style),
-    SettingEntry(Tour.ROUTE_LOOK_AND_FEEL, R.string.player_living_strength, R.string.player_living_strength_description, under = R.string.player_background_style),
-    SettingEntry(Tour.ROUTE_LOOK_AND_FEEL, R.string.player_living_smoothing, R.string.player_living_smoothing_description, under = R.string.player_background_style),
+    SettingEntry(Tour.ROUTE_LOOK_AND_FEEL, R.string.player_living_strength, under = R.string.player_background_style),
+    SettingEntry(Tour.ROUTE_LOOK_AND_FEEL, R.string.player_living_smoothing, under = R.string.player_background_style),
     SettingEntry(Tour.ROUTE_LOOK_AND_FEEL, R.string.player_liquid_glass, R.string.player_liquid_glass_description, words = listOf(R.string.search_words_glass)),
     SettingEntry(Tour.ROUTE_LOOK_AND_FEEL, R.string.grouped_player_controls, R.string.grouped_player_controls_description),
-    SettingEntry(Tour.ROUTE_LOOK_AND_FEEL, R.string.player_glass_intensity, R.string.player_glass_intensity_description, under = R.string.player_liquid_glass),
+    SettingEntry(Tour.ROUTE_LOOK_AND_FEEL, R.string.player_glass_intensity, under = R.string.player_liquid_glass),
     SettingEntry(Tour.ROUTE_LOOK_AND_FEEL, R.string.player_buttons_style, R.string.player_buttons_style_description),
     SettingEntry(Tour.ROUTE_LOOK_AND_FEEL, R.string.player_pins, R.string.player_pins_description),
     SettingEntry(Tour.ROUTE_LOOK_AND_FEEL, R.string.queue_button, R.string.queue_button_description),
     SettingEntry(Tour.ROUTE_LOOK_AND_FEEL, R.string.queue_back_closes_player),
+    SettingEntry(Tour.ROUTE_LOOK_AND_FEEL, R.string.output_pill, R.string.output_pill_description, words = listOf(R.string.cast), there = Unreleased.CAST_AT_TOP),
     SettingEntry(Tour.ROUTE_LOOK_AND_FEEL, R.string.media_control_buttons, words = listOf(R.string.search_words_media_buttons)),
     SettingEntry(Tour.ROUTE_LOOK_AND_FEEL, R.string.android_auto, words = listOf(R.string.search_words_car)),
     SettingEntry(Tour.ROUTE_LOOK_AND_FEEL, R.string.tab_arrangement, words = listOf(R.string.search_words_tabs)),
@@ -141,6 +145,7 @@ val SETTINGS_INDEX: List<SettingEntry> = listOf(
     SettingEntry(Tour.ROUTE_LOOK_AND_FEEL, R.string.swipe2Queue, R.string.swipe2Queue_description, words = listOf(R.string.search_words_gesture)),
     SettingEntry(Tour.ROUTE_LOOK_AND_FEEL, R.string.swipe_to_skip_title, words = listOf(R.string.search_words_gesture)),
     SettingEntry(Tour.ROUTE_LOOK_AND_FEEL, R.string.swipe_to_dismiss_player, R.string.swipe_to_dismiss_player_description, words = listOf(R.string.search_words_gesture)),
+    SettingEntry(Tour.ROUTE_LOOK_AND_FEEL, R.string.vibration, words = listOf(R.string.search_words_vibration), there = Unreleased.HAPTICS_FEEL),
 
     // Widgets: the two to add. A card's rows are one widget's own, there once for each (SettingsIndexTest leaves them out).
     SettingEntry(Tour.ROUTE_WIDGETS, R.string.widget_label, there = Unreleased.WIDGETS_PAGE),
@@ -163,9 +168,10 @@ val SETTINGS_INDEX: List<SettingEntry> = listOf(
     SettingEntry(Tour.ROUTE_PLAYER, R.string.head_tracking_3d, R.string.head_tracking_3d_description, under = R.string.head_tracking),
     SettingEntry(Tour.ROUTE_PLAYER, R.string.head_tracking_lead, under = R.string.head_tracking),
     SettingEntry(Tour.ROUTE_PLAYER, R.string.head_tracking_calibrate, under = R.string.head_tracking),
-    SettingEntry(Tour.ROUTE_PLAYER, R.string.proximity_volume, R.string.proximity_volume_description),
+    SettingEntry(Tour.ROUTE_PLAYER, R.string.proximity_volume),
     SettingEntry(Tour.ROUTE_PLAYER, R.string.audio_normalization, R.string.audio_normalization_description, words = listOf(R.string.search_words_normalization)),
     SettingEntry(Tour.ROUTE_PLAYER, R.string.skip_silence),
+    SettingEntry(Tour.ROUTE_PLAYER, R.string.varispeed, R.string.varispeed_description, words = listOf(R.string.search_words_varispeed), there = Unreleased.VARISPEED),
     SettingEntry(Tour.ROUTE_PLAYER, R.string.loudness_repair, words = listOf(R.string.search_words_normalization)),
     SettingEntry(Tour.ROUTE_PLAYER, R.string.equalizer, words = listOf(R.string.search_words_equalizer)),
     SettingEntry(Tour.ROUTE_PLAYER, R.string.auto_skip_next_on_error),
@@ -173,7 +179,6 @@ val SETTINGS_INDEX: List<SettingEntry> = listOf(
     SettingEntry(Tour.ROUTE_PLAYER, R.string.share_audio_focus, words = listOf(R.string.search_words_audio_focus)),
     SettingEntry(Tour.ROUTE_PLAYER, R.string.resume_on_bluetooth, R.string.resume_on_bluetooth_description, words = listOf(R.string.search_words_bluetooth)),
     SettingEntry(Tour.ROUTE_PLAYER, R.string.sleep_timer_fade, words = listOf(R.string.search_words_sleep)),
-    SettingEntry(Tour.ROUTE_PLAYER, R.string.sleep_timer_fade_duration, under = R.string.sleep_timer_fade),
     SettingEntry(Tour.ROUTE_PLAYER, R.string.sleep_schedule, words = listOf(R.string.search_words_sleep)),
     SettingEntry(Tour.ROUTE_PLAYER, R.string.sleep_schedule_start, under = R.string.sleep_schedule),
     SettingEntry(Tour.ROUTE_PLAYER, R.string.sleep_schedule_length, under = R.string.sleep_schedule),
@@ -184,7 +189,7 @@ val SETTINGS_INDEX: List<SettingEntry> = listOf(
     SettingEntry(Tour.ROUTE_PLAYER, R.string.stage_width, fold = R.string.advanced, under = R.string.spatial_audio),
     SettingEntry(Tour.ROUTE_PLAYER, R.string.spatial_strength, fold = R.string.advanced, under = R.string.spatial_audio, there = Unreleased.SPATIAL_TUNING),
     SettingEntry(Tour.ROUTE_PLAYER, R.string.spatial_room, fold = R.string.advanced, under = R.string.spatial_audio, there = Unreleased.SPATIAL_TUNING),
-    SettingEntry(Tour.ROUTE_PLAYER, R.string.spatial_bass, R.string.spatial_bass_description, fold = R.string.advanced, under = R.string.spatial_audio, there = Unreleased.SPATIAL_TUNING),
+    SettingEntry(Tour.ROUTE_PLAYER, R.string.spatial_bass, fold = R.string.advanced, under = R.string.spatial_audio, there = Unreleased.SPATIAL_TUNING),
     SettingEntry(Tour.ROUTE_PLAYER, R.string.spatial_ambience, fold = R.string.advanced, under = R.string.spatial_audio, there = Unreleased.SPATIAL_TUNING && Unreleased.DIRECT_AMBIENT),
     SettingEntry(Tour.ROUTE_PLAYER, R.string.audio_decoder_preference, fold = R.string.advanced, there = ENABLE_FFMETADATAEX),
     SettingEntry(Tour.ROUTE_PLAYER, R.string.keep_alive_title, fold = R.string.advanced, words = listOf(R.string.search_words_keep_alive)),
@@ -204,7 +209,6 @@ val SETTINGS_INDEX: List<SettingEntry> = listOf(
     SettingEntry(Tour.ROUTE_LYRICS, R.string.enable_kugou, R.string.enable_kugou_description, there = !Unreleased.LYRICS_SOURCES),
     SettingEntry(Tour.ROUTE_LYRICS, R.string.lyrics_prefer_local),
     SettingEntry(Tour.ROUTE_LYRICS, R.string.lyrics_multiline_title, R.string.lyrics_multiline_description),
-    SettingEntry(Tour.ROUTE_LYRICS, R.string.lyrics_trim_title),
     SettingEntry(Tour.ROUTE_LYRICS, R.string.lyrics_text_position),
     SettingEntry(Tour.ROUTE_LYRICS, R.string.lyrics_font_Size, words = listOf(R.string.search_words_text_size)),
     SettingEntry(Tour.ROUTE_LYRICS, R.string.lyrics_latin_title, R.string.lyrics_latin_description, words = listOf(R.string.search_words_latin)),
@@ -214,7 +218,10 @@ val SETTINGS_INDEX: List<SettingEntry> = listOf(
     SettingEntry(Tour.ROUTE_LYRICS, R.string.lyrics_karaoke_hz_title, fold = R.string.advanced),
 
     // Listen together, where rooms are offered
+    SettingEntry("settings/together", R.string.together_everyone_seeks, R.string.together_everyone_seeks_explain, there = togetherAvailable),
+    SettingEntry("settings/together", R.string.together_everyone_arranges, there = togetherAvailable),
     SettingEntry("settings/together", R.string.together_name_setting, there = togetherAvailable),
+    SettingEntry("settings/together", R.string.together_tour_entry, there = togetherAvailable),
 
     // Storage and downloads
     SettingEntry(Tour.ROUTE_STORAGE, R.string.download_on_wifi_only_title, R.string.download_on_wifi_only_description, words = listOf(R.string.search_words_mobile_data)),
@@ -222,13 +229,17 @@ val SETTINGS_INDEX: List<SettingEntry> = listOf(
     SettingEntry(Tour.ROUTE_STORAGE, R.string.like_autodownload, words = listOf(R.string.search_words_offline)),
     SettingEntry(Tour.ROUTE_STORAGE, R.string.liked_autodownload_backfill_title, under = R.string.like_autodownload, words = listOf(R.string.search_words_offline)),
     SettingEntry(Tour.ROUTE_STORAGE, R.string.liked_download_sync, R.string.liked_download_sync_description, under = R.string.like_autodownload, there = Unreleased.LIKED_SYNC),
-    SettingEntry(Tour.ROUTE_STORAGE, R.string.dl_main_path_title, words = listOf(R.string.search_words_download_folder)),
+    // Where downloads go: one row or the other, as the page's look draws it (DownloadsSimpleLook). The simpler page's
+    // is found by today's row's name too, which every language has: its own is in English and French only so far.
+    SettingEntry(Tour.ROUTE_STORAGE, R.string.dl_simple_where_title, words = listOf(R.string.search_words_download_folder, R.string.dl_main_path_title), there = DownloadsSimpleLook.thisBuild.oneRow),
+    SettingEntry(Tour.ROUTE_STORAGE, R.string.dl_main_path_title, words = listOf(R.string.search_words_download_folder), there = !DownloadsSimpleLook.thisBuild.oneRow),
     SettingEntry(Tour.ROUTE_STORAGE, R.string.download_format, words = listOf(R.string.search_words_download_format), there = Unreleased.DOWNLOAD_FORMATS),
     SettingEntry(Tour.ROUTE_STORAGE, R.string.download_bitrate, under = R.string.download_format, words = listOf(R.string.search_words_audio_quality), there = Unreleased.DOWNLOAD_FORMATS),
     SettingEntry(Tour.ROUTE_STORAGE, R.string.clear_all_downloads),
     SettingEntry(Tour.ROUTE_STORAGE, R.string.dl_extra_path_title, R.string.dl_extra_path_description, fold = R.string.advanced),
     SettingEntry(Tour.ROUTE_STORAGE, R.string.dl_rescan_title, R.string.dl_rescan_description, fold = R.string.advanced),
-    SettingEntry(Tour.ROUTE_STORAGE, R.string.dl_migrate_title, R.string.dl_migrate_description, fold = R.string.advanced, words = listOf(R.string.search_words_download_folder)),
+    // Drawn only on today's page: the simpler one offers the move from its one row (DownloadsFrag, !look.oneRow).
+    SettingEntry(Tour.ROUTE_STORAGE, R.string.dl_migrate_title, R.string.dl_migrate_description, fold = R.string.advanced, words = listOf(R.string.search_words_download_folder), there = !DownloadsSimpleLook.thisBuild.oneRow),
     SettingEntry(Tour.ROUTE_STORAGE, R.string.song_cache_max_size, words = listOf(R.string.search_words_cache)),
     SettingEntry(Tour.ROUTE_STORAGE, R.string.clear_song_cache, words = listOf(R.string.search_words_cache)),
     SettingEntry(Tour.ROUTE_STORAGE, R.string.image_cache_max_size, words = listOf(R.string.search_words_cache)),
@@ -278,7 +289,6 @@ val SETTINGS_INDEX: List<SettingEntry> = listOf(
     SettingEntry(Tour.ROUTE_RECOMMENDATIONS, R.string.show_reasons, R.string.show_reasons_description),
     SettingEntry(Tour.ROUTE_RECOMMENDATIONS, R.string.adventurousness),
     SettingEntry(Tour.ROUTE_RECOMMENDATIONS, R.string.familiarity),
-    SettingEntry(Tour.ROUTE_RECOMMENDATIONS, R.string.new_songs_only, R.string.new_songs_only_description),
     SettingEntry(Tour.ROUTE_RECOMMENDATIONS, R.string.similar_source, words = listOf(R.string.similar_source_youtube, R.string.similar_source_lastfm)),
     SettingEntry(Tour.ROUTE_RECOMMENDATIONS, R.string.learn_from_listening, R.string.learn_from_listening_description),
     SettingEntry(Tour.ROUTE_RECOMMENDATIONS, R.string.rest_songs_i_skip, R.string.rest_songs_i_skip_description),

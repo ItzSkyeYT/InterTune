@@ -29,7 +29,6 @@
     <string name="swipe2Queue_description">曲をスワイプして、再生中の曲の直後のキューに追加</string>
     <string name="lyrics_multiline_title">複数行の歌詞を読み込む</string>
     <string name="lyrics_multiline_description">同期ポイント間のすべての行を1つの歌詞テキストとして扱う</string>
-    <string name="lyrics_trim_title">歌詞の前後の空白を削除する</string>
     <string name="lyrics_font_Size">文字の大きさ</string>
     <string name="local_player_settings_title">端末内メディア</string>
     <string name="m3u_import_playlist">再生リストをインポート (m3u)</string>
@@ -268,7 +267,6 @@
     <string name="oobe_update_check_title">アップデートをお知らせしますか？</string>
     <string name="oobe_update_check_yes">確認する</string>
     <string name="player_glass_intensity">ガラス効果の強さ</string>
-    <string name="player_glass_intensity_description">高いほど透明感と屈折が強くなり、低いほど通常の不透明な面に近づきます</string>
     <string name="player_glass_intensity_value">%1$d%%</string>
     <string name="player_liquid_glass">Liquid glass</string>
     <string name="player_liquid_glass_description">ナビゲーションバー、ミニプレーヤー、再生コントロールをガラス風の浮遊パネルにし、再生画面の背景のアートワークの色を豊かにします</string>
@@ -292,7 +290,6 @@
     <string name="oobe_update_auto_description">バックグラウンドで取得しておき、必要になったときにすぐ使えるようにします。Android での確認は引き続き求められます。</string>
     <string name="oobe_polls_answered">設定の「質問」からいつでも変更できます。</string>
     <string name="poll_title">InterTune からの質問</string>
-    <string name="poll_banner_hint">タップして回答、または × で閉じます</string>
     <string name="poll_dismiss">この質問を閉じる</string>
     <string name="poll_close">閉じる</string>
     <string name="poll_send">回答を送信</string>
@@ -353,7 +350,6 @@
     <string name="image_cache_max_size">アートワークキャッシュの上限</string>
     <string name="max_queues_description">アプリが同時に保持するキューの数です。これを超えると古いものから削除されます。</string>
     <string name="enable_proxy_description">YouTube Music へのリクエストとストリームを、まず別のサーバー経由にします。画像、歌詞、アプリが使うその他のサービスは、これまでどおり直接接続します。必要だと分かっている場合を除き、オフのままにしてください。</string>
-    <string name="show_liked_and_downloaded_playlist_description">高く評価した曲とダウンロードした曲を、ライブラリにプレイリストとして表示します。</string>
     <string name="pause_listen_history_description">履歴への曲の追加を止めます。すでに入っているものは削除されません。</string>
     <string name="pause_remote_listen_history_description">再生内容を YouTube Music に伝えるのを止めます。このアプリ内の履歴はどちらの場合も続きます。</string>
     <string name="clear_listen_history_description">再生した内容についてアプリが記録したものをすべて削除します。</string>

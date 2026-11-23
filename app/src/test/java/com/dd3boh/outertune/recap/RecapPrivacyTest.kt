@@ -1,0 +1,116 @@
+/*
+ * Copyright (C) 2026 InterTune
+ *
+ * SPDX-License-Identifier: GPL-3.0
+ */
+
+package com.dd3boh.outertune.recap
+
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
+import org.junit.Test
+import java.io.File
+
+/**
+ * "Worked out on this phone. Nothing was uploaded." The start screen says so, and these hold it
+ * to that, read from the source as ReleasedFlagsTest reads the flags: the Recap's code talks to
+ * nothing on the network but its sound, which asks YouTube for each song as playing it would and
+ * for its heat map as a visitor, its one count goes through PollChecker as a banner's does
+ * (RecapCountTest), the year card's second button, which on the listener's own ask puts the
+ * playlist on their YouTube Music account (RecapPlaylistTest), and its tools for testing stay in
+ * debug builds.
+ */
+class RecapPrivacyTest {
+    private val sources = File("src/main/java/com/dd3boh/outertune")
+
+    /** The text without its comments, so that a sentence naming something is not taken for code. */
+    private fun code(file: File) = file.readText()
+        .replace(Regex("""/\*.*?\*/""", RegexOption.DOT_MATCHES_ALL), "")
+        .lines().joinToString("\n") { it.substringBefore("//") }
+
+    private val recapFiles = listOf("recap", "ui/screens/recap")
+        .flatMap { File(sources, it).listFiles()?.toList().orEmpty() }
+        .filter { it.extension == "kt" }
+
+    @Test
+    fun `nothing of the Recap talks to the network, the sample of a debug build, the heat maps and the playlist's copy aside`() {
+        assertTrue("the Recap's files were not found", recapFiles.size >= 10)
+        val network = listOf("okhttp3", "HttpURLConnection", "java.net.URL", "YouTube.", "Umami", "PollChecker", "Firebase")
+        for (file in recapFiles.filter { it.name != "RecapSample.kt" }) {
+            // The sound's one request, a song's heat map: below. The playlist's copy on YouTube Music, on the listener's second tap: RecapPlaylistTest.
+            val text = code(file).let {
+                when (file.name) {
+                    "RecapPlayer.kt" -> it.replace("YouTube.heatMap(", "")
+                    "RecapPlaylist.kt" -> it.replace("YouTube.createPlaylist(", "").replace("YouTube.addToPlaylist(", "").replace("YouTube.deletePlaylist(", "")
+                    else -> it
+                }
+            }
+            for (word in network) assertFalse("${file.name} uses $word", word in text)
+        }
+    }
+
+    @Test
+    fun `the sound asks for one heat map a song, never for a local file, and as a visitor`() {
+        val player = code(File(sources, "recap/RecapPlayer.kt"))
+        assertEquals(1, Regex("""YouTube\.heatMap\(""").findAll(player).count())
+        // Asked only for the songs that are not files on the phone, once each.
+        assertTrue("pages.mapNotNull { it.song }.filterNot { it.local }.map { it.id }.distinct()" in player)
+        // And not while YouTube is refusing the app.
+        assertTrue("if (Throttle.isBlocked) return null" in player)
+        // Without the account: RecapHeatTest reads the request.
+        val tube = code(File("../innertube/src/main/java/com/zionhuang/innertube/InnerTube.kt"))
+        assertTrue("ytClient(YouTubeClient.WEB, setLogin = false)" in tube)
+    }
+
+    @Test
+    fun `its count is asked for in one place, when the story is opened`() {
+        val callers = sources.walkTopDown()
+            .filter { it.extension == "kt" && it.name != "PollChecker.kt" && "recapOpened(" in code(it) }
+            .map { it.name }
+            .toSet()
+        assertEquals(setOf("RecapViewModel.kt"), callers)
+        // From the story's start screen, the moment it is opened: the Recap looked at.
+        assertTrue("onOpened = { viewModel.opened(year) }" in code(File(sources, "ui/screens/recap/RecapEntry.kt")))
+    }
+
+    @Test
+    fun `the made-up year is written in a debug build only, and never over a phone's own listening`() {
+        val sample = code(File(sources, "recap/RecapSample.kt"))
+        assertTrue("fun offered() = BuildConfig.BUILD_TYPE == \"debug\" && Unreleased.RECAP" in sample)
+        assertTrue("if (!offered()) return null" in sample)
+        // Only the shell may send the broadcast.
+        assertTrue("Manifest.permission.DUMP" in sample)
+        // Refused before anything is searched for or written.
+        val refusal = sample.indexOf("if (existing > MOST_EXISTING_LISTENS)")
+        assertTrue("the sample does not check what the database holds", refusal >= 0)
+        assertTrue(refusal < sample.indexOf("ImportSearch.songs") && refusal < sample.indexOf("transactionNow"))
+        assertEquals(50, RecapSample.MOST_EXISTING_LISTENS)
+    }
+
+    @Test
+    fun `the made-up year is never counted`() {
+        val sample = code(File(sources, "recap/RecapSample.kt"))
+        // Written down as counted, for the year and the one before, after the refusal and before anything else is written.
+        val counted = sample.indexOf("it[ViewedPollIdsKey] = it[ViewedPollIdsKey].orEmpty() + RecapCount.id(thisYear - 1) + RecapCount.id(thisYear)")
+        assertTrue("the sample does not write its Recap down as counted", counted >= 0)
+        assertTrue(sample.indexOf("if (existing > MOST_EXISTING_LISTENS)") < counted)
+        assertTrue(counted < sample.indexOf("ImportSearch.songs") && counted < sample.indexOf("transactionNow"))
+        // And the count is only ever sent for a first opening, which that record rules out.
+        val poll = code(File(sources, "utils/PollChecker.kt"))
+        assertTrue("if (!firstOpening(RecapCount.id(year)) || !Polls.isConfigured || standIn() != null) return@withContext" in poll)
+    }
+
+    @Test
+    fun `the developer's ways in are never a release's`() {
+        // The builds that show what is held back (PREVIEW_FEATURES: the debug app, the Preview, the
+        // Tester app, which is not debuggable, so DEBUG would hide them there: ReleasedFlagsTest).
+        val developer = code(File(sources, "ui/screens/settings/fragments/DeveloperFrag.kt"))
+        assertTrue("if (BuildConfig.PREVIEW_FEATURES && Unreleased.RECAP) {" in developer.lines().map { it.trim() })
+        val entry = code(File(sources, "ui/screens/recap/RecapEntry.kt"))
+        // "Today is the reveal day" counts where its row is and nowhere else, for the pop-up, for the
+        // banner in Settings and for its season on Home.
+        assertEquals(3, Regex("""revealedEarly && BuildConfig\.PREVIEW_FEATURES""").findAll(entry).count())
+        assertFalse("BuildConfig.DEBUG" in entry)
+    }
+}

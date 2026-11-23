@@ -80,7 +80,6 @@
     <string name="oobe_update_check_title">Vols que t\'avisem de les actualitzacions?</string>
     <string name="oobe_update_check_yes">Sí, mira-ho</string>
     <string name="player_glass_intensity">Intensitat del vidre</string>
-    <string name="player_glass_intensity_description">Com més alta, més transparent i més refractada; com més baixa, més semblant a superfícies sòlides</string>
     <string name="player_glass_intensity_value">%1$d%%</string>
     <string name="player_liquid_glass">Vidre líquid</string>
     <string name="player_liquid_glass_description">Plafons de vidre flotants per a la barra de navegació, el mini reproductor i els controls, i colors de portada més intensos darrere la pantalla de reproducció</string>
@@ -104,7 +103,6 @@
     <string name="oobe_update_auto_description">La baixa en segon pla perquè estigui a punt quan la vulguis. L’Android continuarà demanant-te confirmació.</string>
     <string name="oobe_polls_answered">Pots canviar-ho quan vulguis a Configuració, dins Preguntes.</string>
     <string name="poll_title">Una pregunta d’InterTune</string>
-    <string name="poll_banner_hint">Toca per respondre, o tanca amb la creu</string>
     <string name="poll_dismiss">Descarta aquesta pregunta</string>
     <string name="poll_close">Tanca</string>
     <string name="poll_send">Envia la meva resposta</string>
@@ -165,7 +163,6 @@
     <string name="image_cache_max_size">Mida màxima de la memòria cau de cobertes</string>
     <string name="max_queues_description">Quantes cues manté l’aplicació alhora. La més antiga es descarta quan passes d’aquest nombre.</string>
     <string name="enable_proxy_description">Fes passar les peticions i els fluxos de YouTube Music primer per un altre servidor. Les imatges, les lletres i els altres serveis que fa servir l’aplicació continuen connectant-se directament. Deixa-ho desactivat si no saps que ho necessites.</string>
-    <string name="show_liked_and_downloaded_playlist_description">Mostra Cançons que m’agraden i Cançons baixades com a llistes a la teva biblioteca.</string>
     <string name="pause_listen_history_description">Deixa d’afegir cançons al teu historial. No s’elimina res del que ja hi ha.</string>
     <string name="pause_remote_listen_history_description">Deixa de dir a YouTube Music què reprodueixes. L’historial dins d’aquesta aplicació continua igualment.</string>
     <string name="clear_listen_history_description">Elimina tot el que l’aplicació ha registrat sobre el que has reproduït.</string>

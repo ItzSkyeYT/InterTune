@@ -251,7 +251,7 @@ class WelcomeBackTest {
     @Test
     fun `a setting is reached the way somebody would go there, through the row it is under`() {
         val insideSettings = NEW_THINGS.filter { thing -> thing.stops.any { it.route != null } }
-        assertEquals(listOf("block_artist", "liked_sync", "album_goes_on", "animations", "downloads_move", "report_send", "backup_parts", "player_pins", "settings_search", "battery_use", "share_links", "radios", "living_blur", "sleep_schedule", "content_filters", "equalizer", "resume_bluetooth", "library_import", "explain_pictures", "problem_report", "spatial_audio"), ids(insideSettings))
+        assertEquals(listOf("listenbrainz", "vibration", "metrolist_import", "file_format", "block_artist", "liked_sync", "album_goes_on", "animations", "downloads_move", "report_send", "backup_parts", "player_pins", "settings_search", "battery_use", "share_links", "radios", "living_blur", "sleep_schedule", "content_filters", "equalizer", "resume_bluetooth", "library_import", "explain_pictures", "problem_report", "spatial_audio"), ids(insideSettings))
         // What is on the list of settings itself is pointed at there, and there is nothing to go
         // into: the search over the list, and Battery use, a row of its own on it.
         val onTheList = listOf("settings_search", "battery_use")
@@ -443,21 +443,25 @@ class WelcomeBackTest {
         assertTrue(newThingsFor(v0125, buildVersionCode = v0129).none { it.release == "0.13" })
         assertTrue(newThingsFor(v0125, buildVersionCode = v01210).none { it.release == "0.13" })
         val things = newThingsFor(v0129, buildVersionCode = v013)
-        // His eight of 8 Nov 2026, then the four merged since (drafted 12 Nov for his yes): Stats'
-        // plays, swiping out of the queue with Undo, the move to a chosen folder, original audio.
+        // The headline features first (21 Nov 2026, the release inventory), then his eight of 8 Nov 2026, then the four
+        // merged since (drafted 12 Nov for his yes): Stats' plays, swiping out of the queue with Undo, the move to a
+        // chosen folder, original audio.
         assertEquals(
-            listOf("block_artist", "dont_play", "saved_twice", "sleep_timer_more", "liked_sync", "album_goes_on", "recognise_offline", "animations",
+            listOf("together", "airplay", "listenbrainz", "vibration", "metrolist_import", "custom_order", "file_format",
+                "block_artist", "dont_play", "saved_twice", "sleep_timer_more", "liked_sync", "album_goes_on", "recognise_offline", "animations",
                 "stats_plays", "queue_swipe_undo", "downloads_move", "original_audio"),
             ids(things),
         )
-        // 0.12.10, fixes only, took 102: whoever had a tour on it is owed the same twelve.
+        // A phone without rooms (before Android 8) is not told about them.
+        assertTrue(newThingsFor(v0129, buildVersionCode = v013, install = Install(rooms = false)).none { it.id == "together" })
+        // 0.12.10, fixes only, took 102: whoever had a tour on it is owed the same nineteen.
         assertEquals(ids(things), ids(newThingsFor(v01210, buildVersionCode = v013)))
         assertEquals("0.13", releaseAt(v013))
         assertEquals("0.12.8", releaseAt(v01210))
-        // The card on Home counts the five that have somewhere to show in Settings; the seven that
-        // live in the player, the queue, menus and lists are read on the page.
-        assertEquals(WelcomeCard(count = 5, since = "0.12.8"), welcomeCardFor(seenVersionCode = v0129, buildVersionCode = v013, enabled = true))
-        assertEquals(WelcomeCard(count = 5, since = "0.12.8"), welcomeCardFor(seenVersionCode = v01210, buildVersionCode = v013, enabled = true))
+        // The card on Home counts the nine that have somewhere to show in Settings; the ten that
+        // live on Home, in the player, the queue, menus and lists are read on the page.
+        assertEquals(WelcomeCard(count = 9, since = "0.12.8"), welcomeCardFor(seenVersionCode = v0129, buildVersionCode = v013, enabled = true))
+        assertEquals(WelcomeCard(count = 9, since = "0.12.8"), welcomeCardFor(seenVersionCode = v01210, buildVersionCode = v013, enabled = true))
     }
 
     @Test

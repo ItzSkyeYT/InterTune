@@ -499,21 +499,25 @@ private const val PICTURE_PLACEHOLDER = 0x1FFFFFFF
 
 /**
  * [content] at [spot] of a box [w] by [h] dp, from its top start: a look puts each thing where its
- * plan says. The box is the whole of its parent, padded on the left and the top down to the spot,
- * and right to left the spot is mirrored here: where a thing lands depends on no gravity and on no
- * reading of start and end, which a widget's views and Glance's padding were seen to take apart.
+ * plan says. The box is the whole of its parent, padded on all four sides down to the spot
+ * ([Spot.around]), and right to left the spot is mirrored there: where a thing lands depends on no
+ * gravity and on no reading of start and end, which a widget's views and Glance's padding were seen
+ * to take apart. Glance puts a box's child at its start and top, and right to left the start is the
+ * right: padded on the left and the top alone (9 Nov), every part went to the right edge of the
+ * widget or of its row, the words and the buttons over the cover, Big cover's mosaic over the big
+ * cover, and every song's tap in Crate and Records to the end of its row.
  *
- * The thing is its spot's size and no more. It used to fill what was left of the parent after the
- * padding on all four sides, which is the spot only while the widget is exactly the size it was
- * planned for: while the launcher had the widget at a new size and the app had not drawn it yet
- * (a resize on a Samsung's home screen), every picture was stretched to the new room, records into
- * ellipses. Now it stays as it was drawn, and the new layout replaces it when it is there.
+ * The thing is its spot's size and no more. It used to fill what the padding left, which is the
+ * spot only while the widget is exactly the size it was planned for: while the launcher had the
+ * widget at a new size and the app had not drawn it yet (a resize on a Samsung's home screen),
+ * every picture was stretched to the new room, records into ellipses. Now it stays as it was
+ * drawn, as far from the edge the language starts at, and the new layout replaces it when it is there.
  */
 @Composable
 private fun At(w: Int, h: Int, rtl: Boolean, spot: Spot, modifier: GlanceModifier = GlanceModifier, content: @Composable () -> Unit) {
-    val x = if (rtl) w - spot.x - spot.w else spot.x
+    val pad = spot.around(w, h, rtl)
     Box(
-        modifier = GlanceModifier.fillMaxSize().absolutePadding(left = x.coerceAtLeast(0).dp, top = spot.y.coerceAtLeast(0).dp),
+        modifier = GlanceModifier.fillMaxSize().absolutePadding(left = pad.left.dp, top = pad.top.dp, right = pad.right.dp, bottom = pad.bottom.dp),
     ) {
         Box(modifier = modifier.size(spot.w.dp, spot.h.dp)) { content() }
     }
@@ -1068,7 +1072,8 @@ private fun Artwork(art: Bitmap?, w: Int, h: Int, paint: Paint, description: Str
 @Composable
 private fun Note(size: Int, tint: ColorProvider) {
     Image(
-        provider = ImageProvider(R.drawable.music_note),
+        // The rounded note of the app's own cover for a song without one (#150), as everywhere a cover is missing.
+        provider = ImageProvider(R.drawable.note_rounded),
         contentDescription = null,
         colorFilter = ColorFilter.tint(tint),
         modifier = GlanceModifier.size(size.dp),

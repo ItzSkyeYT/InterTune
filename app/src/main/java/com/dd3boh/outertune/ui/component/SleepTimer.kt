@@ -69,12 +69,18 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.SleepScheduleKey
 import com.dd3boh.outertune.constants.SleepScheduleStartKey
@@ -119,14 +125,22 @@ fun rememberSleepTimerStatus(playerConnection: PlayerConnection): SleepTimer.Sta
     val end = timer.endOf
 
     var status by remember { mutableStateOf<SleepTimer.Status?>(null) }
-    LaunchedEffect(active, trigger, end) {
+    // Once a second, and only while somebody can see it. A LaunchedEffect is not stopped when the
+    // screen goes off or another app comes in front, so a bare loop here woke the main thread every
+    // second for the timer's whole run, and at the end of an album or the queue each look walks the
+    // rest of the queue. STARTED as the player's progress bar: still seen behind a dialog. Nothing is
+    // lost while it sleeps, since status() works the time out afresh at the first look after ON_START.
+    val lifecycleOwner = LocalLifecycleOwner.current
+    LaunchedEffect(active, trigger, end, lifecycleOwner) {
         if (!active) {
             status = null
             return@LaunchedEffect
         }
-        while (isActive) {
-            status = timer.status()
-            delay(1000L)
+        lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            while (isActive) {
+                status = timer.status()
+                delay(1000L)
+            }
         }
     }
     return if (active) status ?: timer.status() else null
@@ -177,6 +191,8 @@ fun SleepTimerDialog(playerConnection: PlayerConnection, onDismiss: () -> Unit) 
     var sleepTimerValue by remember {
         mutableFloatStateOf(30f)
     }
+    // The clock time of the At chip tapped last, or null: the timer then stops at that time itself (startAt).
+    var clockAt by remember { mutableStateOf<Long?>(null) }
     val landscape = LocalLandscape.current
     val timer = playerConnection.service.sleepTimer
     val status = rememberSleepTimerStatus(playerConnection)
@@ -223,7 +239,12 @@ fun SleepTimerDialog(playerConnection: PlayerConnection, onDismiss: () -> Unit) 
                 if (status == null) {
                     SetTimer(
                         value = sleepTimerValue,
-                        onValueChange = { sleepTimerValue = it },
+                        // A length chosen by hand is a length: only a clock chip, tapped last, stops at its time.
+                        onValueChange = {
+                            sleepTimerValue = it
+                            clockAt = null
+                        },
+                        onAt = { clockAt = it },
                         onEnd = { end ->
                             onDismiss()
                             timer.start(end)
@@ -252,7 +273,8 @@ fun SleepTimerDialog(playerConnection: PlayerConnection, onDismiss: () -> Unit) 
                     TextButton(
                         onClick = {
                             onDismiss()
-                            timer.start(sleepTimerValue.roundToInt())
+                            // At a clock time, at that time to the second; else, or once it has gone by, the minutes shown.
+                            if (clockAt?.let(timer::startAt) != true) timer.start(sleepTimerValue.roundToInt())
                         }
                     ) {
                         Text(stringResource(R.string.sleep_start))
@@ -277,7 +299,7 @@ fun SleepTimerDialog(playerConnection: PlayerConnection, onDismiss: () -> Unit) 
 
 /** The length, as a slider with its answer above it, and the rows of ways to pick one: In, At and End of. */
 @Composable
-private fun SetTimer(value: Float, onValueChange: (Float) -> Unit, onEnd: (SleepEnd) -> Unit) {
+private fun SetTimer(value: Float, onValueChange: (Float) -> Unit, onAt: (Long) -> Unit, onEnd: (SleepEnd) -> Unit) {
     val focusRequester = remember {
         FocusRequester()
     }
@@ -361,11 +383,19 @@ private fun SetTimer(value: Float, onValueChange: (Float) -> Unit, onEnd: (Sleep
             )
         }
 
+        // For TalkBack, what the slider sets and the length it is at, as the line above says it
+        // ("30 minutes"). A bare Slider was read as a percent of its range, 1 to 120 minutes.
+        val sliderName = stringResource(R.string.sleep_timer)
         Slider(
             value = value,
             onValueChange = onValueChange,
             valueRange = 1f..120f,
-            modifier = Modifier.padding(bottom = 4.dp)
+            modifier = Modifier
+                .padding(bottom = 4.dp)
+                .semantics {
+                    contentDescription = sliderName
+                    stateDescription = pluralString
+                }
         )
 
         // In: how long from now. The lengths the leading players offer, and 90.
@@ -381,12 +411,15 @@ private fun SetTimer(value: Float, onValueChange: (Float) -> Unit, onEnd: (Sleep
 
         // At: the next quarters of the hour, as the clock will read.
         ChipRow(stringResource(R.string.sleep_row_at)) {
-            val times = listOf(15L, 30L, 45L, 60L).map { getNextInterval(it) }.sortedBy { it.second }
-            for ((timeString, length) in times) {
+            val times = listOf(15L, 30L, 45L, 60L).map { getNextInterval(it) }.sortedBy { it.minutes }
+            for (chip in times) {
                 SleepChip(
-                    text = timeString,
-                    selected = minutes == length.roundToInt(),
-                    onClick = { onValueChange(length) },
+                    text = chip.text,
+                    selected = minutes == chip.minutes.roundToInt(),
+                    onClick = {
+                        onValueChange(chip.minutes)
+                        onAt(chip.atMs)
+                    },
                 )
             }
         }
@@ -579,30 +612,24 @@ private fun SleepChip(text: String, selected: Boolean = false, onClick: () -> Un
     }
 }
 
-fun getNextInterval(targetMin: Long): Pair<String, Float> {
+/** A clock time under At: as it reads, the minutes until it (for the slider), and the moment itself. */
+data class ClockChip(val text: String, val minutes: Float, val atMs: Long)
+
+/**
+ * The next time the clock reads [targetMin] past an hour (60: the next full hour), at its first second: 4:00 PM is
+ * 16:00:00, not now plus whole minutes (21 Nov 2026: picked at 15:45:14 it stopped at 16:01).
+ */
+fun getNextInterval(targetMin: Long, now: LocalDateTime = LocalDateTime.now()): ClockChip {
     require(targetMin in 1..60) { "Interval must be between 1 and 60 minutes" }
-
-    val now = LocalDateTime.now()
+    val minute = now.truncatedTo(ChronoUnit.MINUTES)
     val intervalMinutes = targetMin - now.minute
-
-    val targetTime: LocalDateTime = if (intervalMinutes > 0) {
-        // Within this hour
-        now.plusMinutes(intervalMinutes)
-    } else if (intervalMinutes < 0) {
-        // Next hour
-        now.plusHours(1).plusMinutes(targetMin - now.minute)
-//        now.plusMinutes((60 - now.minute) + targetMin)        // other way to calculate targetTime
-    } else {
-        // Equal to 0
-        now.plusHours(1)
+    val targetTime: LocalDateTime = when {
+        intervalMinutes > 0 -> minute.plusMinutes(intervalMinutes)
+        intervalMinutes < 0 -> minute.plusHours(1).plusMinutes(targetMin - now.minute)
+        else -> minute.plusHours(1)
     }
-
-    // Format the time
-    val timeString = SimpleDateFormat.getTimeInstance(SimpleDateFormat.SHORT, Locale.getDefault())
-        .format(Date(targetTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()))
-
-    // Calculate minutes between now and target
-    val minutesBetween = ChronoUnit.MINUTES.between(now, targetTime).toFloat()
-
-    return Pair(timeString, minutesBetween)
+    val atMs = targetTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+    val text = SimpleDateFormat.getTimeInstance(SimpleDateFormat.SHORT, Locale.getDefault()).format(Date(atMs))
+    val nowMs = now.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+    return ClockChip(text, ((atMs - nowMs) / 60_000.0).toFloat(), atMs)
 }

@@ -7,10 +7,12 @@
  */
 package com.dd3boh.outertune.ui.screens.settings.fragments
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Sort
 import androidx.compose.material.icons.rounded.ContentCut
@@ -38,11 +40,11 @@ import com.dd3boh.outertune.constants.LyricClickable
 import com.dd3boh.outertune.constants.LyricAutoScrollKey
 import androidx.compose.material.icons.rounded.SwapVert
 import com.dd3boh.outertune.constants.LyricFontSizeKey
+import com.dd3boh.outertune.constants.BatteryModeKey
 import com.dd3boh.outertune.constants.LyricKaraokeEnable
 import com.dd3boh.outertune.constants.LyricLatinKey
 import com.dd3boh.outertune.constants.LyricSourcePrefKey
 import com.dd3boh.outertune.constants.Unreleased
-import com.dd3boh.outertune.constants.LyricTrimKey
 import com.dd3boh.outertune.constants.LyricUpdateSpeed
 import com.dd3boh.outertune.constants.LyricsPosition
 import com.dd3boh.outertune.constants.LyricsTextPositionKey
@@ -54,9 +56,11 @@ import com.dd3boh.outertune.ui.component.ListPreference
 import com.dd3boh.outertune.ui.component.PreferenceEntry
 import com.dd3boh.outertune.ui.component.SwitchPreference
 import com.dd3boh.outertune.ui.dialog.CounterDialog
+import com.dd3boh.outertune.playback.BatteryUse
 import com.dd3boh.outertune.utils.rememberEnumPreference
 import com.dd3boh.outertune.utils.rememberPreference
 import com.dd3boh.outertune.ui.screens.walkthrough.Tour
+import com.dd3boh.outertune.ui.screens.settings.MeaningLine
 import com.dd3boh.outertune.ui.screens.settings.settingRow
 import com.dd3boh.outertune.ui.screens.walkthrough.tourTarget
 
@@ -136,7 +140,6 @@ fun ColumnScope.LyricFormatFrag() {
 @Composable
 fun ColumnScope.LyricParserFrag() {
     val (multilineLrc, onMultilineLrcChange) = rememberPreference(MultilineLrcKey, defaultValue = true)
-    val (lyricTrim, onLyricTrimChange) = rememberPreference(LyricTrimKey, defaultValue = false)
 
     // multiline lyrics
     SwitchPreference(
@@ -146,15 +149,6 @@ fun ColumnScope.LyricParserFrag() {
         icon = { Icon(Icons.AutoMirrored.Rounded.Sort, null) },
         checked = multilineLrc,
         onCheckedChange = onMultilineLrcChange
-    )
-
-    // trim (remove spaces around) lyrics
-    SwitchPreference(
-        modifier = Modifier.settingRow(R.string.lyrics_trim_title),
-        title = { Text(stringResource(R.string.lyrics_trim_title)) },
-        icon = { Icon(Icons.Rounded.ContentCut, null) },
-        checked = lyricTrim,
-        onCheckedChange = onLyricTrimChange
     )
 }
 
@@ -200,6 +194,7 @@ fun ColumnScope.LyricSourceFrag() {
 fun ColumnScope.LyricAdvancedFrag() {
     val (lyricUpdateSpeed, onLyricsUpdateSpeedChange) = rememberEnumPreference(LyricUpdateSpeed, Speed.MEDIUM)
     val (lyricsFancy, onLyricsFancyChange) = rememberPreference(LyricKaraokeEnable, false)
+    val pickedBatteryMode by rememberEnumPreference(BatteryModeKey, BatteryUse.DEFAULT)
     val (syncedLyricsClickable, onSyncedLyricsClickable) = rememberPreference(LyricClickable, defaultValue = true)
     val (lyricsAutoScroll, onLyricsAutoScrollChange) = rememberPreference(LyricAutoScrollKey, defaultValue = true)
 
@@ -236,6 +231,14 @@ fun ColumnScope.LyricAdvancedFrag() {
             checked = lyricsFancy,
             onCheckedChange = onLyricsFancyChange
         )
+        // Word by word stands still while Saver is picked by hand in Battery use (Lyrics.kt, BatteryUse.holdsWordByWord):
+        // said here, so that it is not taken for broken (Niko, #testers, 18 Nov 2026). Android's battery saver alone no
+        // longer stops it (his pick of 19 Nov 2026).
+        if (lyricsFancy && BatteryUse.holdsWordByWord(pickedBatteryMode)) {
+            Box(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp)) {
+                MeaningLine(stringResource(R.string.lyrics_word_by_word_saver))
+            }
+        }
 
         ListPreference(
             modifier = Modifier.settingRow(R.string.lyrics_karaoke_hz_title),

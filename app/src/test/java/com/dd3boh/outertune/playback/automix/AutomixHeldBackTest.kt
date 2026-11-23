@@ -68,7 +68,7 @@ class AutomixHeldBackTest {
         val french = File(res, "values-fr/strings-ot.xml").readText()
         for (name in listOf("automix", "automix_description", "automix_explain", "transition_fade_automix_on")) {
             for ((language, file) in listOf("English" to english, "French" to french)) {
-                val text = Regex("""<string name="$name">(.*?)</string>""").find(file)?.groupValues?.get(1)
+                val text = Regex("""<string name="$name"[^>]*>(.*?)</string>""").find(file)?.groupValues?.get(1)
                 assertTrue("$name has no $language", text != null)
                 assertTrue("$name in $language has an em dash", '—' !in text!!)
                 assertTrue("$name in $language runs past three sentences", Regex("[.!?](?=\\s|$)").findAll(text).count() <= 3)

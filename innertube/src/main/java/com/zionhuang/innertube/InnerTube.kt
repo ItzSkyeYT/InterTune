@@ -374,6 +374,36 @@ class InnerTube {
     }
 
     /**
+     * A video's Most replayed heat map, and nothing else: the plain YouTube `next` (the WEB
+     * client; YouTube Music's own answers carry none), masked down to the one list, about 2 KB on
+     * the wire where the whole answer is about 55. A video with no heat map (under about 50,000
+     * views) comes back with the path empty. See [heatMapRequest].
+     */
+    suspend fun heatMap(videoId: String) = httpClient.post("next") { heatMapRequest(videoId) }
+
+    /**
+     * What [heatMap] sends, apart from where it goes, so that it can be read without a network:
+     * as a visitor, whatever account the app is signed in to (no cookie, no Authorization, nobody
+     * it is on behalf of), with the visitor's id and the locale as on every request of somebody
+     * signed out.
+     */
+    fun HttpRequestBuilder.heatMapRequest(videoId: String) {
+        ytClient(YouTubeClient.WEB, setLogin = false)
+        headers { append("X-Goog-FieldMask", HEAT_MAP_MASK) }
+        setBody(
+            NextBody(
+                context = YouTubeClient.WEB.toContext(locale, visitorData, null),
+                videoId = videoId,
+                playlistId = null,
+                playlistSetVideoId = null,
+                index = null,
+                params = null,
+                continuation = null,
+            )
+        )
+    }
+
+    /**
      * [next] as a visitor, for a radio that [next] could not have: no cookie, no Authorization, no
      * account named, and [visitorData] as the visitor's id (null for a visitor YouTube has never
      * seen, whose answer then carries a new one). Asked only after [next] failed or gave nothing.
@@ -534,6 +564,23 @@ class InnerTube {
         client: YouTubeClient,
         videoId: String,
     ) = httpClient.post("like/removelike") {
+        ytClient(client, setLogin = true)
+        setBody(
+            LikeBody(
+                context = client.toContext(locale, visitorData, accountId),
+                target = LikeBody.Target.VideoTarget(videoId)
+            )
+        )
+    }
+
+    /**
+     * YouTube Music's thumbs down. It takes the place of a like the song had, as the button does on
+     * YouTube Music, and [unlikeVideo] (removelike) takes either away.
+     */
+    suspend fun dislikeVideo(
+        client: YouTubeClient,
+        videoId: String,
+    ) = httpClient.post("like/dislike") {
         ytClient(client, setLogin = true)
         setBody(
             LikeBody(
@@ -715,5 +762,15 @@ class InnerTube {
                 playlistId = playlistId
             )
         )
+    }
+
+    companion object {
+        /**
+         * The one path [heatMap] asks for, as the X-Goog-FieldMask header: the list of markers under
+         * frameworkUpdates.entityBatchUpdate.mutations[].payload.macroMarkersListEntity, whose
+         * markerType is MARKER_TYPE_HEATMAP (100 markers of startMillis, durationMillis and
+         * intensityScoreNormalized). Read the markers, not the "Most replayed" label beside them.
+         */
+        const val HEAT_MAP_MASK = "frameworkUpdates.entityBatchUpdate.mutations.payload.macroMarkersListEntity.markersList"
     }
 }

@@ -22,6 +22,10 @@ import org.junit.Test
 import java.io.File
 import java.sql.Connection
 import java.sql.DriverManager
+import java.time.LocalDateTime
+import java.time.ZoneOffset
+import java.util.TimeZone
+import kotlin.math.abs
 
 /**
  * Bringing a Metrolist library over (MetrolistImport), on real databases built from both apps' own exported schemas:
@@ -36,8 +40,11 @@ class MetrolistImportTest {
     @After
     fun close() = open.forEach { it.close() }
 
-    /** A database with [schemaFile]'s tables, as Room would make them, at [version]. */
-    private fun database(schemaFile: String, version: Int): Connection {
+    /**
+     * A database with [schemaFile]'s tables, as Room would make them, at [version]. [oldSqlite]: as SQLite before 3.23
+     * (Android 7 to 10) keeps them, a DEFAULT false or DEFAULT true read as the text 'false' or 'true'.
+     */
+    private fun database(schemaFile: String, version: Int, oldSqlite: Boolean = false): Connection {
         val c = DriverManager.getConnection("jdbc:sqlite::memory:")
         open += c
         val schema = Json.parseToJsonElement(File(schemaFile).readText()).jsonObject["database"]!!.jsonObject
@@ -45,7 +52,8 @@ class MetrolistImportTest {
             st.execute("PRAGMA foreign_keys = ON")
             for (entity in schema["entities"]!!.jsonArray.map { it.jsonObject }) {
                 val table = entity["tableName"]!!.jsonPrimitive.content
-                st.execute(entity["createSql"]!!.jsonPrimitive.content.replace("\${TABLE_NAME}", table))
+                val create = entity["createSql"]!!.jsonPrimitive.content.replace("\${TABLE_NAME}", table)
+                st.execute(if (oldSqlite) create.replace("DEFAULT false", "DEFAULT 'false'").replace("DEFAULT true", "DEFAULT 'true'") else create)
                 entity["indices"]?.jsonArray?.forEach { index ->
                     st.execute(index.jsonObject["createSql"]!!.jsonPrimitive.content.replace("\${TABLE_NAME}", table))
                 }
@@ -60,7 +68,8 @@ class MetrolistImportTest {
 
     private val fields = HashMap<Connection, Map<String, List<JsonObject>>>()
 
-    private fun ours() = database("schemas/com.dd3boh.outertune.db.InternalDatabase/$MUSIC_DATABASE_VERSION.json", MUSIC_DATABASE_VERSION)
+    private fun ours(oldSqlite: Boolean = false) =
+        database("schemas/com.dd3boh.outertune.db.InternalDatabase/$MUSIC_DATABASE_VERSION.json", MUSIC_DATABASE_VERSION, oldSqlite)
     private fun theirs(version: Int) = database("src/test/resources/metrolist/schema-$version.json", version)
 
     /** A row with [values], every other column that must have a value given an empty one of its kind. */
@@ -200,6 +209,200 @@ class MetrolistImportTest {
 
     @Test
     fun `a backup from Metrolist's new app comes over once, and its YouTube history stays out`() = bringsEverythingOverOnce(65)
+
+    @Test
+    fun `playlists of their own come over as ours, and a true or false kept as text comes over as a number`() {
+        val m = theirs(36)
+        // How SQLite before 3.23 (Android 7 to 10) stored DEFAULT false and DEFAULT true for rows older than the column.
+        m.row("song", "id" to "S1", "title" to "Lean On", "duration" to 176, "isLocal" to "false")
+        m.row("playlist", "id" to "P1", "name" to "Mine there")
+        m.row("playlist", "id" to "P2", "name" to "Mine since Android 10", "isLocal" to "false", "isEditable" to "true")
+        m.row("playlist", "id" to "P3", "name" to "Followed on YouTube", "browseId" to "VLPLabc", "isLocal" to "false", "isEditable" to "false")
+        m.row("playlist", "id" to "P4", "name" to "Mine on YouTube", "browseId" to "VLPLmine", "isEditable" to "true")
+        m.row("playlist", "id" to "P5", "name" to "true", "isEditable" to "true")
+        val o = ours()
+
+        MetrolistImport.merge(JdbcDb(m), JdbcDb(o))
+
+        // Ours says "not on YouTube" with isLocal: their own playlists are editable here whatever the sync does.
+        assertEquals(listOf("P1", "P2", "P5"), o.all("SELECT id FROM playlist WHERE isLocal ORDER BY id"))
+        assertEquals(listOf("P1", "P2", "P4", "P5"), o.all("SELECT id FROM playlist WHERE isEditable ORDER BY id"))
+        assertEquals(0L, (o.one("SELECT COUNT(*) FROM playlist WHERE typeof(isLocal) != 'integer' OR typeof(isEditable) != 'integer'") as Number).toLong())
+        assertEquals("integer", o.one("SELECT typeof(isLocal) FROM song WHERE id = 'S1'"))
+        assertEquals(0, o.one("SELECT isLocal FROM song WHERE id = 'S1'"))
+        // A text column keeps its text.
+        assertEquals("true", o.one("SELECT name FROM playlist WHERE id = 'P5'"))
+    }
+
+    @Test
+    fun `a row of theirs whose song, artist, album or playlist is missing is left out, and the rest comes over`() {
+        val m = theirs(36)
+        m.row("artist", "id" to "A1", "name" to "DJ Snake", "lastUpdateTime" to 1L)
+        m.row("album", "id" to "AL1", "title" to "Encore", "songCount" to 1, "duration" to 200, "lastUpdateTime" to 1L)
+        m.row("song", "id" to "S1", "title" to "Lean On", "duration" to 176, "inLibrary" to 1_000L)
+        m.row("playlist", "id" to "P1", "name" to "Mine there")
+        // Rows whose parent their own database does not have: nothing in Metrolist looks for them.
+        m.createStatement().use { it.execute("PRAGMA foreign_keys = OFF") }
+        m.row("song_artist_map", "songId" to "S1", "artistId" to "A1", "position" to 0)
+        m.row("song_artist_map", "songId" to "S1", "artistId" to "GONE", "position" to 1)
+        m.row("song_artist_map", "songId" to "GONE", "artistId" to "A1", "position" to 0)
+        m.row("song_album_map", "songId" to "S1", "albumId" to "AL1", "index" to 0)
+        m.row("song_album_map", "songId" to "S1", "albumId" to "GONE", "index" to 1)
+        m.row("album_artist_map", "albumId" to "AL1", "artistId" to "A1", "order" to 0)
+        m.row("album_artist_map", "albumId" to "AL1", "artistId" to "GONE", "order" to 1)
+        m.row("playlist_song_map", "playlistId" to "P1", "songId" to "GONE", "position" to 0)
+        m.row("playlist_song_map", "playlistId" to "P1", "songId" to "S1", "position" to 1)
+        m.row("event", "songId" to "GONE", "timestamp" to 10_000L, "playTime" to 1_000L)
+        m.row("event", "songId" to "S1", "timestamp" to 20_000L, "playTime" to 176_000L)
+        m.row("playCount", "song" to "GONE", "year" to 2026, "month" to 11, "count" to 3)
+        m.row("playCount", "song" to "S1", "year" to 2026, "month" to 11, "count" to 2)
+        m.row("lyrics", "id" to "GONE", "lyrics" to "[00:01.00] gone")
+        m.row("format", "id" to "GONE", "itag" to 251, "mimeType" to "audio/webm", "codecs" to "opus", "bitrate" to 128_000, "contentLength" to 1L)
+        val o = ours()
+
+        val result = MetrolistImport.merge(JdbcDb(m), JdbcDb(o))
+
+        assertEquals(MetrolistImport.Result(songs = 1, liked = 0, inLibrary = 1, playlists = 1, plays = 1), result)
+        assertEquals(listOf("A1"), o.all("SELECT artistId FROM song_artist_map"))
+        assertEquals(listOf("AL1"), o.all("SELECT albumId FROM song_album_map"))
+        assertEquals(listOf("A1"), o.all("SELECT artistId FROM album_artist_map"))
+        assertEquals(listOf("S1"), o.all("SELECT songId FROM playlist_song_map WHERE playlistId = 'P1'"))
+        assertEquals(listOf("S1"), o.all("SELECT songId FROM event"))
+        assertEquals(listOf("S1"), o.all("SELECT song FROM playCount"))
+        assertEquals(emptyList<String>(), o.all("SELECT id FROM lyrics UNION ALL SELECT id FROM format"))
+        assertTrue("every row has its parent", o.all("PRAGMA foreign_key_check").isEmpty())
+    }
+
+    @Test
+    fun `their downloads come over as songs to stream, and their local files stay out with all that hangs on them`() {
+        for (version in listOf(36, 65)) {
+            val m = theirs(version)
+            m.row("artist", "id" to "A1", "name" to "DJ Snake", "lastUpdateTime" to 1L)
+            m.row("song", "id" to "S1", "title" to "Downloaded there", "duration" to 176, "inLibrary" to 1_000L, "dateDownload" to 5_000L, "liked" to 1, "likedDate" to 1_000L)
+            m.row("song", "id" to "L1", "title" to "A file there", "duration" to 100, "isLocal" to 1, "inLibrary" to 2_000L, "liked" to 1)
+            m.row("song", "id" to "L2", "title" to "A file, from an old Android", "duration" to 100, "isLocal" to "true", "inLibrary" to 3_000L)
+            m.row("song", "id" to "local_abc", "title" to "A file of the new app", "duration" to 100, "inLibrary" to 4_000L)
+            m.row("song_artist_map", "songId" to "L1", "artistId" to "A1", "position" to 0)
+            m.row("song_artist_map", "songId" to "S1", "artistId" to "A1", "position" to 0)
+            m.row("playlist", "id" to "P1", "name" to "Mine there")
+            m.row("playlist_song_map", "playlistId" to "P1", "songId" to "L1", "position" to 0)
+            m.row("playlist_song_map", "playlistId" to "P1", "songId" to "S1", "position" to 1)
+            m.row("event", "songId" to "L1", "timestamp" to 10_000L, "playTime" to 100_000L)
+            m.row("event", "songId" to "S1", "timestamp" to 20_000L, "playTime" to 176_000L)
+            m.row("lyrics", "id" to "L1", "lyrics" to "[00:01.00] mine")
+            val o = ours()
+
+            assertEquals("$version", MetrolistImport.Summary(inLibrary = 1, liked = 1, playlists = 1, plays = 1), MetrolistImport.summary(JdbcDb(m)))
+            val result = MetrolistImport.merge(JdbcDb(m), JdbcDb(o))
+            assertEquals("$version", MetrolistImport.Result(songs = 1, liked = 1, inLibrary = 1, playlists = 1, plays = 1), result)
+            assertEquals(listOf("S1"), o.all("SELECT id FROM song"))
+            assertNull("downloaded there is not downloaded here", o.one("SELECT dateDownload FROM song WHERE id = 'S1'"))
+            assertEquals(listOf("S1"), o.all("SELECT songId FROM playlist_song_map"))
+            assertEquals(listOf("S1"), o.all("SELECT songId FROM song_artist_map"))
+            assertEquals(listOf("S1"), o.all("SELECT songId FROM event"))
+            assertEquals(emptyList<String>(), o.all("SELECT id FROM lyrics"))
+        }
+        // The new app's liked list leaves its local files out too.
+        val songs = """[{"id":"local_abc","title":"A file"},{"id":"S9","title":"Streamed"}]"""
+        val settings = """{"entries":[{"key":"likedSongsJson","type":"STRING","value":${Json.encodeToString(String.serializer(), songs)}}]}"""
+        assertEquals(listOf("S9"), MetrolistImport.likedFromSettings(settings).map { it.id })
+    }
+
+    @Test
+    fun `their marks for a song with no lyrics stay out, so ours still look its lyrics up`() {
+        for (version in listOf(36, 65)) {
+            val m = theirs(version)
+            for (id in listOf("S1", "S2", "S3", "S4", "S5")) m.row("song", "id" to id, "title" to id, "duration" to 100)
+            // The Android app's miss, written offline and on a timeout too.
+            m.row("lyrics", "id" to "S1", "lyrics" to "LYRICS_NOT_FOUND")
+            // The new app's miss: an empty text, with its own provider.
+            m.row("lyrics", "id" to "S2", "lyrics" to "", "provider" to "LYRICS_NOT_FOUND_V2")
+            m.row("lyrics", "id" to "S3", "lyrics" to "   ")
+            m.row("lyrics", "id" to "S4", "lyrics" to "[00:01.00] found", "provider" to "LrcLib")
+            m.row("lyrics", "id" to "S5", "lyrics" to "Words with no times")
+            val o = ours()
+            o.row("song", "id" to "S1", "title" to "S1", "duration" to 100)
+
+            MetrolistImport.merge(JdbcDb(m), JdbcDb(o))
+
+            assertEquals("$version", listOf("S4", "S5"), o.all("SELECT id FROM lyrics ORDER BY id"))
+            assertEquals("[00:01.00] found", o.one("SELECT lyrics FROM lyrics WHERE id = 'S4'"))
+        }
+    }
+
+    @Test
+    fun `lyrics written or edited by hand in the new app come over in place of the provider's`() {
+        val m = theirs(65)
+        for (id in listOf("U1", "U2", "U3", "U4", "U5")) m.row("song", "id" to id, "title" to id, "duration" to 100)
+        // Their own beside a provider's: the new app shows their own (userLyrics) first.
+        m.row("lyrics", "id" to "U1", "lyrics" to "[00:01.00] provider", "provider" to "LrcLib", "userLyrics" to "[00:01.00] mine")
+        // Their own for a song no provider had.
+        m.row("lyrics", "id" to "U2", "lyrics" to "", "provider" to "LYRICS_NOT_FOUND_V2", "userLyrics" to "Typed by hand")
+        // A blank one of their own is no lyrics: the provider's come over.
+        m.row("lyrics", "id" to "U3", "lyrics" to "[00:01.00] provider", "provider" to "LrcLib", "userLyrics" to "  ")
+        // One set aside for a provider's, which the app shows: the provider's.
+        m.row("lyrics", "id" to "U4", "lyrics" to "[00:01.00] chosen", "provider" to "LrcLib", "stashedUserLyrics" to "set aside")
+        // A miss, and nothing of their own: nothing, so ours looks it up.
+        m.row("lyrics", "id" to "U5", "lyrics" to "", "provider" to "LYRICS_NOT_FOUND_V2")
+        val o = ours()
+
+        MetrolistImport.merge(JdbcDb(m), JdbcDb(o))
+
+        assertEquals(listOf("U1", "U2", "U3", "U4"), o.all("SELECT id FROM lyrics ORDER BY id"))
+        assertEquals("[00:01.00] mine", o.one("SELECT lyrics FROM lyrics WHERE id = 'U1'"))
+        assertEquals("Typed by hand", o.one("SELECT lyrics FROM lyrics WHERE id = 'U2'"))
+        assertEquals("[00:01.00] provider", o.one("SELECT lyrics FROM lyrics WHERE id = 'U3'"))
+        assertEquals("[00:01.00] chosen", o.one("SELECT lyrics FROM lyrics WHERE id = 'U4'"))
+    }
+
+    @Test
+    fun `likes from the new app's list are dated as the app dates a like, the phone's clock written as UTC`() {
+        val zone = TimeZone.getDefault()
+        // Five hours behind UTC in November: true UTC would date these likes five hours in the future.
+        TimeZone.setDefault(TimeZone.getTimeZone("America/New_York"))
+        try {
+            val m = theirs(65)
+            val o = ours()
+            val liked = listOf(MetrolistImport.LikedSong("S6", "Only in the list", null, emptyList(), null, null, 245))
+            val asTheAppWrites = LocalDateTime.now().atZone(ZoneOffset.UTC).toInstant().toEpochMilli()
+            MetrolistImport.merge(JdbcDb(m), JdbcDb(o), liked)
+            val stored = (o.one("SELECT likedDate FROM song WHERE id = 'S6'") as Number).toLong()
+            assertTrue("$stored against $asTheAppWrites", abs(stored - asTheAppWrites) < 60_000)
+            assertTrue("not true UTC", abs(stored - System.currentTimeMillis()) > 3_600_000)
+        } finally {
+            TimeZone.setDefault(zone)
+        }
+    }
+
+    @Test
+    fun `the new app's liked songs and their artists come in as songs from YouTube on an old Android too`() {
+        val m = theirs(65)
+        val o = ours(oldSqlite = true)
+        // How such a phone keeps a row that leaves isLocal to its default.
+        o.createStatement().use { it.execute("INSERT INTO artist (id, name, lastUpdateTime) VALUES ('A0', 'Left to the default', 0)") }
+        assertEquals("text", o.one("SELECT typeof(isLocal) FROM artist WHERE id = 'A0'"))
+
+        val liked = listOf(MetrolistImport.LikedSong("S6", "Only in the list", null, listOf("A3" to "Justice"), null, null, 245))
+        MetrolistImport.merge(JdbcDb(m), JdbcDb(o), liked, now = 1_000_000L)
+
+        assertEquals(listOf("S6"), o.all("SELECT id FROM song WHERE isLocal = 0"))
+        assertEquals(listOf("A3"), o.all("SELECT id FROM artist WHERE isLocal = 0"))
+    }
+
+    @Test
+    fun `every table the import writes rows to that point elsewhere has each of our foreign keys looked at first`() {
+        val schema = Json.parseToJsonElement(File("schemas/com.dd3boh.outertune.db.InternalDatabase/$MUSIC_DATABASE_VERSION.json").readText())
+            .jsonObject["database"]!!.jsonObject
+        val keys = schema["entities"]!!.jsonArray.map { it.jsonObject }.associate { e ->
+            e["tableName"]!!.jsonPrimitive.content to e["foreignKeys"]?.jsonArray.orEmpty().map { fk ->
+                val key = fk.jsonObject
+                assertEquals("id", key["referencedColumns"]!!.jsonArray.single().jsonPrimitive.content)
+                key["columns"]!!.jsonArray.single().jsonPrimitive.content to key["table"]!!.jsonPrimitive.content
+            }
+        }
+        assertTrue(MetrolistImport.PARENTS.keys.containsAll(MetrolistImport.PER_SONG + listOf("playlist_song_map", "event", "playCount")))
+        for ((table, parents) in MetrolistImport.PARENTS) assertTrue(table, parents.containsAll(keys.getValue(table)))
+    }
 
     @Test
     fun `the new app's liked songs in its settings come over, newest first`() {

@@ -80,6 +80,8 @@ class AirPlayLink(
     private val leadNanos: Long = AirPlayStream.LEAD_NANOS,
     /** The app's sound, put on each packet as it is sent; null sends the samples as the server decoded them. */
     private val sound: PcmSound? = null,
+    /** The debug app only: the stream answers any address too, for a speaker behind the emulator's NAT ([AirPlayStream]). */
+    private val anyAddress: Boolean = false,
 ) : ReceiverLink {
     @Volatile
     override var device: CastDevice = device
@@ -222,11 +224,14 @@ class AirPlayLink(
                 clock = clock,
                 feed = ::fill,
                 events = events,
+                speaker = rtsp.remote,
+                local = rtsp.local,
                 codec = plan.codec,
                 aes = aes?.let { AirPlayAes(it.key, it.iv) },
                 latencyFrames = latencyFrames,
                 leadNanos = leadNanos,
                 bind = bindUdp,
+                anyAddress = anyAddress,
                 rtpStart = random.nextInt().toLong(),
                 ssrc = random.nextInt(),
                 firstSeq = random.nextInt(0x10000),

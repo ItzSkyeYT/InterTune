@@ -288,4 +288,11 @@
     <string name="use_login_for_browse">Utilice el inicio de sesión para ver el contenido</string>
     <string name="use_login_for_browse_desc">Esto puede influir en el contenido que ve y, por ejemplo, muestra álbumes exclusivos si ha iniciado sesión con una cuenta Premium</string>
     <string name="action_login">Acceder</string>
+    <string name="favorite_artists">Artistas favoritos</string>
+    <string name="crash_report_title">InterTune falló la vez pasada</string>
+    <string name="crash_report_text">Perdón, el error sucedió en el teléfono y nada salió de aquí. Ayudaría mucho hacer un reporte para resolverlo.</string>
+    <string name="crash_report_github">Reportar en GitHub</string>
+    <string name="crash_report_copy">Copiar</string>
+    <string name="crash_report_dismiss">Ignorar</string>
+    <string name="crash_report_copied">Error copiado</string>
 </resources>

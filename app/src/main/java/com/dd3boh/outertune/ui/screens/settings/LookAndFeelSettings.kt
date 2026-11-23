@@ -37,6 +37,7 @@ import com.dd3boh.outertune.ui.screens.settings.fragments.ShareLinksFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.SwipeGesturesFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.TabArrangementFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.TabExtrasFrag
+import com.dd3boh.outertune.ui.screens.settings.fragments.VibrationFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.ThemeAppFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.ThemePlayerFrag
 
@@ -110,6 +111,7 @@ fun LookAndFeelSettings(
             modifier = Modifier.fillMaxWidth()
         ) {
             SwipeGesturesFrag()
+            if (Unreleased.HAPTICS_FEEL) VibrationFrag()
         }
     }
 

@@ -20,7 +20,9 @@ import com.dd3boh.outertune.db.entities.Playlist
 import com.dd3boh.outertune.db.entities.PlaylistEntity
 import com.dd3boh.outertune.db.entities.PlaylistSongMap
 import com.dd3boh.outertune.models.toMediaMetadata
+import com.dd3boh.outertune.utils.ErrorText
 import com.dd3boh.outertune.utils.QueueToPlaylist
+import com.zionhuang.innertube.YouTube
 import com.zionhuang.innertube.models.SongItem
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -68,6 +70,26 @@ class RecognitionViewModel @Inject constructor(
 
     /** Listens kept with no connection, waiting to be named, oldest first ([RecogniseLater]). */
     val waiting = later.waiting
+
+    /** The songs [songOnYouTube] found, by video: a menu opened again opens at once. */
+    private val onYouTube = HashMap<String, SongItem>()
+
+    /**
+     * YouTube's own song for [videoId], for its menu in What you have heard when the library does
+     * not hold it, or null with no answer. The entry cannot stand in: it keeps what Shazam called
+     * the song, and a like or an add from its menu would put that name in the library for good.
+     * Asked when the menu is opened, not for the whole list: two hundred songs' worth of YouTube's
+     * answers for a page that may only be looked at.
+     */
+    suspend fun songOnYouTube(videoId: String): SongItem? {
+        onYouTube[videoId]?.let { return it }
+        return withContext(Dispatchers.IO) { YouTube.queue(listOf(videoId)) }
+            .onFailure { Log.w(TAG, "Could not look up $videoId for its menu", ErrorText.forLog(it)) }
+            .getOrNull()
+            // Only the video asked for: another under its name would give the menu another song.
+            ?.firstOrNull { it.id == videoId }
+            ?.also { onYouTube[videoId] = it }
+    }
 
     /** The playlist new songs are going into, once the list was saved as one or added to one. */
     val following = engine.following

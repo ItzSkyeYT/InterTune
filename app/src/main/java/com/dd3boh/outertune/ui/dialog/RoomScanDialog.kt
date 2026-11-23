@@ -127,9 +127,14 @@ private fun RoomCamera(onFound: (RoomCode) -> Unit) {
         val main = ContextCompat.getMainExecutor(context)
         val providerFuture = ProcessCameraProvider.getInstance(context)
         var provider: ProcessCameraProvider? = null
+        // Set as the dialog goes. Read and set on the main thread, as the listener below runs.
+        var disposed = false
         // Read on the camera's thread, set there once: the room is joined a single time.
         val done = AtomicBoolean(false)
         providerFuture.addListener({
+            // Closed before CameraX had started (the first Scan in a while takes a few hundred ms): bound now, the camera
+            // stayed on with the screen under the dialog, its privacy dot lit, until that screen ended (18 Nov 2026).
+            if (disposed) return@addListener
             val cameras = runCatching { providerFuture.get() }.getOrNull() ?: return@addListener
             provider = cameras
             val preview = Preview.Builder().build().also { it.setSurfaceProvider(previewView.surfaceProvider) }
@@ -151,6 +156,7 @@ private fun RoomCamera(onFound: (RoomCode) -> Unit) {
             }
         }, main)
         onDispose {
+            disposed = true
             provider?.unbindAll()
             reading.shutdown()
         }

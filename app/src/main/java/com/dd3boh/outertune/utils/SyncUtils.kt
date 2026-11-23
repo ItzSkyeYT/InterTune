@@ -256,7 +256,7 @@ class SyncUtils @Inject constructor(
      */
     @OptIn(ExperimentalCoroutinesApi::class)
     fun likeSong(s: SongEntity) {
-        scope.launch {
+        RatingWrites.send(s.id) {
             if (!s.isLocal && context.mayPushToYouTube()) YouTube.likeVideo(s.id, s.liked)
         }
     }

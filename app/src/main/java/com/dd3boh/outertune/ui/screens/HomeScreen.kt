@@ -4,9 +4,6 @@ import com.dd3boh.outertune.ui.component.button.IconButton
 import com.dd3boh.outertune.ui.component.ScreenBackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.horizontalScroll
-import com.dd3boh.outertune.constants.NewSongsOnlyKey
-import androidx.compose.material3.FilterChipDefaults
-import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material3.Icon
 import androidx.compose.material3.FilterChip
 import com.dd3boh.outertune.engine.ContextChip
@@ -183,6 +180,8 @@ import kotlinx.coroutines.launch
 import kotlin.math.min
 import kotlin.math.roundToInt
 import kotlin.random.Random
+import com.dd3boh.outertune.ui.screens.recap.RecapBanner
+import com.dd3boh.outertune.ui.screens.recap.rememberRecapOnHome
 import com.dd3boh.outertune.ui.screens.walkthrough.Tour
 import com.dd3boh.outertune.ui.screens.walkthrough.WelcomeBanner
 import com.dd3boh.outertune.ui.screens.walkthrough.WelcomeCard
@@ -267,6 +266,7 @@ fun HomeScreen(
             pollChecker.consumeOpenRequest()
         }
     }
+    val recapYear = rememberRecapOnHome()
     val ytQuickPicks by viewModel.ytQuickPicks.collectAsState()
     val quickPicksLoading by viewModel.quickPicksLoading.collectAsState()
     val discover by viewModel.discover.collectAsState()
@@ -596,7 +596,11 @@ fun HomeScreen(
         // two side by side, which is what the 0.475 branch is for.
         val horizontalLazyGridItemWidthFactor = if (maxWidth * 0.475f >= 320.dp) 0.475f else 0.94f
         val horizontalLazyGridItemWidth = maxWidth * horizontalLazyGridItemWidthFactor
-        val quickPicksSnapLayoutInfoProvider = remember(quickPicksLazyGridState) {
+        // Each row's snap made again whenever a column's share of the width changes: kept from Home's first
+        // drawing, a Home first drawn on its side (two columns, 0.475) went on snapping upright as if the
+        // columns were half as wide, and a fling stopped a quarter column in, the first column cut at the
+        // left (his S25U, 15 and 18 Nov 2026). The realign below only fixed the position until the next fling.
+        val quickPicksSnapLayoutInfoProvider = remember(quickPicksLazyGridState, horizontalLazyGridItemWidthFactor) {
             SnapLayoutInfoProvider(
                 lazyGridState = quickPicksLazyGridState,
                 positionInLayout = { layoutSize, itemSize ->
@@ -604,7 +608,7 @@ fun HomeScreen(
                 }
             )
         }
-        val discoverSnapLayoutInfoProvider = remember(discoverLazyGridState) {
+        val discoverSnapLayoutInfoProvider = remember(discoverLazyGridState, horizontalLazyGridItemWidthFactor) {
             SnapLayoutInfoProvider(
                 lazyGridState = discoverLazyGridState,
                 positionInLayout = { layoutSize, itemSize ->
@@ -612,7 +616,7 @@ fun HomeScreen(
                 }
             )
         }
-        val forgottenFavoritesSnapLayoutInfoProvider = remember(forgottenFavoritesLazyGridState) {
+        val forgottenFavoritesSnapLayoutInfoProvider = remember(forgottenFavoritesLazyGridState, horizontalLazyGridItemWidthFactor) {
             SnapLayoutInfoProvider(
                 lazyGridState = forgottenFavoritesLazyGridState,
                 positionInLayout = { layoutSize, itemSize ->
@@ -716,6 +720,15 @@ fun HomeScreen(
             }
 
 
+
+            // The year's InterTune Recap in its season, from its reveal day to the end of January:
+            // the banner at the top of Settings, the same. First of the notes here, as it comes
+            // once a year and the others can wait under it.
+            recapYear?.let { year ->
+                item(key = "recap_banner") {
+                    RecapBanner(year, Modifier.animateItem().padding(horizontal = 12.dp, vertical = 8.dp))
+                }
+            }
 
             // Same slot reasoning as the poll banner below: above Quick picks, below the chips.
             // Shown only while YouTube is actually refusing this connection, and it takes itself
@@ -944,6 +957,7 @@ fun HomeScreen(
                                                             origin = PlayOrigin.QUICK_PICKS,
                                                             originSlot = slot,
                                                             tappedAt = tappedAt,
+                                                            discoverRow = viewModel.quickPickKeepsToNeverHeard(shownSource),
                                                         )
                                                     }
                                                 },
@@ -982,6 +996,8 @@ fun HomeScreen(
                                                 origin = PlayOrigin.QUICK_PICKS,
                                                 originSlot = slot,
                                                 tappedAt = tappedAt,
+                                                // The row built under Discover: its queue too holds only songs never heard.
+                                                discoverRow = viewModel.quickPickKeepsToNeverHeard(shownSource),
                                             )
                                         },
                                         modifier = Modifier.width(horizontalLazyGridItemWidth)
@@ -1473,7 +1489,6 @@ private fun reasonText(reason: CardReason): String = when (reason.key) {
 /** The first chip's name: Auto, or the short name of the chosen lean. */
 internal fun leanChipName(lean: Lean): Int = when (lean) {
     Lean.AUTO -> R.string.chip_auto
-    Lean.NEW -> R.string.chip_lean_new
     Lean.ARTIST -> R.string.chip_lean_artist
     Lean.FORGOTTEN -> R.string.chip_lean_forgotten
     Lean.SIMILAR -> R.string.chip_lean_similar
@@ -1485,7 +1500,6 @@ internal fun leanChipName(lean: Lean): Int = when (lean) {
  */
 internal fun leanOptionName(lean: Lean): Int = when (lean) {
     Lean.AUTO -> R.string.quick_picks_lean_auto
-    Lean.NEW -> R.string.quick_picks_lean_new
     Lean.ARTIST -> R.string.quick_picks_lean_artist
     Lean.FORGOTTEN -> R.string.quick_picks_lean_forgotten
     Lean.SIMILAR -> R.string.quick_picks_lean_similar
@@ -1498,7 +1512,6 @@ private fun leanHeadingText(state: LeanOnScreen): String? {
     val context = LocalContext.current
     val base = when (state.applied) {
         Lean.AUTO -> return null
-        Lean.NEW -> stringResource(R.string.quick_picks_leaning_new)
         Lean.ARTIST -> stringResource(R.string.quick_picks_leaning_artist)
         Lean.FORGOTTEN -> stringResource(R.string.quick_picks_leaning_forgotten)
         Lean.SIMILAR -> state.lastSessionEndedAt?.let { at ->
@@ -1569,7 +1582,6 @@ private fun WhyTheseDialog(viewModel: HomeViewModel, navController: NavControlle
 private fun ContextChipRow(viewModel: HomeViewModel, modifier: Modifier = Modifier) {
     val (chip, onChipChange) = rememberPreference(ContextChipKey, defaultValue = ContextChip.AUTO)
     val tagged by viewModel.engineChipTagged.collectAsState()
-    val (newSongsOnly, onNewSongsOnlyChange) = rememberPreference(NewSongsOnlyKey, defaultValue = false)
     // While a lean is chosen the first chip carries its short name, in the same place and at the
     // same size, so "Auto" means one thing on screen at a time.
     val lean by viewModel.quickPicksLean.collectAsState()
@@ -1594,24 +1606,6 @@ private fun ContextChipRow(viewModel: HomeViewModel, modifier: Modifier = Modifi
                         label = { Text(name) },
                     )
                 }
-
-                // Beside the moods rather than buried in settings, because it is the same kind of
-                // decision: what this row should be right now. It is not one of them, though, so
-                // it toggles on its own instead of joining the group.
-                FilterChip(
-                    selected = newSongsOnly,
-                    onClick = { onNewSongsOnlyChange(!newSongsOnly); viewModel.chipChanged() },
-                    label = { Text(stringResource(R.string.new_songs_only)) },
-                    leadingIcon = if (!newSongsOnly) null else {
-                        {
-                            Icon(
-                                Icons.Rounded.Check,
-                                contentDescription = null,
-                                modifier = Modifier.size(FilterChipDefaults.IconSize),
-                            )
-                        }
-                    },
-                )
             }
             // Outside the scrolling row on purpose: a chip row wider than the screen would
             // otherwise carry the explanation off the right hand edge.

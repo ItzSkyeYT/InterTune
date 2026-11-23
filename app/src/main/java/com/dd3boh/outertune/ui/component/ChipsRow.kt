@@ -22,13 +22,18 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.IntOffset
@@ -127,6 +132,55 @@ fun <E> ChipsLazyRow(
                         )
                     }
                 }
+            )
+
+            Spacer(Modifier.width(8.dp))
+        }
+    }
+}
+
+/**
+ * A chip that opens something instead of picking something: its words, a picture before them, and
+ * what a tap does (Folders' Local scanner, which opens Local media).
+ */
+@Immutable
+data class ActionChip(val label: String, val icon: ImageVector, val onClick: () -> Unit)
+
+/**
+ * A row of [ActionChip]s, in the shape, height, spacing, colours and border of the chips of the
+ * other [ChipsRow] above them, so the Folders tab's row sits among the Library's chips as one of
+ * them. They are never picked, so they have no current value, and a screen reader says button
+ * where it would say checkbox for a chip that picks.
+ */
+@Composable
+fun ChipsRow(
+    chips: List<ActionChip>,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState())
+    ) {
+        Spacer(Modifier.width(12.dp))
+
+        chips.forEach { chip ->
+            AssistChip(
+                onClick = chip.onClick,
+                label = { Text(chip.label) },
+                leadingIcon = {
+                    Icon(
+                        imageVector = chip.icon,
+                        contentDescription = null,
+                        modifier = Modifier.size(AssistChipDefaults.IconSize)
+                    )
+                },
+                colors = AssistChipDefaults.assistChipColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    leadingIconContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                ),
+                border = FilterChipDefaults.filterChipBorder(enabled = true, selected = false),
             )
 
             Spacer(Modifier.width(8.dp))

@@ -116,7 +116,6 @@
     <string name="lyrics_prefer_local_description">Priorizar ficheiros de letra locais antes de usar os fornecidos pela nuvem. Desative isto para priorizar os fornecidos pela nuvem</string>
     <string name="lyrics_settings_title">Letra</string>
     <string name="lyrics_synced_clickable">Letras clicáveis</string>
-    <string name="lyrics_trim_title">Remover espaços entre letras</string>
     <string name="local_library_enable_title">Ativar média local</string>
     <string name="local_library_enable_description">Desativar isto ocultará a biblioteca local da app</string>
     <string name="local_player_settings_title">Média local</string>
@@ -280,7 +279,6 @@
     <string name="oobe_update_check_title">Avisá-lo sobre atualizações?</string>
     <string name="oobe_update_check_yes">Sim, verificar</string>
     <string name="player_glass_intensity">Intensidade do vidro</string>
-    <string name="player_glass_intensity_description">Mais alto fica mais transparente e com mais refração; mais baixo fica mais próximo de superfícies sólidas</string>
     <string name="player_glass_intensity_value">%1$d%%</string>
     <string name="player_liquid_glass">Vidro líquido</string>
     <string name="player_liquid_glass_description">Painéis de vidro flutuantes para a barra de navegação, o mini player e os controlos de reprodução, e cores da capa mais ricas por trás do ecrã de reprodução</string>
@@ -304,7 +302,6 @@
     <string name="oobe_update_auto_description">Transfere-a em segundo plano para estar pronta quando quiser. O Android continua a pedir-lhe confirmação.</string>
     <string name="oobe_polls_answered">Pode alterar isto a qualquer momento nas Definições, em Perguntas.</string>
     <string name="poll_title">Uma pergunta do InterTune</string>
-    <string name="poll_banner_hint">Toque para responder, ou dispense com a cruz</string>
     <string name="poll_dismiss">Dispensar esta pergunta</string>
     <string name="poll_close">Fechar</string>
     <string name="poll_send">Enviar a minha resposta</string>
@@ -365,7 +362,6 @@
     <string name="image_cache_max_size">Tamanho máximo da cache de capas</string>
     <string name="max_queues_description">Quantas filas a aplicação mantém ao mesmo tempo. A mais antiga é descartada quando passa deste número.</string>
     <string name="enable_proxy_description">Enviar os pedidos e as transmissões do YouTube Music primeiro através de outro servidor. As imagens, as letras e os outros serviços que a aplicação usa continuam a ligar-se diretamente. Deixe isto desativado a menos que saiba que precisa.</string>
-    <string name="show_liked_and_downloaded_playlist_description">Mostrar Músicas que gostou e Músicas transferidas como listas na sua biblioteca.</string>
     <string name="pause_listen_history_description">Deixar de adicionar músicas ao seu histórico. Nada do que já lá está é removido.</string>
     <string name="pause_remote_listen_history_description">Deixar de dizer ao YouTube Music o que reproduz. O histórico dentro desta aplicação continua na mesma.</string>
     <string name="clear_listen_history_description">Eliminar tudo o que a aplicação registou sobre o que reproduziu.</string>

@@ -76,8 +76,6 @@ class LivingPaletteTrial {
     private fun motion(separate: Boolean, patches: IntArray, mains: IntArray?, levels: FloatArray, after: Float) =
         (if (separate) LivingMotion(flowColumns, flowRows) else LivingMotion(columns, rows)).apply {
             this.separate = separate
-            coverThere = true
-            coverAt(coverLeft, coverTop, coverLeft + coverSide, coverTop + coverSide * wide / tall)
             turnTo(patches, glow = mains?.get(MusicLevels.BASS), mains = mains)
             val quiet = floatArrayOf(0.05f, 0.05f, 0.05f)
             repeat((after * 60).toInt()) { step(1f / 60, quiet, true) }
@@ -116,14 +114,6 @@ class LivingPaletteTrial {
         }
         disc(wide / 2f, tall.toFloat(), wide * 0.8f, tall * motion.glowHeight(), motion.glow, motion.glowStrength())
         disc(wide / 2f, 0f, wide * 0.8f, tall * motion.glowHeight() * 0.7f, motion.glow, motion.glowStrength() * 0.8f)
-        val left = coverLeft * wide
-        val top = coverTop * tall
-        val side = coverSide * wide
-        for (i in motion.aura.indices) {
-            val point = motion.aura[i]
-            val radius = motion.auraRadius(i) * side
-            disc(left + point.x * side, top + point.y * side, radius, radius, motion.auraColor(i), motion.auraStrength(i))
-        }
         // The phone draws this an eighth of its size, blurs that a little and stretches it: here, three passes of a small box.
         for (channel in listOf(red, green, blue)) repeat(3) {
             val was = channel.copyOf()
@@ -142,6 +132,9 @@ class LivingPaletteTrial {
             }
         }
         val out = Picture(wide, tall)
+        val left = coverLeft * wide
+        val top = coverTop * tall
+        val side = coverSide * wide
         // Liquid glass on: the picture at half strength over the dark theme's surface
         for (i in 0 until wide * tall) {
             val r = (red[i] * 0.5f + 0x12 * 0.5f).toInt().coerceIn(0, 255)

@@ -6,6 +6,9 @@
 
 package com.dd3boh.outertune.ui.player
 
+import com.dd3boh.outertune.models.MediaMetadata
+import com.dd3boh.outertune.models.MultiQueueObject
+
 /**
  * Undo for songs taken out of the queue by hand (the owner's pick of 11 Nov 2026, after testers found the
  * selection pill's Remove from queue too easy to hit): a swipe, the pill's button and the menu's entry all
@@ -39,5 +42,34 @@ internal object QueueUndo {
         val out = list.toMutableList()
         for (at in insertions(taken, out.size)) out.add(at.place, at.song)
         return out
+    }
+
+    /**
+     * A queue as it stood just before a removal that leaves nothing in it: every song picked and Remove from queue, or
+     * a swipe on its last song. The queue then goes from the board at once, as the list's Delete takes one
+     * (dropIfEmptied), and is held aside while the message shows, so that Undo brings it back as it was (his pick of
+     * 19 Nov 2026, "just a undo toast after removing songs from queue"). [songs] are copies in the queue's own stored
+     * order, each with its place in play order (shuffleIndex); [queuePos] is the song it was on, [position] where in
+     * that song, [playing] whether it was playing.
+     */
+    class Whole(val songs: List<MediaMetadata>, val shuffled: Boolean, val queuePos: Int, val position: Long, val playing: Boolean) {
+        companion object {
+            /** [q] as it stands, the player at [position] in its song and [playing] or not. */
+            fun of(q: MultiQueueObject, position: Long, playing: Boolean) = Whole(q.songsSnapshot(), q.shuffled, q.queuePos, position, playing)
+        }
+    }
+
+    /** A queue that went with its last songs, emptied, and the queue current after it went: null when none was left. */
+    class Dropped(val queue: MultiQueueObject, val after: Long?)
+
+    /**
+     * [q], emptied, holding again what [whole] kept: every song in its place, in stored and in play order, shuffle on
+     * or off as it was, on the song it was on, from where it was in it.
+     */
+    fun refill(q: MultiQueueObject, whole: Whole) {
+        q.replaceAll(whole.songs)
+        q.shuffled = whole.shuffled
+        q.queuePos = whole.queuePos
+        q.lastSongPos = whole.position
     }
 }

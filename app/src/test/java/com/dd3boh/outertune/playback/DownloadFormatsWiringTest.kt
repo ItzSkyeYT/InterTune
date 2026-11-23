@@ -44,7 +44,7 @@ class DownloadFormatsWiringTest {
     }
 
     @Test
-    fun `without the flag the stored setting is not read, and only the download code, the menus, the rows, the index and the report read the flag`() {
+    fun `without the flag the stored setting is not read, and only the download code, the menus, the rows, the index, the report and What's new read the flag`() {
         val readers = sources.walkTopDown()
             .filter { it.extension == "kt" && it.name != "Unreleased.kt" }
             .filter { Regex("""Unreleased\.DOWNLOAD_FORMATS\b""").containsMatchIn(code(it.readText())) }
@@ -57,6 +57,8 @@ class DownloadFormatsWiringTest {
                 "ui/menu/SongMenu.kt",
                 "ui/screens/settings/fragments/DownloadsFrag.kt",
                 "ui/screens/settings/SettingsIndex.kt",
+                // What's new's File format card, shown only when the setting is there (21 Nov 2026)
+                "ui/screens/walkthrough/Walkthrough.kt",
                 "utils/ReportSettings.kt",
             ),
             readers,
@@ -92,7 +94,8 @@ class DownloadFormatsWiringTest {
         assertTrue("the priority is given back", "android.os.Process.setThreadPriority(priority)" in encode.substringAfterLast("} finally {"))
         assertTrue("a cancelled coroutine stops the conversion between two pieces", "{ job?.isActive == false }" in save)
         assertTrue("a cancellation is not taken for a failure to save", "if (it is CancellationException) throw it" in save)
-        assertTrue("a song that fell back is counted for the notice", "conversion?.failure != null) notice?.fellBack()" in save)
+        // Only when the song as it came was saved: a folder that refused both saved nothing (DownloadFolderClosedMoveTest).
+        assertTrue("a song that fell back is counted for the notice", "conversion?.failure != null && saved != null) notice?.fellBack()" in save)
         assertTrue("whatever made it fall back is told to the conversion", "override fun failed(e: Exception)" in converter)
     }
 
@@ -183,7 +186,8 @@ class DownloadFormatsWiringTest {
     @Test
     fun `File format is under the download folder, behind the flag, and Bitrate is inside it and shown for MP3 and M4A only`() {
         val frag = fileCode("ui/screens/settings/fragments/DownloadsFrag.kt")
-        val folder = frag.indexOf("Tour.SETTING_DOWNLOAD_FOLDER")
+        // The folder's row: today's, and the simpler page's one row after it (its tour mark is on that one now).
+        val folder = frag.indexOf("WhereDownloadsGoRow(")
         val start = frag.indexOf("if (Unreleased.DOWNLOAD_FORMATS) {")
         assertTrue("the rows are not behind the flag", start > 0)
         assertTrue("under the folder row", start > folder)
@@ -191,7 +195,9 @@ class DownloadFormatsWiringTest {
         // Up to the sizes line, wherever it is indented (the simpler looks put it in an else).
         val rows = frag.substring(start).substringAfter("{").substringBefore("stringResource(R.string.dl_size_used_cache")
         assertTrue("rememberEnumPreference(DownloadFormatKey, DownloadFormat.ORIGINAL)" in rows)
-        assertTrue("Modifier.settingRow(R.string.download_format)" in rows)
+        assertTrue(".settingRow(R.string.download_format)" in rows)
+        // What's new's card for File format shows this row with its Show me (21 Nov 2026).
+        assertTrue("Modifier.tourTarget(Tour.SETTING_FILE_FORMAT)" in rows)
         assertTrue("MeaningLine(stringResource(R.string.download_format_description))" in rows)
         for (name in listOf("DownloadFormat.MP3 -> \"MP3\"", "DownloadFormat.M4A -> \"M4A (AAC)\"", "DownloadFormat.FLAC -> \"FLAC\"", "DownloadFormat.WAV -> \"WAV\"")) {
             assertTrue(name, name in rows)
@@ -199,7 +205,7 @@ class DownloadFormatsWiringTest {
         assertTrue("DownloadFormat.ORIGINAL -> stringResource(R.string.download_format_original)" in rows)
         // Bitrate: inside the flag, after File format, for the formats that have one, Auto first.
         val bitrate = rows.indexOf("if (DownloadFormats.bitrateRowShown(fileFormat)) {")
-        assertTrue(bitrate > rows.indexOf("Modifier.settingRow(R.string.download_format)"))
+        assertTrue(bitrate > rows.indexOf(".settingRow(R.string.download_format)"))
         val bitrateRow = rows.substring(bitrate)
         assertTrue("rememberEnumPreference(DownloadBitrateKey, DownloadBitrate.AUTO)" in bitrateRow)
         assertTrue("Modifier.settingRow(R.string.download_bitrate)" in bitrateRow)
@@ -285,6 +291,10 @@ class DownloadFormatsWiringTest {
         assertTrue("songTags(song).copy(keepLink = false)" in export)
         assertTrue("SongFiles.save(files, tags, conversion, fallBack = false)" in export)
         assertTrue("if (inDownloads) return SkipReason.ALREADY_THERE" in export)
+        // Original into a download folder for a song still inside the app: skipped and said (his pick of 20 Nov 2026), before any copy.
+        val inside = "if (format == DownloadFormat.ORIGINAL && inDownloads && source != ExportSources.Source.FOLDER_FILE) return SkipReason.INSIDE_APP"
+        assertTrue(inside in export)
+        assertTrue(export.indexOf(inside) < export.indexOf("ExportSources.Source.DOWNLOAD_CACHE, ExportSources.Source.SONG_CACHE ->"))
         assertTrue("localMgr.allDirs.any { FolderNesting.isSameOrInside(target.toString(), it.uri.toString()) }" in export)
         // Every file made in the chosen folder is made whole or not at all (writeInto deletes what it began).
         assertEquals(3, Regex("""\bwriteInto\(""").findAll(export).count())

@@ -80,8 +80,8 @@ class QueueSelectionRemoveTest {
     fun `the picked songs go as a swipe takes one, the last place first, only where a swipe is`() {
         val body = queue.substringAfter("val removeSelected").substringBefore("\n    }\n")
         assertTrue(
-            "not on a locked queue, nor on another queue looked at; on the saved queue before play, where the player holds nothing (QueueRemoveBeforePlayTest)",
-            "if (lockQueue || (detachedHead && !movesStoredQueue)) null" in body
+            "not on a locked queue, nor the room's on a guest (RoomQueueTest), nor on another queue looked at; on the saved queue before play, where the player holds nothing (QueueRemoveBeforePlayTest)",
+            "if (lockQueue || roomReadOnly || (detachedHead && !movesStoredQueue)) null" in body
         )
         assertTrue("the last place first", ".sortedDescending()" in body)
         for (step in listOf(
@@ -119,6 +119,6 @@ class QueueSelectionRemoveTest {
         val item = menu.substring(menu.indexOf("title = R.string.remove_from_queue"))
         assertTrue("onRemoveFromQueue()" in item.substringBefore("}"))
         val queue = File("src/main/java/com/dd3boh/outertune/ui/player/Queue.kt").readText()
-        assertTrue("offerUndo(queueId, taken)" in queue.substringAfter("val removeSelected").substringBefore("// search"))
+        assertTrue("offerUndo(queueId, taken, notes)" in queue.substringAfter("val removeSelected").substringBefore("// search"))
     }
 }

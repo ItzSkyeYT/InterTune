@@ -37,7 +37,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import java.util.PriorityQueue
+import java.util.concurrent.PriorityBlockingQueue
 import kotlin.math.max
 import kotlin.math.min
 
@@ -527,6 +527,24 @@ class QueueBoard(
         return masterQueues.size
     }
 
+    /**
+     * [q], a queue deleted when the last of its songs were taken out by hand (the queue sheet's dropIfEmptied), back
+     * on the board holding them again: that removal's Undo. Saved again as a queue added is, made current and loaded
+     * into the player on the song it was on, from where it was in it (setCurrQueue); the caller says whether it plays.
+     * Not when the board holds a queue of its id or title again, or has no room left for it. Main thread. Returns
+     * whether it came back.
+     */
+    fun bringBack(q: MultiQueueObject): Boolean {
+        if (q.queue.isEmpty() || masterQueues.size >= maxQueues) return false
+        if (masterQueues.any { it.id == q.id || it.title == q.title }) return false
+        masterQueues.add(q)
+        regenerateIndexes()
+        // In line with the saves, after the delete that took it (see saveDispatcher).
+        saveQueueSongs(q)
+        setCurrQueue(q)
+        return true
+    }
+
 
     /**
      * Un-shuffles current queue
@@ -884,8 +902,12 @@ class QueueBoard(
         override fun compareTo(other: PriorityJob): Int = this.priority - other.priority
     }
 
-    var queueEntity = PriorityQueue<PriorityJob>()
-    var queueSongMap = PriorityQueue<PriorityJob>()
+    // Filled on the player's thread and walked by databaseDispatcher on IO, so lists that take both
+    // at once: a plain PriorityQueue's last() threw ConcurrentModificationException when a save came
+    // in during the walk (a shuffle saves the songs), and the app closed with the shuffle unsaved
+    // (#236). This one's walk goes over a copy, and its adds and clears hold its own lock.
+    val queueEntity = PriorityBlockingQueue<PriorityJob>()
+    val queueSongMap = PriorityBlockingQueue<PriorityJob>()
     var jobActive = Mutex()
     // One save at a time, in the order they were asked for: see saveDispatcher.
     val coroutineScope = CoroutineScope(saveDispatcher + saveFailed)
@@ -956,7 +978,7 @@ class QueueBoard(
                     }
                 )
             )
-            CoroutineScope(Dispatchers.IO).launch {
+            CoroutineScope(Dispatchers.IO + saveFailed).launch {
                 databaseDispatcher()
             }
         }
@@ -992,7 +1014,7 @@ class QueueBoard(
                     }
                 )
             )
-            CoroutineScope(Dispatchers.IO).launch {
+            CoroutineScope(Dispatchers.IO + saveFailed).launch {
                 databaseDispatcher()
             }
         }
@@ -1030,7 +1052,7 @@ class QueueBoard(
                     }
                 )
             )
-            CoroutineScope(Dispatchers.IO).launch {
+            CoroutineScope(Dispatchers.IO + saveFailed).launch {
                 databaseDispatcher()
             }
         }

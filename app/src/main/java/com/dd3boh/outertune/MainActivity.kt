@@ -9,6 +9,8 @@
 
 package com.dd3boh.outertune
 
+import com.dd3boh.outertune.utils.AppLanguage
+import android.content.Context
 import com.dd3boh.outertune.utils.BuiltInKeys
 import com.dd3boh.outertune.recognition.RecognitionShortcut
 import com.dd3boh.outertune.ui.navigation.appDestinations
@@ -20,6 +22,7 @@ import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.os.Build
 import android.appwidget.AppWidgetManager
+import android.content.BroadcastReceiver
 import android.content.ComponentName
 import android.os.Bundle
 import android.os.SystemClock
@@ -77,6 +80,9 @@ import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.datastore.preferences.core.edit
+import com.dd3boh.outertune.constants.BatteryMode
+import com.dd3boh.outertune.constants.SaverNoteShownKey
+import com.dd3boh.outertune.constants.SaverNoteWaitingKey
 import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.constants.UpdateCheckEnabledKey
 import com.dd3boh.outertune.constants.UsageCountEnabledKey
@@ -108,7 +114,11 @@ import kotlinx.coroutines.withContext
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import androidx.compose.material3.TopAppBarState
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.snapshotFlow
@@ -139,6 +149,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
@@ -173,6 +184,7 @@ import com.dd3boh.outertune.constants.HighContrastKey
 import com.dd3boh.outertune.constants.LibraryFilterKey
 import com.dd3boh.outertune.constants.LyricKaraokeEnable
 import com.dd3boh.outertune.constants.LyricsBlurKey
+import com.dd3boh.outertune.constants.LyricsWordsLookKey
 import com.dd3boh.outertune.constants.MinMiniPlayerHeight
 import com.dd3boh.outertune.constants.MiniPlayerHeight
 import com.dd3boh.outertune.constants.NavigationBarAnimationSpec
@@ -201,13 +213,16 @@ import com.dd3boh.outertune.utils.YouTubeLink
 import com.dd3boh.outertune.ui.dialog.TogetherInviteDialog
 import com.dd3boh.outertune.ui.dialog.TogetherSheet
 import com.dd3boh.outertune.together.InviteAnswer
-import com.dd3boh.outertune.ui.dialog.TogetherProposalDialog
+import com.dd3boh.outertune.ui.dialog.TogetherProposalCard
+import com.dd3boh.outertune.ui.dialog.RoomTourOnFirstRoom
 import com.dd3boh.outertune.ui.dialog.togetherAvailable
 import com.dd3boh.outertune.together.RoomCode
 import com.dd3boh.outertune.utils.urlEncode
+import com.dd3boh.outertune.ui.component.rememberFeltHaptics
 import com.dd3boh.outertune.ui.component.LocalHiddenByPlayer
 import com.dd3boh.outertune.ui.component.LocalPlayerSheet
 import com.dd3boh.outertune.ui.component.LyricsBlur
+import com.dd3boh.outertune.ui.component.LyricsWordsLook
 import com.dd3boh.outertune.ui.component.rememberBottomSheetState
 import com.dd3boh.outertune.ui.component.shimmer.ShimmerTheme
 import com.dd3boh.outertune.ui.menu.BottomSheetMenu
@@ -229,6 +244,10 @@ import com.dd3boh.outertune.ui.screens.walkthrough.SETTINGS_WALK
 import com.dd3boh.outertune.ui.screens.walkthrough.TourStop
 import com.dd3boh.outertune.ui.screens.walkthrough.TourTargets
 import com.dd3boh.outertune.ui.screens.walkthrough.WelcomeBack
+import com.dd3boh.outertune.ui.screens.recap.RecapEntry
+import com.dd3boh.outertune.recap.RecapDoor
+import com.dd3boh.outertune.recap.RecapAlert
+import com.dd3boh.outertune.recap.RecapSample
 import com.dd3boh.outertune.ui.screens.walkthrough.WelcomeShow
 import com.dd3boh.outertune.ui.screens.walkthrough.newThingsFor
 import com.dd3boh.outertune.ui.screens.walkthrough.owedThingsFor
@@ -244,15 +263,19 @@ import com.dd3boh.outertune.engine.SimilarSources
 import com.dd3boh.outertune.utils.lastFmQuestionAskable
 import com.dd3boh.outertune.ui.screens.AccountNoticeDialog
 import com.dd3boh.outertune.ui.screens.OptInCatchUp
+import com.dd3boh.outertune.ui.screens.SaverNote
+import com.dd3boh.outertune.ui.screens.SaverNoteDialog
 import com.dd3boh.outertune.ui.screens.accountNoticeOwed
 import com.dd3boh.outertune.ui.screens.isAccountCookie
 import com.dd3boh.outertune.ui.screens.catchUpOwed
 import com.dd3boh.outertune.ui.screens.Screens
 import com.dd3boh.outertune.ui.screens.search.SearchBarContainer
+import com.dd3boh.outertune.ui.screens.search.KEPT_SEARCH
 import com.dd3boh.outertune.ui.theme.ColorSaver
 import com.dd3boh.outertune.ui.theme.DefaultThemeColor
 import com.dd3boh.outertune.ui.theme.PlayerTheme
 import com.dd3boh.outertune.ui.theme.OuterTuneTheme
+import com.dd3boh.outertune.ui.theme.WindowTheme
 import com.dd3boh.outertune.ui.theme.extractThemeSource
 import com.dd3boh.outertune.ui.utils.appBarScrollBehavior
 import com.dd3boh.outertune.ui.utils.blockFocusWhen
@@ -485,6 +508,11 @@ private fun playFromWidget(
 class MainActivity : ComponentActivity() {
     val MAIN_TAG = "MainOtActivity"
 
+    /** Before Android 13 the app's language is ours to apply (AppLanguage); later the platform has done it. */
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(AppLanguage.wrap(newBase))
+    }
+
     @Inject
     lateinit var database: MusicDatabase
 
@@ -524,6 +552,7 @@ class MainActivity : ComponentActivity() {
     val activeCount: ActiveCount get() = lazyActiveCount.get()
 
     lateinit var activityLauncher: ActivityLauncherHelper
+    private var recapSample: BroadcastReceiver? = null
     lateinit var connectivityObserver: NetworkConnectivityObserver
 
     private var playerConnection by mutableStateOf<PlayerConnection?>(null)
@@ -546,6 +575,14 @@ class MainActivity : ComponentActivity() {
             }
         }
 
+    /** A tap on "Your 2026 Recap is here" (RecapAlert): that year's Recap opens. */
+    private fun handleOpenRecap(intent: Intent?) {
+        val year = intent?.getIntExtra(RecapAlert.EXTRA_OPEN_RECAP, 0) ?: 0
+        if (year <= 0) return
+        intent?.removeExtra(RecapAlert.EXTRA_OPEN_RECAP)
+        RecapDoor.open(year)
+    }
+
     private fun handleOpenPoll(intent: Intent?) {
         if (intent?.getBooleanExtra(BackgroundCheckWorker.EXTRA_OPEN_POLL, false) != true) return
         Log.i(MAIN_TAG, "Opening the question from its notification")
@@ -557,6 +594,7 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         handleOpenPoll(intent)
+        handleOpenRecap(intent)
         // Every later widget tap comes through here, sometimes before the first composition (a
         // tap on a task whose process died), so it is held until the player is connected.
         // onNewIntent never replays an old intent, so nothing is gated here.
@@ -574,6 +612,23 @@ class MainActivity : ComponentActivity() {
         if (intent.action == DownloadsShortcut.ACTION) pendingDownloads.asked = true
         handlePlayFromSearch(intent)
         if (Unreleased.LYRICS_BLUR) setLyricsBlurTrial(intent)
+        if (Unreleased.LYRICS_WORDS_LOOKS) setLyricsWordsTrial(intent)
+    }
+
+    /**
+     * The debug app's look of the line sung word by word set from a command line
+     * (LyricsWordsLook.trial), for pictures and recordings of each with the lyrics left open:
+     * `am start -n <app>/.MainActivity --es lyricswords b,words`.
+     */
+    private fun setLyricsWordsTrial(intent: Intent) {
+        val trial = LyricsWordsLook.trial(intent.getStringExtra(LyricsWordsLook.TRIAL)) ?: return
+        Log.i(MAIN_TAG, "Lyrics words trial: $trial")
+        lifecycleScope.launch {
+            dataStore.edit { settings ->
+                trial.look?.let { settings[LyricsWordsLookKey] = it }
+                trial.wordByWord?.let { settings[LyricKaraokeEnable] = it }
+            }
+        }
     }
 
     /**
@@ -737,6 +792,8 @@ class MainActivity : ComponentActivity() {
         lifecycle.removeObserver(controllerViewModel)
         playerConnection?.dispose()
         playerConnection = null
+        RecapSample.stop(this, recapSample)
+        recapSample = null
 
         super.onDestroy()
     }
@@ -758,8 +815,10 @@ class MainActivity : ComponentActivity() {
     }
 
     @SuppressLint("UnusedBoxWithConstraintsScope")
-    @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+    @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class, ExperimentalCoroutinesApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
+        // The window in the app's picked theme from the start (#213).
+        WindowTheme.startTheme(this)?.let { setTheme(it) }
         super.onCreate(savedInstanceState)
         // Debug builds only: a file that makes this phone count as a Samsung, so Auto Blocker's
         // message and way out can be seen on an emulator. Nothing in a release.
@@ -769,6 +828,9 @@ class MainActivity : ComponentActivity() {
         YouTubeRegion.pretendFrom(this)
         // And a file that makes album pages fail as YouTube's NOT_FOUND does, to see what they do then.
         AlbumAnswerPretend.pretendFrom(this)
+        // The language this screen was made in: YouTube is asked in it and Home is loaded again when it
+        // is not the one of a moment ago, however it was picked (AppLanguage.follow).
+        AppLanguage.follow(this)
         // Not again after a rotation or a restored process: the shortcut was tapped once. Nor when
         // the task is reopened from recents, which starts it again with the shortcut's intent and
         // replayed the liked songs over whatever was playing (Android 11 and older, where Back
@@ -799,6 +861,8 @@ class MainActivity : ComponentActivity() {
             intent?.let(::handlePlayFromSearch)
         }
         WindowCompat.setDecorFitsSystemWindows(window, false)
+        // A made-up year to look at the Recap with, from adb, in a debug build only: see RecapSample.
+        recapSample = RecapSample.listen(this, database)
 
         activityLauncher = ActivityLauncherHelper(this)
 
@@ -806,7 +870,10 @@ class MainActivity : ComponentActivity() {
         setContent(parent = Animations.recomposer(this)) {
             Log.v(MAIN_TAG, "RC-1")
             val coroutineScope = rememberCoroutineScope()
-            val haptic = LocalHapticFeedback.current
+            // The window's haptics as the Vibration setting has them (Unreleased.HAPTICS_FEEL, FeltHaptics), handed down
+            // below so that what every screen asks of LocalHapticFeedback plays as the setting says. Compose's own
+            // where the flag is off.
+            val haptic = rememberFeltHaptics()
             val snackbarHostState = remember { SnackbarHostState() }
 
             val enableDynamicTheme by rememberPreference(DynamicThemeKey, defaultValue = true)
@@ -929,6 +996,7 @@ class MainActivity : ComponentActivity() {
                 // removeExtra only changed the old process's copy.
                 if (freshLaunch(savedInstanceState != null, intent?.flags ?: 0)) {
                     handleOpenPoll(intent)
+                    handleOpenRecap(intent)
                 }
 
                 // Receives the outcome of an in-app install. Registered here rather than in the
@@ -956,6 +1024,12 @@ class MainActivity : ComponentActivity() {
 
             LaunchedEffect(useDarkTheme) {
                 setSystemBarAppearance(useDarkTheme)
+            }
+            // The next cold start's splash in the theme picked here, or the phone's when it follows
+            // the phone (#213): the splash is drawn before any of the app runs.
+            LaunchedEffect(darkTheme, chosenBatteryMode) {
+                val start = WindowTheme.start(darkTheme, alwaysDark = chosenBatteryMode == BatteryMode.SAVER)
+                withContext(Dispatchers.IO) { WindowTheme.startWith(this@MainActivity, start) }
             }
             var themeColor by rememberSaveable(stateSaver = ColorSaver) {
                 mutableStateOf(DefaultThemeColor)
@@ -1025,6 +1099,14 @@ class MainActivity : ComponentActivity() {
                 themeColor = pagesThemeColor
             ) {
                 Log.v(MAIN_TAG, "RC-2.1")
+
+                // The window behind the pages, and the colour the launcher paints round the app as it
+                // opens from a widget or closes into one, in the pages' own colour (#213: a white
+                // border round the widget in the dark theme). Once per change of the theme's colour.
+                val pagesSurface = MaterialTheme.colorScheme.surface
+                LaunchedEffect(pagesSurface) {
+                    WindowTheme.paint(this@MainActivity, pagesSurface.toArgb())
+                }
 
                 /**
                  * Offer the update, and let the answer stick.
@@ -1282,10 +1364,23 @@ class MainActivity : ComponentActivity() {
                  * like the tap did nothing.
                  */
                 var searchActive by rememberSaveable { mutableStateOf(false) }
-                // A tap on the tab that is showing clears what was typed in the search bar over it, as
-                // closing the search there does; a tap on another tab keeps it (#166, after #143's rule:
-                // the same tab closes, another keeps). Counted, so each tap asks once.
-                var searchCleared by rememberSaveable { mutableIntStateOf(0) }
+                // What is typed in the search bar, held here beside searchActive so that the tabs can act on
+                // it (#166, after #143's rule: the same tab closes, another keeps). A tap on the tab that is
+                // showing clears it, as closing the search there does; a tap on another tab takes it away
+                // with the page it was typed over (searchGoesWithPage).
+                val searchQuery = rememberSaveable(stateSaver = TextFieldValue.Saver) { mutableStateOf(TextFieldValue()) }
+
+                /**
+                 * A tap on another tab: the words go with the page they were typed over (#166, Ti-Die). A
+                 * search open over the page ([wasOpen]) is kept on it, which its tab keeps while another is
+                 * shown, and comes back open, with its words and what they found, when the page is back
+                 * (SearchBarContainer). The bar over the other tab starts clear.
+                 */
+                fun searchGoesWithPage(wasOpen: Boolean) {
+                    val words = searchQuery.value.text
+                    if (wasOpen && words.isNotEmpty()) navBackStackEntry?.savedStateHandle?.set(KEPT_SEARCH, words)
+                    searchQuery.value = TextFieldValue()
+                }
 
                 BoxWithConstraints(
                     modifier = Modifier
@@ -1371,12 +1466,26 @@ class MainActivity : ComponentActivity() {
                                 }
                             }
                     }
+                    // A tab tapped again is scrolled to its top by the screen itself, in code, which the scroll
+                    // behaviour above never feels (it follows fingers and flings): the bar that had slid away with
+                    // the list stayed away over the top of it, an empty band. It comes back with the list.
+                    LaunchedEffect(Unit) {
+                        snapshotFlow { navBackStackEntry }
+                            .flatMapLatest { entry -> entry?.savedStateHandle?.getStateFlow("scrollToTop", false) ?: flowOf(false) }
+                            // Only the asking: the screen sets it back to false when it has scrolled, which must not
+                            // cut the bar's own way back short.
+                            .filter { it }
+                            .collectLatest {
+                                appBarState.contentOffset = 0f
+                                appBarState.resetHeightOffset()
+                            }
+                    }
 
                     // The Search shortcut. Search is the overlay over the current destination, not
                     // a destination, so it is opened the way tapping the bar opens it, and not over
-                    // setup, which comes first. It waits for the first destination and then a frame:
-                    // the overlay shuts itself whenever the destination under it changes, and at
-                    // launch that includes the first one arriving.
+                    // setup, which comes first. It waits for the first destination and then a frame,
+                    // so that it opens over the page it belongs to: the overlay shuts itself whenever
+                    // the destination under it changes.
                     var searchFromShortcut by rememberSaveable {
                         mutableStateOf(intent?.action == ACTION_SEARCH && oobeStatus >= OOBE_VERSION)
                     }
@@ -1505,8 +1614,8 @@ class MainActivity : ComponentActivity() {
                             TogetherSheet(onDismiss = { roomScreen = false })
                         }
                     }
-                    // A guest's song proposed to this phone as the room's leader: asked wherever the app is.
-                    TogetherProposalDialog(playerConnection)
+                    // How rooms work, by itself the first time this phone is in a room, however it got there.
+                    RoomTourOnFirstRoom(playerConnection)
                     LaunchedEffect(pendingLaunchLink, pendingLink.link, playerConnection, oobeStatus) {
                         val link = pendingLaunchLink ?: pendingLink.link ?: return@LaunchedEffect
                         // A live one, as for the widget's songs: see PlayerConnection.isAlive.
@@ -1543,6 +1652,7 @@ class MainActivity : ComponentActivity() {
                     }
 
                     CompositionLocalProvider(
+                        LocalHapticFeedback provides haptic,
                         LocalDatabase provides database,
                         LocalContentColor provides contentColorFor(MaterialTheme.colorScheme.surface),
                         LocalMenuState provides menuState,
@@ -1564,6 +1674,7 @@ class MainActivity : ComponentActivity() {
                         LocalActiveCount providesComputed { activeCount },
                         LocalNetworkConnected provides isNetworkConnected,
                         LocalSnackbarHostState provides snackbarHostState,
+                        LocalAppScope provides coroutineScope,
                         LocalAppBackdrop provides (if (navGlass) appBackdrop else null),
                         LocalAppBackdropAvailable provides backdropAvailable,
                         LocalPlainDock provides plainDock,
@@ -1685,7 +1796,7 @@ class MainActivity : ComponentActivity() {
                         var tourFromWelcome by rememberSaveable { mutableStateOf(false) }
                         // Quick picks is only listed where it has chips to be shown: see Install.
                         val quickPicksSource by rememberEnumPreference(QuickPicksSourceKey, defaultValue = QuickPicksSource.YOUTUBE)
-                        val install = Install(quickPicksChips = quickPicksSource.orOffered().hasChips)
+                        val install = Install(quickPicksChips = quickPicksSource.orOffered().hasChips, rooms = togetherAvailable)
                         val newThings = remember(walkthroughSeen, welcomeEverything, quickPicksSource) {
                             newThingsFor(walkthroughSeen, everything = welcomeEverything, install = install)
                         }
@@ -1943,6 +2054,55 @@ class MainActivity : ComponentActivity() {
                             !catchUpOpen && !welcomeOpen && !tourState.running && !tourFromWelcome && !updatePromptVisible
                         ) {
                             AccountNoticeDialog(onDone = { setAccountNoticeSeen(true) })
+                        }
+
+                        // The InterTune Recap: from its reveal day it opens by itself once, after
+                        // whatever came up first; and whenever the banner in Settings asks.
+                        RecapEntry(
+                            setupDone = oobeStatus >= OOBE_VERSION,
+                            quiet = catchUpOpen || welcomeOpen || tourState.running || tourFromWelcome || updatePromptVisible ||
+                                accountNoticeOwed(setupDone = oobeStatus >= OOBE_VERSION, signedIn = signedIn, seen = accountNoticeSeen),
+                            // The playlist the year card saved, opened as a playlist of the library is (Playlist.navigationRoute).
+                            onOpenPlaylist = { id -> navController.navigate("local_playlist/$id") },
+                        )
+
+                        /*
+                         * A word when the phone's battery saver puts the app on Saver (SaverNote): what
+                         * pauses, and the way to Battery use. Twice at most, once each time the saver
+                         * comes on, and never over something else: it waits for what the account
+                         * notice waits for, and for the account notice itself.
+                         */
+                        if (Unreleased.SAVER_NOTE) {
+                            val (saverNoteShown, setSaverNoteShown) = rememberPreference(SaverNoteShownKey, defaultValue = 0)
+                            val (saverNoteWaiting, setSaverNoteWaiting) = rememberPreference(SaverNoteWaitingKey, defaultValue = false)
+                            var saverNoteUp by rememberSaveable { mutableStateOf(false) }
+                            // The saver seen off: the next time it comes on may be told.
+                            LaunchedEffect(phoneSaverOn, saverNoteWaiting) {
+                                if (!phoneSaverOn && saverNoteWaiting) setSaverNoteWaiting(false)
+                            }
+                            // Saver in force (where this build offers Battery use), and because of the phone.
+                            val saverFromPhone = batteryMode == BatteryMode.SAVER &&
+                                BatteryUse.saverFromPhone(chosenBatteryMode, followPhoneSaver, phoneSaverOn)
+                            val saverNoteClear = oobeStatus >= OOBE_VERSION && !catchUpOpen && !welcomeOpen &&
+                                !tourState.running && !tourFromWelcome && !updatePromptVisible &&
+                                !accountNoticeOwed(setupDone = oobeStatus >= OOBE_VERSION, signedIn = signedIn, seen = accountNoticeSeen)
+                            LaunchedEffect(saverFromPhone, saverNoteShown, saverNoteWaiting, saverNoteClear) {
+                                if (saverNoteClear && !saverNoteUp && SaverNote.owed(saverFromPhone, saverNoteShown, saverNoteWaiting)) {
+                                    saverNoteUp = true
+                                    // Waiting first: the count changing relaunches this, and must find it said.
+                                    setSaverNoteWaiting(true)
+                                    setSaverNoteShown(saverNoteShown + 1)
+                                }
+                            }
+                            if (saverNoteUp) {
+                                SaverNoteDialog(
+                                    onBatteryUse = {
+                                        saverNoteUp = false
+                                        navController.navigate("settings/battery")
+                                    },
+                                    onDone = { saverNoteUp = false },
+                                )
+                            }
                         }
 
                         /*
@@ -2256,12 +2416,13 @@ class MainActivity : ComponentActivity() {
                                                 // one, so while it is open the checks below still
                                                 // see the destination underneath it and would just
                                                 // scroll that to top, leaving search on screen.
+                                                val searchWasOpen = searchActive
                                                 if (searchActive) {
                                                     searchActive = false
                                                 }
 
                                                 if (navBackStackEntry?.destination?.hierarchy?.any { it.route == screen.route } == true) {
-                                                    searchCleared++
+                                                    searchQuery.value = TextFieldValue()
                                                     if (!searchActive) {
                                                         navBackStackEntry?.savedStateHandle?.set(
                                                             "scrollToTop",
@@ -2269,6 +2430,7 @@ class MainActivity : ComponentActivity() {
                                                         )
                                                     }
                                                 } else {
+                                                    searchGoesWithPage(searchWasOpen)
                                                     navigateToNavTab(navController, screen.route, navigationItems, navBackStackEntry)
                                                 }
 
@@ -2360,12 +2522,13 @@ class MainActivity : ComponentActivity() {
                                                 // one, so while it is open the checks below still
                                                 // see the destination underneath it and would just
                                                 // scroll that to top, leaving search on screen.
+                                                val searchWasOpen = searchActive
                                                 if (searchActive) {
                                                     searchActive = false
                                                 }
 
                                                 if (navBackStackEntry?.destination?.hierarchy?.any { it.route == screen.route } == true) {
-                                                    searchCleared++
+                                                    searchQuery.value = TextFieldValue()
                                                     if (!searchActive) {
                                                         navBackStackEntry?.savedStateHandle?.set(
                                                             "scrollToTop",
@@ -2373,6 +2536,7 @@ class MainActivity : ComponentActivity() {
                                                         )
                                                     }
                                                 } else {
+                                                    searchGoesWithPage(searchWasOpen)
                                                     navigateToNavTab(navController, screen.route, navigationItems, navBackStackEntry)
                                                 }
 
@@ -2459,7 +2623,7 @@ class MainActivity : ComponentActivity() {
                                 CompositionLocalProvider(
                                     LocalSearchBarGlass provides if (navGlass) GlassSpec(navHostBackdrop, glassIntensity.coerceIn(0f, 1f), still = glassStill) else null
                                 ) {
-                                    SearchBarContainer(navController, scrollBehavior, searchActive, onActiveChange = { searchActive = it }, clearQuery = searchCleared)
+                                    SearchBarContainer(navController, scrollBehavior, searchActive, queryState = searchQuery, onActiveChange = { searchActive = it })
                                 }
                             }
 
@@ -2552,6 +2716,10 @@ class MainActivity : ComponentActivity() {
                                     .windowInsetsPadding(LocalPlayerAwareWindowInsets.current)
                                     .align(Alignment.BottomCenter)
                             )
+
+                            // A guest's song proposed to this phone while it is in control of a room: a card at the top
+                            // wherever the app is, over the player too, until Play it or Not now (TogetherProposalCard).
+                            TogetherProposalCard(playerConnection, Modifier.align(Alignment.TopCenter))
 
                             // Only after setup, so a crash during the wizard is offered once it is done.
                             if (oobeStatus >= OOBE_VERSION) CrashReportDialog()
@@ -2776,6 +2944,12 @@ val LocalPollChecker = staticCompositionLocalOf<PollChecker> { error("No PollChe
 val LocalActiveCount = staticCompositionLocalOf<ActiveCount> { error("No ActiveCount provided") }
 val LocalNetworkConnected = staticCompositionLocalOf<Boolean> { error("No Network Status provided") }
 val LocalSnackbarHostState = staticCompositionLocalOf<SnackbarHostState> { error("No SnackbarHostState provided") }
+
+/**
+ * The activity's own scope, the one the nav graph gets as appScope: for what must outlive the sheet or screen
+ * that started it, as the queue's Undo message does (it went with the queue sheet when that was put down).
+ */
+val LocalAppScope = staticCompositionLocalOf<CoroutineScope> { error("No app scope provided") }
 
 /**
  * The songs the listener chose not to play (DontPlay, Unreleased.ARTIST_BLOCK), for the rows of

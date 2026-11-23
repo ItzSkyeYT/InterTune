@@ -9,6 +9,8 @@
 
 package com.dd3boh.outertune.playback
 
+import kotlin.math.abs
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.flow.drop
 import com.dd3boh.outertune.models.blockedArtists
 import com.dd3boh.outertune.models.dontPlaySongs
@@ -64,6 +66,7 @@ import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.ResolvingDataSource
 import androidx.media3.datasource.cache.CacheDataSource
 import androidx.media3.datasource.cache.CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR
+import androidx.media3.datasource.cache.ContentMetadata
 import androidx.media3.datasource.cache.SimpleCache
 import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.DefaultLoadControl
@@ -79,7 +82,6 @@ import androidx.media3.exoplayer.audio.SilenceSkippingAudioProcessor
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.exoplayer.source.ShuffleOrder
 import androidx.media3.session.CommandButton
-import androidx.media3.session.DefaultMediaNotificationProvider
 import androidx.media3.session.MediaController
 import androidx.media3.session.MediaLibraryService
 import androidx.media3.session.MediaSession
@@ -112,6 +114,8 @@ import com.dd3boh.outertune.constants.MaxSongCacheSizeKey
 import com.dd3boh.outertune.constants.MediaControlButtonsKey
 import com.dd3boh.outertune.constants.MediaSessionConstants.CommandToggleLibrary
 import com.dd3boh.outertune.constants.MediaSessionConstants.CommandToggleLike
+import com.dd3boh.outertune.constants.MediaSessionConstants.CommandToggleDislike
+import com.dd3boh.outertune.ui.menu.toggleDontPlay
 import com.dd3boh.outertune.constants.MediaSessionConstants.CommandToggleRepeatMode
 import com.dd3boh.outertune.constants.MediaSessionConstants.CommandToggleShuffle
 import com.dd3boh.outertune.constants.MediaSessionConstants.CommandToggleStartRadio
@@ -135,8 +139,10 @@ import com.dd3boh.outertune.constants.SpatialAudioKey
 import com.dd3boh.outertune.constants.SpatialAudioMode
 import com.dd3boh.outertune.constants.PersistentQueueKey
 import com.dd3boh.outertune.constants.PlayingQueueKey
+import com.dd3boh.outertune.constants.NeverHeardQueuesKey
 import com.dd3boh.outertune.db.daos.playingQueueAt
 import com.dd3boh.outertune.engine.EngineLoader
+import com.dd3boh.outertune.engine.HeardSet
 import com.dd3boh.outertune.engine.ListenLog
 import com.dd3boh.outertune.engine.TagFit
 import com.dd3boh.outertune.engine.SongTags
@@ -168,6 +174,7 @@ import com.dd3boh.outertune.constants.SleepTimerFadeKey
 import com.dd3boh.outertune.constants.SleepTimerSongFinishKey
 import com.dd3boh.outertune.constants.ShareAudioFocusKey
 import com.dd3boh.outertune.constants.SkipSilenceKey
+import com.dd3boh.outertune.constants.VarispeedKey
 import com.dd3boh.outertune.constants.StopMusicOnTaskClearKey
 import com.dd3boh.outertune.constants.TransitionFadeKey
 import com.dd3boh.outertune.constants.AutomixKey
@@ -217,6 +224,7 @@ import com.dd3boh.outertune.extensions.findNextMediaItemById
 import com.dd3boh.outertune.extensions.isUserLoggedIn
 import com.dd3boh.outertune.extensions.joinWithin
 import com.dd3boh.outertune.extensions.metadata
+import com.dd3boh.outertune.extensions.playSafe
 import com.dd3boh.outertune.extensions.setOffloadEnabled
 import com.dd3boh.outertune.extensions.shouldShowPlayButton
 import com.dd3boh.outertune.lyrics.LyricsHelper
@@ -237,6 +245,12 @@ import com.dd3boh.outertune.playback.queues.Queue
 import com.dd3boh.outertune.playback.queues.YouTubeQueue
 import com.dd3boh.outertune.together.TogetherSession
 import com.dd3boh.outertune.together.RoomCode
+import com.dd3boh.outertune.together.RoomMemory
+import com.dd3boh.outertune.together.hexToBytes
+import com.dd3boh.outertune.ui.dialog.togetherAvailable
+import com.dd3boh.outertune.ui.dialog.togetherName
+import com.dd3boh.outertune.ui.dialog.togetherRelays
+import com.dd3boh.outertune.utils.AppLanguage
 import com.dd3boh.outertune.utils.PhoneState
 import com.dd3boh.outertune.utils.SoundRoute
 import com.dd3boh.outertune.utils.SessionBitmapLoader
@@ -450,12 +464,26 @@ class MusicService : MediaLibraryService(),
     var isCasting = false
         private set
 
+    /**
+     * Whether a cast is on: from the pick of a receiver until the music is back on the phone, a move from one receiver
+     * straight to another included, and both hand-overs of the music inside it. A listening room's guest follows nothing
+     * meanwhile (TogetherSession.castLook). Main thread.
+     */
+    val castOn: Boolean get() = castSession?.state?.value.let { it != null && it != CastSession.State.Off }
+
     val qbInit = MutableStateFlow(false)
     var queueBoard = QueueBoard(this, maxQueues = 1)
     var queuePlaylistId: String? = null
 
     /** Set at the top of onDestroy; see the checks in playQueue's resolve coroutine below. */
     @Volatile private var destroyed = false
+
+    /**
+     * Varispeed's switch as it stands (Unreleased.VARISPEED; false without the flag), for a Listen together
+     * room, which plays the room's speed in the song's own key while it is on (TogetherSession.speed).
+     */
+    @Volatile var varispeedOn = false
+        private set
 
     /** Whether this service has been torn down: anything asked of it then does nothing. See PlayerConnection.isAlive. */
     val isDestroyed: Boolean get() = destroyed
@@ -510,26 +538,119 @@ class MusicService : MediaLibraryService(),
     /** A listening room while one lasts (together/TogetherSession), null otherwise. */
     val together = MutableStateFlow<TogetherSession?>(null)
 
-    /** Opens a room, hosting or following, in place of any already open. Main thread. */
-    fun startTogether(code: RoomCode, owner: Boolean, relays: List<String>, name: String): TogetherSession {
+    /** A room this phone was in is on its way back with this service ([rejoinSavedRoom]): the sheet keeps showing it. */
+    val togetherComing = MutableStateFlow(false)
+
+    /** The room this phone is in, kept so that it comes back: see [RoomMemory]. */
+    private val roomMemory by lazy { RoomMemory(File(noBackupFilesDir, RoomMemory.FILE)) }
+    private var roomTouchedAt = 0L
+
+    /**
+     * A room that is on says so every few seconds: remembered as alive [at] that time, at most once a minute. A guest's
+     * time is the last time it heard its host (HostAbsence.aliveAt), so a room the host has closed is not kept going by
+     * the guest alone.
+     */
+    fun roomAlive(at: Long) {
+        if (at - roomTouchedAt < 60_000L) return
+        roomTouchedAt = at
+        val room = together.value?.code ?: return
+        // Off the main thread: a file read and written while the music plays. RoomMemory takes one at a time, and leaves
+        // a room that is no longer the one kept alone.
+        scope.launch(Dispatchers.IO) { roomMemory.touch(room, at) }
+    }
+
+    /** The phone with [key] is in control of the room [code] now: kept, so that the room comes back with it (RoomMemory). */
+    fun roomLead(code: RoomCode, key: String) {
+        scope.launch(Dispatchers.IO) { roomMemory.lead(code, key) }
+    }
+
+    /**
+     * Opens a room, hosting or following, in place of any already open. Main thread. Null on a service that has
+     * stopped: a room made there is held by nothing and stopped by nothing (onDestroy has run), and went on saying it
+     * was the host to a screen that was no longer there. The app keeps the stopped service for a moment after it comes
+     * back from another app (PlayerConnection.isAlive), and a tap on Start in that moment made one (15 Nov 2026).
+     *
+     * [identity] is the key a room that comes back signs with, the same as before (RoomMemory). [hostHeardAt] is, for a
+     * guest's room that comes back, when it last heard the host: kept as the room's time, and the host's absence counted
+     * from it. [lead] is who was in control as this phone last knew it, for a room that comes back.
+     */
+    fun startTogether(
+        code: RoomCode,
+        owner: Boolean,
+        relays: List<String>,
+        name: String,
+        moving: Boolean = false,
+        identity: ByteArray? = null,
+        hostHeardAt: Long? = null,
+        lead: String? = null,
+    ): TogetherSession? {
+        if (destroyed) {
+            Log.w(TAG, "No room is made on a service that has stopped")
+            return null
+        }
         // Already in this very room (an invite to it opened again): it stays as it is, not joined a second time.
         together.value?.takeIf { it.code == code }?.let { return it }
-        together.value?.stop()
-        return TogetherSession(this, code, owner, relays, name).also {
-            together.value = it
-            it.start()
-        }
+        // Another room in its place: the one it replaces ends, and an owner's says so. Not when the room carries on under
+        // a new code (moveTogether): its people have moved with it.
+        together.value?.let { if (moving) it.stop() else it.closeNow() }
+        val session = if (identity != null) TogetherSession(this, code, owner, relays, name, identity, hostHeardAt = hostHeardAt ?: 0L, lead = lead)
+        else TogetherSession(this, code, owner, relays, name, hostHeardAt = hostHeardAt ?: 0L)
+        together.value = session
+        session.start()
+        // Not now for a guest's room that comes back: saved as now, a room its host had closed was kept six more hours
+        // by every start.
+        roomTouchedAt = hostHeardAt ?: System.currentTimeMillis()
+        roomMemory.save(code, owner, session.identityHex, roomTouchedAt, lead)
+        return session
     }
 
     /** The room carries on under [code], each phone as it was: what its owner does after sending someone out. */
     fun moveTogether(code: RoomCode) {
         val room = together.value ?: return
-        startTogether(code, room.owner, room.relays, room.name)
+        startTogether(code, room.owner, room.relays, room.name, moving = true)
     }
 
+    /** The room is over, by the person's own hand or because it was closed: it is forgotten, and does not come back. */
     fun stopTogether() {
         together.value?.stop()
         together.value = null
+        roomMemory.forget()
+    }
+
+    /** The room stops here with the service and is remembered: the next service joins it again (rejoinSavedRoom). */
+    private fun pauseTogether() {
+        together.value?.stop()
+        together.value = null
+    }
+
+    /**
+     * The room this phone was in comes back with the service: joined again in the same role, the host as the same owner
+     * and a guest as a guest, with nothing asked. Whatever the app gets, the same service, a new one, or a new process
+     * after Android ended the app, finds it here. Not for a room forgotten, or last alive more than six hours ago.
+     */
+    private fun rejoinSavedRoom() {
+        if (!togetherAvailable) return
+        val saved = roomMemory.load(System.currentTimeMillis()) ?: return
+        val code = RoomCode.parse(saved.code) ?: return
+        togetherComing.value = true
+        scope.launch {
+            try {
+                val relays = togetherRelays(this@MusicService)
+                val name = togetherName(this@MusicService)
+                if (together.value != null || destroyed) return@launch
+                Log.i(TAG, "A room this phone was in comes back, as ${if (saved.owner) "its host" else "a guest"}")
+                startTogether(
+                    code, saved.owner, relays, name,
+                    identity = saved.identity.hexToBytes(),
+                    // A guest goes on from the last time it heard the host, not from now.
+                    hostHeardAt = saved.aliveAt.takeIf { !saved.owner },
+                    // Control where it was: a host's restart no longer takes it from the guest who has it.
+                    lead = saved.lead,
+                )
+            } finally {
+                togetherComing.value = false
+            }
+        }
     }
 
     private var routedPlayer: RoutedPlayer? = null
@@ -806,6 +927,20 @@ class MusicService : MediaLibraryService(),
 
     /** What has played in the current queue, in the order it was heard. See [AdaptiveQueue.Heard]. */
     private val heard = AdaptiveQueue.Heard()
+
+    /**
+     * The queues kept to songs never heard, a Discover pick's (NeverHeardQueue), by id with the set
+     * of songs known each was started with. The ids are kept in the settings for a restart; the
+     * sets are read again from the database then, the first time a restored queue needs one.
+     */
+    private val neverHeardQueues = NeverHeardQueues { ids ->
+        scope.launch { dataStore.edit { it[NeverHeardQueuesKey] = ids.mapTo(HashSet()) { id -> id.toString() } } }
+    }
+
+    /** Every song the listener knows, read from the database once (EngineLoader.known): nothing when the read fails. */
+    private suspend fun knownSongsNow(): HeardSet = withContext(Dispatchers.IO) {
+        runCatching { EngineLoader.known(database) }.onFailure { Log.w(TAG, "Discover queue: could not read the songs known", it) }.getOrDefault(HeardSet.EMPTY)
+    }
 
     /** Whether this process has read what the last one saved of the radios (AdaptiveMemory). */
     private var adaptiveMemoryRead = false
@@ -1188,10 +1323,21 @@ class MusicService : MediaLibraryService(),
     var consecutivePlaybackErr = 0
 
     override fun onCreate() {
+        // A service that starts slowly, made on purpose in a debug build ("slowcreate <ms>", FaultInjection): the
+        // proof that a media button's start is still met in time when onStartCommand comes late (issue #229).
+        FaultInjection.resumeFault(this)?.createDelayMs?.takeIf { it > 0 }?.let {
+            Log.w(TAG, "fault injection: onCreate held $it ms")
+            Thread.sleep(it)
+        }
         Log.i(TAG, "Starting MusicService")
         super.onCreate()
         isRunning = true
         instance = WeakReference(this)
+        // For the guard of a media button's start from outside the app: Android's time for the first
+        // start of a service created with its process has run since the process began
+        // (MediaButtonStart.sinceStart). The app's own starts carry the moment they were handed on.
+        processStartedAt = android.os.Process.getStartUptimeMillis()
+        createdAt = SystemClock.uptimeMillis()
         // media3 writes this under its own name only, which Report a problem leaves out, and it is
         // the line that explains a song stopping a minute after the screen goes off (issue #26).
         setListener(object : Listener {
@@ -1200,6 +1346,11 @@ class MusicService : MediaLibraryService(),
                 StopReasons.keep(this@MusicService, StopReasons.NOT_IN_FOREGROUND)
             }
         })
+        // The app's own language changing: the buttons of the media notification were named in the
+        // old one when their layout was last sent, which is not until the next song or press.
+        scope.launch {
+            AppLanguage.changes.collect { runCatching { updateNotification() } }
+        }
         // An artist blocked while their song is the one playing: it is passed over at once.
         if (Unreleased.ARTIST_BLOCK) scope.launch {
             blockedArtists.drop(1).collect {
@@ -1214,6 +1365,10 @@ class MusicService : MediaLibraryService(),
                 val was = before
                 before = now
                 if (now == was || !::exoPlayer.isInitialized) return@collect
+                // The media controls' Dislike reads this list: drawn again now, or a tap that lifted
+                // the song playing (or a lift in its menu or in Exclusions) left it filled until the
+                // next song, and a second tap on it disliked again.
+                if (::mediaSession.isInitialized) updateNotification()
                 val playing = activePlayer.currentMediaItem?.metadata ?: return@collect
                 if (now.covers(playing) && !was.covers(playing)) {
                     runCatching { passOverBlocked(dontPlay = true, asked = true) }.onFailure { Log.w(TAG, "Could not pass over a song not to play", it) }
@@ -1234,6 +1389,8 @@ class MusicService : MediaLibraryService(),
                 androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED,
             )
         }.onFailure { Log.w(TAG, "Could not listen for the sleep timer's buttons", it) }.isSuccess
+        // A room this phone was in comes back with this service.
+        rejoinSavedRoom()
 
         // The repair scan must never rewrite the loudness of the song that is playing, because
         // after the unknown-loudness fallback an unrepaired track sits at heavy attenuation and
@@ -1342,7 +1499,9 @@ class MusicService : MediaLibraryService(),
                         ).also { addListener(it) }
                     }
                 }
-                addAnalyticsListener(PlaybackStatsListener(false, this@MusicService))
+                // media3's play-time counter, which closed the app when it tripped on its own
+                // bookkeeping: now made again instead (GuardedPlaybackStats).
+                addAnalyticsListener(GuardedPlaybackStats(this@MusicService))
                 // A song whose cached copy cannot be read is given up, so a retry reads it whole. See BadCachedCopy.
                 addAnalyticsListener(object : AnalyticsListener {
                     /** When each song's last failed load was written down: the player retries every few seconds. */
@@ -1423,6 +1582,7 @@ class MusicService : MediaLibraryService(),
             toggleLike = ::toggleLike
             toggleStartRadio = ::toggleStartRadio
             toggleLibrary = ::toggleLibrary
+            toggleDislike = ::toggleDislike
         }
 
         // The session is first handed a smaller cover that is on the phone, so the lock screen is
@@ -1440,6 +1600,14 @@ class MusicService : MediaLibraryService(),
         // once a song.
         isNetworkConnected.collect(scope) { online ->
             if (online) covers.tryAgain()
+        }
+        // A session an earlier start of this service left registered in this process: media3
+        // refuses a second one with the same id, and the service could not start at all (#181,
+        // "Session ID must be unique", Android 12). onDestroy forgets the one it releases, so one
+        // still here was never released: released now, as that onDestroy should have.
+        leftSession?.get()?.let { left ->
+            Log.w(TAG, "A session from an earlier start of the service was never released: released now")
+            runCatching { left.release() }
         }
         mediaSession = MediaLibrarySession.Builder(this, sessionPlayer, mediaLibrarySessionCallback)
             .setSessionActivity(
@@ -1461,6 +1629,7 @@ class MusicService : MediaLibraryService(),
             // app's own screens read the player directly and never saw these.
             .setPeriodicPositionUpdateEnabled(false)
             .build()
+        leftSession = WeakReference(mediaSession)
 
         // In a car the player's row of buttons is laid out for a driver (MediaControlButtons.CAR).
         if (Unreleased.AUTO_REWORK) carType.observeForever(carWatch)
@@ -1526,8 +1695,10 @@ class MusicService : MediaLibraryService(),
         // The widget's heart shows the like as stored, wherever it was given or taken back.
         WidgetStore.followLikes(this, scope) { id -> database.songLiked(id) }
 
+        // media3's own notification, whose play button no longer demands the foreground of a
+        // service that may not reach it (PlainPlayNotifications).
         setMediaNotificationProvider(
-            DefaultMediaNotificationProvider(
+            PlainPlayNotifications(
                 this@MusicService,
                 { NOTIFICATION_ID },
                 CHANNEL_ID,
@@ -1626,6 +1797,21 @@ class MusicService : MediaLibraryService(),
                         applyOffload()
                     }
                 }
+
+            // Varispeed (#225): the switch acts on the song playing at once, the pitch linked to the speed when it
+            // turns on and back to the song's own key when it turns off. Tempo and Pitch keeps them linked after.
+            // A change of speed or pitch reaches applyOffload through onEvents.
+            if (Unreleased.VARISPEED) {
+                dataStore.data
+                    .map { it[VarispeedKey] ?: false }
+                    .distinctUntilChanged()
+                    .collectLatest(scope) { linked ->
+                        withContext(Dispatchers.Main) {
+                            varispeedOn = linked
+                            exoPlayer.playbackParameters = Varispeed.switched(exoPlayer.playbackParameters, linked)
+                        }
+                    }
+            }
 
             // The four the song-change path used to read blocking. Nothing here touches the
             // player, so they stay off the main thread; the fields are volatile because the
@@ -2482,6 +2668,21 @@ class MusicService : MediaLibraryService(),
         }
     }
 
+    /**
+     * Dislike on the phone's media controls (Unreleased.DISLIKE): what the menus' Dislike does, to the song
+     * playing, which is then passed over as any song kept from playing is (toggleDontPlay, DislikePlan).
+     * The button is drawn again by the songs-not-to-play collector in onCreate, once the database has the
+     * change: drawn here, it read the list as it was before the tap.
+     */
+    fun toggleDislike() {
+        if (!Unreleased.DISLIKE) return
+        val metadata = activePlayer.currentMetadata ?: return
+        if (metadata.isLocal) return
+        val held = ContentFilter.current.dontPlay.has(metadata.id)
+        val liked = currentSong.value?.song?.takeIf { it.id == metadata.id }?.liked == true
+        toggleDontPlay(this, database, metadata, held, downloadUtil, liked)
+    }
+
     fun toggleStartRadio() {
         val mediaMetadata = activePlayer.currentMetadata ?: return
         playQueue(YouTubeQueue.radio(mediaMetadata), isRadio = true)
@@ -2511,6 +2712,8 @@ class MusicService : MediaLibraryService(),
         origin: PlayOrigin = PlayOrigin.UNKNOWN,
         originSlot: Int = -1,
         tappedAt: Long? = null,
+        /** The card's row was the one built under the Discover chip, as Home knew it at the tap (NeverHeardQueue.isPick). */
+        discoverRow: Boolean = false,
     ) {
         // Radio was already a flag; it is also an origin, and the more useful of the two.
         val playOrigin = if (origin == PlayOrigin.UNKNOWN && isRadio) PlayOrigin.RADIO else origin
@@ -2557,6 +2760,7 @@ class MusicService : MediaLibraryService(),
                     // the second stayed plain; a start dropped for a newer tap, or whose answer
                     // failed, never gets here and leaves the queue that plays as it was.
                     beforeStart = { if (Unreleased.AUTOMIX_EDITOR) linkMixQueue((queue as? ListQueue)?.mixPlaylistId) },
+                    neverHeard = NeverHeardQueue.isPick(playOrigin, discoverRow),
                 )
             } catch (e: Exception) {
                 reportException(e)
@@ -2581,6 +2785,7 @@ class MusicService : MediaLibraryService(),
                                     title = title,
                                     origin = origin,
                                     originSlot = originSlot,
+                                    discoverRow = discoverRow,
                                 )
                             }
                         }
@@ -2716,7 +2921,22 @@ class MusicService : MediaLibraryService(),
         override fun pickedByInterTune(queue: MultiQueueObject) {
             radioFromInterTune.value = queue.id
         }
+
+        override suspend fun knownSongs(): HeardSet = knownSongsNow()
+
+        override fun keepNeverHeard(queue: MultiQueueObject, heard: HeardSet?) = neverHeardQueues.set(queue.id, heard)
     })
+
+    /**
+     * Whether [s] plays with no network: a local file, a download, or a whole copy in either cache.
+     * A download in a folder is in neither cache: the downloads say it has landed. The song cache's
+     * copy of it used to answer for it, and a download is no longer copied there (KeptOnce). The
+     * download cache too, for the moment at start before the map is read. One rule for the adaptive
+     * pass and the app's own radio: the radio had its own without the downloads, and offline it
+     * never picked a song downloaded into a folder.
+     */
+    private fun playsOffline(s: MediaMetadata): Boolean =
+        s.isLocal || downloadUtil.isDownloaded(s.id) || downloadCache.holdsWhole(s.id) || playerCache.holdsWhole(s.id)
 
     /**
      * The app's own radio from [seed], for when YouTube gives it nothing however it is asked
@@ -2746,7 +2966,8 @@ class MusicService : MediaLibraryService(),
                 val inForce = database.readOrNull { exclusionsInForce(now) }.orEmpty()
                 val gone = inForce.filter { it.kind == ExclusionsViewModel.KIND_SONG && it.reason == ExclusionsViewModel.REASON_GONE }
                     .mapTo(HashSet()) { it.targetId }
-                val onPhone = { s: MediaMetadata -> s.isLocal || downloadCache.holdsWhole(s.id) || playerCache.holdsWhole(s.id) }
+                // A song downloaded into a folder too: it is in neither cache (playsOffline).
+                val onPhone = { s: MediaMetadata -> playsOffline(s) }
                 val rules = LocalRadio.Rules(
                     keptOut = inForce.filter { it.kind == ExclusionsViewModel.KIND_SONG && it.reason != ExclusionsViewModel.REASON_GONE }
                         .mapTo(HashSet()) { it.targetId },
@@ -2830,6 +3051,172 @@ class MusicService : MediaLibraryService(),
     }
 
     /**
+     * The InterTune Recap's last song, slid into the queue as the song playing now (RecapSound): it
+     * plays on from [positionMs], where the Recap had it, in front of the song that was current, and
+     * when it ends the queue carries on, that song from where it was ([resumeAfterSlideIn]). Put in
+     * as by the listener's hand, and the song it goes in front of is set aside, not skipped. With no
+     * queue at all, a queue of its own. [from] is the Recap's own player, still sounding the song: it
+     * plays on until the queue's player takes over without a gap (startSlidIn). Main thread.
+     */
+    fun slideIn(songId: String, positionMs: Long, from: ExoPlayer? = null) {
+        if (destroyed) {
+            from?.release()
+            return
+        }
+        scope.launch {
+            // The Recap's player is let go wherever this stops short of starting the song (startSlidIn).
+            var handed = false
+            try {
+                if (destroyed) return@launch
+                val song = withContext(Dispatchers.IO) { database.song(songId).first() }?.toMediaMetadata() ?: return@launch
+                if (!qbInit.value) initQueue(onlyIfNeeded = true)
+                if (destroyed) return@launch
+                val q = queueBoard.getCurrentQueue()?.takeIf { it.getSize() > 0 }
+                if (q == null) {
+                    val own = queueBoard.addQueue(song.title, listOf(song), replace = true, origin = PlayOrigin.UNKNOWN) ?: return@launch
+                    own.setCurrentQueuePos(0)
+                    own.lastSongPos = positionMs
+                    userChoicePending = true
+                    queueBoard.setCurrQueue(own, shouldResume = true)
+                    activePlayer.prepare()
+                    handed = true
+                    startSlidIn(songId, from)
+                    Log.i(TAG, "Recap: $songId slid in at $positionMs ms, a queue of its own")
+                    return@launch
+                }
+                // After a restart the player holds nothing until play: the saved queue goes in first,
+                // at the song it stopped on, which is the one the Recap's song goes in front of.
+                if (activePlayer.currentMediaItem == null) queueBoard.setCurrQueue(q)
+                val at = activePlayer.currentMediaItemIndex
+                val current = activePlayer.currentMediaItem
+                val currentAt = activePlayer.currentPosition
+                if (current?.mediaId == songId) {
+                    // The song playing already: it plays on from where the Recap had it.
+                    quietSeek = !isCasting
+                    activePlayer.seekTo(positionMs)
+                } else {
+                    noteByHand(q, listOf(song.id))
+                    queueBoard.addSongsToQueue(q, at, listOf(song))
+                    userChoicePending = true
+                    activePlayer.seekTo(at, positionMs)
+                    if (current != null) resumeAfterSlideIn = current.mediaId to currentAt
+                }
+                activePlayer.prepare()
+                handed = true
+                startSlidIn(songId, from)
+                Log.i(TAG, "Recap: $songId slid in at $positionMs ms, in front of ${current?.mediaId} at $currentAt ms")
+            } finally {
+                if (!handed) from?.release()
+            }
+        }
+    }
+
+    /**
+     * Starts the queue's player on the song the Recap slid in. With [from], the Recap's own player still
+     * sounding it, there is no gap (his "slight cut between when the recap ends and the end song plays",
+     * 22 Nov 2026): the Recap's sings on while the queue's player makes the song ready and starts it SILENT,
+     * a little ahead ([HANDOVER_LEAD_MS]). Once the queue's player is heard (playing, and [HANDOVER_SETTLE_MS]
+     * more), the gap between the two is measured and put right by a silent seek that lands that much further
+     * on ([HANDOVER_IN_STEP_MS], [HANDOVER_TRIES] at most); then the two cross over in [HANDOVER_FADE_MS].
+     * A player takes a varying moment to be heard after it starts, which a start timed in advance cannot know:
+     * the Pixel's first handovers were 14 and 143 ms apart. This phone's own player only: a cast or routed one
+     * starts at once, as before, and so does a song not ready in [HANDOVER_WAIT_MS]. The Recap's player is
+     * always let go here, and the queue's is never left silent. Main thread.
+     */
+    private fun startSlidIn(songId: String, from: ExoPlayer?) {
+        val p = exoPlayer
+        val sounding = from != null && from.playWhenReady &&
+            (from.playbackState == Player.STATE_READY || from.playbackState == Player.STATE_BUFFERING)
+        if (from == null || !sounding || activePlayer !== p) {
+            from?.release()
+            activePlayer.playWhenReady = true
+            return
+        }
+        p.playWhenReady = false
+        scope.launch {
+            val target = p.volume
+            var set = target
+            try {
+                val t0 = SystemClock.elapsedRealtime()
+                suspend fun ready() {
+                    while (!(p.playbackState == Player.STATE_READY && p.currentMediaItem?.mediaId == songId)) delay(10)
+                }
+                // Heard: playing, and a moment more for its sound to come out. Watching its place move does not work on
+                // every phone (the Pixel 5, 22 Nov 2026: never seen moving in ten seconds, its place reported in steps).
+                suspend fun heard() {
+                    withTimeoutOrNull(2_000) { while (!p.isPlaying) delay(10) }
+                    delay(HANDOVER_SETTLE_MS)
+                }
+                var tries = 0
+                var gap = Long.MAX_VALUE
+                val inStep = withTimeoutOrNull(HANDOVER_WAIT_MS) {
+                    ready()
+                    // Silent from here until the crossing, playing a little ahead of the Recap's.
+                    set = 0f
+                    p.volume = set
+                    var lead = HANDOVER_LEAD_MS
+                    quietSeek = true
+                    p.seekTo(from.currentPosition + lead)
+                    p.playWhenReady = true
+                    while (true) {
+                        ready()
+                        heard()
+                        gap = from.currentPosition - p.currentPosition
+                        if (abs(gap) <= HANDOVER_IN_STEP_MS || tries >= HANDOVER_TRIES) break
+                        tries++
+                        // What the seek cost was off by the gap: the next one lands that much further on.
+                        lead = (lead + gap).coerceIn(0L, HANDOVER_WAIT_MS / 4)
+                        quietSeek = true
+                        p.seekTo(from.currentPosition + lead)
+                    }
+                    abs(gap) <= HANDOVER_IN_STEP_MS
+                } ?: false
+                p.playWhenReady = true
+                // The crossing: the queue's player from silent up to the volume the service gave it, the Recap's
+                // down to nothing. The queue's is left alone from the moment anything else sets its volume.
+                val loud = from.volume
+                for (i in 1..HANDOVER_FADE_STEPS) {
+                    delay(HANDOVER_FADE_MS / HANDOVER_FADE_STEPS)
+                    val k = i.toFloat() / HANDOVER_FADE_STEPS
+                    from.volume = loud * (1f - k)
+                    if (p.volume == set) {
+                        set = target * k
+                        p.volume = set
+                    }
+                }
+                Log.i(TAG, "Recap: handed over after ${SystemClock.elapsedRealtime() - t0} ms, " +
+                    (if (inStep) "in step after $tries correction(s)" else "not in step ($tries correction(s), $gap ms apart)") +
+                    ": the queue at ${p.currentPosition} ms, the Recap's at ${from.currentPosition} ms")
+            } finally {
+                // Never left silent, whatever stopped the crossing.
+                if (p.volume == set && set != target) p.volume = target
+                from.release()
+            }
+        }
+    }
+
+    /**
+     * The volume the app plays [songId] at, before any fade: the player's own volume and the song's
+     * levelling, as the song playing gets them. For the Recap's players, so that its songs are
+     * neither louder nor quieter than the app plays them, and the last one does not jump when it
+     * goes on in the queue.
+     */
+    suspend fun volumeFor(songId: String, isLocal: Boolean): Float {
+        val loudness = withContext(Dispatchers.IO) { database.readOrNull { formatRow(songId) }?.loudnessDb }
+        val level = Normalization.factor(loudness, isLocal, dataStore.get(AudioNormalizationKey, true))
+        return (level * heardVolume).coerceAtMost(1f)
+    }
+
+    /**
+     * The song the Recap's last song went in front of, and where it was: when that song ends and
+     * this one comes next, it carries on from there (slideIn). Cleared at the next change of song.
+     */
+    private var resumeAfterSlideIn: Pair<String, Long>? = null
+
+    /** The next seek is the app's own, putting a song back where it was: no seek of the listener's is noted for it. */
+    private var quietSeek = false
+
+    /**
      * [songs] added to [q] with Add to queue, by the listener's hand: at the end of a list somebody
      * chose, and in a radio after the listener's own songs that follow the song playing and before
      * the radio's own, which carries on after them (AddToQueue). From the swipe on a song, and from
@@ -2874,9 +3261,19 @@ class MusicService : MediaLibraryService(),
         adaptiveChanged()
     }
 
-    /** [song] was swiped out of the queue sheet. See AdaptiveQueue.Heard.removedByHand. Main thread. */
-    fun noteRemovedByHand(song: MediaMetadata) {
-        heard.removedByHand(song.id, song.title, song.artists.map { it.name })
+    /**
+     * [song] was swiped out of the queue sheet. See AdaptiveQueue.Heard.removedByHand. What it changed
+     * comes back for the sheet's Undo ([notePutBackByHand]). Main thread.
+     */
+    fun noteRemovedByHand(song: MediaMetadata): AdaptiveQueue.Heard.Removal {
+        val removal = heard.removedByHand(song.id, song.title, song.artists.map { it.name })
+        adaptiveChanged()
+        return removal
+    }
+
+    /** Undo put the song of [removal] back: the run takes back what the removal said. Main thread. */
+    fun notePutBackByHand(removal: AdaptiveQueue.Heard.Removal) {
+        heard.putBackByHand(removal)
         adaptiveChanged()
     }
 
@@ -2965,6 +3362,12 @@ class MusicService : MediaLibraryService(),
                 queueBoard = QueueBoard(this, queueBoard.masterQueues, maxQueues = maxQueues)
             }
             Log.d(TAG, "Queue with $maxQueues queue limit. Persist queue = $persistQueue. Queues loaded = ${queueBoard.masterQueues.size}")
+            // A Discover pick's queue keeps to songs never heard after a restart: its id was kept,
+            // and the songs known are read again the first time it asks for more.
+            neverHeardQueues.restore(
+                dataStore[NeverHeardQueuesKey].orEmpty().mapNotNullTo(HashSet()) { it.toLongOrNull() },
+                queueBoard.masterQueues.map { it.id },
+            )
             // What the radios had played, for when their queue plays again. Once a process: this
             // also runs mid-session (Max queues, a scan, the mini player swiped away), and the file
             // is older than anything the runs hold by then.
@@ -3048,6 +3451,33 @@ class MusicService : MediaLibraryService(),
             Log.i(TAG, "Resuming playback on launch")
             activePlayer.prepare()
             activePlayer.play()
+        }
+    }
+
+    /**
+     * The saved queue into the player and played, when the player holds nothing: what [what], a
+     * media button's play/pause or hook, asks of an empty player (EmptyPlayerPress). Done as the
+     * app's own play button does it after a cold start (PlayerConnection.loadQueueIfEmpty) and as
+     * Resume playback on launch does above: the board's current queue at its place, then
+     * prepared and played. On the main thread, where the board loads the player.
+     */
+    fun playSavedQueue(what: String) {
+        scope.launch {
+            // Not before the saved queues are read: a press as the service starts would find the
+            // board empty. Bounded, as for a request to play from the car (resolvePlayRequest).
+            kotlinx.coroutines.withTimeoutOrNull(SAVED_QUEUES_WAIT_MS) { queuesLoadedOnce.await() }
+            // The mini player swiped away since: the board is read again, as playQueue does.
+            if (!qbInit.value) initQueue(onlyIfNeeded = true)
+            // Something may have been loaded meanwhile, a tap in the app: that one plays as it is.
+            if (activePlayer.mediaItemCount == 0) {
+                val loaded = queueBoard.setCurrQueue(shouldResume = true)
+                if (loaded == null || activePlayer.mediaItemCount == 0) {
+                    Log.i(TAG, "$what with nothing loaded, and no saved queue to play")
+                    return@launch
+                }
+            }
+            Log.i(TAG, "$what with nothing loaded: the saved queue plays, as the app's play button plays it")
+            activePlayer.playSafe()
         }
     }
 
@@ -3273,6 +3703,17 @@ class MusicService : MediaLibraryService(),
     fun songSource(): DataSource.Factory = createDataSourceFactory(forPlayer = false)
 
     /**
+     * The InterTune Recap's players (RecapPlayer): as [songSource], their reads and resolves kept
+     * apart from the player's stall watch, but with the player's own resolver, so that the stream a
+     * song was found on is known to the player too. The Recap's last song then goes on in the queue
+     * without being looked up again: with a resolver of their own the player asked YouTube afresh,
+     * and the song came in 1.6 and 5.0 s after Done on the emulator (29 and 30 Oct 2026). Every
+     * source reads through the player's resolver now (playerResolver), so this is [songSource]
+     * under the Recap's name.
+     */
+    fun recapSource(): DataSource.Factory = createDataSourceFactory(forPlayer = false)
+
+    /**
      * [forPlayer] false for a lyrics clip: its reads go through calls of their own, which the
      * stall watch never cuts, and its resolves are not taken for the player's, which pause the
      * watch. Shared, a clip's reads were cancelled by a stall of the song, and a clip resolving
@@ -3346,6 +3787,13 @@ class MusicService : MediaLibraryService(),
          */
         var fetches: OneFetchAtATime? = null
 
+        /**
+         * The songs whose start this resolver last gave from the download cache: a download under
+         * way, whose stream the reader then holds. Past the download's part an address kept from an
+         * earlier play goes on only when it is that stream (keptAddressGoesOn).
+         */
+        private val startedInDownload: MutableSet<String> = ConcurrentHashMap.newKeySet()
+
         /** Drops the address kept for [mediaId], after it was refused, so the next resolve asks for one afresh. */
         fun forgetStream(mediaId: String) {
             addresses.playerFailedOn(mediaId)
@@ -3363,7 +3811,9 @@ class MusicService : MediaLibraryService(),
          */
         fun resolve(mediaId: String, position: Long, length: Long, ahead: Boolean = false): ResolvedSong {
             val said = if (ahead) "AHEAD" else "PLAYING"
-            Log.i(TAG, "$said: song id = $mediaId")
+            // Where in the song the read starts: a read begun near the end found a song kept on the
+            // phone wanting, and nothing in the log said so (#179).
+            Log.i(TAG, if (position > 0L) "$said: song id = $mediaId, from byte $position" else "$said: song id = $mediaId")
 
             val queued = queueBoard.getCurrentQueue()?.findSong(mediaId)
             // in the case of resumption, queueBoard may not be ready yet
@@ -3407,6 +3857,10 @@ class MusicService : MediaLibraryService(),
 
             val isDownload =
                 downloadCache.holdsFrom(mediaId, position, if (length >= 0) length else 1)
+            // What the song's start is read from, for a read further in (see the kept address below).
+            if (position == 0L) {
+                if (isDownload) startedInDownload.add(mediaId) else startedInDownload.remove(mediaId)
+            }
             // A song moved into the download folder after the queue was made: the queue's copy of
             // the song has no path, nor has a row read before the move recorded its file, and its
             // copy in the app is gone. The folder is asked whatever they say; it used to be asked
@@ -3446,8 +3900,24 @@ class MusicService : MediaLibraryService(),
 
             // The address the song was given earlier, unless the player has failed on it since:
             // onPlayerError forgets it, and the try after that asks afresh below.
+            //
+            // Past the start of a song begun from a download under way, only while it streams the
+            // download's file: with a Download quality of its own the player's address, kept from an
+            // earlier play, is another stream, and the song was the download's bytes up to where its
+            // part ended and that stream's after. fetch() asks for the download's stream instead,
+            // the one the format row names (RouteWish).
             val known = addresses.of(mediaId, System.currentTimeMillis())
-            known?.takeIf { !staleQuality }?.let { address ->
+            val notTheDownloads = position > 0L && mediaId in startedInDownload && formats[mediaId]?.let { format ->
+                val row = runCatching { database.readOrNull { formatRow(mediaId) } }.getOrNull()
+                !keptAddressGoesOn(row?.itag, row?.contentLength, recordedLength(downloadCache, mediaId), format.itag, format.contentLengthOrZero())
+            } == true
+            if (notTheDownloads) {
+                // Asked once: whatever the fetch below brings is what the song goes on with, or a
+                // walk that cannot offer the download's stream would be walked at every reopen.
+                startedInDownload.remove(mediaId)
+                if (known != null) Log.i(TAG, "$said: remote song (the address kept is another stream than the download this song began from, not taken)")
+            }
+            known?.takeIf { !staleQuality && !notTheDownloads }?.let { address ->
                 formats[mediaId]?.let { format ->
                     Log.i(TAG, "$said: remote song (temp cache)")
                     recoverWhenPlaying(mediaId, null)
@@ -3457,7 +3927,7 @@ class MusicService : MediaLibraryService(),
             // Read ahead over SABR and held from here, its address forgotten since: a change of
             // network forgets them all, and the song needs no network to play. The start of the
             // format the player was given, whose file the bytes are. See SabrAhead.
-            formats[mediaId]?.takeIf { !staleQuality }?.let { format ->
+            formats[mediaId]?.takeIf { !staleQuality && !notTheDownloads }?.let { format ->
                 SabrStarts.heldAt(mediaId, position, format.itag, format.lastModified)?.let { address ->
                     Log.i(TAG, "$said: remote song (held, read ahead over SABR)")
                     return ResolvedSong.KnownStream(address, format)
@@ -3477,6 +3947,20 @@ class MusicService : MediaLibraryService(),
                     fetch(mediaId, position, staleQuality, partialCopy, said)
                 }
             }
+        }
+
+        /**
+         * What a song the app counts as downloaded failed with when the player could not read it from
+         * the phone and fetching it failed to connect ([failure]): see DownloadNotOnPhone. Says in the
+         * log which of its causes it is, read from the download cache and the download folders, and
+         * whether the phone was online: a refused connection or a timeout is no proof there is no network.
+         */
+        private fun downloadNotOnPhone(mediaId: String, position: Long, failure: Throwable, said: String): DownloadNotOnPhone {
+            val length = runCatching { ContentMetadata.getContentLength(downloadCache.getContentMetadata(mediaId)) }.getOrDefault(C.LENGTH_UNSET.toLong())
+            val held = runCatching { downloadCache.getCachedBytes(mediaId, 0, C.LENGTH_UNSET.toLong()) }.getOrDefault(0L)
+            val inFolder = runCatching { downloadUtil.localMgr.isExists(mediaId)?.exists() == true }.getOrDefault(false)
+            Log.w(TAG, "$said: ${DownloadNotOnPhone.said(mediaId, position, held, length, inFolder, failure.javaClass.simpleName, online = isNetworkConnected.value)}")
+            return DownloadNotOnPhone(failure)
         }
 
         /**
@@ -3523,7 +4007,14 @@ class MusicService : MediaLibraryService(),
                 val error = when (throwable) {
                     is PlaybackException -> throwable
 
-                    is ConnectException, is UnknownHostException -> PlaybackException(
+                    // A song counted as downloaded comes here only when the phone has not got what the
+                    // player asked for: said so, not "No network connection", which was true and told
+                    // nothing (#179). Still a network failure, so the network is waited for as before.
+                    is ConnectException, is UnknownHostException -> if (downloadUtil.isDownloaded(mediaId)) PlaybackException(
+                        getString(R.string.err_download_not_on_phone),
+                        downloadNotOnPhone(mediaId, position, throwable, said),
+                        PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED
+                    ) else PlaybackException(
                         getString(R.string.error_no_internet),
                         throwable,
                         PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED
@@ -4540,12 +5031,21 @@ class MusicService : MediaLibraryService(),
         }
         val liked = snap.view.likePending
         val seeds = (listOfNotNull(liked) + snap.view.seeds).distinct()
+        // A Discover pick's queue picks only songs never heard, by the set it was started with.
+        val neverHeard = neverHeardQueues.heardFor(snap.queueId) { knownSongsNow() }
         // Never a song not to play, as the songs are now: a list is kept for the whole run, and
         // the taste that leaves them out too for half an hour or more (DontPlay, tasteFor).
         fun sources(): List<AdaptivePass.Source> {
             val dontPlay = ContentFilter.current.dontPlay
             return seeds.mapNotNull { seed -> listFor(seed, snap.explicitHidden) }
                 .map { source -> if (dontPlay.isEmpty) source else source.copy(songs = source.songs.filterNot(dontPlay::covers)) }
+                .let { lists ->
+                    if (neverHeard == null) lists else {
+                        val kept = lists.map { source -> source to NeverHeardQueue.keep(source.songs, neverHeard) }
+                        Log.d(TAG, "Adaptive queue: " + NeverHeardQueue.said("its picks", kept.sumOf { it.second.songs.size }, kept.sumOf { it.second.passedOver }, 0))
+                        kept.map { (source, k) -> source.copy(songs = k.songs) }
+                    }
+                }
         }
         val skippedRelated = snap.view.lastSkipped?.takeIf { snap.ask.skip }?.let { id ->
             runCatching { database.youtubeRelatedSongs(id).mapTo(HashSet()) { it.id } }.getOrDefault(emptySet())
@@ -4557,10 +5057,7 @@ class MusicService : MediaLibraryService(),
         fun input(sources: List<AdaptivePass.Source>) = AdaptivePass.Input(
             kind = snap.kind, tail = snap.tail, head = snap.head, queue = snap.queue, view = snap.view, taste = taste,
             sources = sources, skippedRelated = skippedRelated, skippedLists = skippedLists, similar = similar, offline = !snap.online,
-            // A download in a folder is in neither cache: the downloads say it has landed. The song
-            // cache's copy of it used to answer for it, and a download is no longer copied there
-            // (KeptOnce). The download cache too, for the moment at start before the map is read.
-            playsOffline = { s -> s.isLocal || downloadUtil.isDownloaded(s.id) || downloadCache.holdsWhole(s.id) || playerCache.holdsWhole(s.id) },
+            playsOffline = { s -> playsOffline(s) },
         )
         val first = input(sources())
         if (similar && skippedLists.isNotEmpty()) {
@@ -4795,8 +5292,19 @@ class MusicService : MediaLibraryService(),
      */
     fun updateNotification() {
         val buttons = if (inCar) MediaControlButtons.CAR else MediaControlButtons.layout(mediaControlButtons)
-        mediaSession.setCustomLayout(buttons.map(::mediaControlButton))
+        val layout = buttons.map(::mediaControlButton)
+        // Each send has media3 post the notification anew and the system draw it again, and this
+        // runs on every change to the playing song's row (a play counted, its format found), most
+        // of which change no button. A realme on Android 11 closed the app when its system failed
+        // to draw a notification posted several times in a moment (#206: "Couldn't inflate
+        // contentViews", a ConcurrentModificationException in the system's own drawing).
+        if (layout == sentLayout) return
+        sentLayout = layout
+        mediaSession.setCustomLayout(layout)
     }
+
+    /** The buttons last sent to the session by [updateNotification]. */
+    private var sentLayout: List<CommandButton>? = null
 
     private fun mediaControlButton(button: MediaControlButton): CommandButton {
         val song = currentSong.value
@@ -4869,6 +5377,18 @@ class MusicService : MediaLibraryService(),
                     .setSessionCommand(CommandToggleLibrary)
                     .setEnabled(song != null && !song.song.isLocal)
                     .build()
+
+            // YouTube Music's thumbs down (Unreleased.DISLIKE): filled for a song kept from playing that
+            // was picked anyway, where a tap lifts it. Off for a local file, which YouTube cannot hear;
+            // its Don't play this song is in the player's menu.
+            MediaControlButton.DISLIKE -> {
+                val held = song != null && ContentFilter.current.dontPlay.has(song.id)
+                CommandButton.Builder(if (held) CommandButton.ICON_THUMB_DOWN_FILLED else CommandButton.ICON_THUMB_DOWN_UNFILLED)
+                    .setDisplayName(getString(if (held) R.string.menu_dislike_lift else R.string.menu_dislike))
+                    .setSessionCommand(CommandToggleDislike)
+                    .setEnabled(Unreleased.DISLIKE && song != null && !song.song.isLocal)
+                    .build()
+            }
         }
     }
 
@@ -5564,6 +6084,16 @@ class MusicService : MediaLibraryService(),
 
     override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
         super.onMediaItemTransition(mediaItem, reason)
+        // The song the Recap's last song went in front of, come round by itself after it: from
+        // where it was, before its listen opens, so that the listen carries on the one before.
+        resumeAfterSlideIn?.let { (id, at) ->
+            resumeAfterSlideIn = null
+            if (reason == MEDIA_ITEM_TRANSITION_REASON_AUTO && mediaItem?.mediaId == id && at > 0 && !isCasting) {
+                Log.i(TAG, "Recap: $id carries on from $at ms, after the song slid in front of it")
+                quietSeek = true
+                activePlayer.seekTo(activePlayer.currentMediaItemIndex, at)
+            }
+        }
         songChanges.value += 1
         // Nothing of the new song has played yet: see readyFor. Before onPlayerError, which the
         // player calls after this when the song it moved on to failed while read ahead.
@@ -5657,8 +6187,6 @@ class MusicService : MediaLibraryService(),
         if (reason != Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED) {
             replanQueueTail(strong = reason == Player.MEDIA_ITEM_TRANSITION_REASON_SEEK && !transitionWentBack, skip = leftAs == AdaptiveQueue.Leave.SKIPPED)
         }
-        // "Listening now" on Last.fm. Not a scrobble, not stored, and allowed to fail quietly.
-        mediaItem?.metadata?.let { meta -> scope.launch { scrobbler.nowPlaying(meta) } }
         // +2 when and error happens, and -1 when transition. Thus when error, number increments by 1, else doesn't change
         if (consecutivePlaybackErr > 0) {
             consecutivePlaybackErr--
@@ -5760,12 +6288,12 @@ class MusicService : MediaLibraryService(),
                 // still no radio of its own, the same songs and the same run. One that was
                 // refilled, made a radio, given a song by hand or played again meanwhile is not
                 // the end that was asked about, and the radio is not wanted at the end of it.
-                val wanted = activePlayer.playbackState != STATE_IDLE &&
+                fun wanted() = activePlayer.playbackState != STATE_IDLE &&
                     (songCount > 1 || endRadio) && // initial radio loading is handled by playQueue()
                     activePlayer.mediaItemCount > 0 && qbInit.value &&
                     queueBoard.getCurrentQueue()?.id == q.id &&
                     (!endRadio || (q.playlistId == null && q.getSize() == songCount && AdaptiveQueue.runKey(q.id, q.runId) == endRun))
-                if (!wanted) return@launch
+                if (!wanted()) return@launch
                 // Seed the next page from something the listener actually finished.
                 //
                 // This used to be a random pick from the last four songs of the page just
@@ -5793,11 +6321,29 @@ class MusicService : MediaLibraryService(),
                 // Nor, with the radio kept up to date, what this run turned down, banned songs or
                 // lasting dislikes: the page joins five songs from now at most, inside the lock by
                 // the next song change, where no pass looks (AdaptivePass.pageKeeps).
-                val joining = if (!adaptiveQueueMode.isOn) fresh else {
+                val offered = if (!adaptiveQueueMode.isOn) fresh else {
                     val view = heard.view()
                     AdaptivePass.pageKeeps(fresh, view.turnedDown, view.positiveArtists, tasteCache?.second)
                 }
-                if (joining.size < fresh.size) Log.d(TAG, "Adaptive queue: the radio's next page left out ${fresh.size - joining.size} songs")
+                if (offered.size < fresh.size) Log.d(TAG, "Adaptive queue: the radio's next page left out ${fresh.size - offered.size} songs")
+                // A Discover pick's queue: only songs never heard join, after whatever kept the
+                // page whole above, and while too few do, more of this seed's radio is asked for.
+                val neverHeard = neverHeardQueues.heardFor(q.id) { knownSongsNow() }
+                val joining = if (neverHeard == null) offered else {
+                    var kept = NeverHeardQueue.keep(offered, neverHeard)
+                    var pages = 0
+                    while (kept.songs.size < NeverHeardQueue.ENOUGH_TOP_UP && pages < NeverHeardQueue.MORE_PAGES && yq.hasNextPage()) {
+                        val page = try { yq.nextPage() } catch (e: CancellationException) { throw e } catch (e: Exception) { emptyList() }
+                        pages++
+                        val more = NeverHeardQueue.keep(RadioPage.fresh(page, songs + kept.songs, heard.reached, heard.reachedVersions), neverHeard)
+                        kept = NeverHeardQueue.Kept(kept.songs + more.songs, kept.passedOver + more.passedOver)
+                        if (page.isEmpty()) break
+                    }
+                    Log.i(TAG, "onMediaItemTransition: " + NeverHeardQueue.said("a top-up", kept.songs.size, kept.passedOver, pages))
+                    // The queue may have moved on while it was read and asked for.
+                    if (!wanted()) return@launch
+                    kept.songs
+                }
                 val next = RadioPage.nextSeed(anchor, joining, songs, asked = playlistId)
                 // The first radio of an album makes it a radio only when it brings something: an
                 // album it cannot extend stays what it was, and is not asked again from the same
@@ -5839,6 +6385,10 @@ class MusicService : MediaLibraryService(),
             scope.launch(SilentHandler) {
                 // or else race condition: Assertions.checkArgument(eventTime.realtimeMs >= currentPlaybackStateStartTimeMs) fails in updatePlaybackState()
                 delay(200)
+                // The song playing goes first, so the player never comes back to the queue's first
+                // song by itself: a sleep timer set to the end of the queue or the album is told
+                // that this song's end is the queue starting over, or it would wait all night.
+                sleepTimer.queueStartsOverAfterThisSong()
                 queueBoard.shuffleCurrent()
                 queueBoard.setCurrQueue()
             }
@@ -5954,6 +6504,24 @@ class MusicService : MediaLibraryService(),
                 ?.let { runCatching { player.getMediaItemAt(it).mediaId }.getOrNull() }
             sabrAhead.queueAt(player.currentMediaItem?.mediaId, next)
         }
+        // The songs the player has open, the one playing and the next it may read ahead: the downloads
+        // neither move their files nor replace their bytes under it (HeldWhilePlaying). None once it
+        // has let go of its songs: stopped, or failed and waiting to be prepared again.
+        if (events.containsAny(
+                Player.EVENT_MEDIA_ITEM_TRANSITION, EVENT_TIMELINE_CHANGED, Player.EVENT_PLAYBACK_STATE_CHANGED,
+                Player.EVENT_SHUFFLE_MODE_ENABLED_CHANGED, Player.EVENT_REPEAT_MODE_CHANGED,
+            )
+        ) {
+            downloadUtil.playerHas(openSongs(player))
+        }
+    }
+
+    /** The songs [player] has open: none while it is idle, else the one playing and the next. */
+    private fun openSongs(player: Player): Set<String> {
+        if (player.playbackState == Player.STATE_IDLE) return emptySet()
+        val next = player.nextMediaItemIndex.takeIf { it != C.INDEX_UNSET }
+            ?.let { runCatching { player.getMediaItemAt(it).mediaId }.getOrNull() }
+        return setOfNotNull(player.currentMediaItem?.mediaId, next)
     }
 
     /** Whether Data Saver holds this app back on the network in use: nothing is read ahead then. */
@@ -6097,6 +6665,10 @@ class MusicService : MediaLibraryService(),
         info.lastCheckpointPositionMs = info.startPositionMs
         if (listenHistoryPaused) { info.rowReady.complete(0L); return }
         val metadata = activePlayer.currentMediaItem?.takeIf { it.mediaId == mediaId }?.metadata
+        // "Playing now" on Last.fm and ListenBrainz, at the song's first sound. Not a scrobble, not
+        // kept, and allowed to fail quietly. It went at every change of song, which also told them
+        // of the queue put back paused when the app opens.
+        metadata?.let { meta -> scope.launch { scrobbler.nowPlaying(meta) } }
         database.transaction {
             runCatching {
                 // The row points at the song table, and recoverSong may still be fetching the
@@ -6243,6 +6815,11 @@ class MusicService : MediaLibraryService(),
             it.lastCheckpointPositionMs = newPosition.positionMs
         }
         val delta = newPosition.positionMs - oldPosition.positionMs
+        // The app putting a song back where it was (slideIn), not the listener seeking in it.
+        if (quietSeek) {
+            quietSeek = false
+            return
+        }
         if (kotlin.math.abs(delta) < 3_000) return
         noteSignal(id, if (delta < 0) SignalKind.SEEK_BACK else SignalKind.SEEK_FORWARD, newPosition.positionMs, delta / 1000f)
     }
@@ -6535,6 +7112,19 @@ class MusicService : MediaLibraryService(),
     /** The plain notification is up, holding the foreground for a media button's start. */
     private var holdingForMediaButton = false
 
+    /** The uptime Android's time for the start owed began at, when known: for the steps of Report a problem. */
+    private var mediaButtonOrigin: Long? = null
+
+    /** How much of Android's time for the start owed has gone, when known. */
+    private fun owedFor(): Long? = mediaButtonOrigin?.let { SystemClock.uptimeMillis() - it }
+
+    /** When the app's process started and when this service was created, in uptime ([MediaButtonStart.sinceStart]). */
+    private var processStartedAt = 0L
+    private var createdAt = 0L
+
+    /** No start has reached the service yet: the first may be the one it was created for. */
+    private var firstStart = true
+
     private val mediaButtonHandler = Handler(Looper.getMainLooper())
 
     /** A resumption media3 asked for is being read (MediaLibrarySessionCallback). */
@@ -6553,9 +7143,17 @@ class MusicService : MediaLibraryService(),
      * given and left at once when there is nothing to play.
      *
      * With a song in the player media3 plays and shows at once, so nothing is held: the guard
-     * alone looks again, after a play press, in case the song did not start.
+     * alone looks again, after a play press, in case the song did not start (from Android 8:
+     * [MediaButtonStart.looksAgain]).
+     *
+     * Whatever the Android and the player, a start that reaches the service with under 2 s of
+     * Android's time left is held at once, since the guard's look could come too late
+     * ([MediaButtonStart.tooLateToWait], his call of 21 Nov 2026: a stop beats a crash).
+     *
+     * [handedAt] is when the app handed Android this start, if it did (MediaButtonStart.markHanded):
+     * Android's time runs from there, not from the process's start.
      */
-    private fun holdForegroundForMediaButton(key: Int?) {
+    private fun holdForegroundForMediaButton(key: Int?, handedAt: Long?) {
         // Already seen to.
         if (mediaButtonPending || foregroundNow()) return
         val hasSong = ::player.isInitialized && player.mediaItemCount > 0
@@ -6569,8 +7167,30 @@ class MusicService : MediaLibraryService(),
         // Nothing holds the foreground now, whatever an earlier press left here.
         holdingForMediaButton = false
         mediaButtonHandler.removeCallbacks(mediaButtonLetGo)
-        val held = !hasSong && Build.VERSION.SDK_INT < Build.VERSION_CODES.S && holdForeground()
-        mediaButtonHandler.postDelayed(mediaButtonGuard, MediaButtonStart.guardMs(Build.VERSION.SDK_INT, held))
+        val sinceStart = MediaButtonStart.sinceStart(handedAt, firstStart, processStartedAt, createdAt, SystemClock.uptimeMillis())
+        if (MediaButtonStart.tooLateToWait(Build.VERSION.SDK_INT, sinceStart)) {
+            Log.i(TAG, "Media button start: ${sinceStart}ms of Android's ${MediaButtonStart.limitMs(Build.VERSION.SDK_INT)}ms already gone, so the foreground is held at once")
+        }
+        val held = MediaButtonStart.holdsAtOnce(Build.VERSION.SDK_INT, hasSong, sinceStart) && holdForeground()
+        mediaButtonOrigin = sinceStart?.let { SystemClock.uptimeMillis() - it }
+        ReportTrail.thisRun.startedFromOutside(ReportTrail.Outside.MEDIA_BUTTON, sinceStart)
+        mediaButtonHandler.postDelayed(mediaButtonGuard, MediaButtonStart.guardDelayMs(Build.VERSION.SDK_INT, held, sinceStart))
+    }
+
+    /**
+     * The service is about to stop while a media button's start may still be owed: Android closes
+     * the app at once when a service it waits on stops before startForeground
+     * (ActiveServices.bringDownServiceLocked), so the demand is met first. The app swiped away in
+     * the seconds after a play press whose song had not started yet was such a stop.
+     */
+    private fun meetMediaButtonStartBeforeStop() {
+        if (!mediaButtonPending) return
+        ReportTrail.thisRun.owedStart(ReportTrail.Owed.MET_BEFORE_STOP, owedFor())
+        mediaButtonPending = false
+        mediaButtonHandler.removeCallbacks(mediaButtonGuard)
+        if (holdingForMediaButton || foregroundNow()) return
+        if (holdForeground()) ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
+        holdingForMediaButton = false
     }
 
     /**
@@ -6589,6 +7209,7 @@ class MusicService : MediaLibraryService(),
             Log.w(TAG, "Brought back by Android with no intent: left alone (fault injection)")
             return
         }
+        ReportTrail.thisRun.startedFromOutside(ReportTrail.Outside.RESTART, SystemClock.uptimeMillis() - processStartedAt)
         try {
             ServiceCompat.startForeground(
                 this,
@@ -6621,17 +7242,19 @@ class MusicService : MediaLibraryService(),
     }
 
     /**
-     * Whether the service is in the foreground now, media3's notification or the plain one. Before
-     * Android 10 only media3 can say, of its own notification.
+     * Whether the service is in the foreground now, media3's notification or the plain one, as
+     * Android has it ([inForeground]). Before Android 8, or when Android's list cannot be read,
+     * media3 says, of its own notification.
      */
-    private fun foregroundNow(): Boolean =
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) foregroundServiceType != 0 else isPlaybackOngoing
+    private fun foregroundNow(): Boolean = inForeground() ?: isPlaybackOngoing
 
     /** Before the end of Android's time for a media button's start: see [holdForegroundForMediaButton]. */
     private val mediaButtonGuard = object : Runnable {
         override fun run() {
             if (!mediaButtonPending || destroyed) return
             val hasSong = ::player.isInitialized && player.mediaItemCount > 0
+            // For Report a problem's steps: media3's notification already up when the guard looks.
+            if (!holdingForMediaButton && foregroundNow()) ReportTrail.thisRun.owedStart(ReportTrail.Owed.PLAYER_UP, owedFor())
             when {
                 // media3's notification is up: nothing more to do.
                 !holdingForMediaButton && foregroundNow() -> mediaButtonPending = false
@@ -6640,6 +7263,12 @@ class MusicService : MediaLibraryService(),
                 hasSong -> {
                     mediaButtonPending = false
                     if (!holdingForMediaButton && !foregroundNow()) holdForeground()
+                    val met = when {
+                        holdingForMediaButton -> ReportTrail.Owed.HELD
+                        foregroundNow() -> ReportTrail.Owed.PLAYER_UP
+                        else -> ReportTrail.Owed.MISSED
+                    }
+                    ReportTrail.thisRun.owedStart(met, owedFor())
                     if (holdingForMediaButton) mediaButtonHandler.postDelayed(mediaButtonLetGo, MediaButtonStart.LET_GO_MS)
                 }
                 // Held since the press (before Android 12) while the queue is still being read.
@@ -6674,6 +7303,7 @@ class MusicService : MediaLibraryService(),
         mediaButtonPending = false
         mediaButtonHandler.removeCallbacks(mediaButtonGuard)
         Log.i(TAG, "Media button start: $why, so the service stops")
+        ReportTrail.thisRun.owedStart(ReportTrail.Owed.GAVE_UP, owedFor())
         if (!holdingForMediaButton && !foregroundNow()) holdForeground()
         holdingForMediaButton = false
         ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
@@ -6765,11 +7395,17 @@ class MusicService : MediaLibraryService(),
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (BuildConfig.BUILD_TYPE == "debug" && Unreleased.AUTOMIX_EDITOR) intent?.getStringExtra("mixtrial")?.let { mixTrial(it) }
         // media3's media button receiver starts the service with startForegroundService, whether
-        // it was running or not, and so do the widget and the play button of media3's own
-        // notification (MediaButtonStart). No intent at all is Android bringing the service back
-        // after the app's process died, with what the old process still owed it.
+        // it was running or not, and so does the widget (MediaButtonStart). The play button of
+        // media3's notification is a plain start (PlainPlayNotifications) that owes Android
+        // nothing, marked so the guard leaves it alone: if its song does not start, or there is no
+        // saved queue, the service just stays started (from Android 8, Android stops it once the
+        // app is idle). No intent at all is Android bringing the service back after the app's
+        // process died, with what the old process still owed it.
         if (intent == null) settleAfterRestart()
-        else if (intent.action == Intent.ACTION_MEDIA_BUTTON) holdForegroundForMediaButton(MediaButtonStart.keyOf(intent))
+        else if (intent.action == Intent.ACTION_MEDIA_BUTTON && !MediaButtonStart.isPlain(intent))
+            holdForegroundForMediaButton(MediaButtonStart.keyOf(intent), MediaButtonStart.handedAtOf(intent, flags))
+        // Only the start the service was created for began with the process.
+        firstStart = false
         return super.onStartCommand(intent, flags, startId)
     }
 
@@ -6809,12 +7445,15 @@ class MusicService : MediaLibraryService(),
     }
 
     override fun onDestroy() {
-        stopTogether()
+        // A room is paused with the service, not ended: the next service joins it again.
+        pauseTogether()
         // Checked by playQueue's resolve coroutine each time it resumes: that coroutine belongs to
         // no scope this method cancels (see the comment at its launch site), so this is the only
         // way it can find out the service is gone before touching the queue board or the player.
         destroyed = true
         mediaButtonHandler.removeCallbacksAndMessages(null)
+        // The player lets go of its songs with the service: a move held for one of them is made now.
+        if (::downloadUtil.isInitialized) runCatching { downloadUtil.playerHas(emptySet()) }
         // Back on the phone before anything is saved or released: the queue then saves the
         // receiver's song and position, and the release below reaches the phone's own player.
         castSession?.release()
@@ -6890,6 +7529,7 @@ class MusicService : MediaLibraryService(),
         effectsSession.close()
         mediaSession.player.stop()
         mediaSession.release()
+        if (leftSession?.get() === mediaSession) leftSession = null
         mediaSession.player.release()
         super.onDestroy()
         Log.i(TAG, "Terminated MusicService.")
@@ -6952,12 +7592,23 @@ class MusicService : MediaLibraryService(),
     /** Whether the screen is on, for the lines that say why the music stopped. */
     private fun screenOn(): Boolean? = getSystemService<PowerManager>()?.isInteractive
 
-    /** Whether this service is in the foreground, which Android 10 and later can say. */
-    private fun inForeground(): Boolean? =
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) foregroundServiceType != ServiceInfo.FOREGROUND_SERVICE_TYPE_NONE else null
+    /**
+     * Whether this service is in the foreground, which Android 8 and later can say: from Android 14
+     * in foregroundServiceType, and on 8 to 13 in Android's list of the app's own services
+     * ([MediaButtonStart.listedInForeground]): 8 and 9 have no foregroundServiceType, and 10 to 13
+     * leave the type of the last startForeground there once the service has left the foreground.
+     */
+    private fun inForeground(): Boolean? = when {
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE -> foregroundServiceType != ServiceInfo.FOREGROUND_SERVICE_TYPE_NONE
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.O -> MediaButtonStart.listedInForeground(this, ComponentName(this, MusicService::class.java))
+        else -> null
+    }
 
     override fun onTaskRemoved(rootIntent: Intent?) {
         Log.i(TAG, "onTaskRemoved called")
+        ReportTrail.thisRun.swipedAway()
+        // Both ways below may stop the service: not while Android still waits on a media button's start.
+        meetMediaButtonStartBeforeStop()
         if (dataStore.get(StopMusicOnTaskClearKey, true) && !dataStore.get(KeepAliveKey, false)) {
             Log.i(TAG, "onTaskRemoved kill")
             pauseAllPlayersAndStopSelf()
@@ -6975,6 +7626,16 @@ class MusicService : MediaLibraryService(),
     }
 
     companion object {
+        /** The Recap's last song, handed to the queue's player (startSlidIn): how long it may take to be ready, how far
+         *  ahead of the Recap's the silent queue's player starts, how close is in step, the corrections tried, the crossing. */
+        const val HANDOVER_WAIT_MS = 10_000L
+        const val HANDOVER_LEAD_MS = 250L
+        const val HANDOVER_IN_STEP_MS = 25L
+        const val HANDOVER_SETTLE_MS = 250L
+        const val HANDOVER_TRIES = 3
+        const val HANDOVER_FADE_MS = 80L
+        const val HANDOVER_FADE_STEPS = 8
+
         /** The Mix playlist the debug app's trial queue counts as (see mixTrial). */
         private const val MIX_TRIAL_PLAYLIST = "mix-trial"
         /**
@@ -7004,6 +7665,9 @@ class MusicService : MediaLibraryService(),
         /** The longest a request is held back while a new song loads: see afterSongStarts. */
         private const val NEW_SONG_WAIT_MS = 20_000L
 
+        /** The longest a media button's play on an empty player waits for the saved queues to be read: see playSavedQueue. */
+        private const val SAVED_QUEUES_WAIT_MS = 5_000L
+
         /** How much of the next song is loaded ahead while one plays: 5 s, enough to start it at once. */
         private const val PRELOAD_AHEAD_US = 5_000_000L
 
@@ -7023,6 +7687,12 @@ class MusicService : MediaLibraryService(),
          */
         @Volatile
         private var instance: WeakReference<MusicService>? = null
+
+        /**
+         * The session the service built last, until its onDestroy releases it: one still here when
+         * the service starts again was never released (#181).
+         */
+        private var leftSession: WeakReference<MediaLibrarySession>? = null
 
         /** See [instance]. */
         fun alive(): MusicService? = instance?.get()

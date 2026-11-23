@@ -147,10 +147,17 @@ class SettingsCloserLookTest {
             val drawnBy = settingsSources.firstOrNull { "fun $screen(" in it.readText() }
             assertNotNull("${stop.id}: $screen is not a settings screen", drawnBy)
             val builtFrom = Regex("""\b(\w+Frag)\(""").findAll(drawnBy!!.readText()).map { it.groupValues[1] }.toSet() + screen!!
+            // And the rows those draw through a composable of their own, as the simpler Storage page's one row (WhereDownloadsGoRow).
+            val drawnThrough = builtFrom.flatMap { part ->
+                // "fun ColumnScope.DownloadsFrag(" too.
+                val head = Regex("""\bfun (?:[\w.]+\.)?$part\(""")
+                settingsSources.filter { head.containsMatchIn(it.readText()) }
+                    .flatMap { Regex("""\b([A-Z]\w*Row)\(""").findAll(it.readText()).map { m -> m.groupValues[1] }.toList() }
+            }.toSet()
 
             val (file, line) = marks(stop.targetId!!).singleOrNull() ?: continue
             val markedIn = file.readLines().take(line).mapNotNull { declared.find(it)?.groupValues?.get(1) }.lastOrNull()
-            assertTrue("${stop.id} is on ${stop.route}, and its row is marked in $markedIn, which $screen does not draw", markedIn in builtFrom)
+            assertTrue("${stop.id} is on ${stop.route}, and its row is marked in $markedIn, which $screen does not draw", markedIn in builtFrom || markedIn in drawnThrough)
         }
     }
 

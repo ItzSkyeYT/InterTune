@@ -63,7 +63,6 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.dd3boh.outertune.LocalDatabase
 import com.dd3boh.outertune.R
-import com.dd3boh.outertune.constants.LyricTrimKey
 import com.dd3boh.outertune.constants.MultilineLrcKey
 import com.dd3boh.outertune.db.entities.LyricsEntity
 import com.dd3boh.outertune.extensions.isInternetConnected
@@ -88,6 +87,8 @@ import com.dd3boh.outertune.utils.shareSheet
 import com.dd3boh.outertune.viewmodels.LyricsMenuViewModel
 import org.akanework.gramophone.logic.utils.SemanticLyrics
 import com.dd3boh.outertune.utils.Toaster
+import androidx.compose.ui.platform.LocalHapticFeedback
+import com.dd3boh.outertune.ui.component.tapTick
 
 
 @Composable
@@ -115,7 +116,8 @@ fun LyricsMenu(
     val shown = shownLines()?.takeIf { lines -> lines.any { it.isNotBlank() } }
 
     val multilineLrc by rememberPreference(MultilineLrcKey, defaultValue = true)
-    val lyricTrim by rememberPreference(LyricTrimKey, defaultValue = false)
+    // Always, with no switch since 0.13, as LyricsHelper reads them.
+    val lyricTrim = true
 
     // The row is observed, not read in composition. That read blocked the main thread and ran
     // again on every recomposition, every keystroke in Search included. Room runs the query off
@@ -329,8 +331,10 @@ fun LyricsMenu(
                         }
                     }
 
+                    val haptic = LocalHapticFeedback.current
                     IconButton(
                         onClick = {
+                            haptic.tapTick()
                             expandedItemIndex = if (expandedItemIndex == index) -1 else index
                         }
                     ) {

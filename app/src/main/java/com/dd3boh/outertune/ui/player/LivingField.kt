@@ -24,7 +24,7 @@ import kotlin.math.sqrt
  * The cover becomes a few patches of colour, and the patches breathe with the music: the rows at
  * the top and the bottom of the screen with the bass, the rows between them with the voice, the
  * very middle with the top of the spectrum ([bandOfRow]). A glow rises from the top and bottom
- * edges with the bass, and an aura stands round the cover, which hides most of the rest.
+ * edges with the bass. Nothing stands round the cover: his word of 20 Nov 2026 took the aura away.
  *
  * There are two ways of colouring it. As a picture of the cover: each patch is the colour of its
  * part of the cover, the way the cover reads when it is blurred until nothing else is left of it
@@ -196,53 +196,6 @@ object LivingField {
     const val DRIVE_PACE = 0.5f
     const val DRIVE_RISE = 0.1f
     const val DRIVE_FALL = 0.8f
-
-    /**
-     * The cover takes up most of the player, and what goes on behind it is not seen. So most of
-     * the reaction is put where it shows: an aura on the cover's edge, half of it hidden behind the
-     * cover and half spilling out round it, in the colours the cover has along that edge.
-     *
-     * Its radius is in parts of the cover's side: a thin halo at rest, [AURA_SWELL] more for a
-     * full level at a reach of 1, and never more than [AURA_MOST] in all.
-     */
-    const val AURA_REST = 0.10f
-    const val AURA_SWELL = 0.16f
-    const val AURA_MOST = 0.62f
-
-    /**
-     * One point of the aura.
-     *
-     * @param x where on the cover it sits, in parts of the cover's width and height: always on an edge
-     * @param patch the patch whose colour it takes, which is the part of the cover beside it
-     * @param band the range it answers besides the bass: the top edge the top of the spectrum, the sides the middle
-     * @param far how far round the cover it is from where a kick lands, 0 to 1. A kick lands in the
-     *   middle of the top and of the bottom edge and runs round from there, which is what makes
-     *   the halo look pushed rather than switched on.
-     */
-    class AuraPoint(val x: Float, val y: Float, val patch: Int, val band: Int, val far: Float)
-
-    /** The aura for a grid of [columns] by [rows]: one point for every patch on the grid's rim. */
-    fun aura(columns: Int, rows: Int): List<AuraPoint> {
-        // As the rows have it: the bass along the cover's top and bottom, the voice down its sides
-        // and the top of the spectrum at the middle of each side. A kick lands in the middle of
-        // the top and of the bottom edge and runs round to meet half way down the sides, which is
-        // one cover side away: half a side to the corner, half a side down.
-        val points = ArrayList<AuraPoint>(2 * (columns + rows))
-        for (row in 0 until rows) {
-            val y = (row + 0.5f) / rows
-            val band = if (kotlin.math.abs(y - 0.5f) < 1f / 6f) MusicLevels.HIGH else MusicLevels.MID
-            val far = 0.5f + min(y, 1f - y)
-            points += AuraPoint(0f, y, row * columns, band, far)
-            points += AuraPoint(1f, y, row * columns + columns - 1, band, far)
-        }
-        for (column in 0 until columns) {
-            val x = (column + 0.5f) / columns
-            val far = kotlin.math.abs(x - 0.5f)
-            points += AuraPoint(x, 0f, column, MusicLevels.BASS, far)
-            points += AuraPoint(x, 1f, (rows - 1) * columns + column, MusicLevels.BASS, far)
-        }
-        return points
-    }
 
     /**
      * How many patches along a side [long] when the other side is [short], so that a patch is
@@ -870,41 +823,6 @@ class LivingMotion(val columns: Int = LivingField.ACROSS, val rows: Int = Living
         share.copyInto(into)
     }
 
-    /** The aura round the cover, and how far each of its points is taken: 0 to 1, and beyond for a drop. */
-    val aura = LivingField.aura(columns, rows)
-    val auraShown = FloatArray(aura.size)
-
-    // Where the cover is in the picture, in parts of its width and height. Only the aura asks.
-    private var coverLeft = 0f
-    private var coverTop = 0f
-    private var coverRight = 1f
-    private var coverBottom = 1f
-
-    /** Says where the cover is, in parts of the picture's width and height. */
-    fun coverAt(left: Float, top: Float, right: Float, bottom: Float) {
-        coverLeft = left
-        coverTop = top
-        coverRight = right
-        coverBottom = bottom
-    }
-
-    /**
-     * The ranges at the place a point of the aura stands on, left in [share]. With a colour to
-     * each range the halo takes its colour and its range from the ribbons behind it: the cover
-     * hides most of what it stands in front of, and its edge is where that can be seen.
-     */
-    private fun sharesOfAura(i: Int) {
-        val point = aura[i]
-        sharesAt(coverLeft + point.x * (coverRight - coverLeft), coverTop + point.y * (coverBottom - coverTop))
-    }
-
-    /** Whether there is a cover on screen to put the aura round. Without one it fades away. */
-    var coverThere = false
-
-    /** How much of the aura is there, 0 to 1: it comes and goes with the cover over a quarter of a second. */
-    var auraPresence = 0f
-        private set
-
     /**
      * The colours on screen, turning into [turnTo]'s cover: the [count] patches, then [under],
      * then [glow], then the three main colours, the bass's first.
@@ -994,29 +912,6 @@ class LivingMotion(val columns: Int = LivingField.ACROSS, val rows: Int = Living
             burstTo = 0f
         }
         burst += (burstTo - burst) * part(dt, (if (burstTo > burst) LivingField.RISE[MusicLevels.BASS] else LivingField.BURST_FALL) * ease)
-        for (i in aura.indices) {
-            val point = aura[i]
-            val to: Float
-            val far: Float
-            if (separate) {
-                // by the ranges it stands on, each for its share
-                sharesOfAura(i)
-                var sum = 0f
-                for (band in 0 until MusicLevels.BANDS) sum += share[band] * shown[band] * LivingField.OWN_SHARE[band]
-                to = sum
-                // The voice and the top have no place they land: they come all along their stretch at once.
-                far = share[MusicLevels.BASS] * point.far + (1f - share[MusicLevels.BASS]) * 0.15f
-            } else {
-                to = max(shown[MusicLevels.BASS], 0.6f * shown[point.band] * LivingField.SHARE[point.band])
-                far = point.far
-            }
-            // a drop reaches out all the way round, beyond what any kick does, and later and
-            // softer the further round the cover from where the kick lands
-            val out = to + burst
-            val within = if (out > auraShown[i]) 0.012f + 0.11f * far else 0.20f + 0.16f * far
-            auraShown[i] += (out - auraShown[i]) * part(dt, within * ease)
-        }
-        auraPresence += ((if (coverThere) 1f else 0f) - auraPresence) * part(dt, 0.12f)
         pace += ((if (playing) 1f else 0f) - pace) * part(dt, 0.7f)
         // quicker when the music is loud, quicker still while it builds up and while a drop drives
         // it, never still while it plays
@@ -1094,8 +989,6 @@ class LivingMotion(val columns: Int = LivingField.ACROSS, val rows: Int = Living
         arrive()
         usual.fill(0f)
         shown.fill(0f)
-        auraShown.fill(0f)
-        auraPresence = if (coverThere) 1f else 0f
         pace = 0f
         gathered = 0f
         driven = 0f
@@ -1106,9 +999,9 @@ class LivingMotion(val columns: Int = LivingField.ACROSS, val rows: Int = Living
     }
 
     /** True when nothing would change on another [step] without music: the frames can stop. */
-    fun atRest(): Boolean = pace < 0.01f && shown.all { it < 0.005f } && auraShown.all { it < 0.005f } &&
+    fun atRest(): Boolean = pace < 0.01f && shown.all { it < 0.005f } &&
         gathered < 0.005f && burst < 0.005f && driven < 0.005f &&
-        kotlin.math.abs(auraPresence - (if (coverThere) 1f else 0f)) < 0.01f && turn >= 1f && colors.contentEquals(wanted)
+        turn >= 1f && colors.contentEquals(wanted)
 
     /** The share of the way covered in [dt] by something that takes [within] seconds to get most of the way. */
     private fun part(dt: Float, within: Float) = 1f - exp(-dt / within)
@@ -1203,24 +1096,6 @@ class LivingMotion(val columns: Int = LivingField.ACROSS, val rows: Int = Living
     /** The glow at the bottom edge: how tall it stands in parts of the height, and how strong it is, 0 to 1. */
     fun glowHeight(): Float = 0.30f + min(0.5f, 0.25f * reach * (shown[MusicLevels.BASS] + burst))
     fun glowStrength(): Float = min(1f, 0.05f + 0.43f * reach * (shown[MusicLevels.BASS] + burst))
-
-    // The aura's point [i]: its radius in parts of the cover's side, how strong it is from 0 to 1, its colour.
-
-    fun auraRadius(i: Int): Float =
-        min(LivingField.AURA_MOST, LivingField.AURA_REST + LivingField.AURA_SWELL * reach * auraShown[i])
-
-    fun auraStrength(i: Int): Float = auraPresence * min(1f, 0.30f + 0.40f * reach * auraShown[i])
-
-    fun auraColor(i: Int): Int {
-        val by = min(reach * auraShown[i], 3f)
-        val from = if (separate) {
-            sharesOfAura(i)
-            LivingField.mixed(colors, mainsAt, share)
-        } else {
-            colors[aura[i].patch]
-        }
-        return LivingField.lit(LivingField.colourful(from, 1.15f + 0.15f * by), min(LivingField.MOST_LIGHT, 1f + 0.30f * by))
-    }
 
     companion object {
         /**

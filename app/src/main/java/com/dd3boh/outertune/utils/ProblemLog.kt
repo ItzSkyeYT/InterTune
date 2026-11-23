@@ -70,7 +70,7 @@ object ProblemLog {
      * request's every field: SABR's. Without them a song over SABR left no trace in the run's file
      * but its failures, and the phone's own log has rolled past the rest within the hour.
      */
-    val TELLING_FROM_INFO = setOf("SabrOver", "SabrDataSource")
+    val TELLING_FROM_INFO = setOf("SabrOver", "SabrDataSource", "Together")
 
     /**
      * Whose errors count as a fault: the app's own and the player's. Every phone has parts that
@@ -81,6 +81,9 @@ object ProblemLog {
         "SimpleCache", "CacheDataSink", "AndroidRuntime",
         // A failure the person was told about: see FailureLog.
         FailureLog.TAG,
+        // A listening room's own failures (TogetherSession.failed): a room never takes the app down, so a report is
+        // where they show (his word of 21 Nov 2026).
+        "Together",
     )
 
     /** Warnings every phone writes for every song, whatever happens next. */
@@ -120,9 +123,51 @@ object ProblemLog {
         val kept = raw.mapNotNull(::parse).filter(::keep)
         val at = kept.indexOfLast(::beginsFault)
         if (at < 0) return Excerpt(kept.filter { it.tag in FAULTS_OF || it.tag == "System.err" }.takeLast(TAIL), null)
-        val from = (at - BEFORE).coerceAtLeast(0)
-        return Excerpt(kept.subList(from, (at + 1 + AFTER).coerceAtMost(kept.size)), at - from)
+        // What led up to it with the frames of its traces cut short, so that they leave room for the steps.
+        val before = framesCut(kept.subList(0, at)).takeLast(BEFORE)
+        return Excerpt(before + kept.subList(at, (at + 1 + AFTER).coerceAtMost(kept.size)), before.size)
     }
+
+    /**
+     * [lines] with the frames of each trace in them cut to the first under each of its heads (the exception's
+     * line and each "Caused by", which say what failed; the first frame says where), and the rest of a run of
+     * frames counted in one line in its place: "... 37 more frames left out".
+     *
+     * Before the fault a trace is most often the player's own report of the same failure, written a frame to a
+     * line, and its frames took every one of the [BEFORE] lines kept. In #138's report (11 Nov 2026, signed in,
+     * a VPN) the 40 lines before "gave up after 3 tries" were all the player's trace, and not one line of the walk
+     * that led to it was left: which client said what, whether a new visitorData was tried. The fault's own trace,
+     * after it, is not touched.
+     */
+    internal fun framesCut(lines: List<Line>): List<Line> {
+        val out = ArrayList<Line>(lines.size)
+        val held = ArrayList<Line>()
+        // The frames held under the first one of a run, in one line; a single one is shown as it is.
+        fun flush() {
+            if (held.size == 1) out += held[0]
+            else if (held.size > 1) held.last().let { out += Line(it.time, it.level, it.tag, "      ... ${held.sumOf { f -> framesIn(f.message) }} more frames left out") }
+            held.clear()
+        }
+        for ((i, line) in lines.withIndex()) {
+            // A frame right under another one is counted, not shown. The first under a head stays.
+            if (i > 0 && framesIn(line.message) > 0 && framesIn(lines[i - 1].message) > 0) {
+                held += line
+                continue
+            }
+            flush()
+            out += line
+        }
+        flush()
+        return out
+    }
+
+    /** "at pkg.Class.method(File.kt:12)" or "... 5 more", in a message: the frames it stands for. 0 for any other line. */
+    private fun framesIn(message: String): Int {
+        val frame = FRAME_MESSAGE.find(message) ?: return 0
+        return frame.groupValues[1].toIntOrNull() ?: 1
+    }
+
+    private val FRAME_MESSAGE = Regex("""^\s*(?:at [\w$.<>/]+\(|\.\.\. (\d+) more)""")
 
     private val STREAM_HOST = Regex("""[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.googlevideo\.com""")
 

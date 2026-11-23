@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.navigation.NavController
+import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Backup
 import androidx.compose.material.icons.rounded.CloudOff
 import androidx.compose.material.icons.rounded.Bolt
@@ -65,13 +66,19 @@ import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.AudioGaplessOffloadKey
 import com.dd3boh.outertune.constants.AudioOffloadKey
 import com.dd3boh.outertune.constants.AutomixStyleKey
+import com.dd3boh.outertune.constants.LastFmActAsEndedKey
 import com.dd3boh.outertune.constants.LyricsBlurKey
+import com.dd3boh.outertune.constants.LyricsWordsLookKey
 import com.dd3boh.outertune.constants.OobeStatusKey
 import com.dd3boh.outertune.constants.PauseListenHistoryKey
 import com.dd3boh.outertune.constants.PauseRemoteListenHistoryKey
 import com.dd3boh.outertune.constants.SCANNER_OWNER_LM
 import com.dd3boh.outertune.constants.ScannerImpl
 import com.dd3boh.outertune.constants.Unreleased
+import com.dd3boh.outertune.constants.RecapPopUpShownKey
+import com.dd3boh.outertune.constants.RecapRevealedEarlyKey
+import com.dd3boh.outertune.recap.RecapDoor
+import java.time.LocalDate
 import com.dd3boh.outertune.constants.VisitorDataKey
 import com.dd3boh.outertune.constants.OwnVisionosRefusedKey
 import com.dd3boh.outertune.constants.VisionosRefusedKey
@@ -82,6 +89,7 @@ import com.dd3boh.outertune.playback.HistoryAddressCheck
 import com.dd3boh.outertune.playback.RadioAnswers
 import com.dd3boh.outertune.ui.component.ListPreference
 import com.dd3boh.outertune.ui.component.LyricsBlur
+import com.dd3boh.outertune.ui.component.LyricsWordsLook
 import com.dd3boh.outertune.ui.component.PreferenceEntry
 import com.dd3boh.outertune.ui.component.SwitchPreference
 import com.dd3boh.outertune.ui.screens.OptInCatchUp
@@ -159,6 +167,7 @@ fun ColumnScope.DeveloperFrag(navController: NavController) {
     val (everyDirectRefused, onEveryDirectRefusedChange) = rememberPreference(key = EveryDirectRefusedKey, defaultValue = false)
     val (visionosRefused, onVisionosRefusedChange) = rememberPreference(key = VisionosRefusedKey, defaultValue = false)
     val (ownVisionosRefused, onOwnVisionosRefusedChange) = rememberPreference(key = OwnVisionosRefusedKey, defaultValue = false)
+    val recapRevealedEarly by rememberPreference(key = RecapRevealedEarlyKey, defaultValue = false)
 
     var nukeEnabled by remember {
         mutableStateOf(false)
@@ -221,6 +230,40 @@ fun ColumnScope.DeveloperFrag(navController: NavController) {
                     },
                 )
             }
+            // Last.fm as it is from 1 December 2026 (LastFmEnd), to walk that before the date.
+            // Kept across starts, so the next start forgets the account as the first one after
+            // the date does.
+            val (lastFmEnded, onLastFmEndedChange) = rememberPreference(key = LastFmActAsEndedKey, defaultValue = false)
+            SwitchPreference(
+                title = { Text("DEBUG: Act as after 1 December (Last.fm)") },
+                icon = { Icon(Icons.Rounded.Science, null) },
+                checked = lastFmEnded,
+                onCheckedChange = onLastFmEndedChange,
+            )
+        }
+        if (BuildConfig.PREVIEW_FEATURES && Unreleased.RECAP) {
+            // The InterTune Recap on demand, and its reveal day brought forward: see RecapCalendar.
+            PreferenceEntry(
+                title = { Text("DEBUG: Open the InterTune Recap") },
+                description = "This year's, from this phone's listening as it is now.",
+                icon = { Icon(Icons.Rounded.AutoAwesome, null) },
+                onClick = { RecapDoor.open(LocalDate.now().year) },
+            )
+            SwitchPreference(
+                title = { Text("DEBUG: Today is the Recap's reveal day") },
+                description = "Its pop-up comes once at the next start of the app, and its banner is at the top of Settings.",
+                icon = { Icon(Icons.Rounded.AutoAwesome, null) },
+                checked = recapRevealedEarly,
+                onCheckedChange = { on ->
+                    coroutineScope.launch {
+                        context.dataStore.edit {
+                            it[RecapRevealedEarlyKey] = on
+                            // Owed again each time it is switched on.
+                            if (on) it.remove(RecapPopUpShownKey)
+                        }
+                    }
+                },
+            )
         }
         if (VisionosTest.offered(testBuild = BuildConfig.PREVIEW_FEATURES, identities = Unreleased.VISIONOS_IDENTITIES, fallback = Unreleased.WEB_FALLBACK)) {
             // One row over the two keys. As two switches, "this app's VISIONOS" and "VISIONOS",
@@ -275,6 +318,9 @@ fun ColumnScope.DeveloperFrag(navController: NavController) {
         }
         if (BuildConfig.DEBUG && Unreleased.LYRICS_BLUR) {
             LyricsBlurRow()
+        }
+        if (BuildConfig.DEBUG && Unreleased.LYRICS_WORDS_LOOKS) {
+            LyricsWordsLookRow()
         }
 
         PreferenceEntry(
@@ -856,6 +902,24 @@ private fun AutomixStyleRow() {
 
 /** The planner's own choice, then each style by its name in com.dd3boh.outertune.mix.Style. */
 private val AUTOMIX_STYLES = listOf("", "GAPLESS", "BLEND", "SMOOTH", "BEAT", "CUT")
+
+/**
+ * Debug builds only: the looks of the line sung word by word that are being compared
+ * (LyricsWordsLook), or the app's own way. They show with word by word on in the lyrics settings,
+ * on lyrics that have word times. Looks to judge, not a setting, so its words are not translated.
+ */
+@Composable
+private fun LyricsWordsLookRow() {
+    val (stored, onStoredChange) = rememberPreference(key = LyricsWordsLookKey, defaultValue = "")
+    ListPreference(
+        title = { Text("DEBUG: Word by word look") },
+        icon = { Icon(Icons.Rounded.Science, null) },
+        selectedValue = LyricsWordsLook.of(stored)?.name.orEmpty(),
+        values = listOf("") + LyricsWordsLook.entries.map { it.name },
+        valueText = { LyricsWordsLook.of(it)?.label ?: "Today's" },
+        onValueSelected = onStoredChange,
+    )
+}
 
 /**
  * Debug builds only: progressive blur on the lyrics (LyricsBlur). Its switch starts on Medium, the

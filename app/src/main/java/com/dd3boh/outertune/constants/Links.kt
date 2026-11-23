@@ -28,8 +28,13 @@ object Links {
 
     /** InterTune's Ko-fi (8 Nov 2026): donations by card, and PayPal once its account is checked. Crypto goes through Discord. */
     const val KOFI = "https://ko-fi.com/intertune"
+    // GitHub Sponsors on his own account, beside Ko-fi (21 Nov 2026)
+    const val GITHUB_SPONSORS = "https://github.com/sponsors/ItzSkyeYT"
 
     /** The project's own address, for whatever is not a bug or a translation. */
     const val EMAIL = "intertune.dev@gmail.com"
+
+    /** Where a ListenBrainz account's user token is, for pasting into the app (ListenBrainzFrag). */
+    const val LISTENBRAINZ_SETTINGS = "https://listenbrainz.org/settings/"
 
 }

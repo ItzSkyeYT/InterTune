@@ -54,7 +54,6 @@
     <string name="head_tracking_response_instant">Sofort</string>
     <string name="head_tracking_response_explain">„Sanft“ schießt nie übers Ziel hinaus, wirkt aber leicht verzögert. „Schnell“ und „Sofort“ wirken unmittelbar, können aber übers Ziel hinausschießen, wenn du mit dem Drehen aufhörst. „Ausgewogen“ liegt dazwischen.</string>
     <string name="proximity_volume">Leiser, wenn du weggehst</string>
-    <string name="proximity_volume_description">Tut so, als käme die Musik aus deinem Handy.</string>
     <string name="proximity_volume_explain">Gehst du von deinem Handy weg, wird die Musik langsam etwas leiser, als wäre das Handy der Lautsprecher. Ganz stumm wird sie nie.\n\nDafür brauchst du Bluetooth-Kopfhörer und die Android-Berechtigung „Geräte in der Nähe“: Die Entfernung wird anhand ihrer Signalstärke geschätzt.</string>
     <string name="proximity_probe">Bluetooth-Signalprotokoll</string>
     <string name="proximity_probe_stop">Aufzeichnung beenden</string>
@@ -230,7 +229,6 @@
     <string name="oobe_polls_answered">Du kannst das jederzeit in den Einstellungen unter „Fragen und Neuigkeiten“ ändern.</string>
     <string name="oobe_usage_count_answered">Du kannst das jederzeit in den Einstellungen unter „Anonyme Zählung“ ändern.</string>
     <string name="poll_title">Eine Frage von InterTune</string>
-    <string name="poll_banner_hint">Zum Antworten tippen, oder mit dem Kreuz schließen</string>
     <string name="poll_dismiss">Diese Frage ausblenden</string>
     <string name="poll_close">Schließen</string>
     <string name="poll_send">Antwort senden</string>
@@ -334,7 +332,6 @@
     <string name="lyrics_prefer_local_description">Verwendung lokaler Liedtextdateien priorisieren. Deaktivieren um Cloudanbieter bevorzugt zu verwenden</string>
     <string name="lyrics_settings_title">Liedtexte</string>
     <string name="lyrics_synced_clickable">Klickbare Songtexte</string>
-    <string name="lyrics_trim_title">Entferne Abstände um Liedtexte</string>
     <string name="local_library_enable_title">Aktiviere lokale Medien</string>
     <string name="local_library_enable_description">Deaktivieren blockiert den Zugriff der App auf die lokale Medienbibliothek</string>
     <string name="local_player_settings_title">Lokale Medien</string>
@@ -400,7 +397,6 @@
     <string name="player_liquid_glass_description">Schwebende Glasflächen für Navigationsleiste, Mini-Player und Wiedergabetasten sowie kräftigere Coverfarben hinter dem Player</string>
     <string name="player_liquid_glass_description_legacy">Kräftigere Coverfarben hinter dem Player. Die schwebenden Glasflächen brauchen Android 13 oder neuer</string>
     <string name="player_glass_intensity">Glas-Intensität</string>
-    <string name="player_glass_intensity_description">Höher heißt durchsichtiger und stärker gebrochen, niedriger heißt näher an schlichten, festen Flächen</string>
     <string name="player_glass_intensity_value">%1$d%%</string>
     <string name="player_glass_preview_needs_13">Eine Live-Vorschau des Glases braucht Android 13 oder neuer</string>
     <string name="player_glass_preview_side_navigation">Mit der seitlichen Navigation gibt es keine Live-Vorschau des Glases</string>
@@ -566,7 +562,6 @@
     <string name="image_cache_max_size">Maximale Größe des Cover-Caches</string>
     <string name="max_queues_description">Wie viele Warteschlangen die App gleichzeitig behält. Die älteste fällt weg, wenn du darüber hinausgehst.</string>
     <string name="enable_proxy_description">Anfragen und Streams von YouTube Music zuerst über einen anderen Server leiten. Bilder, Songtexte und die anderen Dienste, die die App nutzt, verbinden sich weiterhin direkt. Lass dies aus, sofern du nicht weißt, dass du es brauchst.</string>
-    <string name="show_liked_and_downloaded_playlist_description">Mit „Gefällt mir“ markierte und heruntergeladene Titel als Playlists in deiner Bibliothek anzeigen.</string>
     <string name="pause_listen_history_description">Keine Titel mehr zu deinem Verlauf hinzufügen. Nichts, was bereits darin ist, wird entfernt.</string>
     <string name="pause_remote_listen_history_description">YouTube Music nicht mehr mitteilen, was du hörst. Dein Verlauf innerhalb dieser App läuft so oder so weiter.</string>
     <string name="clear_listen_history_description">Alles löschen, was die App über deine Wiedergaben aufgezeichnet hat.</string>
@@ -683,7 +678,6 @@
     <string name="tour_closer_entry">Rundgang durch die Einstellungen</string>
     <string name="tour_closer_login">Wenn du dich mit deinem YouTube Music-Konto anmeldest, kommen deine Playlists, „Mag ich“-Bewertungen und Empfehlungen hierher. Die App funktioniert auch ohne.</string>
     <string name="tour_closer_lastfm">Für alle mit einem Last.fm-Profil: Sobald es verbunden ist, kommen die Songs dazu, die du hier zu Ende hörst.</string>
-    <string name="tour_closer_ytm_sync">Hält die Bibliothek hier und die in deinem YouTube Music-Konto von selbst gleich. Abgemeldet gibt es nichts, womit synchronisiert werden kann.</string>
     <string name="tour_closer_sync_mode">Wähle „Nur lesen“, wenn „Mag ich“-Bewertungen und Playlists von hier auch hier bleiben und nie dein Konto erreichen sollen.</string>
     <string name="tour_closer_quick_picks_source">Wer die Songs in der Reihe „Schnellauswahl“ oben auf der Startseite auswählt. Das ändert nur diese eine Reihe und sonst nichts.</string>
     <string name="tour_closer_content_language">Die Sprache, in der YouTube Music antwortet: Song- und Künstlernamen und die Titel der Reihen auf der Startseite.</string>
@@ -971,8 +965,6 @@
     <string name="familiarity">Vertrautheit</string>
     <string name="familiarity_description">Wie viel der Reihe „Beste Empfehlungen“ an Songs geht, die du in den letzten zwei Wochen oft gehört hast und die wieder dran sind: %1$d von 20 Karten. Songs, die du dir übergehört hast, treten von selbst zurück.</string>
     <string name="why_these_lane_again">%1$d, die du immer wieder hörst</string>
-    <string name="new_songs_only">Nur neue Songs</string>
-    <string name="new_songs_only_description">Jede Karte in der Reihe „Beste Empfehlungen“ ist ein Song, der neu für dich ist.</string>
     <string name="similar_source">Ähnliche Songs von</string>
     <string name="login_reassurance">Das ist Googles eigene Anmeldeseite. InterTune sieht dein Passwort nie. Es behält nur die Anmeldung, die YouTube Music zurückgibt.</string>
     <string name="login_secure">Sichere Verbindung</string>
@@ -1328,7 +1320,6 @@
     <string name="rank_with_listening_info">Ordnet die Reihe „Schnellauswahl“ so, dass sie zu dir passt: Songs, die du oft oder zuletzt gehört hast oder magst, kommen eher zuerst. Nichts wird hinzugefügt oder entfernt. Füllt „Beste Empfehlungen“ oder „Beide ausprobieren“ die Reihe, bleibt sie unverändert.</string>
     <string name="recommendations_engine_title_info">Die Reihe hat zwanzig Karten: Songs, die mit dem verwandt sind, was du hörst, Songs, die du immer wieder hörst, mehr von deinen Künstlern, alte Favoriten, die länger nicht liefen, und ein paar, die neu für dich sind. Diese Einstellungen gelten, solange „Quelle für Schnellauswahl“ auf „Beste Empfehlungen“ oder „Beide ausprobieren“ steht. Zieh auf der Startseite nach unten, um eine Änderung zu sehen.</string>
     <string name="similar_source_info">Wo „Beste Empfehlungen“ und „Etwas Neues entdecken“ Songs finden, die denen ähneln, die du hörst. Mit „Beide“ oder „Nur Last.fm“ gehen Titel und Künstler der Songs, die du hörst oder magst, an Last.fm, sonst nichts und kein Konto. „Nur YouTube“ sendet nichts an Last.fm.</string>
-    <string name="new_songs_only_info">Die ganze Reihe geht an Songs, die du nie über etwa die Hälfte hinaus gehört hast; einer, den du früh übersprungen hast, gilt weiter als neu. „Abenteuerlust“ und „Vertrautheit“ spielen keine Rolle, solange es an ist. Die Reihe kann kürzer ausfallen, und die „Schnellauswahl“ zeigt dann eine andere Quelle.</string>
     <string name="show_reasons_info">Jede Karte nennt den Hauptgrund, warum sie da ist: einen Song, zu dem sie passt, einen Künstler, den du hörst, eine „Mag ich“-Bewertung oder dass sie neu für dich ist. Ein Joker ist eine zufällig gewählte Karte, damit die Reihe frisch bleibt.</string>
     <string name="exclusions_info">Halte eine Karte in der „Schnellauswahl“ gedrückt für „Nicht diesen Song“, „Weniger von diesem Künstler“ (für einen Monat) oder „Nie diesen Künstler“. Sie filtern nur die Empfehlungsreihen, nie die Suche, deine Bibliothek oder Playlists. Diese Seite zeigt, was aktiv ist, und „Aufheben“ entfernt einen Eintrag.</string>
     <string name="rest_songs_i_skip_info">Überspringst du einen Song, den du magst oder oft hörst, vor der Hälfte, bleibt er eine Woche aus der Reihe „Beste Empfehlungen“ heraus. Überspringen in den ersten dreißig Sekunden zählt nicht. Eine Ruhepause kannst du auf der Seite „Ausschlüsse“ vorzeitig aufheben.</string>
@@ -1344,7 +1335,7 @@
     <string name="recommendations_learned_title_info">Alles hier unten bleibt in der App auf diesem Handy und wird nie hochgeladen. Eine Sicherung enthält es. Unter „Datenschutz und Verlauf“ stoppt „Pausieren des Hörverlaufs“ das Aufzeichnen, und „Hörverlauf löschen“ löscht es.</string>
     <string name="recommendations_where_from_info">Jeder Ort zählt, wie oft du dort etwas gestartet hast; die Songs, die danach weiterlaufen, werden nicht noch einmal gezählt. Ein selbst gewählter Song bringt ihm mehr bei als einer, der einfach weiterlief, und eine Suche zählt am meisten. „Nicht erfasst“ heißt, die App hat nicht notiert, wo es begann.</string>
     <string name="recommendations_recent_title_info">Die letzten dreißig Wiedergaben, aus denen es lernt, die neueste zuerst. Jede Zeile sagt, wie die Wiedergabe endete, wie viel du vom Song gehört hast und wo sie gestartet wurde. „Nicht daraus gelernt“ heißt, du hast es diese Wiedergabe vergessen lassen, oder sie lief aus einer Warteschlange mit „Daraus nicht lernen“.</string>
-    <string name="context_chips_info">Der erste Chip ist deine übliche Reihe. Die anderen setzen einen Schwerpunkt, bis du zurückwechselst: „Entdecken“ auf Songs, die neu für dich sind, „Favoriten“ auf Songs, die du magst, „Fokus“, „Chillen“ und „Party“ auf das, was du hörst, während der jeweilige Chip an ist. Der letzte Chip wirkt eigenständig und lässt sich mit jedem davon kombinieren.</string>
+    <string name="context_chips_info">Der erste Chip ist deine übliche Reihe. Die anderen setzen einen Schwerpunkt, bis du zurückwechselst: „Entdecken“ auf Songs, die neu für dich sind, „Favoriten“ auf Songs, die du magst, „Fokus“, „Chillen“ und „Party“ auf das, was du hörst, während der jeweilige Chip an ist.</string>
     <string name="context_chips">Chips der Schnellauswahl</string>
     <string name="explain_what_this_does">Was %1$s macht</string>
     <string name="explain_close">Schließen</string>
@@ -1536,7 +1527,6 @@
     </plurals>
     <string name="quick_picks_lean">Schwerpunkt der Schnellauswahl</string>
     <string name="quick_picks_lean_auto">Automatisch</string>
-    <string name="quick_picks_lean_new">Songs, die ich nie gehört habe</string>
     <string name="quick_picks_lean_artist">Mehr von Künstlern, die ich immer wieder höre</string>
     <string name="quick_picks_lean_forgotten">Was ich geliebt und vergessen habe</string>
     <string name="quick_picks_lean_similar">Songs, die zu dem passen, was ich gerade höre</string>
@@ -1544,10 +1534,7 @@
     <string name="quick_picks_lean_description_compare">Etwa %1$d der 20 Karten und %2$d der ersten vier, da „Beide ausprobieren“ die halbe Reihe der anderen Quelle gibt.</string>
     <string name="quick_picks_lean_not_source">Gilt, wenn „Quelle für Schnellauswahl“ auf „Beste Empfehlungen“ oder „Beide ausprobieren“ steht.</string>
     <string name="quick_picks_lean_set_aside_chip">Solange der Chip %1$s auf der Startseite an ist, hat er Vorrang.</string>
-    <string name="quick_picks_lean_set_aside_new_only">Solange „Nur neue Songs“ an ist, hat das Vorrang.</string>
-    <string name="quick_picks_lean_new_only_strict">Mit „Nur neue Songs“ wählt „Beste Empfehlungen“ nur Songs, die du nie auch nur angespielt hast, solange es genug davon gibt.</string>
     <string name="quick_picks_lean_info">„Automatisch“ ist die übliche Mischung, so wie „Beste Empfehlungen“ sie gelernt hat. Jede andere Wahl gibt einer Art von Songs die meisten Karten. „Songs, die zu dem passen, was ich gerade höre“ baut die „Schnellauswahl“ außerdem neu auf, sobald du ein paar Songs von anderswo gehört hast.</string>
-    <string name="quick_picks_leaning_new">Schwerpunkt: Songs, die du nie gehört hast</string>
     <string name="quick_picks_leaning_artist">Schwerpunkt: Künstler, die du immer wieder hörst</string>
     <string name="quick_picks_leaning_forgotten">Schwerpunkt: was du geliebt und vergessen hast</string>
     <string name="quick_picks_leaning_similar">Schwerpunkt: was du gerade hörst</string>
@@ -1555,12 +1542,10 @@
     <string name="quick_picks_leaning_short">%1$s: gerade nur %2$d, der Rest ist die übliche Mischung</string>
     <string name="quick_picks_leaning_none">%1$s: noch nichts, darum vorerst die übliche Mischung</string>
     <string name="quick_picks_leaning_forgotten_none">Nichts, was du geliebt hast, ist schon 45 Tage ungehört, darum vorerst die übliche Mischung</string>
-    <string name="chip_lean_new">Nie gehört</string>
     <string name="chip_lean_artist">Deine Künstler</string>
     <string name="chip_lean_forgotten">Vergessen</string>
     <string name="chip_lean_similar">Gerade läuft</string>
     <string name="why_these_lean">Schwerpunkt: %1$s, %2$d der %3$d Karten auf dem Bildschirm</string>
-    <string name="adventurousness_description_lean_new">Festgelegt durch den Schwerpunkt der Schnellauswahl auf Songs, die du nie gehört hast: %1$d von 20 Karten.</string>
     <string name="share_link_kind_title">Links, die du teilst</string>
     <string name="share_link_youtube_music">YouTube Music-Link</string>
     <string name="share_link_page">Eine Seite für jede Musik-App</string>

@@ -23,22 +23,22 @@ import org.junit.Test
  */
 class RowPictureTest {
 
-    private fun mix(lean: Lean = Lean.AUTO, adventurous: Int = 50, familiar: Int = 25, chip: Int = ContextChip.AUTO, newOnly: Boolean = false) =
-        LeanChoice.mix(lean, adventurous / 100.0, familiar / 100.0, chip, newOnly)
+    private fun mix(lean: Lean = Lean.AUTO, adventurous: Int = 50, familiar: Int = 25, chip: Int = ContextChip.AUTO) =
+        LeanChoice.mix(lean, adventurous / 100.0, familiar / 100.0, chip)
 
     @Test
     fun `the tiles are the row's own cards, kind for kind, wherever the controls stand`() {
-        for (lean in LeanChoice.options) for (adventurous in 0..100 step 5) for (familiar in 0..60 step 5) for (newOnly in listOf(false, true)) {
+        for (lean in LeanChoice.options) for (adventurous in 0..100 step 5) for (familiar in 0..60 step 5) {
             // With no chip on, the picture is the row the builder makes.
-            val mix = mix(lean, adventurous, familiar, ContextChip.AUTO, newOnly)
-            val shape = EngineRow.shape(EngineParams.DEFAULT.withFamiliarity(familiar / 100.0), adventurous / 100.0, newOnly, false, ContextChip.AUTO, lean)
+            val mix = mix(lean, adventurous, familiar, ContextChip.AUTO)
+            val shape = EngineRow.shape(EngineParams.DEFAULT.withFamiliarity(familiar / 100.0), adventurous / 100.0, false, ContextChip.AUTO, lean)
             assertEquals(shape.quotas.filterValues { it > 0 }, mix.cards.filterValues { it > 0 })
             assertEquals(shape.lead, mix.lead)
             for (chip in listOf(ContextChip.AUTO, ContextChip.DISCOVER, ContextChip.FAVOURITES)) {
-                val drawn = mix(lean, adventurous, familiar, chip, newOnly)
+                val drawn = mix(lean, adventurous, familiar, chip)
                 val places = rowPlaces(drawn)
                 assertEquals(ROW_PLACES, places.size)
-                assertEquals("$lean $adventurous $familiar $chip $newOnly", drawn.cards.filterValues { it > 0 }, places.groupingBy { it }.eachCount())
+                assertEquals("$lean $adventurous $familiar $chip", drawn.cards.filterValues { it > 0 }, places.groupingBy { it }.eachCount())
             }
         }
     }
@@ -71,7 +71,7 @@ class RowPictureTest {
     }
 
     @Test
-    fun `a choice has the head of the row and most of it, and New songs only has all of it`() {
+    fun `a choice has the head of the row and most of it, and Discover on Home is not drawn`() {
         for (lean in LeanChoice.options - Lean.AUTO) {
             val row = mix(lean)
             val places = rowPlaces(row)
@@ -79,7 +79,9 @@ class RowPictureTest {
             assertTrue("$lean", places.take(ROW_HEAD).all { it == lean.lane })
             assertTrue("$lean", places.count { it == lean.lane } >= 12)
         }
-        assertTrue(rowPlaces(mix(newOnly = true)).all { it == Lane.EXPLORE })
+        // Discover's row is all new for now, but the picture is of the page's own controls: with it
+        // on, the usual row under the sliders, whatever the choice, as the sliders' lines count it.
+        for (lean in LeanChoice.options) assertEquals(mix(), mix(lean, chip = ContextChip.DISCOVER))
     }
 
     @Test

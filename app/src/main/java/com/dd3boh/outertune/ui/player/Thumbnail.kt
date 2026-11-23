@@ -9,6 +9,7 @@
 
 package com.dd3boh.outertune.ui.player
 
+import com.dd3boh.outertune.ui.component.PlayerErrorReport
 import com.dd3boh.outertune.extensions.playSafe
 import com.dd3boh.outertune.LocalDatabase
 import com.dd3boh.outertune.constants.SignalKind
@@ -30,21 +31,14 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.geometry.Rect
-import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.layout.positionInRoot
-import androidx.compose.ui.node.Ref
-import androidx.compose.ui.unit.toSize
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -55,6 +49,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.isUnspecified
 import androidx.compose.ui.platform.LocalView
 import coil3.compose.AsyncImage
 import com.dd3boh.outertune.LocalPlayerConnection
@@ -98,11 +93,19 @@ fun Thumbnail(
      */
     lyricsBottomPadding: Dp = 0.dp,
     /**
+     * The most the cover's side may be, where it is to be held to a size of its own (the phone on
+     * its side, see landscapeCoverSide). The room it is given still limits it if that is less.
+     * Unspecified, the cover takes all the room it has, as everywhere else.
+     */
+    maxSide: Dp = Dp.Unspecified,
+    /**
      * Where the player's error screen leads when YouTube wants a sign-in: the login page and the
      * proxy setting. The player takes its sheet down on the way (BottomSheetPlayer).
      */
     onSignIn: () -> Unit = {},
     onProxy: () -> Unit = {},
+    /** Where the error screen's Report opens Report a problem, kept by the player (ThumbnailPlaybackError). */
+    onReport: ((PlayerErrorReport) -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val database = LocalDatabase.current
@@ -156,11 +159,14 @@ fun Thumbnail(
                     else Alignment.CenterHorizontally,
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(horizontal = if (isLandscape) 8.dp else PlayerHorizontalPadding)
+                    // Held to a size of its own (the phone on its side), the cover keeps the margin it has upright,
+                    // the same at the left as above and below it; hugging the edge was for a cover that filled the height.
+                    .padding(horizontal = if (isLandscape && maxSide.isUnspecified) 8.dp else PlayerHorizontalPadding)
             ) {
                 BoxWithConstraints(
                     modifier = Modifier
                         .weight(1f, false)
+                        .sizeIn(maxWidth = maxSide, maxHeight = maxSide)
                 ) {
                     // Ask the CDN for an image the size we are actually going to draw. The box is
                     // square (aspectRatio(1f) below), so the shorter side wins. Without this the
@@ -175,33 +181,9 @@ fun Thumbnail(
                     val artPx = with(LocalDensity.current) {
                         artSizeBucket(minOf(maxWidth, maxHeight).roundToPx())
                     }
-                    // The living background puts its aura round the cover, so the cover says where it
-                    // is: the one showing the song that plays, not a neighbour in the swipe strip.
-                    // Told again whenever that changes hands, since a cover that has not moved is
-                    // not placed again, and taken back when this one leaves, which is when the
-                    // lyrics or an error take its place.
-                    //
-                    // The place is kept out of composition. It changes on every frame while the
-                    // player sheet or the swipe strip moves, and held in a state that was read here
-                    // it had every cover recompose on each of those frames. So it goes straight
-                    // from where it is measured to PlayerCoverPlace, and what is remembered here is
-                    // only for the handover.
-                    val place = remember { Ref<Rect>() }
-                    val showsWhatPlays by rememberUpdatedState(ownsError)
-                    LaunchedEffect(ownsError) {
-                        if (ownsError) place.value?.let { PlayerCoverPlace.bounds = it }
-                    }
-                    DisposableEffect(Unit) {
-                        onDispose { if (showsWhatPlays) PlayerCoverPlace.bounds = null }
-                    }
                     Box(
                         modifier = Modifier
                             .aspectRatio(1f)
-                            .onGloballyPositioned {
-                                val at = Rect(it.positionInRoot(), it.size.toSize())
-                                place.value = at
-                                if (showsWhatPlays) PlayerCoverPlace.bounds = at
-                            }
                             .clip(RoundedCornerShape(ThumbnailCornerRadius * 2))
                             .clickable(
                                 interactionSource = remember { MutableInteractionSource() },
@@ -239,6 +221,9 @@ fun Thumbnail(
                             contentDescription = null,
                             modifier = Modifier.fillMaxSize()
                         )
+                        // In a room, YouTube Music's version of a file on the phone in control: a quiet tag over the cover,
+                        // inside its square, so nothing of the player moves (RoomVersionTag).
+                        RoomVersionTag(mediaMetadata?.id, Modifier.align(Alignment.BottomStart))
                     }
                 }
             }
@@ -277,6 +262,7 @@ fun Thumbnail(
                     retry = playerConnection.player::playSafe,
                     onSignIn = onSignIn,
                     onProxy = onProxy,
+                    onReport = onReport,
                 )
             }
         }

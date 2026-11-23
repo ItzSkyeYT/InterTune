@@ -125,6 +125,7 @@ internal fun exportLine(context: Context, result: ExportResult): String =
             ExportSummary.Part.EXPORTED -> R.plurals.export_exported
             ExportSummary.Part.NOT_ON_PHONE -> R.plurals.export_skipped_not_downloaded
             ExportSummary.Part.ALREADY_THERE -> R.plurals.export_skipped_there
+            ExportSummary.Part.INSIDE_APP -> R.plurals.export_skipped_inside_app
             ExportSummary.Part.LOCAL -> R.plurals.export_skipped_local
             ExportSummary.Part.FAILED -> R.plurals.export_failed
         }

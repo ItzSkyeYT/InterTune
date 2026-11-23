@@ -291,4 +291,17 @@ class BatteryUseTest {
             assertTrue(BatteryUse.rowFollowsSession(mode))
         }
     }
+
+    @Test
+    fun `word-by-word lyrics stop only with Saver picked by hand, never for the phone's battery saver alone`() {
+        // His pick of 19 Nov 2026: they draw only while the lyrics are open, so the phone's saver leaves them on.
+        assertTrue(BatteryUse.holdsWordByWord(SAVER, offered = true))
+        assertFalse(BatteryUse.holdsWordByWord(BALANCED, offered = true))
+        assertFalse(BatteryUse.holdsWordByWord(FULL, offered = true))
+        // The phone's saver puts Balanced on Saver, and the lyrics go on: the mode picked is what is asked.
+        assertEquals(SAVER, BatteryUse.inForce(BALANCED, follow = true, phoneSaver = true, offered = true))
+        assertFalse(BatteryUse.holdsWordByWord(BALANCED, offered = true))
+        // Without Battery use there is no Saver to pick.
+        for (mode in modes) assertFalse(BatteryUse.holdsWordByWord(mode, offered = false))
+    }
 }

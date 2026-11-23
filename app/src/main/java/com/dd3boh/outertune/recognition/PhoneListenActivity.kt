@@ -6,6 +6,7 @@
 
 package com.dd3boh.outertune.recognition
 
+import com.dd3boh.outertune.utils.AppLanguage
 import android.Manifest
 import android.app.AlertDialog
 import android.content.Context
@@ -40,6 +41,11 @@ import com.dd3boh.outertune.utils.Toaster
  * 16 Oct 2026). And the first time only, why Android asks to record the screen at all.
  */
 class PhoneListenActivity : ComponentActivity() {
+
+    /** Before Android 13 the app's language is ours to apply (AppLanguage); later the platform has done it. */
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(AppLanguage.wrap(newBase))
+    }
 
     private val consent = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         val data = result.data

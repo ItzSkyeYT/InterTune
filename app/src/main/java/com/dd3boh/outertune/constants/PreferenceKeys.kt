@@ -123,6 +123,30 @@ val LastFmUsernameKey = stringPreferencesKey("lastFmUsername")
 
 /** Scrobbling can be paused without disconnecting the account. */
 val LastFmScrobbleKey = booleanPreferencesKey("lastFmScrobble")
+/** Debug builds only: Last.fm acts as it will from 1 December 2026 (LastFmEnd), to walk that before the date. */
+val LastFmActAsEndedKey = booleanPreferencesKey("lastFmActAsEnded")
+/** When Last.fm refused the app's key itself (LastFmEnd.refusesKey): from then it is closed, as from 1 December. */
+val LastFmRefusedAtKey = longPreferencesKey("lastFmRefusedAt")
+
+/**
+ * ListenBrainz (Unreleased.LISTENBRAINZ).
+ *
+ * The user token pasted from listenbrainz.org/settings is the whole of the login and the key to
+ * the whole account, so it is kept as the YouTube cookie is: out of Android's cloud backup, in the
+ * app's own backup only with its sign-ins (SignIns.KEYS), never in a log, an error or a report.
+ * [ListenBrainzUserKey] is the account's name, so the settings can say whose it is.
+ */
+val ListenBrainzTokenKey = stringPreferencesKey("listenBrainzToken")
+val ListenBrainzUserKey = stringPreferencesKey("listenBrainzUser")
+
+/** Scrobbling to ListenBrainz can be paused without disconnecting. */
+val ListenBrainzScrobbleKey = booleanPreferencesKey("listenBrainzScrobble")
+
+/**
+ * When ListenBrainz last refused the token (a 401 or a 403), absent while it takes it. Nothing is
+ * sent until a token is pasted again; plays keep waiting in the outbox for it.
+ */
+val ListenBrainzRefusedAtKey = longPreferencesKey("listenBrainzRefusedAt")
 val AudioGaplessOffloadKey = booleanPreferencesKey("enableGaplessOffload")
 
 val MaxQueuesKey = intPreferencesKey("maxQueues")
@@ -134,6 +158,12 @@ val PersistentQueueKey = booleanPreferencesKey("persistentQueue")
  * naming a queue that is gone, the last queue is taken, as it always was.
  */
 val PlayingQueueKey = longPreferencesKey("playingQueue")
+
+/**
+ * The ids of the queues kept to songs never heard, a Discover pick's (playback/NeverHeardQueue.kt),
+ * so a queue restored after a restart keeps to the rule. The set of songs known is read again then.
+ */
+val NeverHeardQueuesKey = stringSetPreferencesKey("neverHeardQueues")
 
 /**
  * Start playing the restored queue as soon as the app opens, rather than waiting to be told.
@@ -156,6 +186,8 @@ val ResumeOnBluetoothKey = booleanPreferencesKey("resumeOnBluetooth")
 
 val SeekIncrementKey = stringPreferencesKey("seekIncrement")
 val SkipSilenceKey = booleanPreferencesKey("skipSilence")
+/** Varispeed (Unreleased.VARISPEED): the pitch follows the speed in Tempo and Pitch. Off by default. */
+val VarispeedKey = booleanPreferencesKey("varispeed")
 val SkipOnErrorKey = booleanPreferencesKey("skipOnError")
 val AudioNormalizationKey = booleanPreferencesKey("audioNormalization")
 val AutoLoadMoreKey = booleanPreferencesKey("autoLoadMore")
@@ -244,7 +276,6 @@ val MixQueueLinksKey = stringSetPreferencesKey("mixQueueLinks")
 val ShowLyricsKey = booleanPreferencesKey("showLyrics")
 val LyricsTextPositionKey = stringPreferencesKey("lyricsTextPosition")
 val MultilineLrcKey = booleanPreferencesKey("multilineLrc")
-val LyricTrimKey = booleanPreferencesKey("lyricTrim")
 /**
  * How far each song's synced lyrics are moved against it, as "songId=ms" pairs joined by commas
  * (LyricsTiming): only the songs somebody moved, so a handful of entries, kept with the settings so
@@ -266,6 +297,13 @@ val LyricUpdateSpeed = stringPreferencesKey("lyricUpdateSpeed")
  * so a backup from a debug build blurs nothing in a release.
  */
 val LyricsBlurKey = stringPreferencesKey("lyricsBlur")
+
+/**
+ * The debug app's looks of the line sung word by word (Unreleased.LYRICS_WORDS_LOOKS): one by its
+ * name in LyricsWordsLook, or absent for the app's own way. Read only with the flag on, so a backup
+ * from a debug build changes nothing in a release.
+ */
+val LyricsWordsLookKey = stringPreferencesKey("lyricsWordsLook")
 
 /**
  * Show in Latin letters: a line in Japanese, Korean, Chinese, Cyrillic, Greek or an Indian script
@@ -340,8 +378,6 @@ val AdventurousnessKey = intPreferencesKey("adventurousness")
 
 /** The middle of the slider, two explore cards of twenty: see EngineParams.exploreSpan. */
 const val DefaultAdventurousness = 50
-/** The engine row holds only songs new to the listener. */
-val NewSongsOnlyKey = booleanPreferencesKey("newSongsOnly")
 /** A second engine row on Home, under Quick picks, of songs never played. On unless turned off. */
 val DiscoverRowKey = booleanPreferencesKey("discoverRow")
 /** Familiarity 0 to 60: the share of the engine row given to songs heard well lately. */
@@ -373,6 +409,8 @@ val ContextChipKey = intPreferencesKey("contextChip")
 /**
  * What Best recommendations leans toward, a standing choice: a [com.dd3boh.outertune.engine.Lean]
  * name. Unset or unknown means Auto, the usual mix, so nothing changes for anyone who never picks.
+ * A stored Never heard ("NEW") and the old New songs only switch land on the Discover chip once
+ * ([NeverHeardToDiscover]).
  */
 val QuickPicksLeanKey = stringPreferencesKey("quickPicksLean")
 /** Developer overrides of EngineParams, as one JSON object of name to value. */
@@ -457,6 +495,14 @@ val FirstSetupKey = booleanPreferencesKey("firstSetup")
  * anything is told once, in a dialog, on opening the app (accountNoticeOwed).
  */
 val AccountNoticeSeenKey = booleanPreferencesKey("accountNoticeSeen")
+
+/**
+ * The battery saver note (SaverNote): how many times this install has been told that the phone's
+ * battery saver puts the app on Saver, and whether it was told during this time the saver is on
+ * (cleared once the app sees the saver off).
+ */
+val SaverNoteShownKey = intPreferencesKey("saverNoteShown")
+val SaverNoteWaitingKey = booleanPreferencesKey("saverNoteWaiting")
 val SwipeToSkipKey = booleanPreferencesKey("swipeToSkip")
 
 /**
@@ -472,6 +518,12 @@ val SwipeToSkipKey = booleanPreferencesKey("swipeToSkip")
  * collapse() when it is not, so there is no second copy of the gesture logic to keep in step.
  */
 val SwipeToDismissPlayerKey = booleanPreferencesKey("swipeToDismissPlayer")
+
+/**
+ * How the app's haptics feel: a Vibration (Off, Light, Strong), under Look and feel (Unreleased.HAPTICS_FEEL). Unset, it
+ * reads as Vibration.DEFAULT; a build without the flag never reads it, and plays today's haptics (Haptics.vibration).
+ */
+val VibrationKey = stringPreferencesKey("vibration")
 
 /**
  * What Share sends for a song or an album: a ShareLinkKind. Unset, it reads as ShareLinks.START,
@@ -501,6 +553,14 @@ val PlayerButtonsStyleKey = stringPreferencesKey("playerButtonsStyle")
 /** The buttons the player keeps outside its menu, per place, as [com.dd3boh.outertune.ui.player.PlayerPins] writes them; today's until chosen. */
 val PlayerPinsKey = stringPreferencesKey("playerPins")
 
+/** Set once the player's buttons of an install set up before 0.13 were written down as they were (PinsBefore013). */
+val PinsBefore013Key = booleanPreferencesKey("pinsBefore013")
+
+/** The same for Classic's circles by the title, whose default changed on 20 Nov 2026 (ClassicPinsBefore013). */
+val ClassicPinsBefore013Key = booleanPreferencesKey("classicPinsBefore013")
+/** Set once the cast button has joined the player's buttons of an install set up before (CastPinAtUpdate). */
+val CastPinAddedKey = booleanPreferencesKey("castPinAdded")
+
 /**
  * Whether the player opens the queue from a button beside its other buttons, rather than from the
  * sheet pulled up from its bottom edge. Off keeps the sheet, which is how the player has always
@@ -521,6 +581,14 @@ val QueueBackClosesPlayerKey = booleanPreferencesKey("queueBackClosesPlayer")
  * restart. Written and read only while [QueueBackClosesPlayerKey] is on (queueLeftOpenToStore).
  */
 val QueueLeftOpenKey = booleanPreferencesKey("queueLeftOpen")
+
+/**
+ * Whether the player shows the output button under its controls, the pill that names where the music
+ * plays (this phone, the headphones, a TV) and opens the cast sheet. Off by default since his pick of
+ * 15 Nov 2026: the cast button at the player's top right instead, and nothing under the controls. On
+ * gives back the pill, and the top right stays empty ("the pill should be toggleable").
+ */
+val OutputPillKey = booleanPreferencesKey("outputPill")
 
 /**
  * The two buttons the phone's media controls show beside previous, play and next, in order, as
@@ -580,6 +648,9 @@ val LibraryCustomOrderKey = stringPreferencesKey("libraryCustomOrder")
 val MenuHiddenEntriesKey = stringPreferencesKey("menuHiddenEntries")
 
 val SearchSourceKey = stringPreferencesKey("searchSource")
+// Where a playlist's search looks (Unreleased.PLAYLIST_YT_SEARCH): LOCAL the playlist, ONLINE YouTube Music, kept
+// as the library search keeps its own.
+val PlaylistSearchSourceKey = stringPreferencesKey("playlistSearchSource")
 
 val VisitorDataKey = stringPreferencesKey("visitorData")
 
@@ -750,6 +821,9 @@ val TogetherRelaysKey = stringPreferencesKey("togetherRelays")
 /** The name the others in a room see; empty or unset means the phone's own name. */
 val TogetherNameKey = stringPreferencesKey("togetherName")
 
+/** How rooms work has opened by itself once, the first time this phone was in a room (RoomTourOnFirstRoom). */
+val TogetherTourSeenKey = booleanPreferencesKey("togetherTourSeen")
+
 /** How far a follower may drift once in step before it corrects again, in ms (SyncLock). */
 val TogetherToleranceKey = intPreferencesKey("togetherToleranceMs")
 
@@ -758,6 +832,12 @@ val TogetherCatchUpKey = intPreferencesKey("togetherCatchUpPercent")
 
 /** How late this phone's sound comes out (Bluetooth), in ms: the room's timing makes up for it. */
 val TogetherDelayKey = intPreferencesKey("togetherDelayMs")
+
+/** A host's room settings (RoomSettings), from its last room: everyone may move in the song. Unset is off. */
+val TogetherEveryoneSeeksKey = booleanPreferencesKey("togetherEveryoneSeeks")
+
+/** A host's room settings (RoomSettings), from its last room: everyone may change the queue. Unset is off. */
+val TogetherEveryoneArrangesKey = booleanPreferencesKey("togetherEveryoneArranges")
 
 /** Add confident matches to the playlist without being asked. Continuous runs only. */
 val RecogniseAutoAddKey = booleanPreferencesKey("recogniseAutoAdd")
@@ -786,6 +866,39 @@ val WelcomeLookedAtKey = stringPreferencesKey("welcomeLookedAt")
 
 /** Poll and announcement ids whose opening has been counted, so each is counted once per install. */
 val ViewedPollIdsKey = stringSetPreferencesKey("viewedPollIds")
+
+/**
+ * The last year whose InterTune Recap opened by itself (RecapCalendar.popUpOwed), so that the
+ * pop-up comes once a year. 0 for never. Written when it opens, whatever is done with it then.
+ */
+val RecapPopUpShownKey = intPreferencesKey("recapPopUpShown")
+
+/**
+ * The developer options' "today is the reveal day", read only in a build that has that row
+ * (BuildConfig.PREVIEW_FEATURES): the Recap's pop-up and its banner in Settings behave as they
+ * will from the reveal day.
+ */
+val RecapRevealedEarlyKey = booleanPreferencesKey("recapRevealedEarly")
+
+/**
+ * The last year whose InterTune Recap was watched as far as its year card (his ask of 22 Nov 2026):
+ * Home's banner is then gone for that year (rememberRecapOnHome), and Settings' and the Stats page's
+ * stay. 0 for never.
+ */
+val RecapWatchedKey = intPreferencesKey("recapWatched")
+
+/** The last year whose Recap was told about in a notification, or opened here before it could be (RecapAlert). 0 for none. */
+val RecapToldKey = intPreferencesKey("recapTold")
+
+/** The latest year whose Recap was opened on this phone: its notes are open everywhere from then (RecapNotesOpen). 0 for none. */
+val RecapOpenedHereKey = intPreferencesKey("recapOpenedHere")
+
+/**
+ * The years whose Recap playlist has been put on YouTube Music from this phone, on the listener's
+ * second tap (RecapPlaylist), so that the year card does not offer it a second time and make a
+ * second playlist in the account. Years, written as text.
+ */
+val RecapPlaylistOnYouTubeMusicKey = stringSetPreferencesKey("recapPlaylistOnYouTubeMusic")
 
 /** Epoch millis of the last poll fetch, for the rate limit floor. */
 val LastPollFetchKey = longPreferencesKey("lastPollFetch")

@@ -10,6 +10,7 @@ import com.dd3boh.outertune.utils.WhyStopped
 import com.dd3boh.outertune.utils.YouTubeTrouble
 import com.dd3boh.outertune.utils.reportException
 import com.dd3boh.outertune.utils.albumWithOrderedSongs
+import com.dd3boh.outertune.utils.ContentLocale
 import com.zionhuang.innertube.YouTube
 import com.zionhuang.innertube.models.AlbumItem
 import com.zionhuang.innertube.pages.AlbumPage
@@ -47,6 +48,8 @@ class AlbumViewModel @Inject constructor(
 
     init {
         load()
+        // Another language for YouTube (the app's, or the YouTube Music rows): the page loads again in it.
+        viewModelScope.launch { ContentLocale.changes.collect { load() } }
     }
 
     /** Asks again after a load that failed or came back with no songs: the page's Retry. */

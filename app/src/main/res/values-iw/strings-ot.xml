@@ -154,7 +154,6 @@
     <string name="lyrics_prefer_local">העדיפו קבצי מילים מקומיים</string>
     <string name="lyrics_prefer_local_description">תן עדיפות לפתרון קבצי מילים מקומיים לפני שימוש בכל ספקי הענן. כבה אפשרות זו כדי לתעדף ספקי ענן</string>
     <string name="lyrics_settings_title">מילות השיר</string>
-    <string name="lyrics_trim_title">הסר רווחים מסביב למילים</string>
     <string name="local_library_enable_title">הפעלת מדיה מקומית</string>
     <string name="local_library_enable_description">השבתה תסתיר את הספרייה המקומית מהאפליקציה</string>
     <string name="local_player_settings_title">מדיה מקומית</string>
@@ -262,7 +261,6 @@
     <string name="oobe_update_check_title">להודיע לך על עדכונים?</string>
     <string name="oobe_update_check_yes">כן, בדוק</string>
     <string name="player_glass_intensity">עוצמת הזכוכית</string>
-    <string name="player_glass_intensity_description">ערך גבוה יותר שקוף יותר ושובר את האור חזק יותר; ערך נמוך קרוב יותר למשטחים אטומים רגילים</string>
     <string name="player_glass_intensity_value">%1$d%%</string>
     <string name="player_liquid_glass">זכוכית נוזלית</string>
     <string name="player_liquid_glass_description">לוחות זכוכית מרחפים לסרגל הניווט, לנגן המוקטן ולכפתורי ההשמעה, וצבעי עטיפה עשירים יותר מאחורי מסך הנגן</string>
@@ -286,7 +284,6 @@
     <string name="oobe_update_auto_description">מוריד אותה ברקע כדי שתהיה מוכנה כשתרצה. אנדרואיד עדיין יבקש ממך לאשר.</string>
     <string name="oobe_polls_answered">אפשר לשנות את זה בכל רגע בהגדרות, תחת שאלות.</string>
     <string name="poll_title">שאלה מ-InterTune</string>
-    <string name="poll_banner_hint">הקש כדי לענות, או סגור עם ה-X</string>
     <string name="poll_dismiss">התעלם מהשאלה הזו</string>
     <string name="poll_close">סגור</string>
     <string name="poll_send">שלח את התשובה שלי</string>
@@ -347,7 +344,6 @@
     <string name="image_cache_max_size">גודל מרבי למטמון העטיפות</string>
     <string name="max_queues_description">כמה תורים האפליקציה שומרת בו זמנית. הישן ביותר נמחק כשעוברים את המספר הזה.</string>
     <string name="enable_proxy_description">העבר את הבקשות והזרמים של YouTube Music דרך שרת אחר קודם. תמונות, מילות שירים ושאר השירותים שהאפליקציה משתמשת בהם עדיין מתחברים ישירות. השאר כבוי אלא אם אתה יודע שאתה צריך את זה.</string>
-    <string name="show_liked_and_downloaded_playlist_description">הצג שירים שאהבת ושירים שהורדת כפלייליסטים בספרייה שלך.</string>
     <string name="pause_listen_history_description">הפסק להוסיף שירים להיסטוריה שלך. שום דבר שכבר נמצא בה לא נמחק.</string>
     <string name="pause_remote_listen_history_description">הפסק לספר ל-YouTube Music מה אתה מנגן. ההיסטוריה בתוך האפליקציה הזו ממשיכה כך או כך.</string>
     <string name="clear_listen_history_description">מחק את כל מה שהאפליקציה רשמה על מה שהשמעת.</string>

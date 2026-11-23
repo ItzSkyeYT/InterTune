@@ -6,7 +6,12 @@
 
 package com.dd3boh.outertune.playback
 
+import com.dd3boh.outertune.R
 import com.dd3boh.outertune.playback.downloadManager.DownloadsSimpleLook
+import com.dd3boh.outertune.ui.screens.settings.SETTINGS_INDEX
+import com.dd3boh.outertune.ui.screens.walkthrough.NEW_THINGS
+import com.dd3boh.outertune.ui.screens.walkthrough.SETTINGS_CLOSER_LOOK
+import com.dd3boh.outertune.ui.screens.walkthrough.Tour
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -91,11 +96,37 @@ class DownloadsSimpleTest {
         // Today's row first in the file, as the tests of the folder that cannot be opened read it.
         assertTrue(frag.indexOf("settingRow(R.string.dl_main_path_title)") in 0 until frag.indexOf("WhereDownloadsGoRow("))
         val row = frag.substringAfter("WhereDownloadsGoRow(").substringBefore("\n        )\n")
-        assertTrue("found in Settings' search as today's row is", simple.contains("modifier = Modifier.settingRow(R.string.dl_main_path_title),"))
-        // The tour's mark is written once, on today's row (SettingsCloserLookTest): it moves with the look that is chosen.
-        assertFalse(simple.contains("tourTarget("))
+        // The tour's mark is written once (SettingsCloserLookTest), and on the row that is drawn: C's, the look chosen.
+        // Left on today's row, What's new's "Show me" for the folder and the tour's closer pointed at nothing.
+        assertTrue(simple.contains("modifier = Modifier.tourTarget(Tour.SETTING_DOWNLOAD_FOLDER).settingRow(R.string.dl_simple_where_title),"))
+        assertFalse(frag.contains("tourTarget(Tour.SETTING_DOWNLOAD_FOLDER)"))
         assertTrue("the choice of two in place of the folder dialog", row.contains("onClick = { showWhereChoice = true },"))
         assertTrue("the move, with the question of today before it", row.contains("onMove = askToMove"))
+    }
+
+    @Test
+    fun `the one row is called by the name it shows, in Settings' search and in the tour's bubbles`() {
+        // It carried today's row's mark, so Settings' search listed it as "Set external download folder…" and the
+        // bubbles over it said that too (the emulator, 19 Nov 2026). Its title is written in it and its mark is made
+        // from it, as every row's is (SettingsIndex), so that SettingsIndexTest and the tour's tests read the two.
+        assertTrue(simple.contains("title = { Text(stringResource(R.string.dl_simple_where_title)) },"))
+        assertFalse("today's mark stays on today's row", simple.contains("settingRow(R.string.dl_main_path_title)"))
+        // An entry for each row, there where the page draws that row: the look decides both, read through
+        // DownloadsSimpleLook as everything else reads it.
+        val index = File(sources, "ui/screens/settings/SettingsIndex.kt").readLines()
+        fun entry(title: String) = index.single { "SettingEntry(Tour.ROUTE_STORAGE, R.string.$title," in it }
+        assertTrue(entry("dl_simple_where_title").endsWith(" there = DownloadsSimpleLook.thisBuild.oneRow),"))
+        assertTrue(entry("dl_main_path_title").endsWith(" there = !DownloadsSimpleLook.thisBuild.oneRow),"))
+        // Migrate is drawn on today's page only (the simpler one offers the move from its one row): its entry follows,
+        // or the search listed a row that was never on screen.
+        assertTrue(entry("dl_migrate_title").endsWith(" there = !DownloadsSimpleLook.thisBuild.oneRow),"))
+        val listed = SETTINGS_INDEX.filter { it.route == Tour.ROUTE_STORAGE && it.there }.map { it.title }
+        assertTrue(R.string.dl_simple_where_title in listed)
+        assertFalse(R.string.dl_main_path_title in listed)
+        // The bubbles over it, What's new's "Show me" and the closer look's, say its name.
+        val stops = (NEW_THINGS.flatMap { it.stops } + SETTINGS_CLOSER_LOOK).filter { it.targetId == Tour.SETTING_DOWNLOAD_FOLDER }
+        assertEquals(setOf("downloads_move_setting", "closer_download_folder"), stops.map { it.id }.toSet())
+        assertTrue(stops.all { it.title == R.string.dl_simple_where_title })
     }
 
     @Test
@@ -142,7 +173,8 @@ class DownloadsSimpleTest {
         // The three ways a download is asked for by hand, each before the song is queued.
         assertEquals(3, Regex("""rememberAskedByHand\(""").findAll(util.substringAfter("fun download(songs: List<MediaMetadata>) {").substringBefore("private val says = DownloadSays(context)")).count())
         val idle = util.substringAfter("override fun onIdle(downloadManager: DownloadManager) {").substringBefore("override fun onDownloadChanged(")
-        assertTrue("after the move, so that it says where the song is", idle.indexOf("migrateDownloads(quiet = true, only = just)") in 0 until idle.indexOf("says.whenDone(just) { localMgr.getFilePathIfExists(it) != null }"))
+        // Not of a song held while it plays: said once it has moved (HeldWhilePlayingTest).
+        assertTrue("after the move, so that it says where the song is", idle.indexOf("migrateDownloads(quiet = true, only = just)") in 0 until idle.indexOf("says.whenDone(just.filterTo(mutableSetOf()) { !inPlay.isHeld(it) }) { localMgr.getFilePathIfExists(it) != null }"))
         assertTrue("with no folder set too", idle.contains("says.whenDone(just) { false }"))
         // Remembered only on the simpler page, and only for songs that were asked for by hand.
         val asked = says.substringAfter("fun asked(").substringBefore("\n    }\n")

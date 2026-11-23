@@ -50,6 +50,7 @@ import com.dd3boh.outertune.constants.ListThumbnailSize
 import com.dd3boh.outertune.constants.ThumbnailCornerRadius
 import com.dd3boh.outertune.db.entities.SongEntity
 import com.dd3boh.outertune.extensions.toMediaItem
+import com.dd3boh.outertune.models.DislikePlan
 import com.dd3boh.outertune.models.DontPlay
 import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.models.toMediaMetadata
@@ -70,6 +71,10 @@ import kotlinx.coroutines.launch
 import android.widget.Toast
 import androidx.compose.material.icons.rounded.Group
 import com.dd3boh.outertune.utils.Toaster
+import androidx.compose.ui.platform.LocalHapticFeedback
+import com.dd3boh.outertune.ui.component.tapTick
+import com.dd3boh.outertune.ui.component.Feel
+import com.dd3boh.outertune.ui.player.likeName
 
 @Composable
 fun YouTubeSongMenu(
@@ -87,8 +92,6 @@ fun YouTubeSongMenu(
     val playerConnection = LocalPlayerConnection.current ?: return
 
     val librarySong by remember(song.id) { database.song(song.id) }.collectAsState(initial = null)
-    val room by playerConnection.service.together.collectAsState()
-    val guestIn = room?.takeIf { it.following }
     val download by remember(song.id) { downloadUtil.getDownload(song.id) }.collectAsState(initial = null)
     val artists = remember {
         song.artists.mapNotNull {
@@ -128,8 +131,11 @@ fun YouTubeSongMenu(
             )
         },
         trailingContent = {
+            val haptic = LocalHapticFeedback.current
             IconButton(
                 onClick = {
+                    // Under the Vibration setting's Strong a like is two clicks, taking it back the tap's tick.
+                    haptic.tapTick(if (librarySong?.song?.liked == true) Feel.TICK else Feel.DOUBLE)
                     database.transaction {
                         librarySong.let { librarySong ->
                             // One push: toggleLike sends the like to YouTube itself. This sent it
@@ -153,7 +159,7 @@ fun YouTubeSongMenu(
                 Icon(
                     painter = painterResource(if (librarySong?.song?.liked == true) R.drawable.favorite else R.drawable.favorite_border),
                     tint = if (librarySong?.song?.liked == true) MaterialTheme.colorScheme.error else LocalContentColor.current,
-                    contentDescription = null
+                    contentDescription = likeName(librarySong?.song?.liked == true)
                 )
             }
         }
@@ -268,27 +274,14 @@ fun YouTubeSongMenu(
         // anyone knows the place of (DontPlay).
         if (Unreleased.ARTIST_BLOCK) {
             val held = dontPlay.has(song.id)
-            dontPlayMenuItem(held) {
-                toggleDontPlay(context, database, song.toMediaMetadata(), held)
+            dontPlayMenuItem(held, dislike = DislikePlan.shown(Unreleased.DISLIKE, local = false)) {
+                toggleDontPlay(context, database, song.toMediaMetadata(), held, downloadUtil, liked = librarySong?.song?.liked == true)
                 onDismiss()
             }
         }
         // Last of the items every song has, so that nothing anyone knows the place of moves.
         if (Unreleased.ARTIST_BLOCK && blockable.isNotEmpty()) {
             GridMenuItem(icon = BlockArtistIcon, title = R.string.menu_block_artist) { showBlockArtist = true }
-        }
-        // In a listening room as a guest: the host plays it next, for everyone, after Block artist so
-        // that it moves no item people know the place of. As in SongMenu: Quick picks and search
-        // results open this menu, not that one (the two-phone run of 17 Oct found it).
-        if (guestIn != null) {
-            GridMenuItem(
-                icon = Icons.Rounded.Group,
-                title = R.string.together_suggest
-            ) {
-                guestIn.suggest(song.toMediaMetadata())
-                Toaster.show(context, R.string.together_suggested, Toast.LENGTH_SHORT)
-                onDismiss()
-            }
         }
     }
 

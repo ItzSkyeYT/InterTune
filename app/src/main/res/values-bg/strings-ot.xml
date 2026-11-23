@@ -2,7 +2,6 @@
 <resources>
     <string name="swipe2Queue">Плъзнете за добавите в опашка</string>
     <string name="lyrics_multiline_title">Четене на многоредов текст</string>
-    <string name="lyrics_trim_title">Премахнете интервалите около текстовете</string>
     <string name="scanner_online_artist_linking">Опитайте да свържете изпълнители на локални файлове с такива в YouTube Music</string>
     <string name="folders">Папки</string>
     <string name="lyrics_prefer_local">Предпочитане на локални текстови файлове</string>
@@ -278,7 +277,6 @@
     <string name="oobe_update_check_title">Да ви съобщаваме ли за актуализации?</string>
     <string name="oobe_update_check_yes">Да, проверявай</string>
     <string name="player_glass_intensity">Интензивност на стъклото</string>
-    <string name="player_glass_intensity_description">По-високо означава по-прозрачно и по-силно пречупване; по-ниско е по-близо до обикновени плътни повърхности</string>
     <string name="player_glass_intensity_value">%1$d%%</string>
     <string name="player_liquid_glass">Течно стъкло</string>
     <string name="player_liquid_glass_description">Плаващи стъклени панели за навигационната лента, мини плейъра и бутоните за управление, както и по-наситени цветове от обложката зад екрана на плейъра</string>
@@ -302,7 +300,6 @@
     <string name="oobe_update_auto_description">Изтегля я на заден план, за да е готова, когато я поискате. Android пак ще ви поиска потвърждение.</string>
     <string name="oobe_polls_answered">Можете да промените това по всяко време в Настройки, под Въпроси.</string>
     <string name="poll_title">Въпрос от InterTune</string>
-    <string name="poll_banner_hint">Докоснете, за да отговорите, или затворете с кръстчето</string>
     <string name="poll_dismiss">Отхвърли този въпрос</string>
     <string name="poll_close">Затвори</string>
     <string name="poll_send">Изпрати отговора ми</string>
@@ -363,7 +360,6 @@
     <string name="image_cache_max_size">Максимален размер на кеша за обложки</string>
     <string name="max_queues_description">Колко опашки приложението пази едновременно. Най-старата отпада, когато надхвърлите това число.</string>
     <string name="enable_proxy_description">Прекарвай заявките и потоците на YouTube Music първо през друг сървър. Изображенията, текстовете на песни и другите услуги, които приложението използва, пак се свързват директно. Оставете го изключено, освен ако не знаете, че ви трябва.</string>
-    <string name="show_liked_and_downloaded_playlist_description">Показвай Харесани песни и Изтеглени песни като плейлисти в библиотеката ви.</string>
     <string name="pause_listen_history_description">Спри да добавяш песни към историята ви. Нищо от вече съществуващото не се премахва.</string>
     <string name="pause_remote_listen_history_description">Спри да казваш на YouTube Music какво пускате. Историята вътре в това приложение продължава така или иначе.</string>
     <string name="clear_listen_history_description">Изтрий всичко, което приложението е записало за това, което сте пускали.</string>
@@ -379,4 +375,8 @@
     <string name="pure_black_description">Използвай истинско черно вместо тъмносиво. На OLED екран това пести и малко батерия.</string>
     <string name="min_playback_duration_short">Каква част от песента трябва да се изсвири, за да се брои за слушане.</string>
     <string name="throttle_banner_title">YouTube спря временно тази връзка</string>
+    <string name="spatial_audio_off">Изклчено</string>
+    <string name="spatial_audio_headphones">Слушалки</string>
+    <string name="auto_search_again">Натисни, за да търсиш пак</string>
+    <string name="auto_settings_sound">Звук</string>
 </resources>

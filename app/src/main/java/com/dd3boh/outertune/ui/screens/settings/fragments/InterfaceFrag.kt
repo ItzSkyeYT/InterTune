@@ -1,5 +1,10 @@
 package com.dd3boh.outertune.ui.screens.settings.fragments
 
+import com.dd3boh.outertune.utils.ContentLocale
+import com.dd3boh.outertune.utils.AppLanguage
+import androidx.compose.material.icons.rounded.Translate
+import android.content.ContextWrapper
+import android.app.Activity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -30,6 +35,7 @@ import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.Swipe
 import androidx.compose.material.icons.rounded.SwipeDown
 import androidx.compose.material.icons.rounded.Tab
+import androidx.compose.material.icons.rounded.Vibration
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -47,6 +53,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
@@ -69,11 +76,15 @@ import com.dd3boh.outertune.constants.SwipeToQueueKey
 import com.dd3boh.outertune.constants.SwipeToSkipKey
 import com.dd3boh.outertune.constants.SwipeToDismissPlayerKey
 import com.dd3boh.outertune.constants.ThumbnailCornerRadius
+import com.dd3boh.outertune.constants.VibrationKey
 import com.dd3boh.outertune.extensions.move
 import com.dd3boh.outertune.ui.component.EnumListPreference
+import com.dd3boh.outertune.ui.component.FeltHaptics
+import com.dd3boh.outertune.ui.component.Haptics
 import com.dd3boh.outertune.ui.component.ListPreference
 import com.dd3boh.outertune.ui.component.PreferenceEntry
 import com.dd3boh.outertune.ui.component.SwitchPreference
+import com.dd3boh.outertune.ui.component.Vibration
 import com.dd3boh.outertune.ui.dialog.ActionPromptDialog
 import com.dd3boh.outertune.ui.dialog.InfoLabel
 import com.dd3boh.outertune.ui.screens.Screens
@@ -89,7 +100,6 @@ import com.zionhuang.innertube.YouTube
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
 import com.dd3boh.outertune.ui.screens.settings.settingRow
-import java.util.Locale
 
 @Composable
 fun ColumnScope.TabArrangementFrag() {
@@ -453,8 +463,84 @@ fun ColumnScope.SwipeGesturesFrag() {
     )
 }
 
+/**
+ * "Vibration": Off, Light or Strong (Unreleased.HAPTICS_FEEL, Haptics), how the app's haptics feel. A pick plays one
+ * buzz of itself, so the choice is felt as it is made: play and pause's firm click, nothing for Off.
+ */
+@Composable
+fun ColumnScope.VibrationFrag() {
+    val (vibration, onVibrationChange) = rememberEnumPreference(VibrationKey, defaultValue = Vibration.DEFAULT)
+    val haptic = LocalHapticFeedback.current
+    // Light's buzz is Compose's own: the window's (FeltHaptics) still holds the choice before as the new one is picked.
+    val platform = (haptic as? FeltHaptics)?.platform ?: haptic
+
+    EnumListPreference(
+        modifier = Modifier.tourTarget(Tour.SETTING_VIBRATION).settingRow(R.string.vibration),
+        title = { Text(stringResource(R.string.vibration)) },
+        icon = { Icon(Icons.Rounded.Vibration, null) },
+        selectedValue = vibration,
+        valueText = {
+            when (it) {
+                Vibration.OFF -> stringResource(R.string.vibration_off)
+                Vibration.LIGHT -> stringResource(R.string.vibration_light)
+                Vibration.STRONG -> stringResource(R.string.vibration_strong)
+            }
+        },
+        onValueSelected = { picked ->
+            onVibrationChange(picked)
+            Haptics.sample(picked, platform)
+        },
+    )
+}
+
+/**
+ * "App language": the language of the app's own words, where the two rows under it are the
+ * language and country YouTube Music answers in. System default, then every language the app
+ * is translated into, each in its own words, "Partly translated" under those still mostly in English
+ * (AppLanguage.PARTLY). A pick switches the whole app at once (AppLanguage):
+ * the screen stays, the music goes on. The value is read from where the platform keeps it each
+ * time the screen is made, so it agrees with Android's own App languages page.
+ */
+@Composable
+fun ColumnScope.AppLanguageFrag() {
+    val context = LocalContext.current
+    var choice by remember { mutableStateOf(AppLanguage.current(context)) }
+    val choices = remember {
+        listOf(SYSTEM_DEFAULT) + AppLanguage.TAGS.sortedBy { AppLanguage.nameOf(it).lowercase() }
+    }
+
+    ListPreference(
+        modifier = Modifier.settingRow(R.string.app_language),
+        title = { Text(stringResource(R.string.app_language)) },
+        icon = { Icon(Icons.Rounded.Translate, null) },
+        selectedValue = choice,
+        values = choices,
+        valueText = {
+            if (it == SYSTEM_DEFAULT) stringResource(R.string.system_default) else AppLanguage.nameOf(it)
+        },
+        // Under a language most of whose words are still English, a short note says so (his pick of 19 Nov 2026).
+        valueDescription = { if (AppLanguage.partly(it)) stringResource(R.string.app_language_partly) else "" },
+        onValueSelected = { picked ->
+            var holder = context
+            while (holder !is Activity && holder is ContextWrapper) holder = holder.baseContext
+            (holder as? Activity)?.let { activity ->
+                choice = picked
+                AppLanguage.set(activity, picked)
+            }
+        }
+    )
+}
+
+/**
+ * "YouTube Music language" and "YouTube Music country": what YouTube answers in (the titles of the
+ * rows on Home, song and artist names, the charts). Not the app's own words, which "App language"
+ * above them sets: the labels say so, because the old "Default content language" was taken for the
+ * app's language and left a Dutch phone half Dutch. Left on System default they follow the app
+ * ([ContentLocale]).
+ */
 @Composable
 fun ColumnScope.LocalizationFrag() {
+    val context = LocalContext.current
     val (contentLanguage, onContentLanguageChange) = rememberPreference(
         key = ContentLanguageKey,
         defaultValue = "system"
@@ -462,8 +548,8 @@ fun ColumnScope.LocalizationFrag() {
     val (contentCountry, onContentCountryChange) = rememberPreference(key = ContentCountryKey, defaultValue = "system")
 
     ListPreference(
-        modifier = Modifier.tourTarget(Tour.SETTING_CONTENT_LANGUAGE).settingRow(R.string.content_language),
-        title = { Text(stringResource(R.string.content_language)) },
+        modifier = Modifier.tourTarget(Tour.SETTING_CONTENT_LANGUAGE).settingRow(R.string.youtube_language),
+        title = { Text(stringResource(R.string.youtube_language)) },
         icon = { Icon(Icons.Rounded.Language, null) },
         selectedValue = contentLanguage,
         values = listOf(SYSTEM_DEFAULT) + LanguageCodeToName.keys.toList(),
@@ -473,22 +559,17 @@ fun ColumnScope.LocalizationFrag() {
             }
         },
         onValueSelected = { newValue ->
-            val locale = Locale.getDefault()
-            val languageTag = locale.toLanguageTag().replace("-Hant", "")
-
-            YouTube.locale = YouTube.locale.copy(
-                hl = newValue.takeIf { it != SYSTEM_DEFAULT }
-                    ?: locale.language.takeIf { it in LanguageCodeToName }
-                    ?: languageTag.takeIf { it in LanguageCodeToName }
-                    ?: "en"
-            )
+            // Worked out from the pick itself: the stored value is written a moment later.
+            ContentLocale.use(YouTube.locale.copy(
+                hl = ContentLocale.of(newValue, null, ContentLocale.appLocale(context), ContentLocale.phoneLocale(context)).hl
+            ))
 
             onContentLanguageChange(newValue)
         }
     )
     ListPreference(
-        modifier = Modifier.tourTarget(Tour.SETTING_CONTENT_COUNTRY).settingRow(R.string.content_country),
-        title = { Text(stringResource(R.string.content_country)) },
+        modifier = Modifier.tourTarget(Tour.SETTING_CONTENT_COUNTRY).settingRow(R.string.youtube_country),
+        title = { Text(stringResource(R.string.youtube_country)) },
         icon = { Icon(Icons.Rounded.LocationOn, null) },
         selectedValue = contentCountry,
         values = listOf(SYSTEM_DEFAULT) + CountryCodeToName.keys.toList(),
@@ -498,13 +579,9 @@ fun ColumnScope.LocalizationFrag() {
             }
         },
         onValueSelected = { newValue ->
-            val locale = Locale.getDefault()
-
-            YouTube.locale = YouTube.locale.copy(
-                gl = newValue.takeIf { it != SYSTEM_DEFAULT }
-                    ?: locale.country.takeIf { it in CountryCodeToName }
-                    ?: "US"
-            )
+            ContentLocale.use(YouTube.locale.copy(
+                gl = ContentLocale.of(null, newValue, ContentLocale.appLocale(context), ContentLocale.phoneLocale(context)).gl
+            ))
 
             onContentCountryChange(newValue)
         }

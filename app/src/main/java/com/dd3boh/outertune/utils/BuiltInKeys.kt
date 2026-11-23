@@ -55,6 +55,8 @@ object BuiltInKeys {
             .getOrDefault(emptySet())
             .any { it in RELEASE_CERTS }
         if (!genuine) Log.w(TAG, "Not signed with the InterTune release key, so the built-in keys are off")
+        // Here, so that the Last.fm key is never read before LastFmEnd can see the settings.
+        LastFmEnd.attach(context)
     }
 
     /**
@@ -67,8 +69,12 @@ object BuiltInKeys {
 
     private const val OWN_PACKAGE = "dev.skye.intertune"
 
-    val lastFmApiKey: String get() = revealIfGenuine(BuildConfig.LASTFM_API_KEY)
-    val lastFmApiSecret: String get() = revealIfGenuine(BuildConfig.LASTFM_API_SECRET)
+    /**
+     * Empty once Last.fm has closed (LastFmEnd): every Last.fm feature then takes the way a build
+     * without a key takes, and nothing more goes to Last.fm. Read at each use, as the rest.
+     */
+    val lastFmApiKey: String get() = if (LastFmEnd.closed()) "" else revealIfGenuine(BuildConfig.LASTFM_API_KEY)
+    val lastFmApiSecret: String get() = if (LastFmEnd.closed()) "" else revealIfGenuine(BuildConfig.LASTFM_API_SECRET)
     val pollsUrl: String get() = revealIfGenuine(BuildConfig.POLLS_URL)
     val pollsMirrors: String get() = revealIfGenuine(BuildConfig.POLLS_MIRRORS)
     val pollsLastResort: String get() = revealIfGenuine(BuildConfig.POLLS_LAST_RESORT)

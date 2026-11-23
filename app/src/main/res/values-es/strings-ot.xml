@@ -54,7 +54,6 @@
     <string name="head_tracking_response_instant">Instantánea</string>
     <string name="head_tracking_response_explain">\"Suave\" nunca se pasa, pero se siente un poco atrasada. \"Rápida\" e \"Instantánea\" se sienten inmediatas, pero pueden pasarse cuando dejas de girar. \"Equilibrada\" queda entre las dos.</string>
     <string name="proximity_volume">Más bajo al alejarte</string>
-    <string name="proximity_volume_description">Trata a tu teléfono como el lugar de donde sale la música.</string>
     <string name="proximity_volume_explain">Si te alejas del teléfono, la música va bajando un poco, como si el teléfono fuera el altavoz. Nunca se silencia.\n\nNecesita audífonos Bluetooth y el permiso Dispositivos cercanos de Android: la distancia se calcula a partir de la intensidad de su señal.</string>
     <string name="proximity_probe">Registro de la señal Bluetooth</string>
     <string name="proximity_probe_stop">Dejar de registrar</string>
@@ -231,7 +230,6 @@
     <string name="oobe_polls_answered">Puedes cambiar esto cuando quieras en Ajustes, en Preguntas y novedades.</string>
     <string name="oobe_usage_count_answered">Puedes cambiarlo cuando quieras en Ajustes, dentro de Recuento anónimo.</string>
     <string name="poll_title">Una pregunta de InterTune</string>
-    <string name="poll_banner_hint">Toca para responder, o descarta con la cruz</string>
     <string name="poll_dismiss">Descartar esta pregunta</string>
     <string name="poll_close">Cerrar</string>
     <string name="poll_send">Enviar mi respuesta</string>
@@ -336,7 +334,6 @@
     <string name="lyrics_prefer_local_description">Priorizar la resolución de archivos de letras locales antes de utilizar todos los proveedores de nube. Desactive esta opción para dar prioridad a los proveedores de nube</string>
     <string name="lyrics_settings_title">Letras</string>
     <string name="lyrics_synced_clickable">Letras en las que se puede hacer clic</string>
-    <string name="lyrics_trim_title">Eliminar espacios alrededor de las letras</string>
     <string name="local_library_enable_title">Habilitar medios locales</string>
     <string name="local_library_enable_description">Al desactivarlo, se ocultará la biblioteca local de la aplicación</string>
     <string name="local_player_settings_title">Medios locales</string>
@@ -404,7 +401,6 @@
     <string name="player_liquid_glass_description">Paneles de cristal flotantes para la barra de navegación, el minirreproductor y los controles, y colores de la carátula más vivos detrás de la pantalla de reproducción</string>
     <string name="player_liquid_glass_description_legacy">Colores de la carátula más vivos detrás de la pantalla de reproducción. Los paneles de cristal flotantes necesitan Android 13 o posterior</string>
     <string name="player_glass_intensity">Intensidad del cristal</string>
-    <string name="player_glass_intensity_description">Más alto: más transparente y con más refracción; más bajo: más parecido a superficies sólidas normales</string>
     <string name="player_glass_intensity_value">%1$d%%</string>
     <string name="player_glass_preview_needs_13">La vista previa en vivo del cristal necesita Android 13 o posterior</string>
     <string name="player_glass_preview_side_navigation">La vista previa en vivo del cristal no está disponible con la navegación lateral</string>
@@ -572,7 +568,6 @@
     <string name="image_cache_max_size">Tamaño máximo de la caché de carátulas</string>
     <string name="max_queues_description">Cuántas colas mantiene la aplicación a la vez. La más antigua se descarta al pasar de este número.</string>
     <string name="enable_proxy_description">Enviar las solicitudes y las transmisiones de YouTube Music a través de otro servidor primero. Las imágenes, las letras y los demás servicios que usa la aplicación siguen conectándose directamente. Déjalo desactivado salvo que sepas que lo necesitas.</string>
-    <string name="show_liked_and_downloaded_playlist_description">Mostrar Canciones que me gustan y Canciones descargadas como listas en tu biblioteca.</string>
     <string name="pause_listen_history_description">Dejar de añadir canciones a tu historial. No se elimina nada de lo que ya hay en él.</string>
     <string name="pause_remote_listen_history_description">Dejar de decirle a YouTube Music qué reproduces. Tu historial dentro de esta aplicación continúa igualmente.</string>
     <string name="clear_listen_history_description">Eliminar todo lo que la aplicación ha registrado sobre lo que has reproducido.</string>
@@ -693,7 +688,6 @@
     <string name="tour_closer_entry">Recorrido por los ajustes</string>
     <string name="tour_closer_login">Iniciar sesión en tu cuenta de YouTube Music trae aquí tus listas de reproducción, tus me gusta y tus recomendaciones. La app funciona sin hacerlo.</string>
     <string name="tour_closer_lastfm">Para quien tiene un perfil de Last.fm: una vez conectada la cuenta, las canciones que terminas aquí se añaden a él.</string>
-    <string name="tour_closer_ytm_sync">Mantiene iguales la biblioteca de aquí y la de tu cuenta de YouTube Music sin que tengas que pedirlo. Sin sesión iniciada, no hay nada con qué sincronizar.</string>
     <string name="tour_closer_sync_mode">Elige Solo lectura si los me gusta y las listas de reproducción que hagas aquí deben quedarse aquí y nunca llegar a tu cuenta.</string>
     <string name="tour_closer_quick_picks_source">Quién elige las canciones de la fila Selecciones rápidas, arriba en Inicio. Solo cambia esa fila y nada más.</string>
     <string name="tour_closer_content_language">El idioma en el que responde YouTube Music: nombres de canciones y artistas, y los títulos de las filas de Inicio.</string>
@@ -994,8 +988,6 @@
     <string name="familiarity">Familiaridad</string>
     <string name="familiarity_description">Cuánto de la fila de Mejores recomendaciones es para canciones que escuchaste mucho en las últimas dos semanas y que ya toca volver a oír: %1$d de 20 tarjetas. Las canciones que ya te cansaron se apartan solas.</string>
     <string name="why_these_lane_again">%1$d a las que vuelves</string>
-    <string name="new_songs_only">Solo canciones nuevas</string>
-    <string name="new_songs_only_description">Cada tarjeta de la fila de Mejores recomendaciones es una canción nueva para ti.</string>
     <string name="similar_source">Canciones similares de</string>
     <string name="login_reassurance">Esta es la página de inicio de sesión de Google. InterTune nunca ve tu contraseña. Solo guarda la sesión que le devuelve YouTube Music.</string>
     <string name="login_secure">Conexión segura</string>
@@ -1373,7 +1365,6 @@
     <string name="rank_with_listening_info">Ordena la fila \"Selecciones rápidas\" a tu gusto: las canciones que escuchas a menudo, que escuchaste hace poco o que te gustan suelen ir primero. No se añade ni se quita nada. No toca la fila cuando la llenan \"Mejores recomendaciones\" o \"Probar las dos\".</string>
     <string name="recommendations_engine_title_info">La fila tiene veinte tarjetas: canciones relacionadas con lo que escuchas, canciones a las que siempre vuelves, más de tus artistas, viejas favoritas que dejaron de sonar y algunas nuevas para ti. Estos ajustes se aplican mientras \"Fuente de selección rápida\" sea \"Mejores recomendaciones\" o \"Probar las dos\". Desliza hacia abajo en Inicio para ver un cambio.</string>
     <string name="similar_source_info">Dónde buscan \"Mejores recomendaciones\" y \"Descubre algo nuevo\" canciones parecidas a las que escuchas. Con \"Ambas\" o \"Solo Last.fm\", el título y el artista de las canciones que escuchas o que te gustaron se envían a Last.fm, nada más y sin ninguna cuenta. \"Solo YouTube\" no envía nada a Last.fm.</string>
-    <string name="new_songs_only_info">Toda la fila es para canciones que no escuchaste más allá de la mitad, más o menos; una que saltaste pronto sigue contando como nueva. \"Exploración\" y \"Familiaridad\" dejan de importar mientras está activado. La fila puede quedar más corta, y entonces \"Selecciones rápidas\" muestra otra fuente.</string>
     <string name="show_reasons_info">Cada tarjeta dice el motivo principal por el que está ahí: una canción con la que combina, un artista que escuchas, un me gusta, o que es nueva para ti. Un comodín es una tarjeta elegida al azar para mantener la fila fresca.</string>
     <string name="exclusions_info">Mantén presionada una tarjeta de \"Selecciones rápidas\" para elegir \"Esta canción no\", \"Menos de este artista\" (durante un mes) o \"Nunca este artista\". Solo filtran las filas de recomendaciones, nunca la búsqueda, tu biblioteca ni las listas de reproducción. Esta página muestra las que están en vigor, y \"Levantar\" quita una.</string>
     <string name="rest_songs_i_skip_info">Si saltas antes de la mitad una canción que te gusta o que escuchas a menudo, queda fuera de la fila \"Mejores recomendaciones\" durante una semana. Un salto en los primeros treinta segundos no cuenta. Puedes levantar un descanso antes de tiempo en la página \"Exclusiones\".</string>
@@ -1389,7 +1380,7 @@
     <string name="recommendations_learned_title_info">Todo lo de abajo se guarda en la app, en este teléfono, y nunca se sube. Las copias de seguridad lo incluyen. En \"Privacidad e historial\", \"Pausar historial de reproducciones\" deja de registrarlo y \"Borrar historial de reproducciones\" lo borra.</string>
     <string name="recommendations_where_from_info">Cada lugar cuenta las veces que empezaste a escuchar desde ahí; las canciones que suenan después no se vuelven a contar. Una canción que elegiste tú le enseña más que una que simplemente siguió sonando, y una búsqueda es lo que más cuenta. \"Sin registrar\" significa que la app no anotó dónde empezó.</string>
     <string name="recommendations_recent_title_info">Las últimas treinta escuchas de las que aprende, de la más reciente a la más antigua. Cada línea dice cómo terminó la reproducción, cuánto escuchaste de la canción y desde dónde se empezó. \"Sin aprender de ella\" significa que le pediste olvidar esa escucha, o que sonó desde una cola marcada con \"No aprender de esto\".</string>
-    <string name="context_chips_info">El primer chip es tu fila de siempre. Los demás la inclinan hasta que vuelvas a cambiar: \"Descubrir\" hacia canciones nuevas para ti, \"Favoritas\" hacia canciones que te gustaron, \"Concentración\", \"Relax\" y \"Fiesta\" hacia lo que escuchas mientras cada uno está activado. El último chip funciona por su cuenta, con cualquiera de ellos.</string>
+    <string name="context_chips_info">El primer chip es tu fila de siempre. Los demás la inclinan hasta que vuelvas a cambiar: \"Descubrir\" hacia canciones nuevas para ti, \"Favoritas\" hacia canciones que te gustaron, \"Concentración\", \"Relax\" y \"Fiesta\" hacia lo que escuchas mientras cada uno está activado.</string>
     <string name="context_chips">Chips de Selecciones rápidas</string>
     <string name="explain_what_this_does">Qué hace %1$s</string>
     <string name="explain_close">Cerrar</string>
@@ -1597,7 +1588,6 @@
     </plurals>
     <string name="quick_picks_lean">Preferencia de Selecciones rápidas</string>
     <string name="quick_picks_lean_auto">Auto</string>
-    <string name="quick_picks_lean_new">Canciones que nunca escuché</string>
     <string name="quick_picks_lean_artist">Más de artistas a los que siempre vuelvo</string>
     <string name="quick_picks_lean_forgotten">Cosas que me encantaban y olvidé</string>
     <string name="quick_picks_lean_similar">Canciones que encajan con lo que escucho ahora</string>
@@ -1605,10 +1595,7 @@
     <string name="quick_picks_lean_description_compare">Unas %1$d de las 20 tarjetas y %2$d de las cuatro primeras, porque Probar las dos da la mitad de la fila a la otra fuente.</string>
     <string name="quick_picks_lean_not_source">Se aplica cuando Fuente de selección rápida es Mejores recomendaciones o Probar las dos.</string>
     <string name="quick_picks_lean_set_aside_chip">El chip %1$s de Inicio tiene prioridad mientras está activado.</string>
-    <string name="quick_picks_lean_set_aside_new_only">Solo canciones nuevas tiene prioridad mientras está activado.</string>
-    <string name="quick_picks_lean_new_only_strict">Con Solo canciones nuevas activado, Mejores recomendaciones elige solo canciones que nunca empezaste siquiera, siempre que haya suficientes.</string>
     <string name="quick_picks_lean_info">\"Auto\" es la mezcla de siempre, a partir de lo que aprendió \"Mejores recomendaciones\". Cada una de las otras opciones da la mayoría de sus tarjetas a un tipo de canción. \"Canciones que encajan con lo que escucho ahora\" también rehace \"Selecciones rápidas\" cuando escuchas algunas canciones desde otro lugar.</string>
-    <string name="quick_picks_leaning_new">Con preferencia por canciones que nunca escuchaste</string>
     <string name="quick_picks_leaning_artist">Con preferencia por artistas a los que siempre vuelves</string>
     <string name="quick_picks_leaning_forgotten">Con preferencia por cosas que te encantaban y olvidaste</string>
     <string name="quick_picks_leaning_similar">Con preferencia por lo que escuchas ahora</string>
@@ -1616,12 +1603,10 @@
     <string name="quick_picks_leaning_short">%1$s: solo %2$d por ahora, el resto es la mezcla de siempre</string>
     <string name="quick_picks_leaning_none">%1$s: nada todavía, así que por ahora es la mezcla de siempre</string>
     <string name="quick_picks_leaning_forgotten_none">Nada de lo que te encantaba lleva todavía 45 días sin sonar, así que por ahora es la mezcla de siempre</string>
-    <string name="chip_lean_new">Nunca escuchadas</string>
     <string name="chip_lean_artist">Tus artistas</string>
     <string name="chip_lean_forgotten">Olvidadas</string>
     <string name="chip_lean_similar">Sonando ahora</string>
     <string name="why_these_lean">Preferencia: %1$s, %2$d de las %3$d tarjetas en pantalla</string>
-    <string name="adventurousness_description_lean_new">Lo fija la preferencia de Selecciones rápidas por canciones que nunca escuchaste: %1$d de 20 tarjetas.</string>
     <string name="share_link_kind_title">Enlaces que compartes</string>
     <string name="share_link_youtube_music">Enlace de YouTube Music</string>
     <string name="share_link_page">Una página para cualquier app de música</string>
@@ -1651,4 +1636,52 @@
     <string name="problem_report_copy">Copiar</string>
     <string name="problem_report_copied">Copiado</string>
     <string name="problem_report_close">Cerrar</string>
+    <string name="link_open_failed">No pude abrir el link. Intenta otra vez en unos momentos.</string>
+    <string name="auto_more_downloaded">Descargado</string>
+    <string name="auto_more_downloaded_line">Reproduce sin conexión</string>
+    <string name="auto_more_recent">Reproducido recientemente</string>
+    <string name="auto_search_offline">Sin conexión a Internet en el teléfono</string>
+    <string name="auto_search_no_answer">Youtube Music no respondió</string>
+    <string name="auto_search_again">Buscar otra vez</string>
+    <string name="auto_settings_sound">Sonido</string>
+    <string name="auto_settings_playback">Reproducción</string>
+    <string name="auto_more_line">La lista nunca termina</string>
+    <string name="adaptive_radio_description">Las canciones que aparecen más abajo en la radio cambian a medida que las saltas, las terminas o les das \"me gusta\".</string>
+    <string name="adaptive_queue_explain">Si saltas, terminas o le das like a las canciones, el resto de la radio se adapta. Algunas de las siguientes canciones se quedan en su sitio, y las listas de reproducción y los álbumes nunca cambian.</string>
+    <string name="auto_more_recent_line">Comienza de donde lo dejaste</string>
+    <string name="auto_more_shuffle_line">Todo lo que guardaste, pero mezclado</string>
+    <string name="auto_silence_line">Elimina los comienzos y los finales silenciosos</string>
+    <plurals name="adaptive_note_after_skip">
+        <item quantity="one">nueva recomendación después de que saltaras la canción</item>
+        <item quantity="many">nuevas recomendaciones después de que saltaras la canción</item>
+        <item quantity="other">nuevas recomendaciones después de que saltaras la canción</item>
+    </plurals>
+    <plurals name="adaptive_note_like">
+        <item quantity="one">nueva selección similar a</item>
+        <item quantity="many">nuevas selecciones automáticas similares a</item>
+        <item quantity="other">nuevas selecciones automáticas similares a</item>
+    </plurals>
+    <plurals name="adaptive_note_finish">
+        <item quantity="one">nueva selección similar a tus canciones pasadas</item>
+        <item quantity="many">nuevas selecciones similares a tus canciones pasadas</item>
+        <item quantity="other">nuevas selecciones similares a tus canciones pasadas</item>
+    </plurals>
+    <plurals name="adaptive_note_dropped">
+        <item quantity="one">Saqué una canción que probablemente ibas a saltar</item>
+        <item quantity="many">Saqué %1$d canciones que probablemente ibas a saltar</item>
+        <item quantity="other">Saqué %1$d canciones que probablemente ibas a saltar</item>
+    </plurals>
+    <string name="adaptive_pick_mark">Nueva selección</string>
+    <string name="err_not_audio">Pedí una canción y me regresaron otra cosa que no es audio. Algo en la conexión de red puede que esté respondiendo que no sea YouTube Music, sino otra cosa como un VPN o un bloqueador de anuncios.</string>
+    <string name="err_sign_in_wanted">YouTube quiere un inicio de sesión para poder reproducir desde esta red. Las VPN y las conexiones compartidas suelen ser rechazadas.</string>
+    <string name="gone_song_skipped">Salté una canción que no está disponible en YouTube: \"%1$s\"</string>
+    <string name="player_error_report">Reportar</string>
+    <string name="high_contrast">Compatibilidad con el modo de alto contraste</string>
+    <string name="high_contrast_description">Actívalo cuando el modo de alto contraste de Android está activo, para solucionar posibles errores</string>
+    <string name="player_living_sample_silent">Nada se está reproduciendo, así que no hay nada para mover.</string>
+    <string name="player_living_sample_play">Reproduce una canción</string>
+    <string name="living_tune_three_colours">Tres colores</string>
+    <string name="living_tune_cover">Portada</string>
+    <string name="living_tune_strength">Intensidad</string>
+    <string name="living_tune_smoothing">Suavidad</string>
 </resources>

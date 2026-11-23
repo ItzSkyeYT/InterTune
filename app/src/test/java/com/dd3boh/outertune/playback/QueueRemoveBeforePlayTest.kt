@@ -129,8 +129,8 @@ class QueueRemoveBeforePlayTest {
         val sheet = File("src/main/java/com/dd3boh/outertune/ui/player/Queue.kt").readText()
         val body = sheet.substringAfter("val removeSelected").substringBefore("\n    }\n")
         assertTrue(
-            "locked, or another queue looked at from the list, no; the saved queue before play, yes",
-            sheet.contains("val removeSelected: (() -> Unit)? = if (lockQueue || (detachedHead && !movesStoredQueue)) null else {")
+            "locked, the room's queue on a guest (RoomQueueTest), or another queue looked at from the list, no; the saved queue before play, yes",
+            sheet.contains("val removeSelected: (() -> Unit)? = if (lockQueue || roomReadOnly || (detachedHead && !movesStoredQueue)) null else {")
         )
         assertTrue(
             "the stored queue is the one the player will play, with nothing in the player",

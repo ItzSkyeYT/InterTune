@@ -62,7 +62,6 @@
     <string name="oobe_update_check_title">แจ้งเตือนเมื่อมีอัปเดตไหม</string>
     <string name="oobe_update_check_yes">ใช่ ตรวจสอบให้</string>
     <string name="player_glass_intensity">ความเข้มของกระจก</string>
-    <string name="player_glass_intensity_description">ค่าสูงจะโปร่งใสและหักเหแสงมากขึ้น ค่าต่ำจะใกล้เคียงพื้นผิวทึบธรรมดา</string>
     <string name="player_glass_intensity_value">%1$d%%</string>
     <string name="player_liquid_glass">Liquid glass</string>
     <string name="player_liquid_glass_description">แผงกระจกลอยสำหรับแถบนำทาง เครื่องเล่นขนาดเล็ก และปุ่มควบคุมการเล่น พร้อมสีจากภาพปกที่สดขึ้นเบื้องหลังหน้ากำลังเล่น</string>
@@ -86,7 +85,6 @@
     <string name="oobe_update_auto_description">ดาวน์โหลดไว้เบื้องหลังเพื่อให้พร้อมเมื่อคุณต้องการ Android จะยังขอให้คุณยืนยันอยู่ดี</string>
     <string name="oobe_polls_answered">คุณเปลี่ยนได้ทุกเมื่อในการตั้งค่า หัวข้อคำถาม</string>
     <string name="poll_title">คำถามจาก InterTune</string>
-    <string name="poll_banner_hint">แตะเพื่อตอบ หรือปิดด้วยกากบาท</string>
     <string name="poll_dismiss">ปิดคำถามนี้</string>
     <string name="poll_close">ปิด</string>
     <string name="poll_send">ส่งคำตอบของฉัน</string>
@@ -147,7 +145,6 @@
     <string name="image_cache_max_size">ขนาดแคชปกอัลบั้มสูงสุด</string>
     <string name="max_queues_description">แอปเก็บคิวไว้พร้อมกันกี่คิว คิวที่เก่าที่สุดจะถูกทิ้งเมื่อเกินจำนวนนี้</string>
     <string name="enable_proxy_description">ให้คำขอและสตรีมของ YouTube Music ผ่านเซิร์ฟเวอร์อื่นก่อน รูปภาพ เนื้อเพลง และบริการอื่นที่แอปใช้ยังคงเชื่อมต่อโดยตรง ปล่อยปิดไว้เว้นแต่คุณรู้ว่าจำเป็นต้องใช้</string>
-    <string name="show_liked_and_downloaded_playlist_description">แสดงเพลงที่ถูกใจและเพลงที่ดาวน์โหลดเป็นเพลย์ลิสต์ในคลังของคุณ</string>
     <string name="pause_listen_history_description">หยุดเพิ่มเพลงลงในประวัติของคุณ สิ่งที่อยู่ในนั้นแล้วจะไม่ถูกลบ</string>
     <string name="pause_remote_listen_history_description">หยุดบอก YouTube Music ว่าคุณเล่นอะไร ประวัติภายในแอปนี้ยังทำงานต่อไปไม่ว่ากรณีใด</string>
     <string name="clear_listen_history_description">ลบทุกอย่างที่แอปบันทึกไว้เกี่ยวกับสิ่งที่คุณเล่น</string>

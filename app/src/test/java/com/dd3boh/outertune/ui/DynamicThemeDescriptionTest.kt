@@ -33,8 +33,9 @@ class DynamicThemeDescriptionTest {
     fun `the description says the colours come from the cover of the song playing, in English and in French`() {
         val en = description(english)
         val fr = description(french)
-        assertTrue(en, en.startsWith("Take the app's colours from the cover of the song that is playing."))
-        assertTrue(fr, fr.startsWith("Reprendre les couleurs de l'application depuis la pochette du titre en cours de lecture."))
+        // Ti-Die's shorter words since 20 Nov 2026 (his review of the texts), the cover still named.
+        assertTrue(en, en.startsWith("The app's colours follow the cover of the song playing."))
+        assertTrue(fr, fr.startsWith("Les couleurs de l'application suivent la pochette du titre en cours."))
     }
 
     @Test
@@ -44,8 +45,7 @@ class DynamicThemeDescriptionTest {
             assertFalse(text, text.contains("depuis votre fond d'écran"))
         }
         // It says what happens with the switch off and with nothing playing, once, in the second sentence.
-        assertTrue(description(english).contains("Off, or with nothing playing, it uses your phone's own colours"))
-        assertTrue(description(french).contains("Désactivé, ou sans lecture, elle utilise les couleurs de votre téléphone"))
+        // The off state is no longer spelled out (the shorter words); what stays is never calling it the wallpaper.
     }
 
     @Test

@@ -277,6 +277,9 @@ class ReportTrailTest {
         t.waited(7_200)
         t.network(ReportTrail.Network.LOST); t.network(ReportTrail.Network.BACK); t.networkChangedTo("mobile data")
         t.app(ReportTrail.App.IN_BACKGROUND)
+        t.startedFromOutside(ReportTrail.Outside.MEDIA_BUTTON, 12_400); t.startedFromOutside(ReportTrail.Outside.RESTART, null)
+        for (o in ReportTrail.Owed.entries) t.owedStart(o, 27_000)
+        t.swipedAway()
         val everything = t.steps().joinToString("\n") { it.text }
         for (personal in listOf("{", "}", "@", "http", "://", "MPREb", "dQw4w9WgXcQ", "Daft", "title", "query")) {
             assertFalse("$personal is in $everything", personal in everything)
@@ -308,5 +311,38 @@ class ReportTrailTest {
         assertEquals(at(23, 58, 0), ReportTrail.faultTime("23:58:00.000", after, zone))
         assertNull(ReportTrail.faultTime("not a time", clock, zone))
         assertNotNull(ReportTrail.faultTime(" 15:29:40.5 ", clock, zone))
+    }
+
+    @Test
+    fun `a start from outside says which road and how far into Android's time, and how what it owed was met`() {
+        val t = trail()
+        t.startedFromOutside(ReportTrail.Outside.MEDIA_BUTTON, 12_400)
+        t.owedStart(ReportTrail.Owed.PLAYER_UP, 27_200)
+        t.startedFromOutside(ReportTrail.Outside.RESTART, null)
+        t.swipedAway()
+        t.owedStart(ReportTrail.Owed.MET_BEFORE_STOP, null)
+        assertEquals(
+            listOf(
+                "player started by a media button, 12 s into Android's time",
+                "player's notification up by 27 s",
+                "player started by Android after the app died",
+                "app swiped away",
+                "notification put up before a stop",
+            ),
+            t.steps().map { it.text },
+        )
+    }
+
+    @Test
+    fun `the player's start from outside and what became of it are written where they happen`() {
+        val service = java.io.File("src/main/java/com/dd3boh/outertune/playback/MusicService.kt").readText()
+        fun body(name: String) = service.substringAfter(name).substringBefore("\n    }\n")
+        assertTrue("the press", "startedFromOutside(ReportTrail.Outside.MEDIA_BUTTON" in body("private fun holdForegroundForMediaButton("))
+        assertTrue("Android's restart", "startedFromOutside(ReportTrail.Outside.RESTART" in body("private fun settleAfterRestart("))
+        assertTrue("a stop while owed", "Owed.MET_BEFORE_STOP" in body("private fun meetMediaButtonStartBeforeStop("))
+        assertTrue("nothing to play", "Owed.GAVE_UP" in body("private fun giveUpMediaButtonStart("))
+        assertTrue("the swipe", "swipedAway()" in body("override fun onTaskRemoved("))
+        val guard = service.substringAfter("private val mediaButtonGuard = object : Runnable {").substringBefore("private val mediaButtonLetGo")
+        for (o in listOf("PLAYER_UP", "HELD", "MISSED")) assertTrue("the guard's $o", "Owed.$o" in guard)
     }
 }

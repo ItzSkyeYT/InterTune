@@ -43,13 +43,18 @@ class CoilBitmapLoader @Inject constructor(
         return try {
             if (data.path?.startsWith("/storage/") == true) {
                 val mData = MediaMetadataRetriever()
-                var image: Bitmap = try {
+                val own: Bitmap? = try {
                     mData.setDataSource(data.path)
-                    val art = mData.embeddedPicture
-                    BitmapFactory.decodeByteArray(art, 0, art!!.size)
+                    mData.embeddedPicture?.let { art -> BitmapFactory.decodeByteArray(art, 0, art.size) }
                 } catch (e: Exception) {
-                    drawPlaceholder(context)
-                } ?: drawPlaceholder(context)
+                    null
+                } finally {
+                    runCatching { mData.release() }
+                }
+                // A file with no picture of its own takes its folder's cover, as music players do (LocalCovers).
+                var image: Bitmap = own
+                    ?: LocalCovers.of(context, data.path, if (data.x + data.y > 0) maxOf(data.x, data.y) else FOLDER_COVER_PX)
+                    ?: drawPlaceholder(context)
 
                 if (data.x + data.y > 0) {
                     var realX = data.x
@@ -92,6 +97,9 @@ class CoilBitmapLoader @Inject constructor(
     }
 
     companion object {
+        /** The size a folder's cover is read at when no size is asked for. */
+        const val FOLDER_COVER_PX = 1024
+
         /**
          * The cover of a local song or album that has none: a slate square with a white note, opaque
          * like a real cover, so a list, the player or a widget never shows what is behind it (#150,

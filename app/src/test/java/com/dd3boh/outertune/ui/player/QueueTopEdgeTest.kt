@@ -21,7 +21,9 @@ class QueueTopEdgeTest {
     @Test
     fun `the song list stops at the status bar's edge`() {
         val list = queue.substringAfter("val songList: @Composable ColumnScope.(PaddingValues) -> Unit").substringBefore("item {")
-        assertTrue(".padding(top = contentPadding.calculateTopPadding())" in list)
+        // Taken by the room's line on a guest when it is over the songs (RoomQueueTest), by the list's box otherwise.
+        assertTrue(".padding(top = if (roomLine) 0.dp else contentPadding.calculateTopPadding())" in list)
+        assertTrue("top = contentPadding.calculateTopPadding()," in list.substringAfter("QueueRoomLine(").substringBefore("Box("))
         assertFalse("the top inset inside the list lets rows scroll under the clock", "contentPadding = contentPadding," in list)
         assertTrue("bottom = contentPadding.calculateBottomPadding()" in list)
     }

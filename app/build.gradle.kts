@@ -163,7 +163,9 @@ android {
             buildConfigField("boolean", "PREVIEW_FEATURES", "false")
         }
         debug {
-            applicationIdSuffix = ".debug"
+            // A debug build under another name for test runs on a phone whose debug app holds another line (the
+            // Pixel 5's, 22 Nov 2026): -PdebugAppSuffix=.walk installs it beside that app. ".debug" otherwise.
+            applicationIdSuffix = providers.gradleProperty("debugAppSuffix").orNull ?: ".debug"
             manifestPlaceholders["carScreens"] = "true"
             manifestPlaceholders["widgetConfigTheme"] = "@style/Theme.InterTune.WidgetConfig.Wallpaper"
             // The builds that show what is held back (Unreleased.kt): this one, the preview and the beta type. Each type
@@ -353,6 +355,10 @@ dependencies {
 
     implementation(libs.activity)
     implementation(libs.hilt.navigation)
+    // hilt-navigation-compose 1.3.0 brings navigation-compose 2.9.0; 2.9.8 carries Google's later fixes to the
+    // back gesture in NavHost. #210 ("Cannot transition entry that is not in the back stack") may still happen:
+    // prepareForTransition, which throws it, is the same in 2.9.8.
+    implementation(libs.navigation.compose)
     implementation(libs.datastore)
 
     // compose
@@ -431,6 +437,8 @@ dependencies {
     implementation(project(":kugou"))
     implementation(project(":lrclib"))
     implementation(project(":lastfm"))
+    // Scrobbling in place of Last.fm, held back for now: Unreleased.LISTENBRAINZ.
+    implementation(project(":listenbrainz"))
     implementation(libs.work)
 
     testImplementation(libs.junit)

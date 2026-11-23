@@ -22,6 +22,10 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO"/>
+    <!-- The Vibration setting's Strong (Unreleased.HAPTICS_FEEL): the app's own haptics, played through the vibrator as
+         touch feedback. Granted at install, nothing to prompt for. Taken out of a release while the setting is held back
+         (src/release/AndroidManifest.xml). -->
+    <uses-permission android:name="android.permission.VIBRATE" />
 
     <!--
       Song recognition only. Requested when the user starts listening, never at launch. It listens
@@ -45,6 +49,24 @@
     <queries>
         <intent>
             <action android:name="android.media.action.DISPLAY_AUDIO_EFFECT_CONTROL_PANEL" />
+        </intent>
+        <!-- Open file location (ui/menu/OpenFileLocation.kt): the file managers that can show a folder answer
+             four different intents, and from Android 11 an app sees only the apps it names here.
+             OpenFileLocationTest holds this list to the one in the code. -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="content" android:host="com.android.externalstorage.documents" android:mimeType="vnd.android.document/directory" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="file" android:mimeType="resource/folder" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="file" android:mimeType="inode/directory" />
+        </intent>
+        <intent>
+            <action android:name="samsung.myfiles.intent.action.LAUNCH_MY_FILES" />
         </intent>
     </queries>
     <application

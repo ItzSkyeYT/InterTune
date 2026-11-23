@@ -239,25 +239,40 @@ fun TopBarSearchField(
     onValueChange: (TextFieldValue) -> Unit,
     modifier: Modifier = Modifier,
     placeholder: String = stringResource(R.string.search),
+    /**
+     * Inside the pill, at its end, after the words: where the search looks, as the library search has its switch
+     * (a playlist's, Unreleased.PLAYLIST_YT_SEARCH). Null: the pill is the field alone, as everywhere else.
+     */
+    trailing: (@Composable () -> Unit)? = null,
 ) {
     val style = MaterialTheme.typography.titleMedium.copy(fontSize = 18.sp, lineHeight = 22.sp, color = MaterialTheme.colorScheme.onSurface)
+    @Composable
+    fun field(fieldModifier: Modifier) = BasicTextField(
+        value = value,
+        onValueChange = onValueChange,
+        singleLine = true,
+        textStyle = style,
+        cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+        modifier = fieldModifier,
+        decorationBox = { field ->
+            Box(contentAlignment = Alignment.CenterStart) {
+                if (value.text.isEmpty()) Text(placeholder, style = style, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                field()
+            }
+        },
+    )
     // 4dp short of the slot's end, so the pill stops 12dp from the edge like the circles do.
     TopBarPill(Modifier.fillMaxWidth().padding(end = 4.dp)) {
-        BasicTextField(
-            value = value,
-            onValueChange = onValueChange,
-            singleLine = true,
-            textStyle = style,
-            cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-            modifier = modifier.fillMaxWidth().padding(horizontal = 18.dp),
-            decorationBox = { field ->
-                Box(contentAlignment = Alignment.CenterStart) {
-                    if (value.text.isEmpty()) Text(placeholder, style = style, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    field()
-                }
-            },
-        )
+        if (trailing == null) {
+            field(modifier.fillMaxWidth().padding(horizontal = 18.dp))
+        } else {
+            // The words give way to the switch, never the other way round; its 48dp touch reaches the pill's end.
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                field(modifier.weight(1f).padding(start = 18.dp, end = 4.dp))
+                trailing()
+            }
+        }
     }
 }
 

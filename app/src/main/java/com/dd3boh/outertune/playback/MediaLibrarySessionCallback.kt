@@ -4,12 +4,16 @@ import com.dd3boh.outertune.constants.PlayOrigin
 import com.dd3boh.outertune.constants.PlayingQueueKey
 import android.content.ContentResolver
 import android.content.Context
+import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.os.SystemClock
 import android.util.Log
+import android.view.KeyEvent
+import android.view.ViewConfiguration
 import androidx.annotation.DrawableRes
 import androidx.core.content.FileProvider
+import androidx.core.content.IntentCompat
 import androidx.core.net.toUri
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
@@ -95,6 +99,7 @@ class MediaLibrarySessionCallback @Inject constructor(
     var toggleLike: () -> Unit = {}
     var toggleStartRadio: () -> Unit = {}
     var toggleLibrary: () -> Unit = {}
+    var toggleDislike: () -> Unit = {}
 
     override fun onConnect(
         session: MediaSession,
@@ -108,6 +113,7 @@ class MediaLibrarySessionCallback @Inject constructor(
                 .add(MediaSessionConstants.CommandToggleStartRadio)
                 .add(MediaSessionConstants.CommandToggleShuffle)
                 .add(MediaSessionConstants.CommandToggleRepeatMode)
+                .add(MediaSessionConstants.CommandToggleDislike)
                 .add(SessionCommand(MusicService.COMMAND_GET_BINDER, Bundle.EMPTY))
                 .build(),
             connectionResult.availablePlayerCommands
@@ -126,6 +132,7 @@ class MediaLibrarySessionCallback @Inject constructor(
             MediaSessionConstants.ACTION_TOGGLE_LIBRARY -> toggleLibrary()
             MediaSessionConstants.ACTION_TOGGLE_SHUFFLE -> session.player.toggleShuffleMode()
             MediaSessionConstants.ACTION_TOGGLE_REPEAT_MODE -> session.player.toggleRepeatMode()
+            MediaSessionConstants.ACTION_TOGGLE_DISLIKE -> toggleDislike()
             MusicService.COMMAND_GET_BINDER -> return Futures.immediateFuture(
                 SessionResult(SessionResult.RESULT_SUCCESS).apply {
                     extras.putBinder("music_binder", service.MusicBinder())
@@ -164,6 +171,48 @@ class MediaLibrarySessionCallback @Inject constructor(
         } finally {
             service.resumptionRunning = false
         }
+    }
+
+    /** When a press last played the saved queue (SystemClock.elapsedRealtime, which counts deep sleep too), null once its double press is over: see onMediaButtonEvent. */
+    private var savedQueuePressAt: Long? = null
+
+    /**
+     * A headset's, a speaker's or a car's play/pause (or a wired headset's button) that reaches the
+     * running service while the player is empty: the saved queue plays, as the app's own play button
+     * plays it (EmptyPlayerPress). media3 left the press a toggle of the empty player, which did
+     * nothing. Every other key, and every key that came as a start of the service, goes on to media3
+     * as before.
+     */
+    override fun onMediaButtonEvent(
+        session: MediaSession,
+        controllerInfo: MediaSession.ControllerInfo,
+        intent: Intent,
+    ): Boolean {
+        // media3 is already reading the saved queue for a resumption of its own (the press that started
+        // the service, the system's resumption controls, the car): every press is media3's, as before.
+        // Loaded here as well, the queue would go into the player twice: media3 puts its answer in the
+        // player whatever is there, and the song's load would start over.
+        if (service.resumptionRunning) return false
+        val key = runCatching { IntentCompat.getParcelableExtra(intent, Intent.EXTRA_KEY_EVENT, KeyEvent::class.java) }.getOrNull()
+            ?: return false
+        val legacy = controllerInfo.controllerVersion == MediaSession.ControllerInfo.LEGACY_CONTROLLER_VERSION
+        val now = SystemClock.elapsedRealtime()
+        // The second press of a double click, or a second press because nothing seemed to happen:
+        // media3 never saw the first one, so it would take this one for a single press and pause the
+        // song the first one just started. The pair counts as one press, as media3 counts a double
+        // press as one; a third press is media3's again.
+        if (EmptyPlayerPress.secondOfDoublePress(key.keyCode, key.action, key.repeatCount, legacy,
+                sinceLoadMs = savedQueuePressAt?.let { now - it }, doubleTapMs = ViewConfiguration.getDoubleTapTimeout().toLong())) {
+            savedQueuePressAt = null
+            Log.i(TAG, "A media button's ${EmptyPlayerPress.keyName(key.keyCode)} again, right after the one that played the saved queue: taken with it, not a pause")
+            return true
+        }
+        if (!EmptyPlayerPress.playsSavedQueue(key.keyCode, key.action, key.repeatCount, legacy, empty = service.player.currentMediaItem == null)) {
+            return false
+        }
+        savedQueuePressAt = now
+        service.playSavedQueue("A media button's ${EmptyPlayerPress.keyName(key.keyCode)}")
+        return true
     }
 
     /**

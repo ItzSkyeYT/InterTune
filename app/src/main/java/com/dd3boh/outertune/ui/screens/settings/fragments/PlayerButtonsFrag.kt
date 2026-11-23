@@ -6,8 +6,8 @@
 
 package com.dd3boh.outertune.ui.screens.settings.fragments
 
+import androidx.compose.material.icons.rounded.Cast
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -26,6 +26,7 @@ import androidx.compose.material.icons.rounded.Lyrics
 import androidx.compose.material.icons.rounded.PushPin
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.SmartButton
+import androidx.compose.material.icons.rounded.Speaker
 import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -36,11 +37,11 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -55,6 +56,8 @@ import com.dd3boh.outertune.ui.player.PinPlace
 import com.dd3boh.outertune.ui.player.PlayerPin
 import com.dd3boh.outertune.ui.player.PlayerPins
 import com.dd3boh.outertune.constants.QueueButtonKey
+import com.dd3boh.outertune.constants.OutputPillKey
+import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.ui.component.PreferenceEntry
 import com.dd3boh.outertune.ui.component.SwitchPreference
 import com.dd3boh.outertune.utils.rememberEnumPreference
@@ -74,6 +77,16 @@ fun ColumnScope.PlayerButtonsFrag() {
         key = PlayerButtonsStyleKey,
         defaultValue = PlayerButtonsStyle.CLASSIC
     )
+
+    // Off keeps the sheet pulled up from the bottom of the player, as it has always been. On puts
+    // a queue button with the others: beside lyrics under the controls in Connected, and first in
+    // the row by the title in Classic.
+    val (queueAsButton, onQueueAsButtonChange) = rememberPreference(QueueButtonKey, defaultValue = false)
+
+    // Which buttons stay on the player outside its menu, for the style chosen above (issue #27):
+    // a chip each, in the places that style has. Today's until somebody chooses.
+    val (pinsRaw, onPinsRawChange) = rememberPreference(PlayerPinsKey, defaultValue = "")
+    val pins = remember(pinsRaw) { PlayerPins.read(pinsRaw) }
 
     PreferenceEntry(
         modifier = Modifier.settingRow(R.string.player_buttons_style),
@@ -105,15 +118,12 @@ fun ColumnScope.PlayerButtonsFrag() {
                         onClick = { onButtonsStyleChange(style) }
                     )
             ) {
-                Image(
-                    painter = painterResource(
-                        when (style) {
-                            PlayerButtonsStyle.CLASSIC -> R.drawable.player_buttons_classic
-                            PlayerButtonsStyle.CONNECTED -> R.drawable.player_buttons_connected
-                        }
-                    ),
-                    contentDescription = null,
-                    contentScale = ContentScale.FillWidth,
+                // Drawn from the buttons pinned for that style, so it never shows one the player has not got.
+                PlayerStyleSample(
+                    style = style,
+                    pins = pins,
+                    queueButton = queueAsButton,
+                    icon = { pinIcon(it) },
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(shape)
@@ -140,15 +150,6 @@ fun ColumnScope.PlayerButtonsFrag() {
         }
     }
 
-    // Off keeps the sheet pulled up from the bottom of the player, as it has always been. On puts
-    // a queue button with the others: beside lyrics under the controls in Connected, and first in
-    // the row by the title in Classic.
-    val (queueAsButton, onQueueAsButtonChange) = rememberPreference(QueueButtonKey, defaultValue = false)
-
-    // Which buttons stay on the player outside its menu, for the style chosen above (issue #27):
-    // a chip each, in the places that style has. Today's until somebody chooses.
-    val (pinsRaw, onPinsRawChange) = rememberPreference(PlayerPinsKey, defaultValue = "")
-    val pins = remember(pinsRaw) { PlayerPins.read(pinsRaw) }
     // The row, its chips and the way back to the default under one mark, for the tour from What's
     // new: its bubble is about the chips, and with the row alone marked it would stand over them.
     Column(Modifier.fillMaxWidth().tourTarget(Tour.SETTING_PLAYER_PINS)) {
@@ -178,22 +179,18 @@ fun ColumnScope.PlayerButtonsFrag() {
                     .fillMaxWidth()
                     .padding(start = 16.dp, end = 16.dp, bottom = 8.dp)
             ) {
-                PlayerPin.entries.forEach { pin ->
+                // Cast only where there is casting.
+                PlayerPin.entries.filter { it != PlayerPin.CAST || Unreleased.CASTING }.forEach { pin ->
                     val on = pin in chosen
                     FilterChip(
                         selected = on,
-                        // A full place takes no more until one comes off.
-                        enabled = on || chosen.size < most,
+                        // A full place takes no more until one comes off; the cast button always has room.
+                        enabled = on || pin == PlayerPin.CAST || !PlayerPins.full(chosen, most),
                         onClick = { onPinsRawChange(PlayerPins.write(PlayerPins.toggle(pins, place, pin, most))) },
                         label = { Text(pinName(pin)) },
                         leadingIcon = {
                             Icon(
-                                painter = when (pin) {
-                                    PlayerPin.SHARE -> rememberVectorPainter(Icons.Rounded.Share)
-                                    PlayerPin.LYRICS -> rememberVectorPainter(Icons.Rounded.Lyrics)
-                                    PlayerPin.TIMER -> rememberVectorPainter(Icons.Rounded.Timer)
-                                    PlayerPin.LIKE -> painterResource(R.drawable.favorite)
-                                },
+                                painter = pinIcon(pin),
                                 contentDescription = null,
                                 modifier = Modifier.size(FilterChipDefaults.IconSize)
                             )
@@ -236,6 +233,21 @@ fun ColumnScope.PlayerButtonsFrag() {
         checked = backClosesPlayer,
         onCheckedChange = onBackClosesPlayerChange
     )
+
+    // Off by default, his pick of 15 Nov 2026: the cast button at the player's top right and nothing
+    // under the controls. On gives back the pill that names where the music plays ("the pill should
+    // be toggleable"). Only where casting is, and with the pick (CAST_AT_TOP): without it the pill is always there.
+    if (Unreleased.CASTING && Unreleased.CAST_AT_TOP) {
+        val (outputPill, onOutputPillChange) = rememberPreference(OutputPillKey, defaultValue = false)
+        SwitchPreference(
+            modifier = Modifier.settingRow(R.string.output_pill),
+            title = { Text(stringResource(R.string.output_pill)) },
+            description = stringResource(R.string.output_pill_description),
+            icon = { Icon(Icons.Rounded.Speaker, null) },
+            checked = outputPill,
+            onCheckedChange = onOutputPillChange
+        )
+    }
 }
 
 @Composable
@@ -245,5 +257,16 @@ private fun pinName(pin: PlayerPin): String = stringResource(
         PlayerPin.LYRICS -> R.string.player_pin_lyrics
         PlayerPin.TIMER -> R.string.sleep_timer
         PlayerPin.LIKE -> R.string.action_like
+        PlayerPin.CAST -> R.string.cast
     }
 )
+
+/** A pin's icon, on its chip and in the style's picture. */
+@Composable
+private fun pinIcon(pin: PlayerPin): Painter = when (pin) {
+    PlayerPin.SHARE -> rememberVectorPainter(Icons.Rounded.Share)
+    PlayerPin.LYRICS -> rememberVectorPainter(Icons.Rounded.Lyrics)
+    PlayerPin.TIMER -> rememberVectorPainter(Icons.Rounded.Timer)
+    PlayerPin.LIKE -> painterResource(R.drawable.favorite)
+    PlayerPin.CAST -> rememberVectorPainter(Icons.Rounded.Cast)
+}

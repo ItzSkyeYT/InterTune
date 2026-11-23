@@ -21,6 +21,7 @@ import androidx.media3.common.Player.REPEAT_MODE_OFF
 import androidx.media3.common.Player.STATE_ENDED
 import androidx.media3.common.Player.STATE_IDLE
 import androidx.media3.common.Timeline
+import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.PersistentQueueKey
 import com.dd3boh.outertune.constants.PlayOrigin
 import com.dd3boh.outertune.constants.PlayingQueueKey
@@ -196,6 +197,11 @@ class PlayerConnection(
         originSlot: Int = -1,
         /** When a card was tapped to start this, so the listen can meet its impression. */
         tappedAt: Long? = null,
+        /**
+         * The card was in Quick picks' row built under the Discover chip: its queue holds only songs
+         * never heard, as a Discover something new card's does by its origin (NeverHeardQueue).
+         */
+        discoverRow: Boolean = false,
     ) {
         service.playQueue(
             queue = queue,
@@ -206,6 +212,7 @@ class PlayerConnection(
             origin = origin,
             originSlot = originSlot,
             tappedAt = tappedAt,
+            discoverRow = discoverRow,
         )
     }
 
@@ -221,6 +228,9 @@ class PlayerConnection(
      * Add items to queue, right after current playing item
      */
     fun enqueueNext(items: List<MediaItem>) {
+        // A guest following a room has one Play next: it goes to the room (the person in control puts it next),
+        // as the queue here is only a copy of theirs. A guest on its own way keeps its own.
+        if (toRoom(items, atEnd = false)) return
         service.enqueueNext(items)
     }
 
@@ -233,7 +243,33 @@ class PlayerConnection(
      * Add items to end of current queue
      */
     fun enqueueEnd(items: List<MediaItem>) {
+        // The same for Add to queue: the end of the room's queue, not of this phone's copy.
+        if (toRoom(items, atEnd = true)) return
         service.enqueueEnd(items)
+    }
+
+    /**
+     * For a guest following a room: sends [items] to the room (next, or at its end) and says so, with what was left
+     * out and why. True when it was done here; false for the person in control and a guest on its own way.
+     */
+    private fun toRoom(items: List<MediaItem>, atEnd: Boolean): Boolean {
+        val room = service.together.value?.takeIf { it.following && !it.status.value.ownWay } ?: return false
+        val plan = com.dd3boh.outertune.together.RoomPlayNext.plan(items.mapNotNull { it.metadata })
+        val lines = mutableListOf<String>()
+        if (plan.toRoom.isNotEmpty()) {
+            room.suggestAll(plan.toRoom, atEnd)
+            val n = plan.toRoom.size
+            lines += when {
+                plan.dropped > 0 -> service.resources.getQuantityString(R.plurals.together_suggested_cut, n, n)
+                n == 1 -> service.getString(if (atEnd) R.string.together_suggested_end else R.string.together_suggested)
+                else -> service.resources.getQuantityString(if (atEnd) R.plurals.together_suggested_many_end else R.plurals.together_suggested_many, n, n)
+            }
+        }
+        // Not added to the guest's own queue either: the room's queue would overwrite it.
+        if (plan.localSkipped > 0) lines += service.getString(R.string.together_suggested_files)
+        if (lines.isEmpty()) return false
+        com.dd3boh.outertune.utils.Toaster.show(service, lines.joinToString("\n"))
+        return true
     }
 
     /** The song on screen, which after a cold start the player does not hold yet: see MusicService.toggleLibrary. */

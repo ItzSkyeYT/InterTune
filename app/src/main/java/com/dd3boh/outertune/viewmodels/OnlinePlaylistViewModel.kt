@@ -9,6 +9,7 @@ import com.dd3boh.outertune.db.MusicDatabase
 import com.dd3boh.outertune.utils.WhyStopped
 import com.dd3boh.outertune.utils.YouTubeTrouble
 import com.dd3boh.outertune.utils.reportException
+import com.dd3boh.outertune.utils.ContentLocale
 import com.zionhuang.innertube.YouTube
 import com.zionhuang.innertube.models.PlaylistItem
 import com.zionhuang.innertube.models.SongItem
@@ -102,6 +103,8 @@ class OnlinePlaylistViewModel @Inject constructor(
 
     init {
         load()
+        // Another language for YouTube (the app's, or the YouTube Music rows): the page loads again in it.
+        viewModelScope.launch { ContentLocale.changes.collect { load() } }
     }
 
     /** Asks again after the first request failed: the page's Retry. */
@@ -110,6 +113,9 @@ class OnlinePlaylistViewModel @Inject constructor(
     }
 
     private fun load() {
+        // A "load all" still walking the pages would add the old ones after the new first page and
+        // put its old continuation back at its end, so a reload (a new language) lost songs: it stops.
+        loadJob?.cancel()
         viewModelScope.launch(Dispatchers.IO) {
             isLoading.value = true
             failedKind.value = null

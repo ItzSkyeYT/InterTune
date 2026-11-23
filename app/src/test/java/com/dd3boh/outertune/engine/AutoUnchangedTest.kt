@@ -29,6 +29,14 @@ import java.io.File
  * files, at commit 037e60e9d), where lanes run short and hand their places on: the part of the
  * assembly a new listener's row goes through, and one a lean has a rule of its own for.
  *
+ * Two things changed on purpose on 21 Nov 2026. The rows that promise songs never heard, the
+ * Discover chip's and the Discover something new row's ([AutoRows.Case.neverHeard]), keep to one
+ * rule now ([HeardSet]), and their lines, with the three that were New songs only's, are this
+ * engine's. And "New to you" is said only of a song never heard, so every other line is held
+ * against the row with that caption put back as it was (AutoRows.captionedAsBefore): the rest of
+ * the row is still the engine's from before leans, to the bit, and a test of its own checks the
+ * caption itself.
+ *
  * A change to the ordinary row made on purpose moves them too. Write the file again with
  * `AUTO_ROWS_WRITE=<path>` and say why in the commit.
  */
@@ -37,9 +45,9 @@ class AutoUnchangedTest {
         .bufferedReader().readLines().filter { it.isNotBlank() }
 
     /** Every build of [AutoRows], with the lean stored as given; null is the call that names no lean at all. */
-    private fun rows(stored: Lean?, each: (BuiltRow) -> Unit = {}): List<String> = AutoRows.lines { input, weights, p, dial, newOnly, neverPlayed, random, lastFmShare ->
-        (if (stored == null) EngineRow.build(input, weights, p, dial, newOnly, neverPlayed, random, lastFmShare)
-        else EngineRow.build(input, weights, p, dial, newOnly, neverPlayed, random, lastFmShare, stored)).also(each)
+    private fun rows(stored: Lean?, each: (BuiltRow) -> Unit = {}): List<String> = AutoRows.lines { input, weights, p, dial, neverPlayed, random, lastFmShare ->
+        (if (stored == null) EngineRow.build(input, weights, p, dial, neverPlayed, random, lastFmShare)
+        else EngineRow.build(input, weights, p, dial, neverPlayed, random, lastFmShare, stored)).also(each)
     }
 
     private val builds = AutoRows.cases.flatMap { c -> (0 until c.dice).map { c to it } }
@@ -79,11 +87,11 @@ class AutoUnchangedTest {
                 val (case, dice) = build
                 val name = before[i].substringBefore('\t')
                 var row: BuiltRow? = null
-                val got = AutoRows.line(case, dice) { input, weights, p, dial, newOnly, neverPlayed, random, lastFmShare ->
-                    EngineRow.build(input, weights, p, dial, newOnly, neverPlayed, random, lastFmShare, lean).also { row = it }
+                val got = AutoRows.line(case, dice) { input, weights, p, dial, neverPlayed, random, lastFmShare ->
+                    EngineRow.build(input, weights, p, dial, neverPlayed, random, lastFmShare, lean).also { row = it }
                 }
                 when {
-                    Lean.applied(lean, case.chip, case.newOnly, case.neverPlayed) == Lean.AUTO -> { assertEquals("$lean set aside, $name", before[i], got); aside++ }
+                    Lean.applied(lean, case.chip, case.neverPlayed) == Lean.AUTO -> { assertEquals("$lean set aside, $name", before[i], got); aside++ }
                     // A lean with nothing to give, or too little for a row, gives Auto's row: the
                     // very line the engine wrote before leans, not only this engine's Auto.
                     row?.gaveWay != null -> { assertEquals("$lean with too little, $name", before[i], got); gaveWay++ }
@@ -97,6 +105,31 @@ class AutoUnchangedTest {
             // in its plain and Both builds; the other two leans have something there.
             assertEquals("$lean gave way", if (lean == Lean.FORGOTTEN || lean == Lean.SIMILAR) 8 else 0, gaveWay)
         }
+    }
+
+    @Test
+    fun `the New to you caption is said exactly of the songs never heard, and Discover's rows hold nothing else`() {
+        var said = 0; var kept = 0; var discovered = 0
+        for ((case, dice) in builds) {
+            val heard = AutoRows.heard(case)
+            val songs = AutoRows.songs(case)
+            fun knows(id: String) = songs[id].let { s -> heard.knows(id, s?.title, s?.artistName) }
+            var row: BuiltRow? = null
+            AutoRows.line(case, dice) { input, weights, p, dial, neverPlayed, random, lastFmShare ->
+                EngineRow.build(input, weights, p, dial, neverPlayed, random, lastFmShare).also { row = it }
+            }
+            val built = row!!
+            for (c in built.cards.filter { it.lane == Lane.EXPLORE }) {
+                val what = "${case.name} #$dice: ${c.songId} ${c.reasons}"
+                if (knows(c.songId)) { assertTrue(what, "new_to_you" !in c.reasons); kept++ } else { assertEquals(what, listOf("new_to_you"), c.reasons); said++ }
+            }
+            // Nowhere else, not in the pool and not in another lane.
+            for (c in built.pool + built.cards.filter { it.lane != Lane.EXPLORE }) assertTrue("${case.name} #$dice: ${c.songId}", "new_to_you" !in c.reasons)
+            if (case.neverHeard) for (c in built.cards + built.pool) { assertTrue("${case.name} #$dice: ${c.songId} is known", !knows(c.songId)); discovered++ }
+        }
+        // Enough cards say it that the rule is checked; the songs kept back are EngineRowTest's.
+        assertTrue("said $said, kept back $kept", said >= 20)
+        assertTrue("$discovered cards of Discover's rows", discovered >= 200)
     }
 
     @Test

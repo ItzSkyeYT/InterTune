@@ -8,17 +8,22 @@ package com.dd3boh.outertune.together
 
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.addJsonObject
 import kotlinx.serialization.json.boolean
+import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.double
 import kotlinx.serialization.json.int
+import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.long
+import kotlinx.serialization.json.longOrNull
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.buildJsonArray
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import kotlin.math.abs
 
 /**
@@ -40,6 +45,11 @@ sealed interface TogetherMessage {
         val playing: Boolean,
         val speed: Double,
         val atMs: Long,
+        /**
+         * The song is YouTube Music's version of a file on the leader's phone (PhoneSongs.Heard): the others say it may not
+         * be exactly what the leader plays (his word of 22 Nov 2026). Sent only when true; builds before it ignore it.
+         */
+        val fromFile: Boolean = false,
     ) : TogetherMessage
 
     /** A follower asking the leader's clock, [askedAtMs] on its own. */
@@ -50,12 +60,29 @@ sealed interface TogetherMessage {
 
     /**
      * Somebody in the room, said every [HERE_MS] so the others know who is still there. The owner's
-     * also says who leads, [lead] being that phone's key: the only word on it anyone takes.
+     * also says who leads, [lead] being that phone's key: the only word on it anyone takes. And since
+     * when, [leadSince] by the owner's clock: relays do not keep order, and an older word on who leads
+     * is not taken after a newer one (LeadWord). Null from builds before 22 Nov 2026, taken as ever.
+     * And the owner's [settings], who may do what (RoomSettings): null from anyone else, and from
+     * an owner on an older build. [arranges]: this phone, given control, takes a guest's change to
+     * the queue ([Arrange]), which a build before this one drops.
      */
-    data class Here(val name: String, val owner: Boolean, val lead: String? = null) : TogetherMessage
+    data class Here(
+        val name: String, val owner: Boolean, val lead: String? = null, val leadSince: Long? = null,
+        val settings: RoomSettings? = null, val arranges: Boolean = false,
+    ) : TogetherMessage
 
-    /** A follower's song for the leader to play next. */
-    data class Suggest(val songId: String, val title: String, val artist: String, val thumbnail: String, val by: String) : TogetherMessage
+    /**
+     * A follower's song for the leader to play next, or at the end of its queue when [atEnd]. An older host
+     * does not know "end" and puts it next, which is acceptable. [batch], [index] and [count] say it is one of
+     * [count] songs of one action, [index] 0 being the one that plays first: relays do not keep the order of
+     * messages, so a newer host collects the batch and sorts it. Older hosts (and old guests, who send none of
+     * the three) go by arrival, which is why a guest still sends "next" songs last-first.
+     */
+    data class Suggest(
+        val songId: String, val title: String, val artist: String, val thumbnail: String, val by: String,
+        val atEnd: Boolean = false, val batch: String = "", val index: Int = 0, val count: Int = 1,
+    ) : TogetherMessage
 
     /**
      * The leader's queue from the song playing on, in the order it plays, what autoplay added
@@ -65,6 +92,14 @@ sealed interface TogetherMessage {
      */
     data class Queue(val songs: List<Song>, val repeat: Int, val shuffle: Boolean) : TogetherMessage
 
+    /**
+     * A guest's change to the room's queue, for the person in control to make while the owner lets everyone change it
+     * (RoomSettings.everyoneArranges): [songId] moved to come right after [after], the song playing when that is null,
+     * or taken out when [remove]. A build before this one drops it, so a guest makes the change only where the person in
+     * control said in its Here that it takes them ([Here.arranges]).
+     */
+    data class Arrange(val songId: String, val after: String? = null, val remove: Boolean = false) : TogetherMessage
+
     data class Song(val id: String, val title: String, val artist: String, val thumbnail: String)
 
     /**
@@ -73,6 +108,13 @@ sealed interface TogetherMessage {
      * them from there, and the room with it.
      */
     data class Propose(val songs: List<Song>, val positionMs: Long, val by: String) : TogetherMessage
+
+    /**
+     * The leader's Not now to the guest with key [to], for the song [songId] it proposed: the guest's Propose comes back
+     * instead of saying "Proposed" for good (22 Nov 2026). A build before this one never sends it, and drops it unread as
+     * a word it does not know, so it stays as it was.
+     */
+    data class NotNow(val to: String, val songId: String) : TogetherMessage
 
     /** The owner sends the phone with key [to] out of the room. */
     data class Kick(val to: String) : TogetherMessage
@@ -90,68 +132,154 @@ sealed interface TogetherMessage {
         /** How many songs of the leader's queue travel, the one playing first. */
         const val QUEUE_SONGS = 30
 
-        fun encode(message: TogetherMessage): String = when (message) {
+        /**
+         * What a room carries of a song's picture: an address on YouTube's own picture servers, and nothing else. A song
+         * from a file on the phone has the file's full path there (/storage/emulated/0/Music/<folders>/<file>, the
+         * folders often named after people), and it went to everyone with the room's code (review of 0.13, 18 Nov 2026);
+         * any other web address had every guest's phone fetch it, so whoever has the code could learn each guest's
+         * address from a server of their own (review 2). Applied as a message is made and as one is read, and given as
+         * OkHttp reads it, the reader the pictures are loaded with, so what is loaded is what was looked at.
+         */
+        fun thumbnailFor(uri: String?): String {
+            val url = uri?.trim()?.toHttpUrlOrNull() ?: return ""
+            return if (url.isHttps && PICTURE_HOSTS.any { it.matches(url.host) }) url.toString() else ""
+        }
+
+        /**
+         * [message] as text to seal. The room's own messages carry the key of the phone that sends them, [sender], inside
+         * the seal ("k"): see [decodeFrom].
+         */
+        fun encode(message: TogetherMessage, sender: String? = null): String {
+            val o = encodeObject(message)
+            return if (sender == null) o.toString() else JsonObject(o + ("k" to JsonPrimitive(sender))).toString()
+        }
+
+        private fun encodeObject(message: TogetherMessage): JsonObject = when (message) {
             is State -> buildJsonObject {
                 put("t", "state"); put("song", message.songId); put("title", message.title); put("artist", message.artist)
                 put("pos", message.positionMs); put("playing", message.playing); put("speed", message.speed); put("at", message.atMs)
+                if (message.fromFile) put("file", true)
             }
             is Ping -> buildJsonObject { put("t", "ping"); put("c", message.askedAtMs); put("to", message.to) }
             is Pong -> buildJsonObject { put("t", "pong"); put("c", message.askedAtMs); put("h", message.hostMs); put("to", message.to) }
             is Here -> buildJsonObject {
                 put("t", "here"); put("name", message.name); put("owner", message.owner)
+                message.settings?.let { put("settings", it.toJson()) }
+                if (message.arranges) put("arranges", true)
                 message.lead?.let { put("lead", it) }
+                message.leadSince?.let { put("since", it) }
             }
             is Suggest -> buildJsonObject {
                 put("t", "suggest"); put("song", message.songId); put("title", message.title); put("artist", message.artist)
-                put("thumb", message.thumbnail); put("by", message.by)
+                put("thumb", thumbnailFor(message.thumbnail)); put("by", message.by)
+                if (message.atEnd) put("end", true)
+                if (message.batch.isNotBlank() && message.count > 1) {
+                    put("batch", message.batch); put("i", message.index); put("n", message.count)
+                }
             }
             is Queue -> buildJsonObject {
                 put("t", "queue"); put("repeat", message.repeat); put("shuffle", message.shuffle)
                 put("songs", songsJson(message.songs))
             }
+            is Arrange -> buildJsonObject {
+                put("t", "arrange"); put("song", message.songId)
+                message.after?.let { put("after", it) }
+                if (message.remove) put("remove", true)
+            }
             is Propose -> buildJsonObject {
                 put("t", "propose"); put("pos", message.positionMs); put("by", message.by)
                 put("songs", songsJson(message.songs))
             }
+            is NotNow -> buildJsonObject { put("t", "notnow"); put("to", message.to); put("song", message.songId) }
             is Kick -> buildJsonObject { put("t", "kick"); put("to", message.to) }
             is Move -> buildJsonObject { put("t", "move"); put("to", message.to); put("code", message.sealedCode) }
             End -> buildJsonObject { put("t", "end") }
-        }.toString()
+        }
 
         private fun songsJson(songs: List<Song>) = buildJsonArray {
             songs.forEach { song ->
-                addJsonObject { put("id", song.id); put("title", song.title); put("artist", song.artist); put("thumb", song.thumbnail) }
+                addJsonObject { put("id", song.id); put("title", song.title); put("artist", song.artist); put("thumb", thumbnailFor(song.thumbnail)) }
             }
         }
 
         private fun songsOf(o: JsonObject) = o["songs"]!!.jsonArray.map { item ->
             val song = item.jsonObject
             fun f(key: String) = song[key]!!.jsonPrimitive.content
-            Song(f("id"), f("title"), f("artist"), f("thumb"))
+            Song(f("id"), f("title"), f("artist"), thumbnailFor(f("thumb")))
         }
 
-        fun decode(text: String): TogetherMessage? = runCatching {
+        fun decode(text: String): TogetherMessage? = runCatching { decodeObject(Json.parseToJsonElement(text) as JsonObject) }.getOrNull()
+
+        /**
+         * The message in [text] when the phone whose key is [sender], the event's own signer, sealed it; null for anything
+         * else. The seal knows only the room, so anyone who sees the room's sealed words on a public relay could sign one
+         * again with a key of their own: its signature is then good and it opens. The key inside names the phone that
+         * sealed it, and a copy signed by any other key is refused: a suggestion queued again, a proposal asked again, a
+         * stranger listed, or taken for the owner by a guest that had not heard the owner yet (review 2, 18 Nov 2026). A
+         * message with no key inside, from a build before this one, is refused too.
+         */
+        fun decodeFrom(text: String, sender: String): TogetherMessage? = runCatching {
             val o = Json.parseToJsonElement(text) as JsonObject
+            if (o["k"]?.jsonPrimitive?.content == sender) decodeObject(o) else null
+        }.getOrNull()
+
+        private fun decodeObject(o: JsonObject): TogetherMessage? {
             fun s(key: String) = o[key]!!.jsonPrimitive.content
             fun l(key: String) = o[key]!!.jsonPrimitive.long
-            when (s("t")) {
-                "state" -> State(s("song"), s("title"), s("artist"), l("pos"), o["playing"]!!.jsonPrimitive.boolean, o["speed"]!!.jsonPrimitive.double, l("at"))
+            val message = when (s("t")) {
+                "state" -> State(
+                    s("song"), s("title"), s("artist"), l("pos"), o["playing"]!!.jsonPrimitive.boolean, o["speed"]!!.jsonPrimitive.double, l("at"),
+                    fromFile = o["file"]?.jsonPrimitive?.boolean == true,
+                )
                 "ping" -> Ping(l("c"), s("to"))
                 "pong" -> Pong(l("c"), l("h"), s("to"))
-                "here" -> Here(s("name"), o["owner"]!!.jsonPrimitive.boolean, o["lead"]?.jsonPrimitive?.content)
-                "suggest" -> Suggest(s("song"), s("title"), s("artist"), s("thumb"), s("by"))
+                "here" -> Here(s("name"), o["owner"]!!.jsonPrimitive.boolean, o["lead"]?.jsonPrimitive?.content, o["since"]?.jsonPrimitive?.longOrNull)
+                "suggest" -> Suggest(
+                    s("song"), s("title"), s("artist"), thumbnailFor(s("thumb")), s("by"),
+                    atEnd = o["end"]?.jsonPrimitive?.booleanOrNull == true,
+                    batch = o["batch"]?.jsonPrimitive?.content.orEmpty().take(16),
+                    index = o["i"]?.jsonPrimitive?.intOrNull ?: 0,
+                    count = (o["n"]?.jsonPrimitive?.intOrNull ?: 1).coerceIn(1, 64),
+                )
                 "queue" -> Queue(
                     songs = songsOf(o),
                     repeat = o["repeat"]!!.jsonPrimitive.int,
                     shuffle = o["shuffle"]!!.jsonPrimitive.boolean,
                 )
+                "arrange" -> Arrange(s("song"), after = o["after"]?.jsonPrimitive?.content, remove = o["remove"]?.jsonPrimitive?.content == "true")
                 "propose" -> Propose(songsOf(o), l("pos"), s("by"))
+                "notnow" -> NotNow(s("to"), s("song"))
                 "kick" -> Kick(s("to"))
                 "move" -> Move(s("to"), s("code"))
                 "end" -> End
                 else -> null
             }
-        }.getOrNull()
+            // The owner's room settings, one more field of its Here (RoomSettings): none from an older build.
+            return if (message is Here) message.copy(settings = RoomSettings.of(o["settings"]), arranges = o["arranges"]?.jsonPrimitive?.content == "true") else message
+        }
+    }
+}
+
+/** YouTube's picture servers as the app knows them: i.ytimg.com (i1 to i9 too), lh3 and yt3.googleusercontent.com, yt3.ggpht.com. */
+private val PICTURE_HOSTS = listOf(
+    Regex("""i\d?\.ytimg\.com"""),
+    Regex("""(lh|yt)\d+\.googleusercontent\.com"""),
+    Regex("""yt\d+\.ggpht\.com"""),
+)
+
+/**
+ * The room's sealed words already taken, by their hash, the latest [kept]. A seal is made once (a fresh IV every time),
+ * so the same sealed text again is a copy, whatever event carries it. Asked only for a word whose key inside matched its
+ * signer (TogetherMessage.decodeFrom): before that, a stranger's copy arriving first could have shut out the real one.
+ */
+internal class TakenSeals(private val kept: Int = 2_000) {
+    private val taken = LinkedHashSet<String>()
+
+    /** True the first time [sealed] is seen. */
+    fun take(sealed: String): Boolean {
+        if (!taken.add(Secp256k1.sha256(sealed.toByteArray()).toHex())) return false
+        if (taken.size > kept) taken.iterator().run { next(); remove() }
+        return true
     }
 }
 
@@ -240,6 +368,21 @@ sealed interface Follow {
         }
 
         /**
+         * Where a guest whose player has ended on the host's song goes, or null to wait there: the
+         * host's spot [targetMs], unless it lies within [END_GAP_MS] of the song's end [durationMs]
+         * (null while not known), where the host is about to move on and its word for the next song
+         * is on the way. An ended player never plays again by itself: a guest that rejoined after
+         * playing the song to its end stayed silent under "Following the host" (19 Nov 2026).
+         */
+        fun wake(targetMs: Long, durationMs: Long?): Long? = when {
+            durationMs != null && targetMs > durationMs - END_GAP_MS -> null
+            else -> targetMs.coerceAtLeast(0)
+        }
+
+        /** How near its end the host's spot leaves a guest whose player has ended waiting for the next song. */
+        const val END_GAP_MS = 3_000L
+
+        /**
          * Whether a guest too far from the host to nudge, playing at [localMs] with the song come
          * in up to [bufferedMs], jumps to the host's spot [targetMs] now: back, or into what has
          * come in, at once; past it, only once that is more than [WAIT_FOR_DATA_MS] away. A jump
@@ -284,6 +427,54 @@ object PauseHere {
         !playWhenReady && roomPlaying && !pausedHere -> true
         playWhenReady && pausedHere -> false
         else -> null
+    }
+}
+
+/**
+ * A guest that casts (his pick of 20 Nov 2026 for 0.13, "the small step"). The room's corrections are made for the
+ * phone's own player, which a cast empties: they put each of the host's songs on the receiver from its start, and
+ * fought the cast all the while (review of 0.13, 18 Nov 2026). So while a cast is on, a guest follows nothing, as one
+ * that went its own way. One that went its own way for the cast alone catches up by itself once the cast ends; one that
+ * had gone its own way before stays on it. Catch up asked for during a cast waits for its end. The one who leads is
+ * left as it was: its side of a cast comes later.
+ */
+class GuestCast {
+    enum class Step {
+        NONE,
+
+        /** The cast has begun: on its own way until it ends. */
+        OWN_WAY,
+
+        /** The cast it went its own way for has ended: back with the room, as Catch up brings it. */
+        CATCH_UP,
+    }
+
+    /** On its own way for the cast alone: it catches up by itself when the cast ends. */
+    var catchUpAfter = false
+        private set
+
+    /** A look of the room's: this phone [casting] or not, [following] someone or leading, on its [ownWay] or not. */
+    fun look(casting: Boolean, following: Boolean, ownWay: Boolean): Step = when {
+        // The one who leads follows nobody, and has nothing to catch up with.
+        !following -> {
+            catchUpAfter = false
+            Step.NONE
+        }
+        casting && !ownWay -> {
+            catchUpAfter = true
+            Step.OWN_WAY
+        }
+        !casting && catchUpAfter -> {
+            catchUpAfter = false
+            Step.CATCH_UP
+        }
+        else -> Step.NONE
+    }
+
+    /** Catch up, asked for while this phone is [casting] or not: true to catch up now, false to wait for the cast's end. */
+    fun catchUpNow(casting: Boolean): Boolean {
+        catchUpAfter = casting
+        return !casting
     }
 }
 

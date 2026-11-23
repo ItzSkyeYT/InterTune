@@ -38,6 +38,7 @@ import android.os.Build
 import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.Hearing
 import androidx.compose.material.icons.rounded.SkipNext
+import androidx.compose.material.icons.rounded.SlowMotionVideo
 import androidx.compose.material.icons.rounded.SurroundSound
 import androidx.compose.material.icons.rounded.Bedtime
 import androidx.compose.material.icons.rounded.BluetoothAudio
@@ -94,6 +95,7 @@ import com.dd3boh.outertune.constants.SeekIncrement
 import com.dd3boh.outertune.constants.SeekIncrementKey
 import com.dd3boh.outertune.constants.SkipOnErrorKey
 import com.dd3boh.outertune.constants.SkipSilenceKey
+import com.dd3boh.outertune.constants.VarispeedKey
 import com.dd3boh.outertune.constants.ResumeOnBluetoothKey
 import com.dd3boh.outertune.constants.StopMusicOnTaskClearKey
 import com.dd3boh.outertune.constants.SleepTimerDefaults
@@ -211,7 +213,6 @@ fun ColumnScope.ProximityVolumeFrag() {
     ExplainedSwitchPreference(
         modifier = Modifier.settingRow(R.string.proximity_volume),
         title = stringResource(R.string.proximity_volume),
-        description = stringResource(R.string.proximity_volume_description),
         explanation = stringResource(R.string.proximity_volume_explain),
         picture = ExplainPicture.PROXIMITY,
         checked = enabled && !held,
@@ -364,7 +365,6 @@ fun ColumnScope.StageWidthFrag() {
         SwitchPreference(
             modifier = Modifier.settingRow(R.string.spatial_bass),
             title = { Text(stringResource(R.string.spatial_bass)) },
-            description = stringResource(R.string.spatial_bass_description),
             checked = bassDirect,
             onCheckedChange = onBassDirectChange,
         )
@@ -1063,6 +1063,19 @@ fun ColumnScope.AudioEffectsFrag() {
         checked = skipSilence,
         onCheckedChange = onSkipSilenceChange
     )
+    // Varispeed (#225), where Metrolist keeps it, among the player's own settings: Tempo and Pitch then moves the
+    // pitch with the speed. The icon is the one of the speed row it changes.
+    if (Unreleased.VARISPEED) {
+        val (varispeed, onVarispeedChange) = rememberPreference(key = VarispeedKey, defaultValue = false)
+        SwitchPreference(
+            modifier = Modifier.settingRow(R.string.varispeed),
+            title = { Text(stringResource(R.string.varispeed)) },
+            description = stringResource(R.string.varispeed_description),
+            icon = { Icon(Icons.Rounded.SlowMotionVideo, null) },
+            checked = varispeed,
+            onCheckedChange = onVarispeedChange
+        )
+    }
 
     LoudnessRepairEntry()
 }
@@ -1185,19 +1198,14 @@ fun ColumnScope.PlaybackBehaviourFrag() {
         checked = resumeOnBluetooth,
         onCheckedChange = onResumeOnBluetoothChange,
     )
-    SwitchPreference(
+    // One row for the fade, its length or Off (Ti-Die's review, his answer of 19 Nov 2026): a length of 0
+    // is no fade. The switch in the sleep timer's sheet still turns it on and off, with the length kept.
+    PreferenceEntry(
         modifier = Modifier.settingRow(R.string.sleep_timer_fade),
         title = { Text(stringResource(R.string.sleep_timer_fade)) },
+        description = if (sleepTimerFade) stringResource(R.string.sleep_timer_fade_duration_value, sleepTimerFadeDuration)
+        else stringResource(R.string.sleep_timer_fade_off),
         icon = { Icon(Icons.Rounded.Bedtime, null) },
-        checked = sleepTimerFade,
-        onCheckedChange = onSleepTimerFadeChange,
-    )
-    PreferenceEntry(
-        modifier = Modifier.settingRow(R.string.sleep_timer_fade_duration),
-        title = { Text(stringResource(R.string.sleep_timer_fade_duration)) },
-        description = stringResource(R.string.sleep_timer_fade_duration_value, sleepTimerFadeDuration),
-        icon = { Icon(Icons.Rounded.Timer, null) },
-        isEnabled = sleepTimerFade,
         onClick = { showSleepTimerFadeDur = true }
     )
     SleepScheduleFrag()
@@ -1213,14 +1221,15 @@ fun ColumnScope.PlaybackBehaviourFrag() {
         CounterDialog(
             title = stringResource(R.string.sleep_timer_fade_duration),
             description = stringResource(R.string.sleep_timer_fade_duration_description),
-            initialValue = sleepTimerFadeDuration,
+            initialValue = if (sleepTimerFade) sleepTimerFadeDuration else 0,
             upperBound = SleepTimerDefaults.FADE_DURATION_RANGE.last,
-            lowerBound = SleepTimerDefaults.FADE_DURATION_RANGE.first,
+            lowerBound = 0,
             unitDisplay = " s",
             onDismiss = { showSleepTimerFadeDur = false },
             onConfirm = {
                 showSleepTimerFadeDur = false
-                onSleepTimerFadeDurationChange(it)
+                SleepFadeChoice.of(it)?.let(onSleepTimerFadeDurationChange)
+                onSleepTimerFadeChange(it > 0)
             },
             onCancel = {
                 showSleepTimerFadeDur = false

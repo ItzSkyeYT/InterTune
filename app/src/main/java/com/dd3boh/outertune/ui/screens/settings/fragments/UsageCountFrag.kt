@@ -19,8 +19,8 @@ import com.dd3boh.outertune.LocalActiveCount
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.Polls
 import com.dd3boh.outertune.constants.UsageCountEnabledKey
+import com.dd3boh.outertune.ui.component.ExplainedSwitchPreference
 import com.dd3boh.outertune.ui.component.PreferenceEntry
-import com.dd3boh.outertune.ui.component.SwitchPreference
 import com.dd3boh.outertune.utils.rememberPreference
 import com.dd3boh.outertune.ui.screens.settings.settingRow
 import androidx.compose.ui.Modifier
@@ -54,9 +54,11 @@ fun ColumnScope.UsageCountFrag() {
 
     val (enabled, onEnabledChange) = rememberPreference(UsageCountEnabledKey, defaultValue = false)
 
-    SwitchPreference(
+    // One short line under the switch, and what is sent, word for word, behind the (i) (Ti-Die's review, 20 Nov 2026).
+    ExplainedSwitchPreference(
         modifier = Modifier.settingRow(R.string.usage_count_enabled),
-        title = { Text(stringResource(R.string.usage_count_enabled)) },
+        title = stringResource(R.string.usage_count_enabled),
+        explanation = stringResource(R.string.usage_count_enabled_info),
         description = stringResource(R.string.usage_count_enabled_description),
         icon = { Icon(Icons.Rounded.Groups, null) },
         checked = enabled,

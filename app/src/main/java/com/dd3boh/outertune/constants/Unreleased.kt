@@ -141,6 +141,15 @@ object Unreleased {
     val LIVING_BACKGROUND = true
 
     /**
+     * Living blur tuned on the whole screen (his ask of 20 Nov 2026, a mockup first): the player's picture over
+     * the whole screen and the three settings in one glass bar (LivingBlurTune), opened from the sample in Look
+     * and feel. In the debug app, the Preview and the Tester app since his pick of 20 Nov 2026 ("Into the Preview"),
+     * and on for everyone in 0.13 on his yes of the same evening ("i like the fullscreen thing you made for today").
+     * Without it the sample has no full screen button, as before.
+     */
+    val LIVING_TUNE = true
+
+    /**
      * The welcome back page: after an update, what is new since the version somebody came from,
      * each thing with a "Show me" that leads to where it lives, and a walk round Settings
      * (WelcomeBack.kt, Walkthrough.kt). It does not open by itself: a card at the top of Home
@@ -612,6 +621,25 @@ object Unreleased {
     val CAST_AIRPLAY = true
 
     /**
+     * InterTune Recap, the year told as a story (recap/Recaps.kt, ui/screens/recap): worked out on
+     * the phone from the listen log, nothing uploaded. From the reveal day (RecapCalendar) it opens
+     * once by itself, full screen and easy to close, and after that a banner at the top of Settings
+     * opens it whenever wanted. Its first opening each year is counted as a banner's is, from
+     * every install (PollChecker.recapOpened). The builds that have it (the debug app, the Preview,
+     * the Tester app) have two rows in the developer options, one that opens it at once and one that
+     * makes today the reveal day; the debug app alone has a made-up year to write from adb
+     * (RecapSample).
+     *
+     * For the December release: the numbers, the slides, the share cards and the way in, and the
+     * sound under the slides (RecapSound): each slide's song from its Most replayed peak, the
+     * listener's music paused while it plays, the last song slid into their queue at the end. Its
+     * texts are held back from translators for now. When it ships: set this to true and add its
+     * name to ReleasedFlagsTest, or delete it with the checks that read it, in RecapEntry (twice),
+     * SettingsScreen, SettingsTwoPane, DeveloperFrag and RecapSample.
+     */
+    val RECAP = BuildConfig.PREVIEW_FEATURES
+
+    /**
      * Songs put in with Play next stay next when a song is picked out of a list: they play right
      * after the picked song, in the order they stood, then the list (PlayNextWaiting), as Spotify's
      * "Next in queue" does. Asked for in issue #42 (23 Oct 2026). Without it a pick leaves them in
@@ -659,6 +687,13 @@ object Unreleased {
      * On in every build from 0.12.5, picked on 26 Oct 2026.
      */
     val BATTERY_MODES = true
+
+    /**
+     * A small dialog, twice at most, when the phone's battery saver puts the app on Saver: what
+     * pauses and the way to Battery use (SaverNote). His ask of 18 Nov 2026, on for everyone in 0.13
+     * (his yes the same evening, after 9 of 9 on the emulator).
+     */
+    val SAVER_NOTE = true
 
     /**
      * Saved twice (issue #47, for 0.13): a round button with a count beside Play and Shuffle in
@@ -1051,4 +1086,177 @@ object Unreleased {
      * Metrolist 14.0 backup over on the emulator (15 Nov 2026), so on for everyone in 0.13 (his yes of 14 Nov 2026).
      */
     val METROLIST_IMPORT = true
+
+    /**
+     * Better word by word lyrics (his line on the Roadmap for 0.13; #94, #145), as looks of the
+     * line being sung to choose from (LyricsWordsLook): A lights each word where it stands, with a
+     * soft edge; B lifts each word as it is sung and lets a held one swell and glow; C carries the
+     * lines along one after the other, the sung one at full size, each word nodding by as much as
+     * the music is strong. Only with word by word on in the lyrics settings, and only for lyrics
+     * that have word times.
+     *
+     * Looks to judge on a screen, none of them chosen: the app's own way stays until one is picked
+     * in the developer options ("DEBUG: Word by word look"), and they have no text of their own.
+     * Without the flag the choice is never read and the line is lit the app's own way: each word
+     * where it stands, with a hard edge (#165). To be removed, with the looks not kept, once he has
+     * chosen.
+     *
+     * Debug builds only, kept out of the previews that testers get.
+     */
+    val LYRICS_WORDS_LOOKS = BuildConfig.DEBUG && BuildConfig.BUILD_TYPE == "debug"
+
+    /**
+     * A swipe on a picked song in the queue takes every picked song out of it (#141, Ti-Die's extra of 11 Nov 2026:
+     * "allow swiping away an entire selection, the same way you'd do with one song"). The picked rows on screen move
+     * under the finger as one, each with the bin behind it, and go only when the finger lets go past the line, as one
+     * song does; the bar after it offers Undo for all of them, as the selection menu's Remove from queue does. While
+     * songs are picked, a row not picked does not swipe. Without the flag no row swipes while songs are picked, as
+     * before. Held back as the line's held features are; to ship: set this to true and add it to ReleasedFlagsTest.
+     */
+    val QUEUE_SWIPE_PICKED = BuildConfig.PREVIEW_FEATURES
+
+    /**
+     * More haptics (Ti-Die's #176; his pick of 14 Nov 2026: "buttons and a light seek bar rumble, not the
+     * snapping queue"). A tap's tick where the player had none (MoreHaptics.tapTick): the song's title and its
+     * artists, the buttons beside the title and in the row under it, the lyrics' buttons (and the bar that
+     * shares picked lines), every entry of a three-dot menu and the buttons in them (the heart in a menu's
+     * header, the Advanced dialog's tempo and pitch steps, the lyrics search's expand). And a faint rumble on
+     * the seek bar while it is dragged, one light tick each fortieth of the bar the finger travels (SeekRumble),
+     * the way the Pixel's own volume slider ticks. And the volume bar in the player's menu rests on the line where
+     * boost begins when a drag comes within 3% of the bar above it, with one tick as it lands, and follows the
+     * finger below it (VolumeSnap; asked in #general, 18 Nov 2026, coming back down from boost). The player
+     * sheet's drag and the snapping queue are not part of it. Android's Touch feedback setting turns the ticks
+     * off, as it does for every app. It has no text.
+     *
+     * On for everyone in 0.13, his pick of 19 Nov 2026, after its walk on the emulator that day. Without it the app gives the haptics it always gave,
+     * the queue's button its own, and the volume bar goes where the finger puts it.
+     */
+    val HAPTICS_MORE = true
+
+    /**
+     * Dislike (#171, the half #78 left; his pick of 14 Nov 2026: "Dislike in the menu blocks here and tells
+     * YouTube, then a notification button"). In a song's menus, a song from YouTube Music has Dislike where Don't
+     * play this song was, the same entry for the menu's choices: it keeps the song from playing as Don't play
+     * this song does, and, signed in with sync on read and write, gives it YouTube Music's own thumbs down,
+     * which takes the place of a like there as the button does; a like here goes once YouTube Music has taken
+     * it (signed out at once, never with sync on read only, whose next sync would bring it back), and the toast
+     * says whether YouTube Music got it. Remove dislike lifts both, and never takes away a like YouTube Music
+     * holds for a song still liked here. A local file keeps Don't play this song, which YouTube cannot hear.
+     * The phone's media controls can have Dislike as one of their two buttons (MediaControlButton.DISLIKE),
+     * doing the same to the song playing, which is then passed over (DislikePlan, toggleDontPlay).
+     *
+     * Held back as the line's held features are: the debug app, the Preview and the Tester app have it; a
+     * release only on his word. Its texts are held from translators, French beside them. Without it the menus
+     * have Don't play this song as before, and the media controls never offer Dislike, a saved choice of it
+     * read as a gap and filled from the default.
+     */
+    val DISLIKE = BuildConfig.PREVIEW_FEATURES
+
+    /**
+     * Varispeed (#225, asked on Discord as Metrolist has it): the pitch follows the speed, as on a record player.
+     * Named and placed as Metrolist does it, the app the ask copies: a switch in the player's settings (here in
+     * Settings > Player and audio, beside Skip silence), and with it on, Tempo and Pitch shows the speed alone
+     * and every speed it sets carries the same pitch (playback/Varispeed). Turned on, the song playing is linked
+     * at once; turned off, a pitch that followed the speed goes back to the song's own key, as a DJ app's key lock
+     * does. Its texts (varispeed, varispeed_description, search_words_varispeed) are held from translators, French
+     * beside them. Without the flag the switch is not drawn, nothing reads it, and the dialog is as it was.
+     *
+     * On for everyone in 0.13, his pick of 19 Nov 2026, after its walk on the emulator that day.
+     */
+    val VARISPEED = true
+
+    /**
+     * Remove a file of the phone's from the library, or a whole folder (his pick of 15 Nov 2026 for 0.13,
+     * experiments/mocks-1115/1-local-songs, A): Remove from library in a local song's menu, where a YouTube song has
+     * it and with its words, and Exclude folder last in the menu of a folder's row on the Folders tab. Both put the
+     * path on Excluded scan paths, so no scan brings it back, and take the songs out of the library at once; the
+     * files stay. A snackbar says so, with Undo. One comes back by taking its line off that list, under Settings >
+     * Local media > Configure scan locations, and scanning (LocalRemoval).
+     *
+     * Its three texts (local_exclude_folder, local_removed, local_folder_excluded) are held from translators, French
+     * beside them. Without the flag the menus are as they were. On for everyone in 0.13, his pick of 19 Nov 2026, after its walk on the emulator that day.
+     */
+    val LOCAL_REMOVE = true
+
+    /**
+     * A playlist's search looks on YouTube Music too (his pick of 15 Nov 2026 for 0.13,
+     * experiments/mocks-1115/2-playlist-search, A: "same as the library search, you can toggle between the playlist
+     * search and ytm search"): a switch at the end of the search pill, the playlist's own icon or YouTube Music's
+     * globe, as the library search has it, and remembered as it is (PlaylistSearchSourceKey). On YouTube Music each
+     * song found has the add button the search of an empty playlist has, a tick once the song is in the playlist,
+     * beside its three dots (PlaylistYouTubeSearch). Only on a playlist that can be changed, never while it is the
+     * search of an empty playlist, which looks on YouTube Music already.
+     *
+     * No new texts: the pill says "Search YouTube Music…" there, as the library search does. Without the flag the
+     * search is the playlist's alone, as it was. On for everyone in 0.13, his pick of 19 Nov 2026, after its walk on the emulator that day.
+     */
+    val PLAYLIST_YT_SEARCH = true
+
+    /**
+     * The repeat button's look of his pick 3B, 15 Nov 2026 (#182: the grey of off read as a button that does not
+     * work): off is the plain repeat icon at full strength, all is that icon on a lit box in the play button's
+     * colours, one is the repeat-one icon on the same box, in the player in every mode and in the queue's own
+     * buttons (RepeatButton). Same place and size as before. With this off, off is the greyed icon of 5 Nov.
+     *
+     * On for everyone in 0.13, his pick of 19 Nov 2026, after its walk on the emulator that day.
+     */
+    val REPEAT_LIT_BOX = true
+
+    /**
+     * Where the player says it plays, his pick of 15 Nov 2026 ("C with B's badges", "yes thats it"): the cast
+     * button at the player's top right and nothing under the controls; the pill that names where music plays
+     * (this phone, the headphones, a TV) a switch in Look and feel, off by default ("the pill should be
+     * toggleable", OutputPillKey); and elsewhere in the app a small badge on the mini player's cover while a room
+     * or a cast is on (MiniPlayerBadge). With this off the player is as it was: the pill under the controls, or in
+     * a corner on its side, and no badge.
+     *
+     * On for everyone in 0.13, his pick of 19 Nov 2026, after its walk on the emulator that day. Its two texts (output_pill, output_pill_description) stay held from
+     * translators until 0.13's texts go to them, French beside them.
+     */
+    val CAST_AT_TOP = true
+
+    /**
+     * In a listening room, the room's button at the free end of the player's row, so that starting or leaving a
+     * room moves no other button (his rule of 15 Nov 2026): first in Classic's circles, on top of a side column
+     * beside a small player's cover, and first in a small player's Connected row. With this off the room's button is
+     * where next-013 has it: right before the menu (his places of 17 Oct 2026), the row centred with it in. Connected's
+     * normal player has it by the title in every build since 19 Nov 2026 (his pick: the row under the controls never
+     * takes it), so its row no longer hangs it off centre, the look he turned down for the queue button on 11 Nov.
+     *
+     * On for everyone in 0.13, his pick of 20 Nov 2026 (the calls page: "the Preview's way for everyone in 0.13").
+     */
+    val ROOM_AT_FREE_END = true
+
+    /**
+     * ListenBrainz scrobbling (#159), in place of Last.fm, whose API wants a paid plan from 1 Dec
+     * 2026 (his decision of 18 Nov 2026: no Pro, ListenBrainz). A card under Last.fm's in Account
+     * and sync takes the user token pasted from listenbrainz.org/settings (ListenBrainzFrag); the
+     * songs that count for Last.fm count here too (ListenRules), each kept in an outbox before it
+     * is sent (ListenOutbox), what could not go sent later in batches (ListenBrainzWorker); playing
+     * now goes at a song's first sound. The plan: experiments/features/listenbrainz/PLAN.md. Its
+     * texts are held from translators, French beside them. Without the flag nothing is sent and
+     * nothing is kept. To ship: set this to true and add it to ReleasedFlagsTest, after a run on
+     * a phone with a real token.
+     */
+    // On for everyone in 0.13, his yes of 20 Nov 2026: Last.fm stops scrobbling on 1 December.
+    val LISTENBRAINZ = true
+
+    /**
+     * Vibration, one row under Look and feel > Behavior (his ask of 20 Nov 2026, the more haptics of 0.13 played on his
+     * S25U: "the haptics aren't really noticeable... how custom can we make them?"): Off, Light or Strong, with one buzz
+     * of the pick as it is made. Light is today's haptics, exactly: the view's own feedback, which Android's Touch
+     * feedback setting turns off. Strong is the app's own, played through the vibrator as touch feedback, so the phone's
+     * vibration switches and its touch strength still apply: a firm click for play and pause, two clicks for a like, a
+     * tick for skip and every tap, low ticks along the seek bar, a click as the volume lands on 100% (Vibration.kt,
+     * Haptics). Each with the best the phone's vibrator has: its primitives, else its own effects, else plain pulses;
+     * below Android 11 Light's way. Off is none at all. Strong by default for the trial. The shape is Essentials', his
+     * design reference: one setting, and Compose's own haptics through it (FeltHaptics, the main window's).
+     *
+     * Held back as the line's held features are, for him to feel on his Preview and pick. Its texts are held from
+     * translators, French beside them. It needs android.permission.VIBRATE, which the main manifest asks for and
+     * src/release's takes out again while this is held back, so a release asks for nothing new. Without the flag there is
+     * no row, the setting is never read, and every haptic is today's.
+     */
+    // On for everyone in 0.13, Strong by default: his pick of 20 Nov 2026 after feeling it ("vibration is fine").
+    val HAPTICS_FEEL = true
 }

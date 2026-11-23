@@ -54,7 +54,6 @@
     <string name="head_tracking_response_instant">Instan</string>
     <string name="head_tracking_response_explain">\"Halus\" tidak pernah bergerak terlalu jauh, tetapi terasa sedikit tertinggal. \"Cepat\" dan \"Instan\" terasa langsung, tetapi bisa bergerak terlalu jauh saat Anda berhenti menoleh. \"Seimbang\" ada di antara keduanya.</string>
     <string name="proximity_volume">Lebih pelan saat Anda menjauh</string>
-    <string name="proximity_volume_description">Menganggap ponsel Anda sebagai sumber musik.</string>
     <string name="proximity_volume_explain">Saat Anda menjauh dari ponsel, musik perlahan menjadi sedikit lebih pelan, seolah-olah ponsel itulah speakernya. Musik tidak pernah dibisukan.\n\nMembutuhkan headphone Bluetooth dan izin Perangkat di sekitar dari Android: jarak diperkirakan dari kekuatan sinyalnya.</string>
     <string name="proximity_probe">Log sinyal Bluetooth</string>
     <string name="proximity_probe_stop">Berhenti mencatat</string>
@@ -229,7 +228,6 @@
     <string name="oobe_polls_answered">Anda bisa mengubah ini kapan saja di Pengaturan, pada bagian Pertanyaan dan berita.</string>
     <string name="oobe_usage_count_answered">Anda bisa mengubahnya kapan saja di Pengaturan, di bagian Hitungan anonim.</string>
     <string name="poll_title">Sebuah pertanyaan dari InterTune</string>
-    <string name="poll_banner_hint">Ketuk untuk menjawab, atau tutup dengan tanda silang</string>
     <string name="poll_dismiss">Abaikan pertanyaan ini</string>
     <string name="poll_close">Tutup</string>
     <string name="poll_send">Kirim jawaban saya</string>
@@ -332,7 +330,6 @@
     <string name="lyrics_prefer_local_description">Prioritaskan pencarian file lirik lokal sebelum menggunakan semua penyedia cloud. Nonaktifkan opsi ini untuk memprioritaskan penyedia cloud</string>
     <string name="lyrics_settings_title">Lirik</string>
     <string name="lyrics_synced_clickable">Lirik yang dapat diklik</string>
-    <string name="lyrics_trim_title">Hapus spasi di sekitar lirik</string>
     <string name="local_library_enable_title">Aktifkan media lokal</string>
     <string name="local_library_enable_description">Menonaktifkan opsi ini akan menyembunyikan pustaka lokal dari aplikasi</string>
     <string name="local_player_settings_title">Media Lokal</string>
@@ -396,7 +393,6 @@
     <string name="player_liquid_glass_description">Panel kaca mengambang untuk bilah navigasi, pemutar mini, dan tombol pemutaran, serta warna sampul yang lebih kaya di balik layar lagu yang sedang diputar</string>
     <string name="player_liquid_glass_description_legacy">Warna sampul yang lebih kaya di balik layar lagu yang sedang diputar. Panel kaca mengambang memerlukan Android 13 atau lebih baru</string>
     <string name="player_glass_intensity">Intensitas kaca</string>
-    <string name="player_glass_intensity_description">Makin tinggi makin tembus pandang dan makin kuat efek biasnya; makin rendah makin mendekati permukaan polos</string>
     <string name="player_glass_intensity_value">%1$d%%</string>
     <string name="player_glass_preview_needs_13">Pratinjau langsung kaca memerlukan Android 13 atau lebih baru</string>
     <string name="player_glass_preview_side_navigation">Pratinjau langsung kaca tidak tersedia dengan navigasi samping</string>
@@ -560,7 +556,6 @@
     <string name="image_cache_max_size">Ukuran maksimum singgahan sampul</string>
     <string name="max_queues_description">Berapa banyak antrean yang disimpan aplikasi sekaligus. Yang terlama dibuang saat Anda melewati angka ini.</string>
     <string name="enable_proxy_description">Lewatkan permintaan dan streaming YouTube Music melalui server lain lebih dulu. Gambar, lirik, dan layanan lain yang dipakai aplikasi tetap terhubung langsung. Biarkan mati kecuali Anda tahu Anda membutuhkannya.</string>
-    <string name="show_liked_and_downloaded_playlist_description">Tampilkan Lagu yang disukai dan Lagu yang diunduh sebagai daftar putar di pustaka Anda.</string>
     <string name="pause_listen_history_description">Berhenti menambahkan lagu ke riwayat Anda. Yang sudah ada di dalamnya tidak dihapus.</string>
     <string name="pause_remote_listen_history_description">Berhenti memberi tahu YouTube Music apa yang Anda putar. Riwayat di dalam aplikasi ini tetap berjalan.</string>
     <string name="clear_listen_history_description">Hapus semua yang dicatat aplikasi tentang apa yang telah Anda putar.</string>
@@ -673,7 +668,6 @@
     <string name="tour_closer_entry">Tur pengaturan</string>
     <string name="tour_closer_login">Dengan masuk ke akun YouTube Music, daftar putar, lagu yang disukai, dan rekomendasi Anda ikut terbawa ke sini. Aplikasi tetap berfungsi tanpa akun.</string>
     <string name="tour_closer_lastfm">Bagi yang punya profil Last.fm: setelah terhubung, lagu yang Anda putar sampai selesai di sini ditambahkan ke profil itu.</string>
-    <string name="tour_closer_ytm_sync">Menjaga pustaka di sini dan di akun YouTube Music Anda tetap sama tanpa perlu diminta. Jika tidak masuk, tidak ada yang bisa disinkronkan.</string>
     <string name="tour_closer_sync_mode">Pilih baca-saja jika lagu yang disukai dan daftar putar yang dibuat di sini harus tetap di sini dan tidak pernah sampai ke akun Anda.</string>
     <string name="tour_closer_quick_picks_source">Siapa yang memilih lagu di baris Pilihan cepat di bagian atas Beranda. Ini hanya mengubah baris itu, tidak yang lain.</string>
     <string name="tour_closer_content_language">Bahasa yang dipakai YouTube Music: nama lagu dan artis, serta judul baris di Beranda.</string>
@@ -948,8 +942,6 @@
     <string name="familiarity">Tingkat keakraban</string>
     <string name="familiarity_description">Seberapa banyak baris Rekomendasi terbaik diisi lagu yang sering Anda dengar dalam dua minggu terakhir dan sudah waktunya didengar lagi: %1$d dari 20 kartu. Lagu yang sudah terlalu sering diputar akan mundur dengan sendirinya.</string>
     <string name="why_these_lane_again">%1$d yang sering Anda putar lagi</string>
-    <string name="new_songs_only">Hanya lagu baru</string>
-    <string name="new_songs_only_description">Setiap kartu di baris Rekomendasi terbaik adalah lagu yang baru bagi Anda.</string>
     <string name="similar_source">Lagu serupa dari</string>
     <string name="login_reassurance">Ini halaman masuk milik Google sendiri. InterTune tidak pernah melihat kata sandi Anda. Aplikasi hanya menyimpan data masuk yang diberikan YouTube Music.</string>
     <string name="login_secure">Koneksi aman</string>
@@ -1283,7 +1275,6 @@
     <string name="rank_with_listening_info">Mengurutkan baris \"Pilihan cepat\" sesuai selera Anda: lagu yang sering Anda putar, baru Anda putar, atau Anda sukai cenderung muncul lebih dulu. Tidak ada yang ditambahkan atau dihapus. Baris dibiarkan apa adanya saat diisi \"Rekomendasi terbaik\" atau \"Coba keduanya\".</string>
     <string name="recommendations_engine_title_info">Baris ini berisi dua puluh kartu: lagu yang terkait dengan yang Anda putar, lagu yang terus Anda putar lagi, lagu lain dari artis Anda, favorit lama yang sudah jarang diputar, dan beberapa yang baru bagi Anda. Pengaturan ini berlaku saat \"Sumber pilihan cepat\" diatur ke \"Rekomendasi terbaik\" atau \"Coba keduanya\". Tarik Beranda ke bawah untuk melihat perubahannya.</string>
     <string name="similar_source_info">Tempat \"Rekomendasi terbaik\" dan \"Temukan sesuatu yang baru\" mencari lagu yang mirip dengan yang Anda putar. Dengan \"Keduanya\" atau \"Hanya Last.fm\", judul dan artis lagu yang Anda putar atau sukai dikirim ke Last.fm, tidak ada yang lain dan tanpa akun. \"Hanya YouTube\" tidak mengirim apa pun ke Last.fm.</string>
-    <string name="new_songs_only_info">Seluruh baris diisi lagu yang belum pernah Anda dengar lebih dari kira-kira separuhnya; lagu yang Anda lewati di awal tetap dihitung baru. \"Tingkat eksplorasi\" dan \"Tingkat keakraban\" tidak berpengaruh selama ini aktif. Baris bisa lebih pendek, dan \"Pilihan cepat\" lalu menampilkan sumber lain.</string>
     <string name="show_reasons_info">Setiap kartu menyebutkan alasan utama kemunculannya: lagu yang cocok dengannya, artis yang Anda putar, lagu yang Anda sukai, atau karena lagu itu baru bagi Anda. Kartu kejutan dipilih secara acak agar baris tetap segar.</string>
     <string name="exclusions_info">Tekan lama kartu di \"Pilihan cepat\" untuk \"Jangan sarankan lagu ini\", \"Kurangi artis ini\" (selama sebulan), atau \"Jangan sarankan artis ini\". Semuanya hanya menyaring baris rekomendasi, tidak pernah pencarian, pustaka, atau daftar putar Anda. Halaman ini mencantumkan yang sedang berlaku, dan \"Cabut\" menghapus salah satunya.</string>
     <string name="rest_songs_i_skip_info">Jika Anda melewati lagu yang Anda sukai atau sering Anda putar sebelum pertengahannya, lagu itu dijauhkan dari baris \"Rekomendasi terbaik\" selama seminggu. Melewati lagu dalam tiga puluh detik pertama tidak dihitung. Anda bisa mencabut istirahat lebih awal di halaman \"Pengecualian\".</string>
@@ -1299,7 +1290,7 @@
     <string name="recommendations_learned_title_info">Semua yang ada di bawah disimpan di aplikasi di ponsel ini dan tidak pernah diunggah. Cadangan menyertakannya. Di \"Privasi dan riwayat\", \"Jeda riwayat mendengarkan\" menghentikan pencatatannya dan \"Bersihkan riwayat mendengarkan\" menghapusnya.</string>
     <string name="recommendations_where_from_info">Setiap tempat menghitung berapa kali Anda mulai memutar dari sana; lagu yang diputar berikutnya tidak dihitung lagi. Lagu yang Anda pilih sendiri lebih banyak mengajarinya daripada lagu yang sekadar diputar berikutnya, dan pencarian paling berpengaruh. \"Tidak tercatat\" berarti aplikasi tidak mencatat dari mana pemutaran dimulai.</string>
     <string name="recommendations_recent_title_info">Tiga puluh pemutaran terakhir yang menjadi bahan belajarnya, yang terbaru di atas. Setiap baris menyebutkan bagaimana pemutaran berakhir, seberapa banyak lagu yang Anda dengar, dan dari mana pemutaran dimulai. \"Tidak dipelajari\" berarti Anda memintanya melupakan pemutaran itu, atau lagu diputar dari antrean yang diatur ke \"Jangan belajar dari ini\".</string>
-    <string name="context_chips_info">Chip pertama adalah baris Anda yang biasa. Chip lainnya membuat baris condong sampai Anda kembali: \"Temukan\" ke lagu yang baru bagi Anda, \"Favorit\" ke lagu yang Anda sukai, \"Fokus\", \"Santai\", dan \"Pesta\" ke apa yang Anda putar saat masing-masing aktif. Chip terakhir bekerja sendiri, bersama chip mana pun.</string>
+    <string name="context_chips_info">Chip pertama adalah baris Anda yang biasa. Chip lainnya membuat baris condong sampai Anda kembali: \"Temukan\" ke lagu yang baru bagi Anda, \"Favorit\" ke lagu yang Anda sukai, \"Fokus\", \"Santai\", dan \"Pesta\" ke apa yang Anda putar saat masing-masing aktif.</string>
     <string name="context_chips">Chip Pilihan cepat</string>
     <string name="explain_what_this_does">Fungsi %1$s</string>
     <string name="explain_close">Tutup</string>
@@ -1475,7 +1466,6 @@
     </plurals>
     <string name="quick_picks_lean">Pilihan cepat condong ke</string>
     <string name="quick_picks_lean_auto">Otomatis</string>
-    <string name="quick_picks_lean_new">Lagu yang belum pernah saya dengar</string>
     <string name="quick_picks_lean_artist">Lebih banyak dari artis yang sering saya putar lagi</string>
     <string name="quick_picks_lean_forgotten">Lagu yang dulu saya sukai lalu terlupakan</string>
     <string name="quick_picks_lean_similar">Lagu yang cocok dengan yang sedang saya putar</string>
@@ -1483,10 +1473,7 @@
     <string name="quick_picks_lean_description_compare">Sekitar %1$d dari 20 kartu dan %2$d dari empat kartu pertama, karena \"Coba keduanya\" memberikan separuh baris ke sumber lain.</string>
     <string name="quick_picks_lean_not_source">Berlaku saat \"Sumber pilihan cepat\" diatur ke \"Rekomendasi terbaik\" atau \"Coba keduanya\".</string>
     <string name="quick_picks_lean_set_aside_chip">Chip %1$s di Beranda mengambil alih selama aktif.</string>
-    <string name="quick_picks_lean_set_aside_new_only">\"Hanya lagu baru\" mengambil alih selama aktif.</string>
-    <string name="quick_picks_lean_new_only_strict">Saat \"Hanya lagu baru\" aktif, Rekomendasi terbaik hanya memilih lagu yang bahkan belum pernah Anda mulai, selama jumlahnya cukup.</string>
     <string name="quick_picks_lean_info">\"Otomatis\" adalah campuran biasa, dari apa yang telah dipelajari \"Rekomendasi terbaik\". Setiap pilihan lain memberikan sebagian besar kartunya untuk satu jenis lagu. \"Lagu yang cocok dengan yang sedang saya putar\" juga menyusun ulang \"Pilihan cepat\" setelah Anda mendengarkan beberapa lagu dari tempat lain.</string>
-    <string name="quick_picks_leaning_new">Condong ke lagu yang belum pernah Anda dengar</string>
     <string name="quick_picks_leaning_artist">Condong ke artis yang sering Anda putar lagi</string>
     <string name="quick_picks_leaning_forgotten">Condong ke lagu yang dulu Anda sukai lalu terlupakan</string>
     <string name="quick_picks_leaning_similar">Condong ke yang sedang Anda putar</string>
@@ -1494,12 +1481,10 @@
     <string name="quick_picks_leaning_short">%1$s: saat ini hanya %2$d, sisanya campuran seperti biasa</string>
     <string name="quick_picks_leaning_none">%1$s: belum ada, jadi untuk sementara ini campuran seperti biasa</string>
     <string name="quick_picks_leaning_forgotten_none">Belum ada lagu yang Anda sukai yang tak diputar selama 45 hari, jadi untuk sementara ini campuran seperti biasa</string>
-    <string name="chip_lean_new">Belum didengar</string>
     <string name="chip_lean_artist">Artis Anda</string>
     <string name="chip_lean_forgotten">Terlupakan</string>
     <string name="chip_lean_similar">Sedang diputar</string>
     <string name="why_these_lean">Condong ke: %1$s, %2$d dari %3$d kartu di layar</string>
-    <string name="adventurousness_description_lean_new">Diatur oleh Pilihan cepat yang condong ke lagu yang belum pernah Anda dengar: %1$d dari 20 kartu.</string>
     <string name="share_link_kind_title">Tautan yang Anda bagikan</string>
     <string name="share_link_youtube_music">Tautan YouTube Music</string>
     <string name="share_link_page">Halaman untuk aplikasi musik apa pun</string>

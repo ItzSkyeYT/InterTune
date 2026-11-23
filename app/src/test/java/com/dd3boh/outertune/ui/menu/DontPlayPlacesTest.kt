@@ -85,9 +85,11 @@ class DontPlayPlacesTest {
         assertTrue("val DontPlayIcon = Icons.Rounded.MusicOff" in text)
         assertTrue("title = if (held) R.string.menu_dont_play_lift else R.string.menu_dont_play_song" in text)
         // Written as a row of Exclusions, with the song's own row, or lifted, and said in a line either way.
-        assertTrue("ExclusionsViewModel.dontPlay(song.id, song.title, System.currentTimeMillis())" in text)
+        // The row there is read in the same transaction: set over Not this song, it keeps the ban (DontPlayBanSqlTest).
+        assertTrue("ExclusionsViewModel.dontPlay(song.id, song.title, at, exclusion(ExclusionsViewModel.KIND_SONG, song.id))" in text)
         assertTrue("insert(song)\n        insertExclusion(row)" in text)
-        assertTrue("database.query { liftDontPlay(song.id) }" in text)
+        // Lifted on the queue the row is written on, so a Dislike tapped just after cannot be written first.
+        assertTrue("database.transaction { liftDontPlay(song.id) }" in text)
         assertTrue("R.string.dont_play_done" in text && "R.string.dont_play_lifted" in text)
         // Not the icons of Not this song or Block artist.
         assertFalse("Icons.Rounded.Block" in text || "DoNotDisturbOn" in text)

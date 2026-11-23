@@ -178,6 +178,16 @@ class SwipeToRemoveTest {
     }
 
     @Test
+    fun `rows given one state move and go together, and a box that is off leaves the touch alone`() {
+        // #141's extra: the songs picked in the queue share one state, and a swipe on any of them moves them all.
+        val gesture = box.substringAfter("awaitEachGesture {").substringBefore("// Behind the row")
+        assertTrue("off: nothing watched or taken", "if (!currentEnabled) return@awaitEachGesture" in gesture.substringBefore("change.consume()"))
+        assertTrue("the state is taken as the touch begins, for the whole touch", "val swiped = currentState" in gesture)
+        assertFalse("no state of the box's own beside the one it is given", Regex("""var offset by remember""").containsMatchIn(box))
+        assertTrue("the row and its bin are drawn from it", "translationX = state.offset" in box && "val o = state.offset" in box)
+    }
+
+    @Test
     fun `a swipe that is a scroll, a long press or a drag by the handle is left alone`() {
         // The touch is watched, never taken, until it is a swipe: nothing is consumed before that.
         val gesture = box.substringAfter("awaitEachGesture {").substringBefore("// Behind the row")

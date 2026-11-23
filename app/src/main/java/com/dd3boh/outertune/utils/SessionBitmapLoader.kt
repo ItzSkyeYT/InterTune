@@ -197,9 +197,10 @@ class SessionBitmapLoader(
     }.getOrDefault(false)
 
     /**
-     * The picture inside the file at [path], decoded no larger than the system keeps, or null if
-     * the file has none. Read here rather than through Coil, whose reader for files hands back the
-     * app's logo for a file with no picture, as if it were the cover.
+     * The picture inside the file at [path], or else its folder's cover (LocalCovers), decoded no
+     * larger than the system keeps, or null if it has neither. Read here rather than through Coil,
+     * whose reader for files hands back the app's placeholder for a file with no picture, as if it
+     * were the cover.
      */
     private fun embedded(path: String): Bitmap? {
         val picture = runCatching {
@@ -210,7 +211,9 @@ class SessionBitmapLoader(
             } finally {
                 retriever.release()
             }
-        }.getOrNull() ?: return null
+        }.getOrNull()
+            // None of its own: its folder's cover, as the app's screens show it.
+            ?: return LocalCovers.of(context, path, artPx)
         return decodeSampled(picture, artPx)
     }
 }
@@ -366,7 +369,8 @@ internal fun noCover(context: Context, px: Int): Bitmap {
     val bitmap = Bitmap.createBitmap(side, side, Bitmap.Config.ARGB_8888)
     val canvas = Canvas(bitmap)
     canvas.drawColor(ground)
-    ContextCompat.getDrawable(context, R.drawable.music_note)?.mutate()?.let { note ->
+    // The rounded note of the app's own cover for a song without one (#150), not Material's square-flagged one.
+    ContextCompat.getDrawable(context, R.drawable.note_rounded)?.mutate()?.let { note ->
         val n = (side * NO_COVER_NOTE).roundToInt()
         val at = (side - n) / 2
         note.setTint(ink)

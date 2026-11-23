@@ -120,6 +120,61 @@ class ReportTrail(
 
     enum class App { OPENED, BACK_IN_FRONT, IN_BACKGROUND }
 
+    /**
+     * The player was started from outside the app's screens and owed Android its notification in Android's time
+     * (issues #229 and #232): by a media button (headphones, a car, the widget's Play while the player was not
+     * running), or by Android bringing it back after the app died. [sinceMs] is how much of Android's time had gone
+     * when the player saw it, when that is known. A crash report then says which road it came by, and how late.
+     */
+    fun startedFromOutside(by: Outside, sinceMs: Long?) =
+        add("player started by ${by.words}${sinceMs?.let { ", ${waitText(it)} into Android's time" }.orEmpty()}")
+
+    /**
+     * What became of the notification such a start owed Android, [atMs] into Android's time when that is known. The
+     * player's own is seen when the guard looks, so it was up "by" then; the others happen at that moment.
+     */
+    fun owedStart(outcome: Owed, atMs: Long?) = add("${outcome.words}${atMs?.let { " ${outcome.time} ${waitText(it)}" }.orEmpty()}")
+
+    /** The app's card swiped away in Recents, which can stop the player (issue #229's second road). */
+    fun swipedAway() = add("app swiped away")
+
+    /**
+     * A listening room's moments (his word of 21 Nov 2026: what happens in a room shows in a report). Fixed phrases only:
+     * never the room's code, which lets anyone in, nor anyone's name.
+     */
+    fun room(event: Room) = add(event.words)
+
+    /** A guest that joined a room heard it answer, [afterMs] after it joined. */
+    fun roomAnswered(afterMs: Long) = add("the room answered after ${waitText(afterMs)}")
+
+    enum class Room(val words: String) {
+        MADE("made a listening room"),
+        JOINED("joined a listening room"),
+        BACK("back in a listening room after a restart"),
+        NOBODY("nobody answered in the room, so it was left"),
+        CLOSED_BY_HOST("the room's host closed it"),
+        CLOSED_HERE("closed the room"),
+        SENT_OUT("sent out of the room by its host"),
+        MOVED("the room moved to a new code"),
+        HOST_AWAY("the room's host went quiet"),
+        HOST_BACK("the room's host is back"),
+        HOST_GONE("the room's host never came back"),
+        NO_RELAY("no relay answering for the room"),
+        RELAY_BACK("a relay answers the room again"),
+        BAD_WORD("a word in the room could not be read"),
+        FAILED("the room failed here and was left"),
+    }
+
+    enum class Outside(val words: String) { MEDIA_BUTTON("a media button"), RESTART("Android after the app died") }
+
+    enum class Owed(val words: String, val time: String = "at") {
+        PLAYER_UP("player's notification up", "by"),
+        HELD("plain notification put up"),
+        GAVE_UP("nothing to play, player stopped"),
+        MET_BEFORE_STOP("notification put up before a stop"),
+        MISSED("owed notification not up"),
+    }
+
     enum class Network { LOST, BACK }
 
     // ---- keeping it ----

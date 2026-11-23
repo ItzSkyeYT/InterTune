@@ -1,0 +1,210 @@
+/*
+ * Copyright (C) 2026 InterTune
+ *
+ * SPDX-License-Identifier: GPL-3.0
+ */
+
+package com.dd3boh.outertune.ui.component
+
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
+import org.junit.Test
+import java.io.File
+
+/**
+ * More haptics (Unreleased.HAPTICS_MORE, #176): the places Ti-Die listed and he picked tick on a
+ * tap, and the seek bar rumbles faintly while dragged, a tick each fortieth of the bar. The rumble's
+ * count is plain Kotlin and tested as such; where the ticks are wired is Compose and read from the
+ * source, as DontPlayGreyTest does.
+ */
+class MoreHapticsTest {
+
+    // ---- the seek bar's rumble ----
+
+    /** The ticks a drag through [positions] of a song of [duration] gives, in order. */
+    private fun ticks(positions: List<Long>, duration: Long = 200_000L, rumble: SeekRumble = SeekRumble()): Int =
+        positions.count { rumble.tick(it, duration) }
+
+    @Test
+    fun `where the finger goes down is no tick, and a drag across the whole bar gives eighty`() {
+        assertEquals(0, ticks(listOf(0L)))
+        // Every 100 ms of a 200 s song: 2,000 moves, one tick per eightieth of the bar.
+        assertEquals(SeekRumble.STEPS, ticks((0L..200_000L step 100L).toList()))
+        assertEquals(80, SeekRumble.STEPS)
+    }
+
+    @Test
+    fun `a slow drag ticks as evenly as a quick one, never once for each move`() {
+        val slow = ticks((0L..50_000L step 10L).toList())
+        val quick = ticks((0L..50_000L step 500L).toList())
+        assertEquals(20, slow)
+        assertEquals(slow, quick)
+    }
+
+    @Test
+    fun `a finger that trembles on the spot stays quiet`() {
+        val wobble = (0 until 500).map { 100_000L + if (it % 2 == 0) 1_000L else -1_000L }
+        assertEquals(0, ticks(wobble))
+    }
+
+    @Test
+    fun `going back the other way ticks too, counted from the last tick`() {
+        val rumble = SeekRumble()
+        assertFalse(rumble.tick(100_000L, 200_000L))
+        assertTrue(rumble.tick(102_500L, 200_000L))
+        assertFalse(rumble.tick(101_000L, 200_000L))
+        assertTrue(rumble.tick(100_000L, 200_000L))
+    }
+
+    @Test
+    fun `a new drag counts from where it goes down, and a song with no length never ticks`() {
+        val rumble = SeekRumble()
+        rumble.tick(0L, 200_000L)
+        rumble.reset()
+        // Far from the last drag: the first move of the new one sets where it counts from.
+        assertFalse(rumble.tick(150_000L, 200_000L))
+        assertEquals(0, ticks((0L..10_000L step 100L).toList(), duration = 0L))
+        assertEquals(0, ticks((0L..10_000L step 100L).toList(), duration = -1L))
+    }
+
+    @Test
+    fun `the bar's ends click once each time the drag reaches them, never where it went down`() {
+        val rumble = SeekRumble()
+        assertFalse("went down at the start", rumble.hitsEnd(0L, 200_000L))
+        assertFalse(rumble.hitsEnd(50_000L, 200_000L))
+        assertTrue("back at the start", rumble.hitsEnd(0L, 200_000L))
+        assertFalse("still there", rumble.hitsEnd(0L, 200_000L))
+        assertFalse(rumble.hitsEnd(120_000L, 200_000L))
+        assertTrue("the end, past it too", rumble.hitsEnd(260_000L, 200_000L))
+        assertFalse(rumble.hitsEnd(200_000L, 200_000L))
+        rumble.reset()
+        assertFalse("a new drag down at the end", rumble.hitsEnd(200_000L, 200_000L))
+        assertFalse("a song with no length", SeekRumble().hitsEnd(0L, 0L))
+        // The player: the ends click, letting go does not.
+        val player = java.io.File("src/main/java/com/dd3boh/outertune/ui/player/Player.kt").readText()
+        assertTrue("seekRumble.hitsEnd(it, shownDuration)" in player)
+        val done = player.substringAfter("onSlideDone = {").substringBefore("onKey = ")
+        assertFalse("no haptic on letting go", "performHapticFeedback" in done)
+    }
+
+    @Test
+    fun `a position past either end counts as the end`() {
+        val rumble = SeekRumble()
+        rumble.tick(-5_000L, 200_000L)
+        assertFalse(rumble.tick(0L, 200_000L))
+        rumble.reset()
+        rumble.tick(200_000L, 200_000L)
+        assertFalse(rumble.tick(250_000L, 200_000L))
+    }
+
+    // ---- where the ticks are wired ----
+
+    private val sources = File("src/main/java/com/dd3boh/outertune")
+
+    /** The source of [path] with its comments taken out. */
+    private fun source(path: String) = File(sources, path).readText()
+        .replace(Regex("""/\*.*?\*/""", RegexOption.DOT_MATCHES_ALL), "")
+        .replace(Regex("""(^|\s)//.*$""", RegexOption.MULTILINE), "$1")
+
+    /** From [header] to the next line that opens with @Composable or a top-level fun. */
+    private fun declaration(text: String, header: String): String {
+        val start = text.indexOf(header)
+        assertTrue("no $header", start >= 0)
+        val end = Regex("""\n(@Composable|fun |private fun |internal fun )""").find(text, start + header.length)?.range?.first ?: text.length
+        return text.substring(start, end)
+    }
+
+    private val player get() = source("ui/player/Player.kt")
+
+    @Test
+    fun `on for everyone in 0_13, and every tick of a tap asks the flag`() {
+        val flags = source("constants/Unreleased.kt")
+        assertTrue("val HAPTICS_MORE = true" in flags)
+        val helper = source("ui/component/MoreHaptics.kt")
+        // Today's ContextClick, played as the Vibration setting says (Unreleased.HAPTICS_FEEL, VibrationTest): Light's way
+        // wherever that setting is held back.
+        assertTrue("if (Unreleased.HAPTICS_MORE) Haptics.play(strong) { performHapticFeedback(HapticFeedbackType.ContextClick) }" in helper)
+    }
+
+    @Test
+    fun `both kinds of player button tick on a tap, so every pinned button does, the queue's included`() {
+        for (header in listOf("private fun PlayerCircleButton(", "private fun PlayerActionSegment(")) {
+            val button = declaration(player, header)
+            // With the feel of the tap under the Vibration setting's Strong: a like's two clicks, else a tick.
+            assertTrue("$header has no tick", "haptic.tapTick(tap)\n                    onClick()" in button)
+            assertFalse("$header still clicks without it", ".clickable(onClick = onClick)" in button)
+        }
+        // The queue's button ticked by itself before: with the flag, once, from the button.
+        assertTrue("if (!Unreleased.HAPTICS_MORE) haptic.performHapticFeedback(HapticFeedbackType.ContextClick)" in player)
+    }
+
+    @Test
+    fun `the title and each artist tick before they open their page`() {
+        assertTrue(".clickable(enabled = mediaMetadata.album != null) {\n                                        haptic.tapTick()" in player)
+        assertTrue(".clickable(enabled = artist.id != null) {\n                                            haptic.tapTick()" in player)
+    }
+
+    @Test
+    fun `the seek bar rumbles while dragged and starts afresh when the finger lifts`() {
+        assertTrue("if (Unreleased.HAPTICS_MORE && seekRumble.tick(it, shownDuration)) {" in player)
+        assertTrue("onSlideDone = {\n                            seekRumble.reset()" in player)
+        // The tick for each move stays out: the rumble's ticks, which below Android 14 are the view's clock tick, and the
+        // click at either end of the bar (Ti-Die, 20 Nov 2026), and none on letting go.
+        val slide = player.substringAfter("onSlide = {").substringBefore("onKey = ")
+        assertEquals(2, Regex("""segmentTick\(""").findAll(slide).count())
+        assertTrue("seekRumble.hitsEnd(it, shownDuration)" in slide)
+        assertTrue("haptic.segmentTick(currentView, tickLive, frequent = true)" in slide)
+        assertFalse("SegmentFrequentTick" in slide)
+        assertTrue("val tickLive = remember { hapticsLive(context) }" in player)
+    }
+
+    @Test
+    fun `below Android 14 the rumble and the volume bar's landing tick with the view's clock tick, where Compose ticks at all`() {
+        // SEGMENT_TICK and SEGMENT_FREQUENT_TICK are Android 14's; below, Compose sends them to the view all the same,
+        // and Android plays nothing for a constant it does not know.
+        assertEquals(TickWay.COMPOSE, tickWay(34, live = true))
+        assertEquals(TickWay.COMPOSE, tickWay(36, live = false))
+        assertEquals(TickWay.CLOCK, tickWay(33, live = true))
+        assertEquals(TickWay.CLOCK, tickWay(31, live = true))
+        // Where Compose gives no haptics at all, the stand-in gives none either.
+        assertEquals(TickWay.NONE, tickWay(33, live = false))
+        assertEquals(TickWay.NONE, tickWay(29, live = false))
+        val helper = source("ui/component/MoreHaptics.kt")
+        assertTrue("TickWay.COMPOSE -> performHapticFeedback(if (frequent) HapticFeedbackType.SegmentFrequentTick else HapticFeedbackType.SegmentTick)" in helper)
+        assertTrue("TickWay.CLOCK -> view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)" in helper)
+        // Compose 1.9.4's own rule for giving haptics at all (HapticDefaults.isPremiumVibratorEnabled).
+        val live = helper.substringAfter("fun hapticsLive(context: Context): Boolean {").substringBefore("\n}")
+        assertTrue("if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return false" in live)
+        for (primitive in listOf("PRIMITIVE_CLICK", "PRIMITIVE_TICK", "PRIMITIVE_THUD")) assertTrue(primitive in live)
+    }
+
+    @Test
+    fun `every entry of a three-dot menu ticks, and the lyrics' buttons do`() {
+        val entry = declaration(source("ui/menu/GridMenu.kt"), "private fun GridMenuEntry(")
+        assertTrue("onClick = {\n                        haptic.tapTick()\n                        onClick()\n                    }," in entry)
+        val lyrics = source("ui/component/Lyrics.kt")
+        assertTrue("haptic.tapTick()\n                        onShowLyricsChange(false)" in lyrics)
+        assertTrue("haptic.tapTick()\n                        menuState.show {\n                            LyricsMenu(" in lyrics)
+        // And while lines are picked for a picture, the bar in their place: its cross and Share.
+        val pickBar = declaration(source("ui/component/LyricsCard.kt"), "fun LyricsPickBar(")
+        assertTrue("IconButton(onClick = {\n                haptic.tapTick()\n                onCancel()" in pickBar)
+        assertTrue("onClick = {\n                    haptic.tapTick()\n                    onShare()" in pickBar)
+    }
+
+    @Test
+    fun `the buttons inside the menus tick too, the heart in their header and the Advanced dialog's steps`() {
+        // The heart beside a song, an album, an artist or a playlist at the top of its menu, YouTube's twins included.
+        for (menu in listOf("SongMenu", "YouTubeSongMenu", "AlbumMenu", "YouTubeAlbumMenu", "ArtistMenu", "YouTubeArtistMenu", "PlaylistMenu", "YouTubePlaylistMenu")) {
+            // The header's start: the heart, behind an if in the playlist menus.
+            val header = source("ui/menu/$menu.kt").substringAfter("trailingContent = {").take(400)
+            // A song's heart says what it does under the Vibration setting's Strong (a like's two clicks, VibrationTest).
+            assertTrue("$menu's header button has no tick", "val haptic = LocalHapticFeedback.current" in header && "haptic.tapTick(" in header)
+        }
+        // Tempo and pitch, a step at a time, in the player menu's Advanced dialog.
+        val adjuster = source("ui/menu/PlayerMenu.kt").substringAfter("fun <T : Comparable<T>> ValueAdjuster(")
+        assertEquals(2, Regex("""haptic\.tapTick\(\)\s+stepValue\(values, currentValue, up = (true|false)\)""").findAll(adjuster).count())
+        // The lyrics search's expand.
+        assertTrue("haptic.tapTick()\n                            expandedItemIndex" in source("ui/menu/LyricsMenu.kt"))
+    }
+}

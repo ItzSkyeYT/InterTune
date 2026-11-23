@@ -1,5 +1,11 @@
 package com.dd3boh.outertune.ui.menu
 
+import com.dd3boh.outertune.constants.PlayerButtonsStyleKey
+import com.dd3boh.outertune.constants.PlayerButtonsStyle
+import com.dd3boh.outertune.constants.PlayerPinsKey
+import com.dd3boh.outertune.ui.player.PinPlace
+import com.dd3boh.outertune.ui.player.PlayerPins
+import com.dd3boh.outertune.ui.player.rememberCastLook
 import com.dd3boh.outertune.ui.component.rememberSleepTimerState
 import com.dd3boh.outertune.ui.component.SleepTimerDialog
 import com.dd3boh.outertune.constants.Unreleased
@@ -49,6 +55,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -67,12 +74,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastSumBy
 import androidx.compose.ui.window.DialogProperties
-import androidx.media3.common.PlaybackParameters
 import androidx.navigation.NavController
 import com.dd3boh.outertune.LocalBatteryMode
 import com.dd3boh.outertune.LocalDatabase
 import com.dd3boh.outertune.LocalDownloadUtil
 import com.dd3boh.outertune.playback.BatteryUse
+import com.dd3boh.outertune.playback.Varispeed
 import com.dd3boh.outertune.LocalPlayerConnection
 import androidx.compose.foundation.lazy.items
 import com.dd3boh.outertune.ui.dialog.ListDialog
@@ -92,7 +99,9 @@ import com.dd3boh.outertune.ui.screens.mix.rememberMixMenuEntry
 import com.dd3boh.outertune.constants.MAX_PLAYER_VOLUME
 import com.dd3boh.outertune.constants.ShowLyricsKey
 import com.dd3boh.outertune.constants.SyncMode
+import com.dd3boh.outertune.constants.VarispeedKey
 import com.dd3boh.outertune.constants.YtmSyncModeKey
+import com.dd3boh.outertune.models.DislikePlan
 import com.dd3boh.outertune.models.DontPlay
 import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.models.withArtistIds
@@ -114,8 +123,36 @@ import com.zionhuang.innertube.YouTube
 import kotlinx.coroutines.launch
 import java.time.LocalDateTime
 import kotlin.math.log2
-import kotlin.math.pow
 import kotlin.math.round
+import kotlin.math.roundToInt
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.painterResource
+import com.dd3boh.outertune.constants.ThumbnailCornerRadius
+import com.dd3boh.outertune.playback.PlayerConnection
+import com.dd3boh.outertune.ui.component.items.ItemThumbnail
+import com.dd3boh.outertune.ui.player.likeName
+import com.dd3boh.outertune.utils.joinByBullet
+import com.dd3boh.outertune.utils.makeTimeString
+import androidx.compose.ui.platform.LocalHapticFeedback
+import com.dd3boh.outertune.ui.component.tapTick
+
+/**
+ * A song of the queue liked, or its like taken back, from its menu (#219), the way the player's
+ * heart does it: MusicService.toggleLike, which sends the like to YouTube Music, downloads a liked
+ * song when that is set, and tells the adaptive queue when it is the song playing. A song first met
+ * in a radio may have no row yet, so it is stored first, in the same job: the like then never lands
+ * on a row that is not there.
+ */
+internal fun likeFromQueue(database: MusicDatabase, playerConnection: PlayerConnection, song: MediaMetadata) {
+    val service = playerConnection.service
+    database.query {
+        insert(song)
+        service.toggleLike(song.id)
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -124,6 +161,13 @@ fun PlayerMenu(
     navController: NavController,
     playerBottomSheetState: BottomSheetState,
     onDismiss: () -> Unit,
+    /**
+     * The song's own row on top, with its heart, as every other song menu has: for the menu of a
+     * song in the queue, which may not be the one playing (#219: no way to like the song before
+     * from the queue, and nothing in the menu said which song it was for). The player's own menu
+     * leaves it out: the heart is on the player beside it.
+     */
+    songHeader: Boolean = false,
 ) {
     mediaMetadata ?: return
     val context = LocalContext.current
@@ -133,6 +177,13 @@ fun PlayerMenu(
     val clipboardManager = LocalClipboard.current
 
     var showLyrics by rememberPreference(ShowLyricsKey, defaultValue = false)
+    // Cast, while the cast button is pinned nowhere in the style shown (PlayerPin.CAST): a way to the cast sheet is
+    // never taken away. Not in a queued song's menu, which is about that song.
+    val buttonsStyle by rememberEnumPreference(PlayerButtonsStyleKey, defaultValue = PlayerButtonsStyle.CLASSIC)
+    val pinsRaw by rememberPreference(PlayerPinsKey, "")
+    val castPlaces = if (buttonsStyle == PlayerButtonsStyle.CLASSIC) listOf(PinPlace.CLASSIC) else listOf(PinPlace.CONNECTED_TITLE, PinPlace.CONNECTED_ROW)
+    val castInMenu = !songHeader && !PlayerPins.castPinned(PlayerPins.read(pinsRaw), castPlaces)
+    val castLook = if (castInMenu) rememberCastLook() else null
 
     val playerConnection = LocalPlayerConnection.current ?: return
     val playerVolume = playerConnection.service.playerVolume.collectAsState()
@@ -221,6 +272,42 @@ fun PlayerMenu(
             clipboardManager = clipboardManager,
             setVisibility = { showDetailsDialog = it }
         )
+    }
+
+    if (songHeader) {
+        // The like as stored, so the heart turns as soon as the row is written, and the snapshot
+        // the queue holds until the song has a row of its own.
+        val liked = librarySong?.song?.liked ?: mediaMetadata.liked
+        ListItem(
+            title = mediaMetadata.title,
+            subtitle = joinByBullet(
+                mediaMetadata.artists.joinToString { it.name },
+                makeTimeString(mediaMetadata.duration * 1000L)
+            ),
+            thumbnailContent = {
+                ItemThumbnail(
+                    thumbnailUrl = mediaMetadata.thumbnailUrl,
+                    preferredSize = (ListThumbnailSize.value * LocalDensity.current.density).roundToInt(),
+                    isActive = false,
+                    isPlaying = false,
+                    shape = RoundedCornerShape(ThumbnailCornerRadius),
+                    modifier = Modifier.size(ListThumbnailSize)
+                )
+            },
+            trailingContent = {
+                IconButton(
+                    onClick = { likeFromQueue(database, playerConnection, mediaMetadata) }
+                ) {
+                    Icon(
+                        painter = painterResource(if (liked) R.drawable.favorite else R.drawable.favorite_border),
+                        tint = if (liked) MaterialTheme.colorScheme.error else LocalContentColor.current,
+                        contentDescription = likeName(liked)
+                    )
+                }
+            }
+        )
+
+        HorizontalDivider()
     }
 
     Row(
@@ -442,8 +529,8 @@ fun PlayerMenu(
         // song playing is passed over at once.
         if (Unreleased.ARTIST_BLOCK) {
             val held = dontPlay.has(mediaMetadata.id)
-            dontPlayMenuItem(held) {
-                toggleDontPlay(context, database, mediaMetadata, held)
+            dontPlayMenuItem(held, dislike = DislikePlan.shown(Unreleased.DISLIKE, mediaMetadata.isLocal)) {
+                toggleDontPlay(context, database, mediaMetadata, held, downloadUtil, liked = librarySong?.song?.liked == true)
                 onDismiss()
             }
         }
@@ -453,6 +540,15 @@ fun PlayerMenu(
                 title = R.string.together_title
             ) {
                 showTogether = true
+            }
+        }
+        if (castLook != null) {
+            GridMenuItem(
+                icon = castLook.icon,
+                title = R.string.cast
+            ) {
+                castLook.open()
+                onDismiss()
             }
         }
         // Mix: the change from this song into the next, shaped by hand, only while a Mix queue
@@ -573,6 +669,10 @@ fun PitchTempoDialog(
     onDismiss: () -> Unit,
 ) {
     val playerConnection = LocalPlayerConnection.current ?: return
+    // Varispeed (Settings > Player and audio): the pitch follows the speed, so the speed is the one row, as in
+    // Metrolist, where the ask comes from.
+    val (varispeed) = rememberPreference(VarispeedKey, defaultValue = false)
+    val linked = Unreleased.VARISPEED && varispeed
     var tempo by remember {
         mutableFloatStateOf(playerConnection.player.playbackParameters.speed)
     }
@@ -580,7 +680,11 @@ fun PitchTempoDialog(
         mutableIntStateOf(round(12 * log2(playerConnection.player.playbackParameters.pitch)).toInt())
     }
     val updatePlaybackParameters = {
-        playerConnection.player.playbackParameters = PlaybackParameters(tempo, 2f.pow(transposeValue.toFloat() / 12))
+        playerConnection.player.playbackParameters = Varispeed.parameters(tempo, transposeValue, linked)
+    }
+    // A speed set from somewhere else (a media controller) kept its pitch: linked again when the dialog opens.
+    LaunchedEffect(linked) {
+        if (linked && playerConnection.player.playbackParameters.pitch != tempo) updatePlaybackParameters()
     }
 
     AlertDialog(
@@ -615,9 +719,11 @@ fun PitchTempoDialog(
                         updatePlaybackParameters()
                     },
                     valueText = { "x$it" },
-                    modifier = Modifier.padding(bottom = 12.dp)
+                    downName = stringResource(R.string.tempo_slower),
+                    upName = stringResource(R.string.tempo_faster),
+                    modifier = if (linked) Modifier else Modifier.padding(bottom = 12.dp)
                 )
-                ValueAdjuster(
+                if (!linked) ValueAdjuster(
                     icon = Icons.Rounded.Tune,
                     currentValue = transposeValue,
                     values = (-12..12).toList(),
@@ -625,7 +731,9 @@ fun PitchTempoDialog(
                         transposeValue = it
                         updatePlaybackParameters()
                     },
-                    valueText = { "${if (it > 0) "+" else ""}$it" }
+                    valueText = { "${if (it > 0) "+" else ""}$it" },
+                    downName = stringResource(R.string.pitch_lower),
+                    upName = stringResource(R.string.pitch_higher),
                 )
             }
         }
@@ -654,6 +762,9 @@ fun <T : Comparable<T>> ValueAdjuster(
     values: List<T>,
     onValueUpdate: (T) -> Unit,
     valueText: (T) -> String,
+    // What TalkBack says for the two buttons, which were only "Button" (the walks of 19 Nov 2026).
+    downName: String,
+    upName: String,
     modifier: Modifier = Modifier,
 ) {
     Row(
@@ -667,15 +778,17 @@ fun <T : Comparable<T>> ValueAdjuster(
             modifier = Modifier.size(28.dp)
         )
 
+        val haptic = LocalHapticFeedback.current
         IconButton(
             enabled = stepValue(values, currentValue, up = false) != null,
             onClick = {
+                haptic.tapTick()
                 stepValue(values, currentValue, up = false)?.let(onValueUpdate)
             }
         ) {
             Icon(
                 imageVector = Icons.Rounded.RemoveCircleOutline,
-                contentDescription = null
+                contentDescription = downName
             )
         }
 
@@ -689,12 +802,13 @@ fun <T : Comparable<T>> ValueAdjuster(
         IconButton(
             enabled = stepValue(values, currentValue, up = true) != null,
             onClick = {
+                haptic.tapTick()
                 stepValue(values, currentValue, up = true)?.let(onValueUpdate)
             }
         ) {
             Icon(
                 imageVector = Icons.Rounded.AddCircleOutline,
-                contentDescription = null
+                contentDescription = upName
             )
         }
     }
