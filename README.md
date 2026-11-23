@@ -208,7 +208,7 @@ Every change in detail, and why this fork exists: [docs/FEATURES.md](https://git
 What's being worked on, roughly in order. `[x]` is done, `[~]` is built and being tested, `[ ]` is still to do. Nothing here has a date, and plans can change. Ideas are welcome in #feature-requests on [Discord](https://discord.gg/68jmqhMjXk) or as a [GitHub issue](https://github.com/ItzSkyeYT/InterTune/issues/new/choose).
 
 <details>
-<summary><b>Next: 0.13</b> · 41 of 51 done, 6 to test</summary>
+<summary><b>Next: 0.13</b> · 43 of 53 done, 6 to test</summary>
 
 `[x]` Listen together: one person plays, friends follow the same song in real time\
 `[x]` In a room, a guest who casts to a TV or speaker plays on their own, and catches up with the room when the cast ends\
@@ -246,7 +246,9 @@ What's being worked on, roughly in order. `[x]` is done, `[~]` is built and bein
 `[x]` A short note when the phone's battery saver pauses things like word-by-word lyrics\
 `[x]` A radio keeps going when YouTube Music refuses it: other ways to ask, then picks from your own listening\
 `[x]` Stats shows how many of the songs you liked InterTune found for you, and where\
-`[~]` Your year in InterTune, a recap\
+`[~]` News, polls and update checks still reach you when GitHub can't be reached\
+`[x]` Your year in InterTune, a recap\
+`[x]` Save your recap as a video to share, with its music\
 `[ ]` Premium accounts get the 256 kbps stream\
 `[x]` Choose what's in the three-dot menus\
 `[ ]` Lyrics videos\
@@ -272,6 +274,8 @@ What's being worked on, roughly in order. `[x]` is done, `[~]` is built and bein
 `[ ]` Learning on your phone that's fair to new songs, starting from what works for many listeners\
 `[ ]` The reason for each pick, on a long press\
 `[ ]` Testers first, then everyone once it beats today's picks\
+`[x]` Similar songs from ListenBrainz, in place of Last.fm\
+`[~]` ListenBrainz's playlists made for you on Home, and its picks in Discover\
 `[ ]` The player's background on one full-screen page, every style and its settings together
 
 </details>
@@ -292,7 +296,10 @@ What's being worked on, roughly in order. `[x]` is done, `[~]` is built and bein
 `[ ]` Music videos ([#96](https://github.com/ItzSkyeYT/InterTune/issues/96))\
 `[ ]` Bring your library over from InnerTune, ViMusic, SimpMusic or Kreate\
 `[~]` A thumbs down that YouTube Music hears too, then a Dislike button in the notification ([#171](https://github.com/ItzSkyeYT/InterTune/issues/171))\
-`[ ]` Unison as a lyrics source ([#145](https://github.com/ItzSkyeYT/InterTune/issues/145))\
+`[x]` Unison as a lyrics source ([#145](https://github.com/ItzSkyeYT/InterTune/issues/145))\
+`[x]` NetEase Cloud Music as a lyrics source, for more word by word lyrics\
+`[x]` Lock a room so no one new can join, even with the code\
+`[~]` Emoji reactions in a room\
 `[ ]` Lyrics translated by AI with your own key, if you turn it on ([#177](https://github.com/ItzSkyeYT/InterTune/issues/177))\
 `[ ]` A page with every poll, to see or change what you answered\
 `[ ]` Music to a speaker of your choice while a call stays on the phone ([#117](https://github.com/ItzSkyeYT/InterTune/issues/117))\
