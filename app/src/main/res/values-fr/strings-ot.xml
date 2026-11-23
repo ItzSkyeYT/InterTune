@@ -2569,15 +2569,18 @@
     <string name="together_suggested">Ajouté au salon : il passe ensuite</string>
     <plurals name="together_suggested_many">
         <item quantity="one">Ajouté au salon : %1$d titre passe ensuite</item>
+        <item quantity="many">Ajoutés au salon : %1$d titres passent ensuite</item>
         <item quantity="other">Ajoutés au salon : %1$d titres passent ensuite</item>
     </plurals>
     <string name="together_suggested_end">Ajouté à la fin de la file du salon</string>
     <plurals name="together_suggested_many_end">
         <item quantity="one">%1$d titre ajouté à la fin de la file du salon</item>
+        <item quantity="many">%1$d titres ajoutés à la fin de la file du salon</item>
         <item quantity="other">%1$d titres ajoutés à la fin de la file du salon</item>
     </plurals>
     <plurals name="together_suggested_cut">
         <item quantity="one">%1$d titre ajouté au salon ; les autres sont restés dehors</item>
+        <item quantity="many">%1$d titres ajoutés au salon ; les autres sont restés dehors</item>
         <item quantity="other">%1$d titres ajoutés au salon ; les autres sont restés dehors</item>
     </plurals>
     <string name="together_suggested_files">Les titres de vos fichiers ne peuvent pas être lus par les autres</string>
@@ -2585,6 +2588,7 @@
     <string name="together_from_guest_end">%1$s a ajouté %2$s à la fin de la file</string>
     <plurals name="together_from_guest_many">
         <item quantity="one">%1$s a ajouté %2$d titre à la file</item>
+        <item quantity="many">%1$s a ajouté %2$d titres à la file</item>
         <item quantity="other">%1$s a ajouté %2$d titres à la file</item>
     </plurals>
     <string name="together_last_suggestion">Dernier d\'un invité : %1$s</string>
@@ -2793,7 +2797,7 @@
     <string name="recap_notes_none">Les mots que vous écrivez à la fin de votre Recap apparaissent ici.</string>
     <string name="recap_alert_title">Votre InterTune Recap %1$s est là</string>
     <string name="recap_alert_line">Votre année en musique, prête quand vous l\'êtes.</string>
-    <plurals name="recap_alert_notes">
+    <plurals name="recap_alert_notes" tools:ignore="ImpliedQuantity">
         <item quantity="one">Et un mot de vous, il y a un an</item>
         <item quantity="many">Et %1$d mots de vous, il y a un an</item>
         <item quantity="other">Et %1$d mots de vous, il y a un an</item>
