@@ -18,7 +18,7 @@ import androidx.media3.datasource.DataSpec
 import androidx.media3.datasource.TransferListener
 import androidx.media3.exoplayer.MediaExtractorCompat
 import androidx.media3.exoplayer.mediacodec.MediaCodecUtil
-import androidx.media3.extractor.DefaultExtractorsFactory
+import com.dd3boh.outertune.playback.seekableMp3Extractors
 import java.io.BufferedOutputStream
 import java.io.File
 import java.io.IOException
@@ -51,7 +51,7 @@ class WindowDecoder(private val source: DataSource.Factory) {
         cancelled: () -> Boolean,
         measure: (WindowInfo, ShortArray, Int) -> Unit = { _, _, _ -> },
     ): WindowInfo {
-        val extractor = MediaExtractorCompat(DefaultExtractorsFactory(), KeyedSource(source, mediaId))
+        val extractor = MediaExtractorCompat(seekableMp3Extractors(), KeyedSource(source, mediaId))
         var codec: MediaCodec? = null
         try {
             extractor.setDataSource(mediaId.toUri(), 0)
