@@ -6,6 +6,7 @@
 
 package com.dd3boh.outertune.utils
 
+import com.dd3boh.outertune.recap.RecapAlert
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.playback.ExoDownloadService
 import com.dd3boh.outertune.playback.MusicService
@@ -41,6 +42,7 @@ class ChannelNamesTest {
         Triple("recognition/RecogniseLaterWorker.kt", RecogniseLaterWorker.CHANNEL_ID, "recognise_later_channel"),
         Triple("utils/BackgroundChecks.kt", BackgroundCheckWorker.CHANNEL_ID, "background_channel"),
         Triple("together/ProposalNotice.kt", ProposalNotice.CHANNEL_ID, "together_proposals_channel"),
+        Triple("recap/RecapAlert.kt", RecapAlert.CHANNEL_ID, "recap_name"),
     )
 
     @Test
