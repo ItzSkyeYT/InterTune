@@ -211,12 +211,15 @@ internal object RecapFit {
     }
 }
 
-/** [content] drawn [zoom] times its size: every dp and sp it lays out in, while the pixels round it stay as they are. */
+/**
+ * [content] drawn [zoom] times its size: every dp and sp it lays out in, while the pixels round it
+ * stay as they are. Always through the same provider, so a zoom that changes (the keyboard opening
+ * under the note to next year's you) keeps what is on the slide, the field being typed in included.
+ */
 @Composable
 internal fun Zoomed(zoom: Float, content: @Composable () -> Unit) {
     val density = LocalDensity.current
-    if (zoom >= 1f) content()
-    else CompositionLocalProvider(LocalDensity provides Density(density.density * zoom, density.fontScale), content = content)
+    CompositionLocalProvider(LocalDensity provides if (zoom >= 1f) density else Density(density.density * zoom, density.fontScale), content = content)
 }
 
 /** The Recap's type, as the design sets it: a heavy condensed face for what is shouted, the phone's own for the rest. */

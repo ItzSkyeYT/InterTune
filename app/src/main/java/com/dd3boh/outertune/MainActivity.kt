@@ -244,6 +244,8 @@ import com.dd3boh.outertune.ui.screens.walkthrough.TourStop
 import com.dd3boh.outertune.ui.screens.walkthrough.TourTargets
 import com.dd3boh.outertune.ui.screens.walkthrough.WelcomeBack
 import com.dd3boh.outertune.ui.screens.recap.RecapEntry
+import com.dd3boh.outertune.recap.RecapDoor
+import com.dd3boh.outertune.recap.RecapAlert
 import com.dd3boh.outertune.recap.RecapSample
 import com.dd3boh.outertune.ui.screens.walkthrough.WelcomeShow
 import com.dd3boh.outertune.ui.screens.walkthrough.newThingsFor
@@ -572,6 +574,14 @@ class MainActivity : ComponentActivity() {
             }
         }
 
+    /** A tap on "Your 2026 InterTune Recap is here" (RecapAlert): that year's Recap opens. */
+    private fun handleOpenRecap(intent: Intent?) {
+        val year = intent?.getIntExtra(RecapAlert.EXTRA_OPEN_RECAP, 0) ?: 0
+        if (year <= 0) return
+        intent?.removeExtra(RecapAlert.EXTRA_OPEN_RECAP)
+        RecapDoor.open(year)
+    }
+
     private fun handleOpenPoll(intent: Intent?) {
         if (intent?.getBooleanExtra(BackgroundCheckWorker.EXTRA_OPEN_POLL, false) != true) return
         Log.i(MAIN_TAG, "Opening the question from its notification")
@@ -583,6 +593,7 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         handleOpenPoll(intent)
+        handleOpenRecap(intent)
         // Every later widget tap comes through here, sometimes before the first composition (a
         // tap on a task whose process died), so it is held until the player is connected.
         // onNewIntent never replays an old intent, so nothing is gated here.
@@ -984,6 +995,7 @@ class MainActivity : ComponentActivity() {
                 // removeExtra only changed the old process's copy.
                 if (freshLaunch(savedInstanceState != null, intent?.flags ?: 0)) {
                     handleOpenPoll(intent)
+                    handleOpenRecap(intent)
                 }
 
                 // Receives the outcome of an in-app install. Registered here rather than in the

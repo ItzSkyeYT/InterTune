@@ -19,6 +19,8 @@ import com.dd3boh.outertune.constants.RecapPlaylistOnYouTubeMusicKey
 import com.dd3boh.outertune.constants.RecapWatchedKey
 import com.dd3boh.outertune.db.MusicDatabase
 import com.dd3boh.outertune.playback.MusicService
+import com.dd3boh.outertune.recap.RecapNote
+import com.dd3boh.outertune.recap.RecapNotesOpen
 import com.dd3boh.outertune.recap.RecapPlayer
 import com.dd3boh.outertune.recap.RecapPlaylist
 import com.dd3boh.outertune.recap.RecapReader
@@ -86,6 +88,13 @@ class RecapViewModel @Inject constructor(
             _state.value = try {
                 val started = System.nanoTime()
                 RecapReader.read(database, history, year)
+                    // This year's Recap is open on this phone: last year's notes to it are open everywhere from now (RecapNotesOpen), read here once, off the main thread.
+                    ?.let { shown ->
+                        shown.copy(pastNotes = withContext(Dispatchers.IO) {
+                            RecapNotesOpen.opened(context, year)
+                            if (RecapNotesOpen.open(year - 1, RecapNotesOpen.upTo(context))) RecapNote.read(context, year - 1) else emptyList()
+                        })
+                    }
                     ?.also { Log.d(TAG, "Recap $year: ${it.recap.plays} plays, ${(System.nanoTime() - started) / 1_000_000} ms") }
                     ?.let { RecapState.Ready(it) }
                     ?: RecapState.Nothing

@@ -7,6 +7,7 @@
 package com.dd3boh.outertune.ui.screens.recap
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -71,7 +72,7 @@ private val FLOATS = listOf(
  * scroll if they must.
  */
 @Composable
-internal fun RecapStart(s: SlideScope, onOpen: () -> Unit, onClose: () -> Unit) {
+internal fun RecapStart(s: SlideScope, onOpen: () -> Unit, onClose: () -> Unit, onNotes: () -> Unit = {}) {
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val fontScale = LocalDensity.current.fontScale
         val zoom = RecapFit.zoom(maxWidth, maxHeight, RecapFit.START, fontScale)
@@ -103,7 +104,7 @@ internal fun RecapStart(s: SlideScope, onOpen: () -> Unit, onClose: () -> Unit) 
                         Brand(s, Modifier)
                         Year(s, yearSize, Modifier)
                         Since(s, Modifier.padding(horizontal = 40.dp))
-                        Open(s, onOpen, Modifier)
+                        OpenRow(s, onOpen, onNotes)
                         Foot(s, Modifier.padding(horizontal = 24.dp))
                     }
                 } else {
@@ -119,7 +120,7 @@ internal fun RecapStart(s: SlideScope, onOpen: () -> Unit, onClose: () -> Unit) 
                         Brand(s, Modifier)
                         Year(s, yearSize, Modifier)
                         Since(s, Modifier)
-                        Open(s, onOpen, Modifier)
+                        OpenRow(s, onOpen, onNotes)
                         Foot(s, Modifier)
                     }
                 }
@@ -202,6 +203,26 @@ private fun Since(s: SlideScope, modifier: Modifier) {
         fontSize = 17.sp, lineHeight = 23.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Medium, color = RecapInk.Ink, textAlign = TextAlign.Center,
         modifier = modifier.widthIn(max = 334.dp).enter(s, Entrance.UP, 2f),
     )
+}
+
+/** Open Recap, and beside it the way to the notes written at the end of a Recap ("Your notes", RecapNotesDialog). */
+@Composable
+private fun OpenRow(s: SlideScope, onOpen: () -> Unit, onNotes: () -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Open(s, onOpen, Modifier)
+        Text(
+            stringResource(R.string.recap_notes_title), style = RecapType.tag.copy(fontSize = 16.sp), color = RecapInk.Ink, maxLines = 1,
+            modifier = Modifier
+                .enter(s, Entrance.POP, 2.8f)
+                .clip(RoundedCornerShape(24.dp))
+                .background(RecapInk.Cream.copy(alpha = 0.3f))
+                .border(2.dp, RecapInk.Ink, RoundedCornerShape(24.dp))
+                .clickable(onClick = onNotes)
+                .height(48.dp)
+                .padding(horizontal = 16.dp)
+                .wrapCentre(),
+        )
+    }
 }
 
 @Composable

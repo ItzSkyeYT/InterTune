@@ -11,6 +11,7 @@ import android.content.Context
 import android.os.Build
 import android.util.Log
 import com.dd3boh.outertune.R
+import com.dd3boh.outertune.recap.RecapAlert
 import com.dd3boh.outertune.playback.ExoDownloadService
 import com.dd3boh.outertune.playback.MusicService
 import com.dd3boh.outertune.playback.SleepTimerNotification
@@ -39,6 +40,7 @@ object ChannelNames {
         RecognitionService.RESULTS_CHANNEL_ID to R.string.recognition_phone_results_channel,
         RecogniseLaterWorker.CHANNEL_ID to R.string.recognise_later_channel,
         BackgroundCheckWorker.CHANNEL_ID to R.string.background_channel,
+        RecapAlert.CHANNEL_ID to R.string.recap_name,
     )
 
     /**

@@ -12,6 +12,7 @@ import com.dd3boh.outertune.recap.DayAmount
 import com.dd3boh.outertune.recap.FirstSong
 import com.dd3boh.outertune.recap.MostSkipped
 import com.dd3boh.outertune.recap.Recap
+import com.dd3boh.outertune.recap.RecapNote
 import com.dd3boh.outertune.recap.RecapPiece
 import com.dd3boh.outertune.recap.RecapShown
 import com.dd3boh.outertune.recap.RecapSongShown
@@ -92,19 +93,19 @@ class RecapPlanTest {
     }
 
     @Test
-    fun `a full year has the mock's ten slides in its order, each with its song`() {
+    fun `a full year has the mock's eleven slides in its order, each with its song`() {
         val slides = plan(recap())
         assertEquals(
             listOf(
                 SlideKind.SINCE, SlideKind.MINUTES, SlideKind.HOUR, SlideKind.STREAK, SlideKind.ARTISTS,
-                SlideKind.ONLY_HERE, SlideKind.COUNTDOWN, SlideKind.NUMBER_ONE, SlideKind.CARD, SlideKind.THANKS,
+                SlideKind.ONLY_HERE, SlideKind.COUNTDOWN, SlideKind.NUMBER_ONE, SlideKind.CARD, SlideKind.NOTE_WRITE, SlideKind.THANKS,
             ),
             slides.map { it.kind },
         )
         assertEquals(listOf("first", "long", "evening", "streaky", "one", "found"), slides.take(6).map { it.song(0)?.id })
-        assertEquals(listOf("one", "one", "first"), slides.takeLast(3).map { it.song(0)?.id })
+        assertEquals(listOf("one", "one", "two", "first"), slides.takeLast(4).map { it.song(0)?.id })
         // As long as the mock keeps each up; the thank-you page stays until it is left.
-        assertEquals(listOf(9_000L, 10_000L, 10_000L, 10_000L, 11_000L, 12_000L, 6_500L, 12_000L, 12_000L, 0L), slides.map { it.ms })
+        assertEquals(listOf(9_000L, 10_000L, 10_000L, 10_000L, 11_000L, 12_000L, 6_500L, 12_000L, 12_000L, 12_000L, 0L), slides.map { it.ms })
     }
 
     @Test
@@ -123,7 +124,7 @@ class RecapPlanTest {
     fun `a slide the year has nothing for is left out`() {
         val bare = plan(recap(topSongs = listOf(top("one", 12)), streak = null, artists = emptyList(), auto = null))
         assertEquals(
-            listOf(SlideKind.SINCE, SlideKind.MINUTES, SlideKind.HOUR, SlideKind.NUMBER_ONE, SlideKind.CARD, SlideKind.THANKS),
+            listOf(SlideKind.SINCE, SlideKind.MINUTES, SlideKind.HOUR, SlideKind.NUMBER_ONE, SlideKind.CARD, SlideKind.NOTE_WRITE, SlideKind.THANKS),
             bare.map { it.kind },
         )
         // Two songs: the countdown has number two alone.
@@ -142,7 +143,7 @@ class RecapPlanTest {
         val slides = plan(recap())
         val pages = storyPages(slides)
         assertEquals(
-            listOf("first", "long", "evening", "streaky", "one", "found", "five", "four", "three", "two", "one", "one", "first"),
+            listOf("first", "long", "evening", "streaky", "one", "found", "five", "four", "three", "two", "one", "one", "two", "first"),
             pages.map { it.song?.id },
         )
         assertEquals(RecapPiece(66_666L, 9_000L), pages.first().piece)
@@ -152,6 +153,36 @@ class RecapPlanTest {
         assertEquals(9, pageOf(slides, 7, 3))
         assertEquals(10, pageOf(slides, 8, 0))
         assertEquals(pages.lastIndex, pageOf(slides, slides.size, 0))
+    }
+
+    @Test
+    fun `last year's notes come right after the first slide, only when some were sealed, and stay as long as all of them take to read`() {
+        assertFalse(plan(recap()).any { it.kind == SlideKind.NOTE_READ })
+        val note = RecapNote.Note("Dear me in 2026: are you still playing it on repeat?", 20_444L)
+        val slides = planSlides(shown(recap()).copy(pastNotes = listOf(note)))
+        assertEquals(listOf(SlideKind.SINCE, SlideKind.NOTE_READ, SlideKind.MINUTES), slides.take(3).map { it.kind })
+        // One slide for them all, under the first song still, in its own colours rather than a cover's.
+        val read = slides[1]
+        assertEquals("first", read.song(0)?.id)
+        assertNull(read.cover(0))
+        val three = planSlides(shown(recap()).copy(pastNotes = listOf(note, note.copy(text = "And call Niko."), note.copy(text = "a".repeat(500)))))
+        assertEquals(1, three.count { it.kind == SlideKind.NOTE_READ })
+        // More words stay longer: about 55 ms a letter of all of them, never less than 3 s, before the usual rest.
+        assertTrue(three.single { it.kind == SlideKind.NOTE_READ }.ms > read.ms)
+        assertEquals(27_500L, noteReadMs("a".repeat(500)))
+        assertEquals(3_000L, noteReadMs("Hi"))
+    }
+
+    @Test
+    fun `the note to next year's you always comes just before the thank-you page, under number two or else number one`() {
+        for (r in listOf(recap(), recap(topSongs = listOf(top("one", 12)), streak = null, artists = emptyList(), auto = null))) {
+            val kinds = plan(r).map { it.kind }
+            assertEquals(1, kinds.count { it == SlideKind.NOTE_WRITE })
+            assertEquals(kinds.lastIndex - 1, kinds.indexOf(SlideKind.NOTE_WRITE))
+            assertEquals(SlideKind.THANKS, kinds.last())
+        }
+        assertEquals("two", plan(recap()).single { it.kind == SlideKind.NOTE_WRITE }.song(0)?.id)
+        assertEquals("one", plan(recap(topSongs = listOf(top("one", 12)))).single { it.kind == SlideKind.NOTE_WRITE }.song(0)?.id)
     }
 
     @Test

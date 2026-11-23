@@ -39,6 +39,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.displayCutout
+import androidx.compose.foundation.layout.union
+import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
@@ -89,6 +92,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalView
 import com.dd3boh.outertune.ui.player.KeepScreenOnReason
@@ -108,6 +112,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import coil3.compose.AsyncImage
 import com.dd3boh.outertune.R
+import com.dd3boh.outertune.recap.RecapNote
 import com.dd3boh.outertune.recap.RecapReader
 import com.dd3boh.outertune.recap.RecapShown
 import com.dd3boh.outertune.recap.RecapSongShown
@@ -120,6 +125,7 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.time.LocalDate
 
 /** Behind the Recap while it loads: the start screen's own red paper. */
 internal val RecapNight = RecapInk.Red
@@ -190,9 +196,21 @@ internal fun RecapStory(
     var away by remember { mutableStateOf(false) }
     var sharing by remember { mutableStateOf(false) }
     var muted by rememberSaveable { mutableStateOf(false) }
+    // "Your notes", over the start screen (RecapNotesDialog).
+    var notesOpen by rememberSaveable { mutableStateOf(false) }
     // The year card's Save as a playlist, and the second choice that follows it where the account may be changed.
     val playlist = rememberPlaylistFlow(shown, stringResource(R.string.recap_playlist_name, recap.year.toString()), viewModel)
     val page = stage.current
+
+    // The notes to next year's you (NOTE_WRITE): what is typed, kept across a turn of the phone, and
+    // how many this year's are sealed already, counted once off the main thread (RecapNote).
+    val noteText = rememberSaveable { mutableStateOf("") }
+    val note = remember(noteText) { NoteDraft(noteText) }
+    val focusManager = LocalFocusManager.current
+    LaunchedEffect(recap.year) {
+        val count = withContext(Dispatchers.IO) { RecapNote.count(context, recap.year) }
+        note.sealed = maxOf(note.sealed, count)
+    }
 
     fun next() {
         val p = stage.current
@@ -216,6 +234,25 @@ internal fun RecapStory(
         sound.open(pages)
         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
         stage.open()
+    }
+
+    /**
+     * Seal it: the note kept on this phone as one more of the year's (RecapNote.save, off the main
+     * thread), and the slide shows them sealed, with Write another; the story moves on by itself a
+     * rest after. Where it could not be kept, the slide says why and its words stay for another try.
+     */
+    fun sealNote() {
+        val text = note.text.trim()
+        if (note.sealing || text.isEmpty() || note.full) return
+        note.sealing = true
+        note.failed = false
+        focusManager.clearFocus()
+        scope.launch {
+            val day = LocalDate.now().toEpochDay()
+            val kept = withContext(Dispatchers.IO) { RecapNote.save(context, recap.year, text, day) }
+            if (kept) note.kept(stage.clock.now) else note.failed = true
+            note.sealing = false
+        }
     }
 
     // Away from the app, the share sheet over it included: the story waits.
@@ -243,6 +280,8 @@ internal fun RecapStory(
             stage.frame(((now - last) / 1e6).coerceIn(0.0, 100.0), paused)
             last = now
             val p = stage.current
+            // While a note to next year's you is written, its page waits (RecapStage.writing).
+            stage.writing = p.kind == SlideKind.NOTE_WRITE && note.writing
             if (p.at > 0 && !paused && !stage.opening) {
                 val length = stage.lengthOf(p)
                 if (length > 0 && stage.clock.now - p.start >= length) next()
@@ -321,11 +360,12 @@ internal fun RecapStory(
     fun Content(s: SlideScope) {
         val p = s.page
         if (p.at == 0) {
-            RecapStart(s, onOpen = { openStory() }, onClose = { close() })
+            RecapStart(s, onOpen = { openStory() }, onClose = { close() }, onNotes = { notesOpen = true })
             return
         }
         when (slides[p.at - 1].kind) {
             SlideKind.SINCE -> SinceSlide(s)
+            SlideKind.NOTE_READ -> NoteReadSlide(s)
             SlideKind.MINUTES -> MinutesSlide(s)
             SlideKind.HOUR -> HourSlide(s)
             SlideKind.STREAK -> StreakSlide(s)
@@ -336,6 +376,7 @@ internal fun RecapStory(
             SlideKind.COUNTDOWN -> CountdownSlide(s, p.step)
             SlideKind.NUMBER_ONE -> NumberOneSlide(s, sharing) { share(top = true) }
             SlideKind.CARD -> CardSlide(s, yearCard, sharing, { share(top = false) }, playlist, onOpenPlaylist)
+            SlideKind.NOTE_WRITE -> NoteWriteSlide(s, note, onSeal = { sealNote() }, onNotNow = { focusManager.clearFocus(); stopped = false; next() })
             SlideKind.THANKS -> ThanksSlide(s, onAgain = { stopped = false; stage.go(1, 0, How.ON) }, onDone = { close() })
         }
     }
@@ -358,6 +399,12 @@ internal fun RecapStory(
                 awaitEachGesture {
                     val down = awaitFirstDown(requireUnconsumed = true)
                     if (stage.current.at == 0 || stage.opening) return@awaitEachGesture
+                    // While a note is written, a tap beside its paper closes the keyboard, as Back does, rather than turning the page.
+                    if (note.focused) {
+                        waitForUpOrCancellation()?.consume()
+                        focusManager.clearFocus()
+                        return@awaitEachGesture
+                    }
                     val back = down.position.x < size.width * RecapMotion.BACK_SHARE
                     var timedOut = true
                     val up = withTimeoutOrNull(RecapMotion.HOLD_MS) { waitForUpOrCancellation().also { timedOut = false } }
@@ -417,6 +464,7 @@ internal fun RecapStory(
             )
         }
     }
+    if (notesOpen) RecapNotesDialog(onClose = { notesOpen = false })
 }
 
 /** The papers: the slide's own, and while one changes to the next the new sheet growing over the old. */
@@ -662,7 +710,8 @@ private fun SongPill(song: RecapSongShown?, night: Boolean, still: Boolean, mute
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier
-            .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal))
+            // Its place on the screen whatever the keyboard does: behind the keys while a note is written, which leaves Seal it the room above them.
+            .windowInsetsPadding(WindowInsets.systemBars.union(WindowInsets.displayCutout).only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal))
             .padding(bottom = 12.dp)
             .widthIn(max = 366.dp)
             .height(52.dp)

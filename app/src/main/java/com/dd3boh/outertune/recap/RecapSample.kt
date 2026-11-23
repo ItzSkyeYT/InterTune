@@ -51,6 +51,10 @@ import kotlin.random.Random
  *
  *     adb shell am broadcast -a dev.skye.intertune.debug.RECAP_SAMPLE -p dev.skye.intertune.debug [--ez reveal true] [--ez open true]
  *
+ * With `--es note "<text>|<text>"` instead, it only seals those texts as last year's notes to this
+ * year's Recap (RecapNote), a day apart up to a year ago today, and opens the Recap with open: the
+ * slide "A note from your past self" can be seen on a phone that has none.
+ *
  * It finds about thirty well-known songs by name with the import's own anonymous search (a
  * search each, a second and a half apart), keeps the songs each search lists after the first as
  * well, and writes listens of them from June to yesterday: an evening habit, a long streak, a
@@ -103,6 +107,19 @@ object RecapSample {
                 val ear = intent.getBooleanExtra("ear", false)
                 // A year of the phone's own files, those already scanned, instead of songs found on YouTube (local listeners, 22 Nov 2026).
                 val local = intent.getBooleanExtra("local", false)
+                // Notes sealed for last year's Recap, split on "|", written a day apart up to a year ago today, so that this
+                // year's opens with them (NOTE_READ): nothing else is written.
+                intent.getStringExtra("note")?.let { all ->
+                    scope.launch {
+                        val year = LocalDate.now().year - 1
+                        val texts = all.split('|').map { it.trim() }.filter { it.isNotEmpty() }
+                        val last = LocalDate.now().minusYears(1)
+                        val kept = texts.withIndex().count { (i, text) -> RecapNote.save(app, year, text, last.minusDays((texts.size - 1 - i).toLong()).toEpochDay()) }
+                        Log.i(TAG, "notes for $year: $kept of ${texts.size} sealed: done")
+                        if (kept > 0 && open) RecapDoor.open(LocalDate.now().year)
+                    }
+                    return
+                }
                 // One file's loudest stretch, for the emulator (RecapChorus): nothing is written.
                 intent.getStringExtra("chorus")?.let { path ->
                     scope.launch {

@@ -2713,6 +2713,25 @@
         <item quantity="other">Tout ici vient de ces %1$s jours, calculé sur ce téléphone.</item>
     </plurals>
     <string name="recap_this_year_here">Tout ici vient de cette année, calculé sur ce téléphone.</string>
+    <string name="recap_note_read_kick">De votre Recap %1$s</string>
+    <plurals name="recap_note_read_title">
+        <item quantity="one">Un mot de %1$s</item>
+        <item quantity="many">%2$s mots de %1$s</item>
+        <item quantity="other">%2$s mots de %1$s</item>
+    </plurals>
+    <string name="recap_note_read_strip">vous, il y a un an</string>
+    <string name="recap_note_written_on">Écrit le %1$s</string>
+    <string name="recap_note_read_line">Vous pourrez écrire celui de l\'an prochain à la fin.</string>
+    <string name="recap_notes_title">Vos mots</string>
+    <string name="recap_notes_opened_by">Ouverts par votre Recap %1$s</string>
+    <string name="recap_notes_none">Les mots que vous écrivez à la fin de votre Recap apparaissent ici.</string>
+    <string name="recap_alert_title">Votre InterTune Recap %1$s est là</string>
+    <string name="recap_alert_line">Votre année en musique, prête quand vous l\'êtes.</string>
+    <plurals name="recap_alert_notes">
+        <item quantity="one">Et un mot de vous, il y a un an</item>
+        <item quantity="many">Et %1$d mots de vous, il y a un an</item>
+        <item quantity="other">Et %1$d mots de vous, il y a un an</item>
+    </plurals>
     <string name="recap_minutes_kick_since">Depuis le %1$s, vous avez écouté</string>
     <string name="recap_minutes_kick_year">En %1$s, vous avez écouté</string>
     <plurals name="recap_minutes_unit" tools:ignore="ImpliedQuantity">
@@ -2860,6 +2879,28 @@
     <string name="recap_in_a_row_on">Le %1$s, vous l\'avez écouté %2$s fois d\'affilée.</string>
     <string name="recap_times_on">Le %1$s, vous l\'avez écouté %2$s fois.</string>
     <string name="recap_card_described">Votre année sur une carte : titres et artistes préférés, vos minutes, votre heure et votre plus longue série</string>
+    <string name="recap_note_write_kick">Avant de partir</string>
+    <string name="recap_note_write_title">Écrivez un mot pour %1$s</string>
+    <string name="recap_note_write_strip">vous dans un an</string>
+    <string name="recap_note_placeholder">Pour moi en %1$s…</string>
+    <string name="recap_note_seal">Sceller</string>
+    <string name="recap_note_not_now">Pas maintenant</string>
+    <string name="recap_note_write_line">Il reste scellé sur ce téléphone et dans vos sauvegardes. Le Recap de l\'an prochain vous l\'ouvrira.</string>
+    <plurals name="recap_note_left">
+        <item quantity="one">%1$s caractère restant</item>
+        <item quantity="many">%1$s caractères restants</item>
+        <item quantity="other">%1$s caractères restants</item>
+    </plurals>
+    <string name="recap_note_sealed">Scellé jusqu\'à votre prochain Recap</string>
+    <plurals name="recap_note_sealed_count">
+        <item quantity="one">%1$s mot scellé pour votre Recap %2$s</item>
+        <item quantity="many">%1$s mots scellés pour votre Recap %2$s</item>
+        <item quantity="other">%1$s mots scellés pour votre Recap %2$s</item>
+    </plurals>
+    <string name="recap_note_sealed_line">Le Recap de l\'an prochain ouvrira ce que vous avez scellé.</string>
+    <string name="recap_note_another">En écrire un autre</string>
+    <string name="recap_note_full">C\'est le maximum pour une année. Le Recap de l\'an prochain vous les ouvrira.</string>
+    <string name="recap_note_failed">Impossible de sceller votre mot : le téléphone manque peut-être de place. Libérez-en un peu, puis touchez Sceller à nouveau.</string>
     <string name="recap_thanks_title">Merci</string>
     <!-- The thank-you words and their signature: his, approved in English and in French on 25 Oct 2026. -->
     <string name="recap_thanks_words">Merci d\'avoir utilisé InterTune cette année. C\'est un petit projet que je fais sur mon temps libre, et j\'ai adoré chaque moment (et c\'est toujours le cas !). Merci d\'avoir signalé des bugs, partagé des idées et traduit. C\'est grâce à vous qu\'il continue d\'avancer !</string>
