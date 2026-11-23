@@ -1041,6 +1041,19 @@ object Unreleased {
     val DOWNLOAD_FORMATS = true
 
     /**
+     * The extra copies of downloads a bug left in the download folder, found and removed on the
+     * person's tap (DownloadCopies, DownloadCopiesCleanup, DownloadCopiesNote). 0.12.11 wrote
+     * "<title> [<id>].mka (1)" beside a song's file whenever its scan had lost track of it, and a phone
+     * whose folder lists as empty got one more copy of every liked song at each liked catch up (dvd,
+     * 23 Nov 2026: five of each of his 397 songs). A card at the top of Library > Downloaded songs says
+     * how many there are and the room they take, with Remove and Not now; nothing is deleted before
+     * Remove, and each song keeps one file. Its texts (dl_copies_*) are held from translators, the
+     * French beside them. Without the flag nothing is looked for and the card never shows. To ship:
+     * set this to true, add it to ReleasedFlagsTest and open its texts to translators.
+     */
+    val DOWNLOAD_COPIES_CLEANUP = BuildConfig.PREVIEW_FEATURES
+
+    /**
      * The adaptive queue reads a skip by what the skipped song is like (an idea of 9 Nov 2026). A song
      * skipped early and not gone back to has its related list asked for when the phone has none (one radio
      * page of it, online only, never while YouTube refuses us, once a song in a run and one every

@@ -96,6 +96,7 @@ import com.dd3boh.outertune.utils.contentLengthOrZero
 import com.dd3boh.outertune.utils.dataStore
 import com.dd3boh.outertune.utils.dlCoroutine
 import com.dd3boh.outertune.utils.enumPreference
+import com.dd3boh.outertune.utils.formatFileSize
 import com.dd3boh.outertune.utils.preference
 import com.dd3boh.outertune.utils.get
 import com.dd3boh.outertune.utils.reportException
@@ -1646,6 +1647,37 @@ class DownloadUtil @Inject constructor(
     private val scanLock = Mutex()
 
     /**
+     * The extra copies of downloads a name clash left in the download folder, looked for once a start
+     * and removed on the person's tap (DownloadCopiesCleanup, Unreleased.DOWNLOAD_COPIES_CLEANUP).
+     * Before init: its first look is made from there, on another thread.
+     */
+    val copies by lazy {
+        DownloadCopiesCleanup(context, database, { localMgr }, scanLock, inPlay::isOpen) { id, path -> recordKeptCopy(id, path) }
+    }
+
+    /** The card's Remove: the copies go in the background, whatever screen comes next, and a toast says how it ended. */
+    fun removeCopies() {
+        CoroutineScope(Dispatchers.IO).launch {
+            val removed = runCatching { copies.remove() }.onFailure { reportException(it) }.getOrNull() ?: return@launch
+            val said = context.resources.getQuantityString(R.plurals.dl_copies_removed, removed.files, removed.files, formatFileSize(context, removed.bytes))
+            withContext(Dispatchers.Main) { Toaster.show(context, said, Toast.LENGTH_LONG) }
+        }
+    }
+
+    /**
+     * The one file a song kept of its extra copies, at [path], recorded as its download, as a scan
+     * records a listed file (keepFolderFile): the map first, after scanTouchedIds, the date it had
+     * kept. On the cleanup's thread.
+     */
+    private fun recordKeptCopy(id: String, path: String) {
+        val date = downloads.value[id]?.takeIf { hasLanded(it) } ?: LocalDateTime.now()
+        scanTouchedIds.add(id)
+        downloads.update { it + (id to date) }
+        runCatching { database.registerDownloadSong(id, date, path) }
+            .onFailure { Log.w(TAG, "Could not record $path as the file of $id", it) }
+    }
+
+    /**
      * Rescan download directory and updates songs
      */
     suspend fun rescanDownloads() = scanLock.withLock { rescanDownloadsLocked() }
@@ -1853,6 +1885,12 @@ class DownloadUtil @Inject constructor(
             } finally {
                 // Open whatever happened: a player waiting on it gives up at once from now on.
                 firstListing.countDown()
+            }
+            // The extra copies a name clash left in the folder: the card on Downloaded songs says so (DownloadCopiesCleanup).
+            if (Unreleased.DOWNLOAD_COPIES_CLEANUP) {
+                CoroutineScope(Dispatchers.IO).launch {
+                    runCatching { copies.find() }.onFailure { Log.w(TAG, "Could not look for extra copies of downloads", it) }
+                }
             }
             dropSongCacheCopiesOfDownloads()
             // Downloads made before their covers were kept as files get theirs now, one at a time;

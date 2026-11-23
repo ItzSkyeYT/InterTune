@@ -27,6 +27,7 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import com.dd3boh.outertune.constants.ShareAudioFocusKey
 import com.dd3boh.outertune.playback.MusicService
+import com.dd3boh.outertune.playback.seekableMp3Extractors
 import com.dd3boh.outertune.recap.RecapSoundPlan.Step
 import com.dd3boh.outertune.utils.Throttle
 import com.dd3boh.outertune.utils.dataStore
@@ -345,7 +346,7 @@ class RecapPlayer(
     }
 
     private fun player(source: DataSource.Factory): ExoPlayer = ExoPlayer.Builder(context)
-        .setMediaSourceFactory(DefaultMediaSourceFactory(source))
+        .setMediaSourceFactory(DefaultMediaSourceFactory(source, seekableMp3Extractors()))
         // The app's own: media, music. Audio focus is the Recap's as a whole (takeFocus).
         .setAudioAttributes(AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_MUSIC).build(), false)
         // Headphones out: it stops, and the story with it.

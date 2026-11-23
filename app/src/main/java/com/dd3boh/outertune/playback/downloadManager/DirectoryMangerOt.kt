@@ -179,6 +179,8 @@ class DownloadDirectoryManagerOt(private var context: Context, private var dir: 
         }
 
         val fileName = "$displayName [$mediaId].mka"
+        // The song's own file under this very name already: kept, never a copy written beside it (ownFileAt).
+        ownFileAt(mediaId, fileName)?.let { return it }
         // Whole or not at all (writeWhole): a half file under this name was taken for the download.
         val newFile = writeWhole(directory, fileName) { out -> input.copyTo(out) } ?: return null
         // In the list at once, as a song file is (saveSongFile): the player finds a download in the
@@ -247,6 +249,9 @@ class DownloadDirectoryManagerOt(private var context: Context, private var dir: 
         // once renamed.
         val extension = fileName.substringAfterLast('.')
         val mimeType = MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension) ?: "application/octet-stream"
+        // The song's own file under this very name already, "Artist - Title.opus" from an earlier
+        // download the app no longer knew of: kept, never "Artist - Title (1).opus" beside it (ownFileAt).
+        ownFileAt(mediaId, fileName)?.let { return it }
         val newFile = writeWhole(directory, fileName) { stream ->
             val buffered = BufferedOutputStream(stream, 64 * 1024)
             write(buffered)
@@ -392,6 +397,144 @@ class DownloadDirectoryManagerOt(private var context: Context, private var dir: 
         return found.uri
     }
 
+    /** What the folder says of one file: its name, type, size (null when it does not say) and when it was last written (0 when not). */
+    private class Described(val name: String, val mime: String?, val size: Long?, val modified: Long)
+
+    /** [uri] as its provider has it, empty files included, or null when it gives no row (no such file, or no answer). */
+    private fun described(uri: Uri): Described? = runCatching {
+        context.contentResolver.query(
+            uri,
+            arrayOf(
+                DocumentsContract.Document.COLUMN_DISPLAY_NAME, DocumentsContract.Document.COLUMN_MIME_TYPE,
+                DocumentsContract.Document.COLUMN_SIZE, DocumentsContract.Document.COLUMN_LAST_MODIFIED,
+            ),
+            null, null, null,
+        )?.use { c ->
+            if (!c.moveToFirst()) return@use null
+            fun column(name: String) = c.getColumnIndex(name).takeIf { it >= 0 && !c.isNull(it) }
+            val name = column(DocumentsContract.Document.COLUMN_DISPLAY_NAME)?.let(c::getString) ?: return@use null
+            Described(
+                name = name,
+                mime = column(DocumentsContract.Document.COLUMN_MIME_TYPE)?.let(c::getString),
+                size = column(DocumentsContract.Document.COLUMN_SIZE)?.let(c::getLong),
+                modified = column(DocumentsContract.Document.COLUMN_LAST_MODIFIED)?.let(c::getLong) ?: 0L,
+            )
+        }
+    }.getOrNull()
+
+    /**
+     * [mediaId]'s own file already in the main folder under [fileName], the very name a write is about
+     * to take: kept, and nothing written, since a second file under a name already taken comes out
+     * numbered beside the first ("Artist - Title (1).opus", "Title [id] (1).mka"). The move looks for
+     * the song's recorded file and its "<title> [<id>].mka" first (fileAlreadyThere), but in a folder
+     * that lists as empty a song file "Artist - Title.opus" the app no longer knew of (data cleared, a
+     * fresh install on the same folder) was missed there, and the move wrote the song again beside it.
+     * Looked at by its name, as fileAlreadyThere does: only the phone's own storage can be asked so.
+     *
+     * Whose it is: the id in a download's name, or for a song file, whose name holds none, what is
+     * known of it or its tags (SongFileIds). One of another song, or one whose tags say nothing, is not
+     * taken: the write goes on and the folder numbers it, two songs of the same name. An empty file
+     * under a download's name is no song but a write that never began: once it is no write's any more
+     * ([emptyFileGoes]), it goes, and the write takes its name.
+     */
+    private fun ownFileAt(mediaId: String, fileName: String): Uri? {
+        val main = mainDir?.let { rootOf(it) } ?: return null
+        val name = fatName(fileName)
+        val uri = DocumentsContract.buildDocumentUriUsingTree(main.dir.uri, childDocumentId(main.documentId, name))
+        val found = described(uri) ?: return null
+        if (found.size == 0L) {
+            if (emptyFileGoes(SongFileNames.isSongFile(found.name), found.modified, System.currentTimeMillis())) {
+                val gone = runCatching { DocumentsContract.deleteDocument(context.contentResolver, uri) }.getOrDefault(false)
+                Log.i(TAG, "${found.name} was empty, a write that never began: " + if (gone) "gone, the download takes its name" else "could not go")
+            }
+            return null
+        }
+        val file = TreeDocumentFileOt(null, context, uri, found.name, found.mime)
+        val whose = if (SongFileNames.isSongFile(found.name)) songFileIdOf(file) else idOf(file)
+        if (whose != mediaId) return null
+        Log.i(TAG, "${found.name} is the song's own file already: kept, not written again beside it")
+        adopt(mediaId, file)
+        return uri
+    }
+
+    /** Which song the song file [file] is: what is known of it, or its tags, read once and remembered. */
+    private fun songFileIdOf(file: DocumentFile): String? {
+        val name = file.name ?: return null
+        val docId = documentId(file)
+        docId?.let { songFileIds[it] }?.let { return it }
+        val read = runCatching {
+            context.contentResolver.openInputStream(file.uri)?.use { SongFileIds.read(name, BufferedInputStream(it, 16 * 1024)) }
+        }.getOrNull() ?: return SongFileNames.idInName(name)
+        docId?.let { songFileIds[it] = read }
+        return read
+    }
+
+    // ---- The extra copies of downloads a name clash made (DownloadCopies, DownloadCopiesCleanup)
+
+    /** The main folder's own path on the phone, as the database has a file's, or null when it has none. */
+    fun mainFolderPath(): String? = mainDir?.let { dir -> runCatching { fileFromUri(context, dir.uri)?.absolutePath?.trimEnd('/') }.getOrNull() }
+
+    /**
+     * The main folder's files that are ours (DownloadCopies.parse), each with its size, from a listing
+     * of that folder alone: never an extra folder, never a folder inside it. Null when it cannot be
+     * listed; nothing listed when it lists as empty, as dvd's did, which [lookUp] gets round.
+     */
+    fun ourFilesListed(): DownloadCopies.Listed? {
+        val listed = (mainDir as? TreeDocumentFileOt)?.listFilesOrNull() ?: return null
+        val ours = listed.mapNotNull { file ->
+            val name = file.name ?: return@mapNotNull null
+            if (DownloadCopies.parse(name) == null) return@mapNotNull null
+            described(file.uri)?.let { DownloadCopies.File(it.name, it.size, file.uri.toString()) }
+        }
+        return DownloadCopies.Listed(listed.size, ours)
+    }
+
+    /** Whether a file of the main folder can be looked at by its name ([lookUp]): on the phone's own storage and its cards. */
+    fun canLookUp(): Boolean = mainDir?.let { rootOf(it) } != null
+
+    /** The main folder's file called [name] as it is now, or null when there is none, or the folder cannot be asked. */
+    fun lookUp(name: String): DownloadCopies.File? {
+        val main = mainDir?.let { rootOf(it) } ?: return null
+        val uri = DocumentsContract.buildDocumentUriUsingTree(main.dir.uri, childDocumentId(main.documentId, name))
+        return described(uri)?.let { DownloadCopies.File(it.name, it.size, uri.toString()) }
+    }
+
+    /** The file at [key] as it is now, or null when it is gone, or the folder cannot be asked. */
+    fun lookAt(key: String): DownloadCopies.File? = described(Uri.parse(key))?.let { DownloadCopies.File(it.name, it.size, key) }
+
+    /** Deletes the extra copy at [key] and takes it out of the folder's list, under the lock of [deleteFile]. Whether it went. */
+    @Synchronized
+    fun removeCopy(key: String): Boolean {
+        val uri = Uri.parse(key)
+        val gone = runCatching { DocumentsContract.deleteDocument(context.contentResolver, uri) }.getOrDefault(false)
+        if (gone) {
+            availableFiles = availableFiles.filterNot { it.uri == uri }.toSet()
+            runCatching { DocumentsContract.getDocumentId(uri) }.getOrNull()?.let { songFileIds.remove(it) }
+        }
+        return gone
+    }
+
+    /**
+     * [mediaId]'s one file left at [key], renamed to [name] first when one is given: its address from
+     * now on, in the folder's list as a listed file is. A rename that fails leaves it as it was, under
+     * its old address.
+     */
+    fun keepFile(mediaId: String, key: String, name: String?): Uri {
+        var uri = Uri.parse(key)
+        if (name != null) {
+            val renamed = runCatching { DocumentsContract.renameDocument(context.contentResolver, uri, name) }
+                .onFailure { Log.w(TAG, "Could not name the file kept of $mediaId $name", it) }
+                .getOrNull()
+            if (renamed != null) {
+                val old = uri
+                synchronized(this) { availableFiles = availableFiles.filterNot { it.uri == old }.toSet() }
+                uri = renamed
+            }
+        }
+        described(uri)?.let { adopt(mediaId, TreeDocumentFileOt(null, context, uri, it.name, it.mime)) }
+        return uri
+    }
+
     /** Files found under a folder keep that folder's tree in their address. */
     private fun isInMainDir(file: DocumentFile): Boolean {
         val main = mainDir ?: return false
@@ -507,6 +650,15 @@ fun childDocumentId(folderId: String, relative: String): String =
 fun fatName(name: String): String = buildString(name.length) {
     for (c in name) append(if (c.code < 0x20 || c.code == 0x7F || c in "\"*/:<>?\\|") '_' else c)
 }
+
+/**
+ * Whether an empty file in the way of a download's name goes before the download is written
+ * (DownloadDirectoryManagerOt.ownFileAt): only one under a download's own name, "<title> [<id>].mka"
+ * ([songFile] false: an empty song file cannot say whose it is), and only once it is no write's any
+ * more (PartialFiles.leftBehind, [modified] against [now]): one being written now, by another app
+ * too, is left alone, and the folder numbers the new file as before.
+ */
+fun emptyFileGoes(songFile: Boolean, modified: Long, now: Long): Boolean = !songFile && PartialFiles.leftBehind(modified, now)
 
 /**
  * Each downloaded song's file as the database has it, to the song's id: how a song file, whose name

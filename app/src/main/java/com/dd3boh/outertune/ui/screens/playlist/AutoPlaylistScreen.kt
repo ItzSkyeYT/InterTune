@@ -108,6 +108,7 @@ import com.dd3boh.outertune.extensions.toMediaItem
 import com.dd3boh.outertune.models.toMediaMetadata
 import com.dd3boh.outertune.playback.queues.ListQueue
 import com.dd3boh.outertune.ui.component.AutoResizeText
+import com.dd3boh.outertune.ui.component.DownloadCopiesNote
 import com.dd3boh.outertune.ui.component.EmptyPlaceholder
 import com.dd3boh.outertune.ui.component.FloatingFooter
 import com.dd3boh.outertune.ui.component.FloatingTopBar
@@ -614,6 +615,13 @@ fun AutoPlaylistScreen(
             if (!twoPanes) {
                 item {
                     header()
+                }
+            }
+
+            // Extra copies of downloads a bug left in the folder, with the button that removes them (DownloadCopiesNote).
+            if (playlistType == PlaylistType.DOWNLOAD && Unreleased.DOWNLOAD_COPIES_CLEANUP) {
+                item(key = "download_copies") {
+                    DownloadCopiesNote()
                 }
             }
 

@@ -54,6 +54,7 @@ import androidx.media3.transformer.Transformer
 import androidx.media3.transformer.VideoEncoderSettings
 import com.dd3boh.outertune.playback.LevelAnalyser
 import com.dd3boh.outertune.playback.MusicLevels
+import com.dd3boh.outertune.playback.seekableMp3Extractors
 import com.dd3boh.outertune.ui.component.LyricsVideoFrames
 import com.dd3boh.outertune.utils.SharedFileProvider
 import com.dd3boh.outertune.utils.shareSheet
@@ -280,7 +281,7 @@ object LyricsVideo {
                     context,
                     DefaultDecoderFactory.Builder(context).setEnableDecoderFallback(true).build(),
                     Clock.DEFAULT,
-                    DefaultMediaSourceFactory(source),
+                    DefaultMediaSourceFactory(source, seekableMp3Extractors()),
                     DataSourceBitmapLoader(context),
                 )
             )

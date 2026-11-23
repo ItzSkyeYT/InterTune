@@ -2,29 +2,40 @@ package com.dd3boh.outertune.db.entities
 
 import androidx.compose.runtime.Immutable
 import androidx.room.Embedded
-import androidx.room.Junction
+import androidx.room.Ignore
 import androidx.room.Relation
+import com.dd3boh.outertune.db.RelationOrder
 import com.dd3boh.outertune.utils.PlaylistCovers
 
+/**
+ * Room builds a playlist with the second constructor below, the app with this one (@Ignore keeps
+ * Room off it).
+ */
 @Immutable
-data class Playlist(
+data class Playlist @Ignore constructor(
     @Embedded
     val playlist: PlaylistEntity,
     val songCount: Int,
     val downloadCount: Int,
-    @Relation(
-        entity = SongEntity::class,
-        entityColumn = "id",
-        parentColumn = "id",
-        projection = ["thumbnailUrl"],
-        associateBy = Junction(
-            value = PlaylistSongMapPreview::class,
-            parentColumn = "playlistId",
-            entityColumn = "songId"
-        )
-    )
+    /** The pictures of the playlist's first songs, in its order: what Room's constructor makes of [coverSongs]. */
+    @Ignore
     val songThumbnails: List<String?>, //  TODO: Remove during next db update
 ) : LocalItem() {
+    /**
+     * Room's way in: the pictures of the first songs in the playlist's order, put so from
+     * [coverSongs] (RelationOrder says why the view alone no longer does it on Android 14 and newer).
+     * Its parameters come in another order than the first constructor's only so the two differ on the JVM.
+     */
+    constructor(playlist: PlaylistEntity, coverSongs: List<PlaylistCoverSong>, songCount: Int, downloadCount: Int) :
+        this(playlist, songCount, downloadCount, RelationOrder.coverPictures(coverSongs)) {
+        this.coverSongs = coverSongs
+    }
+
+    /** The playlist's first songs (playlist_song_map_preview), each with its position and picture, as Room read them. Empty in a copy. */
+    @Relation(entity = PlaylistSongMapPreview::class, parentColumn = "id", entityColumn = "playlistId")
+    var coverSongs: List<PlaylistCoverSong> = emptyList()
+        private set
+
     override val id: String
         get() = playlist.id
     override val title: String

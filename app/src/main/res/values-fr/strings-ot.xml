@@ -3048,6 +3048,20 @@
         <item quantity="many">%d titres seront déplacés dès qu\'ils ne seront plus en lecture</item>
         <item quantity="other">%d titres seront déplacés dès qu\'ils ne seront plus en lecture</item>
     </plurals>
+    <string name="dl_copies_title">Copies en trop de vos titres</string>
+    <plurals name="dl_copies_body">
+        <item quantity="one">Un bug a laissé %1$d copie en trop dans votre dossier de téléchargement, soit %2$s. La supprimer garde un seul fichier par titre.</item>
+        <item quantity="many">Un bug a laissé %1$d copies en trop de vos titres dans votre dossier de téléchargement, soit %2$s. Les supprimer garde un seul fichier par titre.</item>
+        <item quantity="other">Un bug a laissé %1$d copies en trop de vos titres dans votre dossier de téléchargement, soit %2$s. Les supprimer garde un seul fichier par titre.</item>
+    </plurals>
+    <string name="dl_copies_remove">Supprimer</string>
+    <string name="dl_copies_not_now">Plus tard</string>
+    <string name="dl_copies_removing">Suppression des copies en trop : %1$d sur %2$d</string>
+    <plurals name="dl_copies_removed">
+        <item quantity="one">%1$d copie en trop supprimée (%2$s)</item>
+        <item quantity="many">%1$d copies en trop supprimées (%2$s)</item>
+        <item quantity="other">%1$d copies en trop supprimées (%2$s)</item>
+    </plurals>
     <string name="dl_simple_size_folder">Dans votre dossier : %s</string>
     <string name="dl_simple_clear_confirm">Supprimer les téléchargements gardés dans l\'application ? Les titres de votre dossier restent.</string>
     <string name="dl_simple_nothing_to_move">Rien à déplacer : aucun téléchargement dans l\'application.</string>
