@@ -748,7 +748,9 @@ private fun DrawScope.foldingHalf(sheet: LetterSheet, phi: Float, kit: SealKit) 
             lineTo(kit.dst[6], kit.dst[7])
             close()
         }
-        softShadow(kit.shade, 0.7f * (1f - lift), 3.dp.toPx())
+        // (Above the crease only: the lower half is the real paper, with its own.)
+        val far = 200.dp.toPx()
+        clipRect(-far, -far, sheet.pw + far, hinge) { softShadow(kit.shade, 0.7f * (1f - lift), 3.dp.toPx()) }
         // ...and its shade on the lower half under it as it stands up to the light.
         val reach = hinge * 0.5f * lift + 2.dp.toPx()
         clipRect(0f, hinge, sheet.pw, sheet.ph) {
