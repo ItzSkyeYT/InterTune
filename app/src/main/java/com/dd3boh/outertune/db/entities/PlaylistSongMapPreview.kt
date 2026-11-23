@@ -10,4 +10,6 @@ data class PlaylistSongMapPreview(
     @ColumnInfo(index = true) val playlistId: String,
     @ColumnInfo(index = true) val songId: String,
     val idInPlaylist: Int = 0,
+    /** The song's place in the playlist, read with the row to put the cover in order (Playlist.coverSongs). */
+    val position: Int = 0,
 )
