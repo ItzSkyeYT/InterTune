@@ -1411,7 +1411,7 @@ class MusicService : MediaLibraryService(),
         // player reads songs through, so a song is resolved once and its address kept for both.
         val playerSource = createDataSourceFactory()
         exoPlayer = ExoPlayer.Builder(this)
-            .setMediaSourceFactory(DefaultMediaSourceFactory(playerSource))
+            .setMediaSourceFactory(DefaultMediaSourceFactory(playerSource, seekableMp3Extractors()))
             // media3's analytics, told each queued period once: a period listed twice closed the app (#102, #103).
             .setAnalyticsCollector(UniqueQueueAnalytics())
             .setRenderersFactory(createRenderersFactory(isGaplessOffloadAllowed))

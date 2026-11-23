@@ -17,7 +17,7 @@ import androidx.media3.datasource.DataSpec
 import androidx.media3.datasource.TransferListener
 import androidx.media3.exoplayer.MediaExtractorCompat
 import androidx.media3.exoplayer.mediacodec.MediaCodecUtil
-import androidx.media3.extractor.DefaultExtractorsFactory
+import com.dd3boh.outertune.playback.seekableMp3Extractors
 import com.dd3boh.outertune.mix.FrontEnd
 import com.dd3boh.outertune.mix.FrontEndResult
 import java.io.IOException
@@ -55,7 +55,7 @@ class HeadDecoder(private val source: DataSource.Factory) {
      */
     fun read(mediaId: String, cancelled: () -> Boolean, copySeconds: Double = 0.0, wholeSeconds: Double = 0.0): Head {
         val started = SystemClock.elapsedRealtime()
-        val extractor = MediaExtractorCompat(DefaultExtractorsFactory(), KeyedSource(source, mediaId))
+        val extractor = MediaExtractorCompat(seekableMp3Extractors(), KeyedSource(source, mediaId))
         var codec: MediaCodec? = null
         try {
             extractor.setDataSource(Uri.parse(mediaId), 0)
