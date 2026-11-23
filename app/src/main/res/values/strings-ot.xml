@@ -2745,6 +2745,15 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="together_tour_add_body">Just press Play next on a song and it\'ll play after the current one, for everyone in the room.</string>
     <string name="together_tour_own_title">Your own way</string>
     <string name="together_tour_own_body">Pausing only pauses for you. You can listen on your own but catch up whenever you want.</string>
+    <string name="together_walk_role">This tells you who\'s picking the music right now, and what you can do.</string>
+    <string name="together_walk_invite">Send the link to your friends, or let them scan the QR code.</string>
+    <string name="together_walk_playing">This is what the room\'s playing. If you\'re listening on your own, just press Catch up to get back in.</string>
+    <string name="together_walk_proposal">When someone proposes a song it shows up here, just press Play it or Not now.</string>
+    <string name="together_walk_people">Everyone in the room. The star is the host and the ring is whoever\'s picking the music.</string>
+    <string name="together_walk_people_host">Everyone in the room. Tap on someone to give them control or remove them from the room.</string>
+    <string name="together_walk_settings">Your room settings, so you can choose if everyone can move in the song or change the queue.</string>
+    <string name="together_walk_leave">Leave whenever you want, the others keep listening.</string>
+    <string name="together_walk_close">This closes the room for everyone.</string>
     <string name="together_start">Start a room</string>
     <string name="together_code">Room code</string>
     <string name="together_join">Join</string>
@@ -2769,14 +2778,26 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="together_order_held_host">The host decides on shuffle and repeat</string>
     <string name="together_catch_up">Catch up</string>
     <string name="together_suggested">Added to the room: it plays next</string>
-    <string name="together_suggested_many">Added to the room: %1$d songs play next</string>
+    <plurals name="together_suggested_many">
+        <item quantity="one">Added to the room: %1$d song plays next</item>
+        <item quantity="other">Added to the room: %1$d songs play next</item>
+    </plurals>
     <string name="together_suggested_end">Added to the end of the room\'s queue</string>
-    <string name="together_suggested_many_end">%1$d songs added to the end of the room\'s queue</string>
-    <string name="together_suggested_cut">%1$d songs added to the room; the rest stayed out</string>
+    <plurals name="together_suggested_many_end">
+        <item quantity="one">%1$d song added to the end of the room\'s queue</item>
+        <item quantity="other">%1$d songs added to the end of the room\'s queue</item>
+    </plurals>
+    <plurals name="together_suggested_cut">
+        <item quantity="one">%1$d song added to the room; the rest stayed out</item>
+        <item quantity="other">%1$d songs added to the room; the rest stayed out</item>
+    </plurals>
     <string name="together_suggested_files">Songs from your files can\'t be played by the others</string>
     <string name="together_from_guest">%1$s suggested %2$s: it plays next</string>
     <string name="together_from_guest_end">%1$s added %2$s to the end of the queue</string>
-    <string name="together_from_guest_many">%1$s added %2$d songs to the queue</string>
+    <plurals name="together_from_guest_many">
+        <item quantity="one">%1$s added %2$d song to the queue</item>
+        <item quantity="other">%1$s added %2$d songs to the queue</item>
+    </plurals>
     <string name="together_last_suggestion">Last from a guest: %1$s</string>
     <string name="together_live_hosting">You\'re hosting</string>
     <string name="together_live_guest">You joined a room</string>
@@ -2829,6 +2850,8 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="together_song_unavailable">This song isn\'t available to you. You\'ll hear the host\'s next one.</string>
     <string name="together_song_only_there">%1$s is playing a song that\'s only on their phone.</string>
     <string name="together_song_only_here">This song is only on your phone, so the others can\'t hear it.</string>
+    <string name="together_song_matched">%1$s is playing a song from their phone, so you\'re hearing the YouTube Music version. It might not be exactly the same.</string>
+    <string name="together_song_version">YouTube Music version</string>
     <string name="together_paused_here">Paused here. Press play to go back to where the room is.</string>
     <string name="together_catch_up_after_cast">You\'ll catch up when the cast ends.</string>
     <string name="together_in_room">In a room</string>
@@ -2974,6 +2997,12 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="recap_notes_title" translatable="false">Your notes</string>
     <string name="recap_notes_opened_by" translatable="false">Opened by your %1$s Recap</string>
     <string name="recap_notes_none" translatable="false">Notes you write at the end of your Recap show up here.</string>
+    <string name="recap_alert_title" translatable="false">Your %1$s Recap is here</string>
+    <string name="recap_alert_line" translatable="false">Your year in music, ready when you are.</string>
+    <plurals name="recap_alert_notes" translatable="false">
+        <item quantity="one">And a note from your past self</item>
+        <item quantity="other">And %1$d notes from your past self</item>
+    </plurals>
     <string name="recap_minutes_kick_since" translatable="false">Since %1$s you listened for</string>
     <string name="recap_minutes_kick_year" translatable="false">In %1$s you listened for</string>
     <plurals name="recap_minutes_unit" translatable="false">

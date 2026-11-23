@@ -51,7 +51,6 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -149,6 +148,8 @@ class TogetherSession(
         val songOnlyThere: Boolean = false,
         /** In control: this phone plays a song from its files that isn't on YouTube Music, and the others hear nothing. */
         val songOnlyHere: Boolean = false,
+        /** Following: the room's song is YouTube Music's version of a file on the phone in control (PhoneSongs.Heard). */
+        val songMatched: Boolean = false,
         /** A guest that has heard nothing of the host for a while: it says the host is away (HostAbsence). */
         val hostAway: Boolean = false,
         /** This phone casts. Following, it then follows nothing until the cast ends (GuestCast). */
@@ -455,16 +456,13 @@ class TogetherSession(
                 sayHere()
             }
         }
-        // The owner's room settings as it left them in its last room, said in its Here (RoomSettings): once, as the room
-        // opens. A change in the sheet is the room's at once (letEveryoneSeek).
+        // The owner's room settings, set once and kept for every room it makes, as its name in rooms is (his word of
+        // 22 Nov 2026), in Settings > Listen together or the room's sheet, the same keys (RoomSettings): said in its Here
+        // as the room opens, and at once as they change.
         if (owner) scope.launch {
-            val stored = runCatching { service.dataStore.data.first() }.getOrNull()
-            ownSettings(
-                RoomSettings(
-                    everyoneSeeks = stored?.get(TogetherEveryoneSeeksKey) == true,
-                    everyoneArranges = stored?.get(TogetherEveryoneArrangesKey) == true,
-                )
-            )
+            service.dataStore.data.collect { prefs ->
+                ownSettings(RoomSettings(everyoneSeeks = prefs[TogetherEveryoneSeeksKey] == true, everyoneArranges = prefs[TogetherEveryoneArrangesKey] == true))
+            }
         }
         scope.launch {
             while (isActive) {
@@ -683,6 +681,7 @@ class TogetherSession(
                 playing = player.isPlaying || (player.playWhenReady && player.playbackState == Player.STATE_BUFFERING),
                 speed = player.playbackParameters.speed.toDouble(),
                 atMs = lastSentState,
+                fromFile = fromFile is PhoneSongs.Heard,
             )
         )
     }
@@ -910,6 +909,7 @@ class TogetherSession(
                         hostSongId = message.songId,
                         waitingForHost = false,
                         songOnlyThere = onlyThere,
+                        songMatched = message.fromFile && !onlyThere,
                     )
                 }
             }
@@ -1094,32 +1094,6 @@ class TogetherSession(
         inControl(me)
     }
 
-    /**
-     * The owner lets everyone move in the song, or only the person in control (RoomSettings), from the room's sheet. The
-     * room hears it at once, and the owner's next rooms start with it.
-     */
-    fun letEveryoneSeek(on: Boolean) {
-        if (!owner) return
-        ownSettings((_status.value.settings ?: RoomSettings()).copy(everyoneSeeks = on))
-        scope.launch {
-            runCatching { service.dataStore.edit { it[TogetherEveryoneSeeksKey] = on } }
-                .onFailure { Log.w(TAG, "The room settings could not be kept for the next room", it) }
-        }
-    }
-
-    /**
-     * The owner lets everyone change the queue, or only the person in control (RoomSettings), from the room's sheet. The
-     * room hears it at once, and the owner's next rooms start with it.
-     */
-    fun letEveryoneArrange(on: Boolean) {
-        if (!owner) return
-        ownSettings((_status.value.settings ?: RoomSettings()).copy(everyoneArranges = on))
-        scope.launch {
-            runCatching { service.dataStore.edit { it[TogetherEveryoneArrangesKey] = on } }
-                .onFailure { Log.w(TAG, "The room settings could not be kept for the next room", it) }
-        }
-    }
-
     /** Who said in their Here that, given control, they take a guest's change to the queue (Arrange). */
     private val arrangers = mutableSetOf<String>()
 
@@ -1265,7 +1239,7 @@ class TogetherSession(
         Log.i(TAG, "A guest added ${songs.size} songs: ${if (atEnd) "end" else "next"} in the queue")
         _status.value = _status.value.copy(lastSuggestion = "${songs.first().title}, $by")
         val text = when {
-            songs.size > 1 -> service.getString(R.string.together_from_guest_many, by, songs.size)
+            songs.size > 1 -> service.resources.getQuantityString(R.plurals.together_from_guest_many, songs.size, by, songs.size)
             atEnd -> service.getString(R.string.together_from_guest_end, by, songs.first().title)
             else -> service.getString(R.string.together_from_guest, by, songs.first().title)
         }

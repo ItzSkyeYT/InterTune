@@ -48,8 +48,10 @@ class RoomTourTest {
         assertTrue("dismissOnClickOutside = false" in dialog)
         assertTrue("TextButton(\n                        onClick = onDismiss,\n                        enabled = !last," in dialog)
         assertTrue("R.string.together_tour_skip" in dialog)
-        // The last page's tick closes it.
-        assertTrue("if (last) onDismiss() else" in dialog)
+        // The last page's tick closes it, and goes on to the walk over the room's sheet when one is on screen (RoomWalk).
+        val done = dialog.substringAfter("if (last) {").substringBefore("} else")
+        assertTrue("onDismiss()" in done)
+        assertTrue("if (RoomWalkAsk.areas > 0) RoomWalkAsk.wanted = true" in done)
     }
 
     @Test

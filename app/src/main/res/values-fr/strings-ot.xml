@@ -2537,6 +2537,15 @@
     <string name="together_tour_add_body">Appuyez sur « Suivant » sur un titre et il passera juste après celui en cours, pour tout le salon.</string>
     <string name="together_tour_own_title">De votre côté</string>
     <string name="together_tour_own_body">La pause ne met en pause que vous. Vous pouvez écouter de votre côté et rattraper le salon quand vous voulez.</string>
+    <string name="together_walk_role">Ici vous voyez qui choisit la musique en ce moment, et ce que vous pouvez faire.</string>
+    <string name="together_walk_invite">Envoyez le lien à vos amis, ou faites-leur scanner le code QR.</string>
+    <string name="together_walk_playing">C\'est ce que joue le salon. Si vous écoutez de votre côté, appuyez juste sur Rattraper pour revenir.</string>
+    <string name="together_walk_proposal">Quand quelqu\'un propose un titre, il s\'affiche ici, appuyez sur Le lancer ou Pas maintenant.</string>
+    <string name="together_walk_people">Tout le monde dans le salon. L\'étoile, c\'est l\'hôte, et l\'anneau, c\'est la personne qui choisit la musique.</string>
+    <string name="together_walk_people_host">Tout le monde dans le salon. Touchez quelqu\'un pour lui donner la main ou le retirer du salon.</string>
+    <string name="together_walk_settings">Les réglages de votre salon, pour choisir si tout le monde peut se déplacer dans le titre ou modifier la file d\'attente.</string>
+    <string name="together_walk_leave">Partez quand vous voulez, les autres continuent d\'écouter.</string>
+    <string name="together_walk_close">Ça ferme le salon pour tout le monde.</string>
     <string name="together_start">Créer un salon</string>
     <string name="together_code">Code du salon</string>
     <string name="together_join">Rejoindre</string>
@@ -2558,14 +2567,30 @@
     <string name="together_order_held_host">L\'hôte décide de l\'aléatoire et de la répétition</string>
     <string name="together_catch_up">Rattraper</string>
     <string name="together_suggested">Ajouté au salon : il passe ensuite</string>
-    <string name="together_suggested_many">Ajoutés au salon : %1$d titres passent ensuite</string>
+    <plurals name="together_suggested_many">
+        <item quantity="one">Ajouté au salon : %1$d titre passe ensuite</item>
+        <item quantity="many">Ajoutés au salon : %1$d titres passent ensuite</item>
+        <item quantity="other">Ajoutés au salon : %1$d titres passent ensuite</item>
+    </plurals>
     <string name="together_suggested_end">Ajouté à la fin de la file du salon</string>
-    <string name="together_suggested_many_end">%1$d titres ajoutés à la fin de la file du salon</string>
-    <string name="together_suggested_cut">%1$d titres ajoutés au salon ; les autres sont restés dehors</string>
+    <plurals name="together_suggested_many_end">
+        <item quantity="one">%1$d titre ajouté à la fin de la file du salon</item>
+        <item quantity="many">%1$d titres ajoutés à la fin de la file du salon</item>
+        <item quantity="other">%1$d titres ajoutés à la fin de la file du salon</item>
+    </plurals>
+    <plurals name="together_suggested_cut">
+        <item quantity="one">%1$d titre ajouté au salon ; les autres sont restés dehors</item>
+        <item quantity="many">%1$d titres ajoutés au salon ; les autres sont restés dehors</item>
+        <item quantity="other">%1$d titres ajoutés au salon ; les autres sont restés dehors</item>
+    </plurals>
     <string name="together_suggested_files">Les titres de vos fichiers ne peuvent pas être lus par les autres</string>
     <string name="together_from_guest">%1$s propose %2$s : il passe ensuite</string>
     <string name="together_from_guest_end">%1$s a ajouté %2$s à la fin de la file</string>
-    <string name="together_from_guest_many">%1$s a ajouté %2$d titres à la file</string>
+    <plurals name="together_from_guest_many">
+        <item quantity="one">%1$s a ajouté %2$d titre à la file</item>
+        <item quantity="many">%1$s a ajouté %2$d titres à la file</item>
+        <item quantity="other">%1$s a ajouté %2$d titres à la file</item>
+    </plurals>
     <string name="together_last_suggestion">Dernier d\'un invité : %1$s</string>
     <string name="together_live_hosting">Vous êtes l\'hôte</string>
     <string name="together_live_guest">Vous avez rejoint un salon</string>
@@ -2614,6 +2639,8 @@
     <string name="together_song_unavailable">Ce titre n\'est pas disponible pour vous. Vous entendrez le suivant de l\'hôte.</string>
     <string name="together_song_only_there">%1$s passe un titre qui n\'est que sur son téléphone.</string>
     <string name="together_song_only_here">Ce titre n\'est que sur votre téléphone, personne d\'autre ne l\'entend.</string>
+    <string name="together_song_matched">%1$s passe un titre de son téléphone, donc vous entendez la version YouTube Music. Ce n\'est peut-être pas exactement la même.</string>
+    <string name="together_song_version">Version YouTube Music</string>
     <string name="together_paused_here">En pause ici. Appuyez sur lecture pour revenir où en est le salon.</string>
     <string name="together_catch_up_after_cast">Vous rattraperez le salon à la fin du cast.</string>
     <string name="together_in_room">Dans un salon</string>
@@ -2768,6 +2795,13 @@
     <string name="recap_notes_title">Vos mots</string>
     <string name="recap_notes_opened_by">Ouverts par votre Recap %1$s</string>
     <string name="recap_notes_none">Les mots que vous écrivez à la fin de votre Recap apparaissent ici.</string>
+    <string name="recap_alert_title">Votre Recap %1$s est là</string>
+    <string name="recap_alert_line">Votre année en musique, prête quand vous l\'êtes.</string>
+    <plurals name="recap_alert_notes" tools:ignore="ImpliedQuantity">
+        <item quantity="one">Et un mot de vous, il y a un an</item>
+        <item quantity="many">Et %1$d mots de vous, il y a un an</item>
+        <item quantity="other">Et %1$d mots de vous, il y a un an</item>
+    </plurals>
     <string name="recap_minutes_kick_since">Depuis le %1$s, vous avez écouté</string>
     <string name="recap_minutes_kick_year">En %1$s, vous avez écouté</string>
     <plurals name="recap_minutes_unit" tools:ignore="ImpliedQuantity">

@@ -90,11 +90,12 @@ On a Samsung, Auto Blocker stops installs as well. Turn it off for the install a
 
 **Playback**
 
+- Listen together: friends hear the same song at the same time, from a code or a QR *(0.13)*
 - Songs play to the end, with several ways round it when YouTube refuses a stream
 - Songs YouTube gave a new id play again, or are set aside with the reason
 - Fade between tracks, and a sleep timer that fades out
 - Radios that learn from your skips and likes, and swap in fresh picks
-- Cast to a Chromecast, an FCast receiver or a DLNA TV
+- Cast to a Chromecast, an FCast receiver, a DLNA TV or an AirPlay speaker *(AirPlay in 0.13)*
 - The highest audio quality available, with the real codec and bitrate shown
 
 </td>
@@ -107,6 +108,7 @@ On a Samsung, Auto Blocker stops installs as well. Turn it off for the install a
 - Head tracking where the phone allows it
 - Quieter as you walk away from the phone, on Bluetooth headphones
 - Volume levelling that works, and a volume slider that goes past 100%
+- Varispeed: the pitch follows the speed, like a record *(0.13)*
 
 </td>
 </tr>
@@ -118,7 +120,7 @@ On a Samsung, Auto Blocker stops installs as well. Turn it off for the install a
 - Best recommendations: Quick picks made on your phone from how you listen
 - See why each song is there, and steer the row with dials and moods
 - A second row of songs you have never played
-- Similar songs from Last.fm, if you want them
+- Don't play this song, or block an artist: radios and Shuffle never bring them back *(0.13)*
 - A Home without hour-long mixes or previews
 
 </td>
@@ -130,6 +132,7 @@ On a Samsung, Auto Blocker stops installs as well. Turn it off for the install a
 - Keep listening runs in the background with the screen off
 - It can fill a playlist with everything it hears
 - It tells a sped-up edit or a remix from the original
+- It works offline, and names the song once you're back online *(0.13)*
 
 </td>
 </tr>
@@ -139,9 +142,12 @@ On a Samsung, Auto Blocker stops installs as well. Turn it off for the install a
 **Library**
 
 - Import playlists from Spotify, Apple Music, Deezer, Tidal, Amazon Music, SoundCloud, Qobuz or a CSV file
+- Bring your whole library over from Metrolist *(0.13)*
 - Your own music files beside YouTube Music
 - Downloads for offline listening, which can wait for Wi-Fi
-- Sync that never loses songs, and Last.fm scrobbling
+- Downloads as MP3, M4A, FLAC or WAV, with the title, artist and cover, at a quality of their own *(0.13)*
+- Your playlists, albums and artists in your own order *(0.13)*
+- Sync that never loses songs, and scrobbling to ListenBrainz in place of Last.fm *(0.13)*
 - Automatic backups, a history of every play, and stats that stay on your phone
 
 </td>
@@ -150,6 +156,7 @@ On a Samsung, Auto Blocker stops installs as well. Turn it off for the install a
 **Lyrics**
 
 - Synced lyrics from LRCLIB and KuGou
+- Choose which lyrics sources are used, and in what order *(0.13)*
 - Search for other lyrics, or edit them yourself
 - Chinese lyrics found in either script
 - A line in Latin letters under Japanese (romaji, kanji kept), Korean, Chinese, Russian and more, from Android 10
@@ -167,6 +174,7 @@ On a Samsung, Auto Blocker stops installs as well. Turn it off for the install a
 - Layouts for a phone on its side and for tablets
 - A home screen widget
 - Android Auto with "Hey Google, play"
+- Choose what's in the three-dot menus, and how strongly the buttons vibrate *(0.13)*
 - A three-page setup, and a page of what is new after each update
 
 </td>
@@ -182,6 +190,8 @@ On a Samsung, Auto Blocker stops installs as well. Turn it off for the install a
 </td>
 </tr>
 </table>
+
+Marked *(0.13)*: coming in the next version.
 
 Every change in detail, and why this fork exists: [docs/FEATURES.md](https://github.com/ItzSkyeYT/InterTune/blob/visionos-fix/docs/FEATURES.md)
 
@@ -343,7 +353,7 @@ Thank you so much, everyone, for your support in this growing project!
 
 <p align="center"><a href="https://github.com/3SSF"><img src="https://github.com/3SSF.png?size=128" width="64" height="64" alt="3SSF"></a><br><b><a href="https://github.com/3SSF">3SSF</a></b><br><sub>The first code from outside: a music note on local songs with no cover (<a href="https://github.com/ItzSkyeYT/InterTune/pull/161">#161</a>) · November 2026</sub></p>
 
-<p align="center"><b>Want to help?</b> <a href="CONTRIBUTING.md">CONTRIBUTING.md</a> says how to build it, and the <a href="https://discord.gg/68jmqhMjXk">Discord server</a> is the place to ask for a first task.</p>
+<p align="center"><b>Want to help?</b> <a href=".github/CONTRIBUTING.md">CONTRIBUTING.md</a> says how to build it, and the <a href="https://discord.gg/68jmqhMjXk">Discord server</a> is the place to ask for a first task.</p>
 
 ## Donors
 
@@ -407,7 +417,7 @@ InterTune stands on a lot of other people's work.
 
 GPL-3.0-only. See [LICENSE](https://github.com/ItzSkyeYT/InterTune/tree/visionos-fix/LICENSE).
 
-Forking InterTune? Read the [fork rules](FORKS.md) first: they apply before you share a single build.
+Forking InterTune? Read the [fork rules](docs/FORKS.md) first: they apply before you share a single build.
 
 <details>
 <summary>Why "only"</summary>

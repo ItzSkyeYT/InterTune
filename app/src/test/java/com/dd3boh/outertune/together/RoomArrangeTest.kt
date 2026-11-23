@@ -136,12 +136,8 @@ class RoomArrangeTest {
         assertTrue("qb.moveSong(from, to)" in queue && "playerConnection.player.moveMediaItem(from, to)" in queue)
         assertTrue("val at = RoomArrange.placeOf(ids, message.songId, current) ?: return" in made)
         assertTrue("Toaster.show(service, service.getString(R.string.together_arranged, by))" in made)
-        // A switch of the owner's alone, kept for its next rooms, the other switches as they are.
-        val switch = session.substringAfter("fun letEveryoneArrange(on: Boolean) {").substringBefore("\n    }\n")
-        assertTrue(switch.trimStart().startsWith("if (!owner) return"))
-        assertTrue("ownSettings((_status.value.settings ?: RoomSettings()).copy(everyoneArranges = on))" in switch)
-        assertTrue("it[TogetherEveryoneArrangesKey] = on" in switch)
-        assertTrue("everyoneArranges = stored?.get(TogetherEveryoneArrangesKey) == true," in session)
+        // The owner's setting, set once for its rooms as its name is, unset being off (RoomSettingsTest).
+        assertTrue("everyoneArranges = prefs[TogetherEveryoneArrangesKey] == true" in session)
     }
 
     @Test

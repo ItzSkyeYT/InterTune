@@ -1636,4 +1636,52 @@
     <string name="problem_report_copy">Copiar</string>
     <string name="problem_report_copied">Copiado</string>
     <string name="problem_report_close">Cerrar</string>
+    <string name="link_open_failed">No pude abrir el link. Intenta otra vez en unos momentos.</string>
+    <string name="auto_more_downloaded">Descargado</string>
+    <string name="auto_more_downloaded_line">Reproduce sin conexión</string>
+    <string name="auto_more_recent">Reproducido recientemente</string>
+    <string name="auto_search_offline">Sin conexión a Internet en el teléfono</string>
+    <string name="auto_search_no_answer">Youtube Music no respondió</string>
+    <string name="auto_search_again">Buscar otra vez</string>
+    <string name="auto_settings_sound">Sonido</string>
+    <string name="auto_settings_playback">Reproducción</string>
+    <string name="auto_more_line">La lista nunca termina</string>
+    <string name="adaptive_radio_description">Las canciones que aparecen más abajo en la radio cambian a medida que las saltas, las terminas o les das \"me gusta\".</string>
+    <string name="adaptive_queue_explain">Si saltas, terminas o le das like a las canciones, el resto de la radio se adapta. Algunas de las siguientes canciones se quedan en su sitio, y las listas de reproducción y los álbumes nunca cambian.</string>
+    <string name="auto_more_recent_line">Comienza de donde lo dejaste</string>
+    <string name="auto_more_shuffle_line">Todo lo que guardaste, pero mezclado</string>
+    <string name="auto_silence_line">Elimina los comienzos y los finales silenciosos</string>
+    <plurals name="adaptive_note_after_skip">
+        <item quantity="one">nueva recomendación después de que saltaras la canción</item>
+        <item quantity="many">nuevas recomendaciones después de que saltaras la canción</item>
+        <item quantity="other">nuevas recomendaciones después de que saltaras la canción</item>
+    </plurals>
+    <plurals name="adaptive_note_like">
+        <item quantity="one">nueva selección similar a</item>
+        <item quantity="many">nuevas selecciones automáticas similares a</item>
+        <item quantity="other">nuevas selecciones automáticas similares a</item>
+    </plurals>
+    <plurals name="adaptive_note_finish">
+        <item quantity="one">nueva selección similar a tus canciones pasadas</item>
+        <item quantity="many">nuevas selecciones similares a tus canciones pasadas</item>
+        <item quantity="other">nuevas selecciones similares a tus canciones pasadas</item>
+    </plurals>
+    <plurals name="adaptive_note_dropped">
+        <item quantity="one">Saqué una canción que probablemente ibas a saltar</item>
+        <item quantity="many">Saqué %1$d canciones que probablemente ibas a saltar</item>
+        <item quantity="other">Saqué %1$d canciones que probablemente ibas a saltar</item>
+    </plurals>
+    <string name="adaptive_pick_mark">Nueva selección</string>
+    <string name="err_not_audio">Pedí una canción y me regresaron otra cosa que no es audio. Algo en la conexión de red puede que esté respondiendo que no sea YouTube Music, sino otra cosa como un VPN o un bloqueador de anuncios.</string>
+    <string name="err_sign_in_wanted">YouTube quiere un inicio de sesión para poder reproducir desde esta red. Las VPN y las conexiones compartidas suelen ser rechazadas.</string>
+    <string name="gone_song_skipped">Salté una canción que no está disponible en YouTube: \"%1$s\"</string>
+    <string name="player_error_report">Reportar</string>
+    <string name="high_contrast">Compatibilidad con el modo de alto contraste</string>
+    <string name="high_contrast_description">Actívalo cuando el modo de alto contraste de Android está activo, para solucionar posibles errores</string>
+    <string name="player_living_sample_silent">Nada se está reproduciendo, así que no hay nada para mover.</string>
+    <string name="player_living_sample_play">Reproduce una canción</string>
+    <string name="living_tune_three_colours">Tres colores</string>
+    <string name="living_tune_cover">Portada</string>
+    <string name="living_tune_strength">Intensidad</string>
+    <string name="living_tune_smoothing">Suavidad</string>
 </resources>
