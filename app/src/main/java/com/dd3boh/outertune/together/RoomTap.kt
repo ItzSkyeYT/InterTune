@@ -111,8 +111,15 @@ internal object RoomTap {
             return number
         }
 
-        /** The start numbered [n] has loaded or failed: the queue the room played and the songs kept, when it is the last start; else null. */
-        fun end(n: Long): Pair<Q?, List<S>>? = if (n == number) take() else null
+        /**
+         * The start numbered [n] has loaded or failed: the queue the room played and the songs kept, when it is the last
+         * start, and once; else null.
+         */
+        fun end(n: Long): Pair<Q?, List<S>>? {
+            if (n != number) return null
+            number++
+            return take()
+        }
 
         /** A song tapped in the room: every start still waiting is over, and what they kept goes back after that song. */
         fun tap(): Pair<Q?, List<S>> {
