@@ -68,12 +68,20 @@ object RecapChorus {
         return (first + scores.indexOfFirst { it >= top * (1 - NEAR) }) * stepMs
     }
 
+    /** The block, of [stepMs] each, that a buffer starting after [frames] samples (per channel) at [sampleRate] falls in. */
+    internal fun blockAt(frames: Long, sampleRate: Int, stepMs: Long): Int = (frames * 1000 / sampleRate / stepMs).toInt()
+
     /**
      * The loudness of the file at [path] in each [STEP_MS] from its start (the root mean square of what
      * was decoded in it), and its length; null where it cannot be read. The file is decoded straight
      * through, with no seeks: the first walk on the Pixel 5 (22 Nov 2026) read it a moment every two
      * seconds after a seek each, and every start came 2 to 8 seconds late, Android's MP3 seeks landing
      * elsewhere than they say. A four-minute song decodes in about a second. Off the main thread.
+     *
+     * Time is counted by the decoded samples themselves ([blockAt]), not by the timestamps Android puts on them: for a
+     * variable-bitrate MP3 without a header those are guessed from its first frames, and a 3-minute test file read as
+     * 48 s long with no loud stretch at all (23 Nov 2026, experiments/features/recap/chorus-1123). Its length comes
+     * from the samples too.
      */
     fun envelope(path: String): Pair<FloatArray, Long>? {
         val extractor = MediaExtractor()
@@ -88,9 +96,11 @@ object RecapChorus {
             val durationUs = if (format.containsKey(MediaFormat.KEY_DURATION)) format.getLong(MediaFormat.KEY_DURATION) else return null
             extractor.selectTrack(track)
             codec = MediaCodec.createDecoderByType(mime).apply { configure(format, null, null, 0); start() }
-            val blocks = (durationUs / 1000 / STEP_MS).toInt() + 1
-            val sums = DoubleArray(blocks)
-            val counts = LongArray(blocks)
+            // Sized from the container's guess and grown as the samples say: the guess can be far short.
+            var sums = DoubleArray((durationUs / 1000 / STEP_MS).toInt() + 1)
+            var counts = LongArray(sums.size)
+            var used = 0
+            var frames = 0L
             val info = MediaCodec.BufferInfo()
             var inputDone = false
             var idle = 0
@@ -115,9 +125,18 @@ object RecapChorus {
                 }
                 idle = 0
                 if (info.size > 0) {
-                    // A buffer is a few tens of milliseconds: all of it counts in the block it begins in.
-                    val block = (info.presentationTimeUs / 1000 / STEP_MS).toInt().coerceIn(0, blocks - 1)
-                    val float = codec.outputFormat.let { it.containsKey(MediaFormat.KEY_PCM_ENCODING) && it.getInteger(MediaFormat.KEY_PCM_ENCODING) == AudioFormat.ENCODING_PCM_FLOAT }
+                    // A buffer is a few tens of milliseconds: all of it counts in the block it begins in, by the samples
+                    // decoded before it; the timestamp only where the decoder does not say its rate.
+                    val out = codec.outputFormat
+                    val rate = if (out.containsKey(MediaFormat.KEY_SAMPLE_RATE)) out.getInteger(MediaFormat.KEY_SAMPLE_RATE) else 0
+                    val channels = if (out.containsKey(MediaFormat.KEY_CHANNEL_COUNT)) out.getInteger(MediaFormat.KEY_CHANNEL_COUNT).coerceAtLeast(1) else 1
+                    val block = (if (rate > 0) blockAt(frames, rate, STEP_MS) else (info.presentationTimeUs / 1000 / STEP_MS).toInt()).coerceAtLeast(0)
+                    if (block >= sums.size) {
+                        val size = maxOf(block + 1, sums.size * 2)
+                        sums = sums.copyOf(size)
+                        counts = counts.copyOf(size)
+                    }
+                    val float = out.containsKey(MediaFormat.KEY_PCM_ENCODING) && out.getInteger(MediaFormat.KEY_PCM_ENCODING) == AudioFormat.ENCODING_PCM_FLOAT
                     val buf = codec.getOutputBuffer(o)!!.order(ByteOrder.nativeOrder())
                     buf.position(info.offset).limit(info.offset + info.size)
                     var sum = 0.0
@@ -131,12 +150,16 @@ object RecapChorus {
                     }
                     sums[block] += sum
                     counts[block] += count
+                    used = maxOf(used, block + 1)
+                    if (rate > 0) frames += count / channels
                 }
                 codec.releaseOutputBuffer(o, false)
                 if (info.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) break
             }
-            val out = FloatArray(blocks) { if (counts[it] > 0) sqrt(sums[it] / counts[it]).toFloat() else 0f }
-            return out to durationUs / 1000
+            val rate = codec.outputFormat.let { if (it.containsKey(MediaFormat.KEY_SAMPLE_RATE)) it.getInteger(MediaFormat.KEY_SAMPLE_RATE) else 0 }
+            val blocks = maxOf(used, 1)
+            val loudness = FloatArray(blocks) { if (counts[it] > 0) sqrt(sums[it] / counts[it]).toFloat() else 0f }
+            return loudness to (if (rate > 0 && frames > 0) frames * 1000 / rate else durationUs / 1000)
         } catch (e: Exception) {
             return null
         } finally {
