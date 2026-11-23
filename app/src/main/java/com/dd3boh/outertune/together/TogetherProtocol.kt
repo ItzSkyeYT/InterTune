@@ -102,7 +102,11 @@ sealed interface TogetherMessage {
      */
     data class Arrange(val songId: String, val after: String? = null, val remove: Boolean = false) : TogetherMessage
 
-    data class Song(val id: String, val title: String, val artist: String, val thumbnail: String)
+    /**
+     * [by]: the key of the phone that put the song in the room's queue, said only when that is not the phone sending it
+     * (WhoAdded): null for the sender's own song, and for every song from a build before this one, which never says.
+     */
+    data class Song(val id: String, val title: String, val artist: String, val thumbnail: String, val by: String? = null)
 
     /**
      * A follower's own song proposed to the leader (his ask of 17 Oct 2026), with the queue its own
@@ -203,14 +207,17 @@ sealed interface TogetherMessage {
 
         private fun songsJson(songs: List<Song>) = buildJsonArray {
             songs.forEach { song ->
-                addJsonObject { put("id", song.id); put("title", song.title); put("artist", song.artist); put("thumb", thumbnailFor(song.thumbnail)) }
+                addJsonObject {
+                    put("id", song.id); put("title", song.title); put("artist", song.artist); put("thumb", thumbnailFor(song.thumbnail))
+                    WhoAdded.named(song.by)?.let { put("by", it) }
+                }
             }
         }
 
         private fun songsOf(o: JsonObject) = o["songs"]!!.jsonArray.map { item ->
             val song = item.jsonObject
             fun f(key: String) = song[key]!!.jsonPrimitive.content
-            Song(f("id"), f("title"), f("artist"), thumbnailFor(f("thumb")))
+            Song(f("id"), f("title"), f("artist"), thumbnailFor(f("thumb")), by = WhoAdded.named((song["by"] as? JsonPrimitive)?.contentOrNull))
         }
 
         fun decode(text: String): TogetherMessage? = runCatching { decodeObject(Json.parseToJsonElement(text) as JsonObject) }.getOrNull()

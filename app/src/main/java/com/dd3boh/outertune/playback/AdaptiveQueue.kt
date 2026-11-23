@@ -297,10 +297,13 @@ object AdaptiveQueue {
          * A song noted while it is already the one playing is not noted again: the song brought
          * back after the app was closed, and repeat one, would otherwise fill the run with copies
          * of itself. A song that comes back later in the run is heard again ([Entry.replay]).
+         *
+         * Not [learns]: someone else put it in a listening room's queue (together/WhoAdded). The run
+         * hears it, and takes nothing from it: no keep, skip or like, no seed, nothing of its sound.
          */
         fun note(
             queue: Long, id: String, title: String?, artists: List<String> = emptyList(), durationSec: Int = -1,
-            runId: Long = 0L, radio: Boolean = false,
+            runId: Long = 0L, radio: Boolean = false, learns: Boolean = true,
         ) {
             val key = keyOf(queue, runId)
             if (key != run.key) switchTo(key, queue, runId)
@@ -312,10 +315,11 @@ object AdaptiveQueue {
             // song was playing: that one is not heard again for being noted on the way back in.
             val restoredPlaying = first == null && run.playingId == id
             val entry = Entry(Song(id, title, artists, durationSec))
+            entry.theirs = !learns
             entry.replay = id in run.ids && !restoredPlaying
             run.recent.addFirst(entry)
             while (run.recent.size > recentCap) run.recent.removeLast()
-            if (run.start == null) run.start = entry
+            if (run.start == null && learns) run.start = entry
             run.ids.remove(id)
             run.ids.add(id)
             while (run.ids.size > reachedCap) run.ids.remove(run.ids.first())
@@ -328,7 +332,7 @@ object AdaptiveQueue {
             if (!restoredPlaying) run.played++
             // Going back to a song, or tapping it, is asking for it: whatever it was skipped for
             // in this run is forgiven.
-            if (entry.replay) kept(entry)
+            if (entry.replay && learns) kept(entry)
         }
 
         /**
@@ -349,8 +353,8 @@ object AdaptiveQueue {
             }
         }
 
-        /** The titles of the last [n] songs heard, newest first, the one playing included. */
-        fun titles(n: Int): List<String?> = run.recent.take(n).map { it.song.title }
+        /** The titles of the last [n] songs heard, newest first, the one playing included, none of someone else's. */
+        fun titles(n: Int): List<String?> = run.recent.asSequence().filter { !it.theirs }.take(n).map { it.song.title }.toList()
 
         /**
          * The titles of the last [n] songs of the run as the listener kept it, newest first: what
@@ -363,13 +367,18 @@ object AdaptiveQueue {
          * picks lost to slowed ones.
          */
         fun keptTitles(n: Int): List<String?> = run.recent.asSequence()
-            .filterIndexed { i, e -> if (i == 0) e.positive else !e.turnedAway }
+            .filterIndexed { i, e -> !e.theirs && (if (i == 0) e.positive else !e.turnedAway) }
             .take(n).map { it.song.title }.toList()
 
         /** The song playing was left as [how] says ([leave]). Called before the next is noted. */
         fun left(how: Leave) {
             val entry = run.recent.firstOrNull() ?: return
             touch()
+            // Someone else's song in a listening room: however it was left, it says nothing.
+            if (entry.theirs) {
+                run.lastLeave = Leave.NEITHER
+                return
+            }
             // A song liked while it played was answered by the like: leaving it early after that
             // says nothing new against it.
             run.lastLeave = if (how == Leave.SKIPPED && entry.liked) Leave.NEITHER else how
@@ -406,7 +415,7 @@ object AdaptiveQueue {
 
         /** The song playing, [id], was liked: a positive at once, and two picks like it to come. */
         fun liked(id: String) {
-            val entry = run.recent.firstOrNull()?.takeIf { it.song.id == id } ?: return
+            val entry = run.recent.firstOrNull()?.takeIf { it.song.id == id && !it.theirs } ?: return
             entry.liked = true
             kept(entry)
             if (id !in run.likeAnswered) run.likePending = id
@@ -430,25 +439,27 @@ object AdaptiveQueue {
         /**
          * [id] was swiped out of the queue: its other versions go with it, and its artists take a
          * skip each. A pick the listener took out is never picked again in this run. What it changed
-         * comes back, for the queue sheet's Undo to take back with [putBackByHand].
+         * comes back, for the queue sheet's Undo to take back with [putBackByHand]. Not [learns]:
+         * someone else put it in a listening room's queue (together/WhoAdded), and it goes saying
+         * nothing against its artists or its title.
          */
-        fun removedByHand(id: String, title: String?, artists: List<String>): Removal {
+        fun removedByHand(id: String, title: String?, artists: List<String>, learns: Boolean = true): Removal {
             val r = run
             val song = Song(id, title, artists, -1)
             val skippedBefore = r.skippedSongs.toList()
-            val base = title?.let { SongVersions.baseTitle(it, artists.firstOrNull()) }?.takeIf { it.isNotBlank() }
+            val base = title?.let { SongVersions.baseTitle(it, artists.firstOrNull()) }?.takeIf { it.isNotBlank() && learns }
             val marked = r.recent.filter { it.song.id == id && !it.removed }
             val seed = r.picks[id]
             val removal = TakenOut(
                 id = id, run = r,
-                artists = artists.map { it.trim().lowercase() }.distinct(),
+                artists = if (learns) artists.map { it.trim().lowercase() }.distinct() else emptyList(),
                 base = base?.takeIf { it !in r.skippedSongs },
                 marked = marked,
                 pickSeed = seed,
                 wasDismissed = id in r.dismissed,
                 wasByHand = id in r.byHand,
             )
-            skipped(song)
+            if (learns) skipped(song)
             removal.crowdedOut = skippedBefore.filter { it !in r.skippedSongs }
             marked.forEach { it.removed = true }
             if (r.picks.remove(id) != null) r.dismissed.add(id)
@@ -758,8 +769,11 @@ object AdaptiveQueue {
         var replay = false
         var removed = false
 
+        /** Put in by someone else in a listening room (together/WhoAdded): heard, and never wanted or turned down. */
+        var theirs = false
+
         /** A song the run counts as wanted: kept, liked, or heard again and not skipped since. */
-        val positive: Boolean get() = liked || ((kept || replay) && !skipped && !removed)
+        val positive: Boolean get() = !theirs && (liked || ((kept || replay) && !skipped && !removed))
 
         /** Skipped or swiped out, and not liked. */
         val turnedAway: Boolean get() = (skipped || removed) && !liked

@@ -246,6 +246,7 @@ import com.dd3boh.outertune.playback.queues.YouTubeQueue
 import com.dd3boh.outertune.together.TogetherSession
 import com.dd3boh.outertune.together.RoomCode
 import com.dd3boh.outertune.together.RoomMemory
+import com.dd3boh.outertune.together.WhoAdded
 import com.dd3boh.outertune.together.hexToBytes
 import com.dd3boh.outertune.ui.dialog.togetherAvailable
 import com.dd3boh.outertune.ui.dialog.togetherName
@@ -583,6 +584,8 @@ class MusicService : MediaLibraryService(),
         identity: ByteArray? = null,
         hostHeardAt: Long? = null,
         lead: String? = null,
+        /** Whose each song was in the room this one carries on from under a new code (moveTogether). */
+        carried: WhoAdded.Carried? = null,
     ): TogetherSession? {
         if (destroyed) {
             Log.w(TAG, "No room is made on a service that has stopped")
@@ -593,8 +596,8 @@ class MusicService : MediaLibraryService(),
         // Another room in its place: the one it replaces ends, and an owner's says so. Not when the room carries on under
         // a new code (moveTogether): its people have moved with it.
         together.value?.let { if (moving) it.stop() else it.closeNow() }
-        val session = if (identity != null) TogetherSession(this, code, owner, relays, name, identity, hostHeardAt = hostHeardAt ?: 0L, lead = lead)
-        else TogetherSession(this, code, owner, relays, name, hostHeardAt = hostHeardAt ?: 0L)
+        val session = if (identity != null) TogetherSession(this, code, owner, relays, name, identity, hostHeardAt = hostHeardAt ?: 0L, lead = lead, carried = carried)
+        else TogetherSession(this, code, owner, relays, name, hostHeardAt = hostHeardAt ?: 0L, carried = carried)
         together.value = session
         session.start()
         // Not now for a guest's room that comes back: saved as now, a room its host had closed was kept six more hours
@@ -607,7 +610,8 @@ class MusicService : MediaLibraryService(),
     /** The room carries on under [code], each phone as it was: what its owner does after sending someone out. */
     fun moveTogether(code: RoomCode) {
         val room = together.value ?: return
-        startTogether(code, room.owner, room.relays, room.name, moving = true)
+        // The songs others put in stay theirs under the new code, where everyone has a new key (WhoAdded).
+        startTogether(code, room.owner, room.relays, room.name, moving = true, carried = room.carriedSongs())
     }
 
     /** The room is over, by the person's own hand or because it was closed: it is forgotten, and does not come back. */
@@ -2659,6 +2663,9 @@ class MusicService : MediaLibraryService(),
                 if (song.id == currentSong.value?.song?.id) {
                     val liked = song.liked
                     scope.launch {
+                        // A song someone else put in a listening room's queue: the like is kept in Liked songs, and the
+                        // queue takes nothing from it (WhoAdded).
+                        if (together.value?.learnsFrom(song.id) == false) return@launch
                         if (liked) heard.liked(song.id) else heard.unliked(song.id)
                         adaptiveChanged()
                         if (liked) replanQueueTail(strong = true, like = true)
@@ -3266,7 +3273,9 @@ class MusicService : MediaLibraryService(),
      * comes back for the sheet's Undo ([notePutBackByHand]). Main thread.
      */
     fun noteRemovedByHand(song: MediaMetadata): AdaptiveQueue.Heard.Removal {
-        val removal = heard.removedByHand(song.id, song.title, song.artists.map { it.name })
+        // Someone else's song in a listening room goes, and says nothing against its artists (WhoAdded).
+        val learns = together.value?.learnsFrom(song.id) != false
+        val removal = heard.removedByHand(song.id, song.title, song.artists.map { it.name }, learns)
         adaptiveChanged()
         return removal
     }
@@ -6174,6 +6183,8 @@ class MusicService : MediaLibraryService(),
                 q?.id ?: 0L, it.mediaId, it.mediaMetadata.title?.toString(),
                 it.metadata?.artists?.map { a -> a.name }.orEmpty(), it.metadata?.duration ?: -1,
                 runId = q?.runId ?: 0L, radio = q?.playlistId != null,
+                // Someone else's song in a listening room: the run hears it and learns nothing from it (WhoAdded).
+                learns = together.value?.learnsFrom(it.mediaId) != false,
             )
             heard.takeRestored()?.let { Log.d(TAG, AdaptivePass.restoredLine(it)) }
             // A pass asked in the run before has nothing to plan here: none of this one is heard yet.
@@ -6593,11 +6604,17 @@ class MusicService : MediaLibraryService(),
         checkpointJob?.cancel()
         val q = queueBoard.getCurrentQueue()
         val id = mediaItem?.mediaId ?: run { plays.transition(reason, null, null); return }
+        // In a listening room, a song someone else put in the queue is heard, and written to the history, Stats and the
+        // Recap as ever, but it teaches nothing (WhoAdded): his word of 23 Nov 2026.
+        val roomLearns = together.value?.learnsFrom(id)
+        if (roomLearns != null) {
+            Log.i(TAG, if (roomLearns) "Room: $id was put in by this phone, learned from as ever" else "Room: $id was put in by someone else, heard but not learned from")
+        }
         val info = StartInfo(
             origin = origin?.code ?: q?.origin ?: PlayOrigin.UNKNOWN.code,
             originSlot = q?.originSlot ?: -1,
             queueId = q?.id ?: 0L,
-            learn = q?.learn ?: true,
+            learn = (q?.learn ?: true) && roomLearns != false,
             autoplayDepth = autoplayRun,
             runId = q?.runId ?: 0L,
             tappedAt = tap,
@@ -6923,6 +6940,8 @@ class MusicService : MediaLibraryService(),
             var listenId = 0L
             // How this play ended, once its row is written: its own, never another play's.
             var endReason: Int? = null
+            // Whether it teaches: not a play of a queue told not to, nor of someone else's song in a listening room.
+            var learned = true
             // The complete record, under the same privacy switch as the counted play. Every song
             // that actually sounded goes in, however briefly: a second of something before
             // skipping it is still a fact about what was played, and the row carries `counted` so
@@ -6940,13 +6959,14 @@ class MusicService : MediaLibraryService(),
                 listenId = runCatching {
                     val closed = plays.close(mediaItem.mediaId, endedByPlayer = playbackStats.endedCount > 0) { delay(300) }
                     endReason = closed.endReason
+                    learned = closed.play?.learn ?: true
                     logListen(mediaItem.mediaId, closed, playbackStats, durationSec, playRatio, counted)
                 }.onFailure { Log.w(TAG, "Could not log listen", it) }.getOrDefault(0L)
             }
             // Rest songs I skip: a skip before the middle of a liked or often-played song rests it
             // from the engine row for a week, so a mood does not become a verdict.
             if (!historyPaused && playRatio in 0f..0.5f && playbackStats.totalPlayTimeMs >= 30_000 &&
-                endReason == EndReason.SKIPPED && dataStore.get(RestSongsISkipKey, false)
+                endReason == EndReason.SKIPPED && learned && dataStore.get(RestSongsISkipKey, false)
             ) {
                 val title = mediaItem.metadata?.title ?: mediaItem.mediaId
                 database.query {
