@@ -72,3 +72,21 @@ internal class AskedFor(private val max: Int = MAX) {
         const val MAX = 500
     }
 }
+
+/**
+ * The songs a phone following a listening room gives an ask ([AskedFor]): the one the room plays
+ * and the one after it. The next one too, since the player reads it ahead near the end of a song
+ * and moves on to it by itself as the leader does: a room's song is mostly reached that way, with
+ * nothing of the room's moving the player. Each once while it is one of the two, so that a song
+ * that failed here, and that the room tries once more a little later, is not asked again then.
+ */
+internal class RoomAsks {
+    private var asked = emptySet<String>()
+
+    /** The room plays [current], with [next] after it when known: the songs to give an ask now. */
+    @Synchronized
+    fun now(current: String, next: String?): List<String> {
+        val both = setOfNotNull(current, next)
+        return (both - asked).toList().also { asked = both }
+    }
+}

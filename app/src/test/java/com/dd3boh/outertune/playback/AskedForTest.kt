@@ -136,13 +136,27 @@ class AskedForTest {
     }
 
     @Test
-    fun `the song a room moves to is asked, its one more try is this phone's own and is not`() {
+    fun `a room's song and the one after it are asked once each while they are those two`() {
+        val room = RoomAsks()
+        assertEquals(listOf("ROOM0000001", "ROOM0000002"), room.now("ROOM0000001", "ROOM0000002"))
+        assertEquals("the same look again: nothing new", emptyList<String>(), room.now("ROOM0000001", "ROOM0000002"))
+        // The room moves on to the song after: it was asked already (read ahead), and the next one is.
+        assertEquals(listOf("ROOM0000003"), room.now("ROOM0000002", "ROOM0000003"))
+        // Before the room's queue names what comes next, the song alone.
+        assertEquals(listOf("ROOM0000004"), room.now("ROOM0000004", null))
+        // Played again later, it is a new play.
+        assertEquals(listOf("ROOM0000001"), room.now("ROOM0000001", null))
+    }
+
+    @Test
+    fun `a phone following a room asks before it moves to the room's song, and its one more try is its own`() {
         val session = code("together/TogetherSession.kt")
-        val toSong = session.substringAfter("private fun toLeadersSong(").substringBefore("\n    private fun ")
-        val inQueue = toSong.substringAfter("indexOf(player, state.songId)?.let { index ->").substringBefore("return\n")
-        assertTrue(inQueue.indexOf("service.askedFor(state.songId)") in 0 until inQueue.indexOf("player.seekTo(index,"))
-        val newQueue = toSong.substringAfter("loadingSong = state.songId\n        matchedQueue = null")
-        assertTrue(newQueue.indexOf("service.askedFor(state.songId)") in 0 until newQueue.indexOf("service.playQueue("))
+        val follow = session.substringAfter("private fun follow()").substringBefore("\n    private fun ")
+        val ask = follow.indexOf("roomAsks.now(state.songId, roomQueue?.songs?.takeIf { it.firstOrNull()?.id == state.songId }?.getOrNull(1)?.id)")
+        assertTrue(follow, ask >= 0)
+        assertTrue(".forEach(service::askedFor)" in follow.substring(ask))
+        // Not for a song from the one in control's files, never asked for; before the player moves to the room's song.
+        assertTrue(ask in follow.indexOf("heldFor = null") until follow.indexOf("toLeadersSong(player, state, now)"))
 
         val retry = session.substringAfter("if (refusal.staysOn(state.songId)) {").substringBefore("if (player.playbackState != Player.STATE_READY) return")
         assertTrue(retry, "player.prepare()" in retry)

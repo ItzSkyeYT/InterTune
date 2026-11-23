@@ -34,6 +34,7 @@ import com.dd3boh.outertune.extensions.toMediaItem
 import com.dd3boh.outertune.migration.ImportSearch
 import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.playback.MusicService
+import com.dd3boh.outertune.playback.RoomAsks
 import com.dd3boh.outertune.playback.Varispeed
 import com.dd3boh.outertune.playback.queues.ListQueue
 import com.dd3boh.outertune.utils.dataStore
@@ -290,6 +291,8 @@ class TogetherSession(
     private val guestCast = GuestCast()
     /** The host's song this phone cannot play: see [holdsFailed]. */
     private val refusal = HostSongRefusal()
+    /** The room's songs this phone gave their ask (AskedFor): see follow. */
+    private val roomAsks = RoomAsks()
     /** Songs from files here, as the others hear them while this phone is in control: see [PhoneSongs]. */
     private val phoneSongs = PhoneSongs(
         scope = scope,
@@ -1489,6 +1492,11 @@ class TogetherSession(
             return
         }
         heldFor = null
+        // The room's song, and the one after it that the player reads ahead and moves on to by
+        // itself as the leader does, are plays somebody started: each asked of YouTube once even
+        // if this phone set it aside as gone, before anything here moves to it (RoomAsks).
+        roomAsks.now(state.songId, roomQueue?.songs?.takeIf { it.firstOrNull()?.id == state.songId }?.getOrNull(1)?.id)
+            .forEach(service::askedFor)
         val now = System.currentTimeMillis()
         if (player.currentMediaItem?.mediaId != state.songId) {
             toLeadersSong(player, state, now)
@@ -1637,9 +1645,6 @@ class TogetherSession(
             matchedQueue = null
             lock.reset()
             mine(SONG_SWITCH_MS)
-            // The room's song is a play somebody started: asked of YouTube even if this phone set it
-            // aside as gone (AskedFor). Its one more try later is this phone's own, and is not.
-            service.askedFor(state.songId)
             // Straight to the leader's spot: from 0:00 the song was fetched twice, its start and
             // then the leader's spot, which on a slow line took seconds (his ask of 26 Oct 2026).
             // Not arriving: the spot is asked for already, and a second jump while it loads
@@ -1671,8 +1676,6 @@ class TogetherSession(
         // A queue resolves for a moment before its song arrives: all of that is the room's doing.
         // And the leader chose it, not this listener: learning must not read it as their pick.
         mine(SONG_SWITCH_MS)
-        // Asked of YouTube even if this phone set it aside as gone, as above (AskedFor).
-        service.askedFor(state.songId)
         val songs = queue?.map(::metadataOf) ?: listOf(
             MediaMetadata(
                 id = state.songId,
