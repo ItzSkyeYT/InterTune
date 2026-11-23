@@ -557,6 +557,11 @@ class MusicService : MediaLibraryService(),
         scope.launch(Dispatchers.IO) { roomMemory.touch(room, at) }
     }
 
+    /** The phone with [key] is in control of the room [code] now: kept, so that the room comes back with it (RoomMemory). */
+    fun roomLead(code: RoomCode, key: String) {
+        scope.launch(Dispatchers.IO) { roomMemory.lead(code, key) }
+    }
+
     /**
      * Opens a room, hosting or following, in place of any already open. Main thread. Null on a service that has
      * stopped: a room made there is held by nothing and stopped by nothing (onDestroy has run), and went on saying it
@@ -565,7 +570,7 @@ class MusicService : MediaLibraryService(),
      *
      * [identity] is the key a room that comes back signs with, the same as before (RoomMemory). [hostHeardAt] is, for a
      * guest's room that comes back, when it last heard the host: kept as the room's time, and the host's absence counted
-     * from it.
+     * from it. [lead] is who was in control as this phone last knew it, for a room that comes back.
      */
     fun startTogether(
         code: RoomCode,
@@ -575,6 +580,7 @@ class MusicService : MediaLibraryService(),
         moving: Boolean = false,
         identity: ByteArray? = null,
         hostHeardAt: Long? = null,
+        lead: String? = null,
     ): TogetherSession? {
         if (destroyed) {
             Log.w(TAG, "No room is made on a service that has stopped")
@@ -585,14 +591,14 @@ class MusicService : MediaLibraryService(),
         // Another room in its place: the one it replaces ends, and an owner's says so. Not when the room carries on under
         // a new code (moveTogether): its people have moved with it.
         together.value?.let { if (moving) it.stop() else it.closeNow() }
-        val session = if (identity != null) TogetherSession(this, code, owner, relays, name, identity, hostHeardAt = hostHeardAt ?: 0L)
+        val session = if (identity != null) TogetherSession(this, code, owner, relays, name, identity, hostHeardAt = hostHeardAt ?: 0L, lead = lead)
         else TogetherSession(this, code, owner, relays, name, hostHeardAt = hostHeardAt ?: 0L)
         together.value = session
         session.start()
         // Not now for a guest's room that comes back: saved as now, a room its host had closed was kept six more hours
         // by every start.
         roomTouchedAt = hostHeardAt ?: System.currentTimeMillis()
-        roomMemory.save(code, owner, session.identityHex, roomTouchedAt)
+        roomMemory.save(code, owner, session.identityHex, roomTouchedAt, lead)
         return session
     }
 
@@ -636,6 +642,8 @@ class MusicService : MediaLibraryService(),
                     identity = saved.identity.hexToBytes(),
                     // A guest goes on from the last time it heard the host, not from now.
                     hostHeardAt = saved.aliveAt.takeIf { !saved.owner },
+                    // Control where it was: a host's restart no longer takes it from the guest who has it.
+                    lead = saved.lead,
                 )
             } finally {
                 togetherComing.value = false

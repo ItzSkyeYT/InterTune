@@ -1090,7 +1090,13 @@ private fun People(
                         DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                             if (!member.leader) {
                                 DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.together_give_control)) },
+                                    // Who gets it, by name (testers, 22 Nov 2026: control changed hands and nobody knew to whom).
+                                    text = {
+                                        Text(
+                                            if (member.name.isBlank()) stringResource(R.string.together_give_control)
+                                            else stringResource(R.string.together_give_control_to, member.name)
+                                        )
+                                    },
                                     leadingIcon = { Icon(Icons.Rounded.PlayCircle, contentDescription = null) },
                                     onClick = { menu = false; onGiveControl(member) },
                                 )
