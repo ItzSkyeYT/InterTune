@@ -22,6 +22,11 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import com.dd3boh.outertune.ui.screens.recap.rememberRecapOnShow
+import com.dd3boh.outertune.ui.screens.recap.RecapBanner
+import com.dd3boh.outertune.ui.screens.recap.RecapNotesDialog
+import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.layout.padding
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.pluralStringResource
@@ -117,12 +122,23 @@ fun StatsScreen(
 
     // Two rows abreast when the phone is on its side, one otherwise (Landscape.kt).
     val columns = rememberListColumns()
+    // The year's InterTune Recap, from its reveal day until the next year's, as at the top of Settings:
+    // the way back to it from the page of the numbers it is made of (asked for in #general, 22 Nov 2026).
+    val recapYear = rememberRecapOnShow()
     LazyColumn(
         state = lazyListState,
         contentPadding = LocalPlayerAwareWindowInsets.current.only(WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom)
             .asPaddingValues(),
         modifier = Modifier.windowInsetsPadding(LocalPlayerAwareWindowInsets.current.only(WindowInsetsSides.Top))
     ) {
+        recapYear?.let { year ->
+            item(key = "recap_banner") {
+                // With the way to the notes written at the end of a Recap (his ask of 22 Nov 2026).
+                var notesOpen by rememberSaveable { mutableStateOf(false) }
+                RecapBanner(year, Modifier.animateItem().padding(horizontal = 12.dp, vertical = 8.dp), onNotes = { notesOpen = true })
+                if (notesOpen) RecapNotesDialog(onClose = { notesOpen = false })
+            }
+        }
         item {
             ChipsRow(
                 chips = listOf(

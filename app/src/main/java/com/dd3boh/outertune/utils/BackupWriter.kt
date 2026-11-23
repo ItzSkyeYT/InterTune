@@ -6,6 +6,7 @@
 
 package com.dd3boh.outertune.utils
 
+import com.dd3boh.outertune.recap.RecapNote
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import android.util.Log
@@ -49,7 +50,9 @@ object BackupWriter {
      * files and not in the database (DESIGN.md 5 has them travel with backups). A backup made
      * before they were carried restores without touching the ones on the phone.
      */
-    val FILES: List<String> = listOf(JsonFileTransitionStore.FILE, JsonFileBeatFixStore.FILE)
+    // The Recap's notes to next year's you and their key go with the library too (RecapNote: his "the paper recap
+    // needs to come with backups", 22 Nov 2026).
+    val FILES: List<String> = listOf(JsonFileTransitionStore.FILE, JsonFileBeatFixStore.FILE, RecapNote.KEY_FILE, RecapNote.NOTES_FILE)
 
     /**
      * Writes what [parts] asks for into [output] as one zip: the settings, Mix's [FILES] and the

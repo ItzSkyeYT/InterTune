@@ -9,6 +9,8 @@
 
 package com.dd3boh.outertune.playback
 
+import kotlin.math.abs
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.flow.drop
 import com.dd3boh.outertune.models.blockedArtists
 import com.dd3boh.outertune.models.dontPlaySongs
@@ -3049,6 +3051,172 @@ class MusicService : MediaLibraryService(),
     }
 
     /**
+     * The InterTune Recap's last song, slid into the queue as the song playing now (RecapSound): it
+     * plays on from [positionMs], where the Recap had it, in front of the song that was current, and
+     * when it ends the queue carries on, that song from where it was ([resumeAfterSlideIn]). Put in
+     * as by the listener's hand, and the song it goes in front of is set aside, not skipped. With no
+     * queue at all, a queue of its own. [from] is the Recap's own player, still sounding the song: it
+     * plays on until the queue's player takes over without a gap (startSlidIn). Main thread.
+     */
+    fun slideIn(songId: String, positionMs: Long, from: ExoPlayer? = null) {
+        if (destroyed) {
+            from?.release()
+            return
+        }
+        scope.launch {
+            // The Recap's player is let go wherever this stops short of starting the song (startSlidIn).
+            var handed = false
+            try {
+                if (destroyed) return@launch
+                val song = withContext(Dispatchers.IO) { database.song(songId).first() }?.toMediaMetadata() ?: return@launch
+                if (!qbInit.value) initQueue(onlyIfNeeded = true)
+                if (destroyed) return@launch
+                val q = queueBoard.getCurrentQueue()?.takeIf { it.getSize() > 0 }
+                if (q == null) {
+                    val own = queueBoard.addQueue(song.title, listOf(song), replace = true, origin = PlayOrigin.UNKNOWN) ?: return@launch
+                    own.setCurrentQueuePos(0)
+                    own.lastSongPos = positionMs
+                    userChoicePending = true
+                    queueBoard.setCurrQueue(own, shouldResume = true)
+                    activePlayer.prepare()
+                    handed = true
+                    startSlidIn(songId, from)
+                    Log.i(TAG, "Recap: $songId slid in at $positionMs ms, a queue of its own")
+                    return@launch
+                }
+                // After a restart the player holds nothing until play: the saved queue goes in first,
+                // at the song it stopped on, which is the one the Recap's song goes in front of.
+                if (activePlayer.currentMediaItem == null) queueBoard.setCurrQueue(q)
+                val at = activePlayer.currentMediaItemIndex
+                val current = activePlayer.currentMediaItem
+                val currentAt = activePlayer.currentPosition
+                if (current?.mediaId == songId) {
+                    // The song playing already: it plays on from where the Recap had it.
+                    quietSeek = !isCasting
+                    activePlayer.seekTo(positionMs)
+                } else {
+                    noteByHand(q, listOf(song.id))
+                    queueBoard.addSongsToQueue(q, at, listOf(song))
+                    userChoicePending = true
+                    activePlayer.seekTo(at, positionMs)
+                    if (current != null) resumeAfterSlideIn = current.mediaId to currentAt
+                }
+                activePlayer.prepare()
+                handed = true
+                startSlidIn(songId, from)
+                Log.i(TAG, "Recap: $songId slid in at $positionMs ms, in front of ${current?.mediaId} at $currentAt ms")
+            } finally {
+                if (!handed) from?.release()
+            }
+        }
+    }
+
+    /**
+     * Starts the queue's player on the song the Recap slid in. With [from], the Recap's own player still
+     * sounding it, there is no gap (his "slight cut between when the recap ends and the end song plays",
+     * 22 Nov 2026): the Recap's sings on while the queue's player makes the song ready and starts it SILENT,
+     * a little ahead ([HANDOVER_LEAD_MS]). Once the queue's player is heard (playing, and [HANDOVER_SETTLE_MS]
+     * more), the gap between the two is measured and put right by a silent seek that lands that much further
+     * on ([HANDOVER_IN_STEP_MS], [HANDOVER_TRIES] at most); then the two cross over in [HANDOVER_FADE_MS].
+     * A player takes a varying moment to be heard after it starts, which a start timed in advance cannot know:
+     * the Pixel's first handovers were 14 and 143 ms apart. This phone's own player only: a cast or routed one
+     * starts at once, as before, and so does a song not ready in [HANDOVER_WAIT_MS]. The Recap's player is
+     * always let go here, and the queue's is never left silent. Main thread.
+     */
+    private fun startSlidIn(songId: String, from: ExoPlayer?) {
+        val p = exoPlayer
+        val sounding = from != null && from.playWhenReady &&
+            (from.playbackState == Player.STATE_READY || from.playbackState == Player.STATE_BUFFERING)
+        if (from == null || !sounding || activePlayer !== p) {
+            from?.release()
+            activePlayer.playWhenReady = true
+            return
+        }
+        p.playWhenReady = false
+        scope.launch {
+            val target = p.volume
+            var set = target
+            try {
+                val t0 = SystemClock.elapsedRealtime()
+                suspend fun ready() {
+                    while (!(p.playbackState == Player.STATE_READY && p.currentMediaItem?.mediaId == songId)) delay(10)
+                }
+                // Heard: playing, and a moment more for its sound to come out. Watching its place move does not work on
+                // every phone (the Pixel 5, 22 Nov 2026: never seen moving in ten seconds, its place reported in steps).
+                suspend fun heard() {
+                    withTimeoutOrNull(2_000) { while (!p.isPlaying) delay(10) }
+                    delay(HANDOVER_SETTLE_MS)
+                }
+                var tries = 0
+                var gap = Long.MAX_VALUE
+                val inStep = withTimeoutOrNull(HANDOVER_WAIT_MS) {
+                    ready()
+                    // Silent from here until the crossing, playing a little ahead of the Recap's.
+                    set = 0f
+                    p.volume = set
+                    var lead = HANDOVER_LEAD_MS
+                    quietSeek = true
+                    p.seekTo(from.currentPosition + lead)
+                    p.playWhenReady = true
+                    while (true) {
+                        ready()
+                        heard()
+                        gap = from.currentPosition - p.currentPosition
+                        if (abs(gap) <= HANDOVER_IN_STEP_MS || tries >= HANDOVER_TRIES) break
+                        tries++
+                        // What the seek cost was off by the gap: the next one lands that much further on.
+                        lead = (lead + gap).coerceIn(0L, HANDOVER_WAIT_MS / 4)
+                        quietSeek = true
+                        p.seekTo(from.currentPosition + lead)
+                    }
+                    abs(gap) <= HANDOVER_IN_STEP_MS
+                } ?: false
+                p.playWhenReady = true
+                // The crossing: the queue's player from silent up to the volume the service gave it, the Recap's
+                // down to nothing. The queue's is left alone from the moment anything else sets its volume.
+                val loud = from.volume
+                for (i in 1..HANDOVER_FADE_STEPS) {
+                    delay(HANDOVER_FADE_MS / HANDOVER_FADE_STEPS)
+                    val k = i.toFloat() / HANDOVER_FADE_STEPS
+                    from.volume = loud * (1f - k)
+                    if (p.volume == set) {
+                        set = target * k
+                        p.volume = set
+                    }
+                }
+                Log.i(TAG, "Recap: handed over after ${SystemClock.elapsedRealtime() - t0} ms, " +
+                    (if (inStep) "in step after $tries correction(s)" else "not in step ($tries correction(s), $gap ms apart)") +
+                    ": the queue at ${p.currentPosition} ms, the Recap's at ${from.currentPosition} ms")
+            } finally {
+                // Never left silent, whatever stopped the crossing.
+                if (p.volume == set && set != target) p.volume = target
+                from.release()
+            }
+        }
+    }
+
+    /**
+     * The volume the app plays [songId] at, before any fade: the player's own volume and the song's
+     * levelling, as the song playing gets them. For the Recap's players, so that its songs are
+     * neither louder nor quieter than the app plays them, and the last one does not jump when it
+     * goes on in the queue.
+     */
+    suspend fun volumeFor(songId: String, isLocal: Boolean): Float {
+        val loudness = withContext(Dispatchers.IO) { database.readOrNull { formatRow(songId) }?.loudnessDb }
+        val level = Normalization.factor(loudness, isLocal, dataStore.get(AudioNormalizationKey, true))
+        return (level * heardVolume).coerceAtMost(1f)
+    }
+
+    /**
+     * The song the Recap's last song went in front of, and where it was: when that song ends and
+     * this one comes next, it carries on from there (slideIn). Cleared at the next change of song.
+     */
+    private var resumeAfterSlideIn: Pair<String, Long>? = null
+
+    /** The next seek is the app's own, putting a song back where it was: no seek of the listener's is noted for it. */
+    private var quietSeek = false
+
+    /**
      * [songs] added to [q] with Add to queue, by the listener's hand: at the end of a list somebody
      * chose, and in a radio after the listener's own songs that follow the song playing and before
      * the radio's own, which carries on after them (AddToQueue). From the swipe on a song, and from
@@ -3533,6 +3701,17 @@ class MusicService : MediaLibraryService(),
      * stream. A lyrics video cuts its sound out of the song the same way (LyricsVideo).
      */
     fun songSource(): DataSource.Factory = createDataSourceFactory(forPlayer = false)
+
+    /**
+     * The InterTune Recap's players (RecapPlayer): as [songSource], their reads and resolves kept
+     * apart from the player's stall watch, but with the player's own resolver, so that the stream a
+     * song was found on is known to the player too. The Recap's last song then goes on in the queue
+     * without being looked up again: with a resolver of their own the player asked YouTube afresh,
+     * and the song came in 1.6 and 5.0 s after Done on the emulator (29 and 30 Oct 2026). Every
+     * source reads through the player's resolver now (playerResolver), so this is [songSource]
+     * under the Recap's name.
+     */
+    fun recapSource(): DataSource.Factory = createDataSourceFactory(forPlayer = false)
 
     /**
      * [forPlayer] false for a lyrics clip: its reads go through calls of their own, which the
@@ -5905,6 +6084,16 @@ class MusicService : MediaLibraryService(),
 
     override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
         super.onMediaItemTransition(mediaItem, reason)
+        // The song the Recap's last song went in front of, come round by itself after it: from
+        // where it was, before its listen opens, so that the listen carries on the one before.
+        resumeAfterSlideIn?.let { (id, at) ->
+            resumeAfterSlideIn = null
+            if (reason == MEDIA_ITEM_TRANSITION_REASON_AUTO && mediaItem?.mediaId == id && at > 0 && !isCasting) {
+                Log.i(TAG, "Recap: $id carries on from $at ms, after the song slid in front of it")
+                quietSeek = true
+                activePlayer.seekTo(activePlayer.currentMediaItemIndex, at)
+            }
+        }
         songChanges.value += 1
         // Nothing of the new song has played yet: see readyFor. Before onPlayerError, which the
         // player calls after this when the song it moved on to failed while read ahead.
@@ -6626,6 +6815,11 @@ class MusicService : MediaLibraryService(),
             it.lastCheckpointPositionMs = newPosition.positionMs
         }
         val delta = newPosition.positionMs - oldPosition.positionMs
+        // The app putting a song back where it was (slideIn), not the listener seeking in it.
+        if (quietSeek) {
+            quietSeek = false
+            return
+        }
         if (kotlin.math.abs(delta) < 3_000) return
         noteSignal(id, if (delta < 0) SignalKind.SEEK_BACK else SignalKind.SEEK_FORWARD, newPosition.positionMs, delta / 1000f)
     }
@@ -7432,6 +7626,16 @@ class MusicService : MediaLibraryService(),
     }
 
     companion object {
+        /** The Recap's last song, handed to the queue's player (startSlidIn): how long it may take to be ready, how far
+         *  ahead of the Recap's the silent queue's player starts, how close is in step, the corrections tried, the crossing. */
+        const val HANDOVER_WAIT_MS = 10_000L
+        const val HANDOVER_LEAD_MS = 250L
+        const val HANDOVER_IN_STEP_MS = 25L
+        const val HANDOVER_SETTLE_MS = 250L
+        const val HANDOVER_TRIES = 3
+        const val HANDOVER_FADE_MS = 80L
+        const val HANDOVER_FADE_STEPS = 8
+
         /** The Mix playlist the debug app's trial queue counts as (see mixTrial). */
         private const val MIX_TRIAL_PLAYLIST = "mix-trial"
         /**

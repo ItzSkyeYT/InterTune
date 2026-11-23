@@ -9,6 +9,7 @@
 
 package com.dd3boh.outertune
 
+import com.dd3boh.outertune.recap.RecapAlert
 import com.dd3boh.outertune.ui.component.Haptics
 import com.dd3boh.outertune.utils.AppLanguage
 import com.dd3boh.outertune.utils.ChannelNames
@@ -84,6 +85,8 @@ import com.dd3boh.outertune.utils.ReportFeed
 import com.dd3boh.outertune.utils.RunLogs
 import com.dd3boh.outertune.utils.Scrobbler
 import com.dd3boh.outertune.utils.LocalArtworkPathKeyer
+import com.dd3boh.outertune.ui.screens.recap.RecapCoverFetcher
+import com.dd3boh.outertune.ui.screens.recap.RecapMadeCoverKeyer
 import com.dd3boh.outertune.utils.dataStore
 import com.dd3boh.outertune.utils.get
 import com.dd3boh.outertune.utils.mayPushToYouTube
@@ -194,6 +197,11 @@ class App : Application(), SingletonImageLoader.Factory {
         }
         // And at every start, for a language changed while the app was not running.
         GlobalScope.launch(Dispatchers.IO) { ChannelNames.follow(this@App) }
+        // The year's Recap now out: told once, and looked for again on the next reveal day's morning (RecapAlert).
+        GlobalScope.launch(Dispatchers.IO) {
+            runCatching { RecapAlert.check(this@App) }
+            RecapAlert.schedule(this@App)
+        }
         GlobalScope.launch(Dispatchers.IO) { runCatching { RecognitionWidgetReceiver.redraw(this@App) } }
 
         // The proxy every client takes once, here: the settings page offers a restart while the one
@@ -362,6 +370,9 @@ class App : Application(), SingletonImageLoader.Factory {
                 .components {
                     add(CoilBitmapLoader.Factory(this@App))
                     add(LocalArtworkPathKeyer())
+                    // The Recap's covers for songs that may have none (RecapMadeCover).
+                    add(RecapCoverFetcher.Factory(this@App))
+                    add(RecapMadeCoverKeyer())
                 // A downloaded song's kept cover, served from the app's own storage: see DownloadCovers.
                 add(DownloadCovers.Interceptor(filesDir))
                 }
@@ -381,6 +392,9 @@ class App : Application(), SingletonImageLoader.Factory {
             .components {
                 add(CoilBitmapLoader.Factory(this@App))
                 add(LocalArtworkPathKeyer())
+                // The Recap's covers for songs that may have none (RecapMadeCover).
+                add(RecapCoverFetcher.Factory(this@App))
+                add(RecapMadeCoverKeyer())
                 // A downloaded song's kept cover, served from the app's own storage: see DownloadCovers.
                 add(DownloadCovers.Interceptor(filesDir))
             }

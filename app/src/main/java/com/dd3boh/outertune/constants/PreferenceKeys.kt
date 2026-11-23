@@ -867,6 +867,39 @@ val WelcomeLookedAtKey = stringPreferencesKey("welcomeLookedAt")
 /** Poll and announcement ids whose opening has been counted, so each is counted once per install. */
 val ViewedPollIdsKey = stringSetPreferencesKey("viewedPollIds")
 
+/**
+ * The last year whose InterTune Recap opened by itself (RecapCalendar.popUpOwed), so that the
+ * pop-up comes once a year. 0 for never. Written when it opens, whatever is done with it then.
+ */
+val RecapPopUpShownKey = intPreferencesKey("recapPopUpShown")
+
+/**
+ * The developer options' "today is the reveal day", read only in a build that has that row
+ * (BuildConfig.PREVIEW_FEATURES): the Recap's pop-up and its banner in Settings behave as they
+ * will from the reveal day.
+ */
+val RecapRevealedEarlyKey = booleanPreferencesKey("recapRevealedEarly")
+
+/**
+ * The last year whose InterTune Recap was watched as far as its year card (his ask of 22 Nov 2026):
+ * Home's banner is then gone for that year (rememberRecapOnHome), and Settings' and the Stats page's
+ * stay. 0 for never.
+ */
+val RecapWatchedKey = intPreferencesKey("recapWatched")
+
+/** The last year whose Recap was told about in a notification, or opened here before it could be (RecapAlert). 0 for none. */
+val RecapToldKey = intPreferencesKey("recapTold")
+
+/** The latest year whose Recap was opened on this phone: its notes are open everywhere from then (RecapNotesOpen). 0 for none. */
+val RecapOpenedHereKey = intPreferencesKey("recapOpenedHere")
+
+/**
+ * The years whose Recap playlist has been put on YouTube Music from this phone, on the listener's
+ * second tap (RecapPlaylist), so that the year card does not offer it a second time and make a
+ * second playlist in the account. Years, written as text.
+ */
+val RecapPlaylistOnYouTubeMusicKey = stringSetPreferencesKey("recapPlaylistOnYouTubeMusic")
+
 /** Epoch millis of the last poll fetch, for the rate limit floor. */
 val LastPollFetchKey = longPreferencesKey("lastPollFetch")
 
