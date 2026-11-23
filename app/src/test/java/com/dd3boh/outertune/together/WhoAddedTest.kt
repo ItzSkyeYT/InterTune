@@ -66,7 +66,7 @@ class WhoAddedTest {
     }
 
     @Test
-    fun `an older host names nobody: its songs are not this phone's, and this phone's own Play next stays its own`() {
+    fun `an older host names nobody, so its songs are not this phone's, and this phone's own Play next stays its own`() {
         val added = WhoAdded(guest)
         added.mine(listOf("mine1"))
         // a host on a build before this one sends no "by" for any song
@@ -112,7 +112,7 @@ class WhoAddedTest {
     }
 
     @Test
-    fun `control handed over and back: the host's songs come back named as the host's, and teach it again`() {
+    fun `control handed over and back, the host's songs come back named as the host's and teach it again`() {
         // The guest in control sends the host's songs, which it took from the host's queue, named as the host's.
         val guestPhone = WhoAdded(guest)
         guestPhone.came(listOf(song("radio1"), song("guest1", by = guest)), sender = host)
