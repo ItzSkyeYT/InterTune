@@ -299,13 +299,14 @@ class VibrationTest {
         // timer, share, cast, the room and the menu open something and pass no on.
         assertEquals(3, Regex("""onClick = toggleLyrics,""").findAll(player).count())
         assertEquals(3, Regex("""\son = showLyrics,""").findAll(player).count())
-        // The controls: shuffle and repeat as a like, read before the tap changes them; skip both ways firm.
+        // The controls: shuffle and repeat as a like, read before the tap changes them; skip both ways firm (Next through
+        // the connection, PlayerConnection.skipToNext).
         val controls = player.substringAfter("val shuffleModeEnabled by playerConnection.shuffleModeEnabled.collectAsState()")
             .substringBefore("if (buttonsStyle == PlayerButtonsStyle.CONNECTED) quickActions()")
         assertTrue(controls, "val feel = buttonFeel(turnsOff = shuffleModeEnabled)\n" in controls)
         assertTrue(controls, "val feel = buttonFeel(turnsOff = repeatMode == REPEAT_MODE_ONE)\n" in controls)
         assertEquals(controls, 2, Regex("""haptic\.felt\(feel, HapticFeedbackType\.SegmentFrequentTick\)""").findAll(controls).count())
-        assertEquals(controls, 2, Regex("""seekTo(Previous|Next)\(\)\s+haptic\.felt\(Feel\.FIRM, HapticFeedbackType\.SegmentFrequentTick\)""").findAll(controls).count())
+        assertEquals(controls, 2, Regex("""(seekToPrevious|skipToNext)\(\)\s+haptic\.felt\(Feel\.FIRM, HapticFeedbackType\.SegmentFrequentTick\)""").findAll(controls).count())
         // Under Light they ask what they always asked, through the window's haptics.
         assertFalse(controls, "haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)" in controls)
         // The queue's bar has the same four, felt the same.
@@ -313,7 +314,7 @@ class VibrationTest {
         assertTrue("val feel = buttonFeel(turnsOff = shuffleModeEnabled)\n" in bar)
         assertTrue("val feel = buttonFeel(turnsOff = repeatMode == REPEAT_MODE_ONE)\n" in bar)
         assertEquals(2, Regex("""haptic\.felt\(feel, HapticFeedbackType\.SegmentFrequentTick\)""").findAll(bar).count())
-        assertEquals(2, Regex("""seekTo(Previous|Next)\(\)\s+haptic\.felt\(Feel\.FIRM, HapticFeedbackType\.SegmentFrequentTick\)""").findAll(bar).count())
+        assertEquals(2, Regex("""(seekToPrevious|skipToNext)\(\)\s+haptic\.felt\(Feel\.FIRM, HapticFeedbackType\.SegmentFrequentTick\)""").findAll(bar).count())
         assertTrue("fun HapticFeedback.felt(strong: Feel, light: HapticFeedbackType) = Haptics.play(strong) { performHapticFeedback(light) }" in source("ui/component/MoreHaptics.kt"))
     }
 
