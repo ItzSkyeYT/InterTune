@@ -668,12 +668,12 @@ private fun RoomPage(room: TogetherSession, song: MediaMetadata?, onLeave: () ->
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        // The host's own switches for the room, who may do what (RoomSettings): made to take more of them.
+        // The host's own switches for the room, who may do what (RoomSettings), the same as in Settings > Listen together.
         if (room.owner) {
             Hairline()
             SectionLabel(stringResource(R.string.together_room_settings))
             Spacer(Modifier.height(4.dp))
-            RoomSettingsSwitches(status.settings, onEveryoneSeeks = room::letEveryoneSeek, onEveryoneArranges = room::letEveryoneArrange)
+            RoomSettingsSwitches()
         }
         Spacer(Modifier.height(24.dp))
         OutlinedButton(

@@ -18,6 +18,8 @@ import androidx.compose.material.icons.automirrored.rounded.HelpOutline
 import androidx.compose.material.icons.rounded.Badge
 import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material3.ElevatedCard
+import androidx.compose.material.icons.automirrored.rounded.QueueMusic
+import androidx.compose.material.icons.rounded.FastForward
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -41,6 +43,8 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.TogetherCatchUpKey
+import com.dd3boh.outertune.constants.TogetherEveryoneArrangesKey
+import com.dd3boh.outertune.constants.TogetherEveryoneSeeksKey
 import com.dd3boh.outertune.constants.TogetherDelayKey
 import com.dd3boh.outertune.constants.TogetherShowTimingKey
 import com.dd3boh.outertune.ui.component.SwitchPreference
@@ -50,6 +54,7 @@ import com.dd3boh.outertune.together.SyncLock
 import com.dd3boh.outertune.together.TogetherTuning
 import com.dd3boh.outertune.ui.component.ColumnWithContentPadding
 import com.dd3boh.outertune.ui.component.EditTextPreference
+import com.dd3boh.outertune.ui.component.SwitchPreference
 import com.dd3boh.outertune.ui.component.FloatingTopBar
 import com.dd3boh.outertune.ui.component.PreferenceEntry
 import com.dd3boh.outertune.ui.component.PreferenceGroupTitle
@@ -73,6 +78,9 @@ fun ListenTogetherSettings(
     val (name, onNameChange) = rememberPreference(TogetherNameKey, defaultValue = "")
     val (tolerance, onToleranceChange) = rememberPreference(TogetherToleranceKey, defaultValue = SyncLock.DEFAULT_TOLERANCE_MS.toInt())
     val (catchUp, onCatchUpChange) = rememberPreference(TogetherCatchUpKey, defaultValue = TogetherTuning.DEFAULT_CATCH_UP_PERCENT)
+    // The rooms this phone makes: set once, as the name is, and changeable in the room's sheet too (RoomSettingsSwitches).
+    val (everyoneSeeks, onEveryoneSeeksChange) = rememberPreference(TogetherEveryoneSeeksKey, defaultValue = false)
+    val (everyoneArranges, onEveryoneArrangesChange) = rememberPreference(TogetherEveryoneArrangesKey, defaultValue = false)
     val (delay, onDelayChange) = rememberPreference(TogetherDelayKey, defaultValue = 0)
     val (showTiming, onShowTimingChange) = rememberPreference(TogetherShowTimingKey, defaultValue = false)
 
@@ -103,6 +111,27 @@ fun ListenTogetherSettings(
                 value = name.ifBlank { phoneModel() },
                 onValueChange = { onNameChange(it.trim().take(NAME_MAX)) },
                 isInputValid = { it.trim().length <= NAME_MAX },
+            )
+        }
+
+        // Who may do what in the rooms this phone makes (RoomSettings), his word of 22 Nov 2026: "like the name, its set
+        // once and remembered in the room. changeable in settings". A room under way takes a change at once.
+        PreferenceGroupTitle(title = stringResource(R.string.together_room_settings))
+        ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+            SwitchPreference(
+                modifier = Modifier.settingRow(R.string.together_everyone_seeks),
+                title = { Text(stringResource(R.string.together_everyone_seeks)) },
+                description = stringResource(R.string.together_everyone_seeks_explain),
+                icon = { Icon(Icons.Rounded.FastForward, null) },
+                checked = everyoneSeeks,
+                onCheckedChange = onEveryoneSeeksChange,
+            )
+            SwitchPreference(
+                modifier = Modifier.settingRow(R.string.together_everyone_arranges),
+                title = { Text(stringResource(R.string.together_everyone_arranges)) },
+                icon = { Icon(Icons.AutoMirrored.Rounded.QueueMusic, null) },
+                checked = everyoneArranges,
+                onCheckedChange = onEveryoneArrangesChange,
             )
         }
 
