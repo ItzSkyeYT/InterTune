@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.HelpOutline
 import androidx.compose.material.icons.rounded.Badge
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -26,7 +27,9 @@ import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -45,7 +48,9 @@ import com.dd3boh.outertune.together.TogetherTuning
 import com.dd3boh.outertune.ui.component.ColumnWithContentPadding
 import com.dd3boh.outertune.ui.component.EditTextPreference
 import com.dd3boh.outertune.ui.component.FloatingTopBar
+import com.dd3boh.outertune.ui.component.PreferenceEntry
 import com.dd3boh.outertune.ui.component.PreferenceGroupTitle
+import com.dd3boh.outertune.ui.dialog.RoomTourDialog
 import com.dd3boh.outertune.ui.dialog.phoneModel
 import com.dd3boh.outertune.utils.rememberPreference
 import kotlin.math.roundToInt
@@ -71,6 +76,19 @@ fun ListenTogetherSettings(
         modifier = Modifier.fillMaxHeight(),
         columnModifier = Modifier.padding(horizontal = 16.dp)
     ) {
+        // How rooms work, the tour the room's sheet offers too (RoomTour): first, for someone who came here to find out.
+        var touring by rememberSaveable { mutableStateOf(false) }
+        if (touring) RoomTourDialog(onDismiss = { touring = false })
+        Spacer(Modifier.height(8.dp))
+        ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+            PreferenceEntry(
+                modifier = Modifier.settingRow(R.string.together_tour_entry),
+                title = { Text(stringResource(R.string.together_tour_entry)) },
+                icon = { Icon(Icons.AutoMirrored.Rounded.HelpOutline, null) },
+                onClick = { touring = true },
+            )
+        }
+
         PreferenceGroupTitle(title = stringResource(R.string.together_settings_you))
         ElevatedCard(modifier = Modifier.fillMaxWidth()) {
             // Left empty, the phone's model is used: never its own name from Android's settings, often its owner's.

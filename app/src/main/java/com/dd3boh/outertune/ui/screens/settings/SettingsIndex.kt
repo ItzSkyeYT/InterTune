@@ -219,6 +219,7 @@ val SETTINGS_INDEX: List<SettingEntry> = listOf(
 
     // Listen together, where rooms are offered
     SettingEntry("settings/together", R.string.together_name_setting, there = togetherAvailable),
+    SettingEntry("settings/together", R.string.together_tour_entry, there = togetherAvailable),
 
     // Storage and downloads
     SettingEntry(Tour.ROUTE_STORAGE, R.string.download_on_wifi_only_title, R.string.download_on_wifi_only_description, words = listOf(R.string.search_words_mobile_data)),

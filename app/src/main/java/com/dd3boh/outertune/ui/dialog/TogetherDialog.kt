@@ -411,6 +411,9 @@ private fun StartPage(cover: String?, onStart: () -> Unit, onJoin: (RoomCode) ->
             Spacer(Modifier.width(ButtonDefaults.IconSpacing))
             Text(stringResource(R.string.together_scan))
         }
+        // The tour of a room, before starting or joining one (RoomTour).
+        Spacer(Modifier.height(8.dp))
+        HowRoomsWork()
     }
 }
 
@@ -640,6 +643,9 @@ private fun RoomPage(room: TogetherSession, song: MediaMetadata?, onLeave: () ->
             // The owner's leaving closes the room for everyone, and says so.
             Text(stringResource(if (room.owner) R.string.together_close_room else R.string.together_leave))
         }
+        // The tour of a room, any time (RoomTour).
+        Spacer(Modifier.height(8.dp))
+        HowRoomsWork(Modifier.align(Alignment.CenterHorizontally))
     }
 }
 

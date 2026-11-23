@@ -2729,6 +2729,16 @@ while also allowing users to translate our app as well. New, specific strings to
     <!-- Listen together (TogetherDialog), step 1, debug and Preview builds. -->
     <string name="together_title">Listen together</string>
     <string name="together_intro">Start a room and share its code, or type a friend\'s code. Everyone hears what the host plays, on their own phone.</string>
+    <string name="together_tour_entry">How rooms work</string>
+    <string name="together_tour_skip">Skip</string>
+    <string name="together_tour_step_title">Same song, same moment</string>
+    <string name="together_tour_step_body">Everyone in the room hears the same song at the same moment, each on their own phone. Start a room and share the link or the code.</string>
+    <string name="together_tour_control_title">One person chooses the music</string>
+    <string name="together_tour_control_body">At first it\'s the host. The host can hand control to someone and take it back, or send someone out.</string>
+    <string name="together_tour_add_title">Anyone can add a song</string>
+    <string name="together_tour_add_body">Play next sends a song to the room, and it plays next for everyone. If the one in control plays a song from their files, the others hear it from YouTube Music.</string>
+    <string name="together_tour_own_title">Pause just for you</string>
+    <string name="together_tour_own_body">Pause stops just your music. Another song puts you on your own: Catch up brings you back, or propose your song. The host decides who can move in the song.</string>
     <string name="together_start">Start a room</string>
     <string name="together_code">Room code</string>
     <string name="together_join">Join</string>

@@ -821,6 +821,9 @@ val TogetherRelaysKey = stringPreferencesKey("togetherRelays")
 /** The name the others in a room see; empty or unset means the phone's own name. */
 val TogetherNameKey = stringPreferencesKey("togetherName")
 
+/** How rooms work has opened by itself once, the first time this phone was in a room (RoomTourOnFirstRoom). */
+val TogetherTourSeenKey = booleanPreferencesKey("togetherTourSeen")
+
 /** How far a follower may drift once in step before it corrects again, in ms (SyncLock). */
 val TogetherToleranceKey = intPreferencesKey("togetherToleranceMs")
 
