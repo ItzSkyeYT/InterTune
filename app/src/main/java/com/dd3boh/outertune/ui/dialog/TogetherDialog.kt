@@ -699,7 +699,8 @@ private fun RoomPage(room: TogetherSession, song: MediaMetadata?, onLeave: () ->
             Icon(Icons.AutoMirrored.Rounded.Logout, contentDescription = null, modifier = Modifier.size(ButtonDefaults.IconSize))
             Spacer(Modifier.width(ButtonDefaults.IconSpacing))
             // Everyone leaves the same way; the owner is then asked whether the room goes on without it (RoomLeaveDialog).
-            Text(stringResource(R.string.together_leave))
+            // Without the flag the owner's leaving closes the room for everyone, and says so, as before.
+            Text(stringResource(if (room.owner && !Unreleased.ROOM_HAND_ON) R.string.together_close_room else R.string.together_leave))
         }
         WalkTo(WalkStop.LEAVE)
         // The tour of a room, any time (RoomTour).

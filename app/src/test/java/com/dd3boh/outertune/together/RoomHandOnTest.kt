@@ -226,9 +226,8 @@ class RoomHandOnTest {
 
     @Test
     fun `the host's Leave offers both ways plainly, and closing alone when nobody can take the room`() {
-        // Everyone's button says Leave; the host is asked how.
-        assertTrue("Text(stringResource(R.string.together_leave))" in sheet)
-        assertFalse("R.string.together_close_room else R.string.together_leave" in sheet)
+        // Everyone's button says Leave (with the flag); the host is asked how.
+        assertTrue("Text(stringResource(if (room.owner && !Unreleased.ROOM_HAND_ON) R.string.together_close_room else R.string.together_leave))" in sheet)
         assertTrue("RoomLeaveDialog(\n            choice = room.leaveChoice()," in sheet)
         assertTrue("if (room.handOnAndLeave()) confirmingClose = false" in sheet)
         // Handing on first, then closing, each saying what it does to the others.
@@ -242,14 +241,27 @@ class RoomHandOnTest {
         assertTrue("if (choice.olderOnly) {" in dialog)
         for (path in listOf("src/main/res/values/strings-ot.xml", "src/main/res/values-fr/strings-ot.xml")) {
             val strings = File(path).readText()
-            for (name in listOf("together_leave_title", "together_hand_on", "together_hand_on_text", "together_close_room_older", "together_hosts_now", "together_host_yours")) {
+            for (name in listOf("together_leave_title", "together_hand_on", "together_hand_on_text", "together_close_room_older", "together_hosts_now", "together_host_yours", "together_walk_leave_host")) {
                 val line = strings.lines().firstOrNull { "name=\"$name\"" in it }
                 assertTrue("$name missing from $path", line != null)
                 assertFalse("$name in $path has a dash", "—" in line!! || "–" in line)
             }
-            // The walk's stop on the host's Leave says both ways now.
-            val walk = strings.lines().first { "name=\"together_walk_close\"" in it }
-            assertFalse(walk, "This closes the room for everyone." in walk || "Ça ferme le salon pour tout le monde." in walk)
         }
+    }
+
+    @Test
+    fun `handing on is offered in debug builds only, and every build understands it`() {
+        val flags = File("src/main/java/com/dd3boh/outertune/constants/Unreleased.kt").readText()
+        assertTrue("val ROOM_HAND_ON = BuildConfig.DEBUG && BuildConfig.BUILD_TYPE == \"debug\"" in flags)
+        // Without it the host's Leave closes the room, asked first, as before, and the walk says so.
+        assertTrue("if (!Unreleased.ROOM_HAND_ON) return RoomLeaveChoice(heir = null, olderOnly = false)" in body(session, "fun leaveChoice(): RoomLeaveChoice"))
+        assertTrue("if (!Unreleased.ROOM_HAND_ON) return false" in body(session, "fun handOnAndLeave(): Boolean"))
+        val walk = File("src/main/java/com/dd3boh/outertune/ui/dialog/RoomWalk.kt").readText()
+        assertTrue("LEAVE(R.string.together_walk_leave, if (Unreleased.ROOM_HAND_ON) R.string.together_walk_leave_host else R.string.together_walk_close)," in walk)
+        // Taking a room handed on, and saying it does, are in every build: a phone on a release can be handed one.
+        for (signature in listOf("private fun handOnHeard(", "private fun handedOn(", "private fun becomeHost()")) {
+            assertFalse(signature, "ROOM_HAND_ON" in body(session, signature))
+        }
+        assertFalse("ROOM_HAND_ON" in session.substringAfter("private fun sayHere() = send(").substringBefore("\n    )\n"))
     }
 }

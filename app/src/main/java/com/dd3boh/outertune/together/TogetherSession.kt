@@ -1241,8 +1241,9 @@ class TogetherSession(
     /** Who gets the room if this phone, its host, leaves now (RoomHandOn): null for nobody, and for a guest. */
     private fun heirKey(): String? = if (owner) handOn.heir(me, leaderKey, heard, System.currentTimeMillis()) else null
 
-    /** What the host's Leave offers (RoomLeaveDialog): who would get the room, or why nobody can. */
+    /** What the host's Leave offers (RoomLeaveDialog): who would get the room, or why nobody can. Closing alone without the flag. */
     fun leaveChoice(): RoomLeaveChoice {
+        if (!Unreleased.ROOM_HAND_ON) return RoomLeaveChoice(heir = null, olderOnly = false)
         val heir = heirKey()
         return RoomLeaveChoice(
             heir = heir?.let(::nameOf),
@@ -1258,6 +1259,7 @@ class TogetherSession(
      * close is (closeNow), and this phone is out of the room. False when nobody here can take it.
      */
     fun handOnAndLeave(): Boolean {
+        if (!Unreleased.ROOM_HAND_ON) return false
         val to = heirKey() ?: return false
         val word = TogetherMessage.Here(
             name, owner = true, lead = to, leadSince = maxOf(System.currentTimeMillis(), leadGivenAt + 1),
