@@ -99,6 +99,21 @@ class FaultInjectionTest {
     }
 
     @Test
+    fun `the songs to set aside, one a line, each with or without "gone", and nothing that is not an id`() {
+        assertEquals(
+            listOf("dQw4w9WgXcQ" to false, "kJQP7kiw5Fk" to true),
+            FaultInjection.setAsideOf("dQw4w9WgXcQ\n  kJQP7kiw5Fk   gone \n\nnot an id!\n"),
+        )
+        assertEquals(emptyList<Pair<String, Boolean>>(), FaultInjection.setAsideOf("  \n"))
+        // Nothing is called gone again but what the file named, and with the switch off nothing at all.
+        assertFalse(FaultInjection.goneAgain("dQw4w9WgXcQ"))
+        val service = source("playback/MusicService.kt")
+        val resolve = service.substringAfter("private val standIns by lazy").substringBefore("wanted = { id ->")
+        assertTrue("only the player's own walks: never a download's", "if (FaultInjection.goneAgain(id)) Result.failure(" in resolve)
+        assertTrue("applied as the service starts", "FaultInjection.setAside(this).forEach { id ->" in service.substringAfter("override fun onCreate() {"))
+    }
+
+    @Test
     fun `a slow onCreate is held before anything else, and only through the fault file`() {
         val service = java.io.File("src/main/java/com/dd3boh/outertune/playback/MusicService.kt").readText()
         val onCreate = service.substringAfter("override fun onCreate() {").substringBefore("super.onCreate()")

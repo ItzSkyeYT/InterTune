@@ -827,7 +827,9 @@ class MusicService : MediaLibraryService(),
     private val standIns by lazy {
         StandIns(
             resolve = { id ->
-                YTPlayerUtils.playerResponseForPlayback(id, audioQuality = audioQualityNow(), connectivityManager = connectivityManager)
+                // A song the developer set aside to be called gone again, debug builds only: see FaultInjection.setAside.
+                if (FaultInjection.goneAgain(id)) Result.failure(YTPlayerUtils.SongUnavailable("This video is not available (fault injection)", byTheAccountToo = true))
+                else YTPlayerUtils.playerResponseForPlayback(id, audioQuality = audioQualityNow(), connectivityManager = connectivityManager)
             },
             wanted = { id ->
                 queueBoard.getCurrentQueue()?.findSong(id)?.let { queued ->
@@ -1347,6 +1349,11 @@ class MusicService : MediaLibraryService(),
         // (MediaButtonStart.sinceStart). The app's own starts carry the moment they were handed on.
         processStartedAt = android.os.Process.getStartUptimeMillis()
         createdAt = SystemClock.uptimeMillis()
+        // The developer's songs set aside as gone, debug builds only: see FaultInjection.setAside.
+        FaultInjection.setAside(this).forEach { id ->
+            StandInMemory.set(StandInMemory.remember(StandInMemory.current, id, null, System.currentTimeMillis()))
+            lastingScope.launch { goneSongs.gone(id, sure = true) }
+        }
         // media3 writes this under its own name only, which Report a problem leaves out, and it is
         // the line that explains a song stopping a minute after the screen goes off (issue #26).
         setListener(object : Listener {
