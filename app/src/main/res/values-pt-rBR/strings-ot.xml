@@ -1646,4 +1646,47 @@
     <string name="player_living_sample_silent">Nada está reproduzindo, então não há nada para se mover.</string>
     <string name="player_living_sample_play">Reproduza uma música para sintonizar</string>
     <string name="player_living_sample_queue">Configuração de desfoque vivo</string>
+    <string name="link_open_failed">Não foi possível abrir este link. Tente novamente em instantes.</string>
+    <string name="auto_more_downloaded">Baixados</string>
+    <string name="auto_more_downloaded_line">Toca sem sinal</string>
+    <string name="auto_more_recent">Reproduzidos recentemente</string>
+    <string name="auto_more_recent_line">Continue de onde parou</string>
+    <string name="auto_more_shuffle_library">Tocar biblioteca no aleatório</string>
+    <string name="auto_more_shuffle_line">Tudo o que você salvou, misturado</string>
+    <string name="auto_search_offline">Sem internet no dispositivo</string>
+    <string name="auto_search_no_answer">O YouTube Music não respondeu</string>
+    <string name="auto_search_again">Pesquisar novamente</string>
+    <string name="auto_settings_sound">Som</string>
+    <string name="auto_settings_playback">Reprodução</string>
+    <string name="auto_level_line">Nivelar o volume</string>
+    <string name="auto_silence_line">Cortar silêncios no início e no fim</string>
+    <string name="auto_more_line">A fila nunca acaba</string>
+    <string name="auto_radios_line">Acompanha o que você pula e curte</string>
+    <string name="adaptive_radio_description">As próximas músicas da rádio mudam conforme você pula, ouve até o fim e curte.</string>
+    <string name="adaptive_queue_explain">Pule, ouça até o fim ou curta músicas e o restante da rádio se ajusta para combinar. As próximas músicas continuam iguais, e playlists e álbuns nunca mudam.</string>
+    <plurals name="adaptive_note_after_skip">
+        <item quantity="one">%1$d nova sugestão após você pular</item>
+        <item quantity="many">%1$d novas sugestões após você pular</item>
+        <item quantity="other">%1$d novas sugestões após você pular</item>
+    </plurals>
+    <plurals name="adaptive_note_like">
+        <item quantity="one">%1$d nova sugestão como \"%2$s\"</item>
+        <item quantity="many">%1$d novas sugestões como \"%2$s\"</item>
+        <item quantity="other">%1$d novas sugestões como \"%2$s\"</item>
+    </plurals>
+    <plurals name="adaptive_note_finish">
+        <item quantity="one">%1$d nova sugestão como suas últimas músicas</item>
+        <item quantity="many">%1$d novas sugestões como suas últimas músicas</item>
+        <item quantity="other">%1$d novas sugestões como suas últimas músicas</item>
+    </plurals>
+    <plurals name="adaptive_note_habits">
+        <item quantity="one">%1$d nova sugestão no lugar de uma música que você costuma pular</item>
+        <item quantity="many">%1$d novas sugestões no lugar de músicas que você costuma pular</item>
+        <item quantity="other">%1$d novas sugestões no lugar de músicas que você costuma pular</item>
+    </plurals>
+    <string name="adaptive_pick_mark">Nova sugestão</string>
+    <string name="err_not_audio">O que foi retornado para esta música não é áudio. Algo nesta conexão pode estar respondendo no lugar do YouTube, como uma VPN ou um bloqueador de anúncios.</string>
+    <string name="err_sign_in_wanted">O YouTube exige login para reproduzir nesta rede. VPNs e conexões compartilhadas costumam ser recusadas.</string>
+    <string name="gone_song_skipped">Música pulada por não estar disponível no YouTube: “%1$s”</string>
+    <string name="player_error_report">Reportar</string>
 </resources>

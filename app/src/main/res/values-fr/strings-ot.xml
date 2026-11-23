@@ -109,7 +109,7 @@
     <string name="sync_progress_success">Synchronisation terminée</string>
     <string name="tab_arrangement_home_required">L\'onglet Accueil est obligatoire.</string>
     <string name="scanner_manual_btn">Déclencher la synchronisation manuelle</string>
-    <string name="scanner_missing_storage_perm">Le scanner local a besoin de l\'autorisation de stockage.</string>
+    <string name="scanner_missing_storage_perm">L\'analyse des médias locaux a besoin de l\'autorisation d\'accès au stockage.</string>
     <string name="scanner_scan_fail">Échec de l\'analyse</string>
     <string name="scanner_ytm_link_fail">La tâche de liaison des artistes YouTube a échoué</string>
     <string name="scanner_ytm_link_success">Le travail de création de liens vers les artistes YouTube est terminé</string>
@@ -1751,7 +1751,7 @@
     <string name="scan_paths_none">Aucun dossier choisi pour l\'instant</string>
     <string name="welcome_back_seen">Vu</string>
     <string name="welcome_back_action_for">%1$s : %2$s</string>
-    <string name="welcome_back_settings_title">Vous repérer dans les Paramètres</string>
+    <string name="welcome_back_settings_title">Découvrez les différentes options des Paramètres</string>
     <string name="welcome_back_settings_body">Quatre groupes, et ce que contient chacun.</string>
     <string name="welcome_back_settings_show">Faire le tour</string>
     <string name="welcome_back_done">Terminé</string>
@@ -2711,7 +2711,7 @@
     <string name="sleep_end_of_album">Fin de l\'album</string>
     <string name="sleep_end_of_queue">Fin de la file d\'attente</string>
     <string name="sleep_let_finish">Laisser finir le titre</string>
-    <string name="sleep_fade_row">Fondu · %1$d&#160;s</string>
+    <string name="sleep_fade_row">Fondu · %1$d s</string>
     <string name="sleep_every_night">Chaque nuit</string>
     <string name="sleep_start">Démarrer</string>
     <string name="sleep_stop">Arrêter la minuterie</string>
@@ -2724,8 +2724,8 @@
     <string name="sleep_notif_title_song">La musique s\'arrête après ce titre</string>
     <string name="sleep_notif_title_album">La musique s\'arrête après cet album</string>
     <string name="sleep_notif_title_queue">La musique s\'arrête à la fin de la file d\'attente</string>
-    <string name="sleep_notif_line_fade">Fondu de %1$d&#160;s</string>
-    <string name="sleep_notif_line_fade_after">Fondu de %1$d&#160;s, après %2$s</string>
+    <string name="sleep_notif_line_fade">Fondu de %1$d s</string>
+    <string name="sleep_notif_line_fade_after">Fondu de %1$d s, après %2$s</string>
     <string name="sleep_notif_line_after">Après %1$s</string>
     <string name="sleep_notif_stop">Arrêter</string>
     <string-array name="file_size_units">
@@ -3089,7 +3089,7 @@
     <string name="dislike_done" translatable="false">Noté, ici et sur YouTube Music. Il n\'est joué qu\'à votre demande.</string>
     <string name="dislike_not_sent" translatable="false">Noté ici seulement : YouTube Music ne l\'a pas reçu.</string>
     <string name="dislike_lift_not_sent" translatable="false">Retiré ici seulement : YouTube Music ne l\'a pas reçu.</string>
-    <string name="varispeed">Varispeed</string>
+    <string name="varispeed">Vitesse variable</string>
     <string name="varispeed_description">Accélérer rend le son plus aigu et ralentir plus grave, comme un tourne-disque.</string>
     <string name="tempo_slower">Plus lent</string>
     <string name="tempo_faster">Plus rapide</string>
