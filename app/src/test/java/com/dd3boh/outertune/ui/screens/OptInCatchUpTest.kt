@@ -524,7 +524,9 @@ class OptInCatchUpTest {
         assertFalse(row, "dataStore" in row)
 
         val activity = code("MainActivity.kt")
-        val real = activity.substringAfter("if (catchUpOpen) {").substringBefore("activeCount.ping()")
+        // Once the app is on screen: it opens by itself (OpensOnScreen, #197).
+        assertTrue("if (catchUpOpen) OpensOnScreen {" in activity)
+        val real = activity.substringAfter("if (catchUpOpen) OpensOnScreen {").substringBefore("activeCount.ping()")
         assertTrue(real, "OptInCatchUp(" in real)
         assertFalse(real, "preview" in real)
     }

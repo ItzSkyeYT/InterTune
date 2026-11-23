@@ -1,0 +1,12 @@
+{
+  "note": "Public halves of a throwaway test key pair. The private halves were deleted once these fixtures were signed by tools/announce/announce.py (tools/announce/make_app_fixtures.py).",
+  "now": 1794744000,
+  "main": {
+    "id": "496524efb84df1b8",
+    "spki": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEbfjDdNx3P1LmvX0SJ6MxTdSRlD77BM8cLtG4vCJxf04XPk1muJs4ehLGRfiWCPhH95PwSkDInlK1hUtpGMXkQQ=="
+  },
+  "spare": {
+    "id": "e5fad194389d1c87",
+    "spki": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEUpPv88g4vPDhbvLwimhrzLmZFkE9Ji09MI4hGIq3abXddMtBoCbkI8OZhLbQrH+0pe5rrdOh8BkAmCtaAh8MTQ=="
+  }
+}

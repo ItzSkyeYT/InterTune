@@ -1,0 +1,47 @@
+{
+  "polls": [
+    {
+      "id": "q-2026-11",
+      "banner": "A question",
+      "question": "Which first?",
+      "image": "https://raw.githubusercontent.com/ItzSkyeYT/InterTune/v0.13/docs/announcements/release-0.13.webp",
+      "options": [
+        {
+          "id": "a",
+          "label": "This"
+        },
+        {
+          "id": "b",
+          "label": "That"
+        }
+      ]
+    }
+  ],
+  "announcements": [
+    {
+      "id": "release-0.13",
+      "banner": "InterTune 0.13 is out",
+      "title": "Listen together",
+      "image": "https://raw.githubusercontent.com/ItzSkyeYT/InterTune/v0.13/docs/announcements/release-0.13.webp",
+      "body": "Rooms, è and ü.",
+      "translations": {
+        "fr": {
+          "title": "Écouter ensemble"
+        }
+      }
+    }
+  ],
+  "playback": {
+    "v": 1,
+    "id": "fixture-block",
+    "order": [
+      "WEB_REMIX"
+    ],
+    "until": "2026-12-01"
+  },
+  "signed": {
+    "key": "e5fad194389d1c87",
+    "payload": "eyJraW5kIjoibmV3cyIsInNlcSI6MTc5NDc0NDA2MCwiZXhwaXJlcyI6IjIwMjctMDItMTNUMTI6MDE6MDBaIiwicG9sbHMiOlt7ImlkIjoicS0yMDI2LTExIiwiYmFubmVyIjoiQSBxdWVzdGlvbiIsInF1ZXN0aW9uIjoiV2hpY2ggZmlyc3Q/IiwiaW1hZ2UiOiJodHRwczovL3Jhdy5naXRodWJ1c2VyY29udGVudC5jb20vSXR6U2t5ZVlUL0ludGVyVHVuZS92MC4xMy9kb2NzL2Fubm91bmNlbWVudHMvcmVsZWFzZS0wLjEzLndlYnAiLCJvcHRpb25zIjpbeyJpZCI6ImEiLCJsYWJlbCI6IlRoaXMifSx7ImlkIjoiYiIsImxhYmVsIjoiVGhhdCJ9XX1dLCJhbm5vdW5jZW1lbnRzIjpbeyJpZCI6InJlbGVhc2UtMC4xMyIsImJhbm5lciI6IkludGVyVHVuZSAwLjEzIGlzIG91dCIsInRpdGxlIjoiTGlzdGVuIHRvZ2V0aGVyIiwiaW1hZ2UiOiJodHRwczovL3Jhdy5naXRodWJ1c2VyY29udGVudC5jb20vSXR6U2t5ZVlUL0ludGVyVHVuZS92MC4xMy9kb2NzL2Fubm91bmNlbWVudHMvcmVsZWFzZS0wLjEzLndlYnAiLCJib2R5IjoiUm9vbXMsIMOoIGFuZCDDvC4iLCJ0cmFuc2xhdGlvbnMiOnsiZnIiOnsidGl0bGUiOiLDiWNvdXRlciBlbnNlbWJsZSJ9fX1dLCJwbGF5YmFjayI6eyJ2IjoxLCJpZCI6ImZpeHR1cmUtYmxvY2siLCJvcmRlciI6WyJXRUJfUkVNSVgiXSwidW50aWwiOiIyMDI2LTEyLTAxIn0sInBpY3R1cmVzIjp7Imh0dHBzOi8vcmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbS9JdHpTa3llWVQvSW50ZXJUdW5lL3YwLjEzL2RvY3MvYW5ub3VuY2VtZW50cy9yZWxlYXNlLTAuMTMud2VicCI6eyJzaGEyNTYiOiJiMzllOTczOGE5ZmY1NTAwNjhjNzhmZDFmMDA3ZTJmZDM0NTMxOWJkMmRhOGQ5YTlhZWZhNjkzN2QxNzk4NzU4IiwibWlycm9ycyI6WyJodHRwczovL2ludGVydHVuZS5hcHAvbmV3cy9wL2IzOWU5NzM4YTlmZjU1MDA2OGM3OGZkMWYwMDdlMmZkMzQ1MzE5YmQyZGE4ZDlhOWFlZmE2OTM3ZDE3OTg3NTgud2VicCIsImh0dHBzOi8vaW50ZXJ0dW5lLWNvdW50LmludGVydHVuZS53b3JrZXJzLmRldi9uZXdzL3AvYjM5ZTk3MzhhOWZmNTUwMDY4Yzc4ZmQxZjAwN2UyZmQzNDUzMTliZDJkYThkOWE5YWVmYTY5MzdkMTc5ODc1OC53ZWJwIiwiaHR0cHM6Ly9naXRsYWIuY29tL2l0enNreWV5dC9pbnRlcnR1bmUtbmV3cy8tL3Jhdy9tYWluL25ld3MvcC9iMzllOTczOGE5ZmY1NTAwNjhjNzhmZDFmMDA3ZTJmZDM0NTMxOWJkMmRhOGQ5YTlhZWZhNjkzN2QxNzk4NzU4LndlYnAiXX19LCJyZXZva2VzIjpbIjQ5NjUyNGVmYjg0ZGYxYjgiXX0=",
+    "sig": "MEQCIHJYNmuBbpAhG53nOidT6cqYcKiunj53OHLY7RR9qaLEAiBfR/UU+T8Kec7r0ldZwBUJryKSNn/SCwZXxzqTa83Dvg=="
+  }
+}

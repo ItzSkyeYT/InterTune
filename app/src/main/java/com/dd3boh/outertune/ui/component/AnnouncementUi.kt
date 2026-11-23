@@ -71,6 +71,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import coil3.compose.AsyncImage
+import com.dd3boh.outertune.utils.CheckedPictures
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.utils.Announcement
 import com.dd3boh.outertune.utils.AnnouncementAction
@@ -398,7 +399,7 @@ private fun AnnouncementHero(url: String, description: String, onOpen: () -> Uni
             .clickable(onClick = onOpen)
     ) {
         AsyncImage(
-            model = url,
+            model = CheckedPictures.model(url),
             contentDescription = description,
             contentScale = ContentScale.Crop,
             onSuccess = { state ->
@@ -459,7 +460,7 @@ private fun GalleryPicture(url: String, height: Dp, description: String, onOpen:
             .clickable(onClick = onOpen)
     ) {
         AsyncImage(
-            model = url,
+            model = CheckedPictures.model(url),
             contentDescription = description,
             contentScale = ContentScale.Crop,
             onSuccess = { state ->
@@ -495,7 +496,7 @@ private fun EnlargedPicture(url: String, onClose: () -> Unit) {
                 .clickable(onClick = onClose)
         ) {
             AsyncImage(
-                model = url,
+                model = CheckedPictures.model(url),
                 contentDescription = null,
                 contentScale = ContentScale.Fit,
                 onSuccess = { loading = false },

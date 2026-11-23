@@ -343,6 +343,7 @@ import com.dd3boh.outertune.ui.utils.LocalAppBackdrop
 import com.dd3boh.outertune.ui.utils.ScreenRate
 import com.dd3boh.outertune.ui.utils.LocalGlassStill
 import com.dd3boh.outertune.ui.utils.Animations
+import com.dd3boh.outertune.ui.utils.OpensOnScreen
 import com.dd3boh.outertune.ui.utils.stillGlass
 import com.dd3boh.outertune.ui.utils.LocalAppBackdropAvailable
 import com.dd3boh.outertune.ui.utils.LocalPlainDock
@@ -1235,8 +1236,10 @@ class MainActivity : ComponentActivity() {
                     !snoozed
                 }
 
+                // It comes by itself, when a check answers or the hour of Later is up, and the app may be
+                // away by then: its window waits for the app to be on screen (OpensOnScreen, #197).
                 pendingUpdate?.let { found ->
-                    if (updatePromptVisible) {
+                    if (updatePromptVisible) OpensOnScreen {
                         UpdatePrompt(
                             update = found,
                             ready = updateInstaller.isDownloaded(found.sizeBytes),
@@ -1608,12 +1611,13 @@ class MainActivity : ComponentActivity() {
                             )
                         )
                     }
-                    // A listening room's invite, opened from a link: asked before joining.
+                    // A listening room's invite, opened from a link: asked before joining. Both come up by
+                    // themselves once the player is there, so only while the app is on screen (OpensOnScreen).
                     var togetherInvite by remember { mutableStateOf<RoomCode?>(null) }
-                    togetherInvite?.let { code -> TogetherInviteDialog(code, playerConnection, onDone = { togetherInvite = null }) }
+                    togetherInvite?.let { code -> OpensOnScreen { TogetherInviteDialog(code, playerConnection, onDone = { togetherInvite = null }) } }
                     // An invite to the room this phone is in already opens that room's screen.
                     var roomScreen by remember { mutableStateOf(false) }
-                    if (roomScreen && playerConnection != null) {
+                    if (roomScreen && playerConnection != null) OpensOnScreen {
                         CompositionLocalProvider(LocalPlayerConnection provides playerConnection) {
                             TogetherSheet(onDismiss = { roomScreen = false })
                         }
@@ -2033,7 +2037,8 @@ class MainActivity : ComponentActivity() {
                             if (tourState.asking && !tourFromWelcome) setWalkthroughSeen(BuildConfig.VERSION_CODE)
                         }
 
-                        if (catchUpOpen) {
+                        // Opened by the answers loading, not by a tap: only while the app is on screen (OpensOnScreen).
+                        if (catchUpOpen) OpensOnScreen {
                             OptInCatchUp(appScope = coroutineScope, onDone = {
                                 catchUpOpen = false
                                 catchUpDone = true
@@ -2056,7 +2061,7 @@ class MainActivity : ComponentActivity() {
                         val signedIn = remember(accountCookie) { isAccountCookie(accountCookie) }
                         if (accountNoticeOwed(setupDone = oobeStatus >= OOBE_VERSION, signedIn = signedIn, seen = accountNoticeSeen) &&
                             !catchUpOpen && !welcomeOpen && !tourState.running && !tourFromWelcome && !updatePromptVisible
-                        ) {
+                        ) OpensOnScreen {
                             AccountNoticeDialog(onDone = { setAccountNoticeSeen(true) })
                         }
 
@@ -2098,7 +2103,8 @@ class MainActivity : ComponentActivity() {
                                     setSaverNoteShown(saverNoteShown + 1)
                                 }
                             }
-                            if (saverNoteUp) {
+                            // The saver mostly comes on while the app is away: the note waits for it (OpensOnScreen).
+                            if (saverNoteUp) OpensOnScreen {
                                 SaverNoteDialog(
                                     onBatteryUse = {
                                         saverNoteUp = false
