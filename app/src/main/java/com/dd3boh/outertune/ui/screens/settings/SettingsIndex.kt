@@ -218,6 +218,8 @@ val SETTINGS_INDEX: List<SettingEntry> = listOf(
     SettingEntry(Tour.ROUTE_LYRICS, R.string.lyrics_karaoke_hz_title, fold = R.string.advanced),
 
     // Listen together, where rooms are offered
+    SettingEntry("settings/together", R.string.together_everyone_seeks, R.string.together_everyone_seeks_explain, there = togetherAvailable),
+    SettingEntry("settings/together", R.string.together_everyone_arranges, there = togetherAvailable),
     SettingEntry("settings/together", R.string.together_name_setting, there = togetherAvailable),
     SettingEntry("settings/together", R.string.together_tour_entry, there = togetherAvailable),
 

@@ -16,6 +16,7 @@ import android.util.Log
 import android.widget.Toast
 import androidx.annotation.StringRes
 import androidx.core.content.ContextCompat
+import androidx.datastore.preferences.core.edit
 import androidx.media3.common.C
 import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
@@ -24,6 +25,8 @@ import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.PlayOrigin
 import com.dd3boh.outertune.constants.TogetherCatchUpKey
 import com.dd3boh.outertune.constants.TogetherDelayKey
+import com.dd3boh.outertune.constants.TogetherEveryoneArrangesKey
+import com.dd3boh.outertune.constants.TogetherEveryoneSeeksKey
 import com.dd3boh.outertune.constants.TogetherToleranceKey
 import com.dd3boh.outertune.extensions.metadata
 import com.dd3boh.outertune.constants.Unreleased
@@ -111,6 +114,10 @@ class TogetherSession(
         val waitingForHost: Boolean = true,
         /** The follower paused, picked another song or seeked: it plays on its own until [catchUp]. */
         val ownWay: Boolean = false,
+        /** The owner's room settings, who may do what: its own on the owner, else as last heard; null before, or from an older build. */
+        val settings: RoomSettings? = null,
+        /** The person in control takes a guest's change to the queue (Arrange): its Here says so, a build before this one's does not. */
+        val leaderArranges: Boolean = false,
         /** The leader's last song from someone else, "title, by whom". */
         val lastSuggestion: String? = null,
         /** The others heard in the room lately, the owner first. */
@@ -294,7 +301,7 @@ class TogetherSession(
     }
 
     // A host's room that comes back with control elsewhere (lead) waits for that phone, as any follower does.
-    private val _status = MutableStateFlow(Status(waitingForHost = !leading, leading = leading))
+    private val _status = MutableStateFlow(Status(waitingForHost = !leading, leading = leading, settings = if (owner) RoomSettings() else null))
     val status: StateFlow<Status> = _status
 
     /** Whether this phone follows someone now: its player's repeat mode is then the room's, not its own choice. */
@@ -333,7 +340,12 @@ class TogetherSession(
         }
 
         override fun onPositionDiscontinuity(oldPosition: Player.PositionInfo, newPosition: Player.PositionInfo, reason: Int) {
-            if (!leading && reason == Player.DISCONTINUITY_REASON_SEEK && !service.castOn) listenerChose("a seek")
+            if (!leading && reason == Player.DISCONTINUITY_REASON_SEEK && !service.castOn) {
+                // In the room's song while only the one in control moves in it (RoomSettings): held, see seekHeldHere.
+                if (oldPosition.mediaItemIndex == newPosition.mediaItemIndex && seekHeld(_status.value)) {
+                    seekHeldHere(abs(newPosition.positionMs - oldPosition.positionMs))
+                } else listenerChose("a seek")
+            }
         }
 
         override fun onEvents(player: Player, events: Player.Events) {
@@ -403,6 +415,14 @@ class TogetherSession(
                 lock.maxNudge = tuning.maxNudge
                 delayMs = tuning.delayMs
                 _status.value = _status.value.copy(toleranceMs = tuning.toleranceMs)
+            }
+        }
+        // The owner's room settings, set once and kept for every room it makes, as its name in rooms is (his word of
+        // 22 Nov 2026), in Settings > Listen together or the room's sheet, the same keys (RoomSettings): said in its Here
+        // as the room opens, and at once as they change.
+        if (owner) scope.launch {
+            service.dataStore.data.collect { prefs ->
+                ownSettings(RoomSettings(everyoneSeeks = prefs[TogetherEveryoneSeeksKey] == true, everyoneArranges = prefs[TogetherEveryoneArrangesKey] == true))
             }
         }
         scope.launch {
@@ -536,7 +556,10 @@ class TogetherSession(
     }
 
     private fun sayHere() = send(
-        TogetherMessage.Here(name, owner, lead = if (owner) leaderKey else null, leadSince = if (owner) leadGivenAt else null)
+        TogetherMessage.Here(
+            name, owner, lead = if (owner) leaderKey else null, leadSince = if (owner) leadGivenAt else null,
+            settings = if (owner) _status.value.settings else null, arranges = true,
+        )
     )
 
     /**
@@ -747,6 +770,13 @@ class TogetherSession(
             }
             // A newcomer hears at once who leads, instead of at the owner's next Here.
             if (owner && greeted.add(from)) sayHere()
+            // The owner's room settings, from its own word alone (RoomSettings): none from an owner on an older build.
+            if (!owner && from == ownerKey && message.settings != _status.value.settings) {
+                _status.value = _status.value.copy(settings = message.settings)
+                Log.i(TAG, "The owner's room settings: ${message.settings ?: "none said"}")
+            }
+            // Whether this phone, given control, takes a guest's change to the queue (Arrange): an older build drops it.
+            if (message.arranges) arrangers += from else arrangers -= from
         }
         said.keys.retainAll(heard.keys)
         if (from == ownerKey) ownerHeardAt = now
@@ -795,6 +825,8 @@ class TogetherSession(
                     }
                 }
             }
+            // A guest's move or removal in the room's queue, while the owner lets everyone change it (RoomSettings).
+            is TogetherMessage.Arrange -> if (leading && _status.value.settings?.everyoneArranges == true) arranged(message, from)
             is TogetherMessage.Propose -> if (leading && message.songs.isNotEmpty()) {
                 // It waits for Play it or Not now, after any other guest's (ProposalLine).
                 val proposal = Proposal(message.songs, message.positionMs, message.by, now, from)
@@ -938,6 +970,7 @@ class TogetherSession(
             members = members,
             leading = leading,
             leaderName = leaderKey?.takeIf { it != me }?.let { said[it]?.first }?.ifBlank { null },
+            leaderArranges = leaderKey.let { it != null && (it == me || it in arrangers) },
         )
     }
 
@@ -955,6 +988,78 @@ class TogetherSession(
         lead(me)
         sayHere()
         inControl(me)
+    }
+
+    /** Who said in their Here that, given control, they take a guest's change to the queue (Arrange). */
+    private val arrangers = mutableSetOf<String>()
+
+    /**
+     * A guest that may change the room's queue ([guestArranges]) moved [songId] in its own copy, to come right after
+     * [after], the song playing when null: the person in control moves it there too (arranged), and its next queue
+     * brings it to everyone, this guest included.
+     */
+    fun arrangeMoved(songId: String, after: String?) {
+        if (!guestArranges(_status.value)) return
+        send(TogetherMessage.Arrange(songId, after = after))
+        Log.i(TAG, "Moved $songId in the room's queue")
+    }
+
+    /** A guest that may change the room's queue took [songId] out of its own copy: the person in control takes it out too. */
+    fun arrangeRemoved(songId: String) {
+        if (!guestArranges(_status.value)) return
+        send(TogetherMessage.Arrange(songId, remove = true))
+        Log.i(TAG, "Took $songId out of the room's queue")
+    }
+
+    /**
+     * A guest's change to the room's queue, made by the person in control as its own drag or swipe in the queue sheet is
+     * (Queue.kt), the queue board and the player alike, so that its next queue brings it to everyone (queueSoon). Never
+     * the song playing, which a guest does not move or take out (RoomArrange); a song or a place not in the queue here
+     * changes nothing.
+     */
+    private fun arranged(message: TogetherMessage.Arrange, from: String) {
+        val player = service.player
+        val current = player.currentMediaItemIndex
+        val ids = (0 until player.mediaItemCount).map { player.getMediaItemAt(it).mediaId }
+        val at = RoomArrange.placeOf(ids, message.songId, current) ?: return
+        if (message.remove) {
+            if (!service.queueBoard.removeCurrentQueueSong(at)) return
+            player.removeMediaItem(at)
+        } else {
+            val to = RoomArrange.moveTo(ids, at, message.after, current) ?: return
+            if (to == at) return
+            service.queueBoard.moveSong(at, to)
+            player.moveMediaItem(at, to)
+            // Where the guest put it, the adaptive queue leaves it, as after a drag here.
+            service.noteMovedByHand(message.songId)
+        }
+        // By key, never by the name they chose: see RoomHealth.
+        Log.i(TAG, "${from.take(8)} ${if (message.remove) "took out" else "moved"} ${message.songId} in the queue")
+        val by = said[from]?.first?.ifBlank { null } ?: service.getString(R.string.together_someone)
+        Toaster.show(service, service.getString(R.string.together_arranged, by))
+    }
+
+    /** The owner's room settings are [settings] now: everyone hears them at once, a newcomer as it comes. */
+    private fun ownSettings(settings: RoomSettings) {
+        if (settings == _status.value.settings) return
+        _status.value = _status.value.copy(settings = settings)
+        Log.i(TAG, "Room settings: $settings")
+        sayHere()
+    }
+
+    /**
+     * A move in the room's song while only the person in control may move in it ([seekHeld]): this phone stays with the
+     * room, where before it went its own way, and the next look puts it back where the room is. The seek bar does not
+     * move at all then (RoomOnBar.kt); this is for the other ways in: the notification, a watch, a lyric line, the seek
+     * buttons. [movedMs] is how far it went: the app's own seeks in place, as an effect is switched on, say nothing.
+     */
+    private fun seekHeldHere(movedMs: Long) {
+        if (System.currentTimeMillis() < ownCommandUntil) return
+        lock.reset()
+        wake.trySend(Unit)
+        if (movedMs < HELD_SAID_MS) return
+        Log.i(TAG, "A move in the song held: back to where the room is")
+        Toaster.show(service, seekHeldLine(service, _status.value))
     }
 
     /**
@@ -1594,6 +1699,8 @@ class TogetherSession(
         private const val QUEUE_EVERY_BEATS = 15
         /** The owner leaves an old room this long after telling everyone where the new one is. */
         private const val MOVE_AFTER_MS = 1_500L
+        /** A held move in the song this far or more says why it went back (seekHeldHere). */
+        private const val HELD_SAID_MS = 1_000L
         private const val END_AFTER_MS = 800L
 
         /** Public Nostr relays, as many as OpenTune sends to: a room lasts while any one answers. */

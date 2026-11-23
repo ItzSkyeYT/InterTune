@@ -2551,6 +2551,11 @@
     <string name="together_share">Partager</string>
     <string name="together_invite_line">Rejoins mon salon sur InterTune :\n%1$s</string>
     <string name="together_own_way">Vous écoutez de votre côté</string>
+    <string name="together_on_your_own">De votre côté</string>
+    <string name="together_seek_held">%1$s décide où en est le titre</string>
+    <string name="together_seek_held_host">L\'hôte décide où en est le titre</string>
+    <string name="together_order_held">%1$s décide de l\'aléatoire et de la répétition</string>
+    <string name="together_order_held_host">L\'hôte décide de l\'aléatoire et de la répétition</string>
     <string name="together_catch_up">Rattraper</string>
     <string name="together_suggested">Ajouté au salon : il passe ensuite</string>
     <string name="together_suggested_many">Ajoutés au salon : %1$d titres passent ensuite</string>
@@ -2588,6 +2593,11 @@
     <string name="together_control_theirs">%1$s a la main maintenant</string>
     <string name="together_control_back">%1$s ne répond plus, alors vous reprenez la main.</string>
     <string name="together_kick">Retirer du salon</string>
+    <string name="together_room_settings">Réglages du salon</string>
+    <string name="together_everyone_seeks">Laisser chacun se déplacer dans le titre</string>
+    <string name="together_everyone_seeks_explain">Juste pour lui, jusqu\'à ce qu\'il rattrape le salon.</string>
+    <string name="together_everyone_arranges">Laisser chacun modifier la file d\'attente</string>
+    <string name="together_arranged">%1$s a modifié la file d\'attente</string>
     <string name="together_kicked">Vous avez été retiré du salon</string>
     <string name="together_closed">Le salon a été fermé</string>
     <string name="together_host_away">L\'hôte est absent</string>

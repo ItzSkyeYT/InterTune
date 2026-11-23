@@ -2753,6 +2753,14 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="together_share">Share</string>
     <string name="together_invite_line">Join my room on InterTune:\n%1$s</string>
     <string name="together_own_way">Playing on your own</string>
+    <!-- Under the player's seek bar, between the two times, beside Catch up, while a guest in a listening room plays on its own (RoomOnBar). As short as it can be. -->
+    <string name="together_on_your_own">On your own</string>
+    <!-- Said when a guest touches the seek bar while the host lets only the person in control move in the song (RoomSettings): the name is the person in control's. -->
+    <string name="together_seek_held">%1$s decides where the song is</string>
+    <string name="together_seek_held_host">The host decides where the song is</string>
+    <!-- Said when a guest following a listening room taps shuffle or repeat, which are the room's: the name is the person in control's. -->
+    <string name="together_order_held">%1$s decides on shuffle and repeat</string>
+    <string name="together_order_held_host">The host decides on shuffle and repeat</string>
     <string name="together_catch_up">Catch up</string>
     <string name="together_suggested">Added to the room: it plays next</string>
     <string name="together_suggested_many">Added to the room: %1$d songs play next</string>
@@ -2790,6 +2798,13 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="together_control_theirs">%1$s is in control now</string>
     <string name="together_control_back">%1$s stopped answering, so you\'re in control again.</string>
     <string name="together_kick">Remove from the room</string>
+    <!-- The host's own part of the room sheet: switches for who may do what in the room (RoomSettings). -->
+    <string name="together_room_settings">Room settings</string>
+    <string name="together_everyone_seeks">Let everyone move in the song</string>
+    <string name="together_everyone_seeks_explain">Just for them, until they catch up.</string>
+    <string name="together_everyone_arranges">Let everyone change the queue</string>
+    <!-- Said to the person in control when a guest moved or took out a song in the room's queue (Arrange): the guest's name. -->
+    <string name="together_arranged">%1$s changed the queue</string>
     <string name="together_kicked">You were removed from the room</string>
     <string name="together_closed">The room was closed</string>
     <string name="together_host_away">The host is away</string>

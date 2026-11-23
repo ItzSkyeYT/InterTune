@@ -130,7 +130,7 @@ class QueueRemoveBeforePlayTest {
         val body = sheet.substringAfter("val removeSelected").substringBefore("\n    }\n")
         assertTrue(
             "locked, the room's queue on a guest (RoomQueueTest), or another queue looked at from the list, no; the saved queue before play, yes",
-            sheet.contains("val removeSelected: (() -> Unit)? = if (lockQueue || roomsQueue || (detachedHead && !movesStoredQueue)) null else {")
+            sheet.contains("val removeSelected: (() -> Unit)? = if (lockQueue || roomReadOnly || (detachedHead && !movesStoredQueue)) null else {")
         )
         assertTrue(
             "the stored queue is the one the player will play, with nothing in the player",
