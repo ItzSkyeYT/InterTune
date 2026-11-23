@@ -1657,9 +1657,9 @@ class TogetherSession(
         // the leader's word that it did is a moment behind: going back would cut the new song.
         if (state.songId == autoAdvancedFrom && now - autoAdvancedAt < AUTO_AHEAD_MS) return
         if (loadingSong == state.songId) return
-        // In this phone's queue already, its queue being the leader's: go to it there.
         // The leader's song, which teaches this phone nothing unless it put it in itself (WhoAdded).
         whoAdded.playing(state.songId, leaderKey ?: WhoAdded.SOMEONE)
+        // In this phone's queue already, its queue being the leader's: go to it there.
         indexOf(player, state.songId)?.let { index ->
             Log.i(TAG, "The leader plays ${state.songId}: in the queue here, going to it")
             loadingSong = state.songId
