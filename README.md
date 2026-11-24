@@ -368,6 +368,8 @@ Thank you so much, everyone, for your support in this growing project!
 
 <p align="center"><a href="https://github.com/3SSF"><img src="https://github.com/3SSF.png?size=128" width="64" height="64" alt="3SSF"></a><br><b><a href="https://github.com/3SSF">3SSF</a></b><br><sub>The first code from outside: a music note on local songs with no cover (<a href="https://github.com/ItzSkyeYT/InterTune/pull/161">#161</a>) · November 2026</sub></p>
 
+<p align="center"><b>Translators</b><br>InterTune speaks your language thanks to everyone translating it on <a href="https://hosted.weblate.org/engage/intertune/">Weblate</a>, and especially <b>Mickaël Binos</b> (French) and <b>Jacek Krewniak</b> (Polish). Thank you!</p>
+
 <p align="center"><b>Want to help?</b> <a href=".github/CONTRIBUTING.md">CONTRIBUTING.md</a> says how to build it, and the <a href="https://discord.gg/68jmqhMjXk">Discord server</a> is the place to ask for a first task.</p>
 
 ## Donors
