@@ -121,6 +121,8 @@ import com.dd3boh.outertune.ui.component.SwipeToQueueBox
 import com.dd3boh.outertune.ui.component.TopBarActions
 import com.dd3boh.outertune.ui.component.TopBarSearchField
 import com.dd3boh.outertune.ui.component.TopBarTitle
+import com.dd3boh.outertune.ui.component.rememberHeaderGone
+import com.dd3boh.outertune.ui.component.TopBarTitleOnScroll
 import com.dd3boh.outertune.ui.component.button.IconButton
 import com.dd3boh.outertune.ui.component.items.YouTubeListItem
 import com.dd3boh.outertune.ui.component.shimmer.ButtonPlaceholder
@@ -240,11 +242,8 @@ fun OnlinePlaylistScreen(
     val coroutineScope = rememberCoroutineScope()
     val snackbarHostState = LocalSnackbarHostState.current
 
-    val showTopBarTitle by remember {
-        derivedStateOf {
-            lazyListState.firstVisibleItemIndex > 0
-        }
-    }
+    // Once the header has left the screen, not as soon as it is under the bar (rememberHeaderGone).
+    val showTopBarTitle by rememberHeaderGone(lazyListState)
 
     val downloadUtil = LocalDownloadUtil.current
     var downloadState by remember {
@@ -782,9 +781,9 @@ fun OnlinePlaylistScreen(
                         onValueChange = { query = it },
                         modifier = Modifier.focusRequester(focusRequester),
                     )
-                } else if (showTopBarTitle && !twoPanes) {
+                } else if (!twoPanes) {
                     // Not beside the header, which says the name already and never scrolls away.
-                    TopBarTitle(playlist?.title.orEmpty())
+                    TopBarTitleOnScroll(playlist?.title.orEmpty(), showTopBarTitle)
                 }
             },
             navController = navController,
