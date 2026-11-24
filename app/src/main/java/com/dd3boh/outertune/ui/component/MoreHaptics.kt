@@ -65,10 +65,11 @@ fun tickWay(sdk: Int, live: Boolean): TickWay = when {
  * phone where Compose gives haptics at all ([live], from [hapticsLive]).
  *
  * That is Light's way. Under the Vibration setting's Strong (Haptics) the seek bar ticks low and the volume clicks as
- * it lands, on any phone from Android 11; under Off neither plays.
+ * it lands, on any phone from Android 11, or [strong] where a caller has its own (the seek bar's ends, Feel.EDGE);
+ * under Off neither plays.
  */
-fun HapticFeedback.segmentTick(view: View, live: Boolean, frequent: Boolean = false) {
-    Haptics.play(if (frequent) Feel.LOW_TICK else Feel.CLICK) {
+fun HapticFeedback.segmentTick(view: View, live: Boolean, frequent: Boolean = false, strong: Feel = if (frequent) Feel.LOW_TICK else Feel.CLICK) {
+    Haptics.play(strong) {
         when (tickWay(Build.VERSION.SDK_INT, live)) {
             TickWay.COMPOSE -> performHapticFeedback(if (frequent) HapticFeedbackType.SegmentFrequentTick else HapticFeedbackType.SegmentTick)
             TickWay.CLOCK -> view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)

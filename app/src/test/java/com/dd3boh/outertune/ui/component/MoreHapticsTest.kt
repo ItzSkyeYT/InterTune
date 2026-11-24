@@ -155,6 +155,8 @@ class MoreHapticsTest {
         assertEquals(2, Regex("""segmentTick\(""").findAll(slide).count())
         assertTrue("seekRumble.hitsEnd(it, shownDuration)" in slide)
         assertTrue("haptic.segmentTick(currentView, tickLive, frequent = true)" in slide)
+        // The ends a tad softer than the volume's click under Strong (Ti-Die, #testers 23 Nov 2026), Light's way unchanged.
+        assertTrue("haptic.segmentTick(currentView, tickLive, strong = Feel.EDGE)" in slide)
         assertFalse("SegmentFrequentTick" in slide)
         assertTrue("val tickLive = remember { hapticsLive(context) }" in player)
     }

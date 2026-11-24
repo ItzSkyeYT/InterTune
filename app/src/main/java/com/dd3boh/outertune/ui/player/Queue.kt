@@ -130,7 +130,6 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.util.fastAny
-import androidx.media3.common.Player.REPEAT_MODE_ONE
 import androidx.media3.common.Player.STATE_ENDED
 import androidx.media3.common.Timeline
 import androidx.navigation.NavController
@@ -184,6 +183,7 @@ import com.dd3boh.outertune.ui.component.Feel
 import com.dd3boh.outertune.ui.component.FloatingFooter
 import com.dd3boh.outertune.ui.component.SelectHeader
 import com.dd3boh.outertune.ui.component.buttonFeel
+import com.dd3boh.outertune.ui.component.repeatFeel
 import com.dd3boh.outertune.ui.component.felt
 import com.dd3boh.outertune.ui.component.SwipeToRemoveBox
 import com.dd3boh.outertune.ui.component.SwipeToRemoveState
@@ -2096,7 +2096,8 @@ fun BoxScope.QueueContent(
                                     enabled = barWorks,
                                     onClick = {
                                         if (orderHeld) return@RepeatButton sayOrderHeld(context, playerConnection)
-                                        val feel = buttonFeel(turnsOff = repeatMode == REPEAT_MODE_ONE)
+                                        // As the player's: only the tap from off turns it on, into one and back off is the pop.
+                                        val feel = repeatFeel(repeatMode)
                                         playerConnection.player.toggleRepeatMode()
                                         haptic.felt(feel, HapticFeedbackType.SegmentFrequentTick)
                                     }
