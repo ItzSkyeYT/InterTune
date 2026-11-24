@@ -110,6 +110,9 @@ class RecapMomentsTest {
         val autumn = run("hit", at(day(10, 1), 9), 8) + run("a2", at(day(10, 1), 12), 4) + variety(28, at(day(10, 2), 9), "oct")
         val spring = run("hit", at(day(4, 1), 9), 3) + variety(27, at(day(4, 2), 9), "apr")
         assertEquals(listOf("hit", "hit", "a2"), recap(spring + summer + autumn).seasons!!.seasons.map { it.songId })
+        // Half as often as the season's own top song at least: three plays to eight is not autumn's song, the hit is.
+        val thin = run("hit", at(day(10, 1), 9), 8) + run("a3", at(day(10, 1), 12), 3) + variety(29, at(day(10, 2), 9), "oct")
+        assertEquals(listOf("hit", "hit"), recap(summer + thin).seasons!!.seasons.map { it.songId })
     }
 
     @Test
@@ -220,8 +223,10 @@ class RecapMomentsTest {
     @Test
     fun `the morning takes a song of its own where it has one`() {
         val night = daily(day(9, 2), 5, 1, 0, "same", own = 2, n = 4)
-        val morning = daily(day(9, 2), 5, 7, 0, "same", own = 2, n = 4, tag = "m") + run("other", at(day(9, 10), 8), 4)
-        assertEquals("other", recap(night + morning).nightAndMorning?.morning?.songId)
+        val morning = daily(day(9, 2), 5, 7, 0, "same", own = 2, n = 4, tag = "m") + run("other", at(day(9, 10), 8), 5)
+        assertEquals("half as often as its top song: its own", "other", recap(night + morning).nightAndMorning?.morning?.songId)
+        val behind = daily(day(9, 2), 5, 7, 0, "same", own = 2, n = 4, tag = "m") + run("other", at(day(9, 10), 8), 4)
+        assertEquals("four plays to ten: the night's song again", "same", recap(night + behind).nightAndMorning?.morning?.songId)
         val onlySame = daily(day(9, 2), 5, 7, 0, "same", own = 2, n = 4, tag = "m")
         assertEquals("same", recap(night + onlySame).nightAndMorning?.morning?.songId)
     }

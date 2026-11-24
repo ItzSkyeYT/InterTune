@@ -40,6 +40,13 @@ object RecapMoments {
     const val SEASONS_MIN = 2
 
     /**
+     * A season, or the morning, takes a song of its own in place of its most played one only if that song
+     * was played at least half as often there ([OWN_SONG_PARTS] of it): a song far behind would say that
+     * autumn was something it was not.
+     */
+    const val OWN_SONG_PARTS = 2
+
+    /**
      * The season a local [day] is in, by the weather's count: 0 for December to February, 1 for March
      * to May, 2 for June to August, 3 for September to November. Names are the screen's, which knows the
      * phone's side of the equator: the same months are summer in the south. A calendar year's December
@@ -51,7 +58,8 @@ object RecapMoments {
      * One song a season, for each season with [SEASON_MIN_PLAYS] plays or more and a song played
      * [SEASON_SONG_MIN_PLAYS] times in it; null for fewer than [SEASONS_MIN] such seasons. The busiest
      * season takes its most played song first, and each one after takes its most played song that no
-     * busier one took, where it has one: four times the same song would say nothing about the seasons.
+     * busier one took, where it has one played at least half as often as its own most played: four times
+     * the same song would say little about the seasons, but a song that carried two of them did.
      */
     fun seasons(plays: List<RecapPlay>): Seasons? {
         val year = counts(plays)
@@ -62,7 +70,7 @@ object RecapMoments {
         val busiestFirst = bySeason.entries.sortedWith(compareByDescending<Map.Entry<Int, List<RecapPlay>>> { it.value.size }.thenBy { it.key })
         for ((season, own) in busiestFirst) {
             val songs = ranked(own, year).filter { it.plays >= SEASON_SONG_MIN_PLAYS }
-            val song = songs.firstOrNull { it.songId !in taken } ?: songs.firstOrNull() ?: continue
+            val song = own(songs) { it.songId !in taken } ?: continue
             taken += song.songId
             picked += Season(season, own.size, song.songId, song.plays)
         }
@@ -145,7 +153,8 @@ object RecapMoments {
      * What played after midnight and what played first thing in the morning, by the local time each
      * play began, each where it had enough ([PART_MIN_PLAYS] plays on [PART_MIN_DAYS] nights or mornings,
      * a song played [PART_SONG_MIN_PLAYS] times in it); null where neither had. The morning takes a song
-     * of its own where it has one: the slide is about how the two differ.
+     * of its own where it has one played at least half as often as its most played ([OWN_SONG_PARTS]): the
+     * slide is about how the two differ.
      */
     fun nightAndMorning(plays: List<RecapPlay>): NightAndMorning? {
         val year = counts(plays)
@@ -159,8 +168,7 @@ object RecapMoments {
         if (own.size < PART_MIN_PLAYS) return null
         val days = own.mapTo(HashSet(), dayOf).size
         if (days < PART_MIN_DAYS) return null
-        val songs = ranked(own, year).filter { it.plays >= PART_SONG_MIN_PLAYS }
-        val song = songs.firstOrNull { it.songId != avoid } ?: songs.firstOrNull() ?: return null
+        val song = own(ranked(own, year).filter { it.plays >= PART_SONG_MIN_PLAYS }) { it.songId != avoid } ?: return null
         return PartOfDay(own.size, days, song.songId, song.plays)
     }
 
@@ -214,6 +222,15 @@ object RecapMoments {
         recap.onRepeat?.let { add(it.songId) }
         recap.nightAndMorning?.let { n -> listOfNotNull(n.night, n.morning).mapTo(this) { it.songId } }
         recap.cameBack?.let { add(it.songId) }
+    }
+
+    /**
+     * The first of [songs] (the most played first) that [free] allows, where it was played at least half as
+     * often as the first of all ([OWN_SONG_PARTS]); else the first of all; null where there are none.
+     */
+    private fun own(songs: List<Count>, free: (Count) -> Boolean): Count? {
+        val top = songs.firstOrNull() ?: return null
+        return songs.firstOrNull { free(it) && it.plays * OWN_SONG_PARTS >= top.plays } ?: top
     }
 
     private class Count(val songId: String) {
