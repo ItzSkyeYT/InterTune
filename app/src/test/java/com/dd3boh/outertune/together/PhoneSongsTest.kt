@@ -38,6 +38,11 @@ class PhoneSongsTest {
     private var results: (String) -> List<SongItem> = { emptyList() }
     private var mayAsk = true
     private val answers = Channel<String>(Channel.UNLIMITED)
+    /** The ids YouTube Music was asked for, and its songs under them. */
+    private val idAsks = mutableListOf<String>()
+    private var catalogue: (String) -> SongItem? = { null }
+    /** The id in a file's tags, by its path. */
+    private var tagIds: (String) -> String? = { null }
 
     private val folder = "/storage/emulated/0/Music/Mel Boro/Daft Punk"
     private val path = "$folder/05 Instant Crush.flac"
@@ -77,6 +82,11 @@ class PhoneSongsTest {
         spacingMs = 0,
         searchOn = EmptyCoroutineContext,
         now = { now },
+        songById = { id ->
+            idAsks += id
+            catalogue(id)
+        },
+        idInTags = { path -> tagIds(path) },
     )
 
     private suspend fun answered(): String = withTimeout(5_000) { answers.receive() }
@@ -148,6 +158,122 @@ class PhoneSongsTest {
         // Another song gets another id.
         val other = file(title = "Untagged", id = "LSz9y8x7w6", localPath = "$folder/Untagged.mp3")
         assertNotEquals(answer.id, songs.forRoom(other.id, other, lookUp = true)!!.id)
+    }
+
+    @Test
+    fun `a file named with its YouTube id is heard as that song, by the id and not by its tags`() = runBlocking {
+        // Niko's file (#testers, 23 Nov 2026), "i downloaded it from there": its tags name the video as its uploader wrote
+        // it, and no search by them finds the song.
+        catalogue = { id -> if (id == "aKiAkAnE_01") result(id, title = "Flash Back", artist = "AKIAKANE", seconds = 246) else null }
+        val songs = phoneSongs()
+        val song = file(
+            title = "秋赤音 【Flash B ack】", artist = "AKIAKANEch", seconds = 245,
+            localPath = "$folder/秋赤音 【Flash B ack】 [aKiAkAnE_01].opus", id = "LSflashbck",
+        )
+        assertNull(songs.forRoom(song.id, song, lookUp = true))
+        assertEquals(song.id, answered())
+        val heard = songs.forRoom(song.id, song, lookUp = true) as PhoneSongs.Heard
+        assertEquals("aKiAkAnE_01", heard.id)
+        assertEquals("Flash Back", heard.title)
+        assertEquals("AKIAKANE", heard.artist)
+        assertEquals(listOf("aKiAkAnE_01"), idAsks)
+        assertEquals(emptyList<String>(), searches)
+        // What goes to the room has nothing of the file: not its path, not its name, not its tags.
+        val sent = TogetherMessage.encode(TogetherMessage.Queue(listOf(heard.song), repeat = 0, shuffle = false)) +
+            TogetherMessage.encode(TogetherMessage.State(heard.id, heard.title, heard.artist, 1_000, true, 1.0, t0))
+        for (mine in listOf(song.id, "/storage", "Mel Boro", "秋赤音", "AKIAKANEch", ".opus")) assertFalse(mine, mine in sent)
+    }
+
+    @Test
+    fun `a file whose tags carry its YouTube link is heard as that song, with no search`() = runBlocking {
+        results = { listOf(result("cover00001", title = "Instant Crush (Cover)", artist = "Some Band")) }
+        catalogue = { id -> result(id, seconds = 338) }
+        tagIds = { p -> if (p == path) "dpInstant01" else null }
+        val songs = phoneSongs()
+        val song = file()
+        assertNull(songs.forRoom(song.id, song, lookUp = true))
+        answered()
+        assertEquals("dpInstant01", songs.forRoom(song.id, song, lookUp = true)!!.id)
+        assertEquals(listOf("dpInstant01"), idAsks)
+        assertEquals(emptyList<String>(), searches)
+    }
+
+    @Test
+    fun `an id YouTube has no song for, or whose song is another length, is not taken, and the tags are looked for`() = runBlocking {
+        results = { listOf(result("dpInstant1")) }
+        catalogue = { null }
+        tagIds = { "notAsong_01" }
+        val songs = phoneSongs()
+        val song = file()
+        assertNull(songs.forRoom(song.id, song, lookUp = true))
+        answered()
+        assertEquals("dpInstant1", songs.forRoom(song.id, song, lookUp = true)!!.id)
+        assertEquals(listOf("Instant Crush Daft Punk"), searches)
+        // A name that only looks like an id: YouTube's song under it is a minute and a half, the file five and a half.
+        catalogue = { id -> result(id, title = "Intro", artist = "Someone", seconds = 95) }
+        tagIds = { null }
+        val named = file(localPath = "$folder/05 Instant Crush [Bootleg2001].flac", id = "LSbootleg1")
+        assertNull(songs.forRoom(named.id, named, lookUp = true))
+        answered()
+        assertEquals("dpInstant1", songs.forRoom(named.id, named, lookUp = true)!!.id)
+        assertEquals(listOf("notAsong_01", "Bootleg2001"), idAsks)
+        assertEquals(2, searches.size)
+    }
+
+    @Test
+    fun `an untagged file named with its id is heard, or goes with no name when YouTube has no song for it`() = runBlocking {
+        catalogue = { id -> if (id == "dpInstant01") result(id, seconds = 337) else null }
+        val songs = phoneSongs()
+        val untagged = file(title = "Instant Crush [dpInstant01]", artist = "<unknown>", localPath = "$folder/Instant Crush [dpInstant01].m4a", id = "LSnamedid1")
+        assertNull(songs.forRoom(untagged.id, untagged, lookUp = true))
+        answered()
+        assertEquals("dpInstant01", songs.forRoom(untagged.id, untagged, lookUp = true)!!.id)
+        val unknown = file(title = "Voice memo [memo_000001]", artist = "<unknown>", localPath = "$folder/Voice memo [memo_000001].m4a", id = "LSnamedid2")
+        assertNull(songs.forRoom(unknown.id, unknown, lookUp = true))
+        answered()
+        val only = songs.forRoom(unknown.id, unknown, lookUp = true) as PhoneSongs.OnlyHere
+        assertEquals("", only.title)
+        assertEquals("", only.artist)
+        assertEquals(emptyList<String>(), searches)
+    }
+
+    @Test
+    fun `an ask for the id a file carries that fails is no answer, so the tags are searched or it is asked again later`() = runBlocking {
+        catalogue = { throw IOException("no network") }
+        results = { listOf(result("dpInstant1")) }
+        val songs = phoneSongs()
+        // Tagged: the search answers in its place.
+        val tagged = file(localPath = "$folder/05 Instant Crush [dpInstant01].flac")
+        assertNull(songs.forRoom(tagged.id, tagged, lookUp = true))
+        answered()
+        assertEquals("dpInstant1", songs.forRoom(tagged.id, tagged, lookUp = true)!!.id)
+        // Untagged: nothing else to go by, so no answer now, the others told they can't hear it meanwhile, and asked again
+        // once the rest is over.
+        val untagged = file(title = "Instant Crush [dpInstant01]", artist = "<unknown>", localPath = "$folder/Instant Crush [dpInstant01].m4a", id = "LSnamedid1")
+        assertNull(songs.forRoom(untagged.id, untagged, lookUp = true))
+        answered()
+        assertTrue(songs.forRoom(untagged.id, untagged, lookUp = true) is PhoneSongs.OnlyHere)
+        now += StandIn.SEARCH_REST_MS
+        catalogue = { id -> result(id, seconds = 337) }
+        assertNull(songs.forRoom(untagged.id, untagged, lookUp = true))
+        answered()
+        assertEquals("dpInstant01", songs.forRoom(untagged.id, untagged, lookUp = true)!!.id)
+    }
+
+    @Test
+    fun `the id at the end of a file's name, as yt-dlp and the app's own downloads write it`() {
+        assertEquals("dQw4w9WgXcQ", idInFileName("/storage/emulated/0/Music/Never Gonna Give You Up [dQw4w9WgXcQ].opus"))
+        assertEquals("dQw4w9WgXcQ", idInFileName("/storage/emulated/0/Download/OuterTune/Never Gonna Give You Up [dQw4w9WgXcQ].mka"))
+        assertEquals("a-b_c1D2e3F", idInFileName("Song [a-b_c1D2e3F]"))
+        for (none in listOf(
+            "/storage/emulated/0/Music/Song (dQw4w9WgXcQ).opus",
+            "/storage/emulated/0/Music/[dQw4w9WgXcQ] Song.opus",
+            "/storage/emulated/0/Music/[dQw4w9WgXcQ]/Song.opus",
+            "/storage/emulated/0/Music/Song [shortid].mp3",
+            "/storage/emulated/0/Music/Song [dQw4w9WgXcQx].mp3",
+            "/storage/emulated/0/Music/Song [Remastered 2009].flac",
+        )) assertNull(none, idInFileName(none))
+        assertNull(idInFileName(null))
     }
 
     @Test
