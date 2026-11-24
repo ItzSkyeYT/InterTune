@@ -28,6 +28,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -35,6 +36,8 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.models.MediaMetadata
@@ -169,6 +172,26 @@ internal fun QueueHeldRow(
         )
     }
 }
+
+/**
+ * The playing row's bar over the list's room at its sides, [start] and [end] (a phone on its side, a cutout), which the
+ * held row's bar covers too: for the box around the row, which draws the rest of the bar itself and takes it along in a
+ * swipe. Away while the row is [swiped]. [height] is the row's own, without the Mix's line under it.
+ */
+internal fun Modifier.playingRowSides(on: Boolean, color: Color, start: Dp, end: Dp, height: Dp, swiped: () -> Boolean): Modifier =
+    if (!on || (start <= 0.dp && end <= 0.dp)) this else drawBehind {
+        if (swiped()) return@drawBehind
+        val ltr = layoutDirection == LayoutDirection.Ltr
+        val left = (if (ltr) start else end).toPx()
+        val right = (if (ltr) end else start).toPx()
+        val h = minOf(height.toPx(), size.height)
+        if (left > 0f) drawRect(color, topLeft = Offset(-left, 0f), size = Size(left, h))
+        if (right > 0f) drawRect(color, topLeft = Offset(size.width, 0f), size = Size(right, h))
+    }
+
+/** A band of [color] over the top [height] of what it is put on, across its whole width: the status bar's room over the songs. */
+internal fun Modifier.queueHeaderBand(color: Color, height: Dp): Modifier =
+    if (height <= 0.dp) this else drawBehind { drawRect(color, size = Size(size.width, height.toPx())) }
 
 /**
  * A drag that starts on the held row moves the list beneath it, as it would on the row it covers,

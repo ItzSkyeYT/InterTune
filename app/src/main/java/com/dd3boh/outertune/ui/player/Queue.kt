@@ -1404,11 +1404,16 @@ fun BoxScope.QueueContent(
         // scroll. Not a row of the list: that is out of sight whenever the queue opens on its song, and the list's places
         // are the queue's (the opening scroll, the song held at an edge).
         val roomLine = roomsQueue && (!detachedHead || movesStoredQueue)
+        // The status bar's room over the songs, in the colour of the song held under it and of the bar at the foot
+        // (Ti-Die, #testers 23 Nov 2026: "this header ... the same accent color as the song/bottom"). Only at the top of
+        // the sheet: under the search field the results keep that room below it, and on its side or with the queues
+        // open the list has none.
+        val headerBand = if (isSearching) Modifier else Modifier.queueHeaderBand(MaterialTheme.colorScheme.secondaryContainer, contentPadding.calculateTopPadding())
         if (roomLine) {
             QueueRoomLine(
                 leaderName = roomLeaderName,
                 leaderDev = roomLeaderDev,
-                modifier = Modifier.padding(
+                modifier = headerBand.padding(
                     start = contentPadding.calculateStartPadding(listDirection),
                     top = contentPadding.calculateTopPadding(),
                     end = contentPadding.calculateEndPadding(listDirection),
@@ -1417,6 +1422,7 @@ fun BoxScope.QueueContent(
         }
         Box(
             modifier = Modifier
+                .then(if (roomLine) Modifier else headerBand)
                 .padding(top = if (roomLine) 0.dp else contentPadding.calculateTopPadding())
                 .movesListFromHeldRow(lazySongsListState)
         ) {
@@ -1507,13 +1513,15 @@ fun BoxScope.QueueContent(
                         }
                     }
 
+                    // The row of the song playing, lit (below), with the held row's bar around it.
+                    val playingRow = (index == currentWindowIndex && !detachedHead && heldEdge == QueueHeld.Edge.NONE) || index == detachedPlace
                     val content = @Composable {
                         MediaMetadataListItem(
                             mediaMetadata = window,
                             // Not while the song is held at an edge (#81): the held row wears it then. What
                             // is left of this row in sight is under that one, and the rest passes under
                             // the bar at the foot, where its highlight showed the song a second time.
-                            isActive = (index == currentWindowIndex && !detachedHead && heldEdge == QueueHeld.Edge.NONE) || index == detachedPlace,
+                            isActive = playingRow,
                             isPlaying = isPlaying && !detachedHead,
                             isNew = adaptiveSaying && window.id in adaptivePicks,
                             trailingContent = {
@@ -1549,6 +1557,10 @@ fun BoxScope.QueueContent(
                             preferredSize = thumbnailSize,
                             modifier = Modifier
                                 .fillMaxWidth()
+                                // Across the whole row and square, as the held row's bar, so the song keeps its shape
+                                // as it is held at an edge (Ti-Die, #testers 23 Nov 2026: "*always* edge to edge"). Its
+                                // own rounded highlight, the same colour, melts into it. In the row: a swipe takes it along.
+                                .then(if (playingRow) Modifier.background(MaterialTheme.colorScheme.secondaryContainer) else Modifier)
                                 .combinedClickable(
                                     onClick = {
                                         if (inSelectMode) {
@@ -1591,8 +1603,18 @@ fun BoxScope.QueueContent(
                     val ownSwipe = remember { SwipeToRemoveState() }
 
                     // A column, as the item lays its content over itself: under the song playing
-                    // in a Mix queue, the next change in a line that is not swiped with the row.
-                    Column {
+                    // in a Mix queue, the next change in a line that is not swiped with the row. Around
+                    // it, the playing row's bar over the list's room at its sides, which the held row's covers.
+                    Column(
+                        modifier = Modifier.playingRowSides(
+                            on = playingRow,
+                            color = MaterialTheme.colorScheme.secondaryContainer,
+                            start = contentPadding.calculateStartPadding(listDirection),
+                            end = contentPadding.calculateEndPadding(listDirection),
+                            height = ListItemHeight,
+                            swiped = { (if (swipesPicked || window.hashCode() in pickedLeaving) pickedSwipe else ownSwipe).offset != 0f },
+                        )
+                    ) {
                         // Before play after a restart too (movesStoredQueue), as Remove from queue is: the songs
                         // leave the saved queue alone, the player holding nothing yet. Not in the room's queue on a
                         // guest, where it may not be changed (roomFixed).
