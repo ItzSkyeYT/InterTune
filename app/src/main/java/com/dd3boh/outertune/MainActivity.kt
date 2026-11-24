@@ -66,6 +66,7 @@ import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.systemBarsIgnoringVisibility
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -2716,11 +2717,21 @@ class MainActivity : ComponentActivity() {
                             // A setting named in an explanation, jumped to and flashed.
                             SettingJumpHost(navController)
 
+                            // Messages come at the bottom, over the mini player's place; with the full player open they come at
+                            // the top, under the status bar: at the bottom they sat on the player's own Play and Pause (his
+                            // screenshot of 24 Nov 2026, the queue's Undo over the controls for its ten seconds).
                             SnackbarHost(
                                 hostState = snackbarHostState,
-                                modifier = Modifier
-                                    .windowInsetsPadding(LocalPlayerAwareWindowInsets.current)
-                                    .align(Alignment.BottomCenter)
+                                modifier = if (playerBottomSheetState.isExpanded) {
+                                    Modifier
+                                        .windowInsetsPadding(WindowInsets.statusBars)
+                                        .padding(top = 8.dp)
+                                        .align(Alignment.TopCenter)
+                                } else {
+                                    Modifier
+                                        .windowInsetsPadding(LocalPlayerAwareWindowInsets.current)
+                                        .align(Alignment.BottomCenter)
+                                },
                             )
 
                             // A guest's song proposed to this phone while it is in control of a room: a card at the top
