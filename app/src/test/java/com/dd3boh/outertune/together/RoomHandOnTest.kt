@@ -234,8 +234,9 @@ class RoomHandOnTest {
         val handOn = dialog.indexOf("title = stringResource(R.string.together_hand_on, heir)")
         val close = dialog.indexOf("title = stringResource(R.string.together_close_room)")
         assertTrue(handOn in 0 until close)
-        assertTrue("line = stringResource(R.string.together_hand_on_text, heir)" in dialog)
-        assertTrue("line = stringResource(R.string.together_close_room_text)" in dialog)
+        // The two ways are their names alone: the lines under them only repeated the buttons (his word of 24 Nov 2026).
+        assertFalse("together_hand_on_text" in dialog)
+        assertFalse("line = " in dialog)
         // Nobody to hand it to: the close asked as it always was, and why when the others are on older builds.
         assertTrue("R.string.together_close_room_title" in dialog)
         assertTrue("if (choice.olderOnly) {" in dialog)

@@ -81,7 +81,6 @@ internal fun RoomLeaveDialog(choice: RoomLeaveChoice, onHandOn: () -> Unit, onCl
                     tint = MaterialTheme.colorScheme.primary,
                     title = stringResource(R.string.together_hand_on, heir),
                     titleColor = MaterialTheme.colorScheme.onSurface,
-                    line = stringResource(R.string.together_hand_on_text, heir),
                     onClick = onHandOn,
                 )
                 LeaveWay(
@@ -89,7 +88,6 @@ internal fun RoomLeaveDialog(choice: RoomLeaveChoice, onHandOn: () -> Unit, onCl
                     tint = MaterialTheme.colorScheme.error,
                     title = stringResource(R.string.together_close_room),
                     titleColor = MaterialTheme.colorScheme.error,
-                    line = stringResource(R.string.together_close_room_text),
                     onClick = onClose,
                 )
             }
@@ -100,23 +98,21 @@ internal fun RoomLeaveDialog(choice: RoomLeaveChoice, onHandOn: () -> Unit, onCl
     )
 }
 
-/** One way out: what it is, and in a line what it does to the others. The whole row is one button, one stop for TalkBack. */
+/** One way out, by its name alone (24 Nov 2026: the lines under the two ways only repeated them). The whole row is one button, one stop for TalkBack. */
 @Composable
-private fun LeaveWay(icon: ImageVector, tint: Color, title: String, titleColor: Color, line: String, onClick: () -> Unit) {
+private fun LeaveWay(icon: ImageVector, tint: Color, title: String, titleColor: Color, onClick: () -> Unit) {
     Row(
-        verticalAlignment = Alignment.Top,
+        verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
             .clickable(role = Role.Button, onClick = onClick)
             .padding(horizontal = 8.dp, vertical = 12.dp),
     ) {
-        Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.padding(top = 1.dp).size(22.dp))
+        Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(22.dp))
         Spacer(Modifier.width(16.dp))
         Column(Modifier.weight(1f)) {
             Text(title, style = MaterialTheme.typography.bodyLarge, color = titleColor)
-            Spacer(Modifier.height(2.dp))
-            Text(line, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
