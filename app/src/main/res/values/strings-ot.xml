@@ -2754,6 +2754,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="together_walk_settings">Your room settings, so you can choose if everyone can move in the song or change the queue.</string>
     <string name="together_walk_leave">Leave whenever you want, the others keep listening.</string>
     <string name="together_walk_close">This closes the room for everyone.</string>
+    <string name="together_walk_leave_host">Leave whenever you want. You can hand the room on so everyone keeps listening, or close it.</string>
     <string name="together_start">Start a room</string>
     <string name="together_code">Room code</string>
     <string name="together_join">Join</string>
@@ -2831,6 +2832,8 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="together_control_yours">You\'re in control now: you choose the music for everyone.</string>
     <string name="together_control_theirs">%1$s is in control now</string>
     <string name="together_control_back">%1$s stopped answering, so you\'re in control again.</string>
+    <string name="together_hosts_now">%1$s hosts the room now</string>
+    <string name="together_host_yours">You\'re the host now: you choose the music for everyone.</string>
     <string name="together_kick">Remove from the room</string>
     <!-- The host's own part of the room sheet: switches for who may do what in the room (RoomSettings). -->
     <string name="together_room_settings">Room settings</string>
@@ -2879,6 +2882,10 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="together_qr_hint">Point the other phone\'s camera at this. It opens the room in InterTune.</string>
     <string name="together_close_room_title">Close the room?</string>
     <string name="together_close_room_text">Everyone in it leaves, and its code stops working.</string>
+    <string name="together_close_room_older">To hand it on instead, the others need to update InterTune.</string>
+    <string name="together_leave_title">Leave the room?</string>
+    <string name="together_hand_on">Hand it to %1$s</string>
+    <string name="together_hand_on_text">Everyone keeps listening, with %1$s as the host.</string>
     <string name="together_scan">Scan a QR code</string>
     <string name="together_scan_hint">Point the camera at the QR code on the other phone.</string>
     <string name="together_scan_refused">Scanning needs the camera. Allow it for InterTune in the phone\'s settings, or type the code.</string>

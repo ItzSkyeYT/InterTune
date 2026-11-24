@@ -15,6 +15,9 @@ import android.os.Looper
 import android.util.Log
 import android.widget.Toast
 import androidx.annotation.StringRes
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
 import androidx.datastore.preferences.core.edit
 import androidx.media3.common.C
@@ -83,8 +86,8 @@ import kotlin.math.abs
 class TogetherSession(
     private val service: MusicService,
     val code: RoomCode,
-    /** This phone made the room. */
-    val owner: Boolean,
+    /** This phone made the room, or was handed it and hosts it again after a restart: see [owner]. */
+    owner: Boolean,
     val relays: List<String>,
     val name: String,
     /**
@@ -254,7 +257,7 @@ class TogetherSession(
     private val news = ControlNews(before = if (owner) leaderKey else lead)
 
     /** The owner's newest word on who leads, so that an older one is not taken after it. */
-    private val leadWord = LeadWord()
+    private var leadWord = LeadWord()
 
     /**
      * When a relay last answered again after none did, or this phone woke from a sleep: the owner counts a leader's
@@ -273,12 +276,12 @@ class TogetherSession(
     private var settleUntil = 0L
     private var lastSentState = 0L
     private var pingsToLeader = 0
-    private val heard = mutableMapOf<String, Long>()
+    private val heard = RoomPresence(MEMBER_TIMEOUT_MS)
     /** What each one said of themselves in their Here: their name and whether they made the room. */
     private val said = mutableMapOf<String, Pair<String, Boolean>>()
     /** Whom the owner has answered at once, so a newcomer learns who leads without waiting. */
     private val greeted = mutableSetOf<String>()
-    /** Sent out by the owner: their messages are not read. */
+    /** Sent out by the owner, or a host that left and handed the room on (handedOn): their messages are not read. */
     private val sentOut = mutableSetOf<String>()
     /** Who proved in their Here to be InterTune's developer (DevBadge). */
     private val devs = RoomDevs()
@@ -350,6 +353,13 @@ class TogetherSession(
 
     /** Whether this phone follows someone now: its player's repeat mode is then the room's, not its own choice. */
     val following: Boolean get() = !leading
+
+    /**
+     * This phone hosts the room: it made it, or its host handed it on to this phone as it left (RoomHandOn, becomeHost). A
+     * state, so that the room's sheet, which reads it as it draws, changes with it.
+     */
+    var owner by mutableStateOf(owner)
+        private set
 
     private val listener = object : Player.Listener {
         // A follower's own pause, song or seek, as against the session's own commands (mine()) and a cast's taking the
@@ -525,6 +535,7 @@ class TogetherSession(
                 if (!leading) follow()
                 watchHost()
                 watchLeader()
+                watchMembers()
                 // Four looks a second while the room plays; one every two seconds while it is paused there and here, or
                 // while this phone leads. A word from the leader, a play or a pause here, a new lead or Catch up wakes it.
                 val every = lookEveryMs(leading, lastState?.playing, service.exoPlayer.playWhenReady)
@@ -614,7 +625,7 @@ class TogetherSession(
     private fun sayHere() = send(
         TogetherMessage.Here(
             name, owner, lead = if (owner) leaderKey else null, leadSince = if (owner) leadGivenAt else null,
-            settings = if (owner) _status.value.settings else null, arranges = true, dev = devProof,
+            settings = if (owner) _status.value.settings else null, arranges = true, dev = devProof, takesRoom = true,
         )
     )
 
@@ -636,6 +647,19 @@ class TogetherSession(
         lead(me)
         sayHere()
         inControl(me, wentQuiet = gone)
+    }
+
+    /**
+     * Who is still in the room, at every look: a phone not heard for [MEMBER_TIMEOUT_MS] has gone and comes off the list,
+     * whether or not anyone else speaks (RoomPresence). Only a word coming in took anyone off before, and the last guest
+     * to leave stayed on its host's list for good.
+     */
+    private fun watchMembers() {
+        if (!heard.dropQuiet(System.currentTimeMillis())) return
+        said.keys.retainAll(heard.keys)
+        handOn.keep(heard.keys)
+        Log.i(TAG, "Someone in the room went quiet for ${MEMBER_TIMEOUT_MS / 1000} s: off the list")
+        publish()
     }
 
     /**
@@ -813,6 +837,9 @@ class TogetherSession(
         val from = event.pubkey
         if (from == me || event.kind != TogetherMessage.KIND || from in sentOut) return
         val message = code.open(event.content)?.let { TogetherMessage.decodeFrom(it, from) } ?: return
+        // A host's word as it left, handing the room on, holds as its close does: a phone whose connection was down at
+        // that moment reads it in what the relays kept (RoomHandOn).
+        if (message is TogetherMessage.Here && message.host != null) handOnHeard(from, message.host)
         val over = when {
             message is TogetherMessage.Here && message.owner -> ends.owner(from)
             message == TogetherMessage.End -> from == ownerKey || ends.end(from)
@@ -846,10 +873,12 @@ class TogetherSession(
             queueSoon()
         }
         heard[from] = now
-        heard.entries.removeAll { now - it.value > MEMBER_TIMEOUT_MS }
+        heard.dropQuiet(now)
+        handOn.heard(from, now)
         if (message is TogetherMessage.Here) {
             val newcomer = from !in said
             said[from] = message.name to message.owner
+            handOn.said(from, message.takesRoom)
             // The host sees each newcomer come in, by the name they chose (his word of 21 Nov 2026: no sign on the S25U
             // that the Pixel was joining). Once: a guest heard again after a while away comes in again.
             // InterTune's developer's phone, by the proof in its Here (DevBadge): checked off the main thread, once a proof;
@@ -876,6 +905,9 @@ class TogetherSession(
                 endedBefore()
                 return
             }
+            // The host left and handed the room on: whoever it named hosts it now, and is in control (RoomHandOn). Before
+            // the owner's word on who leads, which is then the new host's to say.
+            if (message.host != null) handOnHeard(from, message.host)
             // The owner's word on who leads, never an older one after a newer one (LeadWord); a change is told here once.
             if (from == ownerKey && message.lead != null && leadWord.take(message.leadSince)) {
                 if (message.lead != leaderKey) lead(message.lead)
@@ -892,6 +924,7 @@ class TogetherSession(
             if (message.arranges) arrangers += from else arrangers -= from
         }
         said.keys.retainAll(heard.keys)
+        handOn.keep(heard.keys)
         if (from == ownerKey) ownerHeardAt = now
         if (owner && message is TogetherMessage.State && from != leaderKey) answerStray(now)
         when (message) {
@@ -1099,7 +1132,7 @@ class TogetherSession(
 
     /** The owner hands the lead to [member]; it stays the owner. Everyone is told, the owner too (inControl). */
     fun handOver(member: Member) {
-        if (!owner || member.key == me || member.key !in heard) return
+        if (!owner || member.key == me || member.key !in heard || !handOn.canLead(member.key)) return
         lead(member.key)
         sayHere()
         inControl(member.key)
@@ -1208,7 +1241,7 @@ class TogetherSession(
         }
     }
 
-    /** Leave; the owner's leaving closes the room for everyone. */
+    /** Leave; the owner's leaving this way closes the room for everyone (or it hands the room on: [handOnAndLeave]). */
     fun leave() {
         if (!owner) {
             service.stopTogether()
@@ -1219,6 +1252,107 @@ class TogetherSession(
             delay(END_AFTER_MS)
             service.stopTogether()
         }
+    }
+
+    /** Who keeps track of who could be handed the room, and to whom it was handed: see [RoomHandOn]. */
+    private val handOn = RoomHandOn()
+
+    /** Who gets the room if this phone, its host, leaves now (RoomHandOn): null for nobody, and for a guest. */
+    private fun heirKey(): String? = if (owner) handOn.heir(me, leaderKey, heard, System.currentTimeMillis()) else null
+
+    /** What the host's Leave offers (RoomLeaveDialog): who would get the room, or why nobody can. Closing alone without the flag. */
+    fun leaveChoice(): RoomLeaveChoice {
+        if (!Unreleased.ROOM_HAND_ON) return RoomLeaveChoice(heir = null, olderOnly = false)
+        val heir = heirKey()
+        return RoomLeaveChoice(
+            heir = heir?.let(::nameOf),
+            olderOnly = heir == null && owner && handOn.olderOnly(me, heard, System.currentTimeMillis()),
+        )
+    }
+
+    /**
+     * The host leaves and the room goes on (his find of 23 Nov 2026: "there's no way to leave the room without closing
+     * it"). Its last word hands the room to whoever gets it (RoomHandOn), who hosts it from then on and is in control: its
+     * own Here, naming that phone as the one in control, which every build takes from its host, and as the host now, which
+     * builds from this one read, newer than its last word on who leads. Made and handed to the relays here and now, as the
+     * close is (closeNow), and this phone is out of the room. False when nobody here can take it.
+     */
+    fun handOnAndLeave(): Boolean {
+        if (!Unreleased.ROOM_HAND_ON) return false
+        val to = heirKey() ?: return false
+        val word = TogetherMessage.Here(
+            name, owner = true, lead = to, leadSince = maxOf(System.currentTimeMillis(), leadGivenAt + 1),
+            settings = _status.value.settings, arranges = true, dev = devProof, takesRoom = true, host = to,
+        )
+        val relaysTaking = runCatching {
+            pool.publish(NostrEvent.signed(secret, TogetherMessage.KIND, listOf(listOf("t", code.tag)), code.seal(TogetherMessage.encode(word, sender = me))))
+        }.onFailure { Log.w(TAG, "The room could not be handed on", it) }.getOrDefault(0)
+        // By key, never by the name they chose: see RoomHealth.
+        Log.i(TAG, "Left the room and handed it to ${to.take(8)}, through $relaysTaking relays")
+        ReportTrail.thisRun.room(ReportTrail.Room.HANDED_ON_HERE)
+        Toaster.show(service, service.getString(R.string.together_hosts_now, nameOf(to)), Toast.LENGTH_LONG)
+        service.stopTogether()
+        return true
+    }
+
+    /** Whether this phone, as host, may give [member] control (RoomHandOn.canLead). */
+    fun canGiveControl(member: Member): Boolean = handOn.canLead(member.key)
+
+    /** [from] said as it left that the room is [to]'s now (RoomHandOn): taken once [from] is the host, in whatever order. */
+    private fun handOnHeard(from: String, to: String) {
+        handOn.handed(from, to)
+        val was = ownerKey ?: return
+        val host = handOn.hostAfter(was)
+        if (host != was) handedOn(was, host)
+    }
+
+    /**
+     * The host, [was], left and handed the room to [host] (RoomHandOn): that phone hosts it from now on and is in control,
+     * and its word is the one this phone takes, on its own clock. The one that left is gone for good with its key (it
+     * forgot the room), so nothing more of it is read. Everyone is told once, the change of control in the same line.
+     */
+    private fun handedOn(was: String, host: String) {
+        Log.i(TAG, "The host left and handed the room to ${if (host == me) "this phone" else host.take(8)}")
+        ownerKey = host
+        ownerHeardAt = System.currentTimeMillis()
+        leadWord = LeadWord()
+        sentOut += was
+        heard.remove(was)
+        said.remove(was)
+        // Told with the host's line, not as a change of control of its own (ControlNews).
+        news.now(host)
+        service.roomLead(code, host)
+        if (host == me) {
+            becomeHost()
+        } else {
+            ReportTrail.thisRun.room(ReportTrail.Room.HANDED_ON)
+            if (host != leaderKey) lead(host)
+            Toaster.show(service, service.getString(R.string.together_hosts_now, nameOf(host)), Toast.LENGTH_LONG)
+        }
+        publish()
+    }
+
+    /**
+     * The host handed the room to this phone as it left (RoomHandOn): this phone hosts it from now on, with all a host has
+     * (its room settings, Choose the music, giving control, sending someone out, closing the room or handing it on), and
+     * is in control. It comes back to it as its host after a restart (RoomMemory.hosted).
+     */
+    private fun becomeHost() {
+        ReportTrail.thisRun.room(ReportTrail.Room.HANDED_HERE)
+        owner = true
+        handOn.handedHere = true
+        ownerKey = me
+        _status.value = _status.value.copy(hostAway = false)
+        if (!leading) lead(me)
+        // Its own room settings from now on, kept in its settings as for a room made here (start), said at once as they change.
+        scope.launch {
+            service.dataStore.data.collect { prefs ->
+                ownSettings(RoomSettings(everyoneSeeks = prefs[TogetherEveryoneSeeksKey] == true, everyoneArranges = prefs[TogetherEveryoneArrangesKey] == true))
+            }
+        }
+        sayHere()
+        service.roomHosted(code)
+        Toaster.show(service, R.string.together_host_yours, Toast.LENGTH_LONG)
     }
 
     private fun closed(@StringRes why: Int) {
