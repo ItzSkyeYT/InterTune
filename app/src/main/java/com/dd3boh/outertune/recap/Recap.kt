@@ -94,6 +94,14 @@ data class Recap(
     val mostSkipped: MostSkipped? = null,
     /** Where the year's plays came from, for someone with nothing for Only on InterTune: see [WhereFrom]. */
     val whereFrom: WhereFrom? = null,
+    /** One song a season, where two seasons or more had enough plays (RecapMoments, as the three after it). Added 24 Nov 2026. */
+    val seasons: Seasons? = null,
+    /** The week one song took over. */
+    val onRepeat: OnRepeat? = null,
+    /** What played after midnight and first thing in the morning. */
+    val nightAndMorning: NightAndMorning? = null,
+    /** The song loved, dropped for months and found again. */
+    val cameBack: CameBack? = null,
 ) {
     /** How many days the Recap covers. */
     val days: Int get() = (lastDay - sinceDay + 1).toInt()
