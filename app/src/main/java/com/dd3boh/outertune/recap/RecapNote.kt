@@ -18,9 +18,10 @@ import javax.crypto.spec.SecretKeySpec
 
 /**
  * Notes for next year's you (his adds of 22 Nov 2026): typed at the end of the Recap and opened by
- * the next year's Recap as "A note from your past self". A year keeps several (his "an option to
- * write multiple notes"), up to [MAX_NOTES], in the order written, each sealed apart (AES-GCM, an
- * IV of its own). Kept in the app's own files and carried by backups (his "the paper recap needs
+ * the next year's Recap as "A note from your past self". A year takes one note ([NOTES_A_YEAR], his
+ * "limit the notes posted in the recap to one" of 24 Nov 2026, after "an option to write multiple
+ * notes" of 22 Nov); a file from before may hold several, up to [MAX_NOTES], in the order written,
+ * and all are still read. Each is sealed apart (AES-GCM, an IV of its own). Kept in the app's own files and carried by backups (his "the paper recap needs
  * to come with backups"): the app's own (BackupWriter.FILES) and Android's. The key travels with
  * the notes, so a restored phone opens them; whoever holds a backup file could too, as the library
  * in it. Nothing is ever sent. [NOTES_FILE] holds every year's notes; [KEY_FILE] the key, made the
@@ -30,7 +31,10 @@ object RecapNote {
     /** The longest note kept. */
     const val MAX_CHARS = 500
 
-    /** The most notes a year keeps. */
+    /** How many notes a year takes: one (his word of 24 Nov 2026). */
+    const val NOTES_A_YEAR = 1
+
+    /** The most notes a year's file may hold, read back: what a year took before the limit of one. */
     const val MAX_NOTES = 10
 
     /** Under the app's files: names the app's own backup carries and restores (BackupWriter.FILES). */
@@ -131,14 +135,14 @@ object RecapNote {
 
     /**
      * Seals [text] as one more of [year]'s notes under [dir], written on [writtenDay]. False where it
-     * could not be kept, and where the year holds [MAX_NOTES] already. A file that cannot be read
+     * could not be kept, and where the year holds its note ([NOTES_A_YEAR]) already. A file that cannot be read
      * is kept aside (as NOTES_FILE.unreadable) rather than written over, and the notes start again.
      */
     internal fun saveIn(dir: File, year: Int, text: String, writtenDay: Long): Boolean = runCatching {
         val file = File(dir, NOTES_FILE)
         val notes = (envelopes(dir) ?: emptyMap<Int, List<Envelope>>().also { file.renameTo(File(file.path + ".unreadable")) }).toMutableMap()
         val kept = notes[year].orEmpty()
-        if (kept.size >= MAX_NOTES) return false
+        if (kept.size >= NOTES_A_YEAR) return false
         val cipher = Cipher.getInstance("AES/GCM/NoPadding").apply { init(Cipher.ENCRYPT_MODE, key(dir)) }
         val sealed = cipher.doFinal(encode(Note(text.trim().take(MAX_CHARS), writtenDay)).toByteArray(Charsets.UTF_8))
         notes[year] = kept + Envelope(cipher.iv, sealed)
@@ -159,7 +163,7 @@ object RecapNote {
         }
     }
 
-    /** How many notes [year] holds under [dir], those that would not open included: what [MAX_NOTES] counts. */
+    /** How many notes [year] holds under [dir], those that would not open included: what [NOTES_A_YEAR] counts. */
     internal fun countIn(dir: File, year: Int): Int = envelopes(dir)?.get(year)?.size ?: 0
 
     /** How many notes each year holds under [dir], by the year whose Recap sealed them, none opened. */

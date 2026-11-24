@@ -30,38 +30,49 @@ class RecapNoteTest {
     }
 
     @Test
-    fun `a year keeps every note in the order written, each year its own, each sealed apart`() {
+    fun `each year keeps its own note, trimmed, each sealed apart`() {
         val d = dir()
         assertTrue(RecapNote.saveIn(d, 2026, "  first  ", 20_779L))
-        assertTrue(RecapNote.saveIn(d, 2026, "second", 20_780L))
         assertTrue(RecapNote.saveIn(d, 2027, "next year", 21_144L))
-        assertTrue(RecapNote.saveIn(d, 2026, "third", 20_781L))
-        assertEquals(
-            listOf(RecapNote.Note("first", 20_779L), RecapNote.Note("second", 20_780L), RecapNote.Note("third", 20_781L)),
-            RecapNote.readIn(d, 2026),
-        )
+        assertTrue(RecapNote.saveIn(d, 2028, "and the one after", 21_510L))
+        assertEquals(listOf(RecapNote.Note("first", 20_779L)), RecapNote.readIn(d, 2026))
         assertEquals(listOf(RecapNote.Note("next year", 21_144L)), RecapNote.readIn(d, 2027))
-        assertEquals(3, RecapNote.countIn(d, 2026))
+        assertEquals(1, RecapNote.countIn(d, 2026))
         assertTrue("no note that year", RecapNote.readIn(d, 2025).isEmpty())
         assertEquals(0, RecapNote.countIn(d, 2025))
         // Sealed: the words are not in the file as written, and no two notes share an IV.
         val file = File(d, RecapNote.NOTES_FILE)
-        assertFalse("second" in file.readText(Charsets.ISO_8859_1))
+        assertFalse("next year" in file.readText(Charsets.ISO_8859_1))
         val ivs = RecapNote.unpack(file.readBytes()).values.flatten().map { it.iv.toList() }
-        assertEquals(4, ivs.size)
+        assertEquals(3, ivs.size)
         assertEquals(ivs.size, ivs.toSet().size)
     }
 
     @Test
-    fun `a year keeps ten notes at most, an eleventh is refused and the ten stay as they were`() {
+    fun `a year takes one note, a second is refused and the first stays as it was`() {
         val d = dir()
-        assertEquals(10, RecapNote.MAX_NOTES)
-        repeat(RecapNote.MAX_NOTES) { assertTrue(RecapNote.saveIn(d, 2026, "note $it", 20_779L + it)) }
+        assertEquals(1, RecapNote.NOTES_A_YEAR)
+        assertTrue(RecapNote.saveIn(d, 2026, "note 0", 20_779L))
         assertFalse(RecapNote.saveIn(d, 2026, "one too many", 20_800L))
-        assertEquals((0 until RecapNote.MAX_NOTES).map { "note $it" }, RecapNote.readIn(d, 2026).map { it.text })
+        assertEquals(listOf("note 0"), RecapNote.readIn(d, 2026).map { it.text })
         // Another year has room of its own.
         assertTrue(RecapNote.saveIn(d, 2027, "fresh", 21_144L))
         assertEquals(1, RecapNote.countIn(d, 2027))
+    }
+
+    @Test
+    fun `a file from before the limit of one keeps all its notes, and takes no more`() {
+        // Up to ten a year were taken until 24 Nov 2026: such a file is still read whole.
+        val d = dir()
+        assertTrue(RecapNote.saveIn(d, 2026, "old note", 20_700L))
+        val file = java.io.File(d, RecapNote.NOTES_FILE)
+        val one = RecapNote.unpack(file.readBytes()).getValue(2026).single()
+        // Three sealed under the same key, as an older build wrote a year of three notes.
+        file.writeBytes(RecapNote.pack(mapOf(2026 to List(3) { one })))
+        assertEquals(3, RecapNote.countIn(d, 2026))
+        assertEquals(List(3) { "old note" }, RecapNote.readIn(d, 2026).map { it.text })
+        assertFalse(RecapNote.saveIn(d, 2026, "a fourth", 20_800L))
+        assertEquals(3, RecapNote.countIn(d, 2026))
     }
 
     @Test
@@ -90,14 +101,15 @@ class RecapNoteTest {
     fun `a backup restored elsewhere opens them all, and a wrong key opens nothing`() {
         val here = dir()
         RecapNote.saveIn(here, 2026, "kept", 20_779L)
-        RecapNote.saveIn(here, 2026, "and this", 20_780L)
+        RecapNote.saveIn(here, 2027, "and this", 21_144L)
         val restored = dir()
         for (name in listOf(RecapNote.KEY_FILE, RecapNote.NOTES_FILE)) File(here, name).copyTo(File(restored, name))
-        assertEquals(listOf("kept", "and this"), RecapNote.readIn(restored, 2026).map { it.text })
+        assertEquals(listOf("kept"), RecapNote.readIn(restored, 2026).map { it.text })
+        assertEquals(listOf("and this"), RecapNote.readIn(restored, 2027).map { it.text })
         File(restored, RecapNote.KEY_FILE).writeBytes(ByteArray(32))
         assertTrue(RecapNote.readIn(restored, 2026).isEmpty())
         // Still counted: a year's room is what is kept, opened or not.
-        assertEquals(2, RecapNote.countIn(restored, 2026))
+        assertEquals(1, RecapNote.countIn(restored, 2026))
     }
 
     @Test
