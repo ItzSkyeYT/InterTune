@@ -2987,7 +2987,7 @@
     <string name="recap_note_failed">Impossible de sceller votre mot : le téléphone manque peut-être de place. Libérez-en un peu, puis touchez Sceller à nouveau.</string>
     <string name="recap_thanks_title">Merci</string>
     <!-- The thank-you words and their signature: his, approved in English and in French on 25 Oct 2026. -->
-    <string name="recap_thanks_words">Merci d\'avoir utilisé InterTune cette année. C\'est un petit projet que je fais sur mon temps libre, et j\'ai adoré chaque moment (et c\'est toujours le cas !). Merci d\'avoir signalé des bugs, partagé des idées et traduit. C\'est grâce à vous qu\'il continue d\'avancer !</string>
+    <string name="recap_thanks_words">Merci d\'avoir utilisé InterTune cette année. C\'est un petit projet que je fais sur mon temps libre, et j\'ai adoré chaque moment (et c\'est toujours le cas !). Merci pour vos signalements de bugs, vos idées et vos traductions, et un grand merci à tous ceux qui ont fait un don. C\'est grâce à vous que ça continue !</string>
     <string name="recap_thanks_signature">Mel</string>
     <string name="recap_see_you_first">À décembre prochain. %1$s, votre premier titre ici, vous raccompagne.</string>
     <string name="recap_see_you_year">À décembre prochain. %1$s, votre premier titre de l\'année, vous raccompagne.</string>
