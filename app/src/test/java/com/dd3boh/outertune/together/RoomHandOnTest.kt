@@ -250,10 +250,12 @@ class RoomHandOnTest {
     }
 
     @Test
-    fun `handing on is offered in debug builds only, and every build understands it`() {
+    fun `handing a room on is offered in every build from 0_13, and every build understands it`() {
         val flags = File("src/main/java/com/dd3boh/outertune/constants/Unreleased.kt").readText()
-        assertTrue("val ROOM_HAND_ON = BuildConfig.DEBUG && BuildConfig.BUILD_TYPE == \"debug\"" in flags)
-        // Without it the host's Leave closes the room, asked first, as before, and the walk says so.
+        // On for everyone in 0.13 (his word of 23 Nov 2026); ReleasedFlagsTest keeps it there.
+        assertTrue("val ROOM_HAND_ON = true" in flags)
+        // The switch is the offer alone: without it the host's Leave closes the room, asked first, as before, and the walk
+        // says so.
         assertTrue("if (!Unreleased.ROOM_HAND_ON) return RoomLeaveChoice(heir = null, olderOnly = false)" in body(session, "fun leaveChoice(): RoomLeaveChoice"))
         assertTrue("if (!Unreleased.ROOM_HAND_ON) return false" in body(session, "fun handOnAndLeave(): Boolean"))
         val walk = File("src/main/java/com/dd3boh/outertune/ui/dialog/RoomWalk.kt").readText()
