@@ -1724,7 +1724,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="export_engine_data_info">Saves what it learned as a file of numbers, wherever you choose. It has no titles, artists, play counts or account details, only the date it was saved, and nothing is uploaded.</string>
     <string name="recommendations_learned_title_info">This stays in the app on this phone and is never uploaded, though backups include it. \"Pause listen history\" stops it and \"Clear listen history\" deletes it, both under \"Privacy and history\".</string>
     <string name="recommendations_where_from_info">How often you started playing from each place. What you pick yourself counts more, and a search counts most. \"Not recorded\" means the app didn\'t note where.</string>
-    <string name="recommendations_recent_title_info">Your last listens, newest first: how each ended, how much you heard and where it started. \"Not learned from\" means you asked it to forget that one.</string>
+    <string name="recommendations_recent_title_info">Your last listens, newest first: how each ended, how much you heard and where it started. \"Not learned from\" means you asked it to forget that one, or someone else added that song in a room.</string>
     <string name="context_chips_info">The first chip is your usual row. The others steer it until you switch back: \"Discover\" to songs you have never heard, \"Favourites\" to ones you liked, \"Focus\", \"Chill\" and \"Party\" to what you play in that mood.</string>
     <string name="context_chips">Quick picks chips</string>
     <string name="explain_what_this_does">What %1$s does</string>

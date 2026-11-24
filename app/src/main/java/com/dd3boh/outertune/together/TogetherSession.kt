@@ -102,6 +102,8 @@ class TogetherSession(
      * change that is none (ControlNews). Null for a room made or joined now.
      */
     lead: String? = null,
+    /** Whose each song was in the room before it moved to this code (WhoAdded.carried); null for a room made or joined now. */
+    carried: WhoAdded.Carried? = null,
 ) {
     data class Status(
         val relaysConnected: Int = 0,
@@ -189,6 +191,18 @@ class TogetherSession(
 
     /** The key as text, for RoomMemory. */
     val identityHex: String get() = secret.toHex()
+
+    /** Who put each song of the room's queue in: only this phone's own teach its recommendations (WhoAdded). */
+    private val whoAdded = WhoAdded(me).also { added -> carried?.let(added::takeOver) }
+
+    /**
+     * Whether the song [songId], playing here now, teaches this phone's recommendations (MusicService.noteTransition): not
+     * when someone else in the room put it in the queue. Main thread.
+     */
+    fun learnsFrom(songId: String): Boolean = whoAdded.learns(songId)
+
+    /** Whose each song was, for the room this one moves to (MusicService.moveTogether). */
+    fun carriedSongs(): WhoAdded.Carried = whoAdded.carried()
 
     private val startedAt = System.currentTimeMillis()
 
@@ -725,10 +739,12 @@ class TogetherSession(
                     artist = metadata.artist?.toString().orEmpty(),
                     // Never a file's path: a song from the phone has it as its picture (TogetherMessage.thumbnailFor).
                     thumbnail = TogetherMessage.thumbnailFor(metadata.artworkUri?.toString()),
+                    // Whoever put it in when that is not this phone, so that it teaches only theirs (WhoAdded).
+                    by = whoAdded.sent(item.mediaId),
                 )
             } else {
                 val heard = phoneSongs.forRoom(item.mediaId, item.metadata, lookUp = leading && ahead++ < PhoneSongs.AHEAD)
-                if (heard is PhoneSongs.Heard) songs += heard.song
+                if (heard is PhoneSongs.Heard) songs += heard.song.copy(by = whoAdded.sent(heard.song.id))
             }
             index = timeline.getNextWindowIndex(index, Player.REPEAT_MODE_OFF, player.shuffleModeEnabled)
         }
@@ -958,18 +974,18 @@ class TogetherSession(
                     genre = null,
                 )
                 if (message.batch.isBlank() || message.count <= 1) {
-                    putSuggested(listOf(song), message.atEnd, message.by)
+                    putSuggested(listOf(song), message.atEnd, message.by, from)
                 } else {
                     // One action's songs, sorted by their place whatever order the relays brought them in.
                     val key = "$from/${message.batch}"
                     val first = suggestions.isNew(key)
                     val whole = suggestions.add(key, message.index, message.count, song)
                     if (whole != null) {
-                        putSuggested(whole, message.atEnd, message.by)
+                        putSuggested(whole, message.atEnd, message.by, from)
                     } else if (first) {
                         scope.launch {
                             delay(SUGGEST_WAIT_MS)
-                            suggestions.flush(key)?.let { putSuggested(it, message.atEnd, message.by) }
+                            suggestions.flush(key)?.let { putSuggested(it, message.atEnd, message.by, from) }
                         }
                     }
                 }
@@ -1216,6 +1232,8 @@ class TogetherSession(
      * arrive (and puts an "end" next), which is why the "next" ones are sent last-first (RoomPlayNext.sendOrder).
      */
     fun suggestAll(songs: List<MediaMetadata>, atEnd: Boolean) {
+        // This phone's own songs: they teach it as ever when the room plays them (WhoAdded).
+        whoAdded.mine(songs.map { it.id })
         val batch = java.util.UUID.randomUUID().toString().take(8)
         RoomPlayNext.sendOrder(songs, atEnd).forEach { (i, song) ->
             send(
@@ -1231,9 +1249,13 @@ class TogetherSession(
 
     private val suggestions = RoomPlayNext.Collector<MediaMetadata>()
 
-    /** The leader puts what a guest added in its queue, in one go, and says so once. */
-    private fun putSuggested(songs: List<MediaMetadata>, atEnd: Boolean, by: String) {
+    /**
+     * The leader puts what a guest added in its queue, in one go, and says so once. [by] is the name the guest chose, [from]
+     * its key in the room: the guest's songs teach this phone nothing (WhoAdded).
+     */
+    private fun putSuggested(songs: List<MediaMetadata>, atEnd: Boolean, by: String, from: String) {
         if (songs.isEmpty()) return
+        songs.forEach { whoAdded.put(it.id, from) }
         val items = songs.map { it.toMediaItem() }
         if (atEnd) service.enqueueEnd(items) else service.enqueueNext(items)
         Log.i(TAG, "A guest added ${songs.size} songs: ${if (atEnd) "end" else "next"} in the queue")
@@ -1256,6 +1278,8 @@ class TogetherSession(
         // not play it anyway. The sheet does not offer it then (canPropose).
         val songs = ownQueue().takeIf { it.isNotEmpty() && it.first().id == service.exoPlayer.currentMediaItem?.mediaId } ?: return
         proposedSongId = songs.first().id
+        // The song this phone asks the room for is its own when the room plays it (WhoAdded).
+        whoAdded.mine(listOf(songs.first().id))
         send(TogetherMessage.Propose(songs, service.exoPlayer.currentPosition, name))
         _status.value = _status.value.copy(proposed = true)
         Log.i(TAG, "Proposed ${songs.first().id} and ${songs.size - 1} after it to the leader")
@@ -1273,7 +1297,10 @@ class TogetherSession(
         _status.value = _status.value.copy(proposals = ProposalLine.without(_status.value.proposals, proposal))
         syncNotice()
         if (!leading) return
-        val songs = ProposalLine.toPlay(proposal, withQueue).map(::metadataOf)
+        val proposed = ProposalLine.toPlay(proposal, withQueue)
+        // The guest's, or whoever its word names: a proposal someone made teaches this phone nothing (WhoAdded).
+        whoAdded.came(proposed, proposal.from.ifEmpty { WhoAdded.SOMEONE })
+        val songs = proposed.map(::metadataOf)
         val player = service.exoPlayer
         val playedBefore = player.currentMediaItem != null
         // Next in the queue, then straight to it: the room's queue stays after it.
@@ -1630,6 +1657,8 @@ class TogetherSession(
         // the leader's word that it did is a moment behind: going back would cut the new song.
         if (state.songId == autoAdvancedFrom && now - autoAdvancedAt < AUTO_AHEAD_MS) return
         if (loadingSong == state.songId) return
+        // The leader's song, which teaches this phone nothing unless it put it in itself (WhoAdded).
+        whoAdded.playing(state.songId, leaderKey ?: WhoAdded.SOMEONE)
         // In this phone's queue already, its queue being the leader's: go to it there.
         indexOf(player, state.songId)?.let { index ->
             Log.i(TAG, "The leader plays ${state.songId}: in the queue here, going to it")
@@ -1668,6 +1697,7 @@ class TogetherSession(
         // A queue resolves for a moment before its song arrives: all of that is the room's doing.
         // And the leader chose it, not this listener: learning must not read it as their pick.
         mine(SONG_SWITCH_MS)
+        queue?.let { whoAdded.came(it, leaderKey ?: WhoAdded.SOMEONE) }
         val songs = queue?.map(::metadataOf) ?: listOf(
             MediaMetadata(
                 id = state.songId,
@@ -1693,6 +1723,8 @@ class TogetherSession(
         val current = player.currentMediaItem?.mediaId ?: return
         if (room.songs.firstOrNull()?.id != current) return
         matchedQueue = room
+        // The room's songs, each whoever's its word says, in this phone's queue now: only its own teach it (WhoAdded).
+        whoAdded.came(room.songs, leaderKey ?: WhoAdded.SOMEONE)
         val wanted = room.songs.drop(1).map { it.id }
         val here = upcoming(player)
         if (here == wanted) return
