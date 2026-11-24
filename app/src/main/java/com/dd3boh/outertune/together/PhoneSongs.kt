@@ -7,6 +7,8 @@
 package com.dd3boh.outertune.together
 
 import android.util.Log
+import com.dd3boh.outertune.migration.WantedTrack
+import com.dd3boh.outertune.migration.score
 import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.models.toMediaMetadata
 import com.dd3boh.outertune.playback.StandIn
@@ -33,9 +35,16 @@ import kotlin.random.Random
  * the others say why they hear nothing and take the room's next song as ever (TogetherSession.holdForPhoneSong); its
  * tags' name goes with it when it has one.
  *
+ * A file that came from YouTube says which song it is, and that comes first (Niko, #testers, 23 Nov 2026: his file of
+ * 秋赤音 Flash Back, "i downloaded it from there", was not found by its tags, which name the video as its uploader wrote
+ * it): the video id yt-dlp and the app's own .mka downloads put at the end of its name ([idInFileName]), or the link in its
+ * tags that the app's song files and yt-dlp's keep (SongFileIds). YouTube Music is asked for that id, signed out; the
+ * others hear it when its length is the file's, and the tags are looked for as before when it is not, when YouTube has
+ * none, or when the ask fails.
+ *
  * Nothing of the file leaves the phone: not its path, not its file name, not its id in the app (review 2, 18 Nov 2026:
  * an untagged file's name was its title, and every guest saw it). Only its tags go out, in one search, signed out, as the
- * library import's searches do (ImportSearch).
+ * library import's searches do (ImportSearch), or the YouTube id it carries, in one ask, signed out.
  */
 internal class PhoneSongs(
     private val scope: CoroutineScope,
@@ -48,6 +57,10 @@ internal class PhoneSongs(
     private val spacingMs: Long = SPACING_MS,
     private val searchOn: CoroutineContext = Dispatchers.IO,
     private val now: () -> Long = System::currentTimeMillis,
+    /** YouTube Music's song for a video id, asked signed out: null when it has none. It throws when the ask fails. */
+    private val songById: suspend (String) -> SongItem? = { null },
+    /** The video id in the tags of the file at this path (SongFileIds), read from its first bytes, or null. */
+    private val idInTags: suspend (String) -> String? = { null },
 ) {
     /** What the others in the room get for a song from a file here, in a State or a Queue. */
     sealed interface Answer {
@@ -68,7 +81,10 @@ internal class PhoneSongs(
 
     private val answers = LinkedHashMap<String, Answer>()
     private val madeUp = LinkedHashMap<String, String>()
-    private val waiting = ArrayDeque<Pair<String, StandIn.Wanted>>()
+    private val waiting = ArrayDeque<Look>()
+
+    /** A song from a file to look for: its [tags] when they say something, the [path] of its file, the id [named] in it. */
+    private class Look(val id: String, val tags: StandIn.Wanted?, val seconds: Int?, val path: String?, val named: String?)
     private val asked = mutableSetOf<String>()
     private var working = false
 
@@ -82,13 +98,18 @@ internal class PhoneSongs(
      */
     fun forRoom(id: String, song: MediaMetadata?, lookUp: Boolean): Answer? {
         answers[id]?.let { return it }
-        val tags = tagsOf(song) ?: return keep(id, OnlyHere(madeUpFor(id), "", ""))
-        // No length to tell the recording from another version of it: nothing would pass (StandIn.MIN_DURATION).
-        if (tags.durationSeconds == null) return keep(id, onlyHere(id, tags))
+        val tags = tagsOf(song)
+        val named = idInFileName(song?.localPath)
+        // A file that names no video is known by its tags alone: with none, or no length to tell the recording from
+        // another version of it, nothing would pass (StandIn.MIN_DURATION).
+        if (named == null) {
+            tags ?: return keep(id, OnlyHere(madeUpFor(id), "", ""))
+            if (tags.durationSeconds == null) return keep(id, onlyHere(id, tags))
+        }
         if (id in asked || !lookUp) return null
         if (now() < restUntil || !mayAsk()) return onlyHere(id, tags)
         asked += id
-        waiting.addLast(id to tags)
+        waiting.addLast(Look(id, tags, song?.duration?.takeIf { it > 0 }, song?.localPath, named))
         if (!working) work()
         return null
     }
@@ -102,10 +123,11 @@ internal class PhoneSongs(
                 while (waiting.isNotEmpty()) {
                     if (!first) delay(spacingMs)
                     first = false
-                    val (id, tags) = waiting.removeFirst()
+                    val look = waiting.removeFirst()
+                    val id = look.id
                     // Whatever goes wrong in a look is no answer, never the end of the room (TogetherSession.failed).
                     val answer = try {
-                        lookFor(id, tags)
+                        lookFor(look)
                     } catch (e: CancellationException) {
                         throw e
                     } catch (e: Exception) {
@@ -122,9 +144,44 @@ internal class PhoneSongs(
         }
     }
 
-    /** The answer for the song with [id] and [tags], or null when the search failed and nothing is known of it. */
-    private suspend fun lookFor(id: String, tags: StandIn.Wanted): Answer? {
+    /** The answer for the song [look] is for, or null when the search failed and nothing is known of it. */
+    private suspend fun lookFor(look: Look): Answer? {
         if (now() < restUntil || !mayAsk()) return null
+        val id = look.id
+        val carried = (look.named ?: look.path?.let { idInTagsOf(it) })?.takeIf { VIDEO_ID.matches(it) }
+        var askFailed = false
+        if (carried != null) {
+            val byId = try {
+                withTimeoutOrNull(StandIn.SEARCH_LIMIT_MS) { withContext(searchOn) { Result.success(songById(carried)) } }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.w(TAG, "A song from a file here: YouTube Music could not be asked for the id it carries: ${e.javaClass.simpleName}")
+                null
+            }
+            // An ask that failed is not taken for YouTube's word: the tags are looked for, whose search rests when the
+            // network is the trouble, and a name that only looks like an id (YouTube may refuse to be asked for it) is
+            // not asked for again once the tags have the answer.
+            val song = byId?.getOrNull()?.takeIf { it.id == carried }
+            if (song != null && sameLength(look.seconds, song)) {
+                Log.i(TAG, "A song from a file here is $carried on YouTube Music, by the id the file carries: the others hear that")
+                return heard(song)
+            }
+            if (byId != null) {
+                Log.i(TAG, "A song from a file here: the id it carries is ${if (song == null) "no song YouTube Music has" else "another length"}, looked for by its tags")
+            }
+            askFailed = byId == null
+        }
+        val tags = look.tags?.takeIf { it.durationSeconds != null }
+        if (tags == null) {
+            // Nothing to search for. An ask for the id it carries that failed is asked again a while later; otherwise
+            // no answer is coming.
+            if (askFailed) {
+                restUntil = now() + StandIn.SEARCH_REST_MS
+                return null
+            }
+            return onlyHere(id, look.tags)
+        }
         val found = try {
             withTimeoutOrNull(StandIn.SEARCH_LIMIT_MS) { withContext(searchOn) { search(tags.query) } }
         } catch (e: CancellationException) {
@@ -147,6 +204,11 @@ internal class PhoneSongs(
             return onlyHere(id, tags)
         }
         Log.i(TAG, "A song from a file here is ${match.id} on YouTube Music: the others hear that")
+        return heard(match)
+    }
+
+    /** YouTube Music's [match] as the others get it. */
+    private fun heard(match: SongItem): Heard {
         val heard = match.toMediaMetadata()
         return Heard(
             TogetherMessage.Song(
@@ -158,7 +220,26 @@ internal class PhoneSongs(
         )
     }
 
-    private fun onlyHere(id: String, tags: StandIn.Wanted) = OnlyHere(madeUpFor(id), tags.title, tags.artists.joinToString(", "))
+    /** The id in the tags of the file at [path], or null, whatever goes wrong in reading them. */
+    private suspend fun idInTagsOf(path: String): String? = try {
+        withContext(searchOn) { idInTags(path) }
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        null
+    }
+
+    /**
+     * Whether the song under the id a file carries is the file's recording by its length, as a stand-in must be
+     * (StandIn.MIN_DURATION): a name that only looks like an id, or a file cut short, is not taken for it. Where either
+     * length is unknown, the file's word is taken.
+     */
+    private fun sameLength(seconds: Int?, song: SongItem): Boolean =
+        seconds == null || song.duration == null ||
+            score(WantedTrack(song.title, "", seconds), song).duration >= StandIn.MIN_DURATION
+
+    private fun onlyHere(id: String, tags: StandIn.Wanted?) =
+        OnlyHere(madeUpFor(id), tags?.title.orEmpty(), tags?.artists?.joinToString(", ").orEmpty())
 
     private fun keep(id: String, answer: Answer): Answer {
         answers.remove(id)
@@ -198,6 +279,20 @@ internal class PhoneSongs(
         private const val LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
     }
 }
+
+/** A YouTube video id: eleven letters, digits, dashes and underscores. */
+private val VIDEO_ID = Regex("[A-Za-z0-9_-]{11}")
+
+/** A video id in brackets at the very end of a file's name, before its extension. */
+private val NAMED_ID = Regex("""\[([A-Za-z0-9_-]{11})]\s*(?:\.[A-Za-z0-9]{1,5})?$""")
+
+/**
+ * The video id at the end of the name of the file at [path], in brackets before its extension, as yt-dlp names what it
+ * downloads ("Flash Back [aKiAkAnE_01].opus") and as the app named its own downloads (DirectoryMangerOt.saveFile, .mka):
+ * null when it has none. Read on the phone; only YouTube Music is asked for the id, never told the name.
+ */
+internal fun idInFileName(path: String?): String? =
+    path?.substringAfterLast('/')?.trim()?.let { NAMED_ID.find(it)?.groupValues?.get(1) }
 
 /** What the phone calls an artist a file's tags don't name (MediaStore.UNKNOWN_STRING). */
 private const val UNKNOWN_ARTIST = "<unknown>"

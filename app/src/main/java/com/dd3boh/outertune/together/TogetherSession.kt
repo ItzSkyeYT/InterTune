@@ -35,6 +35,7 @@ import com.dd3boh.outertune.extensions.metadata
 import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.extensions.toMediaItem
 import com.dd3boh.outertune.migration.ImportSearch
+import com.dd3boh.outertune.playback.downloadManager.SongFileIds
 import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.playback.MusicService
 import com.dd3boh.outertune.playback.RoomAsks
@@ -43,6 +44,7 @@ import com.dd3boh.outertune.playback.queues.ListQueue
 import com.dd3boh.outertune.utils.dataStore
 import com.dd3boh.outertune.utils.ReportTrail
 import com.dd3boh.outertune.utils.Throttle
+import com.zionhuang.innertube.YouTube
 import com.dd3boh.outertune.utils.Toaster
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineExceptionHandler
@@ -65,6 +67,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import okhttp3.OkHttpClient
 import kotlin.math.abs
+import java.io.File
 
 /**
  * A listening room while it lasts, held by the [MusicService] (his yes of 17 Oct 2026 for 0.13).
@@ -316,6 +319,9 @@ class TogetherSession(
         search = ImportSearch::songs,
         answered = ::phoneSongAnswered,
         mayAsk = { !Throttle.isBlocked },
+        // The id a file from YouTube carries: YouTube Music's song for it, signed out (get_queue sends no account).
+        songById = { id -> YouTube.queue(listOf(id)).getOrThrow().firstOrNull { it.id == id } },
+        idInTags = { path -> File(path).let { file -> file.inputStream().buffered().use { SongFileIds.read(file.name, it) } } },
     )
     /** The room's queue this phone's own was last made to match, so it is compared once per word. */
     private var matchedQueue: TogetherMessage.Queue? = null
