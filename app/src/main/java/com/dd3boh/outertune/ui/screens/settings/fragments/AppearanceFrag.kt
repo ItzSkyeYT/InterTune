@@ -38,7 +38,6 @@ fun ColumnScope.AppearanceMiscFrag() {
     SwitchPreference(
         modifier = Modifier.settingRow(R.string.slim_navbar_title),
         title = { Text(stringResource(R.string.slim_navbar_title)) },
-        description = stringResource(R.string.slim_navbar_description),
         icon = { Icon(Icons.Rounded.MoreHoriz, null) },
         checked = slimNav,
         onCheckedChange = onSlimNavChange

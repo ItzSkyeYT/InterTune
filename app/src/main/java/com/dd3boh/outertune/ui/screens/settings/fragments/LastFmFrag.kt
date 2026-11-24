@@ -100,7 +100,6 @@ fun ColumnScope.LastFmFrag(navController: NavController) {
         SwitchPreference(
             modifier = Modifier.settingRow(R.string.lastfm_scrobble),
             title = { Text(stringResource(R.string.lastfm_scrobble)) },
-            description = stringResource(R.string.lastfm_scrobble_description),
             icon = { Icon(Icons.Rounded.Album, null) },
             checked = scrobbling,
             onCheckedChange = onScrobblingChange,

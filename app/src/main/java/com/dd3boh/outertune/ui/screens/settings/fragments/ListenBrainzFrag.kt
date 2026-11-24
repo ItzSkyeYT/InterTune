@@ -120,7 +120,6 @@ fun ColumnScope.ListenBrainzFrag() {
         modifier = Modifier.settingRow(R.string.listenbrainz_scrobble),
         title = stringResource(R.string.listenbrainz_scrobble),
         explanation = stringResource(R.string.listenbrainz_scrobble_explain),
-        description = stringResource(R.string.listenbrainz_scrobble_description),
         icon = { Icon(Icons.Rounded.Album, null) },
         checked = scrobbling,
         onCheckedChange = onScrobblingChange,

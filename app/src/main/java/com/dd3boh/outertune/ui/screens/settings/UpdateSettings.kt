@@ -339,7 +339,6 @@ fun UpdateSettings(
                 // it is the way out if the install will not work on this device.
                 PreferenceEntry(
                     title = { Text(stringResource(R.string.update_open_page)) },
-                    description = stringResource(R.string.update_available_description),
                     onClick = {
                         context.startActivity(Intent(Intent.ACTION_VIEW, found.releaseUrl.toUri()))
                     }

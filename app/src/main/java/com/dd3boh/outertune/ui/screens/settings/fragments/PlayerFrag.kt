@@ -166,7 +166,6 @@ fun ColumnScope.PlayerGeneralFrag() {
     SwitchPreference(
         modifier = Modifier.tourTarget(Tour.SETTING_AUTO_LOAD_MORE).settingRow(R.string.auto_load_more),
         title = { Text(stringResource(R.string.auto_load_more)) },
-        description = stringResource(R.string.auto_load_more_desc),
         icon = { Icon(Icons.Rounded.Autorenew, null) },
         checked = autoLoadMore,
         onCheckedChange = onAutoLoadMoreChange
@@ -588,7 +587,6 @@ fun ColumnScope.HeadTrackingFrag() {
     ExplainedSwitchPreference(
         modifier = tourMark.settingRow(R.string.head_tracking),
         title = stringResource(R.string.head_tracking),
-        description = stringResource(R.string.head_tracking_description),
         explanation = stringResource(R.string.head_tracking_explain),
         picture = ExplainPicture.HEAD_TRACKING,
         footer = stringResource(R.string.head_tracking_report_prompt),
@@ -729,7 +727,6 @@ fun ColumnScope.AdaptiveQueueFrag() {
 
     ExplainedSwitchPreference(
         title = stringResource(R.string.adaptive_queue),
-        description = stringResource(R.string.adaptive_radio_description),
         modifier = Modifier.tourTarget(Tour.SETTING_ADAPTIVE_QUEUE).settingRow(R.string.adaptive_queue),
         explanation = stringResource(R.string.adaptive_queue_explain),
         icon = { Icon(Icons.Rounded.AutoAwesome, null) },
@@ -805,7 +802,6 @@ fun ColumnScope.CrossfadeFrag() {
     ExplainedSwitchPreference(
         modifier = Modifier.settingRow(R.string.crossfade),
         title = stringResource(R.string.crossfade),
-        description = stringResource(R.string.crossfade_description),
         explanation = stringResource(R.string.crossfade_note),
         icon = { Icon(Icons.Rounded.Merge, null) },
         checked = enabled,
@@ -836,7 +832,6 @@ fun ColumnScope.AutomixFrag() {
 
     ExplainedSwitchPreference(
         title = stringResource(R.string.automix),
-        description = stringResource(R.string.automix_description),
         explanation = stringResource(R.string.automix_explain),
         icon = { Icon(Icons.Rounded.JoinInner, null) },
         checked = enabled,
@@ -1051,7 +1046,6 @@ fun ColumnScope.AudioEffectsFrag() {
     SwitchPreference(
         modifier = Modifier.settingRow(R.string.audio_normalization),
         title = { Text(stringResource(R.string.audio_normalization)) },
-        description = stringResource(R.string.audio_normalization_description),
         icon = { Icon(Icons.AutoMirrored.Rounded.VolumeUp, null) },
         checked = audioNormalization,
         onCheckedChange = onAudioNormalizationChange
@@ -1070,7 +1064,6 @@ fun ColumnScope.AudioEffectsFrag() {
         SwitchPreference(
             modifier = Modifier.settingRow(R.string.varispeed),
             title = { Text(stringResource(R.string.varispeed)) },
-            description = stringResource(R.string.varispeed_description),
             icon = { Icon(Icons.Rounded.SlowMotionVideo, null) },
             checked = varispeed,
             onCheckedChange = onVarispeedChange
@@ -1173,7 +1166,6 @@ fun ColumnScope.PlaybackBehaviourFrag() {
     SwitchPreference(
         modifier = Modifier.settingRow(R.string.stop_music_on_task_clear),
         title = { Text(stringResource(R.string.stop_music_on_task_clear)) },
-        description = stringResource(R.string.stop_music_on_task_clear_description),
         icon = { Icon(Icons.Rounded.ClearAll, null) },
         isEnabled = !keepAlive,
         checked = stopMusicOnTaskClear,
@@ -1193,7 +1185,6 @@ fun ColumnScope.PlaybackBehaviourFrag() {
     SwitchPreference(
         modifier = Modifier.tourTarget(Tour.SETTING_RESUME_BLUETOOTH).settingRow(R.string.resume_on_bluetooth),
         title = { Text(stringResource(R.string.resume_on_bluetooth)) },
-        description = stringResource(R.string.resume_on_bluetooth_description),
         icon = { Icon(Icons.Rounded.BluetoothAudio, null) },
         checked = resumeOnBluetooth,
         onCheckedChange = onResumeOnBluetoothChange,
@@ -1220,7 +1211,6 @@ fun ColumnScope.PlaybackBehaviourFrag() {
     if (showSleepTimerFadeDur) {
         CounterDialog(
             title = stringResource(R.string.sleep_timer_fade_duration),
-            description = stringResource(R.string.sleep_timer_fade_duration_description),
             initialValue = if (sleepTimerFade) sleepTimerFadeDuration else 0,
             upperBound = SleepTimerDefaults.FADE_DURATION_RANGE.last,
             lowerBound = 0,

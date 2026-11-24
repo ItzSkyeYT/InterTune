@@ -80,7 +80,6 @@ fun RecognitionSettings(
                 modifier = Modifier.tourTarget(Tour.SETTING_RECOGNISE_KEEP_LISTENING).settingRow(R.string.recognise_keep_listening),
                 title = stringResource(R.string.recognise_keep_listening),
                 explanation = stringResource(R.string.recognise_keep_listening_explain),
-                description = stringResource(R.string.recognise_keep_listening_desc),
                 checked = keepListening,
                 onCheckedChange = onKeepListeningChange,
             )
@@ -102,7 +101,6 @@ fun RecognitionSettings(
             SwitchPreference(
                 modifier = Modifier.settingRow(R.string.recognise_keep_awake),
                 title = { Text(stringResource(R.string.recognise_keep_awake)) },
-                description = stringResource(R.string.recognise_keep_awake_desc),
                 checked = keepAwake,
                 onCheckedChange = onKeepAwakeChange,
             )
@@ -131,7 +129,6 @@ fun RecognitionSettings(
                 modifier = Modifier.settingRow(R.string.recognise_clear_history),
                 title = stringResource(R.string.recognise_clear_history),
                 explanation = stringResource(R.string.recognise_clear_history_explain),
-                description = stringResource(R.string.recognise_clear_history_desc),
                 onClick = { askClear = true },
             )
         }

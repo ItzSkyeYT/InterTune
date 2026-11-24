@@ -97,7 +97,6 @@ fun EqualizerSettings(
         ElevatedCard(modifier = Modifier.fillMaxWidth()) {
             SwitchPreference(
                 title = { Text(stringResource(R.string.equalizer)) },
-                description = stringResource(R.string.equalizer_description),
                 icon = { Icon(Icons.Rounded.Equalizer, null) },
                 checked = enabled,
                 onCheckedChange = onEnabled,
@@ -138,8 +137,7 @@ fun EqualizerSettings(
             PreferenceEntry(
                 modifier = Modifier.settingRow(R.string.equalizer_headphones),
                 title = { Text(stringResource(R.string.equalizer_headphones)) },
-                description = chosen?.let { (name, source) -> stringResource(R.string.equalizer_headphones_set, name, source) }
-                    ?: stringResource(R.string.equalizer_headphones_pick),
+                description = chosen?.let { (name, source) -> stringResource(R.string.equalizer_headphones_set, name, source) },
                 icon = { Icon(Icons.Rounded.Headphones, null) },
                 isEnabled = enabled,
                 onClick = { picking = true },

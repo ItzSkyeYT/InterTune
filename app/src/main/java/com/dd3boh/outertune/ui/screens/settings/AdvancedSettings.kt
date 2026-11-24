@@ -68,7 +68,6 @@ fun AdvancedSettings(
             PreferenceEntry(
                 modifier = Modifier.settingRow(R.string.flush_image_cache_title),
                 title = { Text(stringResource(R.string.flush_image_cache_title)) },
-                description = stringResource(R.string.flush_image_cache_description),
                 icon = { Icon(Icons.Rounded.Delete, null) },
                 onClick = {
                     context.imageLoader.memoryCache?.clear()

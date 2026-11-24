@@ -78,7 +78,6 @@ fun ColumnScope.PollsFrag() {
         modifier = Modifier.tourTarget(Tour.SETTING_POLLS).settingRow(R.string.polls_enabled),
         title = stringResource(R.string.polls_enabled),
         explanation = stringResource(R.string.polls_enabled_info),
-        description = stringResource(R.string.polls_enabled_description),
         icon = { Icon(Icons.Rounded.Poll, null) },
         checked = enabled,
         onCheckedChange = {
@@ -101,7 +100,6 @@ fun ColumnScope.PollsFrag() {
         modifier = Modifier.settingRow(R.string.news_enabled),
         title = stringResource(R.string.news_enabled),
         explanation = stringResource(R.string.news_enabled_info),
-        description = stringResource(R.string.news_enabled_description),
         icon = { Icon(Icons.Rounded.Campaign, null) },
         checked = newsOn,
         onCheckedChange = {

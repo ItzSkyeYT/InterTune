@@ -133,7 +133,6 @@ fun ColumnScope.ThemeAppFrag() {
     SwitchPreference(
         modifier = Modifier.settingRow(R.string.back_animations),
         title = { Text(stringResource(R.string.back_animations)) },
-        description = stringResource(R.string.back_animations_description),
         icon = { Icon(Icons.Rounded.SwipeLeft, null) },
         checked = backAnimations,
         onCheckedChange = onBackAnimationsChange
@@ -142,7 +141,6 @@ fun ColumnScope.ThemeAppFrag() {
     SwitchPreference(
         modifier = Modifier.settingRow(R.string.enable_dynamic_theme),
         title = { Text(stringResource(R.string.enable_dynamic_theme)) },
-        description = stringResource(R.string.enable_dynamic_theme_description),
         icon = { Icon(Icons.Rounded.Palette, null) },
         checked = dynamicTheme,
         onCheckedChange = onDynamicThemeChange
@@ -179,7 +177,6 @@ fun ColumnScope.ThemeAppFrag() {
     SwitchPreference(
         modifier = Modifier.settingRow(R.string.pure_black),
         title = { Text(stringResource(R.string.pure_black)) },
-        description = stringResource(R.string.pure_black_description),
         icon = { Icon(Icons.Rounded.Contrast, null) },
         checked = BatteryUse.pureBlack(pureBlack, LocalBatteryMode.current),
         isEnabled = !held,

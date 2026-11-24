@@ -624,7 +624,6 @@ fun ColumnScope.BackupAndRestoreFrag(viewModel: BackupRestoreViewModel) {
         PreferenceEntry(
             modifier = Modifier.settingRow(R.string.export_playlists_m3u),
             title = { Text(stringResource(R.string.export_playlists_m3u)) },
-            description = stringResource(R.string.export_playlists_m3u_description),
             icon = { Icon(Icons.Rounded.Output, null) },
             onClick = { exportPlaylistsLauncher.launch(null) }
         )

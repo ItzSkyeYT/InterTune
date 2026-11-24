@@ -151,7 +151,6 @@ fun SettingsScreen(
             PreferenceEntry(
                 modifier = Modifier.tourTarget(Tour.ROW_ACCOUNT),
                 title = { Text(stringResource(R.string.grp_account_sync)) },
-                description = stringResource(R.string.settings_account_sync_description),
                 icon = { Icon(Icons.Rounded.AccountCircle, null) },
                 onClick = { navController.navigate("settings/account_sync") }
             )
@@ -164,7 +163,6 @@ fun SettingsScreen(
             )
             PreferenceEntry(
                 title = { Text(stringResource(R.string.local_player_settings_title)) },
-                description = stringResource(R.string.settings_local_description),
                 icon = { Icon(Icons.Rounded.SdCard, null) },
                 onClick = { navController.navigate("settings/local") }
             )
@@ -177,7 +175,6 @@ fun SettingsScreen(
             PreferenceEntry(
                 modifier = Modifier.tourTarget(Tour.ROW_LOOK_AND_FEEL),
                 title = { Text(stringResource(R.string.look_and_feel)) },
-                description = stringResource(R.string.settings_look_and_feel_description),
                 icon = { Icon(Icons.Rounded.Palette, null) },
                 onClick = { navController.navigate("settings/appearance") }
             )
@@ -185,7 +182,6 @@ fun SettingsScreen(
             if (Unreleased.WIDGETS_PAGE) {
                 PreferenceEntry(
                     title = { Text(stringResource(R.string.widgets)) },
-                    description = stringResource(R.string.settings_widgets_description),
                     icon = { Icon(Icons.Rounded.Widgets, null) },
                     onClick = { navController.navigate("settings/widgets") }
                 )
@@ -193,19 +189,16 @@ fun SettingsScreen(
             PreferenceEntry(
                 modifier = Modifier.tourTarget(Tour.ROW_PLAYER),
                 title = { Text(stringResource(R.string.player_and_audio)) },
-                description = stringResource(R.string.settings_player_description),
                 icon = { Icon(Icons.Rounded.PlayArrow, null) },
                 onClick = { navController.navigate("settings/player") }
             )
             PreferenceEntry(
                 title = { Text(stringResource(R.string.recognise_settings)) },
-                description = stringResource(R.string.recognise_settings_description),
                 icon = { Icon(Icons.Rounded.GraphicEq, null) },
                 onClick = { navController.navigate("settings/recognition") }
             )
             PreferenceEntry(
                 title = { Text(stringResource(R.string.lyrics_settings_title)) },
-                description = stringResource(R.string.settings_lyrics_description),
                 icon = { Icon(Icons.Rounded.Lyrics, null) },
                 onClick = { navController.navigate("settings/library/lyrics") }
             )
@@ -213,7 +206,6 @@ fun SettingsScreen(
             if (togetherAvailable) {
                 PreferenceEntry(
                     title = { Text(stringResource(R.string.together_title)) },
-                    description = stringResource(R.string.settings_together_description),
                     icon = { Icon(Icons.Rounded.Group, null) },
                     onClick = { navController.navigate("settings/together") }
                 )
@@ -227,14 +219,12 @@ fun SettingsScreen(
             PreferenceEntry(
                 modifier = Modifier.tourTarget(Tour.ROW_STORAGE),
                 title = { Text(stringResource(R.string.grp_storage_and_downloads)) },
-                description = stringResource(R.string.settings_storage_description),
                 icon = { Icon(Icons.Rounded.Storage, null) },
                 onClick = { navController.navigate("settings/storage") }
             )
             if (Unreleased.BATTERY_MODES) {
                 PreferenceEntry(
                     title = { Text(stringResource(R.string.battery_use)) },
-                    description = stringResource(R.string.battery_use_entry),
                     icon = { Icon(Icons.Rounded.Battery5Bar, null) },
                     onClick = { navController.navigate("settings/battery") },
                     modifier = Modifier.tourTarget(Tour.ROW_BATTERY),
@@ -243,13 +233,11 @@ fun SettingsScreen(
             PreferenceEntry(
                 modifier = Modifier.tourTarget(Tour.ROW_BACKUP),
                 title = { Text(stringResource(R.string.backup_restore)) },
-                description = stringResource(R.string.settings_backup_description),
                 icon = { Icon(Icons.Rounded.Backup, null) },
                 onClick = { navController.navigate("settings/backup") }
             )
             PreferenceEntry(
                 title = { Text(stringResource(R.string.grp_privacy_and_history)) },
-                description = stringResource(R.string.settings_privacy_description),
                 icon = { Icon(Icons.Rounded.Shield, null) },
                 onClick = { navController.navigate("settings/privacy") }
             )
@@ -277,7 +265,7 @@ fun SettingsScreen(
                 },
                 description = pendingUpdate?.let {
                     stringResource(R.string.update_available, it.versionName)
-                } ?: stringResource(R.string.settings_updates_description),
+                },
                 onClick = { navController.navigate("settings/updates") }
             )
             // Held for 0.11 along with the engine it describes: see Unreleased. The log it would
@@ -287,7 +275,6 @@ fun SettingsScreen(
                 PreferenceEntry(
                     title = { Text(stringResource(R.string.recommendations)) },
                     icon = { Icon(Icons.Rounded.AutoAwesome, null) },
-                    description = stringResource(R.string.settings_recommendations_description),
                     onClick = { navController.navigate("settings/recommendations") }
                 )
             }
@@ -300,7 +287,6 @@ fun SettingsScreen(
             PreferenceEntry(
                 modifier = Modifier.tourTarget(Tour.ROW_ABOUT),
                 title = { Text(stringResource(R.string.about)) },
-                description = stringResource(R.string.settings_about_description),
                 icon = { Icon(Icons.Rounded.Info, null) },
                 onClick = { navController.navigate("settings/about") }
             )

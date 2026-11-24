@@ -261,7 +261,11 @@ class WidgetsSettingsTest {
     @Test
     fun `every one of the words is read by the code`() {
         val used = page + kotlin("ui/screens/settings/SettingsScreen.kt") + kotlin("ui/screens/settings/SettingsTwoPane.kt")
-        for ((name, _, _) in words) assertTrue("$name is not used", "R.string.$name" in used)
+        // The line under Widgets in Settings is gone (24 Nov 2026: it only said what the name says); its words stay in the
+        // files for translators until a cleanup.
+        val noLongerShown = setOf("settings_widgets_description")
+        for ((name, _, _) in words) if (name !in noLongerShown) assertTrue("$name is not used", "R.string.$name" in used)
+        assertFalse("R.string.settings_widgets_description" in used)
         assertTrue("R.string.widgets_cells" in page)
     }
 
