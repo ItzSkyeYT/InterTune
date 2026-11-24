@@ -69,7 +69,7 @@ class DownloadKeepsFolderFilesTest {
     fun `a move keeps the song's own file already in the folder instead of writing a second`() {
         val listed = migrate.indexOf("localMgr.getFilePathIfExists(s.key)")
         val there = migrate.indexOf("?: localMgr.fileAlreadyThere(s.key, displayName, song?.song?.localPath)")
-        val songFile = migrate.indexOf("saveSongFile(s.key, notice)")
+        val songFile = migrate.indexOf("saveSongFile(s.key)")
         val stream = migrate.indexOf("localMgr.saveFile(s.key, stream, displayName)")
         assertTrue(listed in 0 until there)
         assertTrue("before anything is written, a song file included", there < songFile)
