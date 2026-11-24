@@ -59,32 +59,20 @@ class RecapNoteSlidesTest {
     }
 
     @Test
-    fun `the letter folds, goes into its envelope, is closed, stamped, settles and goes, in that order and in under 3 s`() {
-        assertEquals(
-            listOf(SealLetter.Step.FOLD, SealLetter.Step.INTO, SealLetter.Step.FLAP, SealLetter.Step.STAMP, SealLetter.Step.SETTLE, SealLetter.Step.OFF),
-            SealLetter.Step.entries.toList(),
-        )
-        assertTrue(SealLetter.TOTAL_MS in 2_500..3_000)
-        // Each step in turn as the story's clock runs, and nothing once it is over.
-        val seen = (0 until SealLetter.TOTAL_MS step 10).mapNotNull { SealLetter.at(it.toLong(), still = false)?.first }.distinct()
-        assertEquals(SealLetter.Step.entries.toList(), seen)
-        assertEquals(null, SealLetter.at(SealLetter.TOTAL_MS.toLong(), still = false))
-        // The stamp presses inside its own step, where the light tick goes.
-        assertEquals(SealLetter.Step.STAMP, SealLetter.at(SealLetter.PRESS_MS.toLong(), still = false)?.first)
-        // With Remove animations on there is no letter: sealed at once, its paper there all along.
-        assertEquals(null, SealLetter.at(0L, still = true))
-        assertEquals(1f, paperUnderLetter(0L, still = true), 0f)
-        // Otherwise the paper makes way for the letter, then comes back sealed.
-        assertEquals(0f, paperUnderLetter(100L, still = false), 0f)
-        assertEquals(1f, paperUnderLetter(SealLetter.TOTAL_MS + 300L, still = false), 0f)
-        // Sealing it is the story's, on its clock: the take is drawn over the paper from the moment it is kept,
-        // and the take of before is this letter, as it was (RecapSealTakesTest has the others).
+    fun `the note goes into its envelope, is shut, sealed with wax and goes, in that order and in under 2 s`() {
+        // Its steps in order: up round the paper, the paper in, the flap shut, the wax on, away (RecapNoteSealTest has the rest).
+        val steps = listOf(NoteSeal.FLAP_FROM, NoteSeal.WAX_FROM, NoteSeal.GO_FROM, NoteSeal.CARD_FROM)
+        assertEquals(steps.sorted(), steps)
+        assertTrue(NoteSeal.TOTAL_MS < 2_000)
+        // With Remove animations on there is no envelope: sealed at once, its paper there all along.
+        assertFalse(NoteSeal.running(0L, still = true))
+        assertEquals(1f, NoteSeal.paperAlpha(0L, still = true), 0f)
+        // Otherwise the paper goes into the envelope, is hidden while it is shut, then comes back sealed.
+        assertEquals(0f, NoteSeal.paperAlpha((NoteSeal.FLAP_FROM + NoteSeal.FLAP_MS).toLong(), still = false), 0f)
+        assertEquals(1f, NoteSeal.paperAlpha(NoteSeal.TOTAL_MS.toLong(), still = false), 0f)
+        // Sealing it is the story's, on its clock: the envelope is drawn round the paper from the moment it is kept.
         val slide = code("ui/screens/recap/RecapNoteSlides.kt")
-        assertTrue("SealOver(take, s, note, places, WRITE_TURN, Modifier.matchParentSize())" in slide)
-        val takes = code("ui/screens/recap/RecapSealTakes.kt")
-        assertTrue("SealLetterCanvas(s, note.sealedAt, note.letter, modifier)" in takes)
-        assertEquals(SealLetter.TOTAL_MS + 300, SealTakes.totalMs(SealTake.BEFORE))
-        assertEquals(0f, SealTakes.paperAlpha(SealTake.BEFORE, 100L, still = false), 0f)
+        assertTrue("if (note.sealedAt >= 0) SealOver(s, note, places, WRITE_TURN, Modifier.matchParentSize())" in slide)
     }
 
     @Test
