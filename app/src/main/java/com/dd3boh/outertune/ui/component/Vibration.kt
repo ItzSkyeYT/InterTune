@@ -135,7 +135,8 @@ fun predefinedFor(feel: Feel): List<Int> = when (feel) {
  * cannot be played softer. A like's double has no lighter effect: [buzzFor] plays it as soft pulses where it can.
  */
 fun lighterPredefinedFor(feel: Feel): List<Int> = when (feel) {
-    Feel.TICK, Feel.LOW_TICK, Feel.CLICK -> listOf(VibrationEffect.EFFECT_TICK)
+    // The seek bar's ends play Strong's click, and the pop Strong's tick: the tick is the lightest there is for both.
+    Feel.TICK, Feel.LOW_TICK, Feel.CLICK, Feel.EDGE, Feel.POP -> listOf(VibrationEffect.EFFECT_TICK)
     Feel.FIRM -> listOf(VibrationEffect.EFFECT_CLICK, VibrationEffect.EFFECT_TICK)
     Feel.DOUBLE -> listOf(VibrationEffect.EFFECT_DOUBLE_CLICK)
 }
