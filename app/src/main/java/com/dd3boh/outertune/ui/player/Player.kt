@@ -59,6 +59,7 @@ import com.dd3boh.outertune.ui.component.segmentTick
 import com.dd3boh.outertune.ui.component.tapTick
 import com.dd3boh.outertune.ui.component.Feel
 import com.dd3boh.outertune.ui.component.buttonFeel
+import com.dd3boh.outertune.ui.component.repeatFeel
 import com.dd3boh.outertune.ui.component.felt
 import com.dd3boh.outertune.ui.component.rememberSleepTimerState
 import com.dd3boh.outertune.ui.component.openProxySetting
@@ -1158,8 +1159,8 @@ fun BottomSheetPlayer(
                     container = MaterialTheme.colorScheme.primary,
                     content = MaterialTheme.colorScheme.onPrimary,
                     onClick = playerConnection::toggleLike,
-                    // Under Strong a like is two clicks, taking it back the tap's tick.
-                    tap = if (currentSong?.song?.liked == true) Feel.TICK else Feel.DOUBLE,
+                    // Under Strong a like is two clicks, taking it back the pop.
+                    tap = if (currentSong?.song?.liked == true) Feel.POP else Feel.DOUBLE,
                 )
             }
             val roomCircle: @Composable () -> Unit = {
@@ -1204,6 +1205,8 @@ fun BottomSheetPlayer(
                     content = if (showLyrics) MaterialTheme.colorScheme.onTertiary else MaterialTheme.colorScheme.onPrimary,
                     onClick = toggleLyrics,
                     on = showLyrics,
+                    // It opens and closes the lyrics, so under Strong it clicks as cast and the menu do (Ti-Die, 23 Nov 2026).
+                    tap = Feel.FIRM,
                 )
             }
             val pinCircle: @Composable (PlayerPin) -> Unit = { pin -> PinGreyed(pinActions.unavailable(pin)) {
@@ -1312,7 +1315,7 @@ fun BottomSheetPlayer(
                         onClick = playerConnection::toggleLike,
                         backdrop = buttonBackdrop,
                         glassIntensity = glassIntensity,
-                        tap = if (liked) Feel.TICK else Feel.DOUBLE,
+                        tap = if (liked) Feel.POP else Feel.DOUBLE,
                     )
                     PlayerPin.TIMER -> PlayerActionSegment(
                         painter = rememberVectorPainter(Icons.Rounded.Timer),
@@ -1334,6 +1337,8 @@ fun BottomSheetPlayer(
                         backdrop = buttonBackdrop,
                         glassIntensity = glassIntensity,
                         on = showLyrics,
+                        // Opens and closes the lyrics: as cast and the menu under Strong.
+                        tap = Feel.FIRM,
                     )
                     else -> {
                         val on = pinActions.on(pin)
@@ -1499,6 +1504,8 @@ fun BottomSheetPlayer(
                                 glassIntensity = glassIntensity,
                                 onClick = toggleLyrics,
                                 on = showLyrics,
+                                // Opens and closes the lyrics: as cast and the menu under Strong.
+                                tap = Feel.FIRM,
                             )
                             PlayerPin.TIMER -> PlayerActionSegment(
                                 painter = rememberVectorPainter(Icons.Rounded.Timer),
@@ -1537,7 +1544,7 @@ fun BottomSheetPlayer(
                                 backdrop = buttonBackdrop,
                                 glassIntensity = glassIntensity,
                                 onClick = playerConnection::toggleLike,
-                                tap = if (liked) Feel.TICK else Feel.DOUBLE,
+                                tap = if (liked) Feel.POP else Feel.DOUBLE,
                             )
                             else -> {
                                 val on = pinActions.on(pin)
@@ -1687,9 +1694,10 @@ fun BottomSheetPlayer(
                             if (Unreleased.HAPTICS_MORE && seekRumble.tick(it, shownDuration)) {
                                 haptic.segmentTick(currentView, tickLive, frequent = true)
                             }
-                            // A click as the bar hits its start or its end, where the click on letting go used to be.
+                            // A click as the bar hits its start or its end, where the click on letting go used to be,
+                            // under Strong a tad softer than the volume's (Ti-Die, 23 Nov 2026).
                             if (Unreleased.HAPTICS_MORE && seekRumble.hitsEnd(it, shownDuration)) {
-                                haptic.segmentTick(currentView, tickLive)
+                                haptic.segmentTick(currentView, tickLive, strong = Feel.EDGE)
                             }
                         },
                         onSlideDone = {
@@ -1924,8 +1932,8 @@ fun BottomSheetPlayer(
                                     enabled = true,
                                     onClick = {
                                         if (orderHeld) return@RepeatButton sayOrderHeld(context, playerConnection)
-                                        // Off, all, one, off: only from one does a tap turn it off.
-                                        val feel = buttonFeel(turnsOff = repeatMode == REPEAT_MODE_ONE)
+                                        // Off, all, one, off: only the tap from off turns it on. Into one and back off is the pop.
+                                        val feel = repeatFeel(repeatMode)
                                         playerConnection.player.toggleRepeatMode()
                                         haptic.felt(feel, HapticFeedbackType.SegmentFrequentTick)
                                     }

@@ -9,6 +9,7 @@ package com.dd3boh.outertune.ui.component
 import android.os.VibrationEffect
 import android.os.Vibrator
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.media3.common.Player
 import com.dd3boh.outertune.ui.component.Buzz.Step
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -114,6 +115,27 @@ class VibrationTest {
         assertEquals(steps(Step(lowTick, 0.35f)), strong(Feel.LOW_TICK))
         // A like: two clicks 60 ms apart, the second the stronger, as Essentials' double has them.
         assertEquals(steps(Step(click, 0.7f), Step(click, 1f, delay = 60)), strong(Feel.DOUBLE))
+        // The seek bar reaching its start or its end: the click at three quarters.
+        assertEquals(steps(Step(click, 0.75f)), strong(Feel.EDGE))
+        // A button turning something off, the pop: the click at half.
+        assertEquals(steps(Step(click, 0.5f)), strong(Feel.POP))
+    }
+
+    @Test
+    fun `Ti-Die's notes of 23 Nov 2026, the seek bar's ends a tad softer, the pop a little firmer, the hit untouched`() {
+        // "Could maybe bring down the edge haptic amplitude a tad": the volume's click, softer.
+        val edge = (strong(Feel.EDGE) as Buzz.Primitives).steps.single()
+        val volume = (strong(Feel.CLICK) as Buzz.Primitives).steps.single()
+        assertEquals(click, edge.primitive)
+        assertTrue("$edge", edge.scale < volume.scale && edge.scale >= 0.7f)
+        // "increase the pop's amplitude a little (without touching the hit's)": the tick already plays at its full
+        // strength, so the pop is the next primitive up, a click, softer than either of the hit's two.
+        assertEquals(steps(Step(tick, 1f)), strong(Feel.TICK))
+        val pop = (strong(Feel.POP) as Buzz.Primitives).steps.single()
+        assertEquals(click, pop.primitive)
+        val hit = (strong(Feel.DOUBLE) as Buzz.Primitives).steps
+        assertEquals(listOf(Step(click, 0.7f), Step(click, 1f, delay = 60)), hit)
+        assertTrue("$pop under $hit", hit.all { pop.scale < it.scale })
     }
 
     @Test
@@ -123,6 +145,8 @@ class VibrationTest {
         assertEquals(steps(Step(tick, 0.3f)), strong(Feel.LOW_TICK, android11))
         assertEquals(steps(Step(tick, 1f)), strong(Feel.TICK, android11))
         assertEquals(steps(Step(click, 1f)), strong(Feel.FIRM, android11))
+        assertEquals(steps(Step(click, 0.75f)), strong(Feel.EDGE, android11))
+        assertEquals(steps(Step(click, 0.5f)), strong(Feel.POP, android11))
     }
 
     // ---- Strong without primitives: the predefined effects, then plain pulses ----
@@ -134,6 +158,10 @@ class VibrationTest {
         assertEquals(Buzz.Predefined(VibrationEffect.EFFECT_TICK), strong(Feel.TICK, effectsOnly))
         assertEquals(Buzz.Predefined(VibrationEffect.EFFECT_TICK), strong(Feel.LOW_TICK, effectsOnly))
         assertEquals(Buzz.Predefined(VibrationEffect.EFFECT_DOUBLE_CLICK), strong(Feel.DOUBLE, effectsOnly))
+        // A predefined effect has no strength to turn: the ends keep the phone's click, and the pop its tick, since its
+        // click would be the volume's whole one, far more than "a little".
+        assertEquals(Buzz.Predefined(VibrationEffect.EFFECT_CLICK), strong(Feel.EDGE, effectsOnly))
+        assertEquals(Buzz.Predefined(VibrationEffect.EFFECT_TICK), strong(Feel.POP, effectsOnly))
     }
 
     @Test
@@ -163,7 +191,7 @@ class VibrationTest {
     @Test
     fun `a phone with none of it gets plain pulses of 20 ms, a soft short one for the seek bar`() {
         val none = effectsOnly.copy(effects = Feel.entries.flatMap { predefinedFor(it) }.associateWith { no })
-        for (feel in listOf(Feel.FIRM, Feel.CLICK, Feel.TICK)) {
+        for (feel in listOf(Feel.FIRM, Feel.CLICK, Feel.TICK, Feel.EDGE, Feel.POP)) {
             assertEquals(feel.name, Buzz.Pulses(count = 1, length = 20), strong(feel, none))
         }
         assertEquals(Buzz.Pulses(count = 2, length = 20, gap = 60), strong(Feel.DOUBLE, none))
@@ -297,22 +325,25 @@ class VibrationTest {
         assertTrue("if (Unreleased.HAPTICS_MORE) Haptics.play(strong) { performHapticFeedback(HapticFeedbackType.ContextClick) }" in helper)
         assertTrue("fun HapticFeedback.tapTick(strong: Feel = Feel.TICK)" in helper)
         val segment = helper.substringAfter("fun HapticFeedback.segmentTick(").substringBefore("\n}")
-        assertTrue(segment, "Haptics.play(if (frequent) Feel.LOW_TICK else Feel.CLICK) {" in segment)
+        // The seek bar's ticks low, the volume's landing a click, the seek bar's ends their own ([Feel.EDGE], Player).
+        assertTrue(segment, "frequent: Boolean = false, strong: Feel = if (frequent) Feel.LOW_TICK else Feel.CLICK)" in segment)
+        assertTrue(segment, "Haptics.play(strong) {" in segment)
         assertTrue(segment, "TickWay.CLOCK -> view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)" in segment)
     }
 
     @Test
-    fun `a like plays two clicks and taking it back the tap's tick, in the player and in a song's menu`() {
+    fun `a like plays two clicks and taking it back the pop, in the player and in a song's menu`() {
         val player = source("ui/player/Player.kt")
         // Classic's circle and the connected row's segment, in both places the row is drawn.
-        assertEquals(3, Regex("""tap = if \((currentSong\?\.song\?\.liked == true|liked)\) Feel\.TICK else Feel\.DOUBLE""").findAll(player).count())
+        assertEquals(3, Regex("""tap = if \((currentSong\?\.song\?\.liked == true|liked)\) Feel\.POP else Feel\.DOUBLE""").findAll(player).count())
         for (header in listOf("private fun PlayerCircleButton(", "private fun PlayerActionSegment(")) {
             val button = player.substringAfter(header).substringBefore("\n}")
             assertTrue("$header takes no feel", "tap: Feel = buttonFeel(turnsOff = on)" in button)
             assertTrue("$header does not tick with it", "haptic.tapTick(tap)" in button)
         }
-        assertTrue("haptic.tapTick(if (song.song.liked) Feel.TICK else Feel.DOUBLE)" in source("ui/menu/SongMenu.kt"))
-        assertTrue("haptic.tapTick(if (librarySong?.song?.liked == true) Feel.TICK else Feel.DOUBLE)" in source("ui/menu/YouTubeSongMenu.kt"))
+        assertTrue("haptic.tapTick(if (song.song.liked) Feel.POP else Feel.DOUBLE)" in source("ui/menu/SongMenu.kt"))
+        assertTrue("haptic.tapTick(if (librarySong?.song?.liked == true) Feel.POP else Feel.DOUBLE)" in source("ui/menu/YouTubeSongMenu.kt"))
+        assertFalse("a like taken back still ticks somewhere", Regex("""Feel\.TICK else Feel\.DOUBLE""").containsMatchIn(player))
     }
 
     @Test
@@ -320,21 +351,30 @@ class VibrationTest {
         // Ti-Die, #testers 21 Nov 2026: "the like button does the haptics perfectly ... copy paste that to the
         // shuffle/repeat buttons, and any other menu button that doesn't open a popup. those that do (share, queue,
         // cast) and the previous/next buttons, should have something closer to how the pause button feels".
+        // Ti-Die, #testers 23 Nov 2026: the hit turning on stays, the pop turning off a little firmer ([Feel.POP]).
         assertEquals(Feel.DOUBLE, buttonFeel(turnsOff = false))
-        assertEquals(Feel.TICK, buttonFeel(turnsOff = true))
+        assertEquals(Feel.POP, buttonFeel(turnsOff = true))
         assertEquals(Feel.FIRM, buttonFeel(turnsOff = null))
+        // Repeat goes off, all, one, off: only the tap from off turns it on, so only that one is the hit. Into one, "loop
+        // once", and back off are the pop (Ti-Die, the same night: "it's not turning on").
+        assertEquals(Feel.DOUBLE, repeatFeel(Player.REPEAT_MODE_OFF))
+        assertEquals(Feel.POP, repeatFeel(Player.REPEAT_MODE_ALL))
+        assertEquals(Feel.POP, repeatFeel(Player.REPEAT_MODE_ONE))
 
         val player = source("ui/player/Player.kt")
-        // The pinned buttons: lyrics is the one that turns something on (on = showLyrics, three places), the queue, the
-        // timer, share, cast, the room and the menu open something and pass no on.
+        // The pinned buttons: lyrics turns something on and off (on = showLyrics, three places, for TalkBack's switch),
+        // the queue, the timer, share, cast, the room and the menu open something and pass no on.
         assertEquals(3, Regex("""onClick = toggleLyrics,""").findAll(player).count())
         assertEquals(3, Regex("""\son = showLyrics,""").findAll(player).count())
+        // Lyrics feels like the buttons that open something, as cast and the menu do: it opens and closes the lyrics
+        // (Ti-Die, the same night), in all three places.
+        assertEquals(3, Regex("""\son = showLyrics,\s+tap = Feel\.FIRM,""").findAll(player).count())
         // The controls: shuffle and repeat as a like, read before the tap changes them; skip both ways firm (Next through
         // the connection, PlayerConnection.skipToNext).
         val controls = player.substringAfter("val shuffleModeEnabled by playerConnection.shuffleModeEnabled.collectAsState()")
             .substringBefore("if (buttonsStyle == PlayerButtonsStyle.CONNECTED) quickActions()")
         assertTrue(controls, "val feel = buttonFeel(turnsOff = shuffleModeEnabled)\n" in controls)
-        assertTrue(controls, "val feel = buttonFeel(turnsOff = repeatMode == REPEAT_MODE_ONE)\n" in controls)
+        assertTrue(controls, "val feel = repeatFeel(repeatMode)\n" in controls)
         assertEquals(controls, 2, Regex("""haptic\.felt\(feel, HapticFeedbackType\.SegmentFrequentTick\)""").findAll(controls).count())
         assertEquals(controls, 2, Regex("""(seekToPrevious|skipToNext)\(\)\s+haptic\.felt\(Feel\.FIRM, HapticFeedbackType\.SegmentFrequentTick\)""").findAll(controls).count())
         // Under Light they ask what they always asked, through the window's haptics.
@@ -342,7 +382,7 @@ class VibrationTest {
         // The queue's bar has the same four, felt the same.
         val bar = source("ui/player/Queue.kt")
         assertTrue("val feel = buttonFeel(turnsOff = shuffleModeEnabled)\n" in bar)
-        assertTrue("val feel = buttonFeel(turnsOff = repeatMode == REPEAT_MODE_ONE)\n" in bar)
+        assertTrue("val feel = repeatFeel(repeatMode)\n" in bar)
         assertEquals(2, Regex("""haptic\.felt\(feel, HapticFeedbackType\.SegmentFrequentTick\)""").findAll(bar).count())
         assertEquals(2, Regex("""(seekToPrevious|skipToNext)\(\)\s+haptic\.felt\(Feel\.FIRM, HapticFeedbackType\.SegmentFrequentTick\)""").findAll(bar).count())
         assertTrue("fun HapticFeedback.felt(strong: Feel, light: HapticFeedbackType) = Haptics.play(strong) { performHapticFeedback(light) }" in source("ui/component/MoreHaptics.kt"))

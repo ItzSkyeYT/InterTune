@@ -28,6 +28,7 @@ import com.dd3boh.outertune.migration.ImportSearch
 import com.dd3boh.outertune.models.toMediaMetadata
 import com.dd3boh.outertune.recognition.Heard
 import com.dd3boh.outertune.recognition.RecognitionHistory
+import com.dd3boh.outertune.ui.screens.recap.NoteSeal
 import com.dd3boh.outertune.utils.dataStore
 import com.zionhuang.innertube.YouTube
 import com.zionhuang.innertube.models.SongItem
@@ -53,7 +54,8 @@ import kotlin.random.Random
  *
  * With `--es note "<text>|<text>"` instead, it only seals those texts as last year's notes to this
  * year's Recap (RecapNote), a day apart up to a year ago today, and opens the Recap with open: the
- * slide "A note from your past self" can be seen on a phone that has none.
+ * slide "A note from your past self" can be seen on a phone that has none. With `--ei slow 3` it only slows the
+ * sealing of a note down (NoteSeal), to film it on an emulator that draws few frames a second.
  *
  * It finds about thirty well-known songs by name with the import's own anonymous search (a
  * search each, a second and a half apart), keeps the songs each search lists after the first as
@@ -118,6 +120,13 @@ object RecapSample {
                         Log.i(TAG, "notes for $year: $kept of ${texts.size} sealed: done")
                         if (kept > 0 && open) RecapDoor.open(LocalDate.now().year)
                     }
+                    return
+                }
+                // The note's seal three times slower (`--ei slow 3`, 1 to 10; 1 again with `--ei slow 1`), to film it on an
+                // emulator that draws few frames a second (NoteSeal.slow). Nothing is written.
+                if (intent.hasExtra("slow")) {
+                    NoteSeal.slow = intent.getIntExtra("slow", 1).coerceIn(1, 10).toFloat()
+                    Log.i(TAG, "seal: ${NoteSeal.slow.toInt()} times slower")
                     return
                 }
                 // One file's loudest stretch, for the emulator (RecapChorus): nothing is written.

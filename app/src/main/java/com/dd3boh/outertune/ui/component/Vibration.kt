@@ -13,6 +13,7 @@ import android.annotation.SuppressLint
 import android.os.VibrationEffect
 import android.os.Vibrator
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.media3.common.Player
 
 /**
  * The Vibration setting under Look and feel (Unreleased.HAPTICS_FEEL; his ask of 20 Nov 2026 on his S25U, "the haptics
@@ -42,7 +43,7 @@ enum class Vibration {
 
 /** What an action feels like under Strong. */
 enum class Feel {
-    /** Skip, shuffle, repeat and every other tap: a crisp tick. */
+    /** Every tap without a feel of its own: a crisp tick. */
     TICK,
 
     /** The volume landing on 100%, a swipe past its line: a click. */
@@ -56,6 +57,16 @@ enum class Feel {
 
     /** The seek bar's ticks while it is dragged: low and soft. */
     LOW_TICK,
+
+    /** The seek bar reaching its start or its end: the volume's click, a tad softer (Ti-Die, #testers 23 Nov 2026). */
+    EDGE,
+
+    /**
+     * A button turning something off, a like taken back: the pop after [DOUBLE]'s hit. A soft click, a little firmer than
+     * the tap's tick, which already plays at its full strength (Ti-Die, #testers 23 Nov 2026: "increase the pop's
+     * amplitude a little (without touching the hit's)").
+     */
+    POP,
 }
 
 /** What the vibrator is asked to play for one feel, worked out by [buzzFor]. */
@@ -112,8 +123,9 @@ const val LIGHT_FLOOR = 0.15f
 
 /** The predefined effects a feel can be played with, the best first. */
 fun predefinedFor(feel: Feel): List<Int> = when (feel) {
-    Feel.TICK, Feel.LOW_TICK -> listOf(VibrationEffect.EFFECT_TICK)
-    Feel.CLICK -> listOf(VibrationEffect.EFFECT_CLICK)
+    // An effect has no strength to turn: the pop keeps the tick, the phone's click being the volume's whole one.
+    Feel.TICK, Feel.LOW_TICK, Feel.POP -> listOf(VibrationEffect.EFFECT_TICK)
+    Feel.CLICK, Feel.EDGE -> listOf(VibrationEffect.EFFECT_CLICK)
     Feel.FIRM -> listOf(VibrationEffect.EFFECT_HEAVY_CLICK, VibrationEffect.EFFECT_CLICK)
     Feel.DOUBLE -> listOf(VibrationEffect.EFFECT_DOUBLE_CLICK)
 }
@@ -179,6 +191,11 @@ private fun composition(feel: Feel, caps: VibratorCaps): Buzz.Primitives? {
         // The low tick is Android 12's; before it, or on a phone without it, a softer tick.
         // Softer than at first, with twice the ticks (Ti-Die, 20 Nov 2026: "increase the frequency of dots but make them less intense").
         Feel.LOW_TICK -> if (caps.sdk >= 31 && lowTick in caps.primitives) listOf(Buzz.Step(lowTick, 0.35f)) else listOf(Buzz.Step(tick, 0.3f))
+        // The seek bar's ends at three quarters of the volume's click (Ti-Die, 23 Nov 2026: "a tad" lower).
+        Feel.EDGE -> listOf(Buzz.Step(click, 0.75f))
+        // A tick plays no stronger than at 1, so a pop a little firmer is the next primitive up, a click, at half: under
+        // either of the hit's two. Tick, then click is Android's own order too (HapticFeedbackVibrationProvider).
+        Feel.POP -> listOf(Buzz.Step(click, 0.5f))
     }
     return if (steps.all { it.primitive in caps.primitives }) Buzz.Primitives(steps) else null
 }
@@ -186,14 +203,22 @@ private fun composition(feel: Feel, caps: VibratorCaps): Buzz.Primitives? {
 /**
  * A player button's feel under Strong, after Ti-Die (#testers, 21 Nov 2026: the like "does the haptics perfectly", copy
  * it to the buttons that do not open anything; the ones that do, and skip, "closer to how the pause button feels").
- * One that turns something on and off is a like: two clicks turning it on, the tap's tick turning it off ([turnsOff]).
- * One that opens something (a sheet, a menu, Android's share sheet) or skips (null) is play and pause's firm click.
+ * One that turns something on and off is a like: two clicks turning it on, the pop turning it off ([turnsOff]; the
+ * tap's tick until Ti-Die asked for it a little firmer, 23 Nov 2026). One that opens something (a sheet, a menu,
+ * Android's share sheet) or skips (null) is play and pause's firm click.
  */
 fun buttonFeel(turnsOff: Boolean?): Feel = when (turnsOff) {
     null -> Feel.FIRM
-    true -> Feel.TICK
+    true -> Feel.POP
     false -> Feel.DOUBLE
 }
+
+/**
+ * Repeat's feel under Strong, given the mode [from] which it is tapped. It goes off, all, one, off, and only the tap from
+ * off turns it on: that one is the hit, the one into one ("loop once") and the one back off are the pop (Ti-Die,
+ * #testers 23 Nov 2026: "it'd work better if it had the pop feel since it's not turning on").
+ */
+fun repeatFeel(from: Int): Feel = buttonFeel(turnsOff = from != Player.REPEAT_MODE_OFF)
 
 /**
  * The feel of a haptic the app asks of Compose (FeltHaptics), as the player's buttons use them: Confirm is play and

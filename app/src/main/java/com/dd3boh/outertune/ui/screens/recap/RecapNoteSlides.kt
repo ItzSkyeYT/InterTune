@@ -56,6 +56,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
@@ -78,10 +79,11 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.pluralStringResource
@@ -117,10 +119,10 @@ internal class NoteDraft(text: MutableState<String>) {
     /** The last seal did not take: the slide says why, and Seal it is the way to try again. */
     var failed by mutableStateOf(false)
 
-    /** When the last was sealed, on the story's clock: the letter is sealed then (SealLetter). -1 for none sealed here. */
+    /** When the last was sealed, on the story's clock: it goes into its envelope then (NoteSeal). -1 for none sealed here. */
     var sealedAt by mutableLongStateOf(-1L)
 
-    /** The words last sealed, folded into the letter as it is sealed. */
+    /** The words last sealed, on the paper that goes into the envelope. */
     var letter by mutableStateOf("")
 
     /** The paper shows what is sealed rather than a field to write in. */
@@ -145,6 +147,9 @@ internal class NoteDraft(text: MutableState<String>) {
 
 /** How far apart, in steps, last year's papers come in one after another. */
 internal const val NOTE_STAGGER = 0.6f
+
+/** How the paper for next year's note lies on its slide, turned this much: its envelope turns with it (NoteSeal). */
+private const val WRITE_TURN = -1.6f
 
 /**
  * The note's hand: the phone's own face in italic, on lines [size] × 30/19 apart as the design's
@@ -297,6 +302,9 @@ internal fun NoteWriteSlide(s: SlideScope, note: NoteDraft, onSeal: () -> Unit, 
     var focusedHere by remember { mutableStateOf(false) }
     var first by remember { mutableFloatStateOf(-1f) }
     val hand = remember { noteHand(19.sp) }
+    // Where the paper is as it is sealed (NoteSeal), and whether it still holds the words just sealed.
+    val places = remember { SealPlaces() }
+    val letterUp by remember { derivedStateOf { note.sealedAt >= 0 && NoteSeal.letterOnPaper(NoteSeal.since(s.stage.clock.now, note.sealedAt), s.still) } }
 
     // The keyboard closed (Back closes it first): the field is let go of too, so the next Back leaves the Recap as ever.
     val keyboard = WindowInsets.isImeVisible
@@ -337,16 +345,24 @@ internal fun NoteWriteSlide(s: SlideScope, note: NoteDraft, onSeal: () -> Unit, 
         Kick(stringResource(R.string.recap_note_write_kick), s)
         val (before, after) = around(stringResource(R.string.recap_note_write_title, MARK))
         Words(before, s, at = 1f, style = RecapType.h2, colour = c.ink, strip = stringResource(R.string.recap_note_write_strip), after = after, stripAt = 1.8f, stripTurn = -3f)
-        // After Seal it the paper makes way for the letter being sealed over it, and comes back sealed (SealLetter).
-        Box {
+        // After Seal it the paper goes into its envelope (NoteSeal): what goes under it, the paper itself, what goes over it.
+        Box(
+            Modifier
+                .onSizeChanged { if (!note.shut) places.letter = it }
+                .onGloballyPositioned { places.box = it }
+        ) {
+        if (note.sealedAt >= 0) SealBehind(s, note, places, WRITE_TURN, Modifier.matchParentSize())
         NotePaper(
-            s, at = 2.4f, turn = -1.6f, fy = 300f, fr = 8f, line = hand.lineHeight, baseline = { first.takeIf { it >= 0f } },
+            s, at = 2.4f, turn = WRITE_TURN, fy = 300f, fr = 8f, line = hand.lineHeight, baseline = { first.takeIf { it >= 0f } },
             // A tap anywhere on the paper is a tap on the field, never on the story behind it.
             modifier = Modifier
-                .graphicsLayer { alpha = if (note.sealedAt < 0) 1f else paperUnderLetter(s.stage.clock.now - note.sealedAt, s.still) }
+                .sealPaper(s, note, WRITE_TURN)
                 .clickable(remember { MutableInteractionSource() }, indication = null) { if (!note.shut) runCatching { focus.requestFocus() } },
         ) {
-            if (note.shut) {
+            if (letterUp) {
+                // The words just sealed, as the field had them, while the paper goes into its envelope.
+                Text(note.letter, style = hand, minLines = 4, modifier = Modifier.fillMaxWidth(), onTextLayout = { first = it.getLineBaseline(0) })
+            } else if (note.shut) {
                 Sealed(s, note, hand, onBaseline = { first = it })
             } else {
                 Box {
@@ -386,10 +402,10 @@ internal fun NoteWriteSlide(s: SlideScope, note: NoteDraft, onSeal: () -> Unit, 
                 }
             }
         }
-        if (note.sealedAt >= 0) SealLetterCanvas(s, note.sealedAt, note.letter, Modifier.matchParentSize())
+        if (note.sealedAt >= 0) SealOver(s, note, places, WRITE_TURN, Modifier.matchParentSize())
         }
         if (!keyboard) {
-            buttons(Modifier.padding(top = 20.dp, bottom = 10.dp))
+            buttons(Modifier.sealChrome(s, note).padding(top = 20.dp, bottom = 10.dp))
             Text(
                 when {
                     note.failed -> stringResource(R.string.recap_note_failed)
@@ -397,7 +413,7 @@ internal fun NoteWriteSlide(s: SlideScope, note: NoteDraft, onSeal: () -> Unit, 
                     note.shut -> stringResource(R.string.recap_note_sealed_line)
                     else -> stringResource(R.string.recap_note_write_line)
                 },
-                style = RecapType.quiet, color = if (note.failed) c.ink else c.ink2, modifier = Modifier.enter(s, Entrance.UP, 3.8f),
+                style = RecapType.quiet, color = if (note.failed) c.ink else c.ink2, modifier = Modifier.sealChrome(s, note).enter(s, Entrance.UP, 3.8f),
             )
         }
         Grow(room)
@@ -453,6 +469,7 @@ private fun NoteColumn(keyboard: Boolean, pinned: @Composable () -> Unit, conten
 @Composable
 private fun Sealed(s: SlideScope, note: NoteDraft, hand: TextStyle, onBaseline: (Float) -> Unit) {
     var first by remember { mutableFloatStateOf(-1f) }
+    val mark = remember { Path() }
     Row(verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
             Text(
@@ -469,22 +486,9 @@ private fun Sealed(s: SlideScope, note: NoteDraft, hand: TextStyle, onBaseline: 
             Spacer(Modifier.height(with(LocalDensity.current) { hand.lineHeight.toDp() }))
         }
         Spacer(Modifier.width(10.dp))
-        // The wax seal the letter was sealed with (SealLetter): red, the play triangle pressed into it.
-        Canvas(Modifier.size(52.dp).graphicsLayer { rotationZ = -10f }) {
-            val r = size.minDimension / 2f
-            drawCircle(RecapInk.Shade.copy(alpha = 0.25f), r * 0.98f, center + Offset(0f, 2.dp.toPx()))
-            drawCircle(RecapRed, r * 0.94f)
-            drawCircle(Color.Black.copy(alpha = 0.12f), r * 0.72f, style = Stroke(2.dp.toPx()))
-            val t = r * 0.4f
-            drawPath(
-                Path().apply {
-                    moveTo(center.x - t * 0.6f, center.y - t)
-                    lineTo(center.x + t, center.y)
-                    lineTo(center.x - t * 0.6f, center.y + t)
-                    close()
-                },
-                RecapInk.Cream,
-            )
+        // The wax seal the envelope was sealed with (NoteSeal): the app's red, the play mark pressed into it.
+        Canvas(Modifier.size(52.dp).graphicsLayer { rotationZ = NoteSeal.MARK_TURN }) {
+            waxSeal(center, size.minDimension / 2f, mark)
         }
     }
 }
