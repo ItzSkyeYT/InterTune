@@ -36,7 +36,8 @@ class QueueBarBeforePlayTest {
     @Test
     fun `every control of the bar loads the saved queue first`() {
         assertTrue(bar.contains("playerConnection.loadQueueIfEmpty().seekToPrevious()"))
-        assertTrue(bar.contains("playerConnection.loadQueueIfEmpty().seekToNext()"))
+        // Next through the connection, which loads the saved queue first (RoomSkip: and a room guest's Next with nothing after).
+        assertTrue(bar.contains("playerConnection.skipToNext()"))
         assertEquals("both seek buttons", 2, Regex("""playerConnection\.loadQueueIfEmpty\(\)\.let \{ it\.seekTo\(""").findAll(bar).count())
         // Shuffle loads it on the line before, however deep the button sits (its long-press label wraps it).
         assertTrue(Regex("""playerConnection\.loadQueueIfEmpty\(\)\n\s*playerConnection\.triggerShuffle\(\)""").containsMatchIn(bar))
@@ -44,5 +45,6 @@ class QueueBarBeforePlayTest {
         assertTrue(bar.contains("playerConnection.togglePlayPause()"))
         val connection = File("src/main/java/com/dd3boh/outertune/playback/PlayerConnection.kt").readText()
         assertTrue(connection.contains("fun togglePlayPause() {\n        loadQueueIfEmpty().togglePlayPause()"))
+        assertTrue(connection.contains("fun skipToNext(player: Player = loadQueueIfEmpty())"))
     }
 }

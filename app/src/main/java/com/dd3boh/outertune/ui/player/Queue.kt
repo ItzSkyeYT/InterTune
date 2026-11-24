@@ -2075,7 +2075,7 @@ fun BoxScope.QueueContent(
                                                                 color = iconButtonColor,
                                                                 enabled = barWorks && (canSkipNext || movesStoredQueue),
                                                                 onClick = {
-                                                                    playerConnection.loadQueueIfEmpty().seekToNext()
+                                                                    playerConnection.skipToNext()
                                                                     haptic.felt(Feel.FIRM, HapticFeedbackType.SegmentFrequentTick)
                                                                 }
                                                             )

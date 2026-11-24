@@ -2591,6 +2591,11 @@
         <item quantity="many">%1$s a ajouté %2$d titres à la file</item>
         <item quantity="other">%1$s a ajouté %2$d titres à la file</item>
     </plurals>
+    <plurals name="together_kept_added">
+        <item quantity="one">%1$d titre ajouté passe toujours juste après</item>
+        <item quantity="many">%1$d titres ajoutés passent toujours juste après</item>
+        <item quantity="other">%1$d titres ajoutés passent toujours juste après</item>
+    </plurals>
     <string name="together_last_suggestion">Dernier d\'un invité : %1$s</string>
     <string name="together_live_hosting">Vous êtes l\'hôte</string>
     <string name="together_live_guest">Vous avez rejoint un salon</string>

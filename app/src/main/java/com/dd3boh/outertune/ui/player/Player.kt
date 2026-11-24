@@ -1897,7 +1897,7 @@ fun BottomSheetPlayer(
                                     onClick = {
                                         // Cold start: the restored queue is only in the queue board until
                                         // something loads it into the player, same as Previous and Play above.
-                                        playerConnection.loadQueueIfEmpty().seekToNext()
+                                        playerConnection.skipToNext()
                                         haptic.felt(Feel.FIRM, HapticFeedbackType.SegmentFrequentTick)
                                     }
                                 )
