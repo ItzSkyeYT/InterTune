@@ -634,7 +634,7 @@ fun SetupWizard(
                                 ) {
                                     TextButton(
                                         onClick = {
-                                            restoreLauncher.launch(arrayOf("application/octet-stream"))
+                                            restoreLauncher.launch(BackupRestoreViewModel.PICK_BACKUP)
                                         },
                                         enabled = !restoringFromSetup
                                     ) {
