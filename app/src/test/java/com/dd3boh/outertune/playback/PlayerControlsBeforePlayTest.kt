@@ -45,7 +45,10 @@ class PlayerControlsBeforePlayTest {
                 .findAll(controls).count(),
         )
         assertTrue(controls.contains("playerConnection.loadQueueIfEmpty().seekToPrevious()"))
-        assertTrue(controls.contains("playerConnection.loadQueueIfEmpty().seekToNext()"))
+        // Next goes through the connection, which loads the saved queue before it moves on (and, in a listening room,
+        // takes a guest with nothing after its song its own way: RoomSkip).
+        assertTrue(controls.contains("playerConnection.skipToNext()"))
+        assertTrue(File("src/main/java/com/dd3boh/outertune/playback/PlayerConnection.kt").readText().contains("fun skipToNext(player: Player = loadQueueIfEmpty())"))
         assertTrue(controls.contains("playerConnection.togglePlayPause()"))
     }
 }

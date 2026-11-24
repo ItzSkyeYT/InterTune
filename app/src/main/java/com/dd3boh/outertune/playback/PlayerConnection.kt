@@ -34,6 +34,7 @@ import com.dd3boh.outertune.extensions.metadata
 import com.dd3boh.outertune.extensions.togglePlayPause
 import com.dd3boh.outertune.lyrics.LyricsLookup
 import com.dd3boh.outertune.playback.queues.Queue
+import com.dd3boh.outertune.together.RoomSkip
 import com.dd3boh.outertune.utils.dataStore
 import com.dd3boh.outertune.utils.get
 import com.dd3boh.outertune.utils.reportException
@@ -44,7 +45,10 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import org.akanework.gramophone.logic.utils.SemanticLyrics
@@ -132,6 +136,13 @@ class PlayerConnection(
         shuffleModeEnabled.value = player.shuffleModeEnabled
         repeatMode.value = player.repeatMode
 
+        // In a listening room Next also hangs on who is in control (roomSkipsOnOwn), which no event of the player's says.
+        scope.launch {
+            service.together.flatMapLatest { room -> room?.status?.map { it.leading } ?: flowOf(null) }
+                .distinctUntilChanged()
+                .collect { updateCanSkipPreviousAndNext() }
+        }
+
         scope.launch {
             // Only what Play can load: with Persistent queue off the board holds no saved queue,
             // and the rows are the ones saved before the switch went off (SavedQueueShown.song).
@@ -202,6 +213,8 @@ class PlayerConnection(
          * never heard, as a Discover something new card's does by its origin (NeverHeardQueue).
          */
         discoverRow: Boolean = false,
+        /** Start radio on a song: in a listening room a whole start, not a song tapped (RoomTap). */
+        radioAsked: Boolean = false,
     ) {
         service.playQueue(
             queue = queue,
@@ -213,11 +226,23 @@ class PlayerConnection(
             originSlot = originSlot,
             tappedAt = tappedAt,
             discoverRow = discoverRow,
+            radioAsked = radioAsked,
         )
     }
 
-    /** The listener is choosing the next song themselves; the next transition is not an autoplay. */
-    fun markUserChoice() { service.userChoicePending = true }
+    /**
+     * The listener is choosing the next song themselves; the next transition is not an autoplay.
+     * [songId], the song chosen, is asked of YouTube even if it was set aside as gone (AskedFor).
+     */
+    fun markUserChoice(songId: String? = null) {
+        service.userChoicePending = true
+        songId?.let(service::askedFor)
+    }
+
+    /** Retry on the player's error: the song is asked of YouTube again, even if it was set aside as gone (AskedFor). */
+    fun askAgain() {
+        player.currentMediaItem?.mediaId?.let(service::askedFor)
+    }
 
     /**
      * Add item to queue, right after current playing item
@@ -353,10 +378,39 @@ class PlayerConnection(
                     || player.isCommandAvailable(COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM)
             canSkipNext.value = window.isLive() && window.isDynamic
                     || player.isCommandAvailable(COMMAND_SEEK_TO_NEXT_MEDIA_ITEM)
+                    || roomSkipsOnOwn()
         } else {
             canSkipPrevious.value = false
             canSkipNext.value = false
         }
+    }
+
+    /**
+     * A phone in a listening room that someone else is in control of, with nothing after its song here: Next still takes
+     * it its own way, to a radio of the song (RoomSkip, [skipToNext]).
+     */
+    private fun roomSkipsOnOwn(): Boolean = RoomSkip.onOwn(
+        follows = service.together.value?.following == true,
+        hasNext = player.isCommandAvailable(COMMAND_SEEK_TO_NEXT_MEDIA_ITEM),
+        songId = player.currentMediaItem?.mediaId,
+        local = player.currentMetadata?.isLocal == true,
+    )
+
+    /**
+     * Next, as the app's Next buttons press it, on [player], the saved queue loaded first. On a phone in a listening room
+     * that someone else is in control of, with nothing after its song ([roomSkipsOnOwn]), the phone goes its own way to
+     * the song's radio, from the song after it, as it goes its own way on any skip there, Catch up offered as then.
+     */
+    fun skipToNext(player: Player = loadQueueIfEmpty()) {
+        val room = service.together.value
+        val song = this.player.currentMetadata
+        if (room != null && song != null && roomSkipsOnOwn()) {
+            // Its own way first, so that the room's next word does not put its queue back while the radio loads.
+            room.skipOnOwn()
+            playQueue(RoomSkip.RadioAfter(song), isRadio = true)
+            return
+        }
+        player.seekToNext()
     }
 
     fun dispose() {

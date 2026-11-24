@@ -115,6 +115,30 @@ class RecommendationSqlTest {
         assertFalse("C" in ids(RecommendationSql.QUICK_PICKS))
     }
 
+    /**
+     * His word of 23 Nov 2026: songs others put in a listening room's queue don't count towards your recommendations
+     * (together/WhoAdded). Their plays are written as listens not to learn from, and the classic row seeds from none
+     * of them, nor from a queue told "Don't learn from this" or a session forgotten. Still counted plays.
+     */
+    @Test
+    fun `quick picks seeds from no play whose listen is not to be learned from`() {
+        song("MINE", "THEIRS", "M1", "T1")
+        play("MINE", daysAgo = 0.1)
+        play("THEIRS", daysAgo = 0.05)
+        related("MINE", "M1")
+        related("THEIRS", "T1")
+        assertEquals(setOf("M1", "T1"), ids(RecommendationSql.QUICK_PICKS).toSet())
+        // the listens written for the two plays: the guest's song, heard in the room, not to be learned from
+        fun listen(id: String, learn: Int) = exec(
+            "INSERT INTO listen(songId, startedAt, endedAt, tzOffsetMin, playedMs, durationMs, ratio, endReason, origin, originSlot, " +
+                "queueId, autoplayDepth, sessionId, counted, learn, sourceEventId) VALUES ('$id', 1, 2, 0, 200000, 200000, 1.0, 1, 0, -1, " +
+                "0, 0, 1, 1, $learn, (SELECT id FROM event WHERE songId = '$id'))"
+        )
+        listen("MINE", learn = 1)
+        listen("THEIRS", learn = 0)
+        assertEquals(listOf("M1"), ids(RecommendationSql.QUICK_PICKS))
+    }
+
     @Test
     fun `quick picks counts only YouTube's own edges`() {
         song("seed", "X", "Y"); play("seed", 0.1)

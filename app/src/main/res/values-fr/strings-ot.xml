@@ -1402,7 +1402,7 @@
     <string name="export_engine_data_info">Enregistre ce qu\'il a appris dans un fichier de nombres, où vous voulez. Aucun titre, artiste, nombre d\'écoutes ni détail de compte, seulement la date d\'enregistrement, et rien n\'est envoyé en ligne.</string>
     <string name="recommendations_learned_title_info">Ceci reste dans l\'application, sur ce téléphone, et n\'est jamais envoyé, mais les sauvegardes l\'incluent. « Suspendre l\'historique d\'écoute » l\'arrête et « Effacer l\'historique d\'écoute » le supprime, dans « Confidentialité et historique ».</string>
     <string name="recommendations_where_from_info">Combien de fois vous avez lancé la lecture depuis chaque endroit. Ce que vous choisissez vous-même compte plus, et une recherche compte le plus. « Non renseigné » : l\'application ne l\'a pas noté.</string>
-    <string name="recommendations_recent_title_info">Vos dernières écoutes, de la plus récente à la plus ancienne : comment chacune s\'est terminée, ce que vous en avez entendu et d\'où elle a été lancée. « Ne lui apprend rien » : vous lui avez demandé de l\'oublier.</string>
+    <string name="recommendations_recent_title_info">Vos dernières écoutes, de la plus récente à la plus ancienne : comment chacune s\'est terminée, ce que vous en avez entendu et d\'où elle a été lancée. « Ne lui apprend rien » : vous lui avez demandé de l\'oublier, ou quelqu\'un d\'autre a ajouté ce titre dans un salon.</string>
     <string name="context_chips_info">La première pastille est votre rangée habituelle. Les autres l\'orientent jusqu\'à ce que vous reveniez : « Découverte » vers des titres que vous n\'avez jamais écoutés, « Favoris » vers ceux que vous avez aimés, « Concentration », « Détente » et « Fête » vers ce que vous écoutez dans cette humeur.</string>
     <string name="context_chips">Pastilles de la Sélection Rapide</string>
     <!-- 0.10.8 only: the Quick picks source text without Best recommendations and Try both. -->
@@ -2556,6 +2556,7 @@
     <string name="together_walk_settings">Les réglages de votre salon, pour choisir si tout le monde peut se déplacer dans le titre ou modifier la file d\'attente.</string>
     <string name="together_walk_leave">Partez quand vous voulez, les autres continuent d\'écouter.</string>
     <string name="together_walk_close">Ça ferme le salon pour tout le monde.</string>
+    <string name="together_walk_leave_host">Partez quand vous voulez. Vous pouvez confier le salon à quelqu\'un pour que tout le monde continue d\'écouter, ou le fermer.</string>
     <string name="together_start">Créer un salon</string>
     <string name="together_code">Code du salon</string>
     <string name="together_join">Rejoindre</string>
@@ -2601,6 +2602,11 @@
         <item quantity="many">%1$s a ajouté %2$d titres à la file</item>
         <item quantity="other">%1$s a ajouté %2$d titres à la file</item>
     </plurals>
+    <plurals name="together_kept_added">
+        <item quantity="one">%1$d titre ajouté passe toujours juste après</item>
+        <item quantity="many">%1$d titres ajoutés passent toujours juste après</item>
+        <item quantity="other">%1$d titres ajoutés passent toujours juste après</item>
+    </plurals>
     <string name="together_last_suggestion">Dernier d\'un invité : %1$s</string>
     <string name="together_live_hosting">Vous êtes l\'hôte</string>
     <string name="together_live_guest">Vous avez rejoint un salon</string>
@@ -2628,6 +2634,8 @@
     <string name="together_control_yours">Vous avez la main : vous choisissez la musique pour tout le monde.</string>
     <string name="together_control_theirs">%1$s a la main maintenant</string>
     <string name="together_control_back">%1$s ne répond plus, alors vous reprenez la main.</string>
+    <string name="together_hosts_now">%1$s est l\'hôte du salon maintenant</string>
+    <string name="together_host_yours">Vous êtes l\'hôte : vous choisissez la musique pour tout le monde.</string>
     <string name="together_kick">Retirer du salon</string>
     <string name="together_room_settings">Réglages du salon</string>
     <string name="together_everyone_seeks">Laisser chacun se déplacer dans le titre</string>
@@ -2673,6 +2681,10 @@
     <string name="together_qr_hint">Pointez l\'appareil photo de l\'autre téléphone ici. Il ouvre le salon dans InterTune.</string>
     <string name="together_close_room_title">Fermer le salon ?</string>
     <string name="together_close_room_text">Tout le monde le quitte, et son code ne marche plus.</string>
+    <string name="together_close_room_older">Pour le confier à quelqu\'un, les autres doivent mettre à jour InterTune.</string>
+    <string name="together_leave_title">Quitter le salon ?</string>
+    <string name="together_hand_on">Le confier à %1$s</string>
+    <string name="together_hand_on_text">Tout le monde continue d\'écouter, avec %1$s comme hôte.</string>
     <string name="together_scan">Scanner un code QR</string>
     <string name="together_scan_hint">Pointez l\'appareil photo vers le code QR de l\'autre téléphone.</string>
     <string name="together_scan_refused">Le scan a besoin de l\'appareil photo. Autorisez-le pour InterTune dans les réglages du téléphone, ou tapez le code.</string>

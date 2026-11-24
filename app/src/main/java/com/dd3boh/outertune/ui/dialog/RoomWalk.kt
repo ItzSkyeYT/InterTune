@@ -57,6 +57,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import com.dd3boh.outertune.R
+import com.dd3boh.outertune.constants.Unreleased
 import kotlin.math.roundToInt
 
 /**
@@ -73,7 +74,8 @@ internal enum class WalkStop(@StringRes val line: Int, @StringRes val hostLine: 
     PROPOSAL(R.string.together_walk_proposal),
     PEOPLE(R.string.together_walk_people, R.string.together_walk_people_host),
     SETTINGS(R.string.together_walk_settings),
-    LEAVE(R.string.together_walk_leave, R.string.together_walk_close),
+    // The host's Leave offers handing the room on with the flag (RoomLeaveDialog), and closes it for everyone without.
+    LEAVE(R.string.together_walk_leave, if (Unreleased.ROOM_HAND_ON) R.string.together_walk_leave_host else R.string.together_walk_close),
 }
 
 /** The walk is asked for by the tour's last page, and the room's sheet on screen takes it up. */

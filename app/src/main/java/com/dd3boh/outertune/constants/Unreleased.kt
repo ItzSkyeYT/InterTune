@@ -1258,6 +1258,20 @@ object Unreleased {
     val ROOM_AT_FREE_END = true
 
     /**
+     * A host can leave its listening room without closing it (his find of 23 Nov 2026, hosting three testers: "there's
+     * no way to leave the room without closing it"): its Leave offers handing the room on, to whoever is in control or
+     * else whoever has been there longest, who hosts it from then on, or closing it for everyone as before
+     * (RoomLeaveDialog, together/RoomHandOn). This switch is the offer: the host's button and the walk's line on it.
+     * Every build understands a room handed to it and says so, so that a phone on any build can be handed one. Its
+     * texts go to translators with 0.13's, French beside them. Without the flag the host's button closes the room,
+     * asked first, as it did.
+     *
+     * On for everyone in 0.13, his word of 23 Nov 2026 ("0.13"), after the emulator walk of 24 Nov; before that debug
+     * builds only.
+     */
+    val ROOM_HAND_ON = true
+
+    /**
      * ListenBrainz scrobbling (#159), in place of Last.fm, whose API wants a paid plan from 1 Dec
      * 2026 (his decision of 18 Nov 2026: no Pro, ListenBrainz). A card under Last.fm's in Account
      * and sync takes the user token pasted from listenbrainz.org/settings (ListenBrainzFrag); the

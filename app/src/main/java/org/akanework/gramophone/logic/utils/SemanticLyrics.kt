@@ -1252,6 +1252,29 @@ private class TtmlParserState(
     }
 }
 
+/**
+ * Where each singer of a TTML document stands, by its agent: [SpeakerEntity.Group] for an agent declared a group, which
+ * the lines sung together have, and for every other singer one of the two voices' sides. Those take turns in the order
+ * the singers are declared ([declared], id and type), then in the order they first sing ([sung], each line's agent), and
+ * only singers that sing a line count: the first is voice 1, the second voice 2, the third voice 1 again.
+ *
+ * Gramophone counted a singer's place among the declared agents of its own type, and threw for an agent the head never
+ * declared, which lost the whole lyrics. Better Lyrics' answers declare a singer as type "other" too (v2000, as Apple's
+ * lyrics do), the first of its type, so it stood on voice 1's side: in 6 of the 109 answers of the 23 Nov 2026
+ * measurement, 4 of them duets of v1 and v2000 drawn all on one side ("DESPECHÁ" among them), and in one of Unison's 20.
+ * An agent with no id is nobody's.
+ */
+internal fun ttmlSingers(declared: List<Pair<String?, String?>>, sung: List<String?>): Map<String, SpeakerEntity> {
+    val groups = declared.filter { it.second == "group" }.mapNotNull { it.first }.toSet()
+    val singing = sung.filterNotNull().toSet()
+    val out = HashMap<String, SpeakerEntity>()
+    groups.forEach { out[it] = SpeakerEntity.Group }
+    (declared.mapNotNull { it.first } + sung.filterNotNull()).distinct()
+        .filter { it in singing && it !in groups }
+        .forEachIndexed { turn, id -> out[id] = if (turn % 2 == 1) SpeakerEntity.Voice2 else SpeakerEntity.Voice1 }
+    return out
+}
+
 fun parseTtml(
     audioMimeType: String?,
     lyricText: String,
@@ -1275,6 +1298,8 @@ fun parseTtml(
     val peopleToType = hashMapOf<String, String>()
     val people = hashMapOf<String, MutableList<String>>()
     val itunesTranslations = hashMapOf<String, HashMap<String, String>>()
+    // Every agent as declared, in order, with its type: which side each singer stands on (ttmlSingers).
+    val agentOrder = mutableListOf<Pair<String?, String?>>()
     val timer = TtmlTimeTracker(parser, hasItunesNamespace)
     parser.nextTag()
     parser.require(XmlPullParser.START_TAG, tt, "head")
@@ -1287,6 +1312,7 @@ fun parseTtml(
                     val type = parser.getAttributeValue("", "type")
                     people.getOrPut(type) { mutableListOf() }.add(id)
                     peopleToType[id] = type
+                    agentOrder += id to type
                     while (parser.nextTag() != XmlPullParser.END_TAG) {
                         if (parser.namespace == ttm && parser.name == "name") {
                             // val type = parser.getAttributeValue("", "type")
@@ -1432,13 +1458,14 @@ fun parseTtml(
         } while (cur != -1)
         out
     }
+    val singers = ttmlSingers(agentOrder, paragraphs.map { it.agent })
     if (paragraphs.find { it.time != null } == null) {
         return UnsyncedLyrics(paragraphs.map {
             val text = it.texts.joinToString("") { it.text }
             val isBg = it.role == "x-bg"
-            val isGroup = peopleToType[it.agent] == "group"
-            val isVoice2 = it.agent != null && (people[peopleToType[it.agent]] ?: throw NullPointerException(
-                "expected to find ${it.agent} (${peopleToType[it.agent]}) in $people")).indexOf(it.agent) % 2 == 1
+            val singer = it.agent?.let { agent -> singers[agent] }
+            val isGroup = singer == SpeakerEntity.Group
+            val isVoice2 = singer == SpeakerEntity.Voice2
             val speaker = when {
                 isGroup && isBg -> SpeakerEntity.GroupBackground
                 isGroup -> SpeakerEntity.Group
@@ -1464,9 +1491,9 @@ fun parseTtml(
             .takeIf { it.isNotEmpty() }
             ?.toMutableList()
         val isBg = it.role == "x-bg"
-        val isGroup = peopleToType[it.agent] == "group"
-        val isVoice2 = it.agent != null && (people[peopleToType[it.agent]] ?: throw NullPointerException(
-            "expected to find ${it.agent} (${peopleToType[it.agent]}) in $people")).indexOf(it.agent) % 2 == 1
+        val singer = it.agent?.let { agent -> singers[agent] }
+        val isGroup = singer == SpeakerEntity.Group
+        val isVoice2 = singer == SpeakerEntity.Voice2
         val speaker = when {
             isGroup && isBg -> SpeakerEntity.GroupBackground
             isGroup -> SpeakerEntity.Group

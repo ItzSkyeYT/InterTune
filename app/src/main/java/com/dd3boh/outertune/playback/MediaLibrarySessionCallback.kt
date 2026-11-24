@@ -650,6 +650,8 @@ class MediaLibrarySessionCallback @Inject constructor(
         // current, or the change reads as a shuffle press on the old queue and loads it back in.
         if (service.player.shuffleModeEnabled) service.player.shuffleModeEnabled = false
         service.userChoicePending = true
+        // The song picked is asked of YouTube even if it was set aside as gone (AskedFor).
+        items.getOrNull(startIndex)?.mediaId?.let(service::askedFor)
         return MediaItemsWithStartPosition(items, startIndex, startPositionMs)
     }
 

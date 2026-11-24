@@ -1736,7 +1736,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="export_engine_data_info">Saves what it learned as a file of numbers, wherever you choose. It has no titles, artists, play counts or account details, only the date it was saved, and nothing is uploaded.</string>
     <string name="recommendations_learned_title_info">This stays in the app on this phone and is never uploaded, though backups include it. \"Pause listen history\" stops it and \"Clear listen history\" deletes it, both under \"Privacy and history\".</string>
     <string name="recommendations_where_from_info">How often you started playing from each place. What you pick yourself counts more, and a search counts most. \"Not recorded\" means the app didn\'t note where.</string>
-    <string name="recommendations_recent_title_info">Your last listens, newest first: how each ended, how much you heard and where it started. \"Not learned from\" means you asked it to forget that one.</string>
+    <string name="recommendations_recent_title_info">Your last listens, newest first: how each ended, how much you heard and where it started. \"Not learned from\" means you asked it to forget that one, or someone else added that song in a room.</string>
     <string name="context_chips_info">The first chip is your usual row. The others steer it until you switch back: \"Discover\" to songs you have never heard, \"Favourites\" to ones you liked, \"Focus\", \"Chill\" and \"Party\" to what you play in that mood.</string>
     <string name="context_chips">Quick picks chips</string>
     <string name="explain_what_this_does">What %1$s does</string>
@@ -2766,6 +2766,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="together_walk_settings">Your room settings, so you can choose if everyone can move in the song or change the queue.</string>
     <string name="together_walk_leave">Leave whenever you want, the others keep listening.</string>
     <string name="together_walk_close">This closes the room for everyone.</string>
+    <string name="together_walk_leave_host">Leave whenever you want. You can hand the room on so everyone keeps listening, or close it.</string>
     <string name="together_start">Start a room</string>
     <string name="together_code">Room code</string>
     <string name="together_join">Join</string>
@@ -2810,6 +2811,11 @@ while also allowing users to translate our app as well. New, specific strings to
         <item quantity="one">%1$s added %2$d song to the queue</item>
         <item quantity="other">%1$s added %2$d songs to the queue</item>
     </plurals>
+    <!-- Said to the person in control of a listening room who starts a whole album, playlist or radio: the songs put in the queue by hand that hadn't played yet stay, right after its first song (RoomTap). -->
+    <plurals name="together_kept_added">
+        <item quantity="one">%1$d added song still plays next</item>
+        <item quantity="other">%1$d added songs still play next</item>
+    </plurals>
     <string name="together_last_suggestion">Last from a guest: %1$s</string>
     <string name="together_live_hosting">You\'re hosting</string>
     <string name="together_live_guest">You joined a room</string>
@@ -2838,6 +2844,8 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="together_control_yours">You\'re in control now: you choose the music for everyone.</string>
     <string name="together_control_theirs">%1$s is in control now</string>
     <string name="together_control_back">%1$s stopped answering, so you\'re in control again.</string>
+    <string name="together_hosts_now">%1$s hosts the room now</string>
+    <string name="together_host_yours">You\'re the host now: you choose the music for everyone.</string>
     <string name="together_kick">Remove from the room</string>
     <!-- The host's own part of the room sheet: switches for who may do what in the room (RoomSettings). -->
     <string name="together_room_settings">Room settings</string>
@@ -2886,6 +2894,10 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="together_qr_hint">Point the other phone\'s camera at this. It opens the room in InterTune.</string>
     <string name="together_close_room_title">Close the room?</string>
     <string name="together_close_room_text">Everyone in it leaves, and its code stops working.</string>
+    <string name="together_close_room_older">To hand it on instead, the others need to update InterTune.</string>
+    <string name="together_leave_title">Leave the room?</string>
+    <string name="together_hand_on">Hand it to %1$s</string>
+    <string name="together_hand_on_text">Everyone keeps listening, with %1$s as the host.</string>
     <string name="together_scan">Scan a QR code</string>
     <string name="together_scan_hint">Point the camera at the QR code on the other phone.</string>
     <string name="together_scan_refused">Scanning needs the camera. Allow it for InterTune in the phone\'s settings, or type the code.</string>

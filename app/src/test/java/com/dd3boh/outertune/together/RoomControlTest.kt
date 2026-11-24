@@ -138,10 +138,12 @@ class RoomControlTest {
         // A relay that answers again after none did starts the wait again.
         val relays = session.substringAfter("pool.connected.collect { n ->").substringBefore("\n            }\n")
         assertTrue(relays, "if (n > 0 && before == 0) hearingSince = System.currentTimeMillis()" in relays)
-        // The lead moves in these places only: the owner's word, the owner's own moves, and for a phone that knows no
-        // leader yet (never the owner's), whoever plays for the room until the owner's word comes.
+        // The lead moves in these places only: the owner's word, the owner's own moves, a host that left and handed the
+        // room on (the new host is in control, RoomHandOn), and for a phone that knows no leader yet (never the owner's),
+        // whoever plays for the room until the owner's word comes.
         val calls = Regex("""\blead\(([\w.]+)\)""").findAll(session).map { it.groupValues[1] }.toSet()
-        assertEquals(setOf("me", "member.key", "message.lead", "from"), calls)
+        assertEquals(setOf("me", "member.key", "message.lead", "from", "host"), calls)
+        assertTrue("if (host != leaderKey) lead(host)" in body(session, "private fun handedOn(was: String, host: String)"))
         assertEquals(session.split("lead(from)").size, session.split("if (leaderKey == null) lead(from)").size)
     }
 

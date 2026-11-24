@@ -43,6 +43,7 @@ class RecognitionChoiceTileService : GuardedTileService() {
                 openCollapsing(if (which == 0) RecognitionShortcut.intent(this) else PhoneListenActivity.intent(this))
             }
             .create()
-        showDialog(dialog)
+        // The panel's window is lent for this tap only: a tap reached once the panel has closed is dropped (#257).
+        unlessPanelGone { showDialog(dialog) }
     }
 }

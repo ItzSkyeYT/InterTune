@@ -1561,9 +1561,10 @@ fun BoxScope.QueueContent(
                                                     val index = index // race condition...?
                                                     if (detachedHead) {
                                                         detachedQueue?.setCurrentQueuePos(index)
+                                                        playerConnection.service.askedFor(window.id)
                                                         qb.setCurrQueue(detachedQueue, false, origin = PlayOrigin.QUEUE)
                                                     } else {
-                                                        playerConnection.markUserChoice(); playerConnection.player.seekToDefaultPosition(index)
+                                                        playerConnection.markUserChoice(window.id); playerConnection.player.seekToDefaultPosition(index)
                                                     }
                                                     playerConnection.player.prepare() // else cannot click to play after auto-skip onError stop
                                                     playerConnection.player.playWhenReady = true
@@ -2075,7 +2076,7 @@ fun BoxScope.QueueContent(
                                                                 color = iconButtonColor,
                                                                 enabled = barWorks && (canSkipNext || movesStoredQueue),
                                                                 onClick = {
-                                                                    playerConnection.loadQueueIfEmpty().seekToNext()
+                                                                    playerConnection.skipToNext()
                                                                     haptic.felt(Feel.FIRM, HapticFeedbackType.SegmentFrequentTick)
                                                                 }
                                                             )

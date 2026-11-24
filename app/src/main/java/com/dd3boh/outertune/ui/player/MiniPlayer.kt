@@ -246,7 +246,7 @@ fun MiniPlayer(
                                 playerConnection.service.queueBoard.setCurrQueue()
                                 playerConnection.player.playWhenReady = true
                             }
-                            playerConnection.player.seekToNext()
+                            playerConnection.skipToNext(playerConnection.player)
                         }
                     ) {
                         Icon(

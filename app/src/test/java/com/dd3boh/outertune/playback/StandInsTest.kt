@@ -33,6 +33,7 @@ import java.io.IOException
 class StandInsTest {
     private val t0 = 1_791_000_000_000L
     private val day = 24L * 60 * 60 * 1000
+    private val hour = 60L * 60 * 1000
     private var now = t0
     private val stored = mutableListOf<String>()
     private val gone = mutableListOf<String>()
@@ -90,6 +91,9 @@ class StandInsTest {
     ) {
         val asked = mutableListOf<String>()
 
+        /** What StandIns wrote to the log. */
+        val logged = mutableListOf<String>()
+
         /** The ids walked as another copy of the song than its own: see YTPlayerUtils.OfAnotherCopy. */
         val walkedAsACopy = mutableListOf<String>()
         private var lookedFor = ""
@@ -110,7 +114,7 @@ class StandInsTest {
                 (finds[lookedFor] ?: finds["*"] ?: error("no search was expected for $lookedFor")).invoke()
             },
             now = { now },
-            log = {},
+            log = { logged += it },
             enabled = { on },
             trail = { walked },
             report = { reported += it },
@@ -594,7 +598,7 @@ class StandInsTest {
 
     @Test
     fun `a song set aside as gone and looked for in vain lately is not asked again, and fails at once as gone`() {
-        StandInMemory.current = StandInMemory.remember(Memory(), "OLDID000001", null, t0 - day)
+        StandInMemory.current = StandInMemory.remember(Memory(), "OLDID000001", null, t0 - hour)
         val world = World(says = emptyMap(), setAside = setOf("OLDID000001"))
 
         val failure = world.play().exceptionOrNull()
@@ -607,7 +611,7 @@ class StandInsTest {
 
     @Test
     fun `asked for again by hand, a song set aside is asked of YouTube again, where a pass of the queue is not`() {
-        StandInMemory.current = StandInMemory.remember(Memory(), "OLDID000001", null, t0 - day)
+        StandInMemory.current = StandInMemory.remember(Memory(), "OLDID000001", null, t0 - hour)
         val world = World(says = mapOf("OLDID000001" to goneForTheAccountToo), setAside = setOf("OLDID000001"))
 
         assertTrue(world.play().exceptionOrNull() is YTPlayerUtils.SongUnavailable)
@@ -621,7 +625,7 @@ class StandInsTest {
 
     @Test
     fun `a song set aside does not count in a run of songs called gone`() {
-        StandInMemory.current = StandInMemory.remember(Memory(), "OLDID000001", null, t0 - day)
+        StandInMemory.current = StandInMemory.remember(Memory(), "OLDID000001", null, t0 - hour)
         val world = World(says = mapOf("OLDID000002" to isGone, "OLDID000003" to isGone), finds = mapOf("*" to { emptyList() }), setAside = setOf("OLDID000001"))
 
         repeat(5) { world.play("OLDID000001") }
@@ -646,6 +650,55 @@ class StandInsTest {
         val later = World(says = mapOf("OLDID000001" to goneForTheAccountToo), finds = mapOf("*" to { emptyList() }), setAside = setOf("OLDID000001"))
         later.play()
         assertEquals(listOf("stream OLDID000001", "song OLDID000001", "search Instant Crush Daft Punk"), later.asked)
+    }
+
+    // A play somebody starts (AskedFor): the song is asked once more whatever was noted of it. His
+    // phone in a listening room, 23 Nov 2026: the room's song met the note, and nothing was asked.
+
+    @Test
+    fun `a play somebody started asks YouTube once for a song set aside, says so, and plays it if it is served`() {
+        StandInMemory.current = StandInMemory.remember(Memory(), "OLDID000001", null, t0 - hour)
+        val world = World(says = mapOf("OLDID000001" to serves("OLDID000001")), setAside = setOf("OLDID000001"))
+
+        val played = world.playAgainByHand()
+
+        assertTrue(played.exceptionOrNull().toString(), played.isSuccess)
+        assertEquals(listOf("stream OLDID000001"), world.asked)
+        assertTrue(world.logged.toString(), world.logged.any { "[OLDID000001] set aside as gone from YouTube, asked again" in it })
+        assertEquals(listOf("asked again: set aside as gone, a play somebody started | own id: OK"), reported)
+        // A play that works ends it: nothing noted, and told as playing, which lifts the set-aside (GoneSongs.plays).
+        assertEquals(Memory(), StandInMemory.current)
+        assertEquals(listOf("OLDID000001"), plays)
+        world.asked.clear()
+        world.play()
+        assertEquals("the app's next pass asks as for any song", listOf("stream OLDID000001"), world.asked)
+    }
+
+    @Test
+    fun `asked again and still gone, it fails as gone with nothing searched, and the app's next pass asks nothing`() {
+        StandInMemory.current = StandInMemory.remember(Memory(), "OLDID000001", null, t0 - hour)
+        val world = World(says = mapOf("OLDID000001" to goneForTheAccountToo), setAside = setOf("OLDID000001"))
+
+        val failure = world.playAgainByHand().exceptionOrNull()
+
+        assertTrue(failure.toString(), failure is YTPlayerUtils.SongUnavailable)
+        assertEquals("asked once, and not searched: it was looked for lately", listOf("stream OLDID000001"), world.asked)
+        assertEquals("still gone on the account's word, and said so", listOf("OLDID000001"), sure)
+        world.asked.clear()
+        assertTrue(world.play().exceptionOrNull() is YTPlayerUtils.SongUnavailable)
+        assertEquals(emptyList<String>(), world.asked)
+    }
+
+    @Test
+    fun `a day after the search the app's own pass asks YouTube again, and searches again only after three`() {
+        StandInMemory.current = StandInMemory.remember(Memory(), "OLDID000001", null, t0 - StandInMemory.ASIDE_MS)
+        val world = World(says = mapOf("OLDID000001" to goneForTheAccountToo), setAside = setOf("OLDID000001"))
+
+        assertTrue(world.play().exceptionOrNull() is YTPlayerUtils.SongUnavailable)
+
+        assertEquals("asked, not searched", listOf("stream OLDID000001"), world.asked)
+        assertTrue(world.logged.none { "not asked again" in it })
+        assertTrue(StandInMemory.ASIDE_MS < StandInMemory.NONE_MS)
     }
 
     @Test

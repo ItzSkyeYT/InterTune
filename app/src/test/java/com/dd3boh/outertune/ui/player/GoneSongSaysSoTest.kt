@@ -81,11 +81,13 @@ class GoneSongSaysSoTest {
 
     @Test
     fun `the song the music stopped on, asked for again, is asked of YouTube whatever was set aside`() {
-        // Retry on this screen, Play in the app or on the notification: the music stopped on the
-        // song, and only the listener starts it again. Skipping onto it, or a radio reaching it,
-        // ends the stop first (onMediaItemTransition), and those respect what was set aside.
+        // Play in the app or on the notification: the music stopped on the song, and only the
+        // listener starts it again. Skipping onto it, or a radio reaching it, ends the stop first
+        // (onMediaItemTransition), and those respect what was set aside. A play somebody starts,
+        // Retry on this screen among them, asks as well (AskedForTest).
         val resolve = service.substringAfter("fun resolve(mediaId: String, position: Long, length: Long, ahead: Boolean = false): ResolvedSong {")
-        assertTrue(resolve.contains("standIns.playbackData(mediaId, askedAgain = stoppedByError && stoppedOn == mediaId)"))
+        assertTrue(resolve.contains("val askedAgain = askedNow || (stoppedByError && stoppedOn == mediaId)"))
+        assertTrue(resolve.contains("standIns.playbackData(mediaId, askedAgain = askedAgain)"))
         assertEquals("the music is stopped on an error in one place, which names the song", 1, Regex("""stoppedByError = true""").findAll(service).count())
         val stopping = service.substringAfter("private fun stopsOnError()").substringBefore("\n    }")
         assertTrue(stopping.contains("stoppedOn = activePlayer.currentMediaItem?.mediaId"))

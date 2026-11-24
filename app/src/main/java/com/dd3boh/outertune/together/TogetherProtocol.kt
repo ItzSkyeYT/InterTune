@@ -34,7 +34,8 @@ import kotlin.math.abs
  *
  * Two roles: the owner made the room and alone can close it, send someone out or hand the lead
  * over; the leader is the phone everyone follows. The owner leads until it hands the lead to
- * someone, and can take it back.
+ * someone, and can take it back. An owner that leaves without closing the room hands it on: the
+ * phone it names is the owner from then on (RoomHandOn).
  */
 sealed interface TogetherMessage {
     /** The leader's playback: sent on every change and every [HEARTBEAT_MS]. [atMs] is the leader's clock. */
@@ -68,10 +69,14 @@ sealed interface TogetherMessage {
      * an owner on an older build. [arranges]: this phone, given control, takes a guest's change to
      * the queue ([Arrange]), which a build before this one drops. [dev]: the proof that this phone is
      * InterTune's developer's (DevBadge), from his phones alone; a build before this one ignores it.
+     * [takesRoom]: this phone takes a room its host hands to it as it leaves, and the new host's word after (RoomHandOn);
+     * a build before this one says nothing, and is never handed one. [host]: in the host's last word as it leaves, whose
+     * the room is now (RoomHandOn), the same phone as its [lead], which is all a build before this one reads of it.
      */
     data class Here(
         val name: String, val owner: Boolean, val lead: String? = null, val leadSince: Long? = null,
         val settings: RoomSettings? = null, val arranges: Boolean = false, val dev: String? = null,
+        val takesRoom: Boolean = false, val host: String? = null,
     ) : TogetherMessage
 
     /**
@@ -102,7 +107,11 @@ sealed interface TogetherMessage {
      */
     data class Arrange(val songId: String, val after: String? = null, val remove: Boolean = false) : TogetherMessage
 
-    data class Song(val id: String, val title: String, val artist: String, val thumbnail: String)
+    /**
+     * [by]: the key of the phone that put the song in the room's queue, said only when that is not the phone sending it
+     * (WhoAdded): null for the sender's own song, and for every song from a build before this one, which never says.
+     */
+    data class Song(val id: String, val title: String, val artist: String, val thumbnail: String, val by: String? = null)
 
     /**
      * A follower's own song proposed to the leader (his ask of 17 Oct 2026), with the queue its own
@@ -173,6 +182,8 @@ sealed interface TogetherMessage {
                 if (message.arranges) put("arranges", true)
                 message.lead?.let { put("lead", it) }
                 message.leadSince?.let { put("since", it) }
+                if (message.takesRoom) put("takes", true)
+                message.host?.let { put("host", it) }
             }
             is Suggest -> buildJsonObject {
                 put("t", "suggest"); put("song", message.songId); put("title", message.title); put("artist", message.artist)
@@ -203,14 +214,17 @@ sealed interface TogetherMessage {
 
         private fun songsJson(songs: List<Song>) = buildJsonArray {
             songs.forEach { song ->
-                addJsonObject { put("id", song.id); put("title", song.title); put("artist", song.artist); put("thumb", thumbnailFor(song.thumbnail)) }
+                addJsonObject {
+                    put("id", song.id); put("title", song.title); put("artist", song.artist); put("thumb", thumbnailFor(song.thumbnail))
+                    WhoAdded.named(song.by)?.let { put("by", it) }
+                }
             }
         }
 
         private fun songsOf(o: JsonObject) = o["songs"]!!.jsonArray.map { item ->
             val song = item.jsonObject
             fun f(key: String) = song[key]!!.jsonPrimitive.content
-            Song(f("id"), f("title"), f("artist"), thumbnailFor(f("thumb")))
+            Song(f("id"), f("title"), f("artist"), thumbnailFor(f("thumb")), by = WhoAdded.named((song["by"] as? JsonPrimitive)?.contentOrNull))
         }
 
         fun decode(text: String): TogetherMessage? = runCatching { decodeObject(Json.parseToJsonElement(text) as JsonObject) }.getOrNull()
@@ -241,6 +255,9 @@ sealed interface TogetherMessage {
                 "here" -> Here(
                     s("name"), o["owner"]!!.jsonPrimitive.boolean, o["lead"]?.jsonPrimitive?.content, o["since"]?.jsonPrimitive?.longOrNull,
                     dev = (o["dev"] as? JsonPrimitive)?.contentOrNull?.take(DEV_PROOF_MAX),
+                    // Whether it takes a room handed to it, and in a host's last word whose the room is now (RoomHandOn).
+                    takesRoom = (o["takes"] as? JsonPrimitive)?.booleanOrNull == true,
+                    host = RoomHandOn.keyOf((o["host"] as? JsonPrimitive)?.contentOrNull),
                 )
                 "suggest" -> Suggest(
                     s("song"), s("title"), s("artist"), thumbnailFor(s("thumb")), s("by"),
