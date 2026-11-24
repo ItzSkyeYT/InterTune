@@ -103,7 +103,7 @@ class QueueMoveBeforePlayTest {
         assertTrue(
             "the lit row follows the song that will play after a move",
             sheet.contains("val detachedPlace = remember(detachedQueue, unloadedQueueChanged) { detachedQueue?.getQueuePosShuffled() }") &&
-                sheet.contains("|| index == detachedPlace,")
+                sheet.contains("|| index == detachedPlace")
         )
         assertTrue(
             "an empty player is not asked to move a song",
