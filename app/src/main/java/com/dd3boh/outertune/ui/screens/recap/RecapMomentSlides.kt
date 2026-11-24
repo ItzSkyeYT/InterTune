@@ -10,7 +10,6 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
@@ -550,7 +549,7 @@ private fun YearLine(back: CameBack, s: SlideScope, modifier: Modifier) {
     s.arrives(2.2f, RecapMotion.FADE_MS)
     val span = (r.lastDay - r.sinceDay + 1).toFloat()
     fun share(day: Long) = ((day - r.sinceDay) + 0.5f) / span
-    BoxWithConstraints(modifier) {
+    Box(modifier) {
         val ticks = 22.dp
         val dotsRoom = 18.dp
         Canvas(Modifier.fillMaxSize()) {
