@@ -119,6 +119,41 @@ object FaultInjection {
         return ResumeFault(delayMs = msAfter("slow"), empty = "empty" in words, noHold = "nohold" in words, createDelayMs = msAfter("slowcreate"))
     }
 
+    /** The songs [setAside] named "gone": see [goneAgain]. */
+    private val stillGone: MutableSet<String> = java.util.concurrent.ConcurrentHashMap.newKeySet()
+
+    /**
+     * Songs to set aside as gone when the player's service starts, so that a phone can show what a
+     * play somebody starts does with one (AskedFor): it asks YouTube once more. One song id a line,
+     * written from the shell while the app is closed, the song played once before so the library
+     * has its row: `adb shell run-as <debug package> sh -c 'echo <song id> > files/fault-set-aside'`.
+     * Each is noted as YouTube calling it gone on the account's word with no copy found would note
+     * it. An id followed by "gone" is also called gone again whenever it is asked for, until the app
+     * is closed ([goneAgain]): a song that really is gone. The file is read once and removed. Read
+     * only by a debug build.
+     */
+    fun setAside(context: Context): List<String> {
+        if (!enabled) return emptyList()
+        val file = File(context.filesDir, "fault-set-aside")
+        val text = runCatching { file.takeIf { it.isFile }?.readText() }.getOrNull() ?: return emptyList()
+        file.delete()
+        val lines = setAsideOf(text)
+        lines.filter { it.second }.forEach { stillGone += it.first }
+        Log.w(TAG, "fault injection: set aside as gone: ${lines.joinToString { (id, gone) -> if (gone) "$id (called gone again)" else id }}")
+        return lines.map { it.first }
+    }
+
+    /** The lines of files/fault-set-aside, read: each song id, and whether "gone" follows it. */
+    internal fun setAsideOf(text: String): List<Pair<String, Boolean>> = text.lines().mapNotNull { line ->
+        val words = line.trim().split(Regex("\\s+")).filter { it.isNotEmpty() }
+        words.firstOrNull()?.takeIf { it.matches(SONG_ID) }?.let { it to (words.getOrNull(1) == "gone") }
+    }
+
+    /** Whether [videoId] is a song [setAside] named "gone", which every walk of it is to call gone again. */
+    fun goneAgain(videoId: String): Boolean = enabled && videoId in stillGone
+
+    private val SONG_ID = Regex("[A-Za-z0-9_-]{6,32}")
+
     /** Whether a /player request of [client] is to hang. */
     fun hangsPlayer(clientName: String, isVisionosItself: Boolean): Boolean =
         enabled && mode == Mode.PLAYER_HANGS_VISIONOS && clientName == "VISIONOS" && isVisionosItself

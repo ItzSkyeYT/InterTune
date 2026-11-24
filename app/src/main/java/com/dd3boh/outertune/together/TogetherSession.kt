@@ -34,6 +34,7 @@ import com.dd3boh.outertune.extensions.toMediaItem
 import com.dd3boh.outertune.migration.ImportSearch
 import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.playback.MusicService
+import com.dd3boh.outertune.playback.RoomAsks
 import com.dd3boh.outertune.playback.Varispeed
 import com.dd3boh.outertune.playback.queues.ListQueue
 import com.dd3boh.outertune.utils.dataStore
@@ -304,6 +305,8 @@ class TogetherSession(
     private val guestCast = GuestCast()
     /** The host's song this phone cannot play: see [holdsFailed]. */
     private val refusal = HostSongRefusal()
+    /** The room's songs this phone gave their ask (AskedFor): see follow. */
+    private val roomAsks = RoomAsks()
     /** Songs from files here, as the others hear them while this phone is in control: see [PhoneSongs]. */
     private val phoneSongs = PhoneSongs(
         scope = scope,
@@ -1527,6 +1530,11 @@ class TogetherSession(
             return
         }
         heldFor = null
+        // The room's song, and the one after it that the player reads ahead and moves on to by
+        // itself as the leader does, are plays somebody started: each asked of YouTube once even
+        // if this phone set it aside as gone, before anything here moves to it (RoomAsks).
+        roomAsks.now(state.songId, roomQueue?.songs?.takeIf { it.firstOrNull()?.id == state.songId }?.getOrNull(1)?.id)
+            .forEach(service::askedFor)
         val now = System.currentTimeMillis()
         if (player.currentMediaItem?.mediaId != state.songId) {
             toLeadersSong(player, state, now)

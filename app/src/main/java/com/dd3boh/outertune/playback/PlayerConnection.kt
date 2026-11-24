@@ -230,8 +230,19 @@ class PlayerConnection(
         )
     }
 
-    /** The listener is choosing the next song themselves; the next transition is not an autoplay. */
-    fun markUserChoice() { service.userChoicePending = true }
+    /**
+     * The listener is choosing the next song themselves; the next transition is not an autoplay.
+     * [songId], the song chosen, is asked of YouTube even if it was set aside as gone (AskedFor).
+     */
+    fun markUserChoice(songId: String? = null) {
+        service.userChoicePending = true
+        songId?.let(service::askedFor)
+    }
+
+    /** Retry on the player's error: the song is asked of YouTube again, even if it was set aside as gone (AskedFor). */
+    fun askAgain() {
+        player.currentMediaItem?.mediaId?.let(service::askedFor)
+    }
 
     /**
      * Add item to queue, right after current playing item
