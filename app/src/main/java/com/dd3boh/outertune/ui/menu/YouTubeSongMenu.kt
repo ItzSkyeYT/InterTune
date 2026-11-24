@@ -134,8 +134,8 @@ fun YouTubeSongMenu(
             val haptic = LocalHapticFeedback.current
             IconButton(
                 onClick = {
-                    // Under the Vibration setting's Strong a like is two clicks, taking it back the tap's tick.
-                    haptic.tapTick(if (librarySong?.song?.liked == true) Feel.TICK else Feel.DOUBLE)
+                    // Under the Vibration setting's Strong a like is two clicks, taking it back the pop.
+                    haptic.tapTick(if (librarySong?.song?.liked == true) Feel.POP else Feel.DOUBLE)
                     database.transaction {
                         librarySong.let { librarySong ->
                             // One push: toggleLike sends the like to YouTube itself. This sent it

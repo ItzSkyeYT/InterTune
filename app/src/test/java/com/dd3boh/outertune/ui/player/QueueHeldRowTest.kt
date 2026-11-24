@@ -155,9 +155,45 @@ class QueueHeldRowTest {
         assertTrue(held.contains(".background(MaterialTheme.colorScheme.secondaryContainer)"))
         assertTrue(held.contains("isActive = true,"))
         // And while it is held, the row in the list does not: under the bar at the foot it showed the song twice.
-        assertTrue(songList.contains("isActive = (index == currentWindowIndex && !detachedHead && heldEdge == QueueHeld.Edge.NONE)"))
+        assertTrue(songList.contains("val playingRow = (index == currentWindowIndex && !detachedHead && heldEdge == QueueHeld.Edge.NONE) || index == detachedPlace"))
+        assertTrue(songList.contains("isActive = playingRow,"))
         assertTrue(held.contains("if (top) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore"))
         assertTrue(held.contains("onClickLabel = stringResource(R.string.queue_held_row_label)"))
+    }
+
+    @Test
+    fun `in the list the playing row is the held row's bar too, edge to edge, so it keeps its shape as it is held`() {
+        // Ti-Die, #testers 23 Nov 2026: "it'd look a little cleaner if the current song highlight box was *always* edge
+        // to edge, like it is when clamped up or down, since right now it kind of instantly changes shape".
+        // Across the whole row, square, in the held bar's colour, under the row's own rounded highlight (which melts into
+        // it as it does into the held bar), and in the row, so it slides with a swipe and moves with a drag.
+        assertTrue(songList.contains(".then(if (playingRow) Modifier.background(MaterialTheme.colorScheme.secondaryContainer) else Modifier)"))
+        // Over the list's room at its sides too, which the held bar covers (a phone on its side): drawn around the row
+        // while it is at rest, from the list's own padding, the row's height and not the Mix's line under it.
+        assertTrue(held.contains("internal fun Modifier.playingRowSides("))
+        assertTrue(songList.contains("Modifier.playingRowSides(\n                            on = playingRow,"))
+        assertTrue(songList.contains("start = contentPadding.calculateStartPadding(listDirection),\n                            end = contentPadding.calculateEndPadding(listDirection),"))
+        assertTrue(songList.contains("height = ListItemHeight,"))
+        val sides = held.substringAfter("internal fun Modifier.playingRowSides(").substringBefore("\n\n")
+        assertTrue(sides, "if (swiped()) return@drawBehind" in sides)
+        assertTrue(sides, "layoutDirection == LayoutDirection.Ltr" in sides)
+        // One colour for all of it: the held bar, the playing row and its sides, and the band over the songs.
+        assertTrue(songList.contains("on = playingRow,\n                            color = MaterialTheme.colorScheme.secondaryContainer,"))
+    }
+
+    @Test
+    fun `the status bar's room over the songs wears the song's colour, as the held row and the bar at the foot do`() {
+        // Ti-Die, #testers 23 Nov 2026: "maybe make this header (which is great btw) have the same accent color as the
+        // song/bottom" (his picture: the strip under the clock, over the song held at the top).
+        assertTrue(held.contains("internal fun Modifier.queueHeaderBand(color: Color, height: Dp): Modifier"))
+        val band = held.substringAfter("internal fun Modifier.queueHeaderBand(").substringBefore("\n\n")
+        assertTrue(band, "if (height <= 0.dp) this" in band)
+        // The list's top room, only where it is the top of the sheet: not under the search field, whose results keep the
+        // room below it; nothing on a phone on its side or with the queues open, where the list has no top room.
+        assertTrue(songList.contains("val headerBand = if (isSearching) Modifier else Modifier.queueHeaderBand(MaterialTheme.colorScheme.secondaryContainer, contentPadding.calculateTopPadding())"))
+        // On whichever stands in the status bar's room: the room's line on a guest, else the box of the list.
+        assertTrue(songList.contains("modifier = headerBand.padding("))
+        assertTrue(songList.contains(".then(if (roomLine) Modifier else headerBand)\n                .padding(top = if (roomLine) 0.dp else contentPadding.calculateTopPadding())"))
     }
 
     @Test
