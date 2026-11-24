@@ -31,6 +31,7 @@ import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
+import java.time.LocalDate
 
 /**
  * Where the four slides of 24 Nov 2026 go in the story, the song under each, their papers beside every
@@ -154,6 +155,18 @@ class RecapMomentsPlanTest {
         assertEquals(listOf(12 to 2, 3 to 5, 6 to 8, 9 to 11), (0..3).map { RecapSeasonNames.months(it) })
         for (south in listOf("AU", "nz", "BR", "AR", "ZA", "CL")) assertTrue(south, RecapSeasonNames.south(south))
         for (north in listOf("FR", "US", "IN", "GB", "001", null)) assertFalse("$north", RecapSeasonNames.south(north))
+    }
+
+    @Test
+    fun `the months over the seasons are lit where the year had music, none before a first year began`() {
+        val since = LocalDate.of(2026, 6, 14).toEpochDay()
+        val last = LocalDate.of(2026, 12, 2).toEpochDay()
+        // Music every day but in August.
+        val ms = List((last - since + 1).toInt()) { i -> if (LocalDate.ofEpochDay(since + i).monthValue == 8) 0L else 1L }
+        assertEquals(
+            listOf(false, false, false, false, false, true, true, false, true, true, true, true),
+            heardMonths(recap().copy(sinceDay = since, lastDay = last, msByDay = ms)),
+        )
     }
 
     @Test

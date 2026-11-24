@@ -161,19 +161,19 @@ internal object Choreography {
                 )
             )
         )
-        // A piece for each season round the edges, clear of the rows: summer's sun at the top, winter's flake at the foot,
-        // spring's green and autumn's orange at the sides.
+        // The seasons' pieces at the corners and the edges, clear of the months and the rows: summer's sun low on the right,
+        // winter's flake at the foot, autumn's orange on the left.
         SlideKind.SEASONS -> listOf(
             Poses(
                 0f, mapOf(
-                    A to pose(Paper.CIRCLE, 404f, 112f, 128f, c = listOf(Lemon, Sun), k = listOf(1f, 0.66f)),
-                    B to pose(Paper.STAR6, 34f, 684f, 58f, c = listOf(Cream), spin = 60f),
-                    C to pose(Paper.TRI, 396f, 420f, 60f, -18f, listOf(Mint)),
-                    D to pose(Paper.CIRCLE, 372f, 604f, 26f, c = listOf(Pink)),
-                    F to pose(Paper.PILL, 420f, 676f, 118f, -36f, listOf(Orange)),
+                    A to pose(Paper.CIRCLE, 426f, 664f, 150f, c = listOf(Lemon, Sun), k = listOf(1f, 0.66f)),
+                    B to pose(Paper.STAR6, 34f, 690f, 56f, c = listOf(Cream), spin = 60f),
+                    C to hide,
+                    D to hide,
+                    F to pose(Paper.PILL, -22f, 556f, 118f, -36f, listOf(Orange)),
                     R to hide,
                     Q to hide,
-                    H to pose(x = 24f, y = 360f, s = 90f, c = listOf(Ink), o = 0.16f),
+                    H to hide,
                 )
             )
         )
@@ -188,22 +188,22 @@ internal object Choreography {
                     F to pose(Paper.PILL, -10f, 430f, 110f, 8f, listOf(Sky)),
                     R to hide,
                     Q to hide,
-                    H to pose(x = 330f, y = 250f, s = 110f, c = listOf(Cream), o = 0.28f),
+                    H to pose(x = 360f, y = 520f, s = 100f, c = listOf(Cream), o = 0.24f),
                 )
             )
         )
-        // The week: a burst behind its count, the rest round the edges.
+        // The week: a burst behind its count, the rest round the edges, clear of the days and the line under them.
         SlideKind.WEEK -> listOf(
             Poses(
                 0f, mapOf(
-                    A to pose(Paper.BURST, at = Spot.WEEK, dx = -20f, dy = 8f, s = 220f, r = -6f, c = listOf(Lemon, Orange), k = listOf(1f, 0.55f), spin = 70f),
-                    B to pose(Paper.STAR6, 388f, 640f, 48f, c = listOf(Lemon), spin = 50f),
-                    C to pose(Paper.TRI, 28f, 470f, 56f, -24f, listOf(Ink)),
+                    A to pose(Paper.BURST, at = Spot.WEEK, dx = -24f, dy = 16f, s = 176f, r = -6f, c = listOf(Lemon, Orange), k = listOf(1f, 0.55f), spin = 70f),
+                    B to pose(Paper.STAR6, 396f, 712f, 46f, c = listOf(Lemon), spin = 50f),
+                    C to hide,
                     D to pose(Paper.CIRCLE, 392f, 98f, 28f, c = listOf(Plum)),
-                    F to pose(Paper.PILL, -8f, 660f, 104f, 50f, listOf(Plum)),
+                    F to pose(Paper.PILL, -14f, 700f, 104f, 50f, listOf(Plum)),
                     R to hide,
                     Q to hide,
-                    H to pose(x = 392f, y = 420f, s = 92f, c = listOf(Ink), o = 0.16f),
+                    H to hide,
                 )
             )
         )
@@ -296,14 +296,14 @@ internal object Choreography {
         SlideKind.CAME_BACK -> listOf(
             Poses(
                 0f, mapOf(
-                    A to pose(Paper.BLOB, at = Spot.BACK, dy = 6f, s = 300f, r = -10f, c = listOf(Lemon, Cream), k = listOf(1f, 0.5f)),
+                    A to pose(Paper.BLOB, at = Spot.BACK, dy = 6f, s = 250f, r = -10f, c = listOf(Lemon, Cream), k = listOf(1f, 0.5f)),
                     B to pose(Paper.STAR8, 40f, 118f, 44f, c = listOf(Violet), spin = 50f),
                     C to pose(Paper.TRI, 388f, 436f, 64f, 180f, listOf(Plum)),
                     D to pose(Paper.CIRCLE, 382f, 110f, 28f, c = listOf(Lemon)),
-                    F to pose(Paper.PILL, 20f, 600f, 96f, -30f, listOf(Violet)),
-                    R to pose(at = Spot.BACK, s = 300f, w = 3f, c = listOf(Ink), o = 0.3f),
+                    F to pose(Paper.PILL, -14f, 700f, 96f, -30f, listOf(Violet)),
+                    R to pose(at = Spot.BACK, s = 250f, w = 3f, c = listOf(Ink), o = 0.3f),
                     Q to hide,
-                    H to pose(x = 394f, y = 660f, s = 92f, c = listOf(Ink), o = 0.14f),
+                    H to hide,
                 )
             )
         )

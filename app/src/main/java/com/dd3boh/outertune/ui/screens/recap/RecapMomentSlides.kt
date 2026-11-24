@@ -58,6 +58,7 @@ import com.dd3boh.outertune.recap.CameBack
 import com.dd3boh.outertune.recap.DayPlays
 import com.dd3boh.outertune.recap.OnRepeat
 import com.dd3boh.outertune.recap.PartOfDay
+import com.dd3boh.outertune.recap.Recap
 import com.dd3boh.outertune.recap.RecapMoments
 import com.dd3boh.outertune.recap.Season
 import java.time.LocalDate
@@ -134,10 +135,11 @@ internal fun SeasonsSlide(s: SlideScope) {
     val south = remember { RecapSeasonNames.south(RecapSeasonNames.regionOf(TimeZone.getDefault().id)) }
     SlideColumn { room ->
         Kick(stringResource(R.string.recap_seasons_kick), s)
+        SeasonMonths(s, south, Modifier.padding(top = 6.dp).fillMaxWidth().height(44.dp))
         val few = seasons.size <= 2
         val gap = if (few) 28.dp else 16.dp
         // The covers as large as four rows leave room for, larger for two or three.
-        val side = minOf(if (few) 132.dp else 96.dp, room.width * 0.32f, (room.height - 70.dp - gap * (seasons.size - 1)) / seasons.size)
+        val side = minOf(if (few) 150.dp else 96.dp, room.width * 0.36f, (room.height - 120.dp - gap * (seasons.size - 1)) / seasons.size)
             .coerceAtLeast(56.dp)
         Grow(room)
         Column(verticalArrangement = Arrangement.spacedBy(gap)) {
@@ -155,7 +157,7 @@ private fun SeasonRow(season: Season, i: Int, side: Dp, south: Boolean, s: Slide
     val song = s.shown.song(season.songId)
     val (first, last) = RecapSeasonNames.months(season.season)
     val year = s.shown.recap.year
-    val at = 1.2f + i * 0.45f
+    val at = 1.6f + i * 0.45f
     val left = i % 2 == 0
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -168,7 +170,7 @@ private fun SeasonRow(season: Season, i: Int, side: Dp, south: Boolean, s: Slide
         Column(Modifier.weight(1f)) {
             ColouredStrip(stringResource(name.words), name.colour, s, at = at + 0.6f, turn = listOf(-3f, 2.5f, -2f, 3f)[i % 4])
             Text(
-                song?.title.orEmpty(), style = RecapType.h2.copy(fontSize = if (side < 110.dp) 24.sp else 28.sp, lineHeight = 1.04.em), color = c.ink,
+                song?.title.orEmpty(), style = RecapType.h2.copy(fontSize = if (side < 110.dp) 24.sp else 30.sp, lineHeight = 1.04.em), color = c.ink,
                 maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 8.dp),
             )
             Text(
@@ -178,6 +180,67 @@ private fun SeasonRow(season: Season, i: Int, side: Dp, south: Boolean, s: Slide
                 ),
                 style = RecapType.quiet, color = c.ink2, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 3.dp),
             )
+        }
+    }
+}
+
+/**
+ * Which months of the Recap's year had music: twelve, January's first. A month before the Recap's first
+ * day (a first year) or after its last had none.
+ */
+internal fun heardMonths(r: Recap): List<Boolean> = (1..12).map { m ->
+    val first = LocalDate.of(r.year, m, 1)
+    val from = maxOf(first.toEpochDay(), r.sinceDay)
+    val to = minOf(first.plusMonths(1).toEpochDay() - 1, r.lastDay)
+    from <= to && (from..to).any { (r.msByDay.getOrNull((it - r.sinceDay).toInt()) ?: 0L) > 0L }
+}
+
+/** When the months pop in, in steps, and how far apart. */
+private const val MONTHS_FROM = 0.9f
+private const val MONTH_GAP_MS = 45
+
+/**
+ * The year's twelve months in a row under the kicker, each in the colour of its season where it had
+ * music and faint where it had none, its first letter under it: the seasons at a glance, and why a
+ * first year has fewer of them. They pop in one after another.
+ */
+@Composable
+private fun SeasonMonths(s: SlideScope, south: Boolean, modifier: Modifier) {
+    val r = s.shown.recap
+    val c = s.paper
+    val w = s.words
+    val measurer = rememberTextMeasurer()
+    val months = remember(r, south) {
+        val heard = heardMonths(r)
+        (1..12).map { m ->
+            val first = LocalDate.of(r.year, m, 1).toEpochDay()
+            Triple(w.monthShort(first).take(1).uppercase(), RecapSeasonNames.of(RecapMoments.seasonOf(first), south).colour, heard[m - 1])
+        }
+    }
+    if (s.still) s.arrives(MONTHS_FROM, RecapMotion.CALM_FADE_MS) else s.arrives(MONTHS_FROM, 11 * MONTH_GAP_MS + RecapMotion.TILE_MS)
+    Canvas(modifier) {
+        val el = s.elapsed()
+        val gap = 4.dp.toPx()
+        val cell = (size.width - 11 * gap) / 12
+        val tall = 20.dp.toPx()
+        val ring = 1.5.dp.toPx()
+        val corner = CornerRadius(5.dp.toPx())
+        val style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Medium, color = c.ink2)
+        months.forEachIndexed { i, (letter, colour, heard) ->
+            val t = if (s.still) RecapMotion.Ease.transform(((el - MONTHS_FROM * RecapMotion.STEP_MS) / RecapMotion.CALM_FADE_MS).coerceIn(0f, 1f))
+            else RecapMotion.TileEasing.transform(((el - MONTHS_FROM * RecapMotion.STEP_MS - i * MONTH_GAP_MS) / RecapMotion.TILE_MS).coerceIn(0f, 1f))
+            if (t <= 0f) return@forEachIndexed
+            val left = i * (cell + gap)
+            val mid = Offset(left + cell / 2, tall / 2)
+            val alpha = if (s.still) t else 1f
+            scale(if (s.still) 1f else t, if (s.still) 1f else t, mid) {
+                if (heard) {
+                    drawRoundRect(RecapInk.Ink, Offset(left - ring, -ring), Size(cell + 2 * ring, tall + 2 * ring), corner, alpha = alpha)
+                    drawRoundRect(colour, Offset(left, 0f), Size(cell, tall), corner, alpha = alpha)
+                } else drawRoundRect(RecapInk.Ink.copy(alpha = 0.13f), Offset(left, 0f), Size(cell, tall), corner, alpha = alpha)
+            }
+            val label = measurer.measure(letter, style)
+            drawText(label, topLeft = Offset(mid.x - label.size.width / 2f, tall + 4.dp.toPx()), alpha = t.coerceIn(0f, 1f))
         }
     }
 }
@@ -215,7 +278,7 @@ internal fun NightSlide(s: SlideScope) {
     val both = night != null && n.morning != null
     SlideColumn { room ->
         Kick(stringResource(if (night != null) R.string.recap_night_kick else R.string.recap_morning_kick), s)
-        val side = minOf(if (both) 150.dp else 196.dp, room.width * 0.5f, room.height * (if (both) 0.26f else 0.34f))
+        val side = minOf(196.dp, room.width * 0.52f, room.height * (if (both) 0.3f else 0.36f))
         Box(Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 14.dp).height(side + 22.dp)) {
             Sticker(
                 song?.cover, side, s, Modifier.padding(start = 8.dp, top = 6.dp).anchor(s, Spot.NIGHT),
@@ -322,7 +385,7 @@ internal fun WeekSlide(s: SlideScope) {
             modifier = Modifier.padding(top = 5.dp).enter(s, Entrance.UP, 3f),
         )
         Grow(room)
-        WeekChart(week, s, Modifier.fillMaxWidth().height(minOf(158.dp, room.height * 0.27f)))
+        WeekChart(week, s, Modifier.fillMaxWidth().height(minOf(230.dp, room.height * 0.36f)))
         Grow(room)
         val (first, last) = dayRange(w, week.firstDay, week.lastDay)
         Text(
@@ -332,7 +395,7 @@ internal fun WeekSlide(s: SlideScope) {
     }
 }
 
-/** The week's days, a column of squares each, one square a play of the song, the busiest day's in the accent; its weekday and date under each. */
+/** The week's days, a column of bricks each, one brick a play of the song, the busiest day's in the accent; its weekday and date under each. */
 @Composable
 private fun WeekChart(week: OnRepeat, s: SlideScope, modifier: Modifier) {
     val c = s.paper
@@ -360,9 +423,11 @@ private fun WeekChart(week: OnRepeat, s: SlideScope, modifier: Modifier) {
         val room = floor - countH
         val gap = 2.5.dp.toPx()
         val fits = (room + gap) / most - gap
-        // A square a play where they can be seen as squares; for a day of more plays than that, one bar that grows as they come.
-        val squares = fits >= 5.dp.toPx()
-        val side = if (squares) minOf(slot * 0.5f, fits) else slot * 0.5f
+        // A brick a play, as wide as a column and as tall as the busiest day lets it be (square at most), where they can be
+        // told apart; for a week of more plays a day than that, one bar a day that grows as they come.
+        val squares = fits >= 4.dp.toPx()
+        val side = slot * 0.6f
+        val tall = minOf(side, fits)
         val fade = RecapMotion.Ease.transform(((el - 2.2f * RecapMotion.STEP_MS) / RecapMotion.FADE_MS).coerceIn(0f, 1f))
         drawLine(RecapInk.Ink, Offset(0f, floor + 1.dp.toPx()), Offset(size.width, floor + 1.dp.toPx()), 2.dp.toPx(), alpha = fade)
         val small = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Medium, color = c.ink2)
@@ -373,7 +438,7 @@ private fun WeekChart(week: OnRepeat, s: SlideScope, modifier: Modifier) {
             val left = i * slot + (slot - side) / 2
             val busiest = days[i] == most
             val fill = if (busiest) c.accent else RecapInk.Ink
-            val top = if (squares) floor - days[i] * (side + gap) + gap else floor - days[i] * room / most
+            val top = if (squares) floor - days[i] * (tall + gap) + gap else floor - days[i] * room / most
             var grown = 0f
             for (j in 0 until days[i]) {
                 val t = if (s.still) RecapMotion.Ease.transform(((el - 2 * RecapMotion.STEP_MS) / RecapMotion.CALM_FADE_MS).coerceIn(0f, 1f))
@@ -384,15 +449,15 @@ private fun WeekChart(week: OnRepeat, s: SlideScope, modifier: Modifier) {
                     grown += if (s.still) 1f else t
                     continue
                 }
-                // Each square from the floor up, popping in with a turn.
-                val y = floor - (j + 1) * (side + gap) + gap
-                val mid = Offset(left + side / 2, y + side / 2)
-                val corner = CornerRadius(side * 0.22f)
+                // Each brick from the floor up, popping in with a turn.
+                val y = floor - (j + 1) * (tall + gap) + gap
+                val mid = Offset(left + side / 2, y + tall / 2)
+                val corner = CornerRadius(minOf(side, tall) * 0.25f)
                 val alpha = if (s.still) t else 1f
                 rotate(if (s.still) 0f else -30f * (1f - t), mid) {
                     scale(if (s.still) 1f else t, if (s.still) 1f else t, mid) {
-                        if (busiest) drawRoundRect(RecapInk.Ink, Offset(left - ring, y - ring), Size(side + 2 * ring, side + 2 * ring), corner, alpha = alpha)
-                        drawRoundRect(fill, Offset(left, y), Size(side, side), corner, alpha = alpha)
+                        if (busiest) drawRoundRect(RecapInk.Ink, Offset(left - ring, y - ring), Size(side + 2 * ring, tall + 2 * ring), corner, alpha = alpha)
+                        drawRoundRect(fill, Offset(left, y), Size(side, tall), corner, alpha = alpha)
                     }
                 }
             }
@@ -440,7 +505,7 @@ internal fun CameBackSlide(s: SlideScope) {
     val song = s.shown.song(back.songId)
     SlideColumn { room ->
         Kick(stringResource(R.string.recap_back_kick), s, at = 0.6f)
-        val side = minOf(210.dp, room.width * 0.56f, room.height * 0.3f)
+        val side = minOf(230.dp, room.width * 0.6f, room.height * 0.34f)
         Box(Modifier.fillMaxWidth().padding(top = 6.dp, bottom = 12.dp).height(side + 26.dp), contentAlignment = Alignment.Center) {
             Sticker(song?.cover, side, s, Modifier.anchor(s, Spot.BACK), how = Entrance.FLY, at = 1f, turn = -4f, fx = -440f, fy = 0f, fr = -28f)
             Tag(stringResource(R.string.recap_back_stamp), s, at = 4.4f, turn = -9f, modifier = Modifier.align(Alignment.BottomCenter).offset(x = side * 0.3f, y = (-4).dp))
@@ -452,11 +517,12 @@ internal fun CameBackSlide(s: SlideScope) {
         )
         Grow(room)
         YearLine(back, s, Modifier.fillMaxWidth().height(96.dp))
-        Grow(room)
+        // The line and what it says, together.
         Text(
             w.boldPlural(R.plurals.recap_back_line, back.awayDays, w.number(back.awayDays) to true, w.day(back.lastBefore) to false, w.day(back.backOn) to false),
-            style = RecapType.line, color = c.ink, modifier = Modifier.enter(s, Entrance.UP, 5f),
+            style = RecapType.line, color = c.ink, modifier = Modifier.padding(top = 10.dp).enter(s, Entrance.UP, 5f),
         )
+        Grow(room)
     }
 }
 
@@ -522,7 +588,7 @@ private fun YearLine(back: CameBack, s: SlideScope, modifier: Modifier) {
                     val t = if (s.still) RecapMotion.Ease.transform(((el - 2 * RecapMotion.STEP_MS) / RecapMotion.CALM_FADE_MS).coerceIn(0f, 1f))
                     else RecapMotion.TileEasing.transform(((el - from * RecapMotion.STEP_MS - i * step) / BACK_DOT_MS).coerceIn(0f, 1f))
                     if (t <= 0f) return@forEachIndexed
-                    val radius = (2.6f + min(d.plays, 4) * 1.1f).dp.toPx() * (if (s.still) 1f else t)
+                    val radius = (2.4f + min(d.plays, 3) * 0.9f).dp.toPx() * (if (s.still) 1f else t)
                     val centre = Offset(share(d.day) * size.width, line)
                     drawCircle(RecapInk.Ink.copy(alpha = 0.25f), radius, centre + Offset(0f, 1.5.dp.toPx()), alpha = if (s.still) t else 1f)
                     drawCircle(colour, radius, centre, alpha = if (s.still) t else 1f)
