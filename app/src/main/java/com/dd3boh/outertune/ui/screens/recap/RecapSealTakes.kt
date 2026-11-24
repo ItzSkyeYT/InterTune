@@ -15,6 +15,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshotFlow
@@ -174,8 +175,17 @@ internal object SealTakes {
     /** The sealed card coming in where the paper was, as the paper first came: from below, turned, a touch past and back. */
     const val CARD_MS = 640
 
-    /** The buttons and the line under the paper: gone as it is sealed, back up as the card lands. */
-    const val CHROME_OUT_MS = 120
+    /**
+     * Debug only: how many times slower the takes run, to film them on an emulator that draws few frames a second
+     * (the debug sample's `--es seal a --ei slow 3`). 1 in every build otherwise.
+     */
+    @Volatile
+    var slow: Float = 1f
+
+    /** How far into its take a seal made at [at] is at [now], both on the story's clock. */
+    fun since(now: Long, at: Long): Long = if (slow <= 1f) now - at else ((now - at) / slow).toLong()
+
+    /** The buttons and the line under the paper: gone the moment it is sealed, back up as the card lands. */
     const val CHROME_IN_MS = 420
     const val CHROME_AFTER_CARD_MS = 250
 
@@ -248,7 +258,8 @@ internal object SealTakes {
     fun chromeAlpha(take: SealTake, ms: Long, still: Boolean): Float {
         if (take == SealTake.BEFORE || !running(take, ms, still)) return 1f
         val back = chromeFrom(take)
-        if (ms < back) return (1f - ms / CHROME_OUT_MS.toFloat()).coerceIn(0f, 1f)
+        // Gone at once: faded, Write another (which takes Seal it's place) showed under the paper for a moment.
+        if (ms < back) return 0f
         return RecapMotion.Spring.transform(((ms - back) / CHROME_IN_MS.toFloat()).coerceIn(0f, 1f)).coerceIn(0f, 1f)
     }
 
@@ -348,7 +359,7 @@ private const val DIP_MS = 160
 private const val DIP_DP = 3f
 
 /** The wax on the envelope: half its square, and its turn once pressed. */
-private const val WAX_R = 21f
+private const val WAX_R = 30f
 private const val WAX_TURN = -8f
 
 /** A flap's eye, this many of its lengths away: enough depth to read as a flap turning, not a squash. */
@@ -373,7 +384,7 @@ internal fun Modifier.sealPaper(take: SealTake, s: SlideScope, note: NoteDraft, 
     graphicsLayer {
         val at = note.sealedAt
         if (at < 0) return@graphicsLayer
-        val ms = s.stage.clock.now - at
+        val ms = SealTakes.since(s.stage.clock.now, at)
         if (!SealTakes.running(take, ms, s.still)) return@graphicsLayer
         alpha = SealTakes.paperAlpha(take, ms, s.still)
         when (take) {
@@ -383,7 +394,7 @@ internal fun Modifier.sealPaper(take: SealTake, s: SlideScope, note: NoteDraft, 
         }
     }.drawWithContent {
         val at = note.sealedAt
-        val ms = s.stage.clock.now - at
+        val ms = SealTakes.since(s.stage.clock.now, at)
         if (take == SealTake.A && at >= 0 && SealTakes.running(take, ms, s.still) && ms < SealTakes.A_CARD_FROM) {
             lowerHalf(places.clip, size, turn)
             clipPath(places.clip) { this@drawWithContent.drawContent() }
@@ -420,7 +431,7 @@ private fun GraphicsLayerScope.cardComing(ms: Long, from: Int) {
 internal fun Modifier.sealChrome(take: SealTake, s: SlideScope, note: NoteDraft): Modifier = graphicsLayer {
     val at = note.sealedAt
     if (at < 0) return@graphicsLayer
-    val ms = s.stage.clock.now - at
+    val ms = SealTakes.since(s.stage.clock.now, at)
     alpha = SealTakes.chromeAlpha(take, ms, s.still)
     translationY = SealTakes.chromeBelow(take, ms, s.still) * RecapMotion.UP_DISTANCE * s.unit
 }
@@ -440,9 +451,9 @@ internal fun SealBehind(take: SealTake, s: SlideScope, note: NoteDraft, places: 
     Canvas(modifier) {
         val at = note.sealedAt
         if (at < 0) return@Canvas
-        val ms = s.stage.clock.now - at
+        val ms = SealTakes.since(s.stage.clock.now, at)
         if (!SealTakes.running(take, ms, s.still)) return@Canvas
-        val sheet = kit.sheet(this, at, places.letter, note.letter, measurer, hand, grain)
+        val sheet = kit.sheet(this, places.letter, note.letter, measurer, hand, grain)
         envelopeBehind(ms, sheet, turn, kit)
     }
 }
@@ -462,7 +473,7 @@ internal fun SealOver(take: SealTake, s: SlideScope, note: NoteDraft, places: Se
     LaunchedEffect(note.sealedAt, take) {
         val at = note.sealedAt
         if (s.still || at < 0) return@LaunchedEffect
-        val press = at + SealTakes.pressMs(take)
+        val press = at + (SealTakes.pressMs(take) * SealTakes.slow).toLong()
         if (s.stage.clock.now >= press) return@LaunchedEffect
         snapshotFlow { s.stage.clock.now }.first { it >= press }
         haptic.performHapticFeedback(if (take == SealTake.A) HapticFeedbackType.SegmentTick else HapticFeedbackType.Confirm)
@@ -472,12 +483,17 @@ internal fun SealOver(take: SealTake, s: SlideScope, note: NoteDraft, places: Se
     val density = LocalDensity.current.density
     val grain = remember(density) { PaperGrain.brush(density) }
     val kit = remember { SealKit() }
+    // Read in drawing as a yes or no, so that a finished take does not draw again for every frame of the story.
+    val running by remember(take) { derivedStateOf { note.sealedAt >= 0 && SealTakes.running(take, SealTakes.since(s.stage.clock.now, note.sealedAt), s.still) } }
     Canvas(modifier) {
+        if (!running) {
+            // While the note is being kept, its pictures are made, so the take's first frame is as light as the rest.
+            if (note.sealing && !s.still) kit.ready(this, take, places.letter, note.text, measurer, hand, grain)
+            return@Canvas
+        }
         val at = note.sealedAt
-        if (at < 0) return@Canvas
-        val ms = s.stage.clock.now - at
-        if (!SealTakes.running(take, ms, s.still)) return@Canvas
-        val sheet = kit.sheet(this, at, places.letter, note.letter, measurer, hand, grain)
+        val ms = SealTakes.since(s.stage.clock.now, at)
+        val sheet = kit.sheet(this, places.letter, note.letter, measurer, hand, grain)
         when (take) {
             SealTake.A -> foldAndGo(ms, sheet, turn, kit)
             SealTake.B -> envelopeOver(ms, sheet, turn, kit)
@@ -512,11 +528,12 @@ internal class SealKit {
     val layer = Paint()
     var liner: ShaderBrush? = null
     private var sheet: LetterSheet? = null
-    private var sheetFor = Long.MIN_VALUE
+    private var sheetWords: String? = null
+    private var sheetBox = IntSize.Zero
 
-    /** The sheet of the seal made at [at], measured and pictured once. */
-    fun sheet(scope: DrawScope, at: Long, letter: IntSize, words: String, measurer: TextMeasurer, hand: TextStyle, grain: Brush): LetterSheet {
-        sheet?.let { if (sheetFor == at) return it }
+    /** The sheet of [words] in a box of [letter], measured once. */
+    fun sheet(scope: DrawScope, letter: IntSize, words: String, measurer: TextMeasurer, hand: TextStyle, grain: Brush): LetterSheet {
+        sheet?.let { if (sheetWords == words && sheetBox == letter) return it }
         val made = with(scope) {
             val box = if (letter.width > 0 && letter.height > 0) Size(letter.width.toFloat(), letter.height.toFloat()) else size
             val pw = box.width - 8.dp.toPx()
@@ -525,8 +542,23 @@ internal class SealKit {
             LetterSheet(box, pw, ph, laid, grain, hand.lineHeight.toPx())
         }
         sheet = made
-        sheetFor = at
+        sheetWords = words
+        sheetBox = letter
         return made
+    }
+
+    /**
+     * The pictures [take] draws its paper from, made while the note is being kept (between Seal it and the seal),
+     * so that the take's first frame costs no more than the others.
+     */
+    fun ready(scope: DrawScope, take: SealTake, letter: IntSize, words: String, measurer: TextMeasurer, hand: TextStyle, grain: Brush) {
+        if (words.isBlank()) return
+        val made = sheet(scope, letter, words, measurer, hand, grain)
+        when (take) {
+            SealTake.A -> if (made.flapFront == null) scope.flapPictures(made)
+            SealTake.C -> if (made.bare == null) scope.sheetPictures(made)
+            SealTake.B, SealTake.BEFORE -> Unit
+        }
     }
 
     /** The envelope's lining: the slide's sky, cream dots on it. */
@@ -966,10 +998,11 @@ private fun DrawScope.pressedIntoSeal(ms: Long, sheet: LetterSheet, turn: Float,
     val centre = lerpOffset(start, target, e)
     val rot = turn + SealTakes.MARK_TURN * e
     val outer = r0 * SealTakes.STAR_OUT * SealTakes.LIFT
-    val w = lerpFloat(sheet.pw, 2f * outer, e)
+    // Round early: square by 60% of the way, so it gathers into a disc and never passes through a wide red pill.
     val h = lerpFloat(sheet.ph, 2f * outer, e)
-    val corner = lerpFloat(4.dp.toPx(), min(w, h) / 2f, smooth(0f, 0.75f, e))
-    sheetOutline(kit.path, w / 2f, h / 2f, corner, outer, smooth(0.7f, 1f, e))
+    val w = h * lerpFloat(sheet.pw / sheet.ph, 1f, smooth(0f, 0.6f, e))
+    val corner = lerpFloat(4.dp.toPx(), min(w, h) / 2f, smooth(0f, 0.6f, e))
+    sheetOutline(kit.path, w / 2f, h / 2f, corner, outer, smooth(0.6f, 1f, e))
     val hard = smooth(0.75f, 1f, e)
     withTransform({
         translate(centre.x, centre.y)

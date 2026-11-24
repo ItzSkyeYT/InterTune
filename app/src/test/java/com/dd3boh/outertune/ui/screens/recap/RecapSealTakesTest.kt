@@ -86,8 +86,9 @@ class RecapSealTakesTest {
     @Test
     fun `the buttons step aside while it is sealed and come back up with the card`() {
         for (take in takes) {
-            assertEquals(1f, SealTakes.chromeAlpha(take, 0L, still = false), 0f)
-            assertEquals(0f, SealTakes.chromeAlpha(take, SealTakes.CHROME_OUT_MS.toLong(), still = false), 0f)
+            // Gone at once: faded out, Write another (in Seal it's place) showed under the paper for a moment (24 Nov).
+            assertEquals(0f, SealTakes.chromeAlpha(take, 0L, still = false), 0f)
+            assertEquals(0f, SealTakes.chromeAlpha(take, 100L, still = false), 0f)
             assertEquals(0f, SealTakes.chromeAlpha(take, SealTakes.chromeFrom(take) - 1L, still = false), 0f)
             assertEquals(1f, SealTakes.chromeBelow(take, SealTakes.chromeFrom(take).toLong(), still = false), 0.001f)
         }
@@ -181,6 +182,27 @@ class RecapSealTakesTest {
         assertTrue("SealBehind(take, s, note, places, WRITE_TURN, Modifier.matchParentSize())" in slide)
         assertTrue(".sealPaper(take, s, note, places, WRITE_TURN)" in slide)
         assertTrue("Sealed(s, note, hand, take, places, onBaseline = { first = it })" in slide)
+    }
+
+    @Test
+    fun `the takes run at their own pace, slower only when the debug sample asks for a film`() {
+        assertEquals(1f, SealTakes.slow, 0f)
+        assertEquals(700L, SealTakes.since(10_700L, 10_000L))
+        try {
+            SealTakes.slow = 3f
+            assertEquals(300L, SealTakes.since(10_900L, 10_000L))
+        } finally {
+            SealTakes.slow = 1f
+        }
+        // Set in one place, the debug sample's receiver (debug builds only, the shell alone may send it).
+        val setters = File("src/main/java/com/dd3boh/outertune").walkTopDown()
+            .filter { it.extension == "kt" && Regex("""SealTakes\.slow\s*=""").containsMatchIn(it.readText()) }
+            .map { it.name }.toList()
+        assertEquals(listOf("RecapSample.kt"), setters)
+        // Every reading of a take's time goes through it.
+        val takes = code("ui/screens/recap/RecapSealTakes.kt") + code("ui/screens/recap/RecapNoteSlides.kt")
+        assertFalse("clock.now - at" in takes)
+        assertFalse("clock.now - note.sealedAt" in takes)
     }
 
     @Test

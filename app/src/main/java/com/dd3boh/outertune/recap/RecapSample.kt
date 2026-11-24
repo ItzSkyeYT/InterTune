@@ -30,6 +30,7 @@ import com.dd3boh.outertune.models.toMediaMetadata
 import com.dd3boh.outertune.recognition.Heard
 import com.dd3boh.outertune.recognition.RecognitionHistory
 import com.dd3boh.outertune.ui.screens.recap.SealTake
+import com.dd3boh.outertune.ui.screens.recap.SealTakes
 import com.dd3boh.outertune.utils.dataStore
 import com.zionhuang.innertube.YouTube
 import com.zionhuang.innertube.models.SongItem
@@ -56,7 +57,8 @@ import kotlin.random.Random
  * With `--es note "<text>|<text>"` instead, it only seals those texts as last year's notes to this
  * year's Recap (RecapNote), a day apart up to a year ago today, and opens the Recap with open: the
  * slide "A note from your past self" can be seen on a phone that has none. With `--es seal b` (a, c or
- * before) it only picks how a note is sealed (SealTake), for recordings of each.
+ * before) it only picks how a note is sealed (SealTake), for recordings of each, and `--ei slow 3` slows the
+ * takes down for an emulator that draws few frames a second.
  *
  * It finds about thirty well-known songs by name with the import's own anonymous search (a
  * search each, a second and a half apart), keeps the songs each search lists after the first as
@@ -124,12 +126,14 @@ object RecapSample {
                     return
                 }
                 // How a note is sealed (SealTake), for a recording of each: `--es seal b` (a, c, before, or anything else for the
-                // default), as the developer options' row picks it. Nothing else is written.
+                // default), as the developer options' row picks it, and `--ei slow 3` to run it three times slower, for an
+                // emulator that draws few frames a second (1 to 10; 1 without it). Nothing else is written.
                 intent.getStringExtra("seal")?.let { name ->
+                    SealTakes.slow = intent.getIntExtra("slow", 1).coerceIn(1, 10).toFloat()
                     scope.launch {
                         val take = SealTake.entries.firstOrNull { it.name.equals(name, ignoreCase = true) }
                         app.dataStore.edit { if (take == null) it.remove(RecapSealTakeKey) else it[RecapSealTakeKey] = take.name }
-                        Log.i(TAG, "seal take: ${(take ?: SealTake.DEFAULT).label}")
+                        Log.i(TAG, "seal take: ${(take ?: SealTake.DEFAULT).label}, ${SealTakes.slow.toInt()} times slower")
                     }
                     return
                 }

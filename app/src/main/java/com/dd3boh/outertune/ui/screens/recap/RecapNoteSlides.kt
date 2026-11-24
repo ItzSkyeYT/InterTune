@@ -306,7 +306,7 @@ internal fun NoteWriteSlide(s: SlideScope, note: NoteDraft, onSeal: () -> Unit, 
     // How the note is sealed (SealTake), where its paper and its card's seal are, and whether the paper still holds the words just sealed.
     val take = rememberSealTake()
     val places = remember { SealPlaces() }
-    val letterUp by remember(take) { derivedStateOf { note.sealedAt >= 0 && SealTakes.letterOnPaper(take, s.stage.clock.now - note.sealedAt, s.still) } }
+    val letterUp by remember(take) { derivedStateOf { note.sealedAt >= 0 && SealTakes.letterOnPaper(take, SealTakes.since(s.stage.clock.now, note.sealedAt), s.still) } }
 
     // The keyboard closed (Back closes it first): the field is let go of too, so the next Back leaves the Recap as ever.
     val keyboard = WindowInsets.isImeVisible
@@ -404,7 +404,7 @@ internal fun NoteWriteSlide(s: SlideScope, note: NoteDraft, onSeal: () -> Unit, 
                 }
             }
         }
-        if (note.sealedAt >= 0) SealOver(take, s, note, places, WRITE_TURN, Modifier.matchParentSize())
+        SealOver(take, s, note, places, WRITE_TURN, Modifier.matchParentSize())
         }
         if (!keyboard) {
             buttons(Modifier.sealChrome(take, s, note).padding(top = 20.dp, bottom = 10.dp))
@@ -495,7 +495,7 @@ private fun Sealed(s: SlideScope, note: NoteDraft, hand: TextStyle, take: SealTa
                 .onGloballyPositioned { places.mark = it }
                 .graphicsLayer {
                     rotationZ = SealTakes.MARK_TURN
-                    if (note.sealedAt >= 0 && SealTakes.markHidden(take, s.stage.clock.now - note.sealedAt, s.still)) alpha = 0f
+                    if (note.sealedAt >= 0 && SealTakes.markHidden(take, SealTakes.since(s.stage.clock.now, note.sealedAt), s.still)) alpha = 0f
                 }
         ) {
             sealMark(take, center, size.minDimension / 2f, mark)
