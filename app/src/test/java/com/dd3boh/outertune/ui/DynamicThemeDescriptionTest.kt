@@ -66,13 +66,16 @@ class DynamicThemeDescriptionTest {
 
     @Test
     fun `what the text says is what the code does`() {
-        // On, a song loaded: the colour is taken from its cover, a small thumbnail, and follows each song.
+        // On: the colour is taken from the cover of the song shown, a small thumbnail, and follows each song. The song
+        // shown, not only the one playing: before Play (after an update or a restart) it is the stored queue's, so the
+        // app no longer sits in the default colour until Play (24 Nov 2026).
         val effect = main.substringAfter("LaunchedEffect(playerConnection, enableDynamicTheme, isSystemInDarkTheme)").substringBefore("OuterTuneTheme(")
-        assertTrue(effect.contains("playerConnection.service.currentMediaMetadata.collectLatest { song ->"))
-        assertTrue(effect.contains("song?.getThumbnailModel(100, 100)"))
+        assertTrue(effect.contains("playerConnection.mediaMetadata.collectLatest { song ->"))
+        assertTrue(effect.contains("song.getThumbnailModel(100, 100)"))
         assertTrue(effect.contains("extractThemeSource()"))
-        // Off, or no player yet: the default colour, which is not taken from any song.
-        assertTrue(Regex("""if \(!enableDynamicTheme \|\| playerConnection == null\) \{\s*themeColor = DefaultThemeColor""").containsMatchIn(effect))
+        // Off: the default colour, which is not taken from any song. With no song shown at all, the default too.
+        assertTrue(Regex("""if \(!enableDynamicTheme\) \{\s*themeColor = DefaultThemeColor""").containsMatchIn(effect))
+        assertTrue(Regex("""if \(song == null\) \{[^}]*themeColor = DefaultThemeColor""").containsMatchIn(effect))
         // The default colour is the phone's own where Android has them (12 and newer), and the app's red below.
         assertTrue(theme.contains("if (themeColor == DefaultThemeColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S)"))
         assertTrue(theme.contains("dynamicDarkColorScheme(context)"))
