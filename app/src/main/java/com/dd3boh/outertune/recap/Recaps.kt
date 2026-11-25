@@ -146,6 +146,8 @@ object Recaps {
 
         val firstPlay = plays.first()
         val ranked = songPlays.keys.sortedWith(bySongRank)
+        // The year's plays as the slides of 24 Nov 2026 read them, each with the local day and minute worked out here (RecapMoments).
+        val moments = plays.map { RecapPlay(it.l.songId, it.day, it.minute, it.played) }
         return Recap(
             year = input.year,
             firstYear = firstYear,
@@ -176,6 +178,10 @@ object Recaps {
             ranking = ranked.take(PLAYLIST),
             mostSkipped = mostSkipped(rows),
             whereFrom = whereFrom(plays, input, sinceDay),
+            seasons = RecapMoments.seasons(moments),
+            onRepeat = RecapMoments.onRepeat(moments, lastDay),
+            nightAndMorning = RecapMoments.nightAndMorning(moments),
+            cameBack = RecapMoments.cameBack(moments),
         )
     }
 

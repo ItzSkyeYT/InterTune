@@ -50,7 +50,7 @@ import kotlin.random.Random
  * A made-up year of listening, to look at the Recap on an emulator, whose own install has next to
  * no history. A debug build only, and only from adb:
  *
- *     adb shell am broadcast -a dev.skye.intertune.debug.RECAP_SAMPLE -p dev.skye.intertune.debug [--ez reveal true] [--ez open true]
+ *     adb shell am broadcast -a dev.skye.intertune.debug.RECAP_SAMPLE -p dev.skye.intertune.debug [--ez reveal true] [--ez open true] [--ez long true]
  *
  * With `--es note "<text>|<text>"` instead, it only seals those texts as last year's notes to this
  * year's Recap (RecapNote), a day apart up to a year ago today, and opens the Recap with open: the
@@ -61,7 +61,11 @@ import kotlin.random.Random
  * search each, a second and a half apart), keeps the songs each search lists after the first as
  * well, and writes listens of them from June to yesterday: an evening habit, a long streak, a
  * number one found in July and played twelve times in a row that day, a song Auto found in
- * September, a hundred more Auto brought, two songs named by ear, skips. Nobody's listening:
+ * September, a hundred more Auto brought, two songs named by ear, skips; and, for the slides of
+ * 24 Nov 2026 (RecapMoments), a song that the nights after midnight go to and one the mornings do, a
+ * week in which one song plays seven times a day, and a song loved in its first weeks, dropped for a
+ * hundred days and found again. With long, the year begins on 5 January, so that it has all four
+ * seasons. Nobody's listening:
  * everything is drawn from a fixed seed, so two runs write the same year. With reveal, today is
  * the reveal day and the pop-up is owed again, so the next start of the app opens the Recap. With
  * open, the Recap opens as soon as the year is written. The log says "done" when it is.
@@ -109,6 +113,8 @@ object RecapSample {
                 val ear = intent.getBooleanExtra("ear", false)
                 // A year of the phone's own files, those already scanned, instead of songs found on YouTube (local listeners, 22 Nov 2026).
                 val local = intent.getBooleanExtra("local", false)
+                // A year from 5 January, with all four seasons (RecapMoments' seasons, 24 Nov 2026).
+                val long = intent.getBooleanExtra("long", false)
                 // Notes sealed for last year's Recap, split on "|", written a day apart up to a year ago today, so that this
                 // year's opens with them (NOTE_READ): nothing else is written.
                 intent.getStringExtra("note")?.let { all ->
@@ -144,7 +150,7 @@ object RecapSample {
                         return@launch
                     }
                     try {
-                        if (write(app, database, reveal, plain, local, ear) && open) RecapDoor.open(LocalDate.now().year)
+                        if (write(app, database, reveal, plain, local, ear, long) && open) RecapDoor.open(LocalDate.now().year)
                     } catch (e: Exception) {
                         Log.w(TAG, "failed: ${e.message}", e)
                     } finally {
@@ -163,7 +169,7 @@ object RecapSample {
     }
 
     /** Writes the year; false when it was refused. Each write waits for the one before (transactionNow). */
-    private suspend fun write(context: Context, database: MusicDatabase, reveal: Boolean, plain: Boolean = false, local: Boolean = false, ear: Boolean = false): Boolean {
+    private suspend fun write(context: Context, database: MusicDatabase, reveal: Boolean, plain: Boolean = false, local: Boolean = false, ear: Boolean = false, long: Boolean = false): Boolean {
         val existing = database.listenCount().first()
         if (existing > MOST_EXISTING_LISTENS) {
             Log.w(TAG, "refused: this database already holds $existing listens")
@@ -207,7 +213,7 @@ object RecapSample {
         }
 
         val zone = ZoneId.systemDefault()
-        val year = Year(LocalDate.now(zone), zone, named, extras, plain, ear)
+        val year = Year(LocalDate.now(zone), zone, named, extras, plain, ear, long)
         val listens = year.listens()
         database.transactionNow { listens.forEach { insert(it) } }
         val liked = year.liked()
@@ -220,20 +226,44 @@ object RecapSample {
             it[RecapRevealedEarlyKey] = true
             it.remove(RecapPopUpShownKey)
         }
-        Log.i(TAG, "done: ${named.size} named songs, ${extras.size} more, ${listens.size} listens, ${liked.size} liked, reveal=$reveal, plain=$plain, local=$local")
+        Log.i(TAG, "done: ${named.size} named songs, ${extras.size} more, ${listens.size} listens, ${liked.size} liked, reveal=$reveal, plain=$plain, local=$local, long=$long")
         return true
     }
 
     /** The year itself, drawn from a fixed seed. */
-    private class Year(val today: LocalDate, val zone: ZoneId, val named: List<SongItem>, val extras: List<SongItem>, val plain: Boolean = false, val ear: Boolean = false) {
+    private class Year(
+        val today: LocalDate, val zone: ZoneId, val named: List<SongItem>, val extras: List<SongItem>, val plain: Boolean = false, val ear: Boolean = false,
+        val long: Boolean = false,
+    ) {
         private val random = Random(2026)
         private val listens = ArrayList<Listen>()
-        private val start: LocalDate = today.minusDays(100).let { early ->
+        private val start: LocalDate = if (long && today.isAfter(LocalDate.of(today.year, 3, 1))) LocalDate.of(today.year, 1, 5) else today.minusDays(100).let { early ->
             val june = LocalDate.of(today.year, 6, 2)
             val from = if (june.isBefore(early)) june else early
             if (from.year < today.year) LocalDate.of(today.year, 1, 1) else from
         }
         private val end = today.minusDays(1)
+
+        /** The named songs that have a part in the year already: the number one, Auto's find and the two named by ear (below). */
+        private val used = mutableSetOf(0, 5, 6, 7)
+
+        /** Named song [want] for a part of its own, or the first one with none yet, where [want] has one or there are too few songs. */
+        private fun planted(want: Int): SongItem? {
+            val i = (listOf(want) + named.indices).firstOrNull { it in named.indices && it !in used } ?: return null
+            used += i
+            return named[i]
+        }
+
+        /** What the nights after midnight go to, and the mornings (RecapMoments.nightAndMorning). */
+        private val nightSong = planted(26)
+        private val morningSong = planted(9)
+        /** Seven days in which one song plays seven times a day, at ten past nine in the evening (RecapMoments.onRepeat). */
+        private val weekSong = planted(2)
+        private val weekFrom = end.minusDays(40)
+        /** Loved in the first weeks, dropped for a hundred days, found again (RecapMoments.cameBack): where the year is long enough. */
+        private val backSong = planted(15)
+        private val goneFrom = start.plusDays(20)
+        private val backOn = start.plusDays(120).takeIf { !it.isAfter(end.minusDays(20)) }
 
         /** The number one, found on its day and played on and on from then. */
         private val hit = named[0]
@@ -281,9 +311,18 @@ object RecapSample {
             return startAt + played + 2_000
         }
 
-        /** A song drawn by weight: the first named songs far more than the rest, the number one once found. */
-        private fun pick(day: LocalDate): SongItem {
-            val pool = named.indices.filter { i -> !(i == 0 && day.isBefore(hitFound)) && !(i == 5 && day.isBefore(stuckFound)) && i !in 6..7 }
+        /**
+         * A song drawn by weight: the first named songs far more than the rest, the number one once found. After midnight the
+         * night's song more than half the time, in the morning the morning's a fifth of the time; the song found again never
+         * while it is away.
+         */
+        private fun pick(day: LocalDate, minute: Int = 18 * 60): SongItem {
+            if (minute < RecapMoments.DAY_BEGINS_MIN && nightSong != null && random.nextDouble() < 0.55) return nightSong
+            if (minute in RecapMoments.DAY_BEGINS_MIN until RecapMoments.MORNING_ENDS_MIN && morningSong != null && random.nextDouble() < 0.2) return morningSong
+            val away = backOn != null && !day.isBefore(goneFrom) && day.isBefore(backOn)
+            val pool = named.indices.filter { i ->
+                !(i == 0 && day.isBefore(hitFound)) && !(i == 5 && day.isBefore(stuckFound)) && i !in 6..7 && !(away && named[i] == backSong)
+            }
             val weights = pool.map { i ->
                 when (i) {
                     0 -> 9.0
@@ -345,8 +384,24 @@ object RecapSample {
                         }
                         repeat(4 + random.nextInt(9)) {
                             val origin = listOf(PlayOrigin.SEARCH, PlayOrigin.PLAYLIST, PlayOrigin.ALBUM, PlayOrigin.RADIO, PlayOrigin.LIBRARY)[random.nextInt(5)]
-                            t = add(pick(day), t, session, origin, skip = random.nextDouble() < 0.15)
+                            t = add(pick(day, minute), t, session, origin, skip = random.nextDouble() < 0.15)
                         }
+                    }
+                }
+                // The week one song took over: seven plays of it each evening, on top of the rest.
+                if (weekSong != null && !day.isBefore(weekFrom) && day.isBefore(weekFrom.plusDays(7)) && !day.isAfter(end)) {
+                    val session = at(day, 21 * 60 + 10)
+                    var t = session
+                    repeat(7) { t = add(weekSong, t, session, PlayOrigin.LIBRARY) }
+                }
+                // The song found again: twice every third day in its first weeks, then from the day it comes back.
+                if (backSong != null && backOn != null) {
+                    val first = (day.toEpochDay() - start.plusDays(4).toEpochDay()).let { it in 0L..15L && it % 3 == 0L }
+                    val again = (day.toEpochDay() - backOn.toEpochDay()).let { it in 0L..9L && it % 3 == 0L }
+                    if (first || again) {
+                        val session = at(day, 20 * 60 + 30)
+                        var t = session
+                        repeat(2) { t = add(backSong, t, session, PlayOrigin.LIBRARY) }
                     }
                 }
                 day = day.plusDays(1)

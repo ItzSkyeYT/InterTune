@@ -2836,9 +2836,31 @@
     <string name="recap_minutes_days_half">Soit %1$s jours et demi de musique.</string>
     <string name="recap_minutes_top">%1$s de ces minutes sont allées à %2$s, plus qu\'à tout autre titre.</string>
     <string name="recap_flag">%1$s, %2$s</string>
+    <string name="recap_seasons_kick">Vos saisons</string>
+    <string name="recap_season_winter">Hiver</string>
+    <string name="recap_season_spring">Printemps</string>
+    <string name="recap_season_summer">Été</string>
+    <string name="recap_season_autumn">Automne</string>
+    <string name="recap_season_line">%1$s, %2$s à %3$s</string>
     <string name="recap_hour_kick">Votre heure d\'écoute</string>
     <string name="recap_hour_line">Plus de musique entre %1$s et %2$s qu\'à toute autre heure : %3$s minutes. Votre titre de cette heure-là : %4$s.</string>
     <string name="recap_late_nights">Et %1$s nuits sont allées au-delà de minuit. Le dernier titre a commencé à %2$s.</string>
+    <string name="recap_night_kick">Vos titres de 2 h du matin</string>
+    <string name="recap_morning_kick">Vos titres du matin</string>
+    <string name="recap_night_title">Après minuit, c\'était %1$s</string>
+    <string name="recap_morning_title">Au réveil, c\'était %1$s</string>
+    <string name="recap_part_hours">%1$s à %2$s</string>
+    <plurals name="recap_night_line">
+        <item quantity="one">Vous l\'avez écouté %1$s fois après minuit.</item>
+        <item quantity="many">Vous l\'avez écouté %1$s fois après minuit.</item>
+        <item quantity="other">Vous l\'avez écouté %1$s fois après minuit.</item>
+    </plurals>
+    <plurals name="recap_morning_line">
+        <item quantity="one">Vous l\'avez écouté %1$s fois au réveil.</item>
+        <item quantity="many">Vous l\'avez écouté %1$s fois au réveil.</item>
+        <item quantity="other">Vous l\'avez écouté %1$s fois au réveil.</item>
+    </plurals>
+    <string name="recap_morning_note">Et au réveil</string>
     <string name="recap_streak_kick">Votre plus longue série</string>
     <plurals name="recap_streak_unit" tools:ignore="ImpliedQuantity">
         <item quantity="one">jour d\'affilée</item>
@@ -2850,6 +2872,17 @@
         <item quantity="one">%1$s était là %2$s de ces jours.</item>
         <item quantity="many">%1$s était là %2$s de ces jours.</item>
         <item quantity="other">%1$s était là %2$s de ces jours.</item>
+    </plurals>
+    <string name="recap_week_kick">La semaine où vous ne pouviez plus vous arrêter</string>
+    <plurals name="recap_week_times" tools:ignore="ImpliedQuantity">
+        <item quantity="one">fois</item>
+        <item quantity="many">fois</item>
+        <item quantity="other">fois</item>
+    </plurals>
+    <plurals name="recap_week_line">
+        <item quantity="one">Du %1$s au %2$s, ça fait %3$s de vos %4$s lectures.</item>
+        <item quantity="many">Du %1$s au %2$s, ça fait %3$s de vos %4$s lectures.</item>
+        <item quantity="other">Du %1$s au %2$s, ça fait %3$s de vos %4$s lectures.</item>
     </plurals>
     <string name="recap_artists_kick">Vos artistes</string>
     <string name="recap_number_one">Numéro un</string>
@@ -2934,6 +2967,18 @@
         <item quantity="one">%1$s fois zappée</item>
         <item quantity="many">%1$s fois zappée</item>
         <item quantity="other">%1$s fois zappée</item>
+    </plurals>
+    <string name="recap_back_kick">Celle que vous avez retrouvée</string>
+    <string name="recap_back_stamp">De retour</string>
+    <plurals name="recap_back_days">
+        <item quantity="one">%1$s jour</item>
+        <item quantity="many">%1$s jours</item>
+        <item quantity="other">%1$s jours</item>
+    </plurals>
+    <plurals name="recap_back_line">
+        <item quantity="one">Plus rien pendant %1$s jour après le %2$s, puis vous l\'avez retrouvée le %3$s.</item>
+        <item quantity="many">Plus rien pendant %1$s jours après le %2$s, puis vous l\'avez retrouvée le %3$s.</item>
+        <item quantity="other">Plus rien pendant %1$s jours après le %2$s, puis vous l\'avez retrouvée le %3$s.</item>
     </plurals>
     <string name="recap_from_kick">D\'où venaient vos titres</string>
     <string name="recap_from_mostly">Surtout %1$s</string>
