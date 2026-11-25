@@ -56,7 +56,7 @@ class PlainPlayNotificationsTest {
 
     @Test
     fun `media3's notification takes its buttons from here`() {
-        assertTrue(source, "super.addNotificationActions(mediaSession, mediaButtons, builder, PlainPlayActions(service, actionFactory))" in source)
+        assertTrue(source, "super.addNotificationActions(mediaSession, mediaButtons, builder, PlainPlayActions(service, actionFactory, buttons))" in source)
         val service = File("src/main/java/com/dd3boh/outertune/playback/MusicService.kt").readText()
         assertFalse("media3's own provider is not set bare any more", "DefaultMediaNotificationProvider(\n" in service)
         assertTrue(Regex("""setMediaNotificationProvider\(\s*PlainPlayNotifications\(""").containsMatchIn(service))
