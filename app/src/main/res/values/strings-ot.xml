@@ -2476,6 +2476,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="why_stopped_sign_in_body">YouTube no longer accepts the sign-in InterTune keeps, so search, radios and mixes don\'t load. Sign in again to bring them back.</string>
     <string name="why_stopped_sign_in_again">Sign in again</string>
     <string name="why_stopped_unreachable_title">YouTube can\'t be reached</string>
+    <string name="why_stopped_unreachable_body_plain">The connection may just be weak. Downloaded and local songs still play.</string>
     <string name="why_stopped_unreachable_body">This connection isn\'t getting through to YouTube. If you use a VPN, make sure its split tunnelling includes InterTune, or try another network.</string>
     <!-- Under a radio's songs in the queue when YouTube gave the radio nothing and InterTune picked them itself (LocalRadio, Unreleased.RADIO_FALLBACK). -->
     <string name="radio_from_intertune_title">Picked by InterTune</string>

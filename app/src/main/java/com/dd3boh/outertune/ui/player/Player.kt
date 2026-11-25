@@ -2261,11 +2261,13 @@ fun BottomSheetPlayer(
                             // when the block has to shrink.
                             if (!compactPlayer) Spacer(Modifier.height(24.dp))
                         }
-                        if (queueLayout.outputRoom > 0.dp && outputPill) {
+                        if (queueLayout.outputRoom > 0.dp) {
                             // Where the music is coming out, in the half of the queue's strip its
                             // arrow gave up, drawn a little into the gap above so that it sits in
                             // the middle of the two. Nothing above it has moved for it. Switched
-                            // off, the half stays empty, so the arrow and the controls stay put.
+                            // off, the half stays, empty, so the arrow and the controls stay put:
+                            // without it everything above dropped by the half (48dp), and since the
+                            // pill was always there in 0.12, an update had moved everyone's controls.
                             Box(
                                 contentAlignment = Alignment.Center,
                                 modifier = Modifier
@@ -2273,7 +2275,7 @@ fun BottomSheetPlayer(
                                     .height(queueLayout.outputRoom)
                                     .padding(horizontal = hPadding)
                             ) {
-                                OutputButton(
+                                if (outputPill) OutputButton(
                                     tint = onBackgroundColor,
                                     modifier = Modifier.offset(y = (-6).dp),
                                     backdrop = if (liquidGlass) playerBackdrop else null,
