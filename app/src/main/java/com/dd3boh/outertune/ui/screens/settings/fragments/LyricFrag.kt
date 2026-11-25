@@ -103,7 +103,6 @@ fun ColumnScope.LyricFormatFrag() {
         SwitchPreference(
             modifier = Modifier.settingRow(R.string.lyrics_latin_title),
             title = { Text(stringResource(R.string.lyrics_latin_title)) },
-            description = stringResource(R.string.lyrics_latin_description),
             icon = { Icon(Icons.Rounded.Translate, null) },
             checked = lyricLatin,
             onCheckedChange = onLyricLatinChange
@@ -166,7 +165,6 @@ fun ColumnScope.LyricSourceFrag() {
         SwitchPreference(
             modifier = sourcesRow.settingRow(R.string.enable_lrclib),
             title = { Text(stringResource(R.string.enable_lrclib)) },
-            description = stringResource(R.string.enable_lrclib_description),
             icon = { Icon(Icons.Rounded.Lyrics, null) },
             checked = enableLrcLib,
             onCheckedChange = onEnableLrcLibChange
@@ -174,7 +172,6 @@ fun ColumnScope.LyricSourceFrag() {
         SwitchPreference(
             modifier = Modifier.settingRow(R.string.enable_kugou),
             title = { Text(stringResource(R.string.enable_kugou)) },
-            description = stringResource(R.string.enable_kugou_description),
             icon = { Icon(Icons.Rounded.Lyrics, null) },
             checked = enableKugou,
             onCheckedChange = onEnableKugouChange
@@ -212,7 +209,6 @@ fun ColumnScope.LyricAdvancedFrag() {
         SwitchPreference(
             modifier = Modifier.settingRow(R.string.lyrics_auto_scroll),
             title = { Text(stringResource(R.string.lyrics_auto_scroll)) },
-            description = stringResource(R.string.lyrics_auto_scroll_description),
             icon = { Icon(Icons.Rounded.SwapVert, null) },
             checked = lyricsAutoScroll,
             onCheckedChange = onLyricsAutoScrollChange

@@ -84,7 +84,6 @@ fun ColumnScope.ListenHistoryFrag() {
     SwitchPreference(
         modifier = Modifier.tourTarget(Tour.SETTING_PAUSE_HISTORY).settingRow(R.string.pause_listen_history),
         title = { Text(stringResource(R.string.pause_listen_history)) },
-        description = stringResource(R.string.pause_listen_history_description),
         icon = { Icon(Icons.Rounded.History, null) },
         checked = pauseListenHistory,
         onCheckedChange = onPauseListenHistoryChange
@@ -92,7 +91,6 @@ fun ColumnScope.ListenHistoryFrag() {
     SwitchPreference(
         modifier = Modifier.tourTarget(Tour.SETTING_PAUSE_REMOTE_HISTORY).settingRow(R.string.pause_remote_listen_history),
         title = { Text(stringResource(R.string.pause_remote_listen_history)) },
-        description = stringResource(R.string.pause_remote_listen_history_description),
         icon = { Icon(Icons.Rounded.History, null) },
         checked = pauseRemoteListenHistory,
         onCheckedChange = onPauseRemoteListenHistoryChange,
@@ -111,7 +109,6 @@ fun ColumnScope.ListenHistoryFrag() {
     PreferenceEntry(
         modifier = Modifier.tourTarget(SettingJumps.CLEAR_LISTEN_HISTORY).settingRow(R.string.clear_listen_history),
         title = { Text(stringResource(R.string.clear_listen_history)) },
-        description = stringResource(R.string.clear_listen_history_description),
         icon = { Icon(Icons.Rounded.ClearAll, null) },
         onClick = { showClearListenHistoryDialog = true }
     )
@@ -294,7 +291,6 @@ fun ColumnScope.ContentFiltersFrag() {
         SwitchPreference(
             modifier = Modifier.settingRow(R.string.hide_explicit),
             title = { Text(stringResource(R.string.hide_explicit)) },
-            description = stringResource(R.string.hide_explicit_description),
             icon = { Icon(Icons.Rounded.Explicit, null) },
             checked = hideExplicit,
             onCheckedChange = onHideExplicitChange,

@@ -33,7 +33,7 @@ class CastAtTopTest {
         val settings = File(folder, "ui/screens/settings/fragments/PlayerButtonsFrag.kt").readText()
         assertTrue("rememberPreference(OutputPillKey, defaultValue = false)" in settings)
         assertTrue("Modifier.settingRow(R.string.output_pill)" in settings)
-        assertTrue("R.string.output_pill, R.string.output_pill_description" in File(folder, "ui/screens/settings/SettingsIndex.kt").readText())
+        assertTrue("R.string.output_pill, words = listOf(R.string.cast)" in File(folder, "ui/screens/settings/SettingsIndex.kt").readText())
     }
 
     @Test

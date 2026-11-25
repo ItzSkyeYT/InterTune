@@ -156,7 +156,6 @@ fun ColumnScope.PlayerButtonsFrag() {
         PreferenceEntry(
             modifier = Modifier.settingRow(R.string.player_pins),
             title = { Text(stringResource(R.string.player_pins)) },
-            description = stringResource(R.string.player_pins_description),
             icon = { Icon(Icons.Rounded.PushPin, null) },
             onClick = null
         )
@@ -216,7 +215,6 @@ fun ColumnScope.PlayerButtonsFrag() {
     SwitchPreference(
         modifier = Modifier.settingRow(R.string.queue_button),
         title = { Text(stringResource(R.string.queue_button)) },
-        description = stringResource(R.string.queue_button_description),
         icon = { Icon(Icons.AutoMirrored.Rounded.QueueMusic, null) },
         checked = queueAsButton,
         onCheckedChange = onQueueAsButtonChange
@@ -242,7 +240,6 @@ fun ColumnScope.PlayerButtonsFrag() {
         SwitchPreference(
             modifier = Modifier.settingRow(R.string.output_pill),
             title = { Text(stringResource(R.string.output_pill)) },
-            description = stringResource(R.string.output_pill_description),
             icon = { Icon(Icons.Rounded.Speaker, null) },
             checked = outputPill,
             onCheckedChange = onOutputPillChange

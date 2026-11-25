@@ -76,7 +76,7 @@ class CrossfadeHeldBackTest {
         assertTrue(crossfade, crossfade.indexOf("if (!enabled) return") in 1 until crossfade.indexOf("ListPreference("))
         // Each row is found by the search of Settings, behind the same flag.
         val index = lines("ui/screens/settings/SettingsIndex.kt")
-        assertTrue("SettingEntry(Tour.ROUTE_PLAYER, R.string.crossfade, R.string.crossfade_description, there = Unreleased.CROSSFADE)," in index)
+        assertTrue("SettingEntry(Tour.ROUTE_PLAYER, R.string.crossfade, there = Unreleased.CROSSFADE)," in index)
         assertTrue("SettingEntry(Tour.ROUTE_PLAYER, R.string.crossfade_length, under = R.string.crossfade, there = Unreleased.CROSSFADE)," in index)
     }
 

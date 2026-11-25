@@ -122,7 +122,6 @@ fun RecommendationsDataSettings(
         PreferenceEntry(
             modifier = Modifier.settingRow(R.string.recommendations_rebuild_weights),
             title = { Text(stringResource(R.string.recommendations_rebuild_weights)) },
-            description = results[DataAction.REBUILD]?.let { resultText(it) } ?: stringResource(R.string.recommendations_rebuild_weights_description),
             onClick = { tap(DataAction.REBUILD) },
         )
         Spacer(Modifier.height(16.dp))
