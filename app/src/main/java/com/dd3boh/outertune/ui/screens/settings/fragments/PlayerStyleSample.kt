@@ -118,8 +118,9 @@ fun PlayerStyleSample(
     ) {
         val u = maxWidth / SAMPLE_WIDTH
         val connected = style == PlayerButtonsStyle.CONNECTED
-        // Connected sits higher, to leave room for its row under the controls.
-        val lift = if (connected || buttons.underControls.isNotEmpty()) 13f else 0f
+        // Connected sits higher, to leave room for its row under the controls. Classic does not move for its lone
+        // circle, which stands lower, in the half of the queue's strip, as in the player.
+        val lift = if (connected) 13f else 0f
 
         @Composable
         fun painterOf(button: SampleButton): Painter = when (button) {
@@ -192,9 +193,9 @@ fun PlayerStyleSample(
         // Connected's row under the controls, centred.
         if (!connected && buttons.underControls.isNotEmpty()) {
             // Classic's lone circle, which only stands here when the three-dots button is put at the bottom.
-            val d = 27f
+            val d = 24f
             buttons.underControls.forEach { button ->
-                Spot(u, (SAMPLE_WIDTH - d) / 2f, 168f, d, d) {
+                Spot(u, (SAMPLE_WIDTH - d) / 2f, 175f, d, d) {
                     Box(Modifier.matchParentSize().background(Lavender, CircleShape))
                     Icon(painterOf(button), null, tint = Navy, modifier = Modifier.align(Alignment.Center).size(u * 14f))
                 }

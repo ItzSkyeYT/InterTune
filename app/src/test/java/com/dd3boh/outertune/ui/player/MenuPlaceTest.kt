@@ -57,4 +57,19 @@ class MenuPlaceTest {
         val sample = src("ui/screens/settings/fragments/PlayerStyleSample.kt")
         assertTrue("menuPlace" in sample)
     }
+
+    @Test
+    fun `Classic at the bottom stands in the half under the controls, which lifts nothing`() {
+        // A row of its own under Classic's controls lifted the controls, the seek bar, the title and the cover by 60dp
+        // (seen on the emulator, 25 Nov 2026: pause at y 2542 at the top, 2362 at the bottom). His rule: a setting may
+        // move its own row, the play controls never move. The half of the queue's strip that the Output button has is
+        // there whether the pill is on or off, so the button goes in it, beside the pill when that is on.
+        val player = src("ui/player/Player.kt")
+        val half = player.substring(player.indexOf("if (queueLayout.outputRoom > 0.dp) {"))
+        val inHalf = half.substring(0, half.indexOf("} else {"))
+        assertTrue(inHalf, "buttonsStyle == PlayerButtonsStyle.CLASSIC && menuAtBottom" in inHalf)
+        assertTrue(inHalf, "menuCircle()" in inHalf)
+        // A row under the controls only where there is no half: a small window, the two-pane layouts, a phone on its side.
+        assertTrue("else if (menuAtBottom && queueLayout.outputRoom == 0.dp) {" in player)
+    }
 }
