@@ -39,6 +39,8 @@ import androidx.compose.ui.platform.LocalDensity
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.PlayerButtonsStyle
 import com.dd3boh.outertune.constants.Unreleased
+import com.dd3boh.outertune.ui.player.MenuPlace
+import com.dd3boh.outertune.ui.player.MenuPlaces
 import com.dd3boh.outertune.ui.player.PinPlace
 import com.dd3boh.outertune.ui.player.PlayerPin
 import com.dd3boh.outertune.ui.player.PlayerPins
@@ -71,18 +73,24 @@ sealed interface SampleButton {
  */
 data class SampleButtons(val byTitle: List<SampleButton>, val underControls: List<SampleButton>)
 
-fun sampleButtons(style: PlayerButtonsStyle, pins: Map<PinPlace, List<PlayerPin>>, queueButton: Boolean, casting: Boolean = Unreleased.CASTING): SampleButtons {
+fun sampleButtons(
+    style: PlayerButtonsStyle,
+    pins: Map<PinPlace, List<PlayerPin>>,
+    queueButton: Boolean,
+    casting: Boolean = Unreleased.CASTING,
+    menuPlace: MenuPlace = MenuPlaces.defaultFor(style),
+): SampleButtons {
     fun shown(list: List<PlayerPin>) = list.filter { it != PlayerPin.CAST || casting }.map { SampleButton.Pin(it) }
     val queue = if (queueButton) listOf(SampleButton.Queue) else emptyList()
     return when (style) {
         PlayerButtonsStyle.CLASSIC -> SampleButtons(
             byTitle = queue + shown(PlayerPins.fit(PinPlace.CLASSIC, pins[PinPlace.CLASSIC].orEmpty(), PlayerPins.classicMost(queueButton))) +
-                    SampleButton.Menu,
-            underControls = emptyList(),
+                    (if (menuPlace == MenuPlace.TOP) listOf(SampleButton.Menu) else emptyList()),
+            underControls = if (menuPlace == MenuPlace.BOTTOM) listOf(SampleButton.Menu) else emptyList(),
         )
         PlayerButtonsStyle.CONNECTED -> SampleButtons(
-            byTitle = shown(pins[PinPlace.CONNECTED_TITLE].orEmpty()),
-            underControls = queue + shown(pins[PinPlace.CONNECTED_ROW].orEmpty()) + SampleButton.Menu,
+            byTitle = shown(pins[PinPlace.CONNECTED_TITLE].orEmpty()) + (if (menuPlace == MenuPlace.TOP) listOf(SampleButton.Menu) else emptyList()),
+            underControls = queue + shown(pins[PinPlace.CONNECTED_ROW].orEmpty()) + (if (menuPlace == MenuPlace.BOTTOM) listOf(SampleButton.Menu) else emptyList()),
         )
     }
 }
@@ -98,10 +106,11 @@ fun PlayerStyleSample(
     style: PlayerButtonsStyle,
     pins: Map<PinPlace, List<PlayerPin>>,
     queueButton: Boolean,
+    menuPlace: MenuPlace = MenuPlaces.defaultFor(style),
     icon: @Composable (PlayerPin) -> Painter,
     modifier: Modifier = Modifier,
 ) {
-    val buttons = sampleButtons(style, pins, queueButton)
+    val buttons = sampleButtons(style, pins, queueButton, menuPlace = menuPlace)
     BoxWithConstraints(
         modifier = modifier
             .aspectRatio(SAMPLE_WIDTH / SAMPLE_HEIGHT)
@@ -110,7 +119,7 @@ fun PlayerStyleSample(
         val u = maxWidth / SAMPLE_WIDTH
         val connected = style == PlayerButtonsStyle.CONNECTED
         // Connected sits higher, to leave room for its row under the controls.
-        val lift = if (connected) 13f else 0f
+        val lift = if (connected || buttons.underControls.isNotEmpty()) 13f else 0f
 
         @Composable
         fun painterOf(button: SampleButton): Painter = when (button) {
@@ -181,7 +190,16 @@ fun PlayerStyleSample(
         Spot(u, 277f, 136f - lift, 14f, 14f) { Glyph(painterResource(R.drawable.repeat_on), Color.White.copy(alpha = 0.55f)) }
 
         // Connected's row under the controls, centred.
-        if (connected && buttons.underControls.isNotEmpty()) {
+        if (!connected && buttons.underControls.isNotEmpty()) {
+            // Classic's lone circle, which only stands here when the three-dots button is put at the bottom.
+            val d = 27f
+            buttons.underControls.forEach { button ->
+                Spot(u, (SAMPLE_WIDTH - d) / 2f, 168f, d, d) {
+                    Box(Modifier.matchParentSize().background(Lavender, CircleShape))
+                    Icon(painterOf(button), null, tint = Navy, modifier = Modifier.align(Alignment.Center).size(u * 14f))
+                }
+            }
+        } else if (connected && buttons.underControls.isNotEmpty()) {
             val w = 54f
             val h = 32f
             val gap = 1.5f

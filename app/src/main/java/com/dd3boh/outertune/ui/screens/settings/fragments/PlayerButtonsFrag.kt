@@ -52,6 +52,10 @@ import com.dd3boh.outertune.constants.PlayerButtonsStyle
 import com.dd3boh.outertune.constants.PlayerButtonsStyleKey
 import com.dd3boh.outertune.constants.QueueBackClosesPlayerKey
 import com.dd3boh.outertune.constants.PlayerPinsKey
+import com.dd3boh.outertune.constants.PlayerMenuPlaceKey
+import com.dd3boh.outertune.ui.player.MenuPlace
+import com.dd3boh.outertune.ui.player.MenuPlaces
+import androidx.compose.material.icons.rounded.MoreVert
 import com.dd3boh.outertune.ui.player.PinPlace
 import com.dd3boh.outertune.ui.player.PlayerPin
 import com.dd3boh.outertune.ui.player.PlayerPins
@@ -88,6 +92,11 @@ fun ColumnScope.PlayerButtonsFrag() {
     val (pinsRaw, onPinsRawChange) = rememberPreference(PlayerPinsKey, defaultValue = "")
     val pins = remember(pinsRaw) { PlayerPins.read(pinsRaw) }
 
+    // The three-dots button is at the top or at the bottom of the player, never off it (MenuPlaces): where the
+    // style has always had it until somebody moves it.
+    val (menuPlaceRaw, onMenuPlaceRawChange) = rememberPreference(PlayerMenuPlaceKey, defaultValue = "")
+    val menuPlace = MenuPlaces.read(menuPlaceRaw, buttonsStyle)
+
     PreferenceEntry(
         modifier = Modifier.settingRow(R.string.player_buttons_style),
         title = { Text(stringResource(R.string.player_buttons_style)) },
@@ -123,6 +132,7 @@ fun ColumnScope.PlayerButtonsFrag() {
                     style = style,
                     pins = pins,
                     queueButton = queueAsButton,
+                    menuPlace = MenuPlaces.read(menuPlaceRaw, style),
                     icon = { pinIcon(it) },
                     modifier = Modifier
                         .fillMaxWidth()
@@ -210,6 +220,28 @@ fun ColumnScope.PlayerButtonsFrag() {
                 enabled = PlayerPins.changed(pins, places),
                 onClick = { onPinsRawChange(PlayerPins.write(PlayerPins.reset(pins, places))) },
             ) { Text(stringResource(R.string.player_pins_reset)) }
+        }
+    }
+    PreferenceEntry(
+        modifier = Modifier.settingRow(R.string.player_menu_place),
+        title = { Text(stringResource(R.string.player_menu_place)) },
+        icon = { Icon(Icons.Rounded.MoreVert, null) },
+        onClick = null
+    )
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 16.dp, end = 16.dp, bottom = 8.dp)
+            .selectableGroup()
+    ) {
+        MenuPlace.entries.forEach { place ->
+            FilterChip(
+                selected = place == menuPlace,
+                // One of the two always stays on: tapping the one shown does nothing, the other moves it.
+                onClick = { if (place != menuPlace) onMenuPlaceRawChange(MenuPlaces.write(menuPlaceRaw, buttonsStyle, place)) },
+                label = { Text(stringResource(if (place == MenuPlace.TOP) R.string.player_menu_top else R.string.player_menu_bottom)) },
+            )
         }
     }
     SwitchPreference(

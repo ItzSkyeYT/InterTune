@@ -2402,6 +2402,9 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="player_pins_under_controls">Under the controls</string>
     <string name="player_pin_lyrics">Lyrics</string>
     <string name="player_pins_reset">Reset to default</string>
+    <string name="player_menu_place">Three-dots button</string>
+    <string name="player_menu_top">Top</string>
+    <string name="player_menu_bottom">Bottom</string>
     <!-- Saved twice (issue #47, Unreleased.SAVED_TWICE): held back from translators until his yes on the words, their French beside them in values-fr. The place in each is the list the screen was opened from. -->
     <string name="saved_twice">Saved twice</string>
     <!-- For a screen reader: the round button beside Play and Shuffle, and the number on it. -->

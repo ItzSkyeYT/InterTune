@@ -2212,6 +2212,9 @@
     <string name="player_pins_under_controls">Sous les commandes</string>
     <string name="player_pin_lyrics">Paroles</string>
     <string name="player_pins_reset">Réinitialiser</string>
+    <string name="player_menu_place">Bouton à trois points</string>
+    <string name="player_menu_top">Haut</string>
+    <string name="player_menu_bottom">Bas</string>
     <!-- Saved twice (issue #47, Unreleased.SAVED_TWICE). -->
     <string name="saved_twice">En double</string>
     <plurals name="saved_twice_button">

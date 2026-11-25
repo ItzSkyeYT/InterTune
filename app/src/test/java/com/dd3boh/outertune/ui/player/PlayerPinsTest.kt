@@ -109,7 +109,8 @@ class PlayerPinsTest {
         assertTrue(player.contains("pins[PinPlace.CONNECTED_ROW].orEmpty()"))
         // A listening room's button, while one is on, sits by the title in the normal player and in a small player's row,
         // first there with ROOM_AT_FREE_END and right before the menu without it (RoomButtonStaysTest); the menu stays last.
-        assertTrue("the menu is round on its own when nothing is pinned", player.contains("connectedShape(first = rowPins.isEmpty() && !roomInRow && !queueLayout.queueButton, last = true)"))
+        // The row's buttons are shaped by their place in the row, the menu's being the last unless it was put at the top (MenuPlaceTest).
+        assertTrue("the menu is round on its own when nothing is pinned", player.contains("connectedShape(first = index == 0, last = index == rowTotal - 1)"))
         assertFalse("no button by the title is drawn outside the pins but a room's", player.contains("shape = connectedShape(first = !canShare, last = true)"))
     }
 }
