@@ -14,6 +14,8 @@ import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.NetworkRequest
+import android.os.Build
+import com.zionhuang.innertube.NetworkPatience
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.receiveAsFlow
 
@@ -74,6 +76,12 @@ class NetworkConnectivityObserver(
     private var inUse: Network? = null
 
     private val defaultCallback = object : ConnectivityManager.NetworkCallback() {
+        override fun onCapabilitiesChanged(network: Network, caps: NetworkCapabilities) {
+            // A Wi-Fi signal near the edge shows as a slow link or a weak level here, and requests
+            // to YouTube are then given more time and asked again (NetworkPatience).
+            NetworkPatience.weak = weakOf(caps)
+        }
+
         override fun onAvailable(network: Network) {
             val before = synchronized(this) { inUse.also { inUse = network } }
             // The first is the network already in use when this was registered: nothing changed.
@@ -104,6 +112,15 @@ class NetworkConnectivityObserver(
         runCatching { connectivityManager.registerNetworkCallback(request, networkCallback) }
             .onFailure { Log.w("NetworkObserver", "This phone refused the network callback; the network is taken as it is now", it) }
         runCatching { connectivityManager.registerDefaultNetworkCallback(defaultCallback) }
+    }
+
+    private fun weakOf(caps: NetworkCapabilities): Boolean {
+        val signal = if (Build.VERSION.SDK_INT >= 29) caps.signalStrength.takeIf { it != NetworkCapabilities.SIGNAL_STRENGTH_UNSPECIFIED } else null
+        return NetworkPatience.isWeak(
+            downstreamKbps = caps.linkDownstreamBandwidthKbps.takeIf { it > 0 },
+            signalDbm = signal,
+            metered = !caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED),
+        )
     }
 
     private fun onlineNow(): Boolean = runCatching {

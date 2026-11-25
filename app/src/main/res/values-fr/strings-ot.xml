@@ -2283,6 +2283,7 @@
     <string name="why_stopped_sign_in_body">YouTube n\'accepte plus la connexion que garde InterTune, donc la recherche, les radios et les mix ne se chargent pas. Reconnectez-vous pour les retrouver.</string>
     <string name="why_stopped_sign_in_again">Se reconnecter</string>
     <string name="why_stopped_unreachable_title">Impossible de joindre YouTube</string>
+    <string name="why_stopped_unreachable_body_plain">La connexion est peut-être juste faible. Les titres téléchargés et locaux se lisent toujours.</string>
     <string name="why_stopped_unreachable_body">Cette connexion n\'arrive pas jusqu\'à YouTube. Si vous utilisez un VPN, vérifiez que son split tunneling inclut InterTune, ou essayez un autre réseau.</string>
     <string name="radio_from_intertune_title">Choisis par InterTune</string>
     <string name="radio_from_intertune_body">YouTube n\'a pas envoyé de radio</string>

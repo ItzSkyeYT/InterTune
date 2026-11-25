@@ -136,9 +136,20 @@ class InnerTube {
         // against two loads at once, pulling again did nothing until the app was restarted.
         // Generous rather than snappy, because a slow connection is not a broken one.
         install(HttpTimeout) {
-            connectTimeoutMillis = 15_000
-            socketTimeoutMillis = 20_000
-            requestTimeoutMillis = 30_000
+            connectTimeoutMillis = NetworkPatience.connectTimeoutMs(false)
+            socketTimeoutMillis = NetworkPatience.socketTimeoutMs(false)
+            requestTimeoutMillis = NetworkPatience.requestTimeoutMs(false)
+        }
+
+        // A weak connection is not a dead one: a request that never got through is asked again,
+        // twice, with a growing pause (NetworkPatience), before anything calls YouTube unreachable.
+        // The longer waits of a weak network are set on each request, in ytClient.
+        install(HttpRequestRetry) {
+            maxRetries = NetworkPatience.MAX_RETRIES
+            retryOnExceptionIf { request, cause ->
+                NetworkPatience.shouldRetry(cause, request.url.encodedPath, retryCount)
+            }
+            delayMillis { retry -> NetworkPatience.backoffMs(retry) }
         }
 
         // A connection left idle is not used again after a few seconds. One the network dropped
@@ -172,6 +183,13 @@ class InnerTube {
     }
 
     private fun HttpRequestBuilder.ytClient(client: YouTubeClient, setLogin: Boolean = false) {
+        if (NetworkPatience.weak) {
+            timeout {
+                connectTimeoutMillis = NetworkPatience.connectTimeoutMs()
+                socketTimeoutMillis = NetworkPatience.socketTimeoutMs()
+                requestTimeoutMillis = NetworkPatience.requestTimeoutMs()
+            }
+        }
         contentType(ContentType.Application.Json)
         headers {
             append("X-Goog-Api-Format-Version", "1")
