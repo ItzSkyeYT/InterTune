@@ -22,9 +22,10 @@ class RecapThanksLanguagesTest {
 
     @Test
     fun `every language of the app has the last page, whole, and thanks the donors in English and French`() {
-        val languages = res.listFiles()!!.filter { it.name.startsWith("values-") && File(it, "strings-ot.xml").exists() }
+        // Every language the app has strings for, those with only the older strings.xml included (25 Nov 2026: 19 more).
+        val languages = res.listFiles()!!.filter { it.name.startsWith("values-") && (File(it, "strings-ot.xml").exists() || File(it, "strings.xml").exists()) }
             .map { it.name.removePrefix("values-") }.filter { it != "en-rCA" && it != "fr" }
-        assertTrue(languages.size >= 28)
+        assertTrue(languages.size >= 47)
         for (lang in languages) {
             val file = File(res, "values-$lang/strings-recap-thanks.xml")
             assertTrue("$lang has no last page", file.exists())
@@ -35,7 +36,10 @@ class RecapThanksLanguagesTest {
             assertTrue(lang, "InterTune" in words && words.length > 90)
             assertFalse("$lang: a long dash", "—" in words || "–" in words)
             // Kept out of the files Weblate writes, so a sync never drops it.
-            assertFalse(lang, "recap_thanks_" in File(res, "values-$lang/strings-ot.xml").readText())
+            for (weblate in listOf("strings-ot.xml", "strings.xml")) {
+                val other = File(res, "values-$lang/$weblate")
+                if (other.exists()) assertFalse("$lang/$weblate", "recap_thanks_" in other.readText())
+            }
         }
         val english = File(res, "values/strings-ot.xml").readText()
         assertTrue("a big thank you to everyone who donated" in english)
