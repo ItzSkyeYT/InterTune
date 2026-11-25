@@ -56,6 +56,32 @@ class WhyStoppedTest {
 
     private val cookie = "SID=made-up; HSID=made-up; SAPISID=madeUp/madeUp; __Secure-3PAPISID=madeUp/madeUp"
 
+    /** [failure] on [YouTubeTrouble.UNREACHED_TRIES] separate tries, a minute apart. */
+    private fun unreached(failure: Throwable) {
+        repeat(YouTubeTrouble.UNREACHED_TRIES) { YouTubeTrouble.failed(failure, now = 1_000_000L + it * 60_000L) }
+    }
+
+    @Test
+    fun `one slow answer on a weak connection is not yet YouTube being unreachable`() {
+        YouTubeTrouble.failed(SocketTimeoutException("timeout"), now = 1_000_000L)
+        assertNull(YouTubeTrouble.kind.value)
+        YouTubeTrouble.failed(SocketTimeoutException("timeout"), now = 1_060_000L)
+        assertNull(YouTubeTrouble.kind.value)
+        YouTubeTrouble.failed(SocketTimeoutException("timeout"), now = 1_120_000L)
+        assertEquals(Kind.NO_ANSWER, YouTubeTrouble.kind.value)
+    }
+
+    @Test
+    fun `a refresh's burst of failures is one try, and an answer in between starts the count again`() {
+        // Nineteen requests of one refresh, within a second.
+        repeat(19) { YouTubeTrouble.failed(SocketTimeoutException("timeout"), now = 1_000_000L + it * 50L) }
+        assertNull(YouTubeTrouble.kind.value)
+        YouTubeTrouble.failed(SocketTimeoutException("timeout"), now = 1_060_000L)
+        YouTubeTrouble.answered(asAccount = false)
+        YouTubeTrouble.failed(SocketTimeoutException("timeout"), now = 1_120_000L)
+        assertNull(YouTubeTrouble.kind.value)
+    }
+
     @Before
     fun clean() = YouTubeTrouble.reset()
 
@@ -156,19 +182,19 @@ class WhyStoppedTest {
 
     @Test
     fun `a connection that did not reach YouTube is forgotten on any answer or another network`() {
-        YouTubeTrouble.failed(ConnectTimeoutException("Connect timeout has expired"))
+        unreached(ConnectTimeoutException("Connect timeout has expired"))
         assertEquals(Kind.NO_ANSWER, YouTubeTrouble.kind.value)
         YouTubeTrouble.signInChanged()
         assertEquals(Kind.NO_ANSWER, YouTubeTrouble.kind.value)
         YouTubeTrouble.answered(asAccount = false)
         assertNull(YouTubeTrouble.kind.value)
 
-        YouTubeTrouble.failed(UnknownHostException("music.youtube.com"))
+        unreached(UnknownHostException("music.youtube.com"))
         YouTubeTrouble.networkChanged()
         assertNull(YouTubeTrouble.kind.value)
 
         // An answer YouTube gave, even a refusal of another kind, is an answer.
-        YouTubeTrouble.failed(SocketException("Connection reset"))
+        unreached(SocketException("Connection reset"))
         YouTubeTrouble.failed(answered(HttpStatusCode.InternalServerError))
         assertNull(YouTubeTrouble.kind.value)
     }

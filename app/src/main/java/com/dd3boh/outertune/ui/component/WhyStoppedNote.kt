@@ -39,16 +39,20 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.dd3boh.outertune.LocalDownloadUtil
 import com.dd3boh.outertune.LocalNetworkConnected
+import com.dd3boh.outertune.LocalPlayerConnection
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.InnerTubeCookieKey
 import com.dd3boh.outertune.utils.WhyStopped
 import com.dd3boh.outertune.utils.WhyStopped.Cause
 import com.dd3boh.outertune.utils.YouTubeRegion
 import com.dd3boh.outertune.utils.YouTubeTrouble
+import com.dd3boh.outertune.utils.VpnState
 import com.dd3boh.outertune.utils.rememberPreference
 
 /**
@@ -84,7 +88,11 @@ fun WhyStoppedNote(
         Cause.UNREACHABLE -> NoteCard(
             icon = Icons.Rounded.CloudOff,
             title = stringResource(R.string.why_stopped_unreachable_title),
-            body = stringResource(R.string.why_stopped_unreachable_body),
+            // A VPN is named only when one is on.
+            body = stringResource(
+                if (VpnState.active(LocalContext.current)) R.string.why_stopped_unreachable_body
+                else R.string.why_stopped_unreachable_body_plain
+            ),
             modifier = modifier,
             margin = margin,
         ) {
@@ -198,9 +206,56 @@ fun WhyStoppedNoteIfAny(
 ) {
     val kind by YouTubeTrouble.kind.collectAsState()
     val cause = WhyStopped.cause(kind, signedIn = rememberSignedIn(), online = LocalNetworkConnected.current, regionClosed = false)
-    if (cause == Cause.SIGN_IN || cause == Cause.UNREACHABLE) {
+    when (cause) {
         // Home loads again by itself when the sign-in changes, so Retry is only for the connection.
-        WhyStoppedNote(cause, onSignIn, onRetry = onRetry.takeIf { cause == Cause.UNREACHABLE }, modifier = modifier)
+        Cause.SIGN_IN -> WhyStoppedNote(cause, onSignIn, onRetry = null, modifier = modifier)
+        // Home does not need YouTube to be there: a line, not a card, and not at all while what
+        // plays is on the phone (a local file or a download). The fuller note is on the pages
+        // that are empty without YouTube.
+        Cause.UNREACHABLE -> if (!rememberPlayingOnPhone()) UnreachableLine(onRetry, modifier)
+        else -> Unit
+    }
+}
+
+/** Whether the song playing is a local file or a download, so nothing about it needs the network. */
+@Composable
+private fun rememberPlayingOnPhone(): Boolean {
+    val connection = LocalPlayerConnection.current ?: return false
+    val metadata by connection.mediaMetadata.collectAsState()
+    val isPlaying by connection.isPlaying.collectAsState(false)
+    val downloads by LocalDownloadUtil.current.downloads.collectAsState()
+    val song = metadata ?: return false
+    return isPlaying && (song.isLocal || song.id in downloads)
+}
+
+/** YouTube was not reached: one quiet line with Retry, as wide as the page's notes. */
+@Composable
+private fun UnreachableLine(onRetry: () -> Unit, modifier: Modifier = Modifier) {
+    val onCard = MaterialTheme.colorScheme.onTertiaryContainer
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = NoteMargin, vertical = 6.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .background(MaterialTheme.colorScheme.tertiaryContainer)
+            .padding(start = 14.dp, end = 4.dp),
+    ) {
+        Icon(
+            imageVector = Icons.Rounded.CloudOff,
+            contentDescription = null,
+            tint = onCard,
+            modifier = Modifier.size(18.dp),
+        )
+        Text(
+            text = stringResource(R.string.why_stopped_unreachable_title),
+            style = MaterialTheme.typography.bodyMedium,
+            color = onCard,
+            modifier = Modifier
+                .weight(1f)
+                .padding(horizontal = 10.dp, vertical = 8.dp),
+        )
+        NoteButton(stringResource(R.string.retry), onRetry)
     }
 }
 

@@ -121,16 +121,31 @@ object WhyStopped {
  * network.
  */
 object YouTubeTrouble {
+    /**
+     * How many separate tries must fail to reach YouTube, one after another, before the app says
+     * so: a weak connection often misses one and answers the next (25 Nov 2026). Failures that
+     * come within [TRY_GAP_MS] of each other are one try: a refresh asks nineteen things at once.
+     */
+    const val UNREACHED_TRIES = 3
+    const val TRY_GAP_MS = 10_000L
+
+    private var unreachedTries = 0
+    private var lastUnreached = 0L
+
     private val _kind = MutableStateFlow<WhyStopped.Kind?>(null)
 
     /** [WhyStopped.Kind.SIGN_IN_REFUSED], [WhyStopped.Kind.NO_ANSWER] or null. */
     val kind: StateFlow<WhyStopped.Kind?> = _kind.asStateFlow()
 
     /** A request to YouTube failed with [failure]. One with no clear cause changes nothing. */
-    fun failed(failure: Throwable) {
+    fun failed(failure: Throwable, now: Long = System.currentTimeMillis()) {
         when (WhyStopped.kindOf(failure)) {
             WhyStopped.Kind.SIGN_IN_REFUSED -> _kind.value = WhyStopped.Kind.SIGN_IN_REFUSED
-            WhyStopped.Kind.NO_ANSWER -> _kind.value = WhyStopped.Kind.NO_ANSWER
+            WhyStopped.Kind.NO_ANSWER -> synchronized(this) {
+                if (unreachedTries == 0 || now - lastUnreached >= TRY_GAP_MS) unreachedTries++
+                lastUnreached = now
+                if (unreachedTries >= UNREACHED_TRIES) _kind.value = WhyStopped.Kind.NO_ANSWER
+            }
             // YouTube said something, so it can be reached, whatever else is wrong.
             WhyStopped.Kind.OTHER -> if (WhyStopped.hadAnswer(failure)) reached()
         }
@@ -148,10 +163,14 @@ object YouTubeTrouble {
     /** Another network: what this one could not reach may well be reachable from there. */
     fun networkChanged() = reached()
 
-    private fun reached() = _kind.update { if (it == WhyStopped.Kind.NO_ANSWER) null else it }
+    private fun reached() {
+        synchronized(this) { unreachedTries = 0 }
+        _kind.update { if (it == WhyStopped.Kind.NO_ANSWER) null else it }
+    }
 
     /** For tests. */
     internal fun reset() {
+        synchronized(this) { unreachedTries = 0; lastUnreached = 0 }
         _kind.value = null
     }
 }
