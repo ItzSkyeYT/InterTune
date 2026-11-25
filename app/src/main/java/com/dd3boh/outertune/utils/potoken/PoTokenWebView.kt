@@ -130,8 +130,11 @@ class PoTokenWebView private constructor(
                 webView.context.assets.open("po_token.html").bufferedReader().use { it.readText() }
             }
 
+            // Where the WebView's own camera lookup would take the app down (an Echo Show 5, #263), the page has no
+            // cameras to look for. Everywhere else it is the page as it always was.
+            val page = if (withContext(Dispatchers.IO) { CameraLookup.breaks(webView.context) }) PoTokenPage.withoutCameras(html) else html
             // calls downloadAndRunBotguard() when the page has finished loading
-            val data = html.replaceFirst("</script>", "\n$JS_INTERFACE.downloadAndRunBotguard()</script>")
+            val data = page.replaceFirst("</script>", "\n$JS_INTERFACE.downloadAndRunBotguard()</script>")
             webView.loadDataWithBaseURL("https://www.youtube.com", data, "text/html", "utf-8", null)
         }
     }
