@@ -208,14 +208,16 @@ Every change in detail, and why this fork exists: [docs/FEATURES.md](https://git
 What's being worked on, roughly in order. `[x]` is done, `[~]` is built and being tested, `[ ]` is still to do. Nothing here has a date, and plans can change. Ideas are welcome in #feature-requests on [Discord](https://discord.gg/68jmqhMjXk) or as a [GitHub issue](https://github.com/ItzSkyeYT/InterTune/issues/new/choose).
 
 <details>
-<summary><b>Next: 0.13</b> · 41 of 51 done, 6 to test</summary>
+<summary><b>Next: 0.13</b> · 44 of 55 done, 7 to test</summary>
 
 `[x]` Listen together: one person plays, friends follow the same song in real time\
 `[x]` In a room, a guest who casts to a TV or speaker plays on their own, and catches up with the room when the cast ends\
 `[x]` Invites to a room keep its code out of the website's logs and out of chat apps' link previews\
 `[~]` In a room everyone sees who's picking the music, and the host can hand control to someone and take it back\
+`[x]` The host can leave a room without closing it: they hand it to someone and everyone keeps listening\
 `[~]` Propose a song to whoever's picking the music, they get a notification with Play it or Not now\
 `[x]` Room settings: the host chooses if everyone can move in the song or change the queue\
+`[~]` Songs other people add in a room don't change your own recommendations\
 `[~]` Songs from your own files play in a room as their YouTube Music version\
 `[x]` How rooms work: a short tutorial that also walks you through the room's sheet\
 `[x]` AirPlay speakers in the cast list\
@@ -246,7 +248,9 @@ What's being worked on, roughly in order. `[x]` is done, `[~]` is built and bein
 `[x]` A short note when the phone's battery saver pauses things like word-by-word lyrics\
 `[x]` A radio keeps going when YouTube Music refuses it: other ways to ask, then picks from your own listening\
 `[x]` Stats shows how many of the songs you liked InterTune found for you, and where\
-`[~]` Your year in InterTune, a recap\
+`[~]` News, polls and update checks still reach you when GitHub can't be reached\
+`[x]` Your year in InterTune, a recap\
+`[x]` Save your recap as a video to share, with its music\
 `[ ]` Premium accounts get the 256 kbps stream\
 `[x]` Choose what's in the three-dot menus\
 `[ ]` Lyrics videos\
@@ -272,6 +276,8 @@ What's being worked on, roughly in order. `[x]` is done, `[~]` is built and bein
 `[ ]` Learning on your phone that's fair to new songs, starting from what works for many listeners\
 `[ ]` The reason for each pick, on a long press\
 `[ ]` Testers first, then everyone once it beats today's picks\
+`[x]` Similar songs from ListenBrainz, in place of Last.fm\
+`[~]` ListenBrainz's playlists made for you on Home, and its picks in Discover\
 `[ ]` The player's background on one full-screen page, every style and its settings together
 
 </details>
@@ -279,20 +285,24 @@ What's being worked on, roughly in order. `[x]` is done, `[~]` is built and bein
 <details>
 <summary><b>After 0.13</b></summary>
 
-`[ ]` A switch to keep Liquid glass's layout, the player and its buttons where they are, drawn without the glass\
+`[x]` A switch to keep Liquid glass's layout, the player and its buttons where they are, drawn without the glass\
 `[ ]` The "Group the player buttons" setting goes, the buttons stay grouped as they are by default\
 `[ ]` Discord Rich Presence: what you play on your Discord profile, off until you turn it on (it signs in to Discord as you)\
 `[ ]` Connect your devices over your Wi-Fi: a phone, watch, TV or tablet as the remote or the speaker, paired once, off until you turn it on *(after 0.14)*\
 `[ ]` Paste or share a YouTube link to play it as a song and download it *(0.13.5)*\
-`[ ]` Speed dial on Home\
-`[ ]` Lyrics in big lines, each singer on their own side, with a menu to fix them or pick where they come from\
+`[x]` Speed dial on Home, or Keep listening as before: your pick in Look and feel\
+`[x]` Lyrics in big lines, each singer on their own side, with a menu to fix them or pick where they come from\
 `[ ]` The queue: radio choices as chips, and a lock\
 `[ ]` Roomier settings, and one page for the services InterTune connects to\
-`[ ]` Playlist folders\
+`[x]` Playlist folders\
+`[x]` Living blur in your own colours for a song, one to five, picked from its cover\
 `[ ]` Music videos ([#96](https://github.com/ItzSkyeYT/InterTune/issues/96))\
 `[ ]` Bring your library over from InnerTune, ViMusic, SimpMusic or Kreate\
 `[~]` A thumbs down that YouTube Music hears too, then a Dislike button in the notification ([#171](https://github.com/ItzSkyeYT/InterTune/issues/171))\
-`[ ]` Unison as a lyrics source ([#145](https://github.com/ItzSkyeYT/InterTune/issues/145))\
+`[x]` Unison as a lyrics source ([#145](https://github.com/ItzSkyeYT/InterTune/issues/145))\
+`[x]` NetEase Cloud Music as a lyrics source, for more word by word lyrics\
+`[x]` Lock a room so no one new can join, even with the code\
+`[~]` Emoji reactions in a room\
 `[ ]` Lyrics translated by AI with your own key, if you turn it on ([#177](https://github.com/ItzSkyeYT/InterTune/issues/177))\
 `[ ]` A page with every poll, to see or change what you answered\
 `[ ]` Music to a speaker of your choice while a call stays on the phone ([#117](https://github.com/ItzSkyeYT/InterTune/issues/117))\
@@ -357,6 +367,8 @@ Thank you so much, everyone, for your support in this growing project!
 <p align="center">People whose code is in InterTune. Thank you for building it with me!</p>
 
 <p align="center"><a href="https://github.com/3SSF"><img src="https://github.com/3SSF.png?size=128" width="64" height="64" alt="3SSF"></a><br><b><a href="https://github.com/3SSF">3SSF</a></b><br><sub>The first code from outside: a music note on local songs with no cover (<a href="https://github.com/ItzSkyeYT/InterTune/pull/161">#161</a>) · November 2026</sub></p>
+
+<p align="center"><b>Translators</b><br>InterTune speaks your language thanks to everyone translating it on <a href="https://hosted.weblate.org/engage/intertune/">Weblate</a>, and especially <b>Mickaël Binos</b> (French) and <b>Jacek Krewniak</b> (Polish). Thank you!</p>
 
 <p align="center"><b>Want to help?</b> <a href=".github/CONTRIBUTING.md">CONTRIBUTING.md</a> says how to build it, and the <a href="https://discord.gg/68jmqhMjXk">Discord server</a> is the place to ask for a first task.</p>
 
