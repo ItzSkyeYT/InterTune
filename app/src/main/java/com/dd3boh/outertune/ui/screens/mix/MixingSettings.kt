@@ -53,7 +53,6 @@ import com.dd3boh.outertune.utils.Toaster
 fun MixingEntry(navController: NavController) {
     PreferenceEntry(
         title = { Text(stringResource(R.string.mixing)) },
-        description = stringResource(R.string.mixing_description),
         icon = { Icon(painterResource(R.drawable.ic_mix), null) },
         onClick = { navController.navigate(MixRoutes.SETTINGS) },
     )

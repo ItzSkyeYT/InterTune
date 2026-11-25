@@ -228,7 +228,6 @@ fun ColumnScope.DownloadsFrag() {
     SwitchPreference(
         modifier = Modifier.settingRow(R.string.download_on_wifi_only_title),
         title = { Text(stringResource(R.string.download_on_wifi_only_title)) },
-        description = stringResource(R.string.download_on_wifi_only_description),
         icon = { Icon(Icons.Rounded.Wifi, null) },
         checked = BatteryUse.downloadsOnWifiOnly(downloadOnWifiOnly, batteryMode),
         isEnabled = !heldOn,
@@ -535,7 +534,6 @@ fun ColumnScope.DownloadsFrag() {
         PreferenceEntry(
             modifier = Modifier.settingRow(R.string.dl_rescan_title),
             title = { Text(stringResource(R.string.dl_rescan_title)) },
-            description = stringResource(if (look.plainWords) R.string.dl_simple_rescan_description else R.string.dl_rescan_description),
             icon = {
                 if (isLoading) {
                     CircularProgressIndicator(
@@ -558,7 +556,6 @@ fun ColumnScope.DownloadsFrag() {
             PreferenceEntry(
                 modifier = Modifier.settingRow(R.string.dl_migrate_title),
                 title = { Text(stringResource(R.string.dl_migrate_title)) },
-                description = stringResource(R.string.dl_migrate_description),
                 icon = {
                     if (isLoading) {
                         CircularProgressIndicator(

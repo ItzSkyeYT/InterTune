@@ -80,8 +80,10 @@ class RecapLookTest {
 
     @Test
     fun `two slides one after the other never share a paper`() {
-        val order = listOf(START_PAPER, paperOf(SlideKind.SINCE), paperOf(SlideKind.NOTE_READ), paperOf(SlideKind.MINUTES), paperOf(SlideKind.HOUR), paperOf(SlideKind.STREAK),
-            paperOf(SlideKind.ARTISTS), paperOf(SlideKind.ONLY_HERE), paperOf(SlideKind.SKIPPED)) +
+        // With the four of 24 Nov 2026 in their places; RecapMomentsPlanTest tries every year's set of slides.
+        val order = listOf(START_PAPER, paperOf(SlideKind.SINCE), paperOf(SlideKind.NOTE_READ), paperOf(SlideKind.MINUTES), paperOf(SlideKind.SEASONS),
+            paperOf(SlideKind.HOUR), paperOf(SlideKind.NIGHT), paperOf(SlideKind.STREAK), paperOf(SlideKind.WEEK),
+            paperOf(SlideKind.ARTISTS), paperOf(SlideKind.ONLY_HERE), paperOf(SlideKind.SKIPPED), paperOf(SlideKind.CAME_BACK)) +
             COUNTDOWN_COLOURS.indices.map { paperOf(SlideKind.COUNTDOWN, it) } +
             listOf(paperOf(SlideKind.NUMBER_ONE), paperOf(SlideKind.CARD), paperOf(SlideKind.NOTE_WRITE), paperOf(SlideKind.THANKS))
         order.zipWithNext().forEach { (a, b) -> assertNotEquals(a.paper, b.paper) }

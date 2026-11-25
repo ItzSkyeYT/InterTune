@@ -97,11 +97,11 @@ private fun ShareLinkChoice(link: ShareLink, onDismiss: () -> Unit, onPick: (Sha
         onDismiss = onDismiss,
         title = { Text(stringResource(R.string.share_link_choice_title)) },
     ) {
-        ShareLinkRow(Icons.Rounded.MusicNote, R.string.share_link_youtube_music, R.string.share_link_youtube_music_description) {
+        ShareLinkRow(Icons.Rounded.MusicNote, R.string.share_link_youtube_music) {
             onPick(ShareLinkKind.YOUTUBE_MUSIC)
         }
         if (link.page != null) {
-            ShareLinkRow(Icons.Rounded.Public, R.string.share_link_page, R.string.share_link_page_description) {
+            ShareLinkRow(Icons.Rounded.Public, R.string.share_link_page) {
                 onPick(ShareLinkKind.PAGE)
             }
         }
@@ -117,10 +117,9 @@ private fun ShareLinkChoice(link: ShareLink, onDismiss: () -> Unit, onPick: (Sha
 }
 
 @Composable
-private fun ShareLinkRow(icon: ImageVector, title: Int, description: Int, onClick: () -> Unit) {
+private fun ShareLinkRow(icon: ImageVector, title: Int, onClick: () -> Unit) {
     ListItem(
         headlineContent = { Text(stringResource(title)) },
-        supportingContent = { Text(stringResource(description)) },
         leadingContent = { Icon(icon, contentDescription = null) },
         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
         modifier = Modifier.clickable(onClick = onClick)

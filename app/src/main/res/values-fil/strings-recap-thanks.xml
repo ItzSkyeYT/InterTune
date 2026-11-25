@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The Recap's last page in this language, written for it once (24 Nov 2026), outside Weblate's files:
+     experiments/features/recap/thanks-1124 (source and review). The rest of the Recap is held from translators. -->
+<resources>
+    <string name="recap_thanks_title">Salamat</string>
+    <string name="recap_thanks_words">Salamat sa paggamit mo ng InterTune ngayong taon. Isa itong maliit na proyektong ginagawa ko sa libreng oras ko, at nag-enjoy ako sa bawat sandali (hanggang ngayon pa rin!). Salamat sa pag-report ng mga bug, pagbabahagi ng mga ideya, at pagsasalin, at malaking pasasalamat sa lahat ng nag-donate. Kayo ang dahilan kung bakit ito nagpapatuloy!</string>
+</resources>

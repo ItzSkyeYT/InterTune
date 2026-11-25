@@ -135,7 +135,7 @@ class DownloadsSimpleTest {
         assertTrue(advanced.contains("if (!look.oneRow) {"))
         assertTrue(advanced.contains("settingRow(R.string.dl_migrate_title)"))
         val migrate = advanced.substringAfter("settingRow(R.string.dl_migrate_title)").substringBefore("isEnabled = ")
-        assertTrue("today's page keeps today's row and question", migrate.contains("stringResource(R.string.dl_migrate_description)") && migrate.contains("showMigrationDialog = true"))
+        assertTrue("today's page keeps today's row and question", !migrate.contains("dl_migrate_description") && migrate.contains("showMigrationDialog = true"))
         assertFalse("with no word of the looks that are gone", migrate.contains("look."))
         val ask = frag.substringAfter("val askToMove: () -> Unit = {").substringBefore("\n    }\n")
         assertTrue(ask.contains("downloadUtil.downloadsInsideApp()"))

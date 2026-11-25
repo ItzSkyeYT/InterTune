@@ -441,7 +441,6 @@ fun ColumnScope.SwipeGesturesFrag() {
     SwitchPreference(
         modifier = Modifier.settingRow(R.string.swipe2Queue),
         title = { Text(stringResource(R.string.swipe2Queue)) },
-        description = stringResource(R.string.swipe2Queue_description),
         icon = { Icon(Icons.AutoMirrored.Rounded.PlaylistAdd, null) },
         checked = swipe2Queue,
         onCheckedChange = onSwipe2QueueChange

@@ -640,6 +640,18 @@ object Unreleased {
     val RECAP = BuildConfig.PREVIEW_FEATURES
 
     /**
+     * Four more of the Recap's slides, each from the phone's own play history (his "Yeah can we do all
+     * the recap things", 24 Nov 2026; recap/RecapMoments.kt, ui/screens/recap/RecapMomentSlides.kt):
+     * your seasons, a song each, after the minutes; your 2 AM songs and the morning's, after the hour;
+     * the week you couldn't stop, after the streak; the one you came back to, just before the countdown.
+     * Each is left out where the year has too little for it. Without it the story is the one it was. Its
+     * texts are held from translators with the Recap's. Seen on the emulator only, with the made-up year
+     * (RecapSample). His yes of 24 Nov 2026 for 0.13, for everyone: on wherever the Recap is (RECAP), and
+     * turned on for the release together with it.
+     */
+    val RECAP_MOMENTS = BuildConfig.PREVIEW_FEATURES
+
+    /**
      * Songs put in with Play next stay next when a song is picked out of a list: they play right
      * after the picked song, in the order they stood, then the list (PlayNextWaiting), as Spotify's
      * "Next in queue" does. Asked for in issue #42 (23 Oct 2026). Without it a pick leaves them in

@@ -484,7 +484,6 @@ fun RecommendationsDoingSettings(
                 modifier = Modifier.settingRow(R.string.engine_developer),
                 title = stringResource(R.string.engine_developer),
                 explanation = stringResource(R.string.engine_developer_info),
-                description = stringResource(R.string.engine_developer_description),
                 onClick = { navController.toSettings("settings/recommendations/developer") },
             )
         }

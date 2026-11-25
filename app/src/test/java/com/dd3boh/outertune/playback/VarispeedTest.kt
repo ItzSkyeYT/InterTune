@@ -80,7 +80,7 @@ class VarispeedTest {
         val row = frag.indexOf("settingRow(R.string.varispeed)")
         assertTrue("$silence $flag $row", silence in 0 until flag && flag < row)
         assertTrue("rememberPreference(key = VarispeedKey, defaultValue = false)" in frag)
-        assertTrue("description = stringResource(R.string.varispeed_description)" in frag)
+        assertFalse("no line under the row: it only said what the name does (24 Nov 2026)", "R.string.varispeed_description" in frag)
     }
 
     @Test
@@ -118,7 +118,7 @@ class VarispeedTest {
     fun `Settings search finds it by the words people use`() {
         val index = source("ui/screens/settings/SettingsIndex.kt")
         assertTrue(
-            "SettingEntry(Tour.ROUTE_PLAYER, R.string.varispeed, R.string.varispeed_description, words = listOf(R.string.search_words_varispeed), there = Unreleased.VARISPEED)," in index
+            "SettingEntry(Tour.ROUTE_PLAYER, R.string.varispeed, words = listOf(R.string.search_words_varispeed), there = Unreleased.VARISPEED)," in index
         )
     }
 

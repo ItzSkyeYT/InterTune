@@ -158,7 +158,6 @@ fun RecommendationsSettings(
                 modifier = Modifier.settingRow(R.string.discover_something_new),
                 title = stringResource(R.string.discover_something_new),
                 explanation = stringResource(R.string.discover_row_info),
-                description = stringResource(R.string.discover_row_description),
                 checked = discoverRow,
                 onCheckedChange = onDiscoverRowChange,
             )

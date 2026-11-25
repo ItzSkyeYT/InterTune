@@ -142,7 +142,6 @@ fun LibrarySettings(
                 SwitchPreference(
                     modifier = Modifier.settingRow(R.string.flat_subfolders_title),
                     title = { Text(stringResource(R.string.flat_subfolders_title)) },
-                    description = stringResource(R.string.flat_subfolders_description),
                     icon = { Icon(Icons.Rounded.FolderCopy, null) },
                     checked = flatSubfolders,
                     onCheckedChange = onFlatSubfoldersChange

@@ -261,6 +261,10 @@ class PlaylistCoverWiringTest {
     fun `every one of the words is read by the code`() {
         val used = all.filterKeys { it != "ui/dialog/PlaylistCoverSheet.kt" && it != "ui/screens/playlist/LocalPlaylistScreen.kt" }.values.joinToString("\n") +
             all.getValue("ui/dialog/PlaylistCoverSheet.kt") + screen
-        for ((name, _, _) in words) assertTrue("$name is not used", "R.string.$name" in used)
+        // Not shown any more, kept in the files for translators until a cleanup (24 Nov 2026: a line under a choice that
+        // only repeats it goes): "A photo" has no line under it.
+        val noLongerShown = setOf("playlist_cover_photo_note")
+        for ((name, _, _) in words) if (name !in noLongerShown) assertTrue("$name is not used", "R.string.$name" in used)
+        assertFalse("A photo has no line under it", "R.string.playlist_cover_photo_note" in used)
     }
 }

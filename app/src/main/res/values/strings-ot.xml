@@ -3044,9 +3044,31 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="recap_minutes_days_half" translatable="false">That\'s %1$s and a half days of music.</string>
     <string name="recap_minutes_top" translatable="false">%1$s of those minutes went to %2$s, more than to any other song.</string>
     <string name="recap_flag" translatable="false">%1$s, %2$s</string>
+    <!-- The Recap's seasons (SeasonsSlide): its kicker, the four names (for December to February first: winter in the north, summer in the south), and a season's line, its song's plays then its months. -->
+    <string name="recap_seasons_kick" translatable="false">Your seasons</string>
+    <string name="recap_season_winter" translatable="false">Winter</string>
+    <string name="recap_season_spring" translatable="false">Spring</string>
+    <string name="recap_season_summer" translatable="false">Summer</string>
+    <string name="recap_season_autumn" translatable="false">Autumn</string>
+    <string name="recap_season_line" translatable="false">%1$s, %2$s to %3$s</string>
     <string name="recap_hour_kick" translatable="false">Your listening hour</string>
     <string name="recap_hour_line" translatable="false">More music between %1$s and %2$s than in any other hour: %3$s minutes. Your song at that hour: %4$s.</string>
     <string name="recap_late_nights" translatable="false">And %1$s nights went past midnight. The latest song started at %2$s.</string>
+    <!-- The Recap's 2 AM songs (NightSlide): its kicker (the morning's where there is no night), the headline round the song, the hours on the tag, the line under it, and the morning's note. -->
+    <string name="recap_night_kick" translatable="false">Your 2 AM songs</string>
+    <string name="recap_morning_kick" translatable="false">Your morning songs</string>
+    <string name="recap_night_title" translatable="false">After midnight it was %1$s</string>
+    <string name="recap_morning_title" translatable="false">First thing in the morning, it was %1$s</string>
+    <string name="recap_part_hours" translatable="false">%1$s to %2$s</string>
+    <plurals name="recap_night_line" translatable="false">
+        <item quantity="one">You played it once after midnight.</item>
+        <item quantity="other">You played it %1$s times after midnight.</item>
+    </plurals>
+    <plurals name="recap_morning_line" translatable="false">
+        <item quantity="one">You played it once first thing in the morning.</item>
+        <item quantity="other">You played it %1$s times first thing in the morning.</item>
+    </plurals>
+    <string name="recap_morning_note" translatable="false">And first thing in the morning</string>
     <string name="recap_streak_kick" translatable="false">Your longest streak</string>
     <plurals name="recap_streak_unit" translatable="false">
         <item quantity="one">day in a row</item>
@@ -3056,6 +3078,16 @@ while also allowing users to translate our app as well. New, specific strings to
     <plurals name="recap_streak_song" translatable="false">
         <item quantity="one">%1$s was there on one of them.</item>
         <item quantity="other">%1$s was there on %2$s of them.</item>
+    </plurals>
+    <!-- The Recap's week you couldn't stop (WeekSlide): its kicker, the word beside its count, and its line (the week's dates, then its plays of the song and of everything). -->
+    <string name="recap_week_kick" translatable="false">The week you couldn\'t stop</string>
+    <plurals name="recap_week_times" translatable="false">
+        <item quantity="one">time</item>
+        <item quantity="other">times</item>
+    </plurals>
+    <plurals name="recap_week_line" translatable="false">
+        <item quantity="one">From %1$s to %2$s, that\'s %3$s of your %4$s play.</item>
+        <item quantity="other">From %1$s to %2$s, that\'s %3$s of your %4$s plays.</item>
     </plurals>
     <string name="recap_artists_kick" translatable="false">Your artists</string>
     <string name="recap_number_one" translatable="false">Number one</string>
@@ -3132,6 +3164,17 @@ while also allowing users to translate our app as well. New, specific strings to
         <item quantity="one">%1$s skip</item>
         <item quantity="other">%1$s skips</item>
     </plurals>
+    <!-- The Recap's song you came back to (CameBackSlide): its kicker, the stamp on its cover, the days on the gap in its line of the year, and the line under it. -->
+    <string name="recap_back_kick" translatable="false">The one you came back to</string>
+    <string name="recap_back_stamp" translatable="false">Back</string>
+    <plurals name="recap_back_days" translatable="false">
+        <item quantity="one">%1$s day</item>
+        <item quantity="other">%1$s days</item>
+    </plurals>
+    <plurals name="recap_back_line" translatable="false">
+        <item quantity="one">Nothing for a day after %2$s, then you found it again on %3$s.</item>
+        <item quantity="other">Nothing for %1$s days after %2$s, then you found it again on %3$s.</item>
+    </plurals>
     <!-- The Recap's slide of where the songs came from (WhereFromSlide), for someone with nothing for Only on InterTune: its kicker, the headline round the first source, the line about its song, a row's share, the giant share's mark, and since when. -->
     <string name="recap_from_kick" translatable="false">Where your songs came from</string>
     <string name="recap_from_mostly" translatable="false">Mostly from %1$s</string>
@@ -3182,7 +3225,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="recap_note_full" translatable="false">That\'s as many as a year keeps. Next year\'s Recap opens them for you.</string>
     <string name="recap_note_failed" translatable="false">Your note could not be sealed: the phone may be out of space. Free some up, then tap Seal it again.</string>
     <string name="recap_thanks_title" translatable="false">Thank you</string>
-    <string name="recap_thanks_words" translatable="false">Thank you for using InterTune this year. It\'s a small project I make in my free time, and I\'ve loved every bit of it (still do!). Thank you for reporting bugs, sharing ideas and translating. You\'re the reason it keeps going!</string>
+    <string name="recap_thanks_words" translatable="false">Thank you for using InterTune this year. It\'s a small project I make in my free time, and I\'ve loved every bit of it (still do!). Thank you for reporting bugs, sharing ideas and translating, and a big thank you to everyone who donated. You\'re the reason it keeps going!</string>
     <string name="recap_thanks_signature" translatable="false">Mel</string>
     <string name="recap_see_you_first" translatable="false">See you next December. %1$s, your first song here, plays you out.</string>
     <string name="recap_see_you_year" translatable="false">See you next December. %1$s, your first song this year, plays you out.</string>

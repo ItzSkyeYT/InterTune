@@ -35,6 +35,14 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.runtime.State
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -226,6 +234,31 @@ fun TopBarTitle(text: String, modifier: Modifier = Modifier, shrinks: Boolean = 
         )
     }
 }
+
+/**
+ * Whether a list page's name goes in the top bar: once its header, the first item of [state] (the cover and the name with
+ * Play and Shuffle under it), has left the screen. Not as soon as it passes under the bar: the bar floats over the list,
+ * Play and Shuffle were still there to be seen under it, and the name landed on them at once (his recording of a
+ * playlist, 24 Nov 2026). The list's padding under the bar counts as on the screen (LazyListLayoutInfo.viewportStartOffset).
+ */
+@Composable
+fun rememberHeaderGone(state: LazyListState): State<Boolean> = remember(state) {
+    derivedStateOf { (state.layoutInfo.visibleItemsInfo.firstOrNull()?.index ?: 0) > 0 }
+}
+
+/**
+ * A list page's name in the top bar while [shown] ([rememberHeaderGone]): it fades in and out, never pops in. With
+ * animations off (Animations, or Android's own setting) it comes and goes at once, as every animation does.
+ */
+@Composable
+fun TopBarTitleOnScroll(text: String, shown: Boolean) {
+    AnimatedVisibility(visible = shown && text.isNotEmpty(), enter = fadeIn(tween(TITLE_FADE_MS)), exit = fadeOut(tween(TITLE_FADE_MS))) {
+        TopBarTitle(text)
+    }
+}
+
+/** How long the name takes to fade in or out of the bar. */
+private const val TITLE_FADE_MS = 220
 
 /**
  * A search box in the title's place: the same pill, full width, with the title's 18sp text.

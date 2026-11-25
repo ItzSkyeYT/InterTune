@@ -42,6 +42,9 @@ internal object Spot {
     const val HERO = "hero"
     const val SKIP = "skip"
     const val FROM = "from"
+    const val WEEK = "week"
+    const val NIGHT = "night"
+    const val BACK = "back"
 }
 
 /** How a slide's sheet comes in over the last one. */
@@ -92,12 +95,20 @@ internal object Choreography {
         SlideKind.SINCE -> Sheet.Dive(Sheet.Grow(Paper.TRI, at = 207f to 380f))
         SlideKind.NOTE_READ -> Sheet.Grow(Paper.FLOWER, at = 207f to 420f)
         SlideKind.MINUTES -> Sheet.Grow(Paper.BURST, from = B)
+        // A strip a season.
+        SlideKind.SEASONS -> Sheet.Strips(4)
         SlideKind.HOUR -> Sheet.Grow(Paper.CIRCLE, from = A)
+        // The night comes up from below the hour's dome.
+        SlideKind.NIGHT -> Sheet.Grow(Paper.CIRCLE, at = 207f to 800f)
         SlideKind.STREAK -> Sheet.Strips(7)
+        // A strip a day, up and down, as the week's days stand on it.
+        SlideKind.WEEK -> Sheet.Strips(7, vertical = true)
         SlideKind.ARTISTS -> Sheet.Grow(Paper.BLOB, at = -40f to 780f)
         SlideKind.ONLY_HERE -> Sheet.Grow(Paper.STAR8, from = A)
         SlideKind.WHERE_FROM -> Sheet.Grow(Paper.BLOB2, from = A)
         SlideKind.SKIPPED -> Sheet.Strips(6, vertical = true)
+        // Coming back in from the side it went.
+        SlideKind.CAME_BACK -> Sheet.Grow(Paper.FLOWER, at = -20f to 420f)
         SlideKind.COUNTDOWN -> if (step == 0) Sheet.Grow(Paper.SEAL, at = 207f to 368f) else Sheet.Strips(5, vertical = step % 2 == 1)
         SlideKind.NUMBER_ONE -> Sheet.Grow(Paper.CIRCLE, at = 207f to 300f)
         SlideKind.CARD -> Sheet.Grow(Paper.BURST, at = 207f to 214f)
@@ -147,6 +158,52 @@ internal object Choreography {
                     R to hide,
                     Q to hide,
                     H to pose(x = 24f, y = 322f, s = 96f, c = listOf(Ink), o = 0.22f),
+                )
+            )
+        )
+        // The seasons' pieces at the corners and the edges, clear of the months and the rows: summer's sun low on the right,
+        // winter's flake at the foot, autumn's orange on the left.
+        SlideKind.SEASONS -> listOf(
+            Poses(
+                0f, mapOf(
+                    A to pose(Paper.CIRCLE, 426f, 664f, 150f, c = listOf(Lemon, Sun), k = listOf(1f, 0.66f)),
+                    B to pose(Paper.STAR6, 34f, 690f, 56f, c = listOf(Cream), spin = 60f),
+                    C to hide,
+                    D to hide,
+                    F to pose(Paper.PILL, -22f, 556f, 118f, -36f, listOf(Orange)),
+                    R to hide,
+                    Q to hide,
+                    H to hide,
+                )
+            )
+        )
+        // The night: a full moon and two stars at the top, a cloud at the side, the morning's sun by its note at the foot.
+        SlideKind.NIGHT -> listOf(
+            Poses(
+                0f, mapOf(
+                    A to pose(Paper.CIRCLE, 356f, 150f, 104f, c = listOf(Cream)),
+                    B to pose(Paper.STAR4, 272f, 96f, 30f, c = listOf(Lemon), spin = 50f),
+                    C to pose(Paper.STAR4, 398f, 318f, 22f, 20f, listOf(Cream)),
+                    D to pose(Paper.CIRCLE, 384f, 566f, 70f, c = listOf(Sun, Orange), k = listOf(1f, 0.62f)),
+                    F to pose(Paper.PILL, -10f, 430f, 110f, 8f, listOf(Sky)),
+                    R to hide,
+                    Q to hide,
+                    H to pose(x = 360f, y = 520f, s = 100f, c = listOf(Cream), o = 0.24f),
+                )
+            )
+        )
+        // The week: a burst behind its count, the rest round the edges, clear of the days and the line under them.
+        SlideKind.WEEK -> listOf(
+            Poses(
+                0f, mapOf(
+                    A to pose(Paper.BURST, at = Spot.WEEK, dx = -24f, dy = 16f, s = 176f, r = -6f, c = listOf(Lemon, Orange), k = listOf(1f, 0.55f), spin = 70f),
+                    B to pose(Paper.STAR6, 396f, 712f, 46f, c = listOf(Lemon), spin = 50f),
+                    C to hide,
+                    D to pose(Paper.CIRCLE, 392f, 98f, 28f, c = listOf(Plum)),
+                    F to pose(Paper.PILL, -14f, 700f, 104f, 50f, listOf(Plum)),
+                    R to hide,
+                    Q to hide,
+                    H to hide,
                 )
             )
         )
@@ -232,6 +289,21 @@ internal object Choreography {
                     R to pose(at = Spot.SKIP, s = 300f, w = 3f, c = listOf(Ink), o = 0.28f),
                     Q to hide,
                     H to pose(x = 384f, y = 650f, s = 96f, c = listOf(Ink), o = 0.16f),
+                )
+            )
+        )
+        // The one you came back to: a blob and a ring behind its cover, the app's play triangle turned back the way it came.
+        SlideKind.CAME_BACK -> listOf(
+            Poses(
+                0f, mapOf(
+                    A to pose(Paper.BLOB, at = Spot.BACK, dy = 6f, s = 250f, r = -10f, c = listOf(Lemon, Cream), k = listOf(1f, 0.5f)),
+                    B to pose(Paper.STAR8, 40f, 118f, 44f, c = listOf(Violet), spin = 50f),
+                    C to pose(Paper.TRI, 388f, 436f, 64f, 180f, listOf(Plum)),
+                    D to pose(Paper.CIRCLE, 382f, 110f, 28f, c = listOf(Lemon)),
+                    F to pose(Paper.PILL, -14f, 700f, 96f, -30f, listOf(Violet)),
+                    R to pose(at = Spot.BACK, s = 250f, w = 3f, c = listOf(Ink), o = 0.3f),
+                    Q to hide,
+                    H to hide,
                 )
             )
         )

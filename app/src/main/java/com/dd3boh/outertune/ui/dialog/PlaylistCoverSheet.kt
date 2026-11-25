@@ -191,7 +191,7 @@ fun PlaylistCoverSheet(
                     selected = photo != null,
                     onClick = onPhoto,
                     title = stringResource(R.string.playlist_cover_photo),
-                    note = stringResource(R.string.playlist_cover_photo_note),
+                    note = null,
                     tile = BigTile,
                     radius = 12.dp,
                     badge = 24.dp,

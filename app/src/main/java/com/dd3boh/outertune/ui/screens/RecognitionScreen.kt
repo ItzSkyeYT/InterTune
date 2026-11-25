@@ -514,7 +514,6 @@ fun RecognitionScreen(
             ) {
                 ModeCard(
                     title = stringResource(R.string.recognise_once),
-                    description = stringResource(R.string.recognise_once_desc),
                     icon = Icons.Rounded.GraphicEq,
                     selected = listening && !continuous,
                     onClick = { listen(false) },
@@ -522,7 +521,6 @@ fun RecognitionScreen(
                 )
                 ModeCard(
                     title = stringResource(R.string.recognise_keep_listening),
-                    description = stringResource(R.string.recognise_keep_listening_short),
                     icon = Icons.Rounded.AllInclusive,
                     selected = listening && continuous,
                     onClick = { listen(true) },
@@ -944,7 +942,6 @@ private fun ListenButton(
 @Composable
 private fun ModeCard(
     title: String,
-    description: String,
     icon: ImageVector,
     selected: Boolean,
     onClick: () -> Unit,
@@ -973,12 +970,6 @@ private fun ModeCard(
             )
             Spacer(Modifier.height(8.dp))
             Text(text = title, style = MaterialTheme.typography.titleSmall)
-            Spacer(Modifier.height(2.dp))
-            Text(
-                text = description,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
         }
     }
 }

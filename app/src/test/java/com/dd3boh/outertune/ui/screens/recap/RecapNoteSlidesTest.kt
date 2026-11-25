@@ -39,18 +39,7 @@ class RecapNoteSlidesTest {
         assertFalse(note.writing)
         assertEquals("", note.text)
         assertEquals(1, note.sealed)
-        // Another on a fresh paper: a field again, the story waiting for it as before, and both kept.
-        note.another = true
-        assertFalse(note.shut)
-        note.focused = true
-        assertTrue(note.writing)
-        note.text = "And call Niko."
-        note.focused = false
-        note.kept(2_000L)
-        assertEquals(2, note.sealed)
-        assertTrue(note.shut)
-        assertFalse(note.full)
-        note.sealed = RecapNote.MAX_NOTES
+        // One note a year (his word of 24 Nov 2026): once it is sealed there is no room for another.
         assertTrue(note.full)
         // The sealed ones are never shown again here, nor replaced: no way to write one over.
         val slide = code("ui/screens/recap/RecapNoteSlides.kt")

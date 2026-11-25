@@ -180,7 +180,6 @@ fun PlayerSettings(
                 SwitchPreference(
                     modifier = Modifier.settingRow(R.string.persistent_queue),
                     title = { Text(stringResource(R.string.persistent_queue)) },
-                    description = stringResource(R.string.persistent_queue_desc_ot),
                     icon = { Icon(Icons.AutoMirrored.Rounded.QueueMusic, null) },
                     checked = persistentQueue,
                     onCheckedChange = onPersistentQueueChange
@@ -190,7 +189,6 @@ fun PlayerSettings(
                 SwitchPreference(
                     modifier = Modifier.settingRow(R.string.resume_on_launch),
                     title = { Text(stringResource(R.string.resume_on_launch)) },
-                    description = stringResource(R.string.resume_on_launch_desc),
                     icon = { Icon(Icons.Rounded.PlayArrow, null) },
                     checked = resumeOnLaunch,
                     onCheckedChange = onResumeOnLaunchChange,

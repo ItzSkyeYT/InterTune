@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The Recap's last page in this language, written for it once (24 Nov 2026), outside Weblate's files:
+     experiments/features/recap/thanks-1124 (source and review). The rest of the Recap is held from translators. -->
+<resources>
+    <string name="recap_thanks_title">Tack</string>
+    <string name="recap_thanks_words">Tack för att du har använt InterTune i år. Det är ett litet projekt jag gör på fritiden, och jag har älskat varenda stund (och gör det fortfarande!). Tack för att ni rapporterat buggar, delat idéer och översatt, och ett stort tack till alla som har donerat. Det är tack vare er som det fortsätter!</string>
+</resources>

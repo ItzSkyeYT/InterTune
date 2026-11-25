@@ -173,7 +173,6 @@ fun ColumnScope.BackupAndRestoreFrag(viewModel: BackupRestoreViewModel) {
     // Bringing a Metrolist library over (MetrolistImport): the file is read and what it holds is shown before
     // anything is written. A file that Restore takes instead is handed to Restore, under its own question.
     val metrolist by viewModel.metrolist.collectAsState()
-    val backupTypes = arrayOf("application/octet-stream", "application/zip", "application/x-zip-compressed")
     val metrolistLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) viewModel.readMetrolist(uri)
     }
@@ -198,7 +197,7 @@ fun ColumnScope.BackupAndRestoreFrag(viewModel: BackupRestoreViewModel) {
                 action = stringResource(if (otherFile) R.string.metrolist_import_other_file else R.string.action_restore),
                 onAction = {
                     viewModel.closeMetrolist()
-                    if (otherFile) metrolistLauncher.launch(backupTypes) else toRestore = m.uri
+                    if (otherFile) metrolistLauncher.launch(BackupRestoreViewModel.PICK_BACKUP) else toRestore = m.uri
                 },
                 onDismiss = { viewModel.closeMetrolist() },
             )
@@ -347,7 +346,7 @@ fun ColumnScope.BackupAndRestoreFrag(viewModel: BackupRestoreViewModel) {
             },
             isEnabled = !restoring && !backingUp,
             onClick = {
-                restoreLauncher.launch(arrayOf("application/octet-stream"))
+                restoreLauncher.launch(BackupRestoreViewModel.PICK_BACKUP)
             }
         )
         if (Unreleased.METROLIST_IMPORT) {
@@ -361,7 +360,7 @@ fun ColumnScope.BackupAndRestoreFrag(viewModel: BackupRestoreViewModel) {
                     { CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp) }
                 },
                 isEnabled = !reading && !restoring && !backingUp,
-                onClick = { metrolistLauncher.launch(backupTypes) },
+                onClick = { metrolistLauncher.launch(BackupRestoreViewModel.PICK_BACKUP) },
             )
         }
     }
@@ -624,7 +623,6 @@ fun ColumnScope.BackupAndRestoreFrag(viewModel: BackupRestoreViewModel) {
         PreferenceEntry(
             modifier = Modifier.settingRow(R.string.export_playlists_m3u),
             title = { Text(stringResource(R.string.export_playlists_m3u)) },
-            description = stringResource(R.string.export_playlists_m3u_description),
             icon = { Icon(Icons.Rounded.Output, null) },
             onClick = { exportPlaylistsLauncher.launch(null) }
         )

@@ -403,7 +403,7 @@ fun ShortSetup(
                                             narrow = true,
                                             enabled = !restoring,
                                             busy = restoring,
-                                            onClick = { if (live) restoreLauncher.launch(arrayOf("application/octet-stream")) },
+                                            onClick = { if (live) restoreLauncher.launch(BackupRestoreViewModel.PICK_BACKUP) },
                                         )
                                         SetupButton(
                                             text = stringResource(R.string.setup_import_playlists),
@@ -420,7 +420,7 @@ fun ShortSetup(
                                         primary = false,
                                         enabled = !restoring,
                                         busy = restoring,
-                                        onClick = { if (live) restoreLauncher.launch(arrayOf("application/octet-stream")) },
+                                        onClick = { if (live) restoreLauncher.launch(BackupRestoreViewModel.PICK_BACKUP) },
                                     )
                                 }
                             },

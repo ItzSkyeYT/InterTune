@@ -66,6 +66,7 @@ import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.systemBarsIgnoringVisibility
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -275,6 +276,7 @@ import com.dd3boh.outertune.ui.screens.search.KEPT_SEARCH
 import com.dd3boh.outertune.ui.theme.ColorSaver
 import com.dd3boh.outertune.ui.theme.DefaultThemeColor
 import com.dd3boh.outertune.ui.theme.PlayerTheme
+import com.dd3boh.outertune.ui.theme.ThemeSeed
 import com.dd3boh.outertune.ui.theme.OuterTuneTheme
 import com.dd3boh.outertune.ui.theme.WindowTheme
 import com.dd3boh.outertune.ui.theme.extractThemeSource
@@ -505,6 +507,9 @@ private fun playFromWidget(
         }
     }
 }
+
+/** How long the theme keeps its colour while the song shown is awaited, before it is called empty (ThemeSeed). */
+private const val NO_SONG_GRACE_MS = 2500L
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -1036,8 +1041,12 @@ class MainActivity : ComponentActivity() {
                 val start = WindowTheme.start(darkTheme, alwaysDark = chosenBatteryMode == BatteryMode.SAVER)
                 withContext(Dispatchers.IO) { WindowTheme.startWith(this@MainActivity, start) }
             }
+            // The colour the theme was last made from, read at once: a new process (an update, the app
+            // swiped away) has no song in the player before Play, and its cover takes a moment to load,
+            // so the app opened in the default colour with a blue line on the mini player (24 Nov 2026).
+            val themeSeed = remember { ThemeSeed.of(this@MainActivity) }
             var themeColor by rememberSaveable(stateSaver = ColorSaver) {
-                mutableStateOf(DefaultThemeColor)
+                mutableStateOf((if (enableDynamicTheme) themeSeed.atStart() else null) ?: DefaultThemeColor)
             }
             // The pages' colours: the song's, held while the open player covers them. A new theme makes
             // everything under it again, the pages under the player too: one frame of about 0.7 s on the
@@ -1056,12 +1065,24 @@ class MainActivity : ComponentActivity() {
             val isNetworkConnected by connectivityObserver.networkStatus.collectAsState(true)
 
             LaunchedEffect(playerConnection, enableDynamicTheme, isSystemInDarkTheme) {
-                val playerConnection = playerConnection
-                if (!enableDynamicTheme || playerConnection == null) {
+                if (!enableDynamicTheme) {
                     themeColor = DefaultThemeColor
+                    withContext(Dispatchers.IO) { themeSeed.clear() }
                     return@LaunchedEffect
                 }
-                playerConnection.service.currentMediaMetadata.collectLatest { song ->
+                // No connection yet: the colour kept from last time stays until there is one.
+                val playerConnection = playerConnection ?: return@LaunchedEffect
+                // The song the mini player shows, which before Play is the stored queue's (it is filled in a
+                // moment after the connection), not the player's own, which is empty until then.
+                playerConnection.mediaMetadata.collectLatest { song ->
+                    if (song == null) {
+                        // The stored queue's song arrives a moment after the connection: the colour kept stays
+                        // while it is awaited, and goes only once nothing is shown.
+                        delay(NO_SONG_GRACE_MS)
+                        themeColor = DefaultThemeColor
+                        withContext(Dispatchers.IO) { themeSeed.clear() }
+                        return@collectLatest
+                    }
                     // Done inside collectLatest rather than launched from it. Launching made the
                     // lambda return the moment the job was handed off, so collectLatest had
                     // nothing left to cancel when the next song arrived: every skip added another
@@ -1069,6 +1090,8 @@ class MainActivity : ComponentActivity() {
                     // and the winner was whichever finished last, not whichever song was playing.
                     // Skipping quickly could therefore settle the theme on a song two back.
                     themeColor = withContext(coilCoroutine) {
+                        // The colour kept for this very song (a restart on it): no cover to load.
+                        themeSeed.forSong(song.id)?.let { return@withContext it }
                         var ret = DefaultThemeColor
                         // A 100px thumbnail, the same one Player.kt asks for when it extracts the
                         // gradient. Local files were already capped at 100px here, but a remote
@@ -1079,7 +1102,7 @@ class MainActivity : ComponentActivity() {
                         // roughly 112px square before it looks at it anyway, so the colour comes
                         // out near enough the same. It is also the url the player's gradient and
                         // blur backgrounds ask for, so they share one cached copy of it.
-                        val model = song?.getThumbnailModel(100, 100)
+                        val model = song.getThumbnailModel(100, 100)
                         if (model != null) {
                             val result = applicationContext.imageLoader.execute(
                                 ImageRequest.Builder(applicationContext)
@@ -1088,7 +1111,11 @@ class MainActivity : ComponentActivity() {
                                     .build()
                             )
 
-                            ret = result.image?.toBitmap()?.extractThemeSource() ?: DefaultThemeColor
+                            val extracted = result.image?.toBitmap()?.extractThemeSource()
+                            if (extracted != null) {
+                                ret = extracted
+                                themeSeed.write(song.id, extracted)
+                            }
                         }
                         ret
                     }
@@ -2720,11 +2747,21 @@ class MainActivity : ComponentActivity() {
                             // A setting named in an explanation, jumped to and flashed.
                             SettingJumpHost(navController)
 
+                            // Messages come at the bottom, over the mini player's place; with the full player open they come at
+                            // the top, under the status bar: at the bottom they sat on the player's own Play and Pause (his
+                            // screenshot of 24 Nov 2026, the queue's Undo over the controls for its ten seconds).
                             SnackbarHost(
                                 hostState = snackbarHostState,
-                                modifier = Modifier
-                                    .windowInsetsPadding(LocalPlayerAwareWindowInsets.current)
-                                    .align(Alignment.BottomCenter)
+                                modifier = if (playerBottomSheetState.isExpanded) {
+                                    Modifier
+                                        .windowInsetsPadding(WindowInsets.statusBars)
+                                        .padding(top = 8.dp)
+                                        .align(Alignment.TopCenter)
+                                } else {
+                                    Modifier
+                                        .windowInsetsPadding(LocalPlayerAwareWindowInsets.current)
+                                        .align(Alignment.BottomCenter)
+                                },
                             )
 
                             // A guest's song proposed to this phone while it is in control of a room: a card at the top

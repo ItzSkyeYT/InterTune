@@ -392,6 +392,16 @@ class BackupRestoreViewModel @Inject constructor(
     companion object {
         const val SETTINGS_FILENAME = BackupWriter.SETTINGS_FILENAME
 
+        /**
+         * What the file picker for a backup to restore (or a Metrolist backup to bring over) shows: every file. It used to ask
+         * for application/octet-stream alone, the type a backup is written with, but the phone decides a file's type from its
+         * name, and on some phones a .backup is not that: dvd's OnePlus 13R showed none of his backups, in the Tester app or
+         * the released one, right after he had uninstalled the app to come back from one (#testers, 24 Nov 2026). Anything
+         * picked is read in full before anything is touched (restoreValidatedDatabase, readMetrolist), so a file that is not
+         * a backup changes nothing and says so.
+         */
+        val PICK_BACKUP = arrayOf("*/*")
+
         private val backupRunning = MutableStateFlow(false)
         private val restoreRunning = MutableStateFlow(false)
     }

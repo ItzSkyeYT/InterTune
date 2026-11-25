@@ -128,8 +128,8 @@ internal class NoteDraft(text: MutableState<String>) {
     /** The paper shows what is sealed rather than a field to write in. */
     val shut: Boolean get() = sealed > 0 && !another
 
-    /** No room for another this year (RecapNote.MAX_NOTES). */
-    val full: Boolean get() = sealed >= RecapNote.MAX_NOTES
+    /** No room for another this year: a year takes one note (RecapNote.NOTES_A_YEAR). */
+    val full: Boolean get() = sealed >= RecapNote.NOTES_A_YEAR
 
     /** The story waits while a note is written: the field has the keyboard or holds words, or they are being sealed. */
     val writing: Boolean get() = sealing || (!shut && (focused || text.isNotEmpty()))

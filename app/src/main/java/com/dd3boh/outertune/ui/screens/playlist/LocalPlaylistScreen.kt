@@ -151,6 +151,8 @@ import com.dd3boh.outertune.ui.component.SortHeader
 import com.dd3boh.outertune.ui.component.TopBarActions
 import com.dd3boh.outertune.ui.component.TopBarSearchField
 import com.dd3boh.outertune.ui.component.TopBarTitle
+import com.dd3boh.outertune.ui.component.rememberHeaderGone
+import com.dd3boh.outertune.ui.component.TopBarTitleOnScroll
 import com.dd3boh.outertune.ui.component.button.IconButton
 import com.dd3boh.outertune.ui.component.items.PlaylistThumbnail
 import com.dd3boh.outertune.ui.component.items.SongListItem
@@ -578,11 +580,8 @@ fun LocalPlaylistScreen(
         }
     }
 
-    val showTopBarTitle by remember {
-        derivedStateOf {
-            lazyListState.firstVisibleItemIndex > 0
-        }
-    }
+    // Once the header has left the screen, not as soon as it is under the bar (rememberHeaderGone).
+    val showTopBarTitle by rememberHeaderGone(lazyListState)
     Box(
         modifier = Modifier.fillMaxSize()
     ) {
@@ -980,9 +979,9 @@ fun LocalPlaylistScreen(
                             }
                         }) else null,
                     )
-                } else if (showTopBarTitle && !twoPanes) {
+                } else if (!twoPanes) {
                     // Not beside the header, which says the name already and never scrolls away.
-                    TopBarTitle(playlistWithSongs.first?.playlist?.name.orEmpty())
+                    TopBarTitleOnScroll(playlistWithSongs.first?.playlist?.name.orEmpty(), showTopBarTitle)
                 }
             },
             navController = navController,
