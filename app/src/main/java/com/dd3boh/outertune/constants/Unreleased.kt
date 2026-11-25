@@ -646,10 +646,10 @@ object Unreleased {
      * the week you couldn't stop, after the streak; the one you came back to, just before the countdown.
      * Each is left out where the year has too little for it. Without it the story is the one it was. Its
      * texts are held from translators with the Recap's. Seen on the emulator only, with the made-up year
-     * (RecapSample). When it is agreed: set this to BuildConfig.PREVIEW_FEATURES, as RECAP is, or delete
-     * it with its one read, in planSlides (RecapPlan).
+     * (RecapSample). His yes of 24 Nov 2026 for 0.13, for everyone: on wherever the Recap is (RECAP), and
+     * turned on for the release together with it.
      */
-    val RECAP_MOMENTS = BuildConfig.DEBUG && BuildConfig.BUILD_TYPE == "debug"
+    val RECAP_MOMENTS = BuildConfig.PREVIEW_FEATURES
 
     /**
      * Songs put in with Play next stay next when a song is picked out of a list: they play right
