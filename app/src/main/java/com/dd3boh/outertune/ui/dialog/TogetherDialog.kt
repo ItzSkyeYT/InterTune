@@ -1471,7 +1471,8 @@ fun TogetherInviteDialog(code: RoomCode, playerConnection: PlayerConnection?, on
     val haptics = LocalHapticFeedback.current
     // A host who joins another room closes its own for everyone (MusicService.startTogether: closeNow): said before the
     // Join, with the way to keep it going, the room's Leave and its hand-on (the whole-app scan of 26 Nov 2026).
-    val hosting = playerConnection.service.together.value?.owner == true
+    val session by playerConnection.service.together.collectAsState()
+    val hosting = session?.owner == true
     suspend fun join() {
         playerConnection.service.startTogether(code, owner = false, relays = togetherRelays(context), name = togetherName(context))
         onDone()

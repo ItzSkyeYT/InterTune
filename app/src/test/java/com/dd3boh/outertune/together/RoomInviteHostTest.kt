@@ -21,7 +21,7 @@ class RoomInviteHostTest {
     fun `a host is told that joining closes its room, and how to keep it`() {
         val dialog = File("src/main/java/com/dd3boh/outertune/ui/dialog/TogetherDialog.kt").readText()
         val invite = dialog.substringAfter("fun TogetherInviteDialog(").substringBefore("\n}\n")
-        assertTrue(invite, "val hosting = playerConnection.service.together.value?.owner == true" in invite)
+        assertTrue(invite, "val session by playerConnection.service.together.collectAsState()\n    val hosting = session?.owner == true" in invite)
         assertTrue(invite, "if (hosting) Text(stringResource(R.string.together_join_closes_yours)" in invite)
         val en = File("src/main/res/values/strings-ot.xml").readText()
         val fr = File("src/main/res/values-fr/strings-ot.xml").readText()
