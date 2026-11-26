@@ -134,7 +134,8 @@ class Incoming(val event: NostrEvent, val live: Boolean)
 /**
  * Several Nostr relays at once, all carrying one subscription. Every event is sent to every
  * connected relay and each one arriving is handed on once, so a room keeps working while any one
- * relay does. A dropped connection comes back after a growing pause.
+ * relay does. A dropped connection comes back after a growing pause, from a second again once it
+ * had stayed up a while (RelayRetry).
  */
 class RelayPool(
     private val urls: List<String>,
@@ -201,7 +202,11 @@ class RelayPool(
     private fun connect(url: String, attempt: Int) {
         if (!running) return
         val socket = client.newWebSocket(Request.Builder().url(url).build(), object : WebSocketListener() {
+            /** When this connection opened, by [clock]; null while it has not: see [RelayRetry.attemptAfter]. */
+            @Volatile var openedAt: Long? = null
+
             override fun onOpen(webSocket: WebSocket, response: Response) {
+                openedAt = clock()
                 sockets[url] = webSocket
                 // Opened after the room stopped (still connecting as it did, so the stop never saw it): closed now. Kept,
                 // it went on receiving the room and showing the relay this phone, with nothing left to end it. Looked
@@ -237,10 +242,11 @@ class RelayPool(
                 }
             }
 
-            override fun onClosed(webSocket: WebSocket, code: Int, reason: String) = lost(url, webSocket, attempt)
+            override fun onClosed(webSocket: WebSocket, code: Int, reason: String) =
+                lost(url, webSocket, RelayRetry.attemptAfter(attempt, openedAt, clock()))
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
                 Log.i(TAG, "$url failed: ${t.message}")
-                lost(url, webSocket, attempt)
+                lost(url, webSocket, RelayRetry.attemptAfter(attempt, openedAt, clock()))
             }
         })
         if (!running) socket.cancel()
@@ -260,7 +266,7 @@ class RelayPool(
         _connected.value = sockets.size
         if (!running) return
         retries.put(url, scope.launch {
-            delay(minOf(30_000L, 1_000L shl minOf(attempt, 5)))
+            delay(RelayRetry.waitMs(attempt))
             connect(url, attempt + 1)
         })?.cancel()
     }
@@ -273,4 +279,22 @@ class RelayPool(
         /** A relay that has not said EOSE this long after it was asked is taken to have sent all it kept. */
         const val CAUGHT_UP_MS = 5_000L
     }
+}
+
+/**
+ * How long a dropped relay waits before it is asked again. Each try that fails waits twice as long as the one before, a
+ * second at first and half a minute at most. A connection that had stayed up a while starts again from a second: the
+ * count only ever grew, so after one long outage in a room (a tunnel, Wi-Fi to mobile data) every later drop left it deaf
+ * for up to half a minute, longer than a guest waits for the one in control (scan of 0.13, 26 Nov 2026).
+ */
+internal object RelayRetry {
+    /** Up this long, a connection was a working one. */
+    const val STEADY_MS = 30_000L
+
+    /** The try a connection lost at [now] counts as: its own [attempt], or the first again when it opened [STEADY_MS] before. */
+    fun attemptAfter(attempt: Int, openedAt: Long?, now: Long): Int =
+        if (openedAt != null && now - openedAt >= STEADY_MS) 0 else attempt
+
+    /** The wait after the try [attempt] was lost: 1 s, 2 s, 4 s and on, 30 s at most. */
+    fun waitMs(attempt: Int): Long = minOf(30_000L, 1_000L shl minOf(attempt, 5))
 }
