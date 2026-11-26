@@ -2773,7 +2773,7 @@
     <string name="recap_too_little">Pas encore assez de musique en %1$s pour un Recap.</string>
     <string name="recap_close">Fermer</string>
     <string name="recap_next">Suivant</string>
-    <string name="recap_previous">Retour</string>
+    <string name="recap_previous">Précédent</string>
     <string name="recap_sound_on">Son activé</string>
     <string name="recap_sound_off">Son coupé</string>
     <string name="recap_banner_title">Votre InterTune Recap</string>
@@ -2793,7 +2793,7 @@
     <string name="recap_first_song_at">Le premier titre, à %1$s</string>
     <string name="recap_first_song_on">Le premier titre de l\'année, le %1$s</string>
     <plurals name="recap_days_since">
-        <item quantity="one">Tout ici vient de ce %1$s jour, calculé sur ce téléphone.</item>
+        <item quantity="one">Tout ici vient de la journée écoulée depuis, calculé sur ce téléphone.</item>
         <item quantity="many">Tout ici vient de ces %1$s jours, calculé sur ce téléphone.</item>
         <item quantity="other">Tout ici vient de ces %1$s jours, calculé sur ce téléphone.</item>
     </plurals>
@@ -2844,8 +2844,8 @@
     <string name="recap_season_autumn">Automne</string>
     <string name="recap_season_line">%1$s, %2$s à %3$s</string>
     <string name="recap_hour_kick">Votre heure d\'écoute</string>
-    <string name="recap_hour_line">Plus de musique entre %1$s et %2$s qu\'à toute autre heure : %3$s minutes. Votre titre de cette heure-là : %4$s.</string>
-    <string name="recap_late_nights">Et %1$s nuits sont allées au-delà de minuit. Le dernier titre a commencé à %2$s.</string>
+    <string name="recap_hour_line">Votre heure la plus musicale : de %1$s à %2$s, avec %3$s minutes. Le titre le plus écouté à cette heure-là : %4$s.</string>
+    <string name="recap_late_nights">Et %1$s nuits ont dépassé minuit. Le dernier titre a commencé à %2$s.</string>
     <string name="recap_night_kick">Vos titres de 2 h du matin</string>
     <string name="recap_morning_kick">Vos titres du matin</string>
     <string name="recap_night_title">Après minuit, c\'était %1$s</string>
@@ -2909,7 +2909,7 @@
     <string name="recap_auto_chip">Auto</string>
     <string name="recap_auto_plays_since">lectures depuis\nle %1$s</string>
     <string name="recap_auto_title">Auto vous a trouvé %1$s</string>
-    <string name="recap_auto_line">Les suggestions rapides vous l\'ont fait écouter le %1$s, et vous l\'avez gardé.</string>
+    <string name="recap_auto_line">La Sélection Rapide vous l\'a fait écouter le %1$s, et vous l\'avez gardé.</string>
     <plurals name="recap_auto_brought_since">
         <item quantity="one">Depuis le %2$s, Auto vous a apporté %1$s nouveau titre, ce point.</item>
         <item quantity="many">Depuis le %2$s, Auto vous a apporté %1$s nouveaux titres, un point chacun.</item>
@@ -2929,7 +2929,7 @@
     <string name="recap_by_ear_from_to">Du %1$s au %2$s</string>
     <string name="recap_by_ear_on">Le %1$s</string>
     <string name="recap_by_ear_both_on">Tous les deux le %1$s</string>
-    <string name="recap_by_ear_all_on">Tous le %1$s</string>
+    <string name="recap_by_ear_all_on">Tous, le %1$s</string>
     <plurals name="recap_rooms">
         <item quantity="one">%1$s salon avec %2$s</item>
         <item quantity="many">%1$s salons avec %2$s</item>
@@ -2951,25 +2951,25 @@
     <string name="recap_line_in_a_row">%1$s fois d\'affilée le %2$s.</string>
     <string name="recap_line_best_day">%1$s lectures le %2$s, son plus grand jour.</string>
     <string name="recap_line_first">Écouté pour la première fois le %1$s.</string>
-    <string name="recap_skipped_kick">Celle que vous zappiez sans arrêt</string>
+    <string name="recap_skipped_kick">Celui que vous zappiez sans arrêt</string>
     <plurals name="recap_skipped_times" tools:ignore="ImpliedQuantity">
-        <item quantity="one">fois zappée</item>
-        <item quantity="many">fois zappée</item>
-        <item quantity="other">fois zappée</item>
+        <item quantity="one">fois zappé</item>
+        <item quantity="many">fois zappé</item>
+        <item quantity="other">fois zappé</item>
     </plurals>
     <plurals name="recap_skipped_finished">
-        <item quantity="one">Vous l\'avez quand même laissée finir %1$s fois.</item>
-        <item quantity="many">Vous l\'avez quand même laissée finir %1$s fois.</item>
-        <item quantity="other">Vous l\'avez quand même laissée finir %1$s fois.</item>
+        <item quantity="one">Vous l\'avez quand même laissé finir %1$s fois.</item>
+        <item quantity="many">Vous l\'avez quand même laissé finir %1$s fois.</item>
+        <item quantity="other">Vous l\'avez quand même laissé finir %1$s fois.</item>
     </plurals>
-    <string name="recap_skipped_never">Elle n\'est jamais allée jusqu\'au bout.</string>
-    <string name="recap_skipped_stamp">Zappée</string>
+    <string name="recap_skipped_never">Il n\'est jamais allé jusqu\'au bout.</string>
+    <string name="recap_skipped_stamp">Zappé</string>
     <plurals name="recap_skips">
-        <item quantity="one">%1$s fois zappée</item>
-        <item quantity="many">%1$s fois zappée</item>
-        <item quantity="other">%1$s fois zappée</item>
+        <item quantity="one">%1$s fois zappé</item>
+        <item quantity="many">%1$s fois zappé</item>
+        <item quantity="other">%1$s fois zappé</item>
     </plurals>
-    <string name="recap_back_kick">Celle que vous avez retrouvée</string>
+    <string name="recap_back_kick">Celui que vous avez retrouvé</string>
     <string name="recap_back_stamp">De retour</string>
     <plurals name="recap_back_days">
         <item quantity="one">%1$s jour</item>
@@ -2977,9 +2977,9 @@
         <item quantity="other">%1$s jours</item>
     </plurals>
     <plurals name="recap_back_line">
-        <item quantity="one">Plus rien pendant %1$s jour après le %2$s, puis vous l\'avez retrouvée le %3$s.</item>
-        <item quantity="many">Plus rien pendant %1$s jours après le %2$s, puis vous l\'avez retrouvée le %3$s.</item>
-        <item quantity="other">Plus rien pendant %1$s jours après le %2$s, puis vous l\'avez retrouvée le %3$s.</item>
+        <item quantity="one">Plus rien pendant %1$s jour après le %2$s, puis vous l\'avez retrouvé le %3$s.</item>
+        <item quantity="many">Plus rien pendant %1$s jours après le %2$s, puis vous l\'avez retrouvé le %3$s.</item>
+        <item quantity="other">Plus rien pendant %1$s jours après le %2$s, puis vous l\'avez retrouvé le %3$s.</item>
     </plurals>
     <string name="recap_from_kick">D\'où venaient vos titres</string>
     <string name="recap_from_mostly">Surtout %1$s</string>
@@ -3029,14 +3029,14 @@
     </plurals>
     <string name="recap_note_sealed_line">Le Recap de l\'an prochain ouvrira ce que vous avez scellé.</string>
     <string name="recap_note_another">En écrire un autre</string>
-    <string name="recap_note_full">C\'est le maximum pour une année. Le Recap de l\'an prochain vous les ouvrira.</string>
+    <string name="recap_note_full">C\'est votre mot pour cette année. Le Recap de l\'an prochain vous l\'ouvrira.</string>
     <string name="recap_note_failed">Impossible de sceller votre mot : le téléphone manque peut-être de place. Libérez-en un peu, puis touchez Sceller à nouveau.</string>
     <string name="recap_thanks_title">Merci</string>
     <!-- The thank-you words and their signature: his, approved in English and in French on 25 Oct 2026. -->
     <string name="recap_thanks_words">Merci d\'avoir utilisé InterTune cette année. C\'est un petit projet que je fais sur mon temps libre, et j\'ai adoré chaque moment (et c\'est toujours le cas !). Merci pour vos signalements de bugs, vos idées et vos traductions, et un grand merci à tous ceux qui ont fait un don. C\'est grâce à vous que ça continue !</string>
     <string name="recap_thanks_signature">Mel</string>
-    <string name="recap_see_you_first">À décembre prochain. %1$s, votre premier titre ici, vous raccompagne.</string>
-    <string name="recap_see_you_year">À décembre prochain. %1$s, votre premier titre de l\'année, vous raccompagne.</string>
+    <string name="recap_see_you_first">Rendez-vous en décembre prochain. %1$s, votre premier titre ici, vous raccompagne.</string>
+    <string name="recap_see_you_year">Rendez-vous en décembre prochain. %1$s, votre premier titre de l\'année, vous raccompagne.</string>
     <string name="recap_watch_again">Revoir</string>
     <string name="recap_done">Terminé</string>
     <string name="recap_card_number_one">Mon titre numéro un</string>

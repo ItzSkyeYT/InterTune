@@ -13,14 +13,18 @@ import java.io.File
 
 /**
  * The Recap goes to everyone in 0.13, and its texts to translators before the release build (26 Nov 2026): strings are
- * built into the app, so only what is translated before then is in 0.13. Held back still: its own names, a bare format,
- * and the thank-you page, written by hand in every language in strings-recap-thanks.xml (were Weblate to write them
+ * built into the app, so only what is translated before then is in 0.13. Held back still: its own names, what reads the
+ * same in every language, and the thank-you page, written by hand in every language in strings-recap-thanks.xml (were Weblate to write them
  * into strings-ot.xml as well, each language would define them twice and the app would not build).
  */
 class RecapTextsForTranslatorsTest {
     private val english = File("src/main/res/values/strings-ot.xml").readText()
     private val french = File("src/main/res/values-fr/strings-ot.xml").readText()
-    private val held = setOf("recap_thanks_title", "recap_thanks_words", "recap_thanks_signature", "recap_name", "recap_short", "recap_flag")
+    private val held = setOf(
+        "recap_thanks_title", "recap_thanks_words", "recap_thanks_signature", "recap_name", "recap_short", "recap_flag",
+        // The same in every language: a site, a bare per cent mark, the Auto chip (the engine's name).
+        "recap_card_site", "recap_from_percent_mark", "recap_auto_chip",
+    )
 
     private fun recapEntries(text: String) =
         Regex("""<(string|plurals) name="(recap_[^"]+)"([^>]*)>""").findAll(text).associate { it.groupValues[2] to it.groupValues[3] }
