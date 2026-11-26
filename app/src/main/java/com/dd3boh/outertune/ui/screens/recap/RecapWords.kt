@@ -33,9 +33,12 @@ class RecapWords(private val context: Context, private val year: Int) {
     private val dayShort = LocaleDateFormat(locale, "dMMM", "d MMM")
     private val monthShort = LocaleDateFormat(locale, "LLL", "LLL")
     private val monthLong = LocaleDateFormat(locale, "MMMM", "MMMM")
-    private val clock = LocaleDateFormat(locale, "jm", "HH:mm")
-    private val hourOnly = LocaleDateFormat(locale, "j", "HH")
-    private val twelveHours = runCatching { DateFormat.getBestDateTimePattern(locale, "jm").contains('a') }.getOrDefault(false)
+    // The clock as the phone keeps it: its own 24-hour switch, which the language's habit does not override. An app in
+    // English on a phone set to 24 hours read "4:00 PM" on the hour slide (Niko, #testers, 26 Nov 2026).
+    private val twentyFour = runCatching { DateFormat.is24HourFormat(context) }.getOrDefault(false)
+    private val clock = LocaleDateFormat(locale, if (twentyFour) "Hm" else "hm", if (twentyFour) "HH:mm" else "h:mm a")
+    private val hourOnly = LocaleDateFormat(locale, if (twentyFour) "H" else "h", if (twentyFour) "HH" else "h a")
+    private val twelveHours = !twentyFour
 
     fun number(n: Number): String = numbers.format(n)
 
@@ -54,7 +57,7 @@ class RecapWords(private val context: Context, private val year: Int) {
     /** "August", as it reads inside a sentence. */
     fun month(month: Int): String = monthLong.format(YearMonth.of(year, month).atDay(1))
 
-    /** "11:31", or "11:31 AM" where the phone keeps twelve hours. */
+    /** "11:31", or "11:31 AM" where the phone keeps twelve hours (its own setting, not its language). */
     fun time(minuteOfDay: Int): String = clock.format(LocalTime.of(minuteOfDay / 60 % 24, minuteOfDay % 60))
 
     fun hour(hour: Int): String = time(hour * 60)
