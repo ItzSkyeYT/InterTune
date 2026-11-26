@@ -7,6 +7,7 @@
 package com.dd3boh.outertune.together
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -50,12 +51,12 @@ class RoomWayTest {
     }
 
     @Test
-    fun `a session that comes back starts paused here or on its own way, as this phone was, and its sheet says so`() {
+    fun `a session that comes back starts paused here or muted, as this phone was, and its sheet says so`() {
         assertTrue("private val cameBackAs = way.takeIf { !leading }" in session)
-        assertTrue("private var pausedHere = cameBackAs == RoomWay.PAUSED_HERE" in session)
-        assertTrue("private var ownWay = cameBackAs == RoomWay.OWN_WAY" in session)
+        // Own way in a file from before 26 Nov 2026 comes back paused here: nothing aloud by itself.
+        assertTrue("private var pausedHere = cameBackAs == RoomWay.PAUSED_HERE || cameBackAs == RoomWay.OWN_WAY" in session)
         val status = session.substringAfter("private val _status = MutableStateFlow(").substringBefore("val status: StateFlow<Status>")
-        assertTrue(status, "ownWay = cameBackAs == RoomWay.OWN_WAY, pausedHere = pausedHere," in status)
+        assertTrue(status, "pausedHere = pausedHere," in status)
     }
 
     @Test
@@ -85,18 +86,26 @@ class RoomWayTest {
         assertTrue("keepWay()" in session.substringAfter("castLook()\n").substringBefore("withTimeoutOrNull(every)"))
     }
 
+    /** His word of 26 Nov 2026 (Spotify's Jam): nobody goes their own way in a room, and a guest's pause is a mute. */
     @Test
-    fun `a way taken for a cast alone or while nobody plays for the room is not kept as its listener's`() {
+    fun `the way kept is paused here by the phone, muted, or with the room`() {
         val way = session.substringAfter("fun way(): RoomWay = RoomWay.of(").substringBefore("\n    )")
-        assertTrue(way, "ownWay = ownWay && !guestCast.catchUpAfter && !aloneOwnWay," in way)
+        assertTrue(way, "pausedHere = pausedHere," in way)
+        assertTrue(way, "muted = muted," in way)
         assertTrue(way, "playing = service.exoPlayer.playWhenReady," in way)
+        assertFalse(way, "ownWay" in way)
+        // A room that comes back keeps the mute; one joined now starts with the sound on.
+        assertTrue("muted = cameBackAs == RoomWay.MUTED" in session)
+        assertTrue("private var ownWay = false" in session)
     }
 
     @Test
     fun `after the service ended only a phone that was with the room and playing goes on by itself`() {
         assertEquals(RoomWay.PLAYING, RoomWay.afterRestart(RoomWay.PLAYING))
         assertEquals(RoomWay.PAUSED_HERE, RoomWay.afterRestart(RoomWay.PAUSED_HERE))
-        assertEquals(RoomWay.OWN_WAY, RoomWay.afterRestart(RoomWay.OWN_WAY))
+        assertEquals(RoomWay.MUTED, RoomWay.afterRestart(RoomWay.MUTED))
+        // Own way, in a file from before 26 Nov 2026: paused here, nothing aloud by itself.
+        assertEquals(RoomWay.PAUSED_HERE, RoomWay.afterRestart(RoomWay.OWN_WAY))
         // With the room but not playing here: paused here, so that the room's next play is not heard aloud with no tap.
         assertEquals(RoomWay.PAUSED_HERE, RoomWay.afterRestart(RoomWay.FOLLOWING))
         // A file from before kept no way.
@@ -104,12 +113,12 @@ class RoomWayTest {
     }
 
     @Test
-    fun `the way is read from how the session has it, its own way first`() {
-        assertEquals(RoomWay.OWN_WAY, RoomWay.of(ownWay = true, pausedHere = false, playing = true))
-        assertEquals(RoomWay.OWN_WAY, RoomWay.of(ownWay = true, pausedHere = true, playing = false))
-        assertEquals(RoomWay.PAUSED_HERE, RoomWay.of(ownWay = false, pausedHere = true, playing = false))
-        assertEquals(RoomWay.PLAYING, RoomWay.of(ownWay = false, pausedHere = false, playing = true))
-        assertEquals(RoomWay.FOLLOWING, RoomWay.of(ownWay = false, pausedHere = false, playing = false))
+    fun `the way is read from how the session has it, paused here first`() {
+        assertEquals(RoomWay.PAUSED_HERE, RoomWay.of(pausedHere = true, muted = true, playing = false))
+        assertEquals(RoomWay.PAUSED_HERE, RoomWay.of(pausedHere = true, muted = false, playing = false))
+        assertEquals(RoomWay.MUTED, RoomWay.of(pausedHere = false, muted = true, playing = true))
+        assertEquals(RoomWay.PLAYING, RoomWay.of(pausedHere = false, muted = false, playing = true))
+        assertEquals(RoomWay.FOLLOWING, RoomWay.of(pausedHere = false, muted = false, playing = false))
     }
 
     @Test

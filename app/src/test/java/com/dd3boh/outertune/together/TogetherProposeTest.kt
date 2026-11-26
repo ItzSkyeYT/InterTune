@@ -42,10 +42,10 @@ class TogetherProposeTest {
 
     @Test
     fun `a yes plays the song now from where the guest is, and the guest is back with the room`() {
-        val accept = session.substringAfter("fun acceptProposal(withQueue: Boolean = false)").substringBefore("\n    }\n")
+        assertTrue(session.substringAfter("fun acceptProposal(withQueue: Boolean = false)").substringBefore("\n    }\n").contains("ProposalLine.toPlay(proposal, withQueue)"))
         // The song alone unless the songs after it were chosen (#testers, 22 Nov 2026: "did it send the whole queue?"),
-        // put in next with the room's queue kept after it, never in place of it.
-        assertTrue(accept.contains("ProposalLine.toPlay(proposal, withQueue)"))
+        // put in next with the room's queue kept after it, never in place of it (playNow, 26 Nov 2026).
+        val accept = session.substringAfter("private fun playNow(").substringBefore("\n    }\n")
         assertTrue(accept.contains("service.enqueueNext(songs.map { it.toMediaItem() })"))
         assertFalse("the room's queue is never replaced", accept.contains("replace = true"))
         assertTrue("from the guest's spot, not the start", accept.contains("player.seekTo(index, ProposalLine.startAt("))
@@ -53,19 +53,18 @@ class TogetherProposeTest {
     }
 
     @Test
-    fun `the sheet offers it to a guest on its own, and the one in control is asked wherever it is`() {
+    fun `the one in control is asked wherever it is, and no guest goes its own way to propose any more`() {
         val sheet = File("src/main/java/com/dd3boh/outertune/ui/dialog/TogetherDialog.kt").readText()
-        val ownWay = sheet.substringAfter("private fun OwnWay(").substringBefore("\n}\n")
-        assertTrue(ownWay.contains("R.string.together_propose"))
-        // Named for the one in control, who is the one asked, not "the host" (22 Nov 2026: dvd had control).
-        assertTrue(ownWay.contains("R.string.together_propose_to, to") && ownWay.contains("R.string.together_proposed_to, to"))
-        assertTrue(sheet.contains("to = status.leaderName,"))
+        // Since 26 Nov 2026 (Spotify's Jam) a guest listens or leaves: the sheet's Own way, with its Propose, is gone. The
+        // card still takes a proposal from a guest on an older build.
+        assertFalse(sheet.contains("private fun OwnWay("))
+        assertFalse(sheet.contains("room.propose()"))
         val main = File("src/main/java/com/dd3boh/outertune/MainActivity.kt").readText()
         assertTrue(main.contains("TogetherProposalCard("))
         for (path in listOf("src/main/res/values/strings-ot.xml", "src/main/res/values-fr/strings-ot.xml")) {
             val strings = File(path).readText()
             assertFalse("never \"the host\" for the one in control: $path", Regex("together_propos[a-z_]*\">[^<]*(host|hôte)").containsMatchIn(strings))
-            for (name in listOf("together_propose", "together_proposed", "together_propose_to", "together_proposed_to", "together_proposal_title", "together_proposal_more", "together_proposal_play", "together_proposal_later")) {
+            for (name in listOf("together_proposal_title", "together_proposal_more", "together_proposal_play", "together_proposal_later")) {
                 assertTrue("$name missing from $path", strings.contains("name=\"$name\""))
             }
         }

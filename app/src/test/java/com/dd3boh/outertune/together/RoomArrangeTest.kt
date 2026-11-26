@@ -21,7 +21,7 @@ import java.io.File
 /**
  * Guests changing the room's queue, on the host's word (22 Nov 2026, "can guests rearrange the room's queue?": "guests
  * only, but they can be given perms to do so"). A guest's queue is the room's to look at (RoomQueueTest) unless the host
- * turns on Let everyone change the queue (RoomSettings.everyoneArranges). Then a guest moves and takes out songs as ever,
+ * turns on Let everyone control the music (RoomSettings.everyoneControls, 26 Nov 2026; Let everyone change the queue before). Then a guest moves and takes out songs as ever,
  * all but the one playing, and each change goes to the person in control as an Arrange, made there as its own drag or
  * swipe, so its next queue brings it to everyone. A build before this one drops an Arrange, so a guest changes the queue
  * only where the person in control said in its Here that it takes them.
@@ -33,7 +33,7 @@ class RoomArrangeTest {
     private val queue = File(src, "ui/player/Queue.kt").readText()
 
     /** A guest following the room, whose host lets everyone change the queue, under a person in control who takes it. */
-    private val guest = TogetherSession.Status(waitingForHost = false, settings = RoomSettings(everyoneArranges = true), leaderArranges = true)
+    private val guest = TogetherSession.Status(waitingForHost = false, settings = RoomSettings(everyoneControls = true), leaderArranges = true)
 
     private fun roundTrip(message: TogetherMessage) = TogetherMessage.decodeFrom(TogetherMessage.encode(message, sender = "ab12"), "ab12")
 
@@ -71,10 +71,10 @@ class RoomArrangeTest {
 
     @Test
     fun `off by default, and off in a room whose host is on a build before the switch`() {
-        assertFalse(RoomSettings().everyoneArranges)
-        assertFalse(RoomSettings.of(JsonObject(emptyMap()))!!.everyoneArranges)
-        assertTrue(RoomSettings.of(JsonObject(mapOf("arrange" to JsonPrimitive(true))))!!.everyoneArranges)
-        val on = TogetherMessage.Here("Ti-Die", owner = true, lead = "ab12", settings = RoomSettings(everyoneArranges = true), arranges = true)
+        assertFalse(RoomSettings().everyoneControls)
+        assertFalse(RoomSettings.of(JsonObject(emptyMap()))!!.everyoneControls)
+        assertTrue(RoomSettings.of(JsonObject(mapOf("arrange" to JsonPrimitive(true))))!!.everyoneControls)
+        val on = TogetherMessage.Here("Ti-Die", owner = true, lead = "ab12", settings = RoomSettings(everyoneControls = true), arranges = true)
         assertEquals(on, roundTrip(on))
         assertFalse(guestArranges(guest.copy(settings = null)))
         assertFalse(guestArranges(guest.copy(settings = RoomSettings())))
@@ -128,7 +128,7 @@ class RoomArrangeTest {
 
     @Test
     fun `the one in control makes it as its own drag or swipe, and only while the host lets everyone`() {
-        assertTrue("is TogetherMessage.Arrange -> if (leading && _status.value.settings?.everyoneArranges == true) arranged(message, from)" in session)
+        assertTrue("is TogetherMessage.Arrange -> if (leading && _status.value.settings?.everyoneControls == true) arranged(message, from)" in session)
         val made = session.substringAfter("private fun arranged(message: TogetherMessage.Arrange, from: String) {").substringBefore("\n    }\n")
         // The queue board and the player alike, as the queue sheet does (Queue.kt), so the next queue takes it to everyone.
         assertTrue("if (!service.queueBoard.removeCurrentQueueSong(at)) return\n            player.removeMediaItem(at)" in made)
@@ -137,7 +137,7 @@ class RoomArrangeTest {
         assertTrue("val at = RoomArrange.placeOf(ids, message.songId, current) ?: return" in made)
         assertTrue("Toaster.show(service, service.getString(R.string.together_arranged, by))" in made)
         // The owner's setting, set once for its rooms as its name is, unset being off (RoomSettingsTest).
-        assertTrue("everyoneArranges = prefs[TogetherEveryoneArrangesKey] == true" in session)
+        assertTrue("RoomSettings.kept(prefs[TogetherEveryoneControlsKey], prefs[TogetherEveryoneSeeksKey], prefs[TogetherEveryoneArrangesKey])" in session)
     }
 
     @Test

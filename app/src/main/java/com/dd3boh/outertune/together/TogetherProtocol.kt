@@ -128,6 +128,23 @@ sealed interface TogetherMessage {
      */
     data class NotNow(val to: String, val songId: String) : TogetherMessage
 
+    /**
+     * A guest's move while the host lets everyone control the music (RoomSettings.everyoneControls, his word of 26 Nov
+     * 2026: Spotify's Jam), for the one in control, key [to], to make for everyone: play or pause ([playing]), a song of
+     * the room's queue ([songId], from [positionMs]), a place in the song playing ([songId] that song), shuffle or repeat,
+     * or [songs] to play now, the first at once and the rest after it, as a song or a list started by the guest. A build
+     * before this one drops it unread.
+     */
+    data class Control(
+        val to: String,
+        val playing: Boolean? = null,
+        val songId: String? = null,
+        val positionMs: Long? = null,
+        val shuffle: Boolean? = null,
+        val repeat: Int? = null,
+        val songs: List<Song> = emptyList(),
+    ) : TogetherMessage
+
     /** The owner sends the phone with key [to] out of the room. */
     data class Kick(val to: String) : TogetherMessage
 
@@ -216,6 +233,15 @@ sealed interface TogetherMessage {
                 put("songs", songsJson(message.songs))
             }
             is NotNow -> buildJsonObject { put("t", "notnow"); put("to", message.to); put("song", message.songId) }
+            is Control -> buildJsonObject {
+                put("t", "control"); put("to", message.to)
+                message.playing?.let { put("playing", it) }
+                message.songId?.let { put("song", it) }
+                message.positionMs?.let { put("pos", it) }
+                message.shuffle?.let { put("shuffle", it) }
+                message.repeat?.let { put("repeat", it) }
+                if (message.songs.isNotEmpty()) put("songs", songsJson(message.songs.take(QUEUE_SONGS)))
+            }
             is Kick -> buildJsonObject { put("t", "kick"); put("to", message.to) }
             is Move -> buildJsonObject { put("t", "move"); put("to", message.to); put("code", message.sealedCode) }
             End -> buildJsonObject { put("t", "end") }
@@ -284,6 +310,15 @@ sealed interface TogetherMessage {
                 "arrange" -> Arrange(s("song"), after = o["after"]?.jsonPrimitive?.content, remove = o["remove"]?.jsonPrimitive?.content == "true")
                 "propose" -> Propose(songsOf(o), l("pos"), s("by"))
                 "notnow" -> NotNow(s("to"), s("song"))
+                "control" -> Control(
+                    s("to"),
+                    playing = (o["playing"] as? JsonPrimitive)?.booleanOrNull,
+                    songId = (o["song"] as? JsonPrimitive)?.contentOrNull,
+                    positionMs = (o["pos"] as? JsonPrimitive)?.longOrNull?.coerceAtLeast(0),
+                    shuffle = (o["shuffle"] as? JsonPrimitive)?.booleanOrNull,
+                    repeat = (o["repeat"] as? JsonPrimitive)?.intOrNull?.coerceIn(0, 2),
+                    songs = if (o["songs"] != null) songsOf(o).take(QUEUE_SONGS) else emptyList(),
+                )
                 "kick" -> Kick(s("to"))
                 "move" -> Move(s("to"), s("code"))
                 "end" -> End

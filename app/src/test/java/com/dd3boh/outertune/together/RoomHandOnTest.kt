@@ -285,7 +285,7 @@ class RoomHandOnTest {
             assertTrue(line, line in handed)
         }
         val become = body(session, "private fun becomeHost()")
-        for (line in listOf("owner = true", "ownerKey = me", "if (!leading) lead(me)", "sayHere()", "service.roomHosted(code)", "R.string.together_host_yours", "prefs[TogetherEveryoneSeeksKey] == true", "prefs[TogetherEveryoneArrangesKey] == true")) {
+        for (line in listOf("owner = true", "ownerKey = me", "if (!leading) lead(me)", "sayHere()", "service.roomHosted(code)", "R.string.together_host_yours", "RoomSettings.kept(prefs[TogetherEveryoneControlsKey], prefs[TogetherEveryoneSeeksKey], prefs[TogetherEveryoneArrangesKey])")) {
             assertTrue(line, line in become)
         }
         // The sheet sees it change: a state, not a value fixed as the room was made.

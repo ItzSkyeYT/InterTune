@@ -58,6 +58,11 @@ internal fun repeatName(mode: Int): String = stringResource(
 internal fun likeName(liked: Boolean): String =
     stringResource(if (liked) R.string.action_remove_like else R.string.action_like)
 
+/** The play button of a guest who listens in a room (RoomListen) says what a tap on it does: mute, or unmute. */
+@Composable
+internal fun muteName(muted: Boolean): String =
+    stringResource(if (muted) R.string.together_unmute else R.string.together_mute)
+
 /** Play says what a tap on it does. Ended, a tap plays again. */
 @Composable
 internal fun playPauseName(playing: Boolean): String =

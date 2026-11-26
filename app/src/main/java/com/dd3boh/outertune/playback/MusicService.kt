@@ -243,6 +243,7 @@ import com.dd3boh.outertune.playback.ListenReporting.AddressFrom
 import com.dd3boh.outertune.playback.queues.ListQueue
 import com.dd3boh.outertune.playback.queues.Queue
 import com.dd3boh.outertune.playback.queues.YouTubeQueue
+import com.dd3boh.outertune.together.listensOnly
 import com.dd3boh.outertune.together.RoomTap
 import com.dd3boh.outertune.together.TogetherSession
 import com.dd3boh.outertune.together.RoomCode
@@ -654,6 +655,7 @@ class MusicService : MediaLibraryService(),
     fun stopTogether() {
         together.value?.stop()
         together.value = null
+        roomMuted.value = false
         roomMemory.forget()
     }
 
@@ -1255,6 +1257,12 @@ class MusicService : MediaLibraryService(),
     val playerVolume = MutableStateFlow(dataStore.get(PlayerVolumeKey, 1f).coerceIn(0f, 1f))
 
     /**
+     * A guest who listens in a room muted its phone (TogetherSession.toggleMute, his word of 26 Nov 2026): the player plays
+     * on in step with the room, its volume 0, so unmuting is where the room is. Off as the room is left (stopTogether).
+     */
+    val roomMuted = MutableStateFlow(false)
+
+    /**
      * Battery use as it stands (BatteryUse), kept by its observer in onCreate. Read at
      * construction, as the head tracking switch is, so the first song is set up knowing it. A flow
      * for the volume, which Saver holds at 100%; the radios and the stream's resolver read its value
@@ -1268,7 +1276,7 @@ class MusicService : MediaLibraryService(),
      * The player's gain line and Mix's stage read this one, so that a blend scales each song as
      * the player would.
      */
-    private val heardVolume: Float get() = BatteryUse.volume(playerVolume.value, batteryMode)
+    private val heardVolume: Float get() = if (roomMuted.value) 0f else BatteryUse.volume(playerVolume.value, batteryMode)
 
     /**
      * Battery use in force from these settings and the phone's battery saver, which runs the app as
@@ -1656,6 +1664,12 @@ class MusicService : MediaLibraryService(),
         // run on this service's scope and end with it.
         val covers = SessionBitmapLoader(this, CoroutineScope(scope.coroutineContext + coilCoroutine))
         val sessionPlayer = SessionPlayer(player)
+        // A guest who only listens in a room: the notification and the lock screen offer no skip or seek (SessionPlayer).
+        scope.launch {
+            together.flatMapLatest { room -> room?.status?.map(::listensOnly) ?: flowOf(false) }
+                .distinctUntilChanged()
+                .collect { sessionPlayer.roomLocked = it }
+        }
         covers.sharper = { stored, sharp ->
             scope.launch { sessionPlayer.coverArrived(stored.toUri(), sharp.toUri()) }
         }
@@ -1795,7 +1809,7 @@ class MusicService : MediaLibraryService(),
             combine(
                 // Saver holds the volume at 100%: past it the gain is on the samples, which the
                 // low-power path never sees (BatteryUse.volume).
-                combine(playerVolume, batteryModeNow) { volume, mode -> BatteryUse.volume(volume, mode) },
+                combine(playerVolume, batteryModeNow, roomMuted) { volume, mode, muted -> if (muted) 0f else BatteryUse.volume(volume, mode) },
                 normalizeFactor,
                 sleepTimer.fadeFactor,
                 proximityVolume.factor,

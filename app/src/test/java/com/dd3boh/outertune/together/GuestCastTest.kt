@@ -170,7 +170,7 @@ class GuestCastTest {
         // The cast's own changes to the phone's player, as it takes the music away and gives it back, are never the
         // listener's: no pause here, no own way of the listener's (which would not catch up after the cast).
         val played = session.substringAfter("override fun onPlayWhenReadyChanged(").substringBefore("override fun onMediaItemTransition(")
-        assertTrue("if (!leading && !service.castOn) listenerPlayed(playWhenReady)" in played)
+        assertTrue("if (!leading && !service.castOn) listenerPlayed(playWhenReady, reason)" in played)
         val moved = session.substringAfter("override fun onMediaItemTransition(").substringBefore("override fun onPositionDiscontinuity(")
         assertTrue(moved.indexOf("if (service.castOn) {") in 0 until moved.indexOf("listenerChose("))
         val sought = session.substringAfter("override fun onPositionDiscontinuity(").substringBefore("override fun onEvents(")
@@ -197,15 +197,14 @@ class GuestCastTest {
     }
 
     @Test
-    fun `the sheet shows a guest that casts on its own, with the line and no buttons`() {
-        val page = sheet.substringAfter("if (!status.leading && !hostAway) {").substringBefore("\n        }\n")
+    fun `the sheet shows a guest that casts away from the room, with the line and no buttons`() {
+        val page = sheet.substringAfter("} else if (!status.leading && !hostAway) {").substringBefore("\n        }\n")
         val cast = page.indexOf("status.ownWay && status.casting -> CastOwnWay(catchUpAfter = status.catchUpAfterCast)")
         assertTrue("after the wait for the host", cast > page.indexOf("status.waitingForHost -> Waiting()"))
-        assertTrue("before the usual own way", cast in 0 until page.indexOf("status.ownWay -> OwnWay("))
+        // Nobody goes their own way any more (26 Nov 2026): the cast's is the only one, and it has no Catch up.
+        assertFalse("status.ownWay -> OwnWay(" in page)
         val castOwnWay = sheet.substringAfter("private fun CastOwnWay(").substringBefore("\n}\n")
-        assertTrue("R.string.together_own_way" in castOwnWay)
-        assertTrue(castOwnWay.indexOf("if (catchUpAfter) {") in 0 until castOwnWay.indexOf("R.string.together_catch_up_after_cast"))
-        // Catch up and Propose work on the phone's own player, which the cast has emptied.
+        assertTrue("R.string.together_catch_up_after_cast" in castOwnWay)
         assertFalse("onCatchUp" in castOwnWay || "onPropose" in castOwnWay || "Button(" in castOwnWay)
         // The session tells the sheet both.
         val look = session.substringAfter("private fun castLook()").substringBefore("\n    }\n")
@@ -222,6 +221,6 @@ class GuestCastTest {
             assertFalse("$folder: $text", text.contains('—') || text.contains('–') || text.contains(';'))
         }
         val english = File("src/main/res/values/strings-ot.xml").readText()
-        assertTrue("<string name=\"together_catch_up_after_cast\">You\\'ll catch up when the cast ends.</string>" in english)
+        assertTrue("<string name=\"together_catch_up_after_cast\">You\\'ll be back with the room when the cast ends.</string>" in english)
     }
 }
