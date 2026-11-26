@@ -2730,7 +2730,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="remove_download_selection_confirm">Remove the downloads of the songs you picked?</string>
     <!-- A toast when Remove download could not delete a song's file from the download folder (DownloadUtil.deleteSong): the song stays listed. -->
     <string name="remove_download_refused">Could not delete the file. Check the download folder.</string>
-    <string name="remove_download_read_only">This song\'s file is in an extra import folder, which InterTune only reads, so it stays. Delete it there, or take the folder out in Configure extra import locations.</string>
+    <string name="remove_download_read_only">This file is in an extra import folder, only read: delete it there.</string>
     <!-- Read out by screen readers for the playing song's row held at the top or the foot of the queue while the list is scrolled away from it (#81): a tap puts the list back at the song. -->
     <string name="queue_held_row_label">go back to the song playing</string>
     <!-- Stats, Found with InterTune (his idea of 6 Nov 2026): a card among the findings. %1$s is how many of the songs the listener liked InterTune played them first, in the accent colour; under it the split by where those first plays came from, and "Only known since" the day the app began to note where songs come from. -->

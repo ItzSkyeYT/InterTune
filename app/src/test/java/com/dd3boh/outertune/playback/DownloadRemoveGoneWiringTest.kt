@@ -81,9 +81,9 @@ class DownloadRemoveGoneWiringTest {
         assertTrue(readOnly in 1 until stop)
         assertTrue(deleteSong.substring(readOnly, stop).contains("withContext(Dispatchers.Main) { Toaster.show(context, R.string.remove_download_read_only, Toast.LENGTH_LONG) }"))
         assertTrue(util.contains("private val readOnlyNote = OnceInAWhile(10_000)"))
-        // Named as the settings row names it, in both languages.
-        assertTrue(english.contains("take the folder out in Configure extra import locations."))
-        assertTrue(french.contains("« Configurer des emplacements d’importation supplémentaires »"))
+        // Why and where, in a toast's two lines (ToastLengthTest), in both languages.
+        assertTrue(english.contains("This file is in an extra import folder, only read: delete it there."))
+        assertTrue(french.contains("Dans un emplacement d’importation, en lecture seule : supprimez-le là."))
     }
 
     @Test
