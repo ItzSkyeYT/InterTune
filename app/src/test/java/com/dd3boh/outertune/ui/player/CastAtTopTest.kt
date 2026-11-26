@@ -8,6 +8,7 @@ package com.dd3boh.outertune.ui.player
 
 import androidx.compose.ui.unit.dp
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -91,6 +92,13 @@ class CastAtTopTest {
         assertTrue("outputRow = Unreleased.CASTING," in player)
         assertTrue("bottom = if (tabletTwoPane) TabletQueueHandleReserve" in player)
         assertTrue("else queueReserve - queueLayout.outputRoom" in player)
+        // And the half itself is kept with the switch off: only the pill in it goes. Without it the cover, the title, the
+        // seek bar and the controls all dropped by the half (48dp) under everyone who updated from 0.12, where the pill
+        // always stood (seen on the emulator, 25 Nov 2026: pause at y 2206 with the pill, 2350 without, on 1344x2992).
+        assertTrue("if (queueLayout.outputRoom > 0.dp) {" in player)
+        assertFalse("if (queueLayout.outputRoom > 0.dp && outputPill)" in player)
+        val half = player.substring(player.indexOf("if (queueLayout.outputRoom > 0.dp) {"))
+        assertTrue(".height(queueLayout.outputRoom)" in half.substring(0, half.indexOf("OutputButton(")))
     }
 
     @Test
