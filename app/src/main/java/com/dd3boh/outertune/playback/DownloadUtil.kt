@@ -1055,12 +1055,20 @@ class DownloadUtil @Inject constructor(
      */
     private fun downloadSong(id: String, title: String, byLikes: Boolean = false): Boolean {
         // Already landed or in flight, which the map shows without any help from here. Not the
-        // liked-songs setting's then, even when it asks: it was there before it.
-        if (!isNotDownloaded(id)) return true
+        // liked-songs setting's then, even when it asks: it was there before it. Asked for by hand
+        // (a playlist's or an album's Download), it is the person's from now on, even one the
+        // setting fetched: taking back its like keeps it, as the switch's line says (26 Nov 2026).
+        if (!isNotDownloaded(id)) {
+            if (!byLikes) forgetLikedDownload(id)
+            return true
+        }
         // A file of the song in a download folder already: recorded, not fetched again and written
         // a second time beside itself. The folder's list only, read from memory: this runs on the
         // main thread for a button (keepFolderFile).
-        if (keepFolderFile(id, title, look = false)) return true
+        if (keepFolderFile(id, title, look = false)) {
+            if (!byLikes) forgetLikedDownload(id)
+            return true
+        }
         val downloadRequest = DownloadRequest.Builder(id, id.toUri())
             .setCustomCacheKey(id)
             .setData(title.toByteArray())
