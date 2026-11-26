@@ -36,15 +36,26 @@ object LibraryOrder {
      * The whole order after a drag on a page that shows a part of the library, [part] being that
      * page's whole list as dropped: its keys take the places [saved] gives the part, in their new
      * order, so the rest stays where it was. Keys [saved] has not seen yet take places at the front,
-     * where the Library page shows them; keys of the part that are gone are dropped.
+     * where the Library page shows them; a playlist of the part that is gone is dropped, and an album
+     * or an artist not shown keeps its place ([keepsPlace]).
      */
     fun refill(saved: List<String>, part: List<String>, inPart: (String) -> Boolean): List<String> {
         val dropped = part.distinct()
         val present = dropped.toHashSet()
-        val kept = saved.filter { !inPart(it) || it in present }
-        val known = kept.filter(inPart).toHashSet()
+        // Where it was: a key of another part, or one of this part not shown that keeps its place.
+        fun stays(key: String) = !inPart(key) || (key !in present && keepsPlace(key))
+        val kept = saved.filter { stays(it) || it in present }
+        val known = kept.filterNot(::stays).toHashSet()
         val next = dropped.iterator()
         val front = List(dropped.count { it !in known }) { next.next() }
-        return front + kept.map { if (inPart(it)) next.next() else it }
+        return front + kept.map { if (stays(it)) it else next.next() }
     }
+
+    /**
+     * An album or an artist not shown keeps its place in the order: one of a blocked artist comes
+     * back where it was put once unblocked, and one whose like or bookmark was taken back where it
+     * was if it is given again. A drag while an artist was blocked threw its albums and itself out of
+     * the order, and they came back at the top (26 Nov 2026). A playlist not shown is gone.
+     */
+    fun keepsPlace(key: String): Boolean = key.startsWith(ALBUM) || key.startsWith(ARTIST)
 }

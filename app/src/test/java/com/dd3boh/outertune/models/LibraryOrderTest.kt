@@ -7,6 +7,7 @@
 package com.dd3boh.outertune.models
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
@@ -42,6 +43,26 @@ class LibraryOrderTest {
             listOf("playlist:2", "album:a", "artist:r", "playlist:1"),
             LibraryOrder.refill(saved, listOf("playlist:2", "playlist:1"), isPlaylist)
         )
+    }
+
+    /**
+     * 26 Nov 2026 (the whole-app scan): the lists dragged leave out a blocked artist and its albums,
+     * and a drag threw them out of the order, so they came back at the top once unblocked.
+     */
+    @Test
+    fun `an album or an artist not shown keeps its place through a drag, a playlist gone does not`() {
+        val saved = listOf("album:a1", "album:blocked", "artist:r", "album:a2", "playlist:gone", "playlist:p")
+        // The Albums page, the blocked artist's album left out.
+        assertEquals(
+            listOf("album:a2", "album:blocked", "artist:r", "album:a1", "playlist:gone", "playlist:p"),
+            LibraryOrder.refill(saved, listOf("album:a2", "album:a1")) { it.startsWith(LibraryOrder.ALBUM) },
+        )
+        // The Library page, everything it shows: the album not shown stays, the playlist gone goes.
+        assertEquals(
+            listOf("playlist:p", "album:blocked", "artist:r", "album:a1", "album:a2"),
+            LibraryOrder.refill(saved, listOf("playlist:p", "artist:r", "album:a1", "album:a2")) { true },
+        )
+        assertTrue(LibraryOrder.keepsPlace("album:x") && LibraryOrder.keepsPlace("artist:x") && !LibraryOrder.keepsPlace("playlist:x"))
     }
 
     @Test
