@@ -2847,6 +2847,8 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="together_control_back">%1$s stopped answering, so you\'re in control again.</string>
     <string name="together_hosts_now">%1$s hosts the room now</string>
     <string name="together_host_yours">You\'re the host now: you choose the music for everyone.</string>
+    <string name="together_handing_on">Handing the room to %1$s</string>
+    <string name="together_nobody_took">Nobody could take the room, so it closed for everyone.</string>
     <string name="together_kick">Remove from the room</string>
     <!-- The host's own part of the room sheet: switches for who may do what in the room (RoomSettings). -->
     <string name="together_room_settings">Room settings</string>

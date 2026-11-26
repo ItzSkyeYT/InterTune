@@ -100,11 +100,14 @@ internal class PhoneSongs(
         answers[id]?.let { return it }
         val tags = tagsOf(song)
         val named = idInFileName(song?.localPath)
-        // A file that names no video is known by its tags alone: with none, or no length to tell the recording from
-        // another version of it, nothing would pass (StandIn.MIN_DURATION).
-        if (named == null) {
+        // A file that names no video, and has no file to read a video's link from in its tags (SongFileIds), is known by
+        // its tags alone: with none, or no length to tell the recording from another version of it, nothing would pass
+        // (StandIn.MIN_DURATION). A file with a link in its tags carries its video all the same, whatever its title and
+        // artist say: a yt-dlp download titled by its file name was taken for one that is only here (review of 0.13,
+        // 26 Nov 2026).
+        if (named == null && (tags?.durationSeconds == null) && song?.localPath.isNullOrBlank()) {
             tags ?: return keep(id, OnlyHere(madeUpFor(id), "", ""))
-            if (tags.durationSeconds == null) return keep(id, onlyHere(id, tags))
+            return keep(id, onlyHere(id, tags))
         }
         if (id in asked || !lookUp) return null
         if (now() < restUntil || !mayAsk()) return onlyHere(id, tags)

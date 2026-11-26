@@ -35,7 +35,7 @@ import kotlin.math.abs
  * Two roles: the owner made the room and alone can close it, send someone out or hand the lead
  * over; the leader is the phone everyone follows. The owner leads until it hands the lead to
  * someone, and can take it back. An owner that leaves without closing the room hands it on: the
- * phone it names is the owner from then on (RoomHandOn).
+ * phone it names is the owner from then on, once it says so (RoomHandOn).
  */
 sealed interface TogetherMessage {
     /** The leader's playback: sent on every change and every [HEARTBEAT_MS]. [atMs] is the leader's clock. */
@@ -70,8 +70,9 @@ sealed interface TogetherMessage {
      * the queue ([Arrange]), which a build before this one drops. [dev]: the proof that this phone is
      * InterTune's developer's (DevBadge), from his phones alone; a build before this one ignores it.
      * [takesRoom]: this phone takes a room its host hands to it as it leaves, and the new host's word after (RoomHandOn);
-     * a build before this one says nothing, and is never handed one. [host]: in the host's last word as it leaves, whose
-     * the room is now (RoomHandOn), the same phone as its [lead], which is all a build before this one reads of it.
+     * a build before this one says nothing, and is never handed one. [host]: in the host's word as it leaves, whose the
+     * room is now (RoomHandOn), the same phone as its [lead], which is all a build before this one reads of it. Said again
+     * every couple of seconds until that phone's own Here says it hosts the room (owner), which is the host's answer.
      */
     data class Here(
         val name: String, val owner: Boolean, val lead: String? = null, val leadSince: Long? = null,
@@ -135,6 +136,14 @@ sealed interface TogetherMessage {
 
     /** The owner closes the room. */
     data object End : TogetherMessage
+
+    /**
+     * A guest leaves the room for good, its key gone with it (review of 0.13, 26 Nov 2026): the others take it off their
+     * list at once, and a host that leaves never hands the room to it. It said nothing before, and was taken for there
+     * for up to 20 s after it went. A build before this one drops it unread, as a word it does not know, before it counts
+     * the sender as heard, and takes the guest off its list once it has been quiet for 45 s, as before.
+     */
+    data object Bye : TogetherMessage
 
     companion object {
         const val KIND = 21430
@@ -210,6 +219,7 @@ sealed interface TogetherMessage {
             is Kick -> buildJsonObject { put("t", "kick"); put("to", message.to) }
             is Move -> buildJsonObject { put("t", "move"); put("to", message.to); put("code", message.sealedCode) }
             End -> buildJsonObject { put("t", "end") }
+            Bye -> buildJsonObject { put("t", "bye") }
         }
 
         private fun songsJson(songs: List<Song>) = buildJsonArray {
@@ -277,6 +287,7 @@ sealed interface TogetherMessage {
                 "kick" -> Kick(s("to"))
                 "move" -> Move(s("to"), s("code"))
                 "end" -> End
+                "bye" -> Bye
                 else -> null
             }
             // The owner's room settings, one more field of its Here (RoomSettings): none from an older build.

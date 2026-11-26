@@ -39,6 +39,13 @@ class RoomHandOnTest {
     private val tiDie = "cc".repeat(32)
     private val dvd = "dd".repeat(32)      // on a build from before this one
 
+    /** The host's word handing the room on, an expression to its closing parenthesis (body() would find the next brace). */
+    private fun handOnWord(): String {
+        val signature = "private fun handOnWord(handing: RoomHandOn.Handing) = TogetherMessage.Here("
+        assertTrue("no $signature", signature in session)
+        return session.substringAfter(signature).substringBefore("\n    )\n")
+    }
+
     /** The text of the function that starts with [signature]: from its opening brace to the one that closes it. */
     private fun body(text: String, signature: String): String {
         val from = text.indexOf(signature)
@@ -126,20 +133,76 @@ class RoomHandOnTest {
 
     @Test
     fun `whose the room is follows the hand-ons in whatever order they come`() {
-        assertEquals(tiDie, RoomHandOn().apply { handed(mel, niko); handed(niko, tiDie) }.hostAfter(mel))
+        val everyone: (String) -> Boolean = { true }
+        assertEquals(tiDie, RoomHandOn().apply { handed(mel, niko, 1L); handed(niko, tiDie, 2L) }.hostAfter(mel, dvd, everyone))
         // Relays do not keep order: the second word first.
-        assertEquals(tiDie, RoomHandOn().apply { handed(niko, tiDie); handed(mel, niko) }.hostAfter(mel))
+        assertEquals(tiDie, RoomHandOn().apply { handed(niko, tiDie, 2L); handed(mel, niko, 1L) }.hostAfter(mel, dvd, everyone))
         // A word from someone who never hosted the room changes nothing.
-        assertEquals(mel, RoomHandOn().apply { handed(dvd, tiDie) }.hostAfter(mel))
+        assertEquals(mel, RoomHandOn().apply { handed(dvd, tiDie, 1L) }.hostAfter(mel, niko, everyone))
         // Round in a circle (a host that leaves forgets its key, so it cannot happen): it stops all the same.
-        RoomHandOn().apply { handed(mel, niko); handed(niko, mel) }.hostAfter(mel)
+        RoomHandOn().apply { handed(mel, niko, 1L); handed(niko, mel, 2L) }.hostAfter(mel, dvd, everyone)
+    }
+
+    @Test
+    fun `a hand-on counts once the phone it names says it hosts the room, and the host's newest word is the one`() {
+        // Ti-Die watches Mel leave and name Niko.
+        val hands = RoomHandOn().apply { handed(mel, niko, 1_000L) }
+        var hosting = emptySet<String>()
+        // Until Niko says it hosts the room, Mel is still the host: its next word, for another phone or the close, is taken.
+        assertEquals(mel, hands.hostAfter(mel, tiDie) { it in hosting })
+        hosting = setOf(niko)
+        assertEquals(niko, hands.hostAfter(mel, tiDie) { it in hosting })
+        // Niko itself takes it at once: its own Here then says it hosts the room, which is Mel's answer.
+        assertEquals(niko, RoomHandOn().apply { handed(mel, niko, 1_000L) }.hostAfter(mel, niko) { false })
+        // Niko never answered (gone, or its connection down), and Mel named Ti-Die next: Ti-Die takes it at once.
+        hands.handed(mel, tiDie, 16_000L)
+        assertEquals(tiDie, hands.hostAfter(mel, tiDie) { false })
+        // A late copy of the first word changes nothing: the newest of each host's words counts.
+        hands.handed(mel, niko, 1_000L)
+        assertEquals(tiDie, hands.hostAfter(mel, tiDie) { false })
+        // Two hand-ons, the middle host never heard saying it hosts: the last that says it does, the room's host now.
+        val chain = RoomHandOn().apply { handed(mel, niko, 1L); handed(niko, dvd, 2L) }
+        assertEquals(dvd, chain.hostAfter(mel, tiDie) { it == dvd })
+        assertEquals(niko, chain.hostAfter(mel, tiDie) { it == niko })
+    }
+
+    @Test
+    fun `the host that leaves passes over a phone that did not take the room, and its words get newer`() {
+        val hands = RoomHandOn().apply {
+            heard(niko, 0L)
+            said(niko, true)
+            heard(tiDie, 1_000L)
+            said(tiDie, true)
+        }
+        val now = 30_000L
+        val last = mapOf(niko to now, tiDie to now)
+        assertEquals(niko, hands.heir(mel, null, last, now))
+        val first = hands.handTo(niko, now, after = 5_000L)
+        assertEquals(niko, hands.handing?.to)
+        assertTrue(first.since > 5_000L && first.since >= now)
+        // Waiting for Niko's word: not yet given up on it.
+        assertFalse(hands.unanswered(now + RoomHandOn.ANSWER_MS - 1))
+        assertTrue(hands.unanswered(now + RoomHandOn.ANSWER_MS))
+        // Niko never answered: Ti-Die next, never Niko again, in a word newer than the first even with the clock set back.
+        hands.passOver()
+        assertNull(hands.handing)
+        assertEquals(tiDie, hands.heir(mel, niko, last, now))
+        val second = hands.handTo(tiDie, now - 60_000L, after = 5_000L)
+        assertTrue(second.since > first.since)
+        hands.passOver()
+        // Nobody left to take it: the room closes (TogetherSession.handOnNext).
+        assertNull(hands.heir(mel, null, last, now))
+        // Nobody passed over makes the others look like older builds to the Leave.
+        assertFalse(hands.olderOnly(mel, last, now))
+        assertFalse(hands.unanswered(now + 60_000L))
     }
 
     @Test
     fun `a build before this one follows the new host and takes its close`() {
-        // It reads the host's last word as a word on who leads, newer than the host's last one: it follows Niko.
-        val leave = body(session, "fun handOnAndLeave(): Boolean")
-        assertTrue(leave, "lead = to, leadSince = maxOf(System.currentTimeMillis(), leadGivenAt + 1)," in leave)
+        // It reads the host's word as a word on who leads, newer than the host's last one: it follows Niko.
+        val word = handOnWord()
+        assertTrue(word, "name, owner = true, lead = handing.to, leadSince = handing.since," in word)
+        assertTrue("val handing = handOn.handTo(to, System.currentTimeMillis(), after = leadGivenAt)" in body(session, "private fun handTo(to: String)"))
         // Niko's Here says it hosts the room, so Niko's close is one the older build takes (RoomEnds).
         val ends = RoomEnds()
         assertFalse(ends.owner(mel))
@@ -170,27 +233,53 @@ class RoomHandOnTest {
     }
 
     @Test
-    fun `the host's last word goes straight to the relays, then it is out of the room`() {
-        val leave = body(session, "fun handOnAndLeave(): Boolean")
-        assertTrue(leave, "takesRoom = true, host = to," in leave)
-        assertTrue(leave, leave.indexOf("pool.publish(") in 0 until leave.indexOf("service.stopTogether()"))
-        assertFalse(leave, "send(" in leave)       // not through the coroutine the stop would cancel
-        assertTrue(leave, "R.string.together_hosts_now" in leave)
-        assertTrue(leave, "val to = heirKey() ?: return false" in leave)
+    fun `the host's word is said until the phone it names hosts the room, and only then is it out`() {
+        val leave = body(session, "fun handOnAndLeave(to: String? = null): Boolean")
+        assertTrue(leave, "val heir = heirKey() ?: return false" in leave)
+        // The phone the Leave named, or nothing: the Leave then says who gets it now.
+        assertTrue(leave, "if (to != null && to != heir) return false" in leave)
+        assertTrue(leave, "handTo(heir)" in leave)
+        assertFalse(leave, "stopTogether" in leave)
+        assertTrue("takesRoom = true, host = handing.to," in handOnWord())
+        // Every Here it says meanwhile is that word, every couple of seconds and at once to a newcomer or a relay back.
+        val here = session.substringAfter("private fun sayHere() = send(").substringBefore("\n    )\n")
+        assertTrue(here, "handOn.handing?.let(::handOnWord) ?: TogetherMessage.Here(" in here)
+        val hand = body(session, "private fun handTo(to: String)")
+        assertTrue(hand, "sayHere()" in hand && "delay(TogetherMessage.HEARTBEAT_MS)" in hand)
+        assertTrue(hand, "handOn.unanswered(System.currentTimeMillis())" in hand && "handOnNext()" in hand)
+        // Out once that phone's own Here says it hosts the room, with the line that names it.
+        val event = body(session, "private fun onEvent(event: NostrEvent)")
+        assertTrue(event, "if (message.owner && from == handOn.handing?.to) {\n                handedAway(from)" in event)
+        val away = body(session, "private fun handedAway(to: String)")
+        assertTrue(away, away.indexOf("R.string.together_hosts_now") in 0 until away.indexOf("service.stopTogether()"))
+        // Not taken in time, or the phone left: the next one, and with nobody left the room closes for everyone.
+        val next = body(session, "private fun handOnNext()")
+        assertTrue(next, "handOn.passOver()" in next && "handTo(next)" in next)
+        assertTrue(next, "R.string.together_nobody_took" in next && "leave()" in next)
+        assertTrue("if (handOn.handing?.to == key) handOnNext()" in body(session, "private fun left(key: String)"))
+        // Meanwhile the host's other powers wait: control stays as it is for the new host to take.
+        for (signature in listOf("fun handOver(member: Member)", "fun takeBack()", "fun kick(member: Member)", "private fun watchLeader()")) {
+            assertTrue(signature, "handOn.handing != null" in body(session, signature))
+        }
         // Every phone of this build says it takes a room.
-        assertTrue("dev = devProof, takesRoom = true," in session.substringAfter("private fun sayHere() = send(").substringBefore("\n    )\n"))
+        assertTrue("dev = devProof, takesRoom = true," in here)
     }
 
     @Test
     fun `the others take the new host's word from then on, and the new host has all a host has`() {
         val event = body(session, "private fun onEvent(event: NostrEvent)")
         // Before the owner's word on who leads, which is the new host's to say from then on.
-        val handOnAt = event.indexOf("if (message.host != null) handOnHeard(from, message.host)")
+        val handOnAt = event.indexOf("if (message.host != null) handOnHeard(from, message.host, message.leadSince)")
         assertTrue(event, handOnAt in 0 until event.indexOf("leadWord.take(message.leadSince)"))
+        // The word that hands the room on is not one on who leads: the room plays on as it was until the new host hosts.
+        assertTrue(event, "if (from == ownerKey && message.host == null && message.lead != null && leadWord.take(message.leadSince))" in event)
+        // The named phone's own word that it hosts the room, before or after the host's.
+        assertTrue(event, "else if (message.owner && from != ownerKey) settleHost()" in event)
+        assertTrue("handOn.hostAfter(was, me) { key -> said[key]?.second == true }" in body(session, "private fun settleHost()"))
         assertTrue(event, "handOn.said(from, message.takesRoom)" in event)
         assertTrue(event, "handOn.heard(from, now)" in event)
         // From what the relays kept too, as a close is.
-        assertTrue("handOnHeard(from, message.host)" in body(session, "private fun fromBefore(event: NostrEvent)"))
+        assertTrue("handOnHeard(from, message.host, message.leadSince)" in body(session, "private fun fromBefore(event: NostrEvent)"))
         val handed = body(session, "private fun handedOn(was: String, host: String)")
         for (line in listOf("ownerKey = host", "leadWord = LeadWord()", "sentOut += was", "heard.remove(was)", "news.now(host)", "if (host != leaderKey) lead(host)", "R.string.together_hosts_now", "becomeHost()")) {
             assertTrue(line, line in handed)
@@ -228,8 +317,8 @@ class RoomHandOnTest {
     fun `the host's Leave offers both ways plainly, and closing alone when nobody can take the room`() {
         // Everyone's button says Leave (with the flag); the host is asked how.
         assertTrue("Text(stringResource(if (room.owner && !Unreleased.ROOM_HAND_ON) R.string.together_close_room else R.string.together_leave))" in sheet)
-        assertTrue("RoomLeaveDialog(\n            choice = room.leaveChoice()," in sheet)
-        assertTrue("if (room.handOnAndLeave()) confirmingClose = false" in sheet)
+        assertTrue("RoomLeaveDialog(\n            choice = status.leaveChoice," in sheet)
+        assertTrue("if (room.handOnAndLeave(status.leaveChoice.heirKey)) confirmingClose = false" in sheet)
         // Handing on first, then closing, each saying what it does to the others.
         val handOn = dialog.indexOf("title = stringResource(R.string.together_hand_on, heir)")
         val close = dialog.indexOf("title = stringResource(R.string.together_close_room)")
@@ -242,7 +331,7 @@ class RoomHandOnTest {
         assertTrue("if (choice.olderOnly) {" in dialog)
         for (path in listOf("src/main/res/values/strings-ot.xml", "src/main/res/values-fr/strings-ot.xml")) {
             val strings = File(path).readText()
-            for (name in listOf("together_leave_title", "together_hand_on", "together_hand_on_text", "together_close_room_older", "together_hosts_now", "together_host_yours", "together_walk_leave_host")) {
+            for (name in listOf("together_leave_title", "together_hand_on", "together_hand_on_text", "together_close_room_older", "together_hosts_now", "together_host_yours", "together_walk_leave_host", "together_handing_on", "together_nobody_took")) {
                 val line = strings.lines().firstOrNull { "name=\"$name\"" in it }
                 assertTrue("$name missing from $path", line != null)
                 assertFalse("$name in $path has a dash", "—" in line!! || "–" in line)
@@ -258,13 +347,14 @@ class RoomHandOnTest {
         // The switch is the offer alone: without it the host's Leave closes the room, asked first, as before, and the walk
         // says so.
         assertTrue("if (!Unreleased.ROOM_HAND_ON) return RoomLeaveChoice(heir = null, olderOnly = false)" in body(session, "fun leaveChoice(): RoomLeaveChoice"))
-        assertTrue("if (!Unreleased.ROOM_HAND_ON) return false" in body(session, "fun handOnAndLeave(): Boolean"))
+        assertTrue("if (!Unreleased.ROOM_HAND_ON) return false" in body(session, "fun handOnAndLeave(to: String? = null): Boolean"))
         val walk = File("src/main/java/com/dd3boh/outertune/ui/dialog/RoomWalk.kt").readText()
         assertTrue("LEAVE(R.string.together_walk_leave, if (Unreleased.ROOM_HAND_ON) R.string.together_walk_leave_host else R.string.together_walk_close)," in walk)
         // Taking a room handed on, and saying it does, are in every build: a phone on a release can be handed one.
-        for (signature in listOf("private fun handOnHeard(", "private fun handedOn(", "private fun becomeHost()")) {
+        for (signature in listOf("private fun handOnHeard(", "private fun settleHost()", "private fun handedOn(", "private fun becomeHost()", "private fun left(")) {
             assertFalse(signature, "ROOM_HAND_ON" in body(session, signature))
         }
+        assertFalse("ROOM_HAND_ON" in handOnWord())
         assertFalse("ROOM_HAND_ON" in session.substringAfter("private fun sayHere() = send(").substringBefore("\n    )\n"))
     }
 }

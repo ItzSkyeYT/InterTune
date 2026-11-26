@@ -106,7 +106,8 @@ class RoomControlTest {
     @Test
     fun `control moves only by the owner's newest word, and every change is told`() {
         val event = body(session, "private fun onEvent(event: NostrEvent)")
-        assertTrue(event, "if (from == ownerKey && message.lead != null && leadWord.take(message.leadSince)) {" in event)
+        // Never by a word handing the room on: who leads then is the new host's to say once it hosts (RoomHandOn).
+        assertTrue(event, "if (from == ownerKey && message.host == null && message.lead != null && leadWord.take(message.leadSince)) {" in event)
         assertTrue(event, "inControl(message.lead)" in event)
         // The owner's own moves are told on its phone too.
         assertTrue("inControl(member.key)" in body(session, "fun handOver(member: Member)"))

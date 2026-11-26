@@ -2637,6 +2637,8 @@
     <string name="together_control_back">%1$s ne répond plus, alors vous reprenez la main.</string>
     <string name="together_hosts_now">%1$s est l\'hôte du salon maintenant</string>
     <string name="together_host_yours">Vous êtes l\'hôte : vous choisissez la musique pour tout le monde.</string>
+    <string name="together_handing_on">Le salon passe à %1$s</string>
+    <string name="together_nobody_took">Personne n\'a pu prendre le salon, il est donc fermé pour tout le monde.</string>
     <string name="together_kick">Retirer du salon</string>
     <string name="together_room_settings">Réglages du salon</string>
     <string name="together_everyone_seeks">Laisser chacun se déplacer dans le titre</string>

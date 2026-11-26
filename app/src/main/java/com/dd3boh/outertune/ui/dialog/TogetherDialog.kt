@@ -453,15 +453,15 @@ private fun RoomPage(room: TogetherSession, song: MediaMetadata?, onLeave: () ->
     var showingQr by rememberSaveable { mutableStateOf(false) }
     if (showingQr) RoomQrDialog(room.code, onDismiss = { showingQr = false })
     // The owner's leaving is asked first (his word of 17 Oct 2026): hand the room on, the others carrying on, or close it
-    // for everyone (his find of 23 Nov 2026, RoomLeaveDialog). Who would get it is looked at as the sheet draws, with
-    // every word in the room.
+    // for everyone (his find of 23 Nov 2026, RoomLeaveDialog). Who would get it as the room's last look saw it, two seconds
+    // ago at most, and the room goes to that one: a phone that went quiet is no longer offered while the dialog is open.
     var confirmingClose by rememberSaveable { mutableStateOf(false) }
     if (confirmingClose) {
         RoomLeaveDialog(
-            choice = room.leaveChoice(),
+            choice = status.leaveChoice,
             onHandOn = {
                 haptics.performHapticFeedback(HapticFeedbackType.Confirm)
-                if (room.handOnAndLeave()) confirmingClose = false
+                if (room.handOnAndLeave(status.leaveChoice.heirKey)) confirmingClose = false
             },
             onClose = {
                 confirmingClose = false
@@ -706,17 +706,22 @@ private fun RoomPage(room: TogetherSession, song: MediaMetadata?, onLeave: () ->
         }
         Spacer(Modifier.height(24.dp))
         WalkFrom(WalkStop.LEAVE)
+        // Handing the room on, the host stays until the phone it named says it hosts the room, about a second (RoomHandOn):
+        // the button says so meanwhile, and asks nothing more.
+        val handingTo = status.handingTo
         OutlinedButton(
             onClick = { if (room.owner) confirmingClose = true else onLeave() },
+            enabled = handingTo == null,
             colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.5f)),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = if (handingTo == null) 0.5f else 0.2f)),
             modifier = Modifier.fillMaxWidth(),
         ) {
             Icon(Icons.AutoMirrored.Rounded.Logout, contentDescription = null, modifier = Modifier.size(ButtonDefaults.IconSize))
             Spacer(Modifier.width(ButtonDefaults.IconSpacing))
             // Everyone leaves the same way; the owner is then asked whether the room goes on without it (RoomLeaveDialog).
             // Without the flag the owner's leaving closes the room for everyone, and says so, as before.
-            Text(stringResource(if (room.owner && !Unreleased.ROOM_HAND_ON) R.string.together_close_room else R.string.together_leave))
+            if (handingTo != null) Text(stringResource(R.string.together_handing_on, handingTo))
+            else Text(stringResource(if (room.owner && !Unreleased.ROOM_HAND_ON) R.string.together_close_room else R.string.together_leave))
         }
         WalkTo(WalkStop.LEAVE)
         // The tour of a room, any time (RoomTour).
