@@ -2791,6 +2791,8 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="together_too_slow">Your connection is too slow to keep up with the room. You\'ll hear it a bit behind.</string>
     <string name="together_leave">Leave</string>
     <string name="together_join_title">Join this listening room?</string>
+    <!-- The invite dialog, on a phone that hosts a room: joining the other one closes this one for everyone (MusicService.startTogether). -->
+    <string name="together_join_closes_yours">You host a room: joining this one closes yours for everyone. To keep it going, hand it on first with Leave.</string>
     <string name="together_share">Share</string>
     <string name="together_invite_line">Join my room on InterTune:\n%1$s</string>
     <string name="together_own_way">Playing on your own</string>

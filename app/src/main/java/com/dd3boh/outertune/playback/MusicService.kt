@@ -5572,6 +5572,17 @@ class MusicService : MediaLibraryService(),
                         else -> throw IllegalStateException()
                     }
                 )
+                    // The player's three looks (#182, his pick 3B): off the plain icon at full
+                    // strength, on and one a lit box with the glyph cut out. The semantic constant
+                    // above stays, so One UI still knows the button; the drawable is what media3
+                    // and the legacy custom action draw where they draw our own.
+                    .setCustomIconResId(
+                        when (activePlayer.repeatMode) {
+                            REPEAT_MODE_OFF -> R.drawable.repeat_on
+                            REPEAT_MODE_ONE -> R.drawable.repeat_one_box
+                            else -> R.drawable.repeat_all_box
+                        }
+                    )
                     .setDisplayName(
                         getString(
                             when (activePlayer.repeatMode) {

@@ -2579,6 +2579,7 @@
     <string name="together_too_slow">Votre connexion est trop lente pour suivre le salon. Vous l\'entendrez avec un peu de retard.</string>
     <string name="together_leave">Quitter</string>
     <string name="together_join_title">Rejoindre ce salon d\'écoute ?</string>
+    <string name="together_join_closes_yours">Vous êtes l’hôte d’un salon : rejoindre celui-ci ferme le vôtre pour tout le monde. Pour qu’il continue, confiez-le d’abord avec Quitter.</string>
     <string name="together_share">Partager</string>
     <string name="together_invite_line">Rejoins mon salon sur InterTune :\n%1$s</string>
     <string name="together_own_way">Vous écoutez de votre côté</string>

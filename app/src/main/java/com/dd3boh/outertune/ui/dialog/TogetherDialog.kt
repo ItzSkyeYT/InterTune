@@ -1473,6 +1473,10 @@ fun TogetherInviteDialog(code: RoomCode, playerConnection: PlayerConnection?, on
     playerConnection ?: return
     val scope = rememberCoroutineScope()
     val haptics = LocalHapticFeedback.current
+    // A host who joins another room closes its own for everyone (MusicService.startTogether: closeNow): said before the
+    // Join, with the way to keep it going, the room's Leave and its hand-on (the whole-app scan of 26 Nov 2026).
+    val session by playerConnection.service.together.collectAsState()
+    val hosting = session?.owner == true
     suspend fun join() {
         playerConnection.service.startTogether(code, owner = false, relays = togetherRelays(context), name = togetherName(context))
         onDone()
@@ -1495,7 +1499,12 @@ fun TogetherInviteDialog(code: RoomCode, playerConnection: PlayerConnection?, on
         icon = { Icon(Icons.Rounded.Group, contentDescription = null) },
         title = { Text(stringResource(R.string.together_join_title)) },
         // Held to a width: chips that fill the dialog stretched it to the edges of the screen.
-        text = { CodeChips(code, Modifier.widthIn(max = 320.dp)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                CodeChips(code, Modifier.widthIn(max = 320.dp))
+                if (hosting) Text(stringResource(R.string.together_join_closes_yours), style = MaterialTheme.typography.bodyMedium)
+            }
+        },
         confirmButton = {
             // Not on a service that has stopped: see MusicService.startTogether.
             TextButton(enabled = playerConnection.isAlive, onClick = {
