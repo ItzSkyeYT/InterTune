@@ -109,7 +109,7 @@ class ProposalLineTest {
         assertTrue(card.indexOf("if (more > 0) {") in 0 until card.indexOf("Checkbox(checked = withQueue"))
         assertTrue("onPlay(withQueue)" in card)
         val main = File("src/main/java/com/dd3boh/outertune/MainActivity.kt").readText()
-        assertTrue("on every screen, over the player too", "TogetherProposalCard(playerConnection, Modifier.align(Alignment.TopCenter))" in main)
+        assertTrue("on every screen, over the player too", "TogetherProposalCard(playerConnection, Modifier.align(Alignment.TopCenter)," in main)
         assertFalse("TogetherProposalDialog(" in main)
         // And in the room's sheet, which covers the card.
         val sheet = File("src/main/java/com/dd3boh/outertune/ui/dialog/TogetherDialog.kt").readText()
