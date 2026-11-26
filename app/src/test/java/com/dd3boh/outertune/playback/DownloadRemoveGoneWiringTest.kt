@@ -41,7 +41,7 @@ class DownloadRemoveGoneWiringTest {
         // Asked of the folder only then: the file's own answer, and the folder's.
         assertTrue(deleteFile.contains("file.exists()"))
         assertTrue(deleteFile.contains("mainDir?.exists()"))
-        assertTrue("a file in an extra folder is still left alone", deleteFile.contains("if (!isInMainDir(file)) return FileRemoval.NOT_HERE"))
+        assertTrue("a file in an extra folder is still left alone, and said so", deleteFile.contains("if (!isInMainDir(file)) return FileRemoval.READ_ONLY"))
         assertTrue("no file known is nothing to delete", deleteFile.contains("?: return FileRemoval.NOT_HERE"))
     }
 
@@ -66,6 +66,24 @@ class DownloadRemoveGoneWiringTest {
         assertTrue(map > touched)
         assertTrue(row > map)
         assertFalse("the delete's result is no longer a yes or a no", deleteSong.contains("val deleted ="))
+    }
+
+    /**
+     * 26 Nov 2026 (the whole-app scan): after Inside the app, the old download folder is kept as an
+     * extra import folder, and Remove download on its songs did nothing, without a word. The file
+     * still stays (that folder is only read), and the person is told where to remove it, once for a
+     * whole album's removal.
+     */
+    @Test
+    fun `a file in an extra import folder stays, and the person is told where it is, once a burst`() {
+        val readOnly = deleteSong.indexOf("if (removal == FileRemoval.READ_ONLY && readOnlyNote.due(System.currentTimeMillis())) {")
+        val stop = deleteSong.indexOf("if (!removal.over) return@launch")
+        assertTrue(readOnly in 1 until stop)
+        assertTrue(deleteSong.substring(readOnly, stop).contains("withContext(Dispatchers.Main) { Toaster.show(context, R.string.remove_download_read_only, Toast.LENGTH_LONG) }"))
+        assertTrue(util.contains("private val readOnlyNote = OnceInAWhile(10_000)"))
+        // Named as the settings row names it, in both languages.
+        assertTrue(english.contains("take the folder out in Configure extra import locations."))
+        assertTrue(french.contains("« Configurer des emplacements d’importation supplémentaires »"))
     }
 
     @Test

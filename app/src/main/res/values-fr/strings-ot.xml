@@ -2516,6 +2516,7 @@
     <string name="not_saved">Non enregistré : un problème est survenu. Réessayez.</string>
     <string name="remove_download_selection_confirm">Supprimer les téléchargements des titres choisis ?</string>
     <string name="remove_download_refused">Fichier non supprimé. Vérifiez le dossier de téléchargement.</string>
+    <string name="remove_download_read_only">Le fichier de ce titre est dans un emplacement d’importation supplémentaire, qu’InterTune ne fait que lire : il reste là. Supprimez-le depuis ce dossier, ou retirez l’emplacement dans « Configurer des emplacements d’importation supplémentaires ».</string>
     <string name="queue_held_row_label">revenir au titre en cours</string>
     <string name="stats_found">InterTune vous a fait découvrir %1$s des titres que vous aimez.</string>
     <string name="found_way_radios">Radios</string>

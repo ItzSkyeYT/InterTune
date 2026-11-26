@@ -156,7 +156,7 @@ class DownloadDirectoryManagerOt(private var context: Context, private var dir: 
     @Synchronized
     fun deleteFile(mediaId: String): FileRemoval {
         val file = isExists(mediaId) ?: return FileRemoval.NOT_HERE
-        if (!isInMainDir(file)) return FileRemoval.NOT_HERE
+        if (!isInMainDir(file)) return FileRemoval.READ_ONLY
         val removal = fileRemoval(
             deleted = file.delete(),
             fileThere = { file.exists() },
@@ -685,8 +685,15 @@ enum class FileRemoval(val over: Boolean) {
      */
     GONE(true),
 
-    /** Nothing was tried: no file of the song in the list, or one in an extra folder, which is never changed. */
+    /** Nothing was tried: no file of the song in the list. */
     NOT_HERE(false),
+
+    /**
+     * Nothing was tried: the song's file is in an extra import folder, which is only read (the storage
+     * tooltip). The person is told where it is: choosing Inside the app keeps the old download folder
+     * as one, and Remove download there did nothing, without a word (26 Nov 2026).
+     */
+    READ_ONLY(false),
 
     /**
      * The file is there and could not be deleted (a permission, a provider that does not delete),
@@ -694,6 +701,17 @@ enum class FileRemoval(val over: Boolean) {
      * gone). The song stays listed, as a scan spares it (unlistedDownloadDirs).
      */
     REFUSED(false),
+}
+
+/**
+ * True at most once every [gapMs]: one note for a burst of removals that all meet the same thing (a
+ * whole album's Remove download in an extra import folder), not a note per song.
+ */
+class OnceInAWhile(private val gapMs: Long) {
+    private var last = Long.MIN_VALUE / 2
+
+    @Synchronized
+    fun due(now: Long): Boolean = (now - last >= gapMs).also { if (it) last = now }
 }
 
 /**
