@@ -216,6 +216,8 @@ class PlayerConnection(
         /** Start radio on a song: in a listening room a whole start, not a song tapped (RoomTap). */
         radioAsked: Boolean = false,
     ) {
+        // On a phone that follows a room, what the listener starts takes it its own way at once (TogetherSession.listenerStarts).
+        service.together.value?.listenerStarts()
         service.playQueue(
             queue = queue,
             shouldResume = shouldResume,
@@ -256,6 +258,9 @@ class PlayerConnection(
         // A guest following a room has one Play next: it goes to the room (the person in control puts it next),
         // as the queue here is only a copy of theirs. A guest on its own way keeps its own.
         if (toRoom(items, atEnd = false)) return
+        // While nobody plays for the room, its own queue is where they go: said once, before the queue changes
+        // (TogetherSession.addedHere).
+        service.together.value?.addedHere()
         service.enqueueNext(items)
     }
 
@@ -270,6 +275,7 @@ class PlayerConnection(
     fun enqueueEnd(items: List<MediaItem>) {
         // The same for Add to queue: the end of the room's queue, not of this phone's copy.
         if (toRoom(items, atEnd = true)) return
+        service.together.value?.addedHere()
         service.enqueueEnd(items)
     }
 
@@ -428,6 +434,8 @@ class PlayerConnection(
      */
     fun loadQueueIfEmpty(): Player {
         if (player.currentMediaItem == null) service.queueBoard.setCurrQueue()
+        // What the tap does next on it is the listener's, by hand, in a listening room too (MusicService.byHand).
+        service.byHand()
         return service.activePlayer
     }
 

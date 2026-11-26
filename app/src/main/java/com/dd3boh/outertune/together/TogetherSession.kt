@@ -111,6 +111,12 @@ class TogetherSession(
     lead: String? = null,
     /** Whose each song was in the room before it moved to this code (WhoAdded.carried); null for a room made or joined now. */
     carried: WhoAdded.Carried? = null,
+    /**
+     * How this phone listened in the room before it came back as this session (RoomWay): moved to a new code with it
+     * (MusicService.moveTogether), or joined again after the service ended (rejoinSavedRoom). Null for a room made or
+     * joined now, which a guest follows and plays with.
+     */
+    way: RoomWay? = null,
 ) {
     data class Status(
         val relaysConnected: Int = 0,
@@ -312,7 +318,14 @@ class TogetherSession(
 
     /** How late this phone's sound comes out (Settings > Listen together). */
     private var delayMs = 0L
-    private var pausedHere = false
+
+    /**
+     * How this phone came back to the room, when it follows someone: paused here or on its own way as it was, so that
+     * nothing plays aloud by itself and its own music is not replaced (RoomWay). Null for one that leads, and for a room
+     * made or joined now.
+     */
+    private val cameBackAs = way.takeIf { !leading }
+    private var pausedHere = cameBackAs == RoomWay.PAUSED_HERE
     /** A cast on this phone, as the last look saw it: see [castLook]. */
     private var casting = false
     private val guestCast = GuestCast()
@@ -364,8 +377,14 @@ class TogetherSession(
         }
     }
 
-    // A host's room that comes back with control elsewhere (lead) waits for that phone, as any follower does.
-    private val _status = MutableStateFlow(Status(waitingForHost = !leading, leading = leading, settings = if (owner) RoomSettings() else null))
+    // A host's room that comes back with control elsewhere (lead) waits for that phone, as any follower does: paused here or
+    // on its own way as it came back (cameBackAs).
+    private val _status = MutableStateFlow(
+        Status(
+            waitingForHost = !leading, leading = leading, settings = if (owner) RoomSettings() else null,
+            ownWay = cameBackAs == RoomWay.OWN_WAY, pausedHere = pausedHere,
+        )
+    )
     val status: StateFlow<Status> = _status
 
     /** Whether this phone follows someone now: its player's repeat mode is then the room's, not its own choice. */
@@ -381,6 +400,7 @@ class TogetherSession(
     private val listener = object : Player.Listener {
         // A follower's own pause, song or seek, as against the session's own commands (mine()) and a cast's taking the
         // music from this player and giving it back (MusicService.handOverTo, takeBack), which are never the listener's.
+        // A command given by hand is the listener's at once, the session's window or not (byHand).
         override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
             if (!leading && !service.castOn) listenerPlayed(playWhenReady)
             wake.trySend(Unit)
@@ -421,6 +441,15 @@ class TogetherSession(
                 if (oldPosition.mediaItemIndex == newPosition.mediaItemIndex && seekHeld(_status.value)) {
                     seekHeldHere(abs(newPosition.positionMs - oldPosition.positionMs))
                 } else listenerChose("a seek")
+            }
+        }
+
+        override fun onTimelineChanged(timeline: Timeline, reason: Int) {
+            // Its queue changed while it plays on its own because nobody plays for the room: by hand in the queue sheet,
+            // a follower's queue never growing by itself. The room's queue no longer replaces it when someone plays again.
+            if (reason == Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED && aloneOwnWay && !leading && !service.castOn) {
+                aloneOwnWay = false
+                Log.i(TAG, "Its own queue changed while nobody plays for the room: on its own until Catch up")
             }
         }
 
@@ -557,7 +586,9 @@ class TogetherSession(
                 if (!leading) follow()
                 watchHost()
                 watchLeader()
+                lookAlone()
                 watchMembers()
+                keepWay()
                 // Four looks a second while the room plays; one every two seconds while it is paused there and here, or
                 // while this phone leads. A word from the leader, a play or a pause here, a new lead or Catch up wakes it.
                 val every = lookEveryMs(leading, lastState?.playing, service.exoPlayer.playWhenReady)
@@ -1002,6 +1033,8 @@ class TogetherSession(
                     lastState = message
                     lastStateAt = now
                     wake.trySend(Unit)
+                    // Someone plays for the room again after nobody did: back with it by itself, or not (goAlone).
+                    if (aloneOwnWay) backFromAlone(message)
                     // The leader said yes to this phone's song: back with the room, where it already is.
                     if (ownWay && message.songId == proposedSongId) {
                         Log.i(TAG, "The leader plays the song proposed from here: back with the room")
@@ -1165,6 +1198,7 @@ class TogetherSession(
             // Its own playing is the room's now: no more nudging, and its own repeat mode.
             ownWay = false
             pausedHere = false
+            aloneOwnWay = false
             ownSpeed()
             _status.value = _status.value.copy(driftMs = null, ownWay = false, waitingForHost = false, locked = false, pausedHere = false)
             sendState()
@@ -1683,6 +1717,7 @@ class TogetherSession(
         }
         ownWay = false
         pausedHere = false
+        aloneOwnWay = false
         matchedQueue = null
         // The leader's song asked for afresh: one asked for before and never got was waited for at every look (CatchUp).
         loadingSong = null
@@ -1744,11 +1779,22 @@ class TogetherSession(
     /**
      * The listener did something to the player that the room did not: from then on this phone
      * plays on its own, the leader's music no longer forced on it, until Catch up. Not a pause:
-     * see [listenerPlayed].
+     * see [listenerPlayed]. [pressed]: given by hand ([byHand], skipOnOwn), not a change the
+     * session may have made itself.
      */
-    private fun listenerChose(what: String, pressed: Boolean = false) {
-        // A button pressed here is the listener's whatever the room did a moment before (skipOnOwn).
-        if (lastState == null || ownWay || (!pressed && System.currentTimeMillis() < ownCommandUntil)) return
+    private fun listenerChose(what: String, pressed: Boolean = handTurn) {
+        // A button pressed here is the listener's whatever the room did a moment before (skipOnOwn, byHand): only what the
+        // listener did not ask for here falls in the room's window, the player's own moves made by the room (mine).
+        if (!pressed && System.currentTimeMillis() < ownCommandUntil) return
+        if (ownWay) {
+            // Its own choice while nobody plays for the room: it stays on its own way when someone does (goAlone).
+            if (aloneOwnWay) {
+                aloneOwnWay = false
+                Log.i(TAG, "The listener chose $what while nobody plays for the room: on their own until Catch up")
+            }
+            return
+        }
+        if (lastState == null) return
         ownWay = true
         pausedHere = false
         lock.reset()
@@ -1765,6 +1811,41 @@ class TogetherSession(
     fun skipOnOwn() {
         if (leading) return
         listenerChose("Next with nothing after", pressed = true)
+    }
+
+    /**
+     * The listener starts something to play here (a song, a list, a radio: PlayerConnection.playQueue): a phone that
+     * follows goes its own way at once, as for any song it picks, before the start has loaded. A start that landed in
+     * the seconds after the room had moved this phone was taken for the room's own move, and the room's song put back.
+     */
+    fun listenerStarts() {
+        if (!leading) listenerChose("a song of their own", pressed = true)
+    }
+
+    /**
+     * What the player does from now to the end of this turn of the main loop is the listener's, by hand (26 Nov 2026): a
+     * seek, a skip or a list asked of the app's player (MusicService.byHand: the screens, the notification, a headset, a
+     * car, a watch). Theirs at once, however the room had moved this phone a moment before: a Next, a song tapped or a
+     * seek in the seconds after the room moved it was taken for the room's own move and undone ([mine]'s window). The
+     * player tells its listeners of a command within it, in this same turn. Main thread.
+     */
+    fun byHand() {
+        if (handTurn) return
+        handTurn = true
+        // Ended before anything else the main thread does next, the room's own next look among it.
+        Handler(Looper.getMainLooper()).postAtFrontOfQueue { handTurn = false }
+    }
+
+    /**
+     * Songs put in this phone's own queue by Play next or Add to queue (PlayerConnection), as it plays on its own while
+     * nobody plays for the room ([goAlone]): its own way from now on, kept when someone plays for the room again. Said once,
+     * in the room's own words: the songs are not the room's.
+     */
+    fun addedHere() {
+        if (!aloneOwnWay) return
+        aloneOwnWay = false
+        Toaster.show(service, R.string.together_own_way)
+        Log.i(TAG, "Songs put in its own queue while nobody plays for the room: on its own until Catch up")
     }
 
     /**
@@ -1785,6 +1866,85 @@ class TogetherSession(
         if (pausedHere) ownSpeed()
         _status.value = _status.value.copy(pausedHere = pausedHere, driftMs = null, locked = false)
         Log.i(TAG, if (pausedHere) "Paused here; the room plays on" else "Playing again: back to where the leader is")
+    }
+
+    /** At each look: a phone that follows and finds that nobody plays for the room plays on its own ([goAlone]). */
+    private fun lookAlone() {
+        if (nobodyPlays(System.currentTimeMillis())) goAlone()
+    }
+
+    /**
+     * Nobody plays for the room as this phone knows it: whoever was in control has been quiet as long as follow waits for
+     * it (HOST_TIMEOUT_MS), or, nobody heard playing in this session (a room that came back), the host is away. Not for a
+     * guest that joined now and was never answered: that one is not in the room yet (JoinCheck).
+     */
+    private fun nobodyPlays(now: Long): Boolean {
+        if (leading || lastState != null) return false
+        if (lastStateAt > 0) return now - lastStateAt > HOST_TIMEOUT_MS
+        return _status.value.hostAway && (!joiningNow || answeredAt > 0)
+    }
+
+    /**
+     * Nobody plays for the room ([nobodyPlays]): this phone plays on its own meanwhile (26 Nov 2026), on its own way. Its
+     * Play next and Add to queue are its own, as outside a room (PlayerConnection.toRoom), its queue its own to change,
+     * and a song it picks plays. Before, it followed nobody for as long as the room lasted, up to six hours: what it sent
+     * the room went nowhere ("Added to the room" all the same), and its queue stayed the room's. The sheet goes on saying
+     * that it waits for the host or that the host is away. When someone plays for the room again: [backFromAlone].
+     */
+    private fun goAlone() {
+        if (leading || ownWay) return
+        ownWay = true
+        aloneOwnWay = true
+        // A phone paused here is paused all the same, and back with the room it is paused here again (backFromAlone).
+        pausedHere = false
+        lock.reset()
+        ownSpeed()
+        _status.value = _status.value.copy(ownWay = true, driftMs = null, locked = false, pausedHere = false)
+        Log.i(TAG, "Nobody plays for the room: playing on its own until someone does")
+    }
+
+    /**
+     * Someone plays [state]'s song for the room again after nobody did ([goAlone]). This phone, on its own way only for that,
+     * its listener having done nothing of their own meanwhile, goes back with the room by itself when that changes nothing
+     * it hears: it plays the room's song, or nothing (NobodyPlays). Paused while the room plays, it is paused here, as
+     * after a pause of its own: Play takes it to where the room is. Playing another song, it stays on its own way, Catch
+     * up offered: never pulled out of the middle of a song.
+     */
+    private fun backFromAlone(state: TogetherMessage.State) {
+        aloneOwnWay = false
+        val player = service.exoPlayer
+        if (!NobodyPlays.backWithRoom(player.playWhenReady, player.playbackState, player.currentMediaItem?.mediaId, state.songId)) {
+            Log.i(TAG, "Someone plays for the room again: another song plays here, on its own until Catch up")
+            return
+        }
+        Log.i(TAG, "Someone plays for the room again: back with it")
+        catchUp()
+        // Casting, it catches up as the cast ends (GuestCast).
+        if (ownWay) return
+        if (PauseHere.after(pausedHere = false, playWhenReady = player.playWhenReady, roomPlaying = state.playing) == true) {
+            pausedHere = true
+            _status.value = _status.value.copy(pausedHere = true)
+            Log.i(TAG, "Back with the room, paused while it plays: paused here")
+        }
+    }
+
+    /**
+     * How this phone listens in the room now, kept so that the room comes back with it (RoomWay): on its own way only as
+     * its listener took it there, not for a cast alone (GuestCast) or while nobody plays for the room ([goAlone]).
+     */
+    fun way(): RoomWay = RoomWay.of(
+        ownWay = ownWay && !guestCast.catchUpAfter && !aloneOwnWay,
+        pausedHere = pausedHere,
+        playing = service.exoPlayer.playWhenReady,
+    )
+
+    /** The way kept with the room as it changes (MusicService.roomWay), at the room's look; the service's end keeps it too. */
+    private fun keepWay() {
+        if (leading) return
+        val now = way()
+        if (now == keptWay) return
+        keptWay = now
+        service.roomWay(code, now)
     }
 
     /** What the session does to the player next is its own, not the listener's, for [forMs]. */
@@ -2117,8 +2277,17 @@ class TogetherSession(
 
     private var lastLoggedDrift = 0L
     private var lastStateAt = 0L
-    private var ownWay = false
+    private var ownWay = cameBackAs == RoomWay.OWN_WAY
+
+    /** On its own way only because nobody plays for the room, nothing of the listener's own done since: see [goAlone]. */
+    private var aloneOwnWay = false
     private var ownCommandUntil = 0L
+
+    /** A command given by hand in this turn of the main loop: see [byHand]. */
+    private var handTurn = false
+
+    /** The way last kept with the room: see [keepWay]. The one it starts with is kept as the room is (startTogether). */
+    private var keptWay = this.way()
 
     /**
      * Where the leader is now in [state]'s song: by the leader's clock once the gap to it is known,

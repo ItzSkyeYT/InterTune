@@ -8,7 +8,9 @@ package com.dd3boh.outertune.playback
 
 import androidx.media3.common.ForwardingPlayer
 import androidx.media3.common.ForwardingSimpleBasePlayer
+import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
+import com.google.common.util.concurrent.ListenableFuture
 
 /**
  * The one player the rest of the app holds while casting can happen: the media session, the
@@ -31,10 +33,27 @@ class RoutedPlayer(local: Player) : ForwardingSimpleBasePlayer(Steady(local)) {
     /** Where calls go now: the player itself, not the [Steady] layer in front of it. */
     val target: Player get() = routed
 
+    /**
+     * Called as a seek, a skip or a list of songs is asked of this player, before it goes on: what the screens and the
+     * session (the notification, a headset, a car, a watch) ask, the listener's by hand. The service's own moves go to
+     * [target] and never come here (MusicService.byHand, 26 Nov 2026). Main thread.
+     */
+    var onAsked: () -> Unit = {}
+
     /** Sends every call from now on to [target]. Main thread only. */
     fun routeTo(target: Player) {
         routed = target
         setPlayer(Steady(target))
+    }
+
+    override fun handleSeek(mediaItemIndex: Int, positionMs: Long, seekCommand: Int): ListenableFuture<*> {
+        onAsked()
+        return super.handleSeek(mediaItemIndex, positionMs, seekCommand)
+    }
+
+    override fun handleSetMediaItems(mediaItems: List<MediaItem>, startIndex: Int, startPositionMs: Long): ListenableFuture<*> {
+        onAsked()
+        return super.handleSetMediaItems(mediaItems, startIndex, startPositionMs)
     }
 
     /**

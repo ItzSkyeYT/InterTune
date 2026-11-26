@@ -179,8 +179,9 @@ class RoomControlTest {
         // The service gives it back to the session, the host's control included, and keeps it as it changes.
         assertTrue("lead = saved.lead," in body(service, "private fun rejoinSavedRoom()"))
         val start = body(service, "fun startTogether(")
-        assertTrue(start, "hostHeardAt = hostHeardAt ?: 0L, lead = lead)" in start)
-        assertTrue(start, "roomMemory.save(code, owner, session.identityHex, roomTouchedAt, lead)" in start)
+        assertTrue(start, "hostHeardAt = hostHeardAt ?: 0L, lead = lead, way = way)" in start)
+        // With how this phone listened beside it (RoomWayTest).
+        assertTrue(start, "roomMemory.save(code, owner, session.identityHex, roomTouchedAt, lead, session.way())" in start)
         assertTrue("scope.launch(Dispatchers.IO) { roomMemory.lead(code, key) }" in body(service, "fun roomLead("))
         assertTrue("private var leaderKey: String? = if (owner) lead ?: me else null" in session)
         assertTrue("private val news = ControlNews(before = if (owner) leaderKey else lead)" in session)
