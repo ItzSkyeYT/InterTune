@@ -201,11 +201,9 @@ class App : Application(), SingletonImageLoader.Factory {
         }
         // And at every start, for a language changed while the app was not running.
         GlobalScope.launch(Dispatchers.IO) { ChannelNames.follow(this@App) }
-        // The year's Recap now out: told once, and looked for again on the next reveal day's morning (RecapAlert).
-        GlobalScope.launch(Dispatchers.IO) {
-            runCatching { RecapAlert.check(this@App) }
-            RecapAlert.schedule(this@App)
-        }
+        // The year's Recap now out: told once, by a look planned here and never made at the start
+        // itself, when a pop-up opening with the app may be about to tell (RecapAlert).
+        GlobalScope.launch(Dispatchers.IO) { runCatching { RecapAlert.plan(this@App) } }
         GlobalScope.launch(Dispatchers.IO) { runCatching { RecognitionWidgetReceiver.redraw(this@App) } }
 
         // The proxy every client takes once, here: the settings page offers a restart while the one

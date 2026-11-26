@@ -69,4 +69,19 @@ class RecapCalendarTest {
         assertTrue(RecapCalendar.popUpOwed(d(2026, 10, 23), shownYear = 0, revealedEarly = true))
         assertFalse(RecapCalendar.popUpOwed(d(2026, 10, 23), shownYear = 2026, revealedEarly = true))
     }
+
+    @Test
+    fun `a Recap opened from its notification or a banner counts as its pop-up, which then never brings it up again`() {
+        // The notification tapped on the reveal day, or a banner in January: that year's pop-up is done.
+        assertEquals(2026, RecapCalendar.popUpShownBy(d(2026, 12, 2), opened = 2026))
+        assertEquals(2026, RecapCalendar.popUpShownBy(d(2027, 1, 15), opened = 2026))
+        assertFalse(RecapCalendar.popUpOwed(d(2026, 12, 3), shownYear = RecapCalendar.popUpShownBy(d(2026, 12, 2), opened = 2026)!!))
+        // A look from the developer options before the reveal day is not the reveal: the pop-up still comes on the day.
+        assertNull(RecapCalendar.popUpShownBy(d(2026, 11, 26), opened = 2026))
+        // Unless today is the reveal day by those options.
+        assertEquals(2026, RecapCalendar.popUpShownBy(d(2026, 11, 26), opened = 2026, revealedEarly = true))
+        // Last year's, from a notification left in the shade all year: this year's pop-up still comes.
+        assertNull(RecapCalendar.popUpShownBy(d(2027, 12, 3), opened = 2026))
+        assertTrue(RecapCalendar.popUpOwed(d(2027, 12, 3), shownYear = 2026))
+    }
 }
