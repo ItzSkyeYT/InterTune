@@ -195,7 +195,9 @@ object ProblemLog {
     /**
      * A report opened from the player's error screen: the player's [lines] (its error, the client
      * the song's stream came from, what each client answered) at the end of the heading block,
-     * which [fitted] always keeps, and the error in [full] as the last block.
+     * which [fitted] always keeps, and the error in [full] as the last block. Both [scrub]bed as the
+     * log's lines are: the player's error names the stream's server when a host cannot be reached,
+     * and a file's folders when one cannot be read, and the relay files the report in public.
      */
     fun withPlayerError(report: String, lines: List<String>, full: String?): String {
         val cut = report.indexOf("\n\n")
@@ -203,9 +205,9 @@ object ProblemLog {
         val rest = if (cut < 0) "" else report.substring(cut).trimEnd()
         return buildString {
             append(head)
-            lines.forEach { append('\n').append(it) }
+            lines.forEach { append('\n').append(scrub(it)) }
             append(rest)
-            full?.trim()?.takeIf { it.isNotEmpty() }?.let { append("\n\nThe player's error in full:\n").append(it) }
+            full?.trim()?.takeIf { it.isNotEmpty() }?.let { append("\n\nThe player's error in full:\n").append(scrub(it)) }
         }
     }
 

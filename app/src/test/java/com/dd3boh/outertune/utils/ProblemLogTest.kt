@@ -352,6 +352,33 @@ class ProblemLogTest {
         assertTrue(ProblemLog.withPlayerError(report, lines, null).endsWith("line 400 of what led up to it"))
     }
 
+    /**
+     * 26 Nov 2026 (the whole-app scan): the player's error went into the report as it was, so a host
+     * that could not be reached named the stream's server, and a file that could not be read its
+     * folders, in an issue the relay files in public. Now it says no more than the log's lines do.
+     */
+    @Test
+    fun `the player's error says no more about where the phone is than the log does`() {
+        val report = "InterTune 0.13 (104, core release)\nsamsung SM-S938B, Android 16 (API 36)\nInstalled from: F-Droid\n\n11-26 12:00:00.000 I/MusicService: a line of what led up to it"
+        val lines = listOf(
+            "Player error: Source error (2001): Unable to resolve host \"rr4---sn-2oaig5-5n.googlevideo.com\": No address associated with hostname",
+            "stream client: VISIONOS",
+        )
+        val full = "java.net.UnknownHostException: Unable to resolve host \"rr4---sn-2oaig5-5n.googlevideo.com\"\n" +
+            "  at K2.U.t(SourceFile:17)\n" +
+            "Caused by: java.io.FileNotFoundException: /storage/emulated/0/Music/Jane Doe/song.mp3: open failed: ENOENT\n" +
+            "content://com.android.externalstorage.documents/tree/primary%3AMusic%2FJane"
+        val with = ProblemLog.withPlayerError(report, lines, full)
+        assertFalse(with, "googlevideo.com" in with)
+        assertFalse(with, "sn-2oaig5" in with)
+        assertFalse(with, "Jane" in with)
+        assertTrue(with, "Unable to resolve host \"a stream host\"" in with.substringBefore("\n\n"))
+        assertTrue(with, "…/song.mp3: open failed: ENOENT" in with)
+        assertTrue(with, "content://com.android.externalstorage.documents/tree/…" in with)
+        // What helps find the fault stays.
+        assertTrue(with, "stream client: VISIONOS" in with && "at K2.U.t(SourceFile:17)" in with)
+    }
+
     @Test
     fun `the player's error screen opens Report a problem with the error`() {
         val screen = java.io.File("src/main/java/com/dd3boh/outertune/ui/player/ThumbnailPlaybackError.kt").readText()
