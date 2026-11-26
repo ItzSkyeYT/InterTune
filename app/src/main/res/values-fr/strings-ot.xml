@@ -2489,9 +2489,9 @@
     <string name="new_listenbrainz_way">Vos comptes et ce qu\'ils synchronisent se règlent ici, ListenBrainz aussi.</string>
     <string name="new_listenbrainz_here">Connectez-vous avec le jeton utilisateur de vos paramètres ListenBrainz. Chaque titre écouté jusqu\'au bout va alors sur votre profil.</string>
     <string name="new_vibration_title">Des vibrations qu\'on sent</string>
-    <string name="new_vibration_body">Désactivée, Légère ou Forte, dans Apparence. Forte, par défaut, donne à chaque bouton sa propre sensation.</string>
+    <string name="new_vibration_body">Désactivée, ou cinq niveaux de faible à forte, dans Apparence. Forte, par défaut, donne à chaque bouton sa propre sensation.</string>
     <string name="new_vibration_way">L\'apparence de l\'app, ses mouvements et ses vibrations se règlent ici.</string>
-    <string name="new_vibration_here">Forte donne à chaque bouton sa propre sensation, et Légère la même à moitié moins fort. Désactivée l\'éteint.</string>
+    <string name="new_vibration_here">Glissez de faible à forte : chaque niveau donne à chaque bouton sa propre sensation, plus douce en bas. Désactivée l\'éteint.</string>
     <string name="new_metrolist_title">Venir de Metrolist</string>
     <string name="new_metrolist_body">Importer depuis Metrolist récupère vos j’aime, vos playlists, vos écoutes et les paroles que vous avez modifiées depuis une sauvegarde Metrolist.</string>
     <string name="new_metrolist_way">Les sauvegardes, et les bibliothèques d\'autres applis, s\'importent ici.</string>
@@ -3278,7 +3278,7 @@
     <!-- Vibration under Look and feel (Unreleased.HAPTICS_FEEL): held from translators until his pick. -->
     <string name="vibration">Vibration</string>
     <string name="vibration_off">Désactivée</string>
-    <string name="vibration_light">Légère</string>
+    <string name="vibration_step">%1$d sur 5</string>
     <string name="vibration_strong">Forte</string>
     <string name="search_words_vibration">haptique, retour haptique, vibrer, vibreur, retour tactile</string>
 </resources>

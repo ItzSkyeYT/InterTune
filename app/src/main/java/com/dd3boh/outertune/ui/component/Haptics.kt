@@ -30,7 +30,7 @@ import com.dd3boh.outertune.utils.get
 
 /**
  * The app's haptics as the Vibration setting has them (Unreleased.HAPTICS_FEEL): nothing under Off, today's haptic
- * under Light, the app's own under Strong ([buzzFor] says what, per [Feel]).
+ * under Light, the app's own from the steps around it up to Strong ([buzzFor] says what, per [Feel]).
  *
  * Every haptic goes through [play]: the window's (FeltHaptics, which MainActivity hands down as LocalHapticFeedback),
  * and the ones that read the setting themselves, a tap's tick, the seek bar's and the volume's (MoreHaptics), which
@@ -68,7 +68,7 @@ object Haptics {
         when (choice) {
             Vibration.OFF -> Unit
             Vibration.LIGHT -> light()
-            Vibration.STRONG -> if (!strong(feel)) light()
+            else -> if (!strong(feel, choice)) light()
         }
     }
 
@@ -79,14 +79,14 @@ object Haptics {
     fun sample(vibration: Vibration, platform: HapticFeedback) =
         play(Feel.FIRM, vibration) { platform.performHapticFeedback(HapticFeedbackType.Confirm) }
 
-    /** Plays [feel] the app's own way; false where it cannot, and Light's way stands in. */
-    fun strong(feel: Feel): Boolean {
+    /** Plays [feel] the app's own way, at the strength of [vibration]'s step; false where it cannot, and Light's way stands in. */
+    fun strong(feel: Feel, vibration: Vibration = Vibration.STRONG): Boolean {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return false
         val vibrator = strongVibrator ?: app?.let { context ->
             synchronized(this) { strongVibrator ?: StrongVibrator.of(context).also { strongVibrator = it } }
         } ?: return false
         return try {
-            vibrator.play(feel)
+            vibrator.play(feel, vibration)
         } catch (e: Exception) {
             // A vibrator service that refuses (a SecurityException, a dead binder): today's haptic instead.
             Log.w(TAG, "Strong could not play $feel", e)
@@ -102,9 +102,9 @@ private class StrongVibrator(
     private val allowed: Boolean,
 ) {
     @SuppressLint("MissingPermission") // Asked of the manifest's grant first ([allowed]); a release without it never plays.
-    fun play(feel: Feel): Boolean {
+    fun play(feel: Feel, vibration: Vibration): Boolean {
         if (!allowed || vibrator == null || Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return false
-        val effect = effectOf(buzzFor(feel, Vibration.STRONG, caps)) ?: return false
+        val effect = effectOf(buzzFor(feel, vibration, caps)) ?: return false
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             vibrator.vibrate(effect, VibrationAttributes.createForUsage(VibrationAttributes.USAGE_TOUCH))
         } else {
