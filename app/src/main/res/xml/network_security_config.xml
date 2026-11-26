@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Android 7.0 (API 24) ships without ISRG Root X1, the root Let's Encrypt's chains end in (it came
+  with 7.1). So on 7.0 every server with a Let's Encrypt certificate failed: ListenBrainz, which
+  takes over scrobbling from Last.fm on 1 December 2026, the update's download from GitHub's asset
+  host, and intertune.app. The root is added beside the phone's own, for every Android: from 7.1
+  it is the phone's already. Plain http stays off, as without this file (targetSdk 28 and up).
+
+  The debug build has its own file of this name (src/debug) with the same base-config.
+-->
+<network-security-config>
+    <base-config>
+        <trust-anchors>
+            <certificates src="system" />
+            <certificates src="@raw/isrg_root_x1" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>
