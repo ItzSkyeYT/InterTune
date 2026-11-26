@@ -24,12 +24,14 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Pause
@@ -67,12 +69,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -104,6 +108,7 @@ import com.kyant.backdrop.effects.blur
 import com.kyant.backdrop.effects.lens
 import com.kyant.backdrop.effects.vibrancy
 import kotlinx.coroutines.launch
+import kotlin.math.min
 import kotlin.math.roundToInt
 
 /**
@@ -178,10 +183,12 @@ fun LivingBlurTune(onClose: () -> Unit) {
                 Box(Modifier.fillMaxSize().background(scrim))
             }
 
-            Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.systemBars)) {
+            // Clear of the camera's cut too, which a phone on its side has at one end.
+            TuneScreen(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
+                // The buttons' outer edges on the bar's, 12 dp in from the sides.
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
                 ) {
                     TuneRoundButton(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.back), pane, onClose)
                     Spacer(Modifier.weight(1f))
@@ -200,39 +207,40 @@ fun LivingBlurTune(onClose: () -> Unit) {
                     ) { barShown = !barShown }
                 }
 
-                // The cover and the song, where and as the player has them.
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier.weight(1f).fillMaxWidth().padding(horizontal = PlayerHorizontalPadding),
+                // The cover and the song, where and as the player has them, in the room the top row and the bar leave: the
+                // cover as big as it can be there, never under the buttons or on the song's lines (his report of 26 Nov 2026).
+                CoverAndSong(
+                    modifier = Modifier.padding(start = PlayerHorizontalPadding, top = 8.dp, end = PlayerHorizontalPadding, bottom = 16.dp),
+                    song = {
+                        Column {
+                            Text(
+                                text = song?.title ?: stringResource(R.string.player_living_sample_silent),
+                                style = MaterialTheme.typography.titleLarge,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                            song?.artists?.joinToString { it.name }?.takeIf { it.isNotBlank() }?.let { artists ->
+                                Text(
+                                    text = artists,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                        }
+                    },
                 ) {
                     val artPx = with(LocalDensity.current) { 480.dp.roundToPx() }
                     AsyncImage(
                         model = song?.getThumbnailModel(artPx, artPx),
                         contentDescription = null,
                         modifier = Modifier
-                            .fillMaxWidth()
                             .aspectRatio(1f)
                             .clip(RoundedCornerShape(ThumbnailCornerRadius * 2))
                             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)),
                     )
-                }
-                Column(Modifier.fillMaxWidth().padding(horizontal = PlayerHorizontalPadding, vertical = 12.dp)) {
-                    Text(
-                        text = song?.title ?: stringResource(R.string.player_living_sample_silent),
-                        style = MaterialTheme.typography.titleLarge,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    song?.artists?.joinToString { it.name }?.takeIf { it.isNotBlank() }?.let { artists ->
-                        Text(
-                            text = artists,
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
                 }
 
                 // The bar keeps its room while it is hidden, so the cover never moves.
@@ -250,7 +258,11 @@ fun LivingBlurTune(onClose: () -> Unit) {
                                 .padding(start = 12.dp, end = 12.dp, bottom = 12.dp)
                                 .fillMaxWidth()
                                 .pane(pane, RoundedCornerShape(28.dp))
-                                .padding(horizontal = 20.dp, vertical = 16.dp),
+                                // It scrolls only where the screen is too short for all of it: a small window, a phone on its side.
+                                .clip(RoundedCornerShape(28.dp))
+                                .verticalScroll(rememberScrollState())
+                                // As much room under the play row as at the sides (it had 16 dp).
+                                .padding(start = 20.dp, top = 16.dp, end = 20.dp, bottom = 20.dp),
                         ) {
                             SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
                                 SegmentedButton(
@@ -266,8 +278,11 @@ fun LivingBlurTune(onClose: () -> Unit) {
                             }
                             Spacer(Modifier.height(12.dp))
                             TuneSlider(R.string.living_tune_strength, strength, onStrength)
+                            // A slider's name nearer its own slider than the one above.
+                            Spacer(Modifier.height(8.dp))
                             TuneSlider(R.string.living_tune_smoothing, smoothing, onSmoothing)
-                            Spacer(Modifier.height(4.dp))
+                            // The play row clear of the handle above it (6 dp under it before).
+                            Spacer(Modifier.height(16.dp))
                             if (song != null) {
                                 // The player's own three, in its order.
                                 Row(
@@ -318,6 +333,83 @@ private fun TuneSlider(@StringRes label: Int, value: Float, onChange: (Float) ->
         )
     }
     Slider(value = value, onValueChange = onChange, valueRange = 0f..1f)
+}
+
+/**
+ * The tuner's three parts, in this order: the top row, the cover with the song, the bar. Upright they stand one over the
+ * other, the bar at the bottom with the room it needs and the cover in what is left between. Wider than tall, a phone on
+ * its side, the cover is beside the bar, as the player has it: the bar has the end half, top to bottom, and the top row
+ * and the cover share the other.
+ */
+@Composable
+private fun TuneScreen(modifier: Modifier, content: @Composable () -> Unit) {
+    Layout(content, modifier) { parts, constraints ->
+        val (topRow, coverAndSong, bar) = parts
+        val width = constraints.maxWidth
+        val height = constraints.maxHeight
+        val sideBySide = TunePlan.sideBySide(width, height)
+        val barWidth = TunePlan.barWidth(width, height)
+        val startWidth = if (sideBySide) width - barWidth else width
+        val top = topRow.measure(Constraints(maxWidth = startWidth, maxHeight = height))
+        val below = (height - top.height).coerceAtLeast(0)
+        // Side by side its top stops where the buttons' tops are, 8 dp under the status bar.
+        val barRoom = if (sideBySide) (height - BAR_TOP.roundToPx()).coerceAtLeast(0) else below
+        val barPart = bar.measure(Constraints(maxWidth = barWidth, maxHeight = barRoom))
+        val room = coverAndSong.measure(
+            Constraints.fixed(
+                width = startWidth,
+                height = if (sideBySide) below else (below - barPart.height).coerceAtLeast(0),
+            )
+        )
+        layout(width, height) {
+            top.placeRelative(0, 0)
+            room.placeRelative(0, top.height)
+            barPart.placeRelative(width - barPart.width, height - barPart.height)
+        }
+    }
+}
+
+/**
+ * The [cover], square, as big as the room lets it be with the [song]'s lines under it, the two together in the middle of
+ * the room. The lines start where the cover starts and may run on to the room's end, past a cover smaller than the
+ * room is wide. Nothing goes past the room: the lines are left out where even they do not fit.
+ */
+@Composable
+private fun CoverAndSong(modifier: Modifier, song: @Composable () -> Unit, cover: @Composable () -> Unit) {
+    Layout(contents = listOf(cover, song), modifier = modifier) { (coverParts, songParts), constraints ->
+        val width = constraints.maxWidth
+        val height = constraints.maxHeight
+        val lines = songParts.single()
+        val gap = COVER_SONG_GAP.roundToPx()
+        val side = TunePlan.coverSide(width, height, lines.maxIntrinsicHeight(width), gap)
+        val x = if (side > 0) (width - side) / 2 else 0
+        val coverPart = coverParts.single().measure(Constraints.fixed(side, side))
+        val linesPart = lines.measure(Constraints(minWidth = width - x, maxWidth = width - x))
+        val under = if (side > 0) side + gap else 0
+        val y = ((height - under - linesPart.height) / 2).coerceAtLeast(0)
+        layout(width, height) {
+            coverPart.placeRelative(x, y)
+            if (y + under + linesPart.height <= height) linesPart.placeRelative(x, y + under)
+        }
+    }
+}
+
+/** Between the cover and the song's title. */
+private val COVER_SONG_GAP = 12.dp
+
+/** Above the bar where it has the screen's whole height: the top row's own margin over its buttons. */
+private val BAR_TOP = 8.dp
+
+/** The tuner's arithmetic, in pixels, apart so that LivingBlurTuneTest can hold it to a screen's numbers. */
+internal object TunePlan {
+    /** Wider than tall: the cover beside the bar. */
+    fun sideBySide(width: Int, height: Int): Boolean = width > height
+
+    /** The bar's width: the end half side by side, else the whole width. */
+    fun barWidth(width: Int, height: Int): Int = if (sideBySide(width, height)) width / 2 else width
+
+    /** The cover's side in a room [width] by [height], with [songHeight] of lines [gap] under it: as big as both let it be. */
+    fun coverSide(width: Int, height: Int, songHeight: Int, gap: Int): Int = min(width, height - songHeight - gap).coerceAtLeast(0)
 }
 
 /** A round button over the picture: on a pane of glass, or Material's own tonal one where the player has no glass. */
