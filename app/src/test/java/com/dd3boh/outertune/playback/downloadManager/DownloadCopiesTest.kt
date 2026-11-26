@@ -8,9 +8,11 @@ package com.dd3boh.outertune.playback.downloadManager
 
 import com.dd3boh.outertune.playback.downloadManager.DownloadCopies.File
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.text.Normalizer
 
 /**
  * The extra copies a name clash made in the download folder, and the one file each song keeps
@@ -212,5 +214,146 @@ class DownloadCopiesTest {
         assertEquals(listOf("$carpet.mka (9)"), found.map { it.name })
         // Each name is asked once.
         assertEquals(folder.asked.size, folder.asked.toSet().size)
+    }
+
+    /**
+     * The phone's own storage asked by name, as a download folder that lists as empty is
+     * (DownloadDirectoryManagerOt.lookUp, lookAt, removeCopy): a name is found whatever its letter
+     * case and either way of writing an accent, but given back under the name asked, not the one on
+     * disk (FileSystemProvider.queryDocument names the path it was asked), and a delete by that
+     * address deletes the file on disk (deleteDocument, File.delete). [disk]: its files, name to size.
+     */
+    private class PhoneStorage(files: Map<String, Long>) {
+        val disk = LinkedHashMap(files)
+        private fun same(a: String, b: String) =
+            Normalizer.normalize(a, Normalizer.Form.NFD).equals(Normalizer.normalize(b, Normalizer.Form.NFD), ignoreCase = true)
+        private fun onDisk(name: String) = disk.keys.firstOrNull { same(it, name) }
+        private fun key(name: String) = "content://storage/document/primary:Music/InterTune/$name"
+        fun lookUp(name: String): File? = onDisk(name)?.let { File(name, disk.getValue(it), key(name)) }
+        fun lookAt(key: String): File? = lookUp(key.substringAfterLast('/'))
+        fun delete(key: String): Boolean = onDisk(key.substringAfterLast('/'))?.let { disk.remove(it) } != null
+    }
+
+    /** His song's title put right with Edit song since its files were written, which leaves their names as they were. */
+    private val carpetEdited = "4K Carpet [2YvDwY80qJl]"
+
+    @Test
+    fun `a title put right in letter case never has a file found twice, nor the file kept removed`() {
+        val storage = PhoneStorage(mapOf("$carpet.mka" to 1_174_405L) + (1..5).associate { "$carpet.mka ($it)" to 2_296_381L })
+        val recorded = mapOf("2YvDwY80qJl" to "$carpet.mka (5)")
+        // Asked as DownloadCopiesCleanup asks: the bases of the titles the database has, then of the files it has.
+        val found = DownloadCopies.lookFor(listOf(fatName(carpetEdited), carpet), recorded.values, storage::lookUp)
+        // Each file once, under the name it has on the phone.
+        assertEquals(listOf("$carpet.mka (5)", "$carpet.mka") + (1..4).map { "$carpet.mka ($it)" }, found.map { it.name })
+        val plan = DownloadCopies.plan(found, recorded)
+        assertEquals(5, plan.files)
+        val song = plan.songs.single()
+        assertEquals("$carpet.mka (5)", song.keep.name)
+        assertEquals(listOf("$carpet.mka") + (1..4).map { "$carpet.mka ($it)" }, song.remove.map { it.name })
+        assertEquals("$carpet.mka", song.renameTo)
+        // Removed the way the card's Remove removes: the file kept is all that is left, whole.
+        val gone = DownloadCopies.remove(song, storage::lookAt, storage::delete) {}
+        assertEquals(DownloadCopies.Removal(5, 1_174_405L + 4 * 2_296_381L, allGone = true), gone)
+        assertEquals(mapOf("$carpet.mka (5)" to 2_296_381L), storage.disk)
+    }
+
+    @Test
+    fun `nor when only copies are whole and the largest is kept`() {
+        // Its download empty, a write that never began, and its title put right since.
+        val storage = PhoneStorage(mapOf("$carpet.mka" to 0L) + (1..3).associate { "$carpet.mka ($it)" to 2_296_381L })
+        val recorded = mapOf("2YvDwY80qJl" to "$carpet.mka")
+        val found = DownloadCopies.lookFor(listOf(fatName(carpetEdited), carpet), recorded.values, storage::lookUp)
+        assertEquals(listOf("$carpet.mka") + (1..3).map { "$carpet.mka ($it)" }, found.map { it.name })
+        val song = DownloadCopies.plan(found, recorded).songs.single()
+        assertEquals("$carpet.mka (1)", song.keep.name)
+        assertEquals(listOf("$carpet.mka", "$carpet.mka (2)", "$carpet.mka (3)"), song.remove.map { it.name })
+        assertEquals("$carpet.mka", song.renameTo)
+        assertEquals(DownloadCopies.Removal(3, 2 * 2_296_381L, allGone = true), DownloadCopies.remove(song, storage::lookAt, storage::delete) {})
+        assertEquals(mapOf("$carpet.mka (1)" to 2_296_381L), storage.disk)
+    }
+
+    @Test
+    fun `the removal never deletes the file kept, not under another name the storage has for it either`() {
+        val storage = PhoneStorage(mapOf("$carpet.mka" to 1_174_405L) + (1..5).associate { "$carpet.mka ($it)" to 2_296_381L })
+        // The plan the look made of his folder before: the kept file's other name among the copies.
+        val keep = storage.lookUp("$carpet.mka (5)")!!
+        val remove = listOf(storage.lookUp("$carpetEdited.mka (5)")!!, keep) + (1..4).map { storage.lookUp("$carpet.mka ($it)")!! }
+        var steps = 0
+        val gone = DownloadCopies.remove(DownloadCopies.Song("2YvDwY80qJl", keep, remove, "$carpet.mka"), storage::lookAt, storage::delete) { steps++ }
+        // The other copies go; not every one did, so the one kept is not named over its download.
+        assertEquals(DownloadCopies.Removal(4, 4 * 2_296_381L, allGone = false), gone)
+        assertEquals(6, steps)
+        assertEquals(setOf("$carpet.mka", "$carpet.mka (5)"), storage.disk.keys)
+    }
+
+    @Test
+    fun `a delete that takes the file kept all the same stops the removal, and the song's other copies stay`() {
+        // A storage that matches names in some way the app does not know: the first delete takes the file kept too.
+        val storage = PhoneStorage((1..3).associate { "$carpet.mka ($it)" to 2_296_381L } + ("$carpet.mka (5)" to 2_296_381L))
+        val keep = storage.lookUp("$carpet.mka (5)")!!
+        val song = DownloadCopies.Song("2YvDwY80qJl", keep, (1..3).map { storage.lookUp("$carpet.mka ($it)")!! }, "$carpet.mka")
+        val delete = { key: String -> storage.delete(key).also { storage.disk.remove(keep.name) } }
+        var steps = 0
+        val gone = DownloadCopies.remove(song, storage::lookAt, delete) { steps++ }
+        assertEquals(DownloadCopies.Removal(1, 2_296_381L, allGone = false, keptLost = true), gone)
+        assertEquals(3, steps)
+        assertEquals(setOf("$carpet.mka (2)", "$carpet.mka (3)"), storage.disk.keys)
+    }
+
+    @Test
+    fun `nothing of a song is touched when the file it keeps is not there as it was found`() {
+        val files = mapOf("$carpet.mka (5)" to 2_296_381L, "$carpet.mka (1)" to 2_296_381L)
+        for (since in listOf<(PhoneStorage) -> Unit>({ it.disk.remove("$carpet.mka (5)") }, { it.disk["$carpet.mka (5)"] = 0L })) {
+            val storage = PhoneStorage(files)
+            val song = DownloadCopies.Song("2YvDwY80qJl", storage.lookUp("$carpet.mka (5)")!!, listOf(storage.lookUp("$carpet.mka (1)")!!), "$carpet.mka")
+            since(storage)
+            var steps = 0
+            assertNull(DownloadCopies.remove(song, storage::lookAt, storage::delete) { steps++ })
+            assertTrue(storage.disk.containsKey("$carpet.mka (1)"))
+            assertEquals(1, steps)
+        }
+    }
+
+    @Test
+    fun `a copy that is not the file found any more is left as it is`() {
+        // A folder whose addresses follow a file through a rename, as not every storage's do.
+        val now = mutableMapOf(
+            "a" to File("$carpet.mka", 1_174_405, "a"),
+            "b" to File("Renamed by hand.mka", 2_296_381, "b"),
+            "c" to File("$saturday.mka (1)", 2_296_381, "c"),
+            "d" to File("$carpet.mka (2)", 2_296_381, "d"),
+        )
+        val song = DownloadCopies.Song(
+            "2YvDwY80qJl", now.getValue("a"),
+            listOf(File("$carpet.mka (1)", 2_296_381, "b"), File("$carpet.mka (3)", 2_296_381, "c"), now.getValue("d")), null,
+        )
+        val gone = DownloadCopies.remove(song, { now[it] }, { now.remove(it) != null }) {}
+        assertEquals(DownloadCopies.Removal(1, 2_296_381L, allGone = false), gone)
+        assertEquals(setOf("a", "b", "c"), now.keys)
+    }
+
+    @Test
+    fun `names the phone's storage may take for one file`() {
+        assertTrue(DownloadCopies.mayBeOneFile("$carpet.mka (5)", "$carpetEdited.mka (5)"))
+        assertTrue(DownloadCopies.mayBeOneFile("Café [dQw4w9WgXcQ].mka", "CAFE\u0301 [dQw4w9WgXcQ].mka"))
+        assertTrue(DownloadCopies.mayBeOneFile("Straße [dQw4w9WgXcQ].mka", "STRASSE [dQw4w9WgXcQ].mka"))
+        assertFalse(DownloadCopies.mayBeOneFile("$carpet.mka (5)", "$carpet.mka (1)"))
+        assertFalse(DownloadCopies.mayBeOneFile("$carpet.mka", "$carpet (1).mka"))
+        assertFalse(DownloadCopies.mayBeOneFile("$carpet.mka", "$saturday.mka"))
+        assertFalse(DownloadCopies.mayBeOneFile("Cafe [dQw4w9WgXcQ].mka", "Café [dQw4w9WgXcQ].mka"))
+    }
+
+    @Test
+    fun `two names the phone's storage may take for one file leave their song as it is`() {
+        // A card that tells letter case apart can hold both; the phone's own storage gives one file under both.
+        val twins = listOf(file("$carpet.mka (5)"), file("$carpetEdited.mka (5)"), file("$carpet.mka (1)"))
+        assertTrue(DownloadCopies.plan(twins, mapOf("2YvDwY80qJl" to "$carpet.mka (5)")).songs.isEmpty())
+        assertTrue(DownloadCopies.plan(twins, emptyMap()).songs.isEmpty())
+        // An accent written as one letter or as a letter and its accent is one name too.
+        val accents = listOf(file("Café [dQw4w9WgXcQ].mka"), file("Cafe\u0301 [dQw4w9WgXcQ].mka (1)"), file("Café [dQw4w9WgXcQ].mka (1)"))
+        assertTrue(DownloadCopies.plan(accents, emptyMap()).songs.isEmpty())
+        // Another song of the folder is not held back by them.
+        val withSaturday = twins + file("$saturday.mka") + file("$saturday.mka (1)")
+        assertEquals(listOf("xHg1rAhB_SE"), DownloadCopies.plan(withSaturday, emptyMap()).songs.map { it.id })
     }
 }

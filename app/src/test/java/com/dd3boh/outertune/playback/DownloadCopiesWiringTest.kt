@@ -50,29 +50,32 @@ class DownloadCopiesWiringTest {
             .map { it.name }.toSet()
         assertEquals(setOf("DownloadUtil.kt", "DownloadCopiesNote.kt"), callers)
         assertTrue(util.contains("copies.remove()"))
-        val deleters = File(sources).walkTopDown().filter { it.extension == "kt" && it.readText().contains(".removeCopy(") }.map { it.name }.toSet()
+        val deleter = Regex("""\.removeCopy\(|::removeCopy\b""")
+        val deleters = File(sources).walkTopDown().filter { it.extension == "kt" && deleter.containsMatchIn(it.readText()) }.map { it.name }.toSet()
         assertEquals(setOf("DownloadCopiesCleanup.kt"), deleters)
-        assertTrue("and the removal's own steps only", body(cleanup, "private fun removeFrom(").contains("folder.removeCopy(copy.key)"))
+        assertTrue("and the removal's own steps only", body(cleanup, "private fun removeFrom(").contains("DownloadCopies.remove(song, folder::lookAt, folder::removeCopy, step)"))
+        assertEquals("nowhere else", 1, deleter.findAll(cleanup).count())
     }
 
     @Test
     fun `the file a song keeps is looked at first, never deleted, and named and recorded only after its copies have gone`() {
+        // What goes and what stays is DownloadCopies.remove's, tested in DownloadCopiesTest; here, what comes of it.
         val one = body(cleanup, "private fun removeFrom(")
-        val kept = one.indexOf("val kept = folder.lookAt(song.keep.key)")
-        val untouched = one.indexOf("if (kept == null || kept.name != song.keep.name || kept.size == 0L) {")
-        val deleted = one.indexOf("folder.removeCopy(copy.key)")
+        val deleted = one.indexOf("val gone = DownloadCopies.remove(song, folder::lookAt, folder::removeCopy, step)")
+        val untouched = one.indexOf("if (gone == null) {")
+        val lost = one.indexOf("if (gone.keptLost) {")
         val renamed = one.indexOf("folder.keepFile(song.id, song.keep.key, name)")
         val recorded = one.indexOf("record(song.id, path)")
-        assertTrue(kept in 0 until untouched)
-        assertTrue("nothing of the song is touched when it is not there as found", untouched < deleted)
-        assertTrue(deleted < renamed)
+        assertTrue(deleted in 0 until untouched)
+        assertTrue("nothing named or recorded when it was not there as found", untouched < lost)
+        assertTrue("nor when it went with a copy", lost < renamed)
         assertTrue(renamed < recorded)
-        // Only the copies the plan names, each looked at again and taken only if it is still the file found.
-        assertTrue(one.contains("for (copy in song.remove) {"))
-        assertTrue(one.contains("now.name != copy.name || DownloadCopies.parse(now.name)?.id != song.id -> allGone = false"))
+        for (end in listOf(untouched, lost)) {
+            assertTrue(one.substring(end).substringBefore("\n        }\n").contains("return Removed("))
+        }
         assertFalse(one.contains("removeCopy(song.keep"))
         // The download's name taken only once it is free.
-        assertTrue(one.contains("song.renameTo?.takeIf { allGone && folder.canLookUp() && folder.lookUp(it) == null }"))
+        assertTrue(one.contains("song.renameTo?.takeIf { gone.allGone && folder.canLookUp() && folder.lookUp(it) == null }"))
     }
 
     @Test
