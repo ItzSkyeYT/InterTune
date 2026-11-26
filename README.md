@@ -147,7 +147,7 @@ On a Samsung, Auto Blocker stops installs as well. Turn it off for the install a
 - Downloads for offline listening, which can wait for Wi-Fi
 - Downloads as MP3, M4A, FLAC or WAV, with the title, artist and cover, at a quality of their own *(0.13)*
 - Your playlists, albums and artists in your own order *(0.13)*
-- Sync that never loses songs, and scrobbling to ListenBrainz in place of Last.fm *(0.13)*
+- Sync that never loses songs, and scrobbling to ListenBrainz beside Last.fm *(0.13)*
 - Automatic backups, a history of every play, and stats that stay on your phone
 
 </td>
@@ -230,7 +230,7 @@ What's being worked on, roughly in order. `[x]` is done, `[~]` is built and bein
 `[x]` Your playlists in your own order, dragged where you want them\
 `[x]` What's playing works offline and names the song once you're back online ([#48](https://github.com/ItzSkyeYT/InterTune/issues/48))\
 `[x]` What you have heard shows each song with its cover and menu, like every other list\
-`[~]` Scrobbling to ListenBrainz, in place of Last.fm from 1 December ([#159](https://github.com/ItzSkyeYT/InterTune/issues/159))\
+`[~]` Scrobbling to ListenBrainz, beside Last.fm or instead of it ([#159](https://github.com/ItzSkyeYT/InterTune/issues/159))\
 `[x]` Albums carry on into a radio when they end\
 `[~]` A sleep timer with more ways to stop: at a clock time, or at the end of the song, the album or the queue\
 `[x]` Pick a playlist's cover\
