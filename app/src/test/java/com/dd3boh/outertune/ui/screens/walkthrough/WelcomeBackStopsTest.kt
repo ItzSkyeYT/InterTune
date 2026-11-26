@@ -41,7 +41,10 @@ class WelcomeBackStopsTest {
 
     private val stops = NEW_THINGS.flatMap { it.stops }
     private val onTheList = stops.filter { it.route == Tour.ROUTE_SETTINGS }
-    private val inAScreen = stops.filter { it.route != null && it.route != Tour.ROUTE_SETTINGS }
+    private val inAScreen = stops.filter { it.route?.startsWith(Tour.ROUTE_SETTINGS + "/") == true }
+
+    /** The stops outside Settings (0.13's tours, 26 Nov 2026): on Home, in its sheet, on the player, on Playlists. */
+    private val outside = stops.filter { it.route?.startsWith(Tour.ROUTE_SETTINGS) != true }
 
     /** A tourTarget of a target: its file, where it is in the text, and its line counted from 1. */
     private class Mark(val file: File, val at: Int, val line: Int)
@@ -106,6 +109,26 @@ class WelcomeBackStopsTest {
         for (stop in stops) {
             assertTrue("${stop.id}: ${stop.targetId} is not a constant of Tour", stop.targetId in targetNames)
             assertTrue("${stop.id}: nothing is marked Tour.${targetNames[stop.targetId]}", marks(stop.targetId!!).isNotEmpty())
+        }
+    }
+
+    @Test
+    fun `a stop outside Settings is marked once, in the file that draws its place`() {
+        // Where each place is drawn: Home (and its nav bar, which MainActivity draws), Listen together's sheet, the
+        // player, the Playlists screen. The player marks its cast button in each of the places a pin can be drawn,
+        // and a tablet's at the top right: only one of them is drawn at a time.
+        val drawnIn = mapOf(
+            Tour.HOME_TOGETHER to listOf("HomeScreen.kt"),
+            Tour.TOGETHER_START to listOf("TogetherDialog.kt"),
+            Tour.PLAYER_CAST to List(4) { "Player.kt" },
+            Tour.NAV_LIBRARY to listOf("MainActivity.kt"),
+            Tour.PLAYLISTS_SORT to listOf("LibraryPlaylistsScreen.kt"),
+        )
+        assertTrue(outside.isNotEmpty())
+        for (stop in outside.filter { it.route != null || it.targetId in drawnIn }) {
+            val want = drawnIn[stop.targetId]
+            assertNotNull("${stop.id}: where is Tour.${targetNames[stop.targetId]} drawn?", want)
+            assertEquals("${stop.id}: the marks of Tour.${targetNames[stop.targetId]}", want, marks(stop.targetId!!).map { it.file.name })
         }
     }
 

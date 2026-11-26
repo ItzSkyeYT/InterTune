@@ -1942,8 +1942,17 @@ class MainActivity : ComponentActivity() {
                         // a dozen piled up under the last by the end of the closer look. Going
                         // from the list into a screen this pops nothing, and neither does going
                         // into Settings from Home, where the list is not underneath yet.
+                        //
+                        // The player and the sheets are no screens: the player is opened over the
+                        // screen that is up (when a song is in it), and a sheet is opened by the
+                        // screen it belongs to, Home for Listen together's, once the tour is at its
+                        // stop (TourInSheet).
                         val tourGoTo: (String) -> Unit = { route ->
-                            if (navController.currentDestination?.route != route) {
+                            if (route == Tour.ROUTE_NOW_PLAYING) {
+                                if (!playerBottomSheetState.isDismissed && !playerBottomSheetState.isExpanded) playerBottomSheetState.expandSoft()
+                            } else if (route.startsWith("tour/")) {
+                                Unit
+                            } else if (navController.currentDestination?.route != route) {
                                 navController.navigate(route) { popUpTo(Tour.ROUTE_SETTINGS) }
                             }
                         }
@@ -1978,11 +1987,24 @@ class MainActivity : ComponentActivity() {
                             if (screensThere && first != null) {
                                 val route = first.route
                                 if (route == null) goHome()
+                                else if (route.startsWith("tour/")) {
+                                    tourGoTo(route)
+                                    // The player slides open: the hole goes where the button comes to rest.
+                                    if (route == Tour.ROUTE_NOW_PLAYING) withTimeoutOrNull(1500) {
+                                        while (!playerBottomSheetState.isDismissed && !playerBottomSheetState.isExpanded) delay(50)
+                                    }
+                                }
                                 else if (navController.currentDestination?.route != route) navController.navigate(route)
                                 val target = first.targetId
                                 if (target != null) withTimeoutOrNull(3000) { while (!TourTargets.known(target)) delay(50) }
                                 delay(150)
                                 tourState.start(stops)
+                                // The first stop was not there (Library is no tab on this phone): the
+                                // tour starts at the next, on a screen that is still to be gone to.
+                                val from = tourState.current
+                                if (tourState.running && from != null && from.route != route) {
+                                    from.route?.let(tourGoTo) ?: goHome()
+                                }
                             }
                             if (tourState.running) {
                                 welcomeShow.shown()
@@ -2712,6 +2734,8 @@ class MainActivity : ComponentActivity() {
                                 onNavigateBack = { route ->
                                     if (route == null) {
                                         goHome()
+                                    } else if (route.startsWith("tour/")) {
+                                        tourGoTo(route)
                                     } else if (navController.currentDestination?.route != route && !navController.popBackStack(route, inclusive = false)) {
                                         tourGoTo(route)
                                     }

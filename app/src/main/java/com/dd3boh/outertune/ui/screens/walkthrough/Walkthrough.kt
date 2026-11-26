@@ -42,6 +42,7 @@ import androidx.compose.material.icons.rounded.LibraryMusic
 import androidx.compose.material.icons.rounded.Recommend
 import androidx.compose.material.icons.rounded.Lyrics
 import androidx.compose.material.icons.rounded.Share
+import androidx.compose.material.icons.rounded.SlowMotionVideo
 import androidx.compose.material.icons.rounded.Battery5Bar
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.PushPin
@@ -336,8 +337,8 @@ enum class NewThingAction {
     ADD_TILE,
 
     /**
-     * No button: the card says where it is, and there is nowhere in Settings to take somebody.
-     * Casting lives under the player's controls, and the tours only walk through Settings.
+     * No button: the card says where it is, for something no tour leads to. 0.12's casting is one:
+     * its pill was under the player's controls, and the tours then only walked through Settings.
      */
     NONE,
 }
@@ -355,6 +356,10 @@ enum class NewThingAction {
  *   "it is in here" or "choose it here" leaves somebody at a switch they cannot place.
  * @param there false where this build or this install does not have it, and it is then not
  *   listed: a card whose button has nowhere to lead is worse than no card.
+ * @param listed false for a smaller thing of a release whose page keeps to its headline features
+ *   (his pick of 26 Nov 2026 for 0.13: about twenty cards were a wall after the first three).
+ *   Kept here with its words and its way there, for a later page or the release's notes, and
+ *   listed nowhere, the page under About included.
  */
 class NewThing(
     val id: String,
@@ -366,6 +371,7 @@ class NewThing(
     val action: NewThingAction = NewThingAction.SHOW,
     val stops: List<TourStop> = emptyList(),
     val there: (Install) -> Boolean = { true },
+    val listed: Boolean = true,
 )
 
 /**
@@ -387,12 +393,14 @@ val RECOGNITION_ICON get() = Icons.Rounded.GraphicEq
 
 /** Newest first: what somebody sees at the top is what they have never seen before. */
 val NEW_THINGS = listOf(
-    // 0.13's own, the six things on for everyone from it (picked on 8 Nov 2026), Don't play this
-    // song with Block artist. A setting is shown where it is; what lives in menus and lists outside
-    // Settings has a card that says where it is.
-    // 0.13's headline features, added 21 Nov 2026 when the release inventory found them without a card
-    // (experiments/release-0.13/INVENTORY-1121.md): rooms, AirPlay, ListenBrainz, Vibration, Metrolist's import,
-    // your own order and the file formats. What lives outside Settings says where it is.
+    // 0.13's headline features, his pick of 26 Nov 2026 ("is the what's new banner menu thing good?"): about
+    // twenty cards were a wall after the first three, so the page keeps to these, in this order, each with
+    // a way to it ("show me is lacking for items... like the listen together or the playlist reordering").
+    // Listen together first, then what most people meet in a week of listening. Your own order follows Block
+    // an artist, the library's three together, and Varispeed comes in, which had no card. What lives outside
+    // Settings is walked to the way somebody would go: Home's tile and Start a room in its sheet, the cast
+    // button by the player's title, Library's Playlists and its sort. The cards that came before (21 Nov
+    // 2026, experiments/release-0.13/INVENTORY-1121.md, and his eight of 8 Nov 2026) are kept below, not listed.
     NewThing(
         id = "together",
         release = "0.13",
@@ -400,9 +408,14 @@ val NEW_THINGS = listOf(
         title = R.string.new_together_title,
         body = R.string.new_together_body,
         icon = Icons.Rounded.Group,
-        action = NewThingAction.NONE,
+        stops = listOf(
+            TourStop("together_tile", Tour.HOME_TOGETHER, null, R.string.together_title, R.string.new_together_way, V0_13),
+            TourStop("together_start", Tour.TOGETHER_START, Tour.ROUTE_TOGETHER_SHEET, R.string.together_start, R.string.new_together_here, V0_13),
+        ),
         there = { it.rooms },
     ),
+    // The cast list opens from the cast button, by the title since 0.13: the player is opened to it, and with
+    // nothing in the player there is nothing to point at, which the page then says.
     NewThing(
         id = "airplay",
         release = "0.13",
@@ -410,7 +423,9 @@ val NEW_THINGS = listOf(
         title = R.string.new_airplay_title,
         body = R.string.new_airplay_body,
         icon = Icons.Rounded.Speaker,
-        action = NewThingAction.NONE,
+        stops = listOf(
+            TourStop("airplay_cast", Tour.PLAYER_CAST, Tour.ROUTE_NOW_PLAYING, R.string.cast, R.string.new_airplay_here, V0_13),
+        ),
         there = { Unreleased.CASTING && Unreleased.CAST_AIRPLAY },
     ),
     NewThing(
@@ -425,41 +440,6 @@ val NEW_THINGS = listOf(
             TourStop("listenbrainz_setting", Tour.SETTING_LISTENBRAINZ, Tour.ROUTE_ACCOUNT, R.string.listenbrainz_connect, R.string.new_listenbrainz_here, V0_13),
         ),
         there = { Unreleased.LISTENBRAINZ },
-    ),
-    NewThing(
-        id = "vibration",
-        release = "0.13",
-        sinceVersionCode = V0_13,
-        title = R.string.new_vibration_title,
-        body = R.string.new_vibration_body,
-        icon = Icons.Rounded.Vibration,
-        stops = listOf(
-            TourStop("vibration_row", Tour.ROW_LOOK_AND_FEEL, Tour.ROUTE_SETTINGS, R.string.look_and_feel, R.string.new_vibration_way, V0_13),
-            TourStop("vibration_setting", Tour.SETTING_VIBRATION, Tour.ROUTE_LOOK_AND_FEEL, R.string.vibration, R.string.new_vibration_here, V0_13),
-        ),
-        there = { Unreleased.HAPTICS_FEEL },
-    ),
-    NewThing(
-        id = "metrolist_import",
-        release = "0.13",
-        sinceVersionCode = V0_13,
-        title = R.string.new_metrolist_title,
-        body = R.string.new_metrolist_body,
-        icon = Icons.Rounded.MoveToInbox,
-        stops = listOf(
-            TourStop("metrolist_row", Tour.ROW_BACKUP, Tour.ROUTE_SETTINGS, R.string.backup_restore, R.string.new_metrolist_way, V0_13),
-            TourStop("metrolist_setting", Tour.SETTING_METROLIST_IMPORT, Tour.ROUTE_BACKUP, R.string.metrolist_import, R.string.new_metrolist_here, V0_13),
-        ),
-        there = { Unreleased.METROLIST_IMPORT },
-    ),
-    NewThing(
-        id = "custom_order",
-        release = "0.13",
-        sinceVersionCode = V0_13,
-        title = R.string.new_custom_order_title,
-        body = R.string.new_custom_order_body,
-        icon = Icons.Rounded.DragHandle,
-        action = NewThingAction.NONE,
     ),
     NewThing(
         id = "file_format",
@@ -487,6 +467,65 @@ val NEW_THINGS = listOf(
         ),
         there = { Unreleased.ARTIST_BLOCK },
     ),
+    // Library's tab, then the Playlists screen and its sort, where Custom order is picked. Its handles are
+    // named there and not pointed at: they are only on the rows once Custom order is picked.
+    NewThing(
+        id = "custom_order",
+        release = "0.13",
+        sinceVersionCode = V0_13,
+        title = R.string.new_custom_order_title,
+        body = R.string.new_custom_order_body,
+        icon = Icons.Rounded.DragHandle,
+        stops = listOf(
+            TourStop("custom_order_library", Tour.NAV_LIBRARY, null, R.string.library, R.string.new_custom_order_way, V0_13),
+            TourStop("custom_order_sort", Tour.PLAYLISTS_SORT, Tour.ROUTE_PLAYLISTS, R.string.sort_by_custom, R.string.new_custom_order_here, V0_13),
+        ),
+        there = { Unreleased.PLAYLIST_ORDER },
+    ),
+    // Varispeed (#225), which had no card. Its switch is in Player and audio, where Metrolist keeps it.
+    NewThing(
+        id = "varispeed",
+        release = "0.13",
+        sinceVersionCode = V0_13,
+        title = R.string.new_varispeed_title,
+        body = R.string.new_varispeed_body,
+        icon = Icons.Rounded.SlowMotionVideo,
+        stops = listOf(
+            TourStop("varispeed_row", Tour.ROW_PLAYER, Tour.ROUTE_SETTINGS, R.string.player_and_audio, R.string.new_varispeed_way, V0_13),
+            TourStop("varispeed_setting", Tour.SETTING_VARISPEED, Tour.ROUTE_PLAYER, R.string.varispeed, R.string.new_varispeed_here, V0_13),
+        ),
+        there = { Unreleased.VARISPEED },
+    ),
+    NewThing(
+        id = "vibration",
+        release = "0.13",
+        sinceVersionCode = V0_13,
+        title = R.string.new_vibration_title,
+        body = R.string.new_vibration_body,
+        icon = Icons.Rounded.Vibration,
+        stops = listOf(
+            TourStop("vibration_row", Tour.ROW_LOOK_AND_FEEL, Tour.ROUTE_SETTINGS, R.string.look_and_feel, R.string.new_vibration_way, V0_13),
+            TourStop("vibration_setting", Tour.SETTING_VIBRATION, Tour.ROUTE_LOOK_AND_FEEL, R.string.vibration, R.string.new_vibration_here, V0_13),
+        ),
+        there = { Unreleased.HAPTICS_FEEL },
+    ),
+    NewThing(
+        id = "metrolist_import",
+        release = "0.13",
+        sinceVersionCode = V0_13,
+        title = R.string.new_metrolist_title,
+        body = R.string.new_metrolist_body,
+        icon = Icons.Rounded.MoveToInbox,
+        stops = listOf(
+            TourStop("metrolist_row", Tour.ROW_BACKUP, Tour.ROUTE_SETTINGS, R.string.backup_restore, R.string.new_metrolist_way, V0_13),
+            TourStop("metrolist_setting", Tour.SETTING_METROLIST_IMPORT, Tour.ROUTE_BACKUP, R.string.metrolist_import, R.string.new_metrolist_here, V0_13),
+        ),
+        there = { Unreleased.METROLIST_IMPORT },
+    ),
+    // 0.13's smaller things, not listed since his pick of 26 Nov 2026 (listed = false): his eight of 8 Nov
+    // 2026 that are not above, Don't play this song with Block artist, and the four merged after them (drafted
+    // 12 Nov 2026 for his yes, experiments/release-0.13/whats-new/cards-draft-1112.md). Words, ways and
+    // order kept as they were.
     NewThing(
         id = "dont_play",
         release = "0.13",
@@ -496,6 +535,7 @@ val NEW_THINGS = listOf(
         icon = DontPlayIcon,
         action = NewThingAction.NONE,
         there = { Unreleased.ARTIST_BLOCK },
+        listed = false,
     ),
     NewThing(
         id = "saved_twice",
@@ -506,6 +546,7 @@ val NEW_THINGS = listOf(
         icon = Icons.Rounded.ContentCopy,
         action = NewThingAction.NONE,
         there = { Unreleased.SAVED_TWICE },
+        listed = false,
     ),
     // The sleep timer with more ways to stop and a notification that counts down (his todo of
     // 9 Nov 2026), for everyone. It lives in the player, outside Settings: the card says where.
@@ -517,6 +558,7 @@ val NEW_THINGS = listOf(
         body = R.string.new_sleep_timer_body,
         icon = Icons.Rounded.Timer,
         action = NewThingAction.NONE,
+        listed = false,
     ),
     NewThing(
         id = "liked_sync",
@@ -530,6 +572,7 @@ val NEW_THINGS = listOf(
             TourStop("liked_sync_setting", Tour.SETTING_LIKED_SYNC, Tour.ROUTE_STORAGE, R.string.liked_download_sync, R.string.new_liked_sync_here, V0_13),
         ),
         there = { Unreleased.LIKED_SYNC },
+        listed = false,
     ),
     NewThing(
         id = "album_goes_on",
@@ -543,6 +586,7 @@ val NEW_THINGS = listOf(
             TourStop("album_goes_on_setting", Tour.SETTING_AUTO_LOAD_MORE, Tour.ROUTE_PLAYER, R.string.auto_load_more, R.string.new_album_goes_on_here, V0_13),
         ),
         there = { Unreleased.ENDLESS_QUEUE },
+        listed = false,
     ),
     NewThing(
         id = "recognise_offline",
@@ -553,6 +597,7 @@ val NEW_THINGS = listOf(
         icon = RECOGNITION_ICON,
         action = NewThingAction.NONE,
         there = { Unreleased.RECOGNISE_OFFLINE },
+        listed = false,
     ),
     NewThing(
         id = "animations",
@@ -566,6 +611,7 @@ val NEW_THINGS = listOf(
             TourStop("animations_setting", Tour.SETTING_ANIMATIONS, Tour.ROUTE_LOOK_AND_FEEL, R.string.animations_title, R.string.new_animations_here, V0_13),
         ),
         there = { Unreleased.ANIMATIONS_SWITCH },
+        listed = false,
     ),
     // Merged into 0.13 after his eight, for everyone (drafted 12 Nov 2026 for his yes,
     // experiments/release-0.13/whats-new/cards-draft-1112.md). Stats and the queue live outside
@@ -578,6 +624,7 @@ val NEW_THINGS = listOf(
         body = R.string.new_stats_plays_body,
         icon = Icons.AutoMirrored.Rounded.TrendingUp,
         action = NewThingAction.NONE,
+        listed = false,
     ),
     NewThing(
         id = "queue_swipe_undo",
@@ -587,6 +634,7 @@ val NEW_THINGS = listOf(
         body = R.string.new_queue_swipe_body,
         icon = Icons.Rounded.SwipeLeft,
         action = NewThingAction.NONE,
+        listed = false,
     ),
     NewThing(
         id = "downloads_move",
@@ -599,6 +647,7 @@ val NEW_THINGS = listOf(
             TourStop("downloads_move_row", Tour.ROW_STORAGE, Tour.ROUTE_SETTINGS, R.string.grp_storage_and_downloads, R.string.new_liked_sync_way, V0_13),
             TourStop("downloads_move_setting", Tour.SETTING_DOWNLOAD_FOLDER, Tour.ROUTE_STORAGE, R.string.dl_simple_where_title, R.string.new_downloads_move_here, V0_13),
         ),
+        listed = false,
     ),
     NewThing(
         id = "original_audio",
@@ -608,6 +657,7 @@ val NEW_THINGS = listOf(
         body = R.string.new_original_audio_body,
         icon = Icons.Rounded.Translate,
         action = NewThingAction.NONE,
+        listed = false,
     ),
     // 0.12.8's own. Sending a report is shown where Report a problem is, in About, and the
     // backup's choice where backups are made. The lyrics' Save lives outside Settings, so its
@@ -929,7 +979,7 @@ fun newThingsFor(
     everything: Boolean = false,
     install: Install = Install(),
 ): List<NewThing> {
-    val here = NEW_THINGS.filter { it.there(install) }
+    val here = NEW_THINGS.filter { it.listed && it.there(install) }
     if (everything) return here
     if (seenVersionCode <= 0) return emptyList()
     return here.filter { it.sinceVersionCode in (seenVersionCode + 1)..buildVersionCode }

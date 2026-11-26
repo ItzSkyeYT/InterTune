@@ -268,6 +268,15 @@ object Tour {
     const val SETTING_ADVENTUROUSNESS = "setting_adventurousness"
     const val SETTING_LEARN_FROM_LISTENING = "setting_learn_from_listening"
     const val SETTING_EXCLUSIONS = "setting_exclusions"
+    const val SETTING_VARISPEED = "setting_varispeed"
+
+    // Outside Settings, where 0.13's tours lead (his note of 26 Nov 2026: "show me is lacking for items... like the
+    // listen together or the playlist reordering"): Home's Listen together, Start a room in its sheet, the cast
+    // button by the player's title, and the sort of the Playlists screen.
+    const val HOME_TOGETHER = "home_together"
+    const val TOGETHER_START = "together_start"
+    const val PLAYER_CAST = "player_cast"
+    const val PLAYLISTS_SORT = "playlists_sort"
 
     /**
      * The routes those live on. Null on a stop means Home, and Home's own screen at that: not the
@@ -294,6 +303,54 @@ object Tour {
     const val ROUTE_RECOMMENDATIONS = "settings/recommendations"
     const val ROUTE_ADVANCED = "settings/advanced"
     const val ROUTE_ABOUT = "settings/about"
+
+    /** The Playlists screen: what Library's Playlists chip shows, and a tab of its own for some. */
+    const val ROUTE_PLAYLISTS = "playlists"
+
+    /**
+     * Places that are no screen of the navigation, under names no screen has. The player opens over whatever screen
+     * is up, and only with a song in it; Listen together's sheet opens over Home. A stop there is gone to by opening
+     * it (MainActivity's tourGoTo, and Home for the sheet), and the place says it is drawn as a screen does
+     * (TourTargets.screenArrived).
+     */
+    const val ROUTE_NOW_PLAYING = "tour/player"
+    const val ROUTE_TOGETHER_SHEET = "tour/sheet/together"
+}
+
+/**
+ * Whether the stop is inside a sheet. A sheet is a window of its own, over everything the overlay can draw on, so the
+ * sheet draws such a stop itself (TourSpot).
+ */
+val TourStop.inSheet: Boolean get() = route?.startsWith("tour/sheet/") == true
+
+/** Whether the stop is on a place that is opened, not gone to (Tour.ROUTE_NOW_PLAYING and the sheets). */
+val TourStop.inPlace: Boolean get() = route?.startsWith("tour/") == true
+
+/**
+ * The stop the tour is at when it is one inside a sheet, for the sheet to draw (TourSpot) and for Home to open
+ * Listen together's sheet as a tap on its tile would. Null at any other stop and with no tour. The overlay hands it
+ * over with what its own buttons do, and takes it back when the tour moves on or ends.
+ */
+object TourInSheet {
+    var stop by mutableStateOf<TourStop?>(null)
+        private set
+    internal var state: TourState? = null
+        private set
+    internal var advance: () -> Unit = {}
+        private set
+    internal var finish: () -> Unit = {}
+        private set
+
+    internal fun open(state: TourState, stop: TourStop, advance: () -> Unit, finish: () -> Unit) {
+        this.state = state
+        this.advance = advance
+        this.finish = finish
+        this.stop = stop
+    }
+
+    internal fun close(stop: TourStop) {
+        if (this.stop == stop) this.stop = null
+    }
 }
 
 /**
@@ -434,8 +491,12 @@ class TourState {
      */
     fun start(stops: List<TourStop>) {
         // A stop on another screen is taken on trust: what it points at does not exist until the
-        // tour has gone there.
-        val visible = stops.filter { it.targetId == null || it.route != null || TourTargets.known(it.targetId) }
+        // tour has gone there. Not one on the player: it is no screen that is gone to, it opens over
+        // the one that is up and only with a song in it. Whoever starts the tour opens it first, and
+        // a stop on it is kept as one on Home is, when what it points at is there.
+        val visible = stops.filter {
+            it.targetId == null || (it.route != null && it.route != Tour.ROUTE_NOW_PLAYING) || TourTargets.known(it.targetId)
+        }
         // An offer to be shown around, with nothing left to show.
         if (visible.none { it.targetId != null }) return
         this.stops = visible
