@@ -1104,13 +1104,17 @@ fun BottomSheetPlayer(
                 }
             }
 
+            // The small Classic player's one row (queue, timer, like, menu) has no cast button, pinned or not: its menu
+            // offers Cast then, or the cast sheet could not be opened from the player there (26 Nov 2026).
+            var castOffScreen by remember { mutableStateOf(false) }
             val showPlayerMenu: () -> Unit = {
                 menuState.show {
                     PlayerMenu(
                         mediaMetadata = mediaMetadata,
                         navController = navController,
                         playerBottomSheetState = state,
-                        onDismiss = menuState::dismiss
+                        onDismiss = menuState::dismiss,
+                        castOffScreen = castOffScreen,
                     )
                 }
             }
@@ -2204,6 +2208,10 @@ fun BottomSheetPlayer(
                                     horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
                                     modifier = Modifier.fillMaxSize()
                                 ) {
+                                    DisposableEffect(Unit) {
+                                        castOffScreen = true
+                                        onDispose { castOffScreen = false }
+                                    }
                                     queueCircle()
                                     timerCircle()
                                     likeCircle()
