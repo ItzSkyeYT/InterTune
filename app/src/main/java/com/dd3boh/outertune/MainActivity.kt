@@ -305,6 +305,7 @@ import com.dd3boh.outertune.utils.Scrobbler
 import com.dd3boh.outertune.utils.SavedStateSize
 import com.dd3boh.outertune.ui.navigation.KeptHistory
 import com.dd3boh.outertune.ui.navigation.LocalBackAnimations
+import com.dd3boh.outertune.ui.navigation.PagesBack
 import com.dd3boh.outertune.utils.SyncUtils
 import com.dd3boh.outertune.utils.AutoBackup
 import com.dd3boh.outertune.utils.BackgroundCheckWorker
@@ -2198,7 +2199,8 @@ class MainActivity : ComponentActivity() {
 
 
                             val (backAnimations) = rememberPreference(BackAnimationsKey, defaultValue = true)
-                            val navHost: @Composable() (() -> Unit) = @Composable {
+                            // The pages. Their Back goes through PagesBack below (GitHub #210).
+                            val pages: @Composable () -> Unit = @Composable {
                                 NavHost(
                                     navController = navController,
                                     startDestination = (Screens.getAllScreens()
@@ -2295,6 +2297,12 @@ class MainActivity : ComponentActivity() {
                                         appScope = coroutineScope,
                                     )
                                 }
+                            }
+                            val navHost: @Composable() (() -> Unit) = @Composable {
+                                // The nav host's own back handler behind one that keeps a gesture from
+                                // reaching it while the pages are changing, and gives a plain Back with
+                                // Back animations off.
+                                PagesBack(navController, backAnimations, pages)
                                 // A screen of settings open upright goes into the two panes as the phone turns.
                                 SettingsFollowTheTurn(navController, tourState.running)
                             }
