@@ -11,8 +11,6 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -28,8 +26,6 @@ import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.SmartButton
 import androidx.compose.material.icons.rounded.Speaker
 import androidx.compose.material.icons.rounded.Timer
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
@@ -150,67 +146,40 @@ fun ColumnScope.PlayerButtonsFrag() {
         }
     }
 
-    // The row, its chips and the way back to the default under one mark, for the tour from What's
-    // new: its bubble is about the chips, and with the row alone marked it would stand over them.
+    val places = if (buttonsStyle == PlayerButtonsStyle.CLASSIC) listOf(PinPlace.CLASSIC)
+    else listOf(PinPlace.CONNECTED_TITLE, PinPlace.CONNECTED_ROW)
+    // The row, the editor and the way back to the default under one mark, for the tour from What's new: its bubble is
+    // about the editor, and with the row alone marked it would stand over it.
     Column(Modifier.fillMaxWidth().tourTarget(Tour.SETTING_PLAYER_PINS)) {
         PreferenceEntry(
             modifier = Modifier.settingRow(R.string.player_pins),
             title = { Text(stringResource(R.string.player_pins)) },
             icon = { Icon(Icons.Rounded.PushPin, null) },
+            // Back to the buttons the style shown has always had (his ask of 18 Oct 2026). Always there, and only
+            // greyed out while nothing differs, so the way back is never hidden.
+            trailingContent = {
+                TextButton(
+                    enabled = PlayerPins.changed(pins, places),
+                    onClick = { onPinsRawChange(PlayerPins.write(PlayerPins.reset(pins, places))) },
+                ) { Text(stringResource(R.string.player_pins_reset)) }
+            },
             onClick = null
         )
-        val places = if (buttonsStyle == PlayerButtonsStyle.CLASSIC) listOf(PinPlace.CLASSIC)
-        else listOf(PinPlace.CONNECTED_TITLE, PinPlace.CONNECTED_ROW)
-        places.forEach { place ->
-            if (places.size > 1) {
-                Text(
-                    text = stringResource(if (place == PinPlace.CONNECTED_TITLE) R.string.player_pins_by_title else R.string.player_pins_under_controls),
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 4.dp)
-                )
-            }
-            val most = if (place == PinPlace.CLASSIC) PlayerPins.classicMost(queueAsButton) else place.most
-            val chosen = pins[place].orEmpty()
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = 16.dp, end = 16.dp, bottom = 8.dp)
-            ) {
-                // Cast only where there is casting.
-                PlayerPin.entries.filter { it != PlayerPin.CAST || Unreleased.CASTING }.forEach { pin ->
-                    val on = pin in chosen
-                    FilterChip(
-                        selected = on,
-                        // A full place takes no more until one comes off; the cast button always has room.
-                        enabled = on || pin == PlayerPin.CAST || !PlayerPins.full(chosen, most),
-                        onClick = { onPinsRawChange(PlayerPins.write(PlayerPins.toggle(pins, place, pin, most))) },
-                        label = { Text(pinName(pin)) },
-                        leadingIcon = {
-                            Icon(
-                                painter = pinIcon(pin),
-                                contentDescription = null,
-                                modifier = Modifier.size(FilterChipDefaults.IconSize)
-                            )
-                        }
-                    )
-                }
-            }
-        }
-        // Back to the buttons the style shown has always had (his ask of 18 Oct 2026). Always there,
-        // and only greyed out while nothing differs, so the way back is never hidden.
-        Row(
-            horizontalArrangement = Arrangement.End,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(end = 8.dp)
-        ) {
-            TextButton(
-                enabled = PlayerPins.changed(pins, places),
-                onClick = { onPinsRawChange(PlayerPins.write(PlayerPins.reset(pins, places))) },
-            ) { Text(stringResource(R.string.player_pins_reset)) }
-        }
+        // Ti-Die's ask of 26 Nov 2026, mock 2 his pick: a box per place shaped like that bar of the player, the buttons
+        // not shown as tiles, dragged or tapped where they go. Stored as the chips stored it, so no choice changes.
+        PlayerButtonsEditor(
+            pins = pins,
+            places = places,
+            // Classic has one fewer while the queue has a circle there; the cast button always has room.
+            most = { place -> if (place == PinPlace.CLASSIC) PlayerPins.classicMost(queueAsButton) else place.most },
+            // Cast only where there is casting.
+            available = PlayerPin.entries.filter { it != PlayerPin.CAST || Unreleased.CASTING },
+            queueButton = queueAsButton,
+            onPinsChange = { onPinsRawChange(PlayerPins.write(it)) },
+            name = { pinName(it) },
+            icon = { pinIcon(it) },
+            modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 12.dp),
+        )
     }
     SwitchPreference(
         modifier = Modifier.settingRow(R.string.queue_button),
