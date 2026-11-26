@@ -39,12 +39,16 @@ object RecapNotesOpen {
 
     /**
      * The Recap of [year] is open on this phone: its notes are open everywhere from now, and it
-     * needs no notification to say it is here (RecapAlert).
+     * needs no notification to say it is here (RecapAlert). One that said so already is taken out
+     * of the shade, unless it tells of a later year's.
      */
     suspend fun opened(context: Context, year: Int) {
+        var told = 0
         context.dataStore.edit {
+            told = it[RecapToldKey] ?: 0
             if ((it[RecapOpenedHereKey] ?: 0) < year) it[RecapOpenedHereKey] = year
             if ((it[RecapToldKey] ?: 0) < year) it[RecapToldKey] = year
         }
+        if (told <= year) RecapAlert.withdraw(context)
     }
 }
