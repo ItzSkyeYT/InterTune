@@ -575,6 +575,14 @@ class MusicService : MediaLibraryService(),
     }
 
     /**
+     * This phone, the host of the room [code], is leaving it and hands it on (together/RoomHandOn): forgotten now, so that
+     * a service that stops before the next host answers never brings this phone back as a second host of it.
+     */
+    fun roomLeaving(code: RoomCode) {
+        if (together.value?.code == code) roomMemory.forget()
+    }
+
+    /**
      * Opens a room, hosting or following, in place of any already open. Main thread. Null on a service that has
      * stopped: a room made there is held by nothing and stopped by nothing (onDestroy has run), and went on saying it
      * was the host to a screen that was no longer there. The app keeps the stopped service for a moment after it comes
