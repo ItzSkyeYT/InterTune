@@ -67,6 +67,9 @@ class RecapWords(private val context: Context, private val year: Int) {
 
     fun minutes(ms: Long): Long = (ms + 30_000) / 60_000
 
+    /** A count as a plural takes it, an Int: the minutes are Longs. */
+    fun quantity(n: Long): Int = n.coerceIn(0L, Int.MAX_VALUE.toLong()).toInt()
+
     /** "8 h 7 min", "45 min". */
     fun length(ms: Long): String {
         val total = minutes(ms)
