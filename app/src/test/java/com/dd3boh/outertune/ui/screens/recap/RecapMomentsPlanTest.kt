@@ -170,7 +170,7 @@ class RecapMomentsPlanTest {
     }
 
     @Test
-    fun `the words of the four are in English and French, held from translators, with no long dash`() {
+    fun `the words of the four are in English and French, with no long dash`() {
         val res = File("src/main/res")
         val english = File(res, "values/strings-ot.xml").readText()
         val french = File(res, "values-fr/strings-ot.xml").readText()
@@ -185,8 +185,8 @@ class RecapMomentsPlanTest {
             val fr = Regex("""<(string|plurals) name="$name"([^>]*)>(.*?)</\1>""", RegexOption.DOT_MATCHES_ALL).find(french)
             assertTrue("$name in English", en != null)
             assertTrue("$name in French", fr != null)
-            assertTrue("$name is held from translators", "translatable=\"false\"" in en!!.groupValues[2])
-            for (text in listOf(en.groupValues[3], fr!!.groupValues[3])) assertFalse("$name: $text", '—' in text || '–' in text)
+            // Held from translators until 26 Nov 2026; since then they go to them (RecapTextsForTranslatorsTest).
+            for (text in listOf(en!!.groupValues[3], fr!!.groupValues[3])) assertFalse("$name: $text", '—' in text || '–' in text)
         }
     }
 }

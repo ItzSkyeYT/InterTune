@@ -628,10 +628,14 @@ internal fun MinutesSlide(s: SlideScope) {
                 pluralStringResource(R.plurals.recap_minutes_hours, hours, w.number(hours))
             }
             half % 1.0 == 0.0 -> pluralStringResource(R.plurals.recap_minutes_days, half.toInt(), w.number(half.toInt()))
-            else -> stringResource(R.string.recap_minutes_days_half, w.number(floor(half).toInt()))
+            else -> {
+                val whole = floor(half).toInt()
+                pluralStringResource(R.plurals.recap_minutes_days_half, whole, w.number(whole))
+            }
         }
         val most = r.mostTime?.let { m ->
-            w.bold(R.string.recap_minutes_top, w.number(w.minutes(m.ms)) to true, s.shown.song(m.songId)?.title.orEmpty() to true)
+            val songMinutes = w.minutes(m.ms)
+            w.boldPlural(R.plurals.recap_minutes_top, w.quantity(songMinutes), w.number(songMinutes) to true, s.shown.song(m.songId)?.title.orEmpty() to true)
         }
         Text(
             if (most != null) AnnotatedString("$time ") + most else AnnotatedString(time),
@@ -727,13 +731,14 @@ internal fun HourSlide(s: SlideScope) {
         val side = minOf(320.dp, room.width, room.height * 0.42f)
         Dial(s, side, Modifier.align(Alignment.CenterHorizontally))
         Grow(room)
+        val peakMinutes = w.minutes(r.msByHour[r.peakHour])
         PaperNote(s, at = 3.8f, turn = -1.2f) {
             Text(
-                w.bold(
-                    R.string.recap_hour_line,
+                w.boldPlural(
+                    R.plurals.recap_hour_line, w.quantity(peakMinutes),
                     w.hour(r.peakHour) to false,
                     w.hour((r.peakHour + 1) % 24) to false,
-                    w.number(w.minutes(r.msByHour[r.peakHour])) to true,
+                    w.number(peakMinutes) to true,
                     s.shown.song(r.peakSong.songId)?.title.orEmpty() to true,
                 ),
                 style = RecapType.line, color = RecapInk.Ink,
@@ -741,7 +746,7 @@ internal fun HourSlide(s: SlideScope) {
             r.lateNights?.let { late ->
                 Box(Modifier.padding(top = 8.dp).fillMaxWidth()) {
                     Text(
-                        stringResource(R.string.recap_late_nights, w.number(late.nights), w.time(late.latestMinute)),
+                        pluralStringResource(R.plurals.recap_late_nights, late.nights, w.number(late.nights), w.time(late.latestMinute)),
                         style = RecapType.quiet, color = RecapInk.Ink.copy(alpha = 0.74f), modifier = Modifier.padding(end = 46.dp),
                     )
                     Moon(Modifier.align(Alignment.BottomEnd).offset(x = 8.dp, y = 6.dp).size(46.dp))
@@ -1029,7 +1034,7 @@ internal fun OnlySlide(s: SlideScope) {
                 }
                 Column(Modifier.anchor(s, Spot.FOUND)) {
                     Counted(auto.stuck.plays.toLong(), s, at = 1.6f, land = 4f, style = RecapType.giant.copy(fontSize = 118.sp), colour = c.ink, format = { w.number(it) }, fit = true)
-                    Text(stringResource(R.string.recap_auto_plays_since, w.day(auto.stuckFirstDay)), style = RecapType.tag.copy(fontSize = 19.sp, lineHeight = 1.05.em), color = c.ink, modifier = Modifier.padding(top = 2.dp).enter(s, Entrance.UP, 2.4f))
+                    Text(pluralStringResource(R.plurals.recap_auto_plays_since, auto.stuck.plays, w.day(auto.stuckFirstDay)), style = RecapType.tag.copy(fontSize = 19.sp, lineHeight = 1.05.em), color = c.ink, modifier = Modifier.padding(top = 2.dp).enter(s, Entrance.UP, 2.4f))
                 }
             }
             val (before, after) = around(stringResource(R.string.recap_auto_title, MARK))
@@ -1428,12 +1433,13 @@ internal fun CountdownSlide(s: SlideScope, step: Int) {
 
 @Composable
 private fun countdownWords(line: CountdownLine, w: RecapWords): String = when (line) {
-    is CountdownLine.Month -> stringResource(R.string.recap_line_month, w.number(line.plays), w.number(line.of), w.month(line.month))
-    is CountdownLine.Days -> stringResource(R.string.recap_line_days, w.number(line.days))
-    is CountdownLine.Minutes -> stringResource(R.string.recap_line_minutes, w.number(line.minutes))
-    is CountdownLine.FoundDay -> stringResource(R.string.recap_line_found_day, w.number(line.plays), w.day(line.day))
-    is CountdownLine.InARow -> stringResource(R.string.recap_line_in_a_row, w.number(line.times), w.day(line.day))
-    is CountdownLine.BestDay -> stringResource(R.string.recap_line_best_day, w.number(line.plays), w.day(line.day))
+    // "57 of its 62 plays": the plural follows the song's plays in all.
+    is CountdownLine.Month -> pluralStringResource(R.plurals.recap_line_month, line.of, w.number(line.plays), w.number(line.of), w.month(line.month))
+    is CountdownLine.Days -> pluralStringResource(R.plurals.recap_line_days, line.days, w.number(line.days))
+    is CountdownLine.Minutes -> pluralStringResource(R.plurals.recap_line_minutes, w.quantity(line.minutes), w.number(line.minutes))
+    is CountdownLine.FoundDay -> pluralStringResource(R.plurals.recap_line_found_day, line.plays, w.number(line.plays), w.day(line.day))
+    is CountdownLine.InARow -> pluralStringResource(R.plurals.recap_line_in_a_row, line.times, w.number(line.times), w.day(line.day))
+    is CountdownLine.BestDay -> pluralStringResource(R.plurals.recap_line_best_day, line.plays, w.number(line.plays), w.day(line.day))
     is CountdownLine.FirstHeard -> stringResource(R.string.recap_line_first, w.day(line.day))
 }
 
@@ -1480,7 +1486,7 @@ internal fun NumberOneSlide(s: SlideScope, sharing: Boolean, onShare: () -> Unit
         }
         val found = stringResource(R.string.recap_found_on, w.day(top.firstHeardDay), w.time(top.firstHeardMinute))
         val day = RecapStory.numberOneDay(top)?.let {
-            " " + stringResource(if (it.inARow) R.string.recap_in_a_row_on else R.string.recap_times_on, w.day(it.day), w.number(it.times))
+            " " + pluralStringResource(if (it.inARow) R.plurals.recap_in_a_row_on else R.plurals.recap_times_on, it.times, w.day(it.day), w.number(it.times))
         }.orEmpty()
         Text(
             found + day, style = RecapType.line, color = c.ink, onTextLayout = { foundLines.layout = it },

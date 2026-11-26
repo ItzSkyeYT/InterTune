@@ -2998,7 +2998,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="recap_first_song_at">The first song, at %1$s</string>
     <string name="recap_first_song_on">The year\'s first song, on %1$s</string>
     <plurals name="recap_days_since">
-        <item quantity="one">Everything here comes from the one day since, worked out on this phone.</item>
+        <item quantity="one">Everything here comes from the %1$s day since, worked out on this phone.</item>
         <item quantity="other">Everything here comes from the %1$s days since, worked out on this phone.</item>
     </plurals>
     <string name="recap_this_year_here">Everything here comes from this year, worked out on this phone.</string>
@@ -3006,7 +3006,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="recap_note_read_kick">From your %1$s Recap</string>
     <!-- For translators: %1$s is a year (2025), %2$s how many notes. -->
     <plurals name="recap_note_read_title">
-        <item quantity="one">A note from your %1$s</item>
+        <item quantity="one">%2$s note from your %1$s</item>
         <item quantity="other">%2$s notes from your %1$s</item>
     </plurals>
     <string name="recap_note_read_strip">past self</string>
@@ -3018,7 +3018,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="recap_alert_title">Your %1$s Recap is here</string>
     <string name="recap_alert_line">Your year in music, ready when you are.</string>
     <plurals name="recap_alert_notes">
-        <item quantity="one">And a note from your past self</item>
+        <item quantity="one">And %1$d note from your past self</item>
         <item quantity="other">And %1$d notes from your past self</item>
     </plurals>
     <string name="recap_minutes_kick_since">Since %1$s you listened for</string>
@@ -3028,15 +3028,23 @@ while also allowing users to translate our app as well. New, specific strings to
         <item quantity="other">minutes</item>
     </plurals>
     <plurals name="recap_minutes_hours">
-        <item quantity="one">That\'s an hour of music.</item>
+        <item quantity="one">That\'s %1$s hour of music.</item>
         <item quantity="other">That\'s %1$s hours of music.</item>
     </plurals>
     <plurals name="recap_minutes_days">
-        <item quantity="one">That\'s a whole day of music.</item>
+        <item quantity="one">That\'s %1$s whole day of music.</item>
         <item quantity="other">That\'s %1$s days of music.</item>
     </plurals>
-    <string name="recap_minutes_days_half">That\'s %1$s and a half days of music.</string>
-    <string name="recap_minutes_top">%1$s of those minutes went to %2$s, more than to any other song.</string>
+    <!-- For translators: %1$s is the whole days before the half (2 in two and a half days). -->
+    <plurals name="recap_minutes_days_half">
+        <item quantity="one">That\'s %1$s and a half days of music.</item>
+        <item quantity="other">That\'s %1$s and a half days of music.</item>
+    </plurals>
+    <!-- For translators: %1$s is a number of minutes, %2$s a song title. -->
+    <plurals name="recap_minutes_top">
+        <item quantity="one">%1$s of those minutes went to %2$s, more than to any other song.</item>
+        <item quantity="other">%1$s of those minutes went to %2$s, more than to any other song.</item>
+    </plurals>
     <string name="recap_flag" translatable="false">%1$s, %2$s</string>
     <!-- The Recap's seasons (SeasonsSlide): its kicker, the four names (for December to February first: winter in the north, summer in the south), and a season's line, its song's plays then its months. -->
     <string name="recap_seasons_kick">Your seasons</string>
@@ -3047,10 +3055,16 @@ while also allowing users to translate our app as well. New, specific strings to
     <!-- For translators: %1$s is a season (Winter), %2$s and %3$s are months. -->
     <string name="recap_season_line">%1$s, %2$s to %3$s</string>
     <string name="recap_hour_kick">Your listening hour</string>
-    <!-- For translators: %1$s and %2$s are hours (10 pm, 11 pm), %3$s a number of minutes, %4$s a song title. -->
-    <string name="recap_hour_line">Your busiest hour was %1$s to %2$s, with %3$s minutes of music. The song you played most then: %4$s.</string>
+    <!-- For translators: %1$s and %2$s are hours (10 pm, 11 pm), %3$s a number of minutes, %4$s a song title. The plural follows %3$s. -->
+    <plurals name="recap_hour_line">
+        <item quantity="one">Your busiest hour was %1$s to %2$s, with %3$s minute of music. The song you played most then: %4$s.</item>
+        <item quantity="other">Your busiest hour was %1$s to %2$s, with %3$s minutes of music. The song you played most then: %4$s.</item>
+    </plurals>
     <!-- For translators: %1$s is a number of nights (2 or more), %2$s a time of night. -->
-    <string name="recap_late_nights">And %1$s nights went past midnight. The latest song started at %2$s.</string>
+    <plurals name="recap_late_nights">
+        <item quantity="one">And %1$s night went past midnight. The latest song started at %2$s.</item>
+        <item quantity="other">And %1$s nights went past midnight. The latest song started at %2$s.</item>
+    </plurals>
     <!-- The Recap's 2 AM songs (NightSlide): its kicker (the morning's where there is no night), the headline round the song, the hours on the tag, the line under it, and the morning's note. -->
     <string name="recap_night_kick">Your 2 AM songs</string>
     <string name="recap_morning_kick">Your morning songs</string>
@@ -3058,11 +3072,11 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="recap_morning_title">First thing in the morning, it was %1$s</string>
     <string name="recap_part_hours">%1$s to %2$s</string>
     <plurals name="recap_night_line">
-        <item quantity="one">You played it once after midnight.</item>
+        <item quantity="one">You played it %1$s time after midnight.</item>
         <item quantity="other">You played it %1$s times after midnight.</item>
     </plurals>
     <plurals name="recap_morning_line">
-        <item quantity="one">You played it once first thing in the morning.</item>
+        <item quantity="one">You played it %1$s time first thing in the morning.</item>
         <item quantity="other">You played it %1$s times first thing in the morning.</item>
     </plurals>
     <string name="recap_morning_note">And first thing in the morning</string>
@@ -3073,7 +3087,7 @@ while also allowing users to translate our app as well. New, specific strings to
     </plurals>
     <string name="recap_streak_line">Music every day from %1$s to %2$s.</string>
     <plurals name="recap_streak_song">
-        <item quantity="one">%1$s was there on one of them.</item>
+        <item quantity="one">%1$s was there on %2$s of them.</item>
         <item quantity="other">%1$s was there on %2$s of them.</item>
     </plurals>
     <!-- The Recap's week you couldn't stop (WeekSlide): its kicker, the word beside its count, and its line (the week's dates, then its plays of the song and of everything). -->
@@ -3094,28 +3108,31 @@ while also allowing users to translate our app as well. New, specific strings to
     </plurals>
     <string name="recap_most_played">Most played: %1$s</string>
     <plurals name="recap_new_artists_first">
-        <item quantity="one">After your first month you still found one new artist.</item>
+        <item quantity="one">After your first month you still found %1$s new artist.</item>
         <item quantity="other">After your first month you still found %1$s new artists.</item>
     </plurals>
     <plurals name="recap_new_artists_year">
-        <item quantity="one">This year you found one new artist.</item>
+        <item quantity="one">This year you found %1$s new artist.</item>
         <item quantity="other">This year you found %1$s new artists.</item>
     </plurals>
     <string name="recap_best_of_them">The best of them:</string>
     <string name="recap_best_find_line">First played on %1$s, %2$s since</string>
     <string name="recap_only_kick">Only on InterTune</string>
     <string name="recap_auto_chip" translatable="false">Auto</string>
-    <!-- For translators: \n is a line break on the slide; keep it. %1$s is a date. -->
-    <string name="recap_auto_plays_since">plays since\n%1$s</string>
+    <!-- For translators: the words under the song's plays, a big number. \n is a line break on the slide; keep it. %1$s is a date. -->
+    <plurals name="recap_auto_plays_since">
+        <item quantity="one">play since\n%1$s</item>
+        <item quantity="other">plays since\n%1$s</item>
+    </plurals>
     <!-- For translators: %1$s is a song title. -->
     <string name="recap_auto_title">Auto found you %1$s</string>
     <string name="recap_auto_line">Quick picks played it for you on %1$s, and you kept it.</string>
     <plurals name="recap_auto_brought_since">
-        <item quantity="one">Since %2$s, Auto brought you one new song, this dot.</item>
+        <item quantity="one">Since %2$s, Auto brought you %1$s new song, one dot each.</item>
         <item quantity="other">Since %2$s, Auto brought you %1$s new songs, one dot each.</item>
     </plurals>
     <plurals name="recap_auto_brought">
-        <item quantity="one">Auto brought you one new song, this dot.</item>
+        <item quantity="one">Auto brought you %1$s new song, one dot each.</item>
         <item quantity="other">Auto brought you %1$s new songs, one dot each.</item>
     </plurals>
     <!-- For translators: (lit) and (ringed) name how the slide draws those dots: lit up brighter, and with a ring round them. -->
@@ -3140,12 +3157,31 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="recap_top_songs_kick">Your top songs</string>
     <string name="recap_tap_for_number">Tap for number %1$s</string>
     <string name="recap_tap_for_one">Tap for your number one</string>
-    <string name="recap_line_month">%1$s of its %2$s plays came in %3$s.</string>
-    <string name="recap_line_days">Played on %1$s different days, more than any other song here.</string>
-    <string name="recap_line_minutes">%1$s minutes in all, more than any song above it.</string>
-    <string name="recap_line_found_day">%1$s plays on %2$s, the day you found it.</string>
-    <string name="recap_line_in_a_row">%1$s times in a row on %2$s.</string>
-    <string name="recap_line_best_day">%1$s plays on %2$s, its biggest day.</string>
+    <!-- For translators: %1$s of the song's %2$s plays came in the month %3$s (August). The plural follows %2$s. -->
+    <plurals name="recap_line_month">
+        <item quantity="one">%1$s of its %2$s play came in %3$s.</item>
+        <item quantity="other">%1$s of its %2$s plays came in %3$s.</item>
+    </plurals>
+    <plurals name="recap_line_days">
+        <item quantity="one">Played on %1$s different day, more than any other song here.</item>
+        <item quantity="other">Played on %1$s different days, more than any other song here.</item>
+    </plurals>
+    <plurals name="recap_line_minutes">
+        <item quantity="one">%1$s minute in all, more than any song above it.</item>
+        <item quantity="other">%1$s minutes in all, more than any song above it.</item>
+    </plurals>
+    <plurals name="recap_line_found_day">
+        <item quantity="one">%1$s play on %2$s, the day you found it.</item>
+        <item quantity="other">%1$s plays on %2$s, the day you found it.</item>
+    </plurals>
+    <plurals name="recap_line_in_a_row">
+        <item quantity="one">%1$s time in a row on %2$s.</item>
+        <item quantity="other">%1$s times in a row on %2$s.</item>
+    </plurals>
+    <plurals name="recap_line_best_day">
+        <item quantity="one">%1$s play on %2$s, its biggest day.</item>
+        <item quantity="other">%1$s plays on %2$s, its biggest day.</item>
+    </plurals>
     <string name="recap_line_first">First played on %1$s.</string>
     <!-- The Recap's slide of the song skipped most (SkippedSlide): its kicker, the unit after the count, and whether it was ever let finish. -->
     <string name="recap_skipped_kick">The one you kept skipping</string>
@@ -3154,7 +3190,7 @@ while also allowing users to translate our app as well. New, specific strings to
         <item quantity="other">skips</item>
     </plurals>
     <plurals name="recap_skipped_finished">
-        <item quantity="one">You still let it finish once.</item>
+        <item quantity="one">You still let it finish %1$s time.</item>
         <item quantity="other">You still let it finish %1$s times.</item>
     </plurals>
     <string name="recap_skipped_never">It never made it to the end.</string>
@@ -3172,7 +3208,7 @@ while also allowing users to translate our app as well. New, specific strings to
         <item quantity="other">%1$s days</item>
     </plurals>
     <plurals name="recap_back_line">
-        <item quantity="one">Nothing for a day after %2$s, then you found it again on %3$s.</item>
+        <item quantity="one">Nothing for %1$s day after %2$s, then you found it again on %3$s.</item>
         <item quantity="other">Nothing for %1$s days after %2$s, then you found it again on %3$s.</item>
     </plurals>
     <!-- The Recap's slide of where the songs came from (WhereFromSlide), for someone with nothing for Only on InterTune: its kicker, the headline round the first source, the line about its song, a row's share, the giant share's mark, and since when. -->
@@ -3201,8 +3237,15 @@ while also allowing users to translate our app as well. New, specific strings to
         <item quantity="other">plays</item>
     </plurals>
     <string name="recap_found_on">You found it on %1$s at %2$s.</string>
-    <string name="recap_in_a_row_on">On %1$s you played it %2$s times in a row.</string>
-    <string name="recap_times_on">On %1$s you played it %2$s times.</string>
+    <!-- For translators: %1$s is a date, %2$s how many times (2 or more). The plural follows %2$s. -->
+    <plurals name="recap_in_a_row_on">
+        <item quantity="one">On %1$s you played it %2$s time in a row.</item>
+        <item quantity="other">On %1$s you played it %2$s times in a row.</item>
+    </plurals>
+    <plurals name="recap_times_on">
+        <item quantity="one">On %1$s you played it %2$s time.</item>
+        <item quantity="other">On %1$s you played it %2$s times.</item>
+    </plurals>
     <string name="recap_card_described">Your year on one card: top songs, top artists, your minutes, your hour and your longest streak</string>
     <string name="recap_note_write_kick">Before you go</string>
     <string name="recap_note_write_title">Write a note for %1$s</string>
@@ -3243,9 +3286,16 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="recap_card_my_year">My %1$s on InterTune</string>
     <string name="recap_card_top_songs">Top songs</string>
     <string name="recap_card_top_artists">Top artists</string>
-    <string name="recap_card_minutes">minutes</string>
+    <!-- The words under the three numbers on the year's card: its minutes, the listening hour, the longest streak's days. -->
+    <plurals name="recap_card_minutes">
+        <item quantity="one">minute</item>
+        <item quantity="other">minutes</item>
+    </plurals>
     <string name="recap_card_my_hour">my hour</string>
-    <string name="recap_card_days_in_a_row">days in a row</string>
+    <plurals name="recap_card_days_in_a_row">
+        <item quantity="one">day in a row</item>
+        <item quantity="other">days in a row</item>
+    </plurals>
     <string name="recap_card_since">Since %1$s</string>
     <!-- The calm shapes look: the badge on the first song's sticker, the artist's badge, the pins under the streak. %1$s is a number. -->
     <string name="recap_badge_first_play">first play</string>
@@ -3266,7 +3316,11 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="recap_playlist_copy">Also add to YouTube Music</string>
     <string name="recap_playlist_copying">Adding to YouTube Music: %1$s of %2$s</string>
     <string name="recap_playlist_copied">On YouTube Music</string>
-    <string name="recap_playlist_copied_some">On YouTube Music: %1$s of %2$s songs</string>
+    <!-- For translators: %1$s of the playlist's %2$s songs are on YouTube Music. The plural follows %2$s. -->
+    <plurals name="recap_playlist_copied_some">
+        <item quantity="one">On YouTube Music: %1$s of %2$s song</item>
+        <item quantity="other">On YouTube Music: %1$s of %2$s songs</item>
+    </plurals>
     <!-- A download folder saved that does not open (DownloadFolderState): under its row on Settings > Storage, and said once, in a toast (so 70 characters at most, ToastLengthTest), when a download cannot be moved into it. Then the question after a folder is chosen while downloads are still inside the app. -->
     <string name="dl_folder_cannot_open">InterTune can\'t open this folder any more. New downloads stay inside the app until you choose it again.</string>
     <string name="dl_folder_cannot_open_notice">InterTune can\'t open your download folder. Downloads stay in the app.</string>

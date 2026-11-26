@@ -38,6 +38,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -273,7 +274,7 @@ private fun CopyLine(s: SlideScope, step: CopyStep, onClick: () -> Unit) {
             Icon(Icons.Rounded.Check, null, tint = c.ink2, modifier = Modifier.size(16.dp))
             val whole = step.of <= 0 || step.added >= step.of
             Text(
-                if (whole) stringResource(R.string.recap_playlist_copied) else stringResource(R.string.recap_playlist_copied_some, w.number(step.added), w.number(step.of)),
+                if (whole) stringResource(R.string.recap_playlist_copied) else pluralStringResource(R.plurals.recap_playlist_copied_some, step.of, w.number(step.added), w.number(step.of)),
                 style = RecapType.quiet, color = c.ink2, maxLines = 1, softWrap = false,
             )
         }
