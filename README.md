@@ -208,7 +208,7 @@ Every change in detail, and why this fork exists: [docs/FEATURES.md](https://git
 What's being worked on, roughly in order. `[x]` is done, `[~]` is built and being tested, `[ ]` is still to do. Nothing here has a date, and plans can change. Ideas are welcome in #feature-requests on [Discord](https://discord.gg/68jmqhMjXk) or as a [GitHub issue](https://github.com/ItzSkyeYT/InterTune/issues/new/choose).
 
 <details>
-<summary><b>Next: 0.13</b> · 45 of 57 done, 8 to test</summary>
+<summary><b>Next: 0.13</b> · 46 of 57 done, 7 to test</summary>
 
 `[x]` Listen together: one person plays, friends follow the same song in real time\
 `[x]` In a room, a guest who casts to a TV or speaker plays on their own, and catches up with the room when the cast ends\
@@ -252,7 +252,7 @@ What's being worked on, roughly in order. `[x]` is done, `[~]` is built and bein
 `[x]` On a weak connection the app waits and tries again before saying YouTube can't be reached, and says it in a small line on Home that local songs never see\
 `[x]` Your year in InterTune, a recap\
 `[x]` Save your recap as a video to share, with its music\
-`[~]` Four more Recap slides from your own year: your seasons, your 2 AM songs, the week you couldn't stop and the one you came back to\
+`[x]` Four more Recap slides from your own year: your seasons, your 2 AM songs, the week you couldn't stop and the one you came back to\
 `[ ]` Premium accounts get the 256 kbps stream\
 `[x]` Choose what's in the three-dot menus\
 `[ ]` Lyrics videos\
