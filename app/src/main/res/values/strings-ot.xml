@@ -3004,7 +3004,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="recap_this_year_here">Everything here comes from this year, worked out on this phone.</string>
     <!-- For translators: %1$s is a year (2025). -->
     <string name="recap_note_read_kick">From your %1$s Recap</string>
-    <!-- For translators: %1$s is a year (2025), %2$s how many notes. -->
+    <!-- For translators: %1$s is where "past self" (recap_note_read_strip) goes, on a strip of its own; %2$s is how many notes. -->
     <plurals name="recap_note_read_title">
         <item quantity="one">%2$s note from your %1$s</item>
         <item quantity="other">%2$s notes from your %1$s</item>
@@ -3052,7 +3052,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="recap_season_spring">Spring</string>
     <string name="recap_season_summer">Summer</string>
     <string name="recap_season_autumn">Autumn</string>
-    <!-- For translators: %1$s is a season (Winter), %2$s and %3$s are months. -->
+    <!-- For translators: %1$s is the season's song's plays (12 plays), %2$s and %3$s its first and last months (Dec, Feb). -->
     <string name="recap_season_line">%1$s, %2$s to %3$s</string>
     <string name="recap_hour_kick">Your listening hour</string>
     <!-- For translators: %1$s and %2$s are hours (10 pm, 11 pm), %3$s a number of minutes, %4$s a song title. The plural follows %3$s. -->
