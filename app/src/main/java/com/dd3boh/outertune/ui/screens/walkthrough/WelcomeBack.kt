@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
@@ -368,6 +369,10 @@ fun WelcomeBanner(
  *
  * The button shows only [action], and is read out with the [title] after it. The tick is read as
  * the button's state and not as a picture inside it.
+ *
+ * The button stands under the words, at their start. Beside them it took a third of the card, and
+ * the sentence ran down a narrow column four or five lines long (26 Nov 2026). The icon stands at
+ * the top, beside the title, where a card with a button under its words would leave it floating.
  */
 @Composable
 private fun ThingCard(
@@ -387,8 +392,8 @@ private fun ThingCard(
             .padding(horizontal = 16.dp, vertical = 6.dp)
     ) {
         Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(start = 16.dp, top = 14.dp, end = 12.dp, bottom = 14.dp)
+            verticalAlignment = Alignment.Top,
+            modifier = Modifier.padding(start = 16.dp, top = 14.dp, end = 16.dp, bottom = 14.dp)
         ) {
             Icon(
                 imageVector = icon,
@@ -399,7 +404,10 @@ private fun ThingCard(
             Spacer(Modifier.width(16.dp))
             Column(
                 verticalArrangement = Arrangement.spacedBy(2.dp),
-                modifier = Modifier.weight(1f)
+                // The title's first line centred on the icon: 24 of line height beside 28.
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(top = 2.dp)
             ) {
                 Text(
                     text = title,
@@ -411,27 +419,27 @@ private fun ThingCard(
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-            }
-            if (action != null && actionForThis != null) {
-                Spacer(Modifier.width(8.dp))
-                FilledTonalButton(
-                    onClick = onClick,
-                    modifier = Modifier
-                        .widthIn(min = 64.dp)
-                        .semantics {
-                            contentDescription = actionForThis
-                            if (done) stateDescription = seenState
+                if (action != null && actionForThis != null) {
+                    Spacer(Modifier.height(8.dp))
+                    FilledTonalButton(
+                        onClick = onClick,
+                        modifier = Modifier
+                            .widthIn(min = 64.dp)
+                            .semantics {
+                                contentDescription = actionForThis
+                                if (done) stateDescription = seenState
+                            }
+                    ) {
+                        if (done) {
+                            Icon(
+                                imageVector = Icons.Rounded.Check,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp),
+                            )
+                            Spacer(Modifier.width(6.dp))
                         }
-                ) {
-                    if (done) {
-                        Icon(
-                            imageVector = Icons.Rounded.Check,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp),
-                        )
-                        Spacer(Modifier.width(6.dp))
+                        Text(action)
                     }
-                    Text(action)
                 }
             }
         }

@@ -103,6 +103,8 @@ import com.dd3boh.outertune.utils.rememberEnumPreference
 import com.dd3boh.outertune.utils.rememberPreference
 import com.dd3boh.outertune.viewmodels.LibraryPlaylistsViewModel
 import com.dd3boh.outertune.ui.utils.LocalLandscape
+import com.dd3boh.outertune.ui.screens.walkthrough.Tour
+import com.dd3boh.outertune.ui.screens.walkthrough.tourTarget
 import com.dd3boh.outertune.ui.utils.SameTextSize
 import com.dd3boh.outertune.ui.utils.SideBySide
 import com.dd3boh.outertune.ui.utils.itemsInColumns
@@ -287,6 +289,8 @@ fun LibraryPlaylistsScreen(
                         }
                     },
                     offered = { it != PlaylistSortType.CUSTOM || Unreleased.PLAYLIST_ORDER },
+                    // Where What's new's "Your library in your own order" leads: Custom order is chosen here.
+                    modifier = Modifier.tourTarget(Tour.PLAYLISTS_SORT),
                 )
                 // The playlist's own lock, beside the sort as there: whether the rows can be dragged.
                 if (customOrder) {

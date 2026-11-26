@@ -143,6 +143,10 @@ import com.dd3boh.outertune.playback.PlayerConnection
 import com.dd3boh.outertune.together.RoomCode
 import com.dd3boh.outertune.together.RoomRole
 import com.dd3boh.outertune.together.TogetherSession
+import com.dd3boh.outertune.ui.screens.walkthrough.Tour
+import com.dd3boh.outertune.ui.screens.walkthrough.TourSpot
+import com.dd3boh.outertune.ui.screens.walkthrough.TourTargets
+import com.dd3boh.outertune.ui.screens.walkthrough.tourTarget
 import com.dd3boh.outertune.ui.utils.LocalLandscape
 import com.dd3boh.outertune.ui.utils.shrinkToFit
 import com.dd3boh.outertune.utils.dataStore
@@ -233,6 +237,12 @@ fun TogetherSheet(onDismiss: () -> Unit) {
     // drawn again with: until then it shows the room it showed, or with none, neither a start page nor a room.
     val ready = playerConnection.isAlive || session != null
 
+    // For the tour: the sheet says it is up as a screen does (Tour.ROUTE_TOGETHER_SHEET).
+    DisposableEffect(Unit) {
+        TourTargets.screenArrived(Tour.ROUTE_TOGETHER_SHEET)
+        onDispose { TourTargets.screenLeft(Tour.ROUTE_TOGETHER_SHEET) }
+    }
+
     fun open(code: RoomCode, owner: Boolean) {
         if (!playerConnection.isAlive) return
         haptics.performHapticFeedback(HapticFeedbackType.Confirm)
@@ -283,53 +293,58 @@ fun TogetherSheet(onDismiss: () -> Unit) {
             else WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom)
         },
     ) {
-        if (!ready) Box(Modifier.fillMaxWidth().padding(vertical = 56.dp), contentAlignment = Alignment.Center) {
-            CircularProgressIndicator()
-        } else AnimatedContent(
-            targetState = session,
-            contentKey = { it?.code?.raw },
-            transitionSpec = {
-                (fadeIn(tween(240, delayMillis = 60)) + slideInVertically(tween(240)) { it / 16 }) togetherWith fadeOut(tween(120))
-            },
-            label = "together",
-        ) { room ->
-            Column(
-                Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 24.dp)
-                    .padding(bottom = 16.dp)
-            ) {
-                if (room == null) {
-                    // As the player draws it: a song from a file has the file's path there, and showed nothing.
-                    val coverPx = with(LocalDensity.current) { 46.dp.roundToPx() }
-                    StartPage(
-                        cover = song?.getThumbnailModel(coverPx, coverPx),
-                        onStart = {
-                            scope.launch {
-                                if (needsName(context.dataStore.data.first()[TogetherNameKey])) askingName = true
-                                else open(RoomCode.generate(), owner = true)
-                            }
-                        },
-                        onJoin = { code ->
-                            scope.launch {
-                                if (needsName(context.dataStore.data.first()[TogetherNameKey])) {
-                                    joinAfterName = code.raw
-                                    askingName = true
-                                } else open(code, owner = false)
-                            }
-                        },
-                    )
-                } else {
-                    // The walk over this page after the tour's pages (RoomWalk).
-                    RoomWalkArea(owner = room.owner) {
-                        RoomPage(room, song, onLeave = {
-                            haptics.performHapticFeedback(HapticFeedbackType.ToggleOff)
-                            room.leave()
-                        })
+        // A box round the page for the tour's stop in it (What's new's Listen together, TourSpot), which
+        // dims the page round Start a room and holds the bubble.
+        Box(Modifier.fillMaxWidth()) {
+            if (!ready) Box(Modifier.fillMaxWidth().padding(vertical = 56.dp), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator()
+            } else AnimatedContent(
+                targetState = session,
+                contentKey = { it?.code?.raw },
+                transitionSpec = {
+                    (fadeIn(tween(240, delayMillis = 60)) + slideInVertically(tween(240)) { it / 16 }) togetherWith fadeOut(tween(120))
+                },
+                label = "together",
+            ) { room ->
+                Column(
+                    Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 24.dp)
+                        .padding(bottom = 16.dp)
+                ) {
+                    if (room == null) {
+                        // As the player draws it: a song from a file has the file's path there, and showed nothing.
+                        val coverPx = with(LocalDensity.current) { 46.dp.roundToPx() }
+                        StartPage(
+                            cover = song?.getThumbnailModel(coverPx, coverPx),
+                            onStart = {
+                                scope.launch {
+                                    if (needsName(context.dataStore.data.first()[TogetherNameKey])) askingName = true
+                                    else open(RoomCode.generate(), owner = true)
+                                }
+                            },
+                            onJoin = { code ->
+                                scope.launch {
+                                    if (needsName(context.dataStore.data.first()[TogetherNameKey])) {
+                                        joinAfterName = code.raw
+                                        askingName = true
+                                    } else open(code, owner = false)
+                                }
+                            },
+                        )
+                    } else {
+                        // The walk over this page after the tour's pages (RoomWalk).
+                        RoomWalkArea(owner = room.owner) {
+                            RoomPage(room, song, onLeave = {
+                                haptics.performHapticFeedback(HapticFeedbackType.ToggleOff)
+                                room.leave()
+                            })
+                        }
                     }
                 }
             }
+            TourSpot(Tour.ROUTE_TOGETHER_SHEET, Modifier.matchParentSize())
         }
     }
 }
@@ -366,6 +381,7 @@ private fun StartPage(cover: Any?, onStart: () -> Unit, onJoin: (RoomCode) -> Un
             modifier = Modifier
                 .fillMaxWidth()
                 .heightIn(min = 52.dp)
+                .tourTarget(Tour.TOGETHER_START)
         ) {
             Icon(Icons.Rounded.Add, contentDescription = null, modifier = Modifier.size(ButtonDefaults.IconSize))
             Spacer(Modifier.width(ButtonDefaults.IconSpacing))

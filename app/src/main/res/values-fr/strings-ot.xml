@@ -2483,7 +2483,7 @@
     <string name="new_together_title">Écouter ensemble</string>
     <string name="new_together_body">Créez un salon et vos amis entendent ce que vous jouez, en même temps, chacun sur son téléphone. Écouter ensemble est sur l\'accueil, à côté de Compte, et dans le menu du lecteur.</string>
     <string name="new_airplay_title">Caster vers les enceintes AirPlay</string>
-    <string name="new_airplay_body">Le bouton Caster trouve aussi les enceintes AirPlay, et l\'égaliseur et la Normalisation audio s\'y entendent.</string>
+    <string name="new_airplay_body">Le bouton Caster, maintenant à côté du titre, trouve aussi les enceintes AirPlay. L\'égaliseur et la Normalisation audio s\'y entendent.</string>
     <string name="new_listenbrainz_title">Scrobbler sur ListenBrainz</string>
     <string name="new_listenbrainz_body">Last.fm s\'arrête le 1er décembre. Connectez un compte ListenBrainz et chaque titre écouté jusqu\'au bout va sur votre profil.</string>
     <string name="new_listenbrainz_way">Vos comptes et ce qu\'ils synchronisent se règlent ici, ListenBrainz aussi.</string>
@@ -2501,6 +2501,15 @@
     <string name="new_file_format_title">Téléchargements en MP3, M4A, FLAC ou WAV</string>
     <string name="new_file_format_body">Format des fichiers, dans Stockage et téléchargements, enregistre les titres en fichiers que les autres applis et les voitures lisent, à un débit qui suit ce que YouTube a envoyé.</string>
     <string name="new_file_format_here">Choisissez le format que vos autres applis ou votre voiture lisent le mieux. Le débit suit ce que YouTube a envoyé, sauf si vous en choisissez un.</string>
+    <string name="new_varispeed_title">Vitesse variable, comme un disque</string>
+    <string name="new_varispeed_body">Avec Vitesse variable, Tempo et Pitch change la hauteur avec la vitesse, comme un disque. Plus vite, c\'est plus aigu, plus lent, plus grave.</string>
+    <string name="new_varispeed_way">La lecture et le son se règlent ici, Vitesse variable aussi.</string>
+    <string name="new_varispeed_here">Activez-la, puis choisissez une vitesse dans Tempo et Pitch, dans le menu du lecteur. La hauteur la suit.</string>
+    <string name="new_together_way">Les salons se créent ici, sur l\'accueil. Le menu du lecteur a aussi Écouter ensemble.</string>
+    <string name="new_together_here">Créez un salon, puis envoyez le lien à vos amis. Ils entendent ce que vous jouez, en même temps.</string>
+    <string name="new_airplay_here">Votre liste d\'appareils s\'ouvre ici. Les enceintes AirPlay y sont maintenant, avec les télés et les Chromecast.</string>
+    <string name="new_custom_order_way">Vos playlists sont dans Bibliothèque, sous Playlists.</string>
+    <string name="new_custom_order_here">Choisissez Personnalisé ici, puis faites glisser une playlist par sa poignée là où vous la voulez.</string>
     <!-- Nouveautés de 0.12.8 (Walkthrough.kt, V0_12_8). -->
     <string name="new_report_send_title">Envoyer un rapport à InterTune</string>
     <string name="new_report_send_body">Signaler un problème peut maintenant envoyer le rapport à InterTune, sans compte GitHub. Ou le partager en fichier pour le poster sur Discord.</string>
