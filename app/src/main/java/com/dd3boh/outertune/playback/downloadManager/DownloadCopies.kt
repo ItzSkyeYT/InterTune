@@ -6,6 +6,9 @@
 
 package com.dd3boh.outertune.playback.downloadManager
 
+import java.text.Normalizer
+import java.util.Locale
+
 /**
  * The extra copies of downloads that a name clash in the download folder made, told by their names
  * alone, and what becomes of each song's files: one kept, the copies removed, and the one kept given
@@ -28,6 +31,12 @@ package com.dd3boh.outertune.playback.downloadManager
  * "<that>.mka (<n>)" and "<that without .mka> (<n>).mka" (its copies), n from 1 to 32, as far as
  * the phone's storage counts (FileUtils.buildUniqueFile). Not "Song.mka (1)" (no id), not
  * "Song [abc].mka (1)" (no YouTube id), not "Song (1).mp3", not a name in capitals.
+ *
+ * The phone's own storage and its cards find a name whatever its letter case, and give it back
+ * under the name asked: once Edit song has put "hello" right as "Hello", "Hello [id].mka (5)" is
+ * the file "hello [id].mka (5)". Two names that [fold] alike may be one file, so such a file is
+ * found once, a song holding two such names is left as it is, and a removal never deletes the file
+ * a song keeps under another of its names (26 Nov 2026).
  */
 object DownloadCopies {
     /**
@@ -67,6 +76,19 @@ object DownloadCopies {
     /** The names the [n]th copy of [base]'s download has, each way a clash made one. */
     fun copyNames(base: String, n: Int): List<String> = listOf("$base.mka ($n)", "$base ($n).mka")
 
+    /**
+     * [name] as the phone's storage tells names apart, or a little coarser: letter case aside, "ß" as
+     * "ss", and an accent written as one letter or as a letter and its accent alike. Never finer than
+     * the storage: two names it tells apart are two files there.
+     */
+    fun fold(name: String): String {
+        val one = Normalizer.normalize(name, Normalizer.Form.NFKC)
+        return Normalizer.normalize(one.uppercase(Locale.ROOT).lowercase(Locale.ROOT), Normalizer.Form.NFKC)
+    }
+
+    /** Whether the phone's storage may take [a] and [b] for one file ([fold]). */
+    fun mayBeOneFile(a: String, b: String): Boolean = a == b || fold(a) == fold(b)
+
     /** The largest n a copy can have. */
     const val MOST_COPIES = 32
 
@@ -79,22 +101,27 @@ object DownloadCopies {
 
     /**
      * The files of ours in a folder that cannot be listed (dvd's lists as empty), found one name at a
-     * time with [find], which says whether a file of that name is there: for each of [bases], its
-     * download and its copies each way, and [names] as they are (the files the database has).
-     * Never more than 1 + 2 x [MOST_COPIES] looks a base.
+     * time with [find], which says whether a file of that name is there: [names] as they are (the
+     * files the database has), then for each of their bases and of [bases], its download and its
+     * copies each way. Never more than 1 + 2 x [MOST_COPIES] looks a base.
+     *
+     * [find] is the phone's storage, which answers for a name in another letter case too, under the
+     * name it was asked: a name that [fold]s as one asked already is that file again, not asked a
+     * second time. So each file is found once, under the database's spelling, asked first.
      */
     fun lookFor(bases: Collection<String>, names: Collection<String>, find: (String) -> File?): List<File> {
         val found = LinkedHashMap<String, File>()
         val missing = HashSet<String>()
         fun there(name: String): Boolean {
-            if (name in found) return true
-            if (name in missing) return false
+            val folded = fold(name)
+            if (folded in found) return true
+            if (folded in missing) return false
             val file = find(name)
-            if (file == null) missing += name else found[name] = file
+            if (file == null) missing += folded else found[folded] = file
             return file != null
         }
         names.forEach { there(it) }
-        for (base in bases.distinct()) {
+        for (base in (names.mapNotNull { parse(it)?.base } + bases).distinctBy { fold(it) }) {
             there("$base.mka")
             for (way in 0..1) {
                 var misses = 0
@@ -131,7 +158,8 @@ object DownloadCopies {
      *
      * Every copy goes but the one kept, and so does its download when a copy of the same name is kept
      * (1.): the copy takes its name. A download of another title (the song renamed since) is not a
-     * copy and stays. A song whose files are all empty is left as it is.
+     * copy and stays. A song whose files are all empty is left as it is, and so is a song with two
+     * names the phone's storage may take for one file ([mayBeOneFile]): which is which is in doubt.
      */
     fun plan(files: List<File>, recorded: Map<String, String>): Plan {
         val ours = files.mapNotNull { file -> parse(file.name)?.let { Mine(file, it) } }
@@ -146,6 +174,7 @@ object DownloadCopies {
     private fun song(id: String, mine: List<Mine>, recordedName: String?): Song? {
         val copies = mine.filter { it.isCopy }
         if (copies.isEmpty()) return null
+        if (mine.distinctBy { fold(it.file.name) }.size < mine.size) return null
         val whole = mine.filter { it.file.size != 0L }
         val copiedBases = copies.mapTo(HashSet()) { it.name.base }
         val keep = whole.firstOrNull { it.file.name == recordedName }
@@ -160,6 +189,59 @@ object DownloadCopies {
         val left = mine.filter { it === keep || it !in remove }
         val renameTo = keep.name.ownName.takeIf { keep.isCopy && left.none { other -> other !== keep && other.file.name == it } }
         return Song(id, keep.file, remove.map { it.file }, renameTo)
+    }
+
+    /**
+     * What came of removing one song's copies ([remove]): how many went and the room they took, whether
+     * every one of them is gone, and [keptLost], its file kept gone with one of them after all, which
+     * stopped the removal there.
+     */
+    data class Removal(val files: Int, val bytes: Long, val allGone: Boolean, val keptLost: Boolean = false)
+
+    /**
+     * [song]'s copies removed with [delete], the folder's own, each looked at again with [lookAt]
+     * first and deleted only if it is still the file found, [step] once for each copy. Null, nothing
+     * of the song touched, when its file kept is not there as it was found, whole.
+     *
+     * The file kept is never deleted: not at its own address, and not as a copy under a name the
+     * phone's storage may take for its own ([mayBeOneFile]: there, deleting "Hello [id].mka (5)"
+     * deletes "hello [id].mka (5)"). It is looked at again after each copy deleted, and should one have
+     * taken it all the same, the removal stops there: the song's other copies stay.
+     */
+    fun remove(song: Song, lookAt: (String) -> File?, delete: (String) -> Boolean, step: () -> Unit): Removal? {
+        fun keptThere() = lookAt(song.keep.key).let { it != null && it.name == song.keep.name && it.size != 0L }
+        if (!keptThere()) {
+            song.remove.forEach { _ -> step() }
+            return null
+        }
+        var files = 0
+        var bytes = 0L
+        var allGone = true
+        for ((i, copy) in song.remove.withIndex()) {
+            if (copy.key == song.keep.key || mayBeOneFile(copy.name, song.keep.name)) {
+                // The file kept itself: never.
+                allGone = false
+            } else {
+                val now = lookAt(copy.key)
+                when {
+                    // Gone already.
+                    now == null -> Unit
+                    // Not the file found any more: left as it is.
+                    now.name != copy.name || parse(now.name)?.id != song.id -> allGone = false
+                    delete(copy.key) -> {
+                        files++
+                        bytes += now.size ?: 0L
+                        if (!keptThere()) {
+                            repeat(song.remove.size - i) { step() }
+                            return Removal(files, bytes, allGone = false, keptLost = true)
+                        }
+                    }
+                    else -> allGone = false
+                }
+            }
+            step()
+        }
+        return Removal(files, bytes, allGone)
     }
 
     /**
