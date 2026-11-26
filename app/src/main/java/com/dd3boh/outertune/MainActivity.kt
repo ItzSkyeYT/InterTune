@@ -195,6 +195,7 @@ import com.dd3boh.outertune.constants.InnerTubeCookieKey
 import com.dd3boh.outertune.constants.OOBE_VERSION
 import com.dd3boh.outertune.constants.OobeStatusKey
 import com.dd3boh.outertune.constants.AnnouncementsEnabledKey
+import com.dd3boh.outertune.constants.PersistentQueueKey
 import com.dd3boh.outertune.constants.PollsEnabledKey
 import com.dd3boh.outertune.constants.PureBlackKey
 import com.dd3boh.outertune.constants.QuickPicksSource
@@ -1040,9 +1041,12 @@ class MainActivity : ComponentActivity() {
             // The colour the theme was last made from, read at once: a new process (an update, the app
             // swiped away) has no song in the player before Play, and its cover takes a moment to load,
             // so the app opened in the default colour with a blue line on the mini player (24 Nov 2026).
+            // Not with Persistent queue off: no song is shown before Play then, and the kept colour went
+            // 2.5 s after the app opened, the whole app with it.
             val themeSeed = remember { ThemeSeed.of(this@MainActivity) }
             var themeColor by rememberSaveable(stateSaver = ColorSaver) {
-                mutableStateOf((if (enableDynamicTheme) themeSeed.atStart() else null) ?: DefaultThemeColor)
+                val songBeforePlay = dataStore.current[PersistentQueueKey] ?: true
+                mutableStateOf((if (enableDynamicTheme && songBeforePlay) themeSeed.atStart() else null) ?: DefaultThemeColor)
             }
             // The pages' colours: the song's, held while the open player covers them. A new theme makes
             // everything under it again, the pages under the player too: one frame of about 0.7 s on the
@@ -1088,7 +1092,6 @@ class MainActivity : ComponentActivity() {
                     themeColor = withContext(coilCoroutine) {
                         // The colour kept for this very song (a restart on it): no cover to load.
                         themeSeed.forSong(song.id)?.let { return@withContext it }
-                        var ret = DefaultThemeColor
                         // A 100px thumbnail, the same one Player.kt asks for when it extracts the
                         // gradient. Local files were already capped at 100px here, but a remote
                         // song passed its bare thumbnailUrl with no size, so Coil fetched and
@@ -1099,21 +1102,17 @@ class MainActivity : ComponentActivity() {
                         // out near enough the same. It is also the url the player's gradient and
                         // blur backgrounds ask for, so they share one cached copy of it.
                         val model = song.getThumbnailModel(100, 100)
-                        if (model != null) {
-                            val result = applicationContext.imageLoader.execute(
-                                ImageRequest.Builder(applicationContext)
-                                    .data(model)
-                                    .allowHardware(false)
-                                    .build()
-                            )
-
-                            val extracted = result.image?.toBitmap()?.extractThemeSource()
-                            if (extracted != null) {
-                                ret = extracted
-                                themeSeed.write(song.id, extracted)
-                            }
-                        }
-                        ret
+                        val extracted = if (model == null) null else applicationContext.imageLoader.execute(
+                            ImageRequest.Builder(applicationContext)
+                                .data(model)
+                                .allowHardware(false)
+                                .build()
+                        ).image?.toBitmap()?.extractThemeSource()
+                        // Kept for the next start. A song whose cover gives no colour (one that failed to load)
+                        // leaves none: kept, the colour of the song before came back at every start, and went a
+                        // moment later.
+                        if (extracted != null) themeSeed.write(song.id, extracted) else themeSeed.clear()
+                        extracted ?: DefaultThemeColor
                     }
                 }
             }
