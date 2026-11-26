@@ -54,8 +54,8 @@ class Scrobbler internal constructor(
     /** ListenBrainz's own sending, which the settings card connects and disconnects. */
     val listenBrainz: ListenBrainzSender get() = checkNotNull(listenBrainzSender) { "a scrobbler built without ListenBrainz" }
 
-    // Empty in a build without them, in any copy not signed with the release key, and from
-    // 1 December 2026 on. See BuiltInKeys and LastFmEnd.
+    // Empty in a build without them, in any copy not signed with the release key, and once
+    // Last.fm has refused the key itself. See BuiltInKeys and LastFmEnd.
     private val apiKey get() = BuiltInKeys.lastFmApiKey
     private val apiSecret get() = BuiltInKeys.lastFmApiSecret
 
@@ -63,8 +63,11 @@ class Scrobbler internal constructor(
 
     val isAvailable get() = configured
 
-    /** Similar tracks are a public read: the key is enough, with or without an account. */
-    val canFindSimilar get() = apiKey.isNotEmpty()
+    /**
+     * Similar tracks are a public read: the key is enough, with or without an account. Until
+     * 1 December 2026: from then track.getSimilar needs Last.fm Pro (LastFmEnd.similarGone).
+     */
+    val canFindSimilar get() = apiKey.isNotEmpty() && !LastFmEnd.similarGone()
 
     private val api by lazy { connect(apiKey, apiSecret) }
 
@@ -75,9 +78,11 @@ class Scrobbler internal constructor(
     }
 
     /**
-     * Last.fm refusing the key itself closes it here and now, before 1 December too: written
-     * down once (LastFmEnd), so the key reads as empty from the next call on, after a restart as
-     * well, and nothing more is sent. Every answer from Last.fm passes through here.
+     * Last.fm refusing the key itself closes it here and now: written down once (LastFmEnd), so
+     * the key reads as empty from the next call on, after a restart as well, and nothing more is
+     * sent. The answers of the calls Last.fm keeps free pass through here (logging in, now
+     * playing, scrobbles); similar songs do not, as Last.fm may answer a call that needs Pro with
+     * the same codes, and that must not stop the scrobbles.
      */
     private suspend fun <T> Result<T>.noted(): Result<T> {
         val failure = exceptionOrNull() ?: return this
@@ -158,7 +163,7 @@ class Scrobbler internal constructor(
     /** Last.fm's tracks most like this one, most similar first. */
     suspend fun similar(artist: String, track: String): Result<List<SimilarTrack>> {
         if (!canFindSimilar) return Result.failure(IllegalStateException("No Last.fm API key in this build"))
-        return api.similar(artist, track).noted()
+        return api.similar(artist, track)
     }
 
     private suspend fun handleFailure(what: String, t: Throwable) {
