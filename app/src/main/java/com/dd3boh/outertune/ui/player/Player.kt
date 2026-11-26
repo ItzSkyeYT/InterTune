@@ -1236,7 +1236,8 @@ fun BottomSheetPlayer(
                             contentDescription = pinLabel(pin, on),
                             container = if (on) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.primary,
                             content = if (on) MaterialTheme.colorScheme.onTertiary else MaterialTheme.colorScheme.onPrimary,
-                            onClick = { pinActions.run(pin) }
+                            onClick = { pinActions.run(pin) },
+                            modifier = if (pin == PlayerPin.CAST) Modifier.tourTarget(Tour.PLAYER_CAST) else Modifier,
                         )
                     }
                 }
