@@ -99,6 +99,20 @@ class EndlessQueueWiringTest {
         assertTrue(remembered > 0 && remembered < launched)
     }
 
+    /**
+     * 26 Nov 2026 (the whole-app scan): the ask was remembered before it was made, so one that timed
+     * out, was refused, or whose answer was dropped (the player stopped on an error) was never made
+     * again, and the album played out and the music stopped. Such an ask now spent nothing.
+     */
+    @Test
+    fun `an ask that brought nothing, or whose answer was dropped, is made again at the next song change`() {
+        assertTrue(topUp, "val asked = endRadioAsked.takeIf { endRun != null && endSeed != null }" in topUp)
+        assertTrue(topUp, "fun spentNothing() { if (asked != null && endRadioAsked == asked) endRadioAsked = null }" in topUp)
+        assertTrue(topUp, "if (endRadio && fromYouTube.drop(1).isEmpty()) spentNothing()" in topUp)
+        assertEquals("both drops of the answer", 2, Regex("""if \(!wanted\(\)\) return@launch spentNothing\(\)""").findAll(topUp).count())
+        assertFalse("no drop forgets to", Regex("""if \(!wanted\(\)\) return@launch\n""").containsMatchIn(topUp))
+    }
+
     @Test
     fun `the page goes only into the album it was asked for, as it was asked`() {
         val wanted = topUp.substringAfter("fun wanted() = ").substringBefore("if (!wanted())")

@@ -2482,8 +2482,9 @@ class MusicService : MediaLibraryService(),
 
     /**
      * The last radio asked for at the end of an album (EndlessQueue): which run of which queue,
-     * and the song it was asked from. Kept from the moment it is asked, answered or not, so an
-     * album is asked once for each end it has. Main thread.
+     * and the song it was asked from. Kept from the moment it is asked, so an album is asked once
+     * for each end it has; forgotten when the ask brought nothing back or its answer was dropped,
+     * so the next song change asks again (26 Nov 2026). Main thread.
      */
     private var endRadioAsked: EndlessQueue.Asked? = null
 
@@ -6424,11 +6425,16 @@ class MusicService : MediaLibraryService(),
         ) {
             Log.d(TAG, "onMediaItemTransition: Triggering queue auto load more" + if (endRadio) " (the end of an album, a radio from $endSeed)" else "")
             if (endRun != null && endSeed != null) endRadioAsked = EndlessQueue.Asked(endRun, endSeed)
+            val asked = endRadioAsked.takeIf { endRun != null && endSeed != null }
             scope.launch(SilentHandler) {
+                // An album's ask that brought nothing back or whose answer was dropped spent nothing: the album's next song
+                // change asks again, as offline does. Kept as asked, the album played out and the music stopped (26 Nov 2026).
+                fun spentNothing() { if (asked != null && endRadioAsked == asked) endRadioAsked = null }
                 val endpoint = playlistId // playlistId.substringBefore("\n")
                 val continuation = null // playlistId.substringAfter("\n")
                 val yq = YouTubeQueue(WatchEndpoint(endpoint, continuation))
                 val fromYouTube = yq.nextPage()
+                if (endRadio && fromYouTube.drop(1).isEmpty()) spentNothing()
                 // YouTube gave this seed nothing, however it was asked: the app's own picks keep a
                 // radio going (LocalRadio). Not an album's first radio, which stays an album.
                 val own = Unreleased.RADIO_FALLBACK && !endRadio && fromYouTube.drop(1).isEmpty()
@@ -6455,7 +6461,7 @@ class MusicService : MediaLibraryService(),
                     activePlayer.mediaItemCount > 0 && qbInit.value &&
                     queueBoard.getCurrentQueue()?.id == q.id &&
                     (!endRadio || (q.playlistId == null && q.getSize() == songCount && AdaptiveQueue.runKey(q.id, q.runId) == endRun))
-                if (!wanted()) return@launch
+                if (!wanted()) return@launch spentNothing()
                 // Seed the next page from something the listener actually finished.
                 //
                 // This used to be a random pick from the last four songs of the page just
@@ -6503,7 +6509,7 @@ class MusicService : MediaLibraryService(),
                     }
                     Log.i(TAG, "onMediaItemTransition: " + NeverHeardQueue.said("a top-up", kept.songs.size, kept.passedOver, pages))
                     // The queue may have moved on while it was read and asked for.
-                    if (!wanted()) return@launch
+                    if (!wanted()) return@launch spentNothing()
                     kept.songs
                 }
                 val next = RadioPage.nextSeed(anchor, joining, songs, asked = playlistId)
