@@ -2744,13 +2744,16 @@ class MainActivity : ComponentActivity() {
 
                             // Messages come at the bottom, over the mini player's place; with the full player open they come at
                             // the top, under the status bar: at the bottom they sat on the player's own Play and Pause (his
-                            // screenshot of 24 Nov 2026, the queue's Undo over the controls for its ten seconds).
+                            // screenshot of 24 Nov 2026, the queue's Undo over the controls for its ten seconds). There,
+                            // under a room's proposal card when one waits: drawn after them, it hid them, Undo and all.
+                            var proposalCardHeight by remember { mutableIntStateOf(0) }
                             SnackbarHost(
                                 hostState = snackbarHostState,
                                 modifier = if (playerBottomSheetState.isExpanded) {
                                     Modifier
                                         .windowInsetsPadding(WindowInsets.statusBars)
                                         .padding(top = 8.dp)
+                                        .offset { IntOffset(0, proposalCardHeight) }
                                         .align(Alignment.TopCenter)
                                 } else {
                                     Modifier
@@ -2761,7 +2764,7 @@ class MainActivity : ComponentActivity() {
 
                             // A guest's song proposed to this phone while it is in control of a room: a card at the top
                             // wherever the app is, over the player too, until Play it or Not now (TogetherProposalCard).
-                            TogetherProposalCard(playerConnection, Modifier.align(Alignment.TopCenter))
+                            TogetherProposalCard(playerConnection, Modifier.align(Alignment.TopCenter), onHeight = { proposalCardHeight = it })
 
                             // Only after setup, so a crash during the wizard is offered once it is done.
                             if (oobeStatus >= OOBE_VERSION) CrashReportDialog()
