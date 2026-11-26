@@ -195,6 +195,7 @@ import com.dd3boh.outertune.constants.InnerTubeCookieKey
 import com.dd3boh.outertune.constants.OOBE_VERSION
 import com.dd3boh.outertune.constants.OobeStatusKey
 import com.dd3boh.outertune.constants.AnnouncementsEnabledKey
+import com.dd3boh.outertune.constants.PersistentQueueKey
 import com.dd3boh.outertune.constants.PollsEnabledKey
 import com.dd3boh.outertune.constants.PureBlackKey
 import com.dd3boh.outertune.constants.QuickPicksSource
@@ -1044,9 +1045,12 @@ class MainActivity : ComponentActivity() {
             // The colour the theme was last made from, read at once: a new process (an update, the app
             // swiped away) has no song in the player before Play, and its cover takes a moment to load,
             // so the app opened in the default colour with a blue line on the mini player (24 Nov 2026).
+            // Not with Persistent queue off: no song is shown before Play then, and the kept colour went
+            // 2.5 s after the app opened, the whole app with it.
             val themeSeed = remember { ThemeSeed.of(this@MainActivity) }
             var themeColor by rememberSaveable(stateSaver = ColorSaver) {
-                mutableStateOf((if (enableDynamicTheme) themeSeed.atStart() else null) ?: DefaultThemeColor)
+                val songBeforePlay = dataStore.current[PersistentQueueKey] ?: true
+                mutableStateOf((if (enableDynamicTheme && songBeforePlay) themeSeed.atStart() else null) ?: DefaultThemeColor)
             }
             // The pages' colours: the song's, held while the open player covers them. A new theme makes
             // everything under it again, the pages under the player too: one frame of about 0.7 s on the
@@ -1092,7 +1096,6 @@ class MainActivity : ComponentActivity() {
                     themeColor = withContext(coilCoroutine) {
                         // The colour kept for this very song (a restart on it): no cover to load.
                         themeSeed.forSong(song.id)?.let { return@withContext it }
-                        var ret = DefaultThemeColor
                         // A 100px thumbnail, the same one Player.kt asks for when it extracts the
                         // gradient. Local files were already capped at 100px here, but a remote
                         // song passed its bare thumbnailUrl with no size, so Coil fetched and
@@ -1103,21 +1106,17 @@ class MainActivity : ComponentActivity() {
                         // out near enough the same. It is also the url the player's gradient and
                         // blur backgrounds ask for, so they share one cached copy of it.
                         val model = song.getThumbnailModel(100, 100)
-                        if (model != null) {
-                            val result = applicationContext.imageLoader.execute(
-                                ImageRequest.Builder(applicationContext)
-                                    .data(model)
-                                    .allowHardware(false)
-                                    .build()
-                            )
-
-                            val extracted = result.image?.toBitmap()?.extractThemeSource()
-                            if (extracted != null) {
-                                ret = extracted
-                                themeSeed.write(song.id, extracted)
-                            }
-                        }
-                        ret
+                        val extracted = if (model == null) null else applicationContext.imageLoader.execute(
+                            ImageRequest.Builder(applicationContext)
+                                .data(model)
+                                .allowHardware(false)
+                                .build()
+                        ).image?.toBitmap()?.extractThemeSource()
+                        // Kept for the next start. A song whose cover gives no colour (one that failed to load)
+                        // leaves none: kept, the colour of the song before came back at every start, and went a
+                        // moment later.
+                        if (extracted != null) themeSeed.write(song.id, extracted) else themeSeed.clear()
+                        extracted ?: DefaultThemeColor
                     }
                 }
             }
@@ -1946,8 +1945,17 @@ class MainActivity : ComponentActivity() {
                         // a dozen piled up under the last by the end of the closer look. Going
                         // from the list into a screen this pops nothing, and neither does going
                         // into Settings from Home, where the list is not underneath yet.
+                        //
+                        // The player and the sheets are no screens: the player is opened over the
+                        // screen that is up (when a song is in it), and a sheet is opened by the
+                        // screen it belongs to, Home for Listen together's, once the tour is at its
+                        // stop (TourInSheet).
                         val tourGoTo: (String) -> Unit = { route ->
-                            if (navController.currentDestination?.route != route) {
+                            if (route == Tour.ROUTE_NOW_PLAYING) {
+                                if (!playerBottomSheetState.isDismissed && !playerBottomSheetState.isExpanded) playerBottomSheetState.expandSoft()
+                            } else if (route.startsWith("tour/")) {
+                                Unit
+                            } else if (navController.currentDestination?.route != route) {
                                 navController.navigate(route) { popUpTo(Tour.ROUTE_SETTINGS) }
                             }
                         }
@@ -1982,11 +1990,24 @@ class MainActivity : ComponentActivity() {
                             if (screensThere && first != null) {
                                 val route = first.route
                                 if (route == null) goHome()
+                                else if (route.startsWith("tour/")) {
+                                    tourGoTo(route)
+                                    // The player slides open: the hole goes where the button comes to rest.
+                                    if (route == Tour.ROUTE_NOW_PLAYING) withTimeoutOrNull(1500) {
+                                        while (!playerBottomSheetState.isDismissed && !playerBottomSheetState.isExpanded) delay(50)
+                                    }
+                                }
                                 else if (navController.currentDestination?.route != route) navController.navigate(route)
                                 val target = first.targetId
                                 if (target != null) withTimeoutOrNull(3000) { while (!TourTargets.known(target)) delay(50) }
                                 delay(150)
                                 tourState.start(stops)
+                                // The first stop was not there (Library is no tab on this phone): the
+                                // tour starts at the next, on a screen that is still to be gone to.
+                                val from = tourState.current
+                                if (tourState.running && from != null && from.route != route) {
+                                    from.route?.let(tourGoTo) ?: goHome()
+                                }
                             }
                             if (tourState.running) {
                                 welcomeShow.shown()
@@ -2716,6 +2737,8 @@ class MainActivity : ComponentActivity() {
                                 onNavigateBack = { route ->
                                     if (route == null) {
                                         goHome()
+                                    } else if (route.startsWith("tour/")) {
+                                        tourGoTo(route)
                                     } else if (navController.currentDestination?.route != route && !navController.popBackStack(route, inclusive = false)) {
                                         tourGoTo(route)
                                     }
@@ -2749,13 +2772,16 @@ class MainActivity : ComponentActivity() {
 
                             // Messages come at the bottom, over the mini player's place; with the full player open they come at
                             // the top, under the status bar: at the bottom they sat on the player's own Play and Pause (his
-                            // screenshot of 24 Nov 2026, the queue's Undo over the controls for its ten seconds).
+                            // screenshot of 24 Nov 2026, the queue's Undo over the controls for its ten seconds). There,
+                            // under a room's proposal card when one waits: drawn after them, it hid them, Undo and all.
+                            var proposalCardHeight by remember { mutableIntStateOf(0) }
                             SnackbarHost(
                                 hostState = snackbarHostState,
                                 modifier = if (playerBottomSheetState.isExpanded) {
                                     Modifier
                                         .windowInsetsPadding(WindowInsets.statusBars)
                                         .padding(top = 8.dp)
+                                        .offset { IntOffset(0, proposalCardHeight) }
                                         .align(Alignment.TopCenter)
                                 } else {
                                     Modifier
@@ -2766,7 +2792,7 @@ class MainActivity : ComponentActivity() {
 
                             // A guest's song proposed to this phone while it is in control of a room: a card at the top
                             // wherever the app is, over the player too, until Play it or Not now (TogetherProposalCard).
-                            TogetherProposalCard(playerConnection, Modifier.align(Alignment.TopCenter))
+                            TogetherProposalCard(playerConnection, Modifier.align(Alignment.TopCenter), onHeight = { proposalCardHeight = it })
 
                             // Only after setup, so a crash during the wizard is offered once it is done.
                             if (oobeStatus >= OOBE_VERSION) CrashReportDialog()

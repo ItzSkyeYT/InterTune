@@ -44,11 +44,13 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -57,6 +59,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -78,10 +81,11 @@ import kotlinx.coroutines.delay
  * until Play it or Not now. It was a dialog, and a tap beside it or Back threw the proposal away for good: in #testers on
  * 22 Nov 2026 dvd, in control, was typing when it came up, tapped beside its buttons and never knew what it was. The card
  * closes on neither, takes no tap meant for the screen under it, and its buttons wait a moment after it comes
- * ([PROPOSAL_TAP_GUARD_MS]). Under the room's sheet, the sheet shows it instead.
+ * ([PROPOSAL_TAP_GUARD_MS]). Under the room's sheet, the sheet shows it instead. [onHeight] is its height while it shows and
+ * 0 once it has gone: with the full player open the app's messages come under it.
  */
 @Composable
-fun TogetherProposalCard(connection: PlayerConnection?, modifier: Modifier = Modifier) {
+fun TogetherProposalCard(connection: PlayerConnection?, modifier: Modifier = Modifier, onHeight: (Int) -> Unit = {}) {
     val room = connection?.service?.together?.collectAsState()?.value
     val status = room?.status?.collectAsState()?.value
     val waiting = status?.takeIf { it.leading }?.proposals?.firstOrNull()
@@ -99,12 +103,15 @@ fun TogetherProposalCard(connection: PlayerConnection?, modifier: Modifier = Mod
             .fillMaxWidth(),
     ) {
         shown?.let { proposal ->
+            val height by rememberUpdatedState(onHeight)
+            DisposableEffect(Unit) { onDispose { height(0) } }
             ProposalCard(
                 proposal = proposal,
                 onPlay = { withQueue -> room?.acceptProposal(withQueue) },
                 onNotNow = { room?.dismissProposal() },
                 container = floatingCardColor(),
                 elevation = 6.dp,
+                modifier = Modifier.onSizeChanged { height(it.height) },
             )
         }
     }

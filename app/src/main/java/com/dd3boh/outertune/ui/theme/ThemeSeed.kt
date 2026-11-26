@@ -16,7 +16,8 @@ import androidx.compose.ui.graphics.toArgb
  * A new process (an update, the app swiped away, the system ending it) has nothing playing until Play,
  * and the cover has to be loaded to know its colour, so the app opened in Material's default for as
  * long as that took, the mini player's line included. The last colour is read at once at start, before
- * any cover, and the song shown settles it: the same song keeps it, another song makes its own.
+ * any cover, and the song shown settles it: the same song keeps it, another song makes its own. Not with
+ * Persistent queue off, where a new start shows no song before Play.
  */
 class ThemeSeed(private val store: Store) {
 
@@ -41,7 +42,10 @@ class ThemeSeed(private val store: Store) {
         store.put(KEY_COLOUR, argb, songId)
     }
 
-    /** Nothing is shown any more, or the theme does not follow the cover: the next start has no colour. */
+    /**
+     * Nothing is shown any more, the song shown gives no colour (its cover failed to load), or the theme does not
+     * follow the cover: the next start has no colour.
+     */
     fun clear() {
         if (store.getInt(KEY_COLOUR) == null && store.getString(KEY_SONG) == null) return
         store.put(KEY_COLOUR, null, null)

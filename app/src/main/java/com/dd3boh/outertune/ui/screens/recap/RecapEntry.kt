@@ -6,6 +6,10 @@
 
 package com.dd3boh.outertune.ui.screens.recap
 
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -39,6 +43,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -48,8 +53,12 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.window.DialogWindowProvider
+import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.dd3boh.outertune.BuildConfig
 import com.dd3boh.outertune.LocalDatabase
 import com.dd3boh.outertune.LocalPlayerConnection
@@ -63,9 +72,12 @@ import com.dd3boh.outertune.recap.RecapDoor
 import com.dd3boh.outertune.recap.RecapReader
 import com.dd3boh.outertune.recap.RecapSound
 import com.dd3boh.outertune.ui.utils.OpensOnScreen
+import com.dd3boh.outertune.utils.editOrSay
 import com.dd3boh.outertune.utils.rememberPreference
 import com.dd3boh.outertune.viewmodels.RecapState
 import com.dd3boh.outertune.viewmodels.RecapViewModel
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.withContext
 import java.time.LocalDate
 
 /**
@@ -76,27 +88,35 @@ import java.time.LocalDate
  * questions after an update, the welcome page, a tour, an update being offered, the account
  * notice); it waits until they are gone. And only for a year with enough music in it. It is
  * written down as shown the moment it opens, whatever is done with it, so it never comes back by
- * itself; the banner in Settings is there for that ([RecapBanner]).
+ * itself; the banner in Settings is there for that ([RecapBanner]). A Recap opened another way
+ * first, from its notification or a banner, counts as shown too ([countAsPopUp]).
  *
- * Whatever asks RecapDoor opens it as well: that banner, the developer options' row, the sample
- * of a debug build.
+ * The day is read again whenever the app comes back to the front and when the date changes
+ * ([rememberToday]): a music app's screen lives for days, and one left open on the evening before
+ * gets the pop-up on the reveal day as well.
+ *
+ * Whatever asks RecapDoor opens it as well: that banner, the notification, the developer options'
+ * row, the sample of a debug build.
  */
 @Composable
 fun RecapEntry(setupDone: Boolean, quiet: Boolean, onOpenPlaylist: (String) -> Unit) {
     if (!Unreleased.RECAP) return
     val database = LocalDatabase.current
+    val context = LocalContext.current
     val (shownYear, setShownYear) = rememberPreference(RecapPopUpShownKey, defaultValue = 0)
     val revealedEarly by rememberPreference(RecapRevealedEarlyKey, defaultValue = false)
     // The developer options' "today is the reveal day" counts only in a build that has its row
     // (PREVIEW_FEATURES, as DeveloperFrag): a backup can bring the switch into a release.
     val early = revealedEarly && BuildConfig.PREVIEW_FEATURES
-    val today = remember { LocalDate.now() }
+    val today = rememberToday()
     var open by rememberSaveable { mutableStateOf<Int?>(null) }
 
-    LaunchedEffect(setupDone, quiet, shownYear, early) {
+    LaunchedEffect(setupDone, quiet, shownYear, early, today) {
         if (!setupDone || quiet || open != null) return@LaunchedEffect
-        if (!RecapCalendar.popUpOwed(today, shownYear, early)) return@LaunchedEffect
-        val year = RecapCalendar.yearOnShow(today, early) ?: return@LaunchedEffect
+        // The date as it looks: [today] says when to look again.
+        val now = LocalDate.now()
+        if (!RecapCalendar.popUpOwed(now, shownYear, early)) return@LaunchedEffect
+        val year = RecapCalendar.yearOnShow(now, early) ?: return@LaunchedEffect
         if (!RecapReader.hasEnough(database, year)) return@LaunchedEffect
         setShownYear(year)
         open = year
@@ -107,10 +127,59 @@ fun RecapEntry(setupDone: Boolean, quiet: Boolean, onOpenPlaylist: (String) -> U
         val year = requested ?: return@LaunchedEffect
         open = year
         RecapDoor.opened()
+        countAsPopUp(context, year)
     }
 
     // Opened by itself, or by a door asked from outside the screen: its window only while the app is on screen.
     open?.let { year -> OpensOnScreen { RecapDialog(year, onClose = { open = null }, onOpenPlaylist = onOpenPlaylist) } }
+}
+
+/**
+ * A Recap opened another way, from its notification or a banner, counts as its year's pop-up
+ * (RecapCalendar.popUpShownBy): watched, then closed, it does not open again by itself, once what
+ * held the pop-up back is gone or the next time the app opens. Read and written in one go, so the
+ * switch just changed (the early reveal, the debug sample) is the one that counts; kept even if
+ * the screen goes meanwhile, as rememberPreference keeps its writes.
+ */
+private suspend fun countAsPopUp(context: Context, year: Int) = withContext(NonCancellable) {
+    context.editOrSay { prefs ->
+        val revealedEarly = prefs[RecapRevealedEarlyKey] == true
+        val shown = RecapCalendar.popUpShownBy(LocalDate.now(), year, revealedEarly && BuildConfig.PREVIEW_FEATURES) ?: return@editOrSay
+        if ((prefs[RecapPopUpShownKey] ?: 0) < shown) prefs[RecapPopUpShownKey] = shown
+    }
+}
+
+/**
+ * Today, read again whenever it may have moved on while the screen stayed: the app back in front,
+ * and the date, the clock or the time zone changed while it is up. Remembered once, a screen kept
+ * open from the evening of 1 December never saw the reveal day.
+ */
+@Composable
+internal fun rememberToday(): LocalDate {
+    val context = LocalContext.current
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    var today by remember { mutableStateOf(LocalDate.now()) }
+    DisposableEffect(context, lifecycle) {
+        val back = LifecycleEventObserver { _, event -> if (event == Lifecycle.Event.ON_START) today = LocalDate.now() }
+        val moved = object : BroadcastReceiver() {
+            override fun onReceive(c: Context, intent: Intent) {
+                today = LocalDate.now()
+            }
+        }
+        lifecycle.addObserver(back)
+        val changes = IntentFilter().apply {
+            addAction(Intent.ACTION_DATE_CHANGED)
+            addAction(Intent.ACTION_TIME_CHANGED)
+            addAction(Intent.ACTION_TIMEZONE_CHANGED)
+        }
+        // A system broadcast still reaches a receiver that is not exported.
+        ContextCompat.registerReceiver(context, moved, changes, ContextCompat.RECEIVER_NOT_EXPORTED)
+        onDispose {
+            lifecycle.removeObserver(back)
+            runCatching { context.unregisterReceiver(moved) }
+        }
+    }
+    return today
 }
 
 /**
@@ -122,7 +191,9 @@ fun rememberRecapOnShow(): Int? {
     if (!Unreleased.RECAP) return null
     val database = LocalDatabase.current
     val revealedEarly by rememberPreference(RecapRevealedEarlyKey, defaultValue = false)
-    val year = remember(revealedEarly) { RecapCalendar.yearOnShow(LocalDate.now(), revealedEarly && BuildConfig.PREVIEW_FEATURES) }
+    // Read again as the day moves on: Home stays on screen for days.
+    val today = rememberToday()
+    val year = remember(revealedEarly, today) { RecapCalendar.yearOnShow(today, revealedEarly && BuildConfig.PREVIEW_FEATURES) }
     val enough by produceState(false, year) {
         value = year != null && runCatching { RecapReader.hasEnough(database, year) }.getOrDefault(false)
     }
@@ -139,8 +210,9 @@ fun rememberRecapOnHome(): Int? {
     val year = rememberRecapOnShow()
     val revealedEarly by rememberPreference(RecapRevealedEarlyKey, defaultValue = false)
     val watched by rememberPreference(RecapWatchedKey, defaultValue = 0)
-    val inSeason = remember(year, revealedEarly) {
-        year != null && RecapCalendar.onHome(LocalDate.now(), revealedEarly && BuildConfig.PREVIEW_FEATURES)
+    val today = rememberToday()
+    val inSeason = remember(year, revealedEarly, today) {
+        year != null && RecapCalendar.onHome(today, revealedEarly && BuildConfig.PREVIEW_FEATURES)
     }
     return year.takeIf { inSeason && watched < (year ?: 0) }
 }

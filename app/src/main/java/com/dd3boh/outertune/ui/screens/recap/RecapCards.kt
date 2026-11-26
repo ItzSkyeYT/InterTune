@@ -270,10 +270,11 @@ object RecapCards {
         }
         // Three numbers, each on its own square of coloured paper, a little crooked: as big as the
         // design has them, each square as wide as what it holds, the row from 44 px to 44 px.
+        val minutes = words.minutes(recap.playedMs)
         val numbers = listOfNotNull(
-            Triple(words.number(words.minutes(recap.playedMs)), context.getString(R.string.recap_card_minutes), RecapInk.Lemon),
+            Triple(words.number(minutes), context.resources.getQuantityString(R.plurals.recap_card_minutes, words.quantity(minutes)), RecapInk.Lemon),
             Triple(words.hourShort(recap.peakHour), context.getString(R.string.recap_card_my_hour), RecapInk.Pink),
-            recap.streak?.let { Triple(words.number(it.days), context.getString(R.string.recap_card_days_in_a_row), RecapInk.Mint) },
+            recap.streak?.let { Triple(words.number(it.days), context.resources.getQuantityString(R.plurals.recap_card_days_in_a_row, it.days), RecapInk.Mint) },
         )
         val big = text(NUMBER_PX, RecapInk.Ink, 900, true)
         val small = text(36f, RecapInk.Ink, 900, true)

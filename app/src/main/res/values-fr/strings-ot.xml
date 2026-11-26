@@ -2493,7 +2493,7 @@
     <string name="new_together_title">Écouter ensemble</string>
     <string name="new_together_body">Créez un salon et vos amis entendent ce que vous jouez, en même temps, chacun sur son téléphone. Écouter ensemble est sur l\'accueil, à côté de Compte, et dans le menu du lecteur.</string>
     <string name="new_airplay_title">Caster vers les enceintes AirPlay</string>
-    <string name="new_airplay_body">Le bouton Caster trouve aussi les enceintes AirPlay, et l\'égaliseur et la Normalisation audio s\'y entendent.</string>
+    <string name="new_airplay_body">Le bouton Caster, maintenant à côté du titre, trouve aussi les enceintes AirPlay. L\'égaliseur et la Normalisation audio s\'y entendent.</string>
     <string name="new_listenbrainz_title">Scrobbler sur ListenBrainz</string>
     <string name="new_listenbrainz_body">Last.fm s\'arrête le 1er décembre. Connectez un compte ListenBrainz et chaque titre écouté jusqu\'au bout va sur votre profil.</string>
     <string name="new_listenbrainz_way">Vos comptes et ce qu\'ils synchronisent se règlent ici, ListenBrainz aussi.</string>
@@ -2511,6 +2511,15 @@
     <string name="new_file_format_title">Téléchargements en MP3, M4A, FLAC ou WAV</string>
     <string name="new_file_format_body">Format des fichiers, dans Stockage et téléchargements, enregistre les titres en fichiers que les autres applis et les voitures lisent, à un débit qui suit ce que YouTube a envoyé.</string>
     <string name="new_file_format_here">Choisissez le format que vos autres applis ou votre voiture lisent le mieux. Le débit suit ce que YouTube a envoyé, sauf si vous en choisissez un.</string>
+    <string name="new_varispeed_title">Vitesse variable, comme un disque</string>
+    <string name="new_varispeed_body">Avec Vitesse variable, Tempo et Pitch change la hauteur avec la vitesse, comme un disque. Plus vite, c\'est plus aigu, plus lent, plus grave.</string>
+    <string name="new_varispeed_way">La lecture et le son se règlent ici, Vitesse variable aussi.</string>
+    <string name="new_varispeed_here">Activez-la, puis choisissez une vitesse dans Tempo et Pitch, dans le menu du lecteur. La hauteur la suit.</string>
+    <string name="new_together_way">Les salons se créent ici, sur l\'accueil. Le menu du lecteur a aussi Écouter ensemble.</string>
+    <string name="new_together_here">Créez un salon, puis envoyez le lien à vos amis. Ils entendent ce que vous jouez, en même temps.</string>
+    <string name="new_airplay_here">Votre liste d\'appareils s\'ouvre ici. Les enceintes AirPlay y sont maintenant, avec les télés et les Chromecast.</string>
+    <string name="new_custom_order_way">Vos playlists sont dans Bibliothèque, sous Playlists.</string>
+    <string name="new_custom_order_here">Choisissez Personnalisé ici, puis faites glisser une playlist par sa poignée là où vous la voulez.</string>
     <!-- Nouveautés de 0.12.8 (Walkthrough.kt, V0_12_8). -->
     <string name="new_report_send_title">Envoyer un rapport à InterTune</string>
     <string name="new_report_send_body">Signaler un problème peut maintenant envoyer le rapport à InterTune, sans compte GitHub. Ou le partager en fichier pour le poster sur Discord.</string>
@@ -2526,6 +2535,7 @@
     <string name="not_saved">Non enregistré : un problème est survenu. Réessayez.</string>
     <string name="remove_download_selection_confirm">Supprimer les téléchargements des titres choisis ?</string>
     <string name="remove_download_refused">Fichier non supprimé. Vérifiez le dossier de téléchargement.</string>
+    <string name="remove_download_read_only">Dans un emplacement d’importation, en lecture seule : supprimez-le là.</string>
     <string name="queue_held_row_label">revenir au titre en cours</string>
     <string name="stats_found">InterTune vous a fait découvrir %1$s des titres que vous aimez.</string>
     <string name="found_way_radios">Radios</string>
@@ -2637,6 +2647,8 @@
     <string name="together_control_back">%1$s ne répond plus, alors vous reprenez la main.</string>
     <string name="together_hosts_now">%1$s est l\'hôte du salon maintenant</string>
     <string name="together_host_yours">Vous êtes l\'hôte : vous choisissez la musique pour tout le monde.</string>
+    <string name="together_handing_on">Le salon passe à %1$s</string>
+    <string name="together_nobody_took">Personne n\'a pu prendre le salon : il est fermé pour tout le monde.</string>
     <string name="together_kick">Retirer du salon</string>
     <string name="together_room_settings">Réglages du salon</string>
     <string name="together_everyone_seeks">Laisser chacun se déplacer dans le titre</string>
@@ -2781,7 +2793,7 @@
     <string name="recap_too_little">Pas encore assez de musique en %1$s pour un Recap.</string>
     <string name="recap_close">Fermer</string>
     <string name="recap_next">Suivant</string>
-    <string name="recap_previous">Retour</string>
+    <string name="recap_previous">Précédent</string>
     <string name="recap_sound_on">Son activé</string>
     <string name="recap_sound_off">Son coupé</string>
     <string name="recap_banner_title">Votre InterTune Recap</string>
@@ -2801,7 +2813,7 @@
     <string name="recap_first_song_at">Le premier titre, à %1$s</string>
     <string name="recap_first_song_on">Le premier titre de l\'année, le %1$s</string>
     <plurals name="recap_days_since">
-        <item quantity="one">Tout ici vient de ce %1$s jour, calculé sur ce téléphone.</item>
+        <item quantity="one">Tout ici vient de %1$s jour écoulé depuis, calculé sur ce téléphone.</item>
         <item quantity="many">Tout ici vient de ces %1$s jours, calculé sur ce téléphone.</item>
         <item quantity="other">Tout ici vient de ces %1$s jours, calculé sur ce téléphone.</item>
     </plurals>
@@ -2842,8 +2854,16 @@
         <item quantity="many">Soit %1$s jours de musique.</item>
         <item quantity="other">Soit %1$s jours de musique.</item>
     </plurals>
-    <string name="recap_minutes_days_half">Soit %1$s jours et demi de musique.</string>
-    <string name="recap_minutes_top">%1$s de ces minutes sont allées à %2$s, plus qu\'à tout autre titre.</string>
+    <plurals name="recap_minutes_days_half">
+        <item quantity="one">Soit %1$s jour et demi de musique.</item>
+        <item quantity="many">Soit %1$s jours et demi de musique.</item>
+        <item quantity="other">Soit %1$s jours et demi de musique.</item>
+    </plurals>
+    <plurals name="recap_minutes_top">
+        <item quantity="one">%1$s de ces minutes est allée à %2$s, plus qu\'à tout autre titre.</item>
+        <item quantity="many">%1$s de ces minutes sont allées à %2$s, plus qu\'à tout autre titre.</item>
+        <item quantity="other">%1$s de ces minutes sont allées à %2$s, plus qu\'à tout autre titre.</item>
+    </plurals>
     <string name="recap_flag">%1$s, %2$s</string>
     <string name="recap_seasons_kick">Vos saisons</string>
     <string name="recap_season_winter">Hiver</string>
@@ -2852,8 +2872,16 @@
     <string name="recap_season_autumn">Automne</string>
     <string name="recap_season_line">%1$s, %2$s à %3$s</string>
     <string name="recap_hour_kick">Votre heure d\'écoute</string>
-    <string name="recap_hour_line">Plus de musique entre %1$s et %2$s qu\'à toute autre heure : %3$s minutes. Votre titre de cette heure-là : %4$s.</string>
-    <string name="recap_late_nights">Et %1$s nuits sont allées au-delà de minuit. Le dernier titre a commencé à %2$s.</string>
+    <plurals name="recap_hour_line">
+        <item quantity="one">Votre heure la plus musicale : de %1$s à %2$s, avec %3$s minute. Le titre le plus écouté à cette heure-là : %4$s.</item>
+        <item quantity="many">Votre heure la plus musicale : de %1$s à %2$s, avec %3$s minutes. Le titre le plus écouté à cette heure-là : %4$s.</item>
+        <item quantity="other">Votre heure la plus musicale : de %1$s à %2$s, avec %3$s minutes. Le titre le plus écouté à cette heure-là : %4$s.</item>
+    </plurals>
+    <plurals name="recap_late_nights">
+        <item quantity="one">Et %1$s nuit a dépassé minuit. Le dernier titre a commencé à %2$s.</item>
+        <item quantity="many">Et %1$s nuits ont dépassé minuit. Le dernier titre a commencé à %2$s.</item>
+        <item quantity="other">Et %1$s nuits ont dépassé minuit. Le dernier titre a commencé à %2$s.</item>
+    </plurals>
     <string name="recap_night_kick">Vos titres de 2 h du matin</string>
     <string name="recap_morning_kick">Vos titres du matin</string>
     <string name="recap_night_title">Après minuit, c\'était %1$s</string>
@@ -2915,9 +2943,13 @@
     <string name="recap_best_find_line">Écouté pour la première fois le %1$s, %2$s depuis</string>
     <string name="recap_only_kick">Seulement sur InterTune</string>
     <string name="recap_auto_chip">Auto</string>
-    <string name="recap_auto_plays_since">lectures depuis\nle %1$s</string>
+    <plurals name="recap_auto_plays_since">
+        <item quantity="one">lecture depuis\nle %1$s</item>
+        <item quantity="many">lectures depuis\nle %1$s</item>
+        <item quantity="other">lectures depuis\nle %1$s</item>
+    </plurals>
     <string name="recap_auto_title">Auto vous a trouvé %1$s</string>
-    <string name="recap_auto_line">Les suggestions rapides vous l\'ont fait écouter le %1$s, et vous l\'avez gardé.</string>
+    <string name="recap_auto_line">La Sélection Rapide vous l\'a fait écouter le %1$s, et vous l\'avez gardé.</string>
     <plurals name="recap_auto_brought_since">
         <item quantity="one">Depuis le %2$s, Auto vous a apporté %1$s nouveau titre, ce point.</item>
         <item quantity="many">Depuis le %2$s, Auto vous a apporté %1$s nouveaux titres, un point chacun.</item>
@@ -2937,7 +2969,7 @@
     <string name="recap_by_ear_from_to">Du %1$s au %2$s</string>
     <string name="recap_by_ear_on">Le %1$s</string>
     <string name="recap_by_ear_both_on">Tous les deux le %1$s</string>
-    <string name="recap_by_ear_all_on">Tous le %1$s</string>
+    <string name="recap_by_ear_all_on">Tous, le %1$s</string>
     <plurals name="recap_rooms">
         <item quantity="one">%1$s salon avec %2$s</item>
         <item quantity="many">%1$s salons avec %2$s</item>
@@ -2952,32 +2984,56 @@
     <string name="recap_top_songs_kick">Vos titres préférés</string>
     <string name="recap_tap_for_number">Touchez pour le numéro %1$s</string>
     <string name="recap_tap_for_one">Touchez pour votre numéro un</string>
-    <string name="recap_line_month">%1$s de ses %2$s lectures en %3$s.</string>
-    <string name="recap_line_days">Écouté %1$s jours différents, plus que tout autre titre ici.</string>
-    <string name="recap_line_minutes">%1$s minutes en tout, plus que tout titre au-dessus.</string>
-    <string name="recap_line_found_day">%1$s lectures le %2$s, le jour où vous l\'avez trouvé.</string>
-    <string name="recap_line_in_a_row">%1$s fois d\'affilée le %2$s.</string>
-    <string name="recap_line_best_day">%1$s lectures le %2$s, son plus grand jour.</string>
+    <plurals name="recap_line_month">
+        <item quantity="one">%1$s de sa %2$s lecture en %3$s.</item>
+        <item quantity="many">%1$s de ses %2$s lectures en %3$s.</item>
+        <item quantity="other">%1$s de ses %2$s lectures en %3$s.</item>
+    </plurals>
+    <plurals name="recap_line_days">
+        <item quantity="one">Écouté %1$s jour différent, plus que tout autre titre ici.</item>
+        <item quantity="many">Écouté %1$s jours différents, plus que tout autre titre ici.</item>
+        <item quantity="other">Écouté %1$s jours différents, plus que tout autre titre ici.</item>
+    </plurals>
+    <plurals name="recap_line_minutes">
+        <item quantity="one">%1$s minute en tout, plus que tout titre au-dessus.</item>
+        <item quantity="many">%1$s minutes en tout, plus que tout titre au-dessus.</item>
+        <item quantity="other">%1$s minutes en tout, plus que tout titre au-dessus.</item>
+    </plurals>
+    <plurals name="recap_line_found_day">
+        <item quantity="one">%1$s lecture le %2$s, le jour où vous l\'avez trouvé.</item>
+        <item quantity="many">%1$s lectures le %2$s, le jour où vous l\'avez trouvé.</item>
+        <item quantity="other">%1$s lectures le %2$s, le jour où vous l\'avez trouvé.</item>
+    </plurals>
+    <plurals name="recap_line_in_a_row">
+        <item quantity="one">%1$s fois d\'affilée le %2$s.</item>
+        <item quantity="many">%1$s fois d\'affilée le %2$s.</item>
+        <item quantity="other">%1$s fois d\'affilée le %2$s.</item>
+    </plurals>
+    <plurals name="recap_line_best_day">
+        <item quantity="one">%1$s lecture le %2$s, son plus grand jour.</item>
+        <item quantity="many">%1$s lectures le %2$s, son plus grand jour.</item>
+        <item quantity="other">%1$s lectures le %2$s, son plus grand jour.</item>
+    </plurals>
     <string name="recap_line_first">Écouté pour la première fois le %1$s.</string>
-    <string name="recap_skipped_kick">Celle que vous zappiez sans arrêt</string>
+    <string name="recap_skipped_kick">Celui que vous zappiez sans arrêt</string>
     <plurals name="recap_skipped_times" tools:ignore="ImpliedQuantity">
-        <item quantity="one">fois zappée</item>
-        <item quantity="many">fois zappée</item>
-        <item quantity="other">fois zappée</item>
+        <item quantity="one">fois zappé</item>
+        <item quantity="many">fois zappé</item>
+        <item quantity="other">fois zappé</item>
     </plurals>
     <plurals name="recap_skipped_finished">
-        <item quantity="one">Vous l\'avez quand même laissée finir %1$s fois.</item>
-        <item quantity="many">Vous l\'avez quand même laissée finir %1$s fois.</item>
-        <item quantity="other">Vous l\'avez quand même laissée finir %1$s fois.</item>
+        <item quantity="one">Vous l\'avez quand même laissé finir %1$s fois.</item>
+        <item quantity="many">Vous l\'avez quand même laissé finir %1$s fois.</item>
+        <item quantity="other">Vous l\'avez quand même laissé finir %1$s fois.</item>
     </plurals>
-    <string name="recap_skipped_never">Elle n\'est jamais allée jusqu\'au bout.</string>
-    <string name="recap_skipped_stamp">Zappée</string>
+    <string name="recap_skipped_never">Il n\'est jamais allé jusqu\'au bout.</string>
+    <string name="recap_skipped_stamp">Zappé</string>
     <plurals name="recap_skips">
-        <item quantity="one">%1$s fois zappée</item>
-        <item quantity="many">%1$s fois zappée</item>
-        <item quantity="other">%1$s fois zappée</item>
+        <item quantity="one">%1$s fois zappé</item>
+        <item quantity="many">%1$s fois zappé</item>
+        <item quantity="other">%1$s fois zappé</item>
     </plurals>
-    <string name="recap_back_kick">Celle que vous avez retrouvée</string>
+    <string name="recap_back_kick">Celui que vous avez retrouvé</string>
     <string name="recap_back_stamp">De retour</string>
     <plurals name="recap_back_days">
         <item quantity="one">%1$s jour</item>
@@ -2985,9 +3041,9 @@
         <item quantity="other">%1$s jours</item>
     </plurals>
     <plurals name="recap_back_line">
-        <item quantity="one">Plus rien pendant %1$s jour après le %2$s, puis vous l\'avez retrouvée le %3$s.</item>
-        <item quantity="many">Plus rien pendant %1$s jours après le %2$s, puis vous l\'avez retrouvée le %3$s.</item>
-        <item quantity="other">Plus rien pendant %1$s jours après le %2$s, puis vous l\'avez retrouvée le %3$s.</item>
+        <item quantity="one">Plus rien pendant %1$s jour après le %2$s, puis vous l\'avez retrouvé le %3$s.</item>
+        <item quantity="many">Plus rien pendant %1$s jours après le %2$s, puis vous l\'avez retrouvé le %3$s.</item>
+        <item quantity="other">Plus rien pendant %1$s jours après le %2$s, puis vous l\'avez retrouvé le %3$s.</item>
     </plurals>
     <string name="recap_from_kick">D\'où venaient vos titres</string>
     <string name="recap_from_mostly">Surtout %1$s</string>
@@ -3014,8 +3070,16 @@
         <item quantity="other">lectures</item>
     </plurals>
     <string name="recap_found_on">Vous l\'avez trouvé le %1$s à %2$s.</string>
-    <string name="recap_in_a_row_on">Le %1$s, vous l\'avez écouté %2$s fois d\'affilée.</string>
-    <string name="recap_times_on">Le %1$s, vous l\'avez écouté %2$s fois.</string>
+    <plurals name="recap_in_a_row_on">
+        <item quantity="one">Le %1$s, vous l\'avez écouté %2$s fois d\'affilée.</item>
+        <item quantity="many">Le %1$s, vous l\'avez écouté %2$s fois d\'affilée.</item>
+        <item quantity="other">Le %1$s, vous l\'avez écouté %2$s fois d\'affilée.</item>
+    </plurals>
+    <plurals name="recap_times_on">
+        <item quantity="one">Le %1$s, vous l\'avez écouté %2$s fois.</item>
+        <item quantity="many">Le %1$s, vous l\'avez écouté %2$s fois.</item>
+        <item quantity="other">Le %1$s, vous l\'avez écouté %2$s fois.</item>
+    </plurals>
     <string name="recap_card_described">Votre année sur une carte : titres et artistes préférés, vos minutes, votre heure et votre plus longue série</string>
     <string name="recap_note_write_kick">Avant de partir</string>
     <string name="recap_note_write_title">Écrivez un mot pour %1$s</string>
@@ -3037,14 +3101,14 @@
     </plurals>
     <string name="recap_note_sealed_line">Le Recap de l\'an prochain ouvrira ce que vous avez scellé.</string>
     <string name="recap_note_another">En écrire un autre</string>
-    <string name="recap_note_full">C\'est le maximum pour une année. Le Recap de l\'an prochain vous les ouvrira.</string>
+    <string name="recap_note_full">C\'est votre mot pour cette année. Le Recap de l\'an prochain vous l\'ouvrira.</string>
     <string name="recap_note_failed">Impossible de sceller votre mot : le téléphone manque peut-être de place. Libérez-en un peu, puis touchez Sceller à nouveau.</string>
     <string name="recap_thanks_title">Merci</string>
     <!-- The thank-you words and their signature: his, approved in English and in French on 25 Oct 2026. -->
     <string name="recap_thanks_words">Merci d\'avoir utilisé InterTune cette année. C\'est un petit projet que je fais sur mon temps libre, et j\'ai adoré chaque moment (et c\'est toujours le cas !). Merci pour vos signalements de bugs, vos idées et vos traductions, et un grand merci à tous ceux qui ont fait un don. C\'est grâce à vous que ça continue !</string>
     <string name="recap_thanks_signature">Mel</string>
-    <string name="recap_see_you_first">À décembre prochain. %1$s, votre premier titre ici, vous raccompagne.</string>
-    <string name="recap_see_you_year">À décembre prochain. %1$s, votre premier titre de l\'année, vous raccompagne.</string>
+    <string name="recap_see_you_first">Rendez-vous en décembre prochain. %1$s, votre premier titre ici, vous raccompagne.</string>
+    <string name="recap_see_you_year">Rendez-vous en décembre prochain. %1$s, votre premier titre de l\'année, vous raccompagne.</string>
     <string name="recap_watch_again">Revoir</string>
     <string name="recap_done">Terminé</string>
     <string name="recap_card_number_one">Mon titre numéro un</string>
@@ -3060,9 +3124,17 @@
     <string name="recap_card_my_year">Mon %1$s sur InterTune</string>
     <string name="recap_card_top_songs">Titres préférés</string>
     <string name="recap_card_top_artists">Artistes préférés</string>
-    <string name="recap_card_minutes">minutes</string>
+    <plurals name="recap_card_minutes" tools:ignore="ImpliedQuantity">
+        <item quantity="one">minute</item>
+        <item quantity="many">minutes</item>
+        <item quantity="other">minutes</item>
+    </plurals>
     <string name="recap_card_my_hour">mon heure</string>
-    <string name="recap_card_days_in_a_row">jours d\'affilée</string>
+    <plurals name="recap_card_days_in_a_row" tools:ignore="ImpliedQuantity">
+        <item quantity="one">jour d\'affilée</item>
+        <item quantity="many">jours d\'affilée</item>
+        <item quantity="other">jours d\'affilée</item>
+    </plurals>
     <string name="recap_card_since">Depuis le %1$s</string>
     <string name="recap_badge_first_play">première écoute</string>
     <string name="recap_badge_number_one">N°\n1</string>
@@ -3080,7 +3152,11 @@
     <string name="recap_playlist_copy">Ajouter aussi à YouTube Music</string>
     <string name="recap_playlist_copying">Ajout à YouTube Music : %1$s sur %2$s</string>
     <string name="recap_playlist_copied">Sur YouTube Music</string>
-    <string name="recap_playlist_copied_some">Sur YouTube Music : %1$s sur %2$s titres</string>
+    <plurals name="recap_playlist_copied_some">
+        <item quantity="one">Sur YouTube Music : %1$s sur %2$s titre</item>
+        <item quantity="many">Sur YouTube Music : %1$s sur %2$s titres</item>
+        <item quantity="other">Sur YouTube Music : %1$s sur %2$s titres</item>
+    </plurals>
     <string name="together_queue_theirs">%1$s choisit la musique. Ajoutez un titre avec « Suivant ».</string>
     <string name="together_queue_host">L\'hôte choisit la musique. Ajoutez un titre avec « Suivant ».</string>
     <string name="dl_folder_cannot_open">InterTune ne peut plus ouvrir ce dossier. Les nouveaux téléchargements restent dans l\'application tant que vous ne l\'avez pas choisi à nouveau.</string>

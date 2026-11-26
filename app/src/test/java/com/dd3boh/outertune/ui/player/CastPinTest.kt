@@ -107,7 +107,13 @@ class CastPinTest {
         val inRow = PlayerPins.toggle(PlayerPins.read(""), PinPlace.CONNECTED_ROW, CAST)
         assertTrue("moved to Connected's row, still pinned", PlayerPins.castPinned(inRow, connected))
         val menu = File(source, "ui/menu/PlayerMenu.kt").readText()
-        assertTrue("val castInMenu = !songHeader && !PlayerPins.castPinned(PlayerPins.read(pinsRaw), castPlaces)" in menu)
+        assertTrue("val castInMenu = !songHeader && (castOffScreen || !PlayerPins.castPinned(PlayerPins.read(pinsRaw), castPlaces))" in menu)
+        // 26 Nov 2026 (the whole-app scan): the small Classic player's one row has no cast button, pinned or not, and
+        // the menu left Cast out all the same: no way to the cast sheet there. That row says so while it is shown.
+        val player = File(source, "ui/player/Player.kt").readText()
+        val row = player.substringAfter("if (classicSideColumnsFit(maxHeight)) {").substringAfter("} else {").substringBefore("menuCircle()")
+        assertTrue(row, "DisposableEffect(Unit) {\n                                        castOffScreen = true\n                                        onDispose { castOffScreen = false }" in row)
+        assertTrue("castOffScreen = castOffScreen," in player)
         assertTrue("if (castLook != null) {" in menu && "title = R.string.cast" in menu)
     }
 

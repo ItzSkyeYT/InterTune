@@ -887,7 +887,9 @@ val ViewedPollIdsKey = stringSetPreferencesKey("viewedPollIds")
 
 /**
  * The last year whose InterTune Recap opened by itself (RecapCalendar.popUpOwed), so that the
- * pop-up comes once a year. 0 for never. Written when it opens, whatever is done with it then.
+ * pop-up comes once a year. 0 for never. Written when it opens, whatever is done with it then,
+ * and when that year's Recap is opened another way first, from its notification or a banner
+ * (RecapCalendar.popUpShownBy). Once written, the notification does not come either (RecapAlert).
  */
 val RecapPopUpShownKey = intPreferencesKey("recapPopUpShown")
 

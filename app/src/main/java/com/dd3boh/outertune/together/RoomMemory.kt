@@ -27,13 +27,22 @@ class RoomMemory(private val file: File) {
     /**
      * What is kept, and when the room was last alive: for a guest, when it last heard the host (HostAbsence.aliveAt). And
      * who was in control as this phone last knew it ([lead], a phone's key in the room), so that the room comes back with
-     * control where it was (TogetherSession's lead). Null in a file from before 22 Nov 2026.
+     * control where it was (TogetherSession's lead). Null in a file from before 22 Nov 2026. And how this phone listened in
+     * it ([way]: paused here, on its own way, with the room and playing or not), so that the room comes back as it was
+     * (RoomWay.afterRestart). Null in a file from before 26 Nov 2026.
      */
-    data class Saved(val code: String, val owner: Boolean, val identity: String, val aliveAt: Long, val lead: String? = null)
+    data class Saved(
+        val code: String,
+        val owner: Boolean,
+        val identity: String,
+        val aliveAt: Long,
+        val lead: String? = null,
+        val way: RoomWay? = null,
+    )
 
     @Synchronized
-    fun save(code: RoomCode, owner: Boolean, identity: String, now: Long, lead: String? = null) {
-        write(Saved(code.raw, owner, identity, now, lead))
+    fun save(code: RoomCode, owner: Boolean, identity: String, now: Long, lead: String? = null, way: RoomWay? = null) {
+        write(Saved(code.raw, owner, identity, now, lead, way))
     }
 
     /** The room that is kept, or null: none, one that was last alive more than [FORGET_AFTER_MS] ago, or a file that cannot be read. */
@@ -63,6 +72,12 @@ class RoomMemory(private val file: File) {
         read()?.takeIf { it.code == code.raw }?.let { write(it.copy(lead = key)) }
     }
 
+    /** This phone listens in the room [code] the [way] it does now. Only if it is still the room kept, as for [touch]. */
+    @Synchronized
+    fun way(code: RoomCode, way: RoomWay) {
+        read()?.takeIf { it.code == code.raw && it.way != way }?.let { write(it.copy(way = way)) }
+    }
+
     /**
      * This phone hosts the room [code] now, handed it by its host as it left (RoomHandOn): it comes back as its host, with
      * the key it had there. Only if it is still the room kept, as for [touch].
@@ -85,6 +100,8 @@ class RoomMemory(private val file: File) {
             identity = words.getValue("identity").also { key -> require(key.length == 64 && key.all { it in "0123456789abcdef" }) },
             aliveAt = words.getValue("aliveAt").toLong(),
             lead = words["lead"]?.takeIf(::isKey),
+            // One this build does not know reads as none, as a file from before.
+            way = words["way"]?.let { w -> RoomWay.entries.firstOrNull { it.name == w } },
         )
     }.getOrNull()
 
@@ -95,7 +112,7 @@ class RoomMemory(private val file: File) {
             val temp = File(file.absoluteFile.parentFile, file.name + ".tmp")
             temp.writeText(
                 "code=${saved.code}\nowner=${saved.owner}\nidentity=${saved.identity}\naliveAt=${saved.aliveAt}\n" +
-                    saved.lead?.let { "lead=$it\n" }.orEmpty()
+                    saved.lead?.let { "lead=$it\n" }.orEmpty() + saved.way?.let { "way=${it.name}\n" }.orEmpty()
             )
             if (!temp.renameTo(file)) {
                 file.delete()

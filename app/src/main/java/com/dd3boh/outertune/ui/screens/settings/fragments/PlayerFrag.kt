@@ -1062,7 +1062,7 @@ fun ColumnScope.AudioEffectsFrag() {
     if (Unreleased.VARISPEED) {
         val (varispeed, onVarispeedChange) = rememberPreference(key = VarispeedKey, defaultValue = false)
         SwitchPreference(
-            modifier = Modifier.settingRow(R.string.varispeed),
+            modifier = Modifier.tourTarget(Tour.SETTING_VARISPEED).settingRow(R.string.varispeed),
             title = { Text(stringResource(R.string.varispeed)) },
             icon = { Icon(Icons.Rounded.SlowMotionVideo, null) },
             checked = varispeed,

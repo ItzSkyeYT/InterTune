@@ -29,6 +29,7 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -41,6 +42,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -64,6 +66,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
@@ -215,6 +218,24 @@ fun TourOverlay(
         Log.d(TAG, "$named: pointed at after ${SystemClock.uptimeMillis() - began} ms")
     }
 
+    // Next on the last stop ends the tour, and so does "Show me" on a question whose tour has
+    // nothing to show. Anything else is another stop, and its screen is gone to.
+    val advance: () -> Unit = {
+        state.next()
+        if (state.running) state.current?.route?.let(onNavigate) else onFinish()
+        Unit
+    }
+
+    // A stop inside a sheet is drawn by the sheet (TourSpot), with these same buttons: the sheet is
+    // a window of its own, over everything drawn here. Its Back is the sheet's.
+    if (stop.inSheet) {
+        DisposableEffect(stop) {
+            TourInSheet.open(state, stop, advance, onFinish)
+            onDispose { TourInSheet.close(stop) }
+        }
+        return
+    }
+
     // Back steps the tour back, and the screen with it when the stop before is on another one.
     // The route is that stop's, null for Home.
     BackHandler {
@@ -226,17 +247,6 @@ fun TourOverlay(
             onFinish()
         }
     }
-
-    val density = LocalDensity.current
-    val holePadPx = with(density) { HOLE_PADDING.toPx() }
-    val holeRadiusPx = with(density) { HOLE_RADIUS.toPx() }
-    val beakHalfPx = with(density) { BEAK_WIDTH.toPx() } / 2f
-    val beakDepthPx = with(density) { BEAK_DEPTH.toPx() }
-    val cornerPx = with(density) { BUBBLE_RADIUS.toPx() }
-    val marginPx = with(density) { SCREEN_MARGIN.toPx() }
-
-    /** Cut-out edge to bubble body. The beak occupies all but [BEAK_TIP_GAP] of it. */
-    val standoff = holePadPx + with(density) { BEAK_TIP_GAP.toPx() } + beakDepthPx
 
     // The hole travels between targets rather than teleporting, so it is possible to see where it
     // went and therefore what is being talked about now. The first one is snapped rather than
@@ -262,6 +272,48 @@ fun TourOverlay(
     val hole = if (target == null || !seeded) null
     else Rect(left.value, top.value, right.value, bottom.value)
 
+    TourScene(
+        state = state,
+        stop = stop,
+        hole = hole,
+        insets = LocalPlayerAwareWindowInsets.current,
+        onAdvance = advance,
+        onSkipScreen = {
+            state.skipScreen()
+            if (state.running) state.current?.route?.let(onNavigate) else onFinish()
+        },
+        onFinish = onFinish,
+    )
+}
+
+/**
+ * What a stop looks like: the screen dimmed, a hole over [hole], a ring round it, and the bubble
+ * attached to it by its beak. Over the whole app for the overlay; over a sheet's content for a
+ * stop inside a sheet (TourSpot). [insets] keep the bubble clear of what stands at the top and
+ * the bottom.
+ */
+@Composable
+private fun TourScene(
+    state: TourState,
+    stop: TourStop,
+    hole: Rect?,
+    insets: WindowInsets,
+    onAdvance: () -> Unit,
+    onSkipScreen: () -> Unit,
+    onFinish: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val density = LocalDensity.current
+    val holePadPx = with(density) { HOLE_PADDING.toPx() }
+    val holeRadiusPx = with(density) { HOLE_RADIUS.toPx() }
+    val beakHalfPx = with(density) { BEAK_WIDTH.toPx() } / 2f
+    val beakDepthPx = with(density) { BEAK_DEPTH.toPx() }
+    val cornerPx = with(density) { BUBBLE_RADIUS.toPx() }
+    val marginPx = with(density) { SCREEN_MARGIN.toPx() }
+
+    /** Cut-out edge to bubble body. The beak occupies all but [BEAK_TIP_GAP] of it. */
+    val standoff = holePadPx + with(density) { BEAK_TIP_GAP.toPx() } + beakDepthPx
+
     // Material grows the highlighted control by 10% over a second and shrinks it back. Pulsing a
     // ring rather than the cut-out itself, because animating the hole would make the control's own
     // edges breathe in and out of the dim.
@@ -284,7 +336,6 @@ fun TourOverlay(
     // the theme. The beak has to be the bubble's own colour or it stops looking attached to it,
     // and the ring shares it so that bubble, beak and target are one colour against the scrim.
     val accent = MaterialTheme.colorScheme.surfaceContainerHigh
-    val insets = LocalPlayerAwareWindowInsets.current
 
     // The first bubble scales up out of its own beak, the way Material grows a tooltip from the
     // corner of its anchor. Only the first: between steps the bubble travels with the hole, and a
@@ -307,15 +358,8 @@ fun TourOverlay(
         )
     }
 
-    // Next on the last stop ends the tour, and so does "Show me" on a question whose tour has
-    // nothing to show. Anything else is another stop, and its screen is gone to.
-    val advance: () -> Unit = {
-        state.next()
-        if (state.running) state.current?.route?.let(onNavigate) else onFinish()
-        Unit
-    }
-
     Layout(
+        modifier = modifier,
         content = {
             Box(
                 modifier = Modifier
@@ -328,7 +372,7 @@ fun TourOverlay(
                     .pointerInput(hole) {
                         detectTapGestures { at ->
                             val h = hole ?: return@detectTapGestures
-                            if (h.inflate(holePadPx).contains(at)) advance()
+                            if (h.inflate(holePadPx).contains(at)) onAdvance()
                         }
                     }
                     .drawBehind {
@@ -387,11 +431,8 @@ fun TourOverlay(
             TourBubble(
                 state = state,
                 stop = stop,
-                onAdvance = advance,
-                onSkipScreen = {
-                    state.skipScreen()
-                    if (state.running) state.current?.route?.let(onNavigate) else onFinish()
-                },
+                onAdvance = onAdvance,
+                onSkipScreen = onSkipScreen,
                 onFinish = onFinish,
                 modifier = Modifier
                     .onGloballyPositioned {
@@ -448,6 +489,45 @@ fun TourOverlay(
             card.place(place.x.roundToInt(), place.y.roundToInt())
         }
     }
+}
+
+/**
+ * A stop inside a sheet, drawn by the sheet: Listen together's Start a room (his note of 26 Nov
+ * 2026, "show me is lacking for items... like the listen together"). A sheet is a window of its
+ * own, over everything the overlay can draw on, so the sheet dims its own content round the
+ * control and holds the bubble, with the overlay's buttons (TourInSheet). Laid over the sheet's
+ * whole content, as wide and as high as it: [place] is the sheet's route (Tour.ROUTE_TOGETHER_SHEET).
+ *
+ * Back or a swipe that closes the sheet while its stop is up ends the tour there, as Back on a
+ * first stop does.
+ */
+@Composable
+fun TourSpot(place: String, modifier: Modifier = Modifier) {
+    DisposableEffect(place) {
+        onDispose {
+            val state = TourInSheet.state
+            if (TourInSheet.stop?.route == place && state != null && state.running) {
+                state.stop()
+                TourInSheet.finish()
+            }
+        }
+    }
+    val stop = TourInSheet.stop?.takeIf { it.route == place } ?: return
+    val state = TourInSheet.state ?: return
+    // Where this box is in the sheet's window, which is where the control says it is as well.
+    var origin by remember { mutableStateOf<Offset?>(null) }
+    val at = origin
+    val hole = if (at == null) null else stop.targetId?.let { TourTargets[it] }?.translate(-at.x, -at.y)
+    TourScene(
+        state = state,
+        stop = stop,
+        hole = hole,
+        insets = WindowInsets(0, 0, 0, 0),
+        onAdvance = { TourInSheet.advance() },
+        onSkipScreen = {},
+        onFinish = { TourInSheet.finish() },
+        modifier = modifier.onGloballyPositioned { origin = it.boundsInRoot().topLeft },
+    )
 }
 
 /** Where the bubble goes, and where on its edge the beak sits, or null for no beak at all. */

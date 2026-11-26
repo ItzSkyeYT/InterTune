@@ -14,6 +14,8 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
+import java.net.ConnectException
+import java.net.NoRouteToHostException
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
 
@@ -36,12 +38,15 @@ class WeakNetworkTest {
     }
 
     @Test
-    fun `weak means a slow link, a signal at the edge or a metered connection`() {
-        assertTrue(NetworkPatience.isWeak(downstreamKbps = 1_000, signalDbm = null, metered = false))
-        assertTrue(NetworkPatience.isWeak(downstreamKbps = 100_000, signalDbm = -85, metered = false))
-        assertTrue(NetworkPatience.isWeak(downstreamKbps = null, signalDbm = null, metered = true))
-        assertFalse(NetworkPatience.isWeak(downstreamKbps = 100_000, signalDbm = -55, metered = false))
-        assertFalse(NetworkPatience.isWeak(downstreamKbps = null, signalDbm = null, metered = false))
+    fun `weak means a slow link or a Wi-Fi signal at the edge, not mobile data as such`() {
+        // A review of 26 Nov 2026: metered counted as weak, so all mobile data got the long waits, and a dead mobile link
+        // held Home's spinner for about 93 s (30 s to connect, asked again twice) where it had been 15 s.
+        assertTrue(NetworkPatience.isWeak(downstreamKbps = 1_000, signalDbm = null))
+        assertTrue(NetworkPatience.isWeak(downstreamKbps = 100_000, signalDbm = -85))
+        assertFalse(NetworkPatience.isWeak(downstreamKbps = 100_000, signalDbm = -55))
+        assertFalse(NetworkPatience.isWeak(downstreamKbps = null, signalDbm = null))
+        val observer = source("com/dd3boh/outertune/utils/NetworkConnectivityObserver.kt")
+        assertFalse("NET_CAPABILITY_NOT_METERED" in observer.substringAfter("private fun weakOf("))
     }
 
     @Test
@@ -51,21 +56,42 @@ class WeakNetworkTest {
     }
 
     @Test
-    fun `a connection never made is asked again, whatever the request`() {
-        assertTrue(NetworkPatience.shouldRetry(ConnectTimeoutException("c"), "/youtubei/v1/like/like", 0))
-        assertTrue(NetworkPatience.shouldRetry(UnknownHostException("music.youtube.com"), "/youtubei/v1/like/like", 1))
-        assertTrue(NetworkPatience.shouldRetry(RuntimeException("wrapped", UnknownHostException("x")), "/youtubei/v1/browse", 1))
+    fun `a connection refused or a name not found is asked again, whatever the request but the song's own`() {
+        assertTrue(NetworkPatience.shouldRetry(UnknownHostException("music.youtube.com"), "/youtubei/v1/like/like"))
+        assertTrue(NetworkPatience.shouldRetry(ConnectException("refused"), "/youtubei/v1/browse"))
+        assertTrue(NetworkPatience.shouldRetry(NoRouteToHostException("no route"), "/youtubei/v1/search"))
+        assertTrue(NetworkPatience.shouldRetry(RuntimeException("wrapped", UnknownHostException("x")), "/youtubei/v1/browse"))
     }
 
     @Test
-    fun `a wait that ran out is asked again once, and only for a read`() {
-        assertTrue(NetworkPatience.shouldRetry(SocketTimeoutException("t"), "/youtubei/v1/search", 0))
-        assertTrue(NetworkPatience.shouldRetry(SocketTimeoutException("t"), "/youtubei/v1/browse", 0))
-        assertFalse(NetworkPatience.shouldRetry(SocketTimeoutException("t"), "/youtubei/v1/search", 1))
-        assertFalse(NetworkPatience.shouldRetry(SocketTimeoutException("t"), "/youtubei/v1/like/like", 0))
-        assertFalse(NetworkPatience.shouldRetry(SocketTimeoutException("t"), "/youtubei/v1/browse/edit_playlist", 0))
-        assertFalse(NetworkPatience.shouldRetry(SocketTimeoutException("t"), "/youtubei/v1/player", 0))
-        assertFalse(NetworkPatience.shouldRetry(IllegalStateException("not the network"), "/youtubei/v1/search", 0))
+    fun `a wait that ran out is not asked again, its time is already spent`() {
+        assertFalse(NetworkPatience.shouldRetry(ConnectTimeoutException("c"), "/youtubei/v1/browse"))
+        assertFalse(NetworkPatience.shouldRetry(SocketTimeoutException("t"), "/youtubei/v1/search"))
+        assertFalse(NetworkPatience.shouldRetry(SocketTimeoutException("t"), "/youtubei/v1/browse"))
+        assertFalse(NetworkPatience.shouldRetry(HttpRequestTimeoutException("/youtubei/v1/browse", 30_000L), "/youtubei/v1/browse"))
+        assertFalse(NetworkPatience.shouldRetry(IllegalStateException("not the network"), "/youtubei/v1/search"))
+    }
+
+    @Test
+    fun `the request that starts a song is never asked again here`() {
+        // The player tries its clients one after another, with its own caps and second tries, and stops at once when
+        // there is no network at all (StreamOrder.endsWalkAtOnce). Asked again here, offline Play waited 3 s more for
+        // the same answer, and with a slow name lookup the tries ran past the client's cap, which the walk takes for a
+        // slow network and goes on through every client (review of 26 Nov 2026).
+        assertFalse(NetworkPatience.shouldRetry(UnknownHostException("x"), "/youtubei/v1/player"))
+        assertFalse(NetworkPatience.shouldRetry(ConnectException("refused"), "/youtubei/v1/player/"))
+    }
+
+    @Test
+    fun `nothing is asked again while the phone has no network`() {
+        try {
+            NetworkPatience.online = false
+            assertFalse(NetworkPatience.shouldRetry(UnknownHostException("x"), "/youtubei/v1/browse"))
+        } finally {
+            NetworkPatience.online = true
+        }
+        val observer = source("com/dd3boh/outertune/utils/NetworkConnectivityObserver.kt")
+        assertTrue("NetworkPatience.online = " in observer)
     }
 
     @Test

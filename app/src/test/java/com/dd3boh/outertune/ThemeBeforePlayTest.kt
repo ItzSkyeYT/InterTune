@@ -99,4 +99,24 @@ class ThemeBeforePlayTest {
         assertNotNull(effect.indexOf("themeSeed.write"))
         assertTrue(effect.contains("themeSeed.write"))
     }
+
+    @Test
+    fun `with Persistent queue off the app opens in the default, as no song is shown before Play`() {
+        // The kept colour was used all the same, then went 2.5 s after the app opened, the whole app with it.
+        val main = source("src/main/java/com/dd3boh/outertune/MainActivity.kt")
+        val first = main.substringAfter("var themeColor by rememberSaveable").substringBefore("\n            }\n")
+        assertTrue(first, "val songBeforePlay = dataStore.current[PersistentQueueKey] ?: true" in first)
+        assertTrue(first, "if (enableDynamicTheme && songBeforePlay) themeSeed.atStart() else null" in first)
+    }
+
+    @Test
+    fun `a song whose cover gives no colour leaves none kept for the next start`() {
+        // Kept, the colour of the song before came back at every start, then went a moment later.
+        val main = source("src/main/java/com/dd3boh/outertune/MainActivity.kt")
+        val effect = main.substring(main.indexOf("LaunchedEffect(playerConnection, enableDynamicTheme"))
+            .substringBefore("OuterTuneTheme(")
+        assertTrue(effect, "if (extracted != null) themeSeed.write(song.id, extracted) else themeSeed.clear()" in effect)
+        assertTrue(effect, "extracted ?: DefaultThemeColor" in effect)
+        assertEquals(1, Regex("""themeSeed\.write\(""").findAll(effect).count())
+    }
 }

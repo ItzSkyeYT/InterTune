@@ -107,6 +107,12 @@ class PhoneSongsTest {
         )
         for (song in untagged) {
             assertNull(song.title, tagsOf(song))
+            // A file is read for a video's link in its tags first, which it may carry whatever its title says (none here):
+            // nothing goes to the room meanwhile. With no file to read, the answer is there at once.
+            if (song.localPath != null) {
+                assertNull(song.id, songs.forRoom(song.id, song, lookUp = true))
+                assertEquals(song.id, answered())
+            }
             val answer = songs.forRoom(song.id, song, lookUp = true) as PhoneSongs.OnlyHere
             assertEquals("", answer.title)
             assertEquals("", answer.artist)
@@ -115,6 +121,7 @@ class PhoneSongsTest {
             assertNotEquals(song.id, answer.id)
         }
         assertEquals(emptyList<String>(), searches)
+        assertEquals(emptyList<String>(), idAsks)
     }
 
     @Test
@@ -157,6 +164,8 @@ class PhoneSongsTest {
         assertEquals(1, searches.size)
         // Another song gets another id.
         val other = file(title = "Untagged", id = "LSz9y8x7w6", localPath = "$folder/Untagged.mp3")
+        assertNull(songs.forRoom(other.id, other, lookUp = true))
+        answered()
         assertNotEquals(answer.id, songs.forRoom(other.id, other, lookUp = true)!!.id)
     }
 
@@ -195,6 +204,30 @@ class PhoneSongsTest {
         answered()
         assertEquals("dpInstant01", songs.forRoom(song.id, song, lookUp = true)!!.id)
         assertEquals(listOf("dpInstant01"), idAsks)
+        assertEquals(emptyList<String>(), searches)
+    }
+
+    @Test
+    fun `a file titled by its name or with no artist is heard by the YouTube link in its tags`() = runBlocking {
+        // A yt-dlp download saved as "%(title)s.%(ext)s" with --embed-metadata, of a video with no track name: its title is
+        // its file name, which is no tag, and its artist may be missing, but its tags keep the video's link (review of
+        // 0.13, 26 Nov 2026: it was taken for a song only on that phone, and the others were told so).
+        catalogue = { id -> if (id == "flashBack01") result(id, title = "Flash Back", artist = "AKIAKANE", seconds = 246) else null }
+        val titled = "$folder/Flash Back.opus"
+        val untitled = "$folder/Track 03.m4a"
+        tagIds = { p -> if (p == titled || p == untitled) "flashBack01" else null }
+        val songs = phoneSongs()
+        val byName = file(title = "Flash Back", artist = "AKIAKANEch", seconds = 245, localPath = titled, id = "LSflashbak")
+        val noArtist = file(title = "Flash Back (live)", artist = "<unknown>", seconds = 0, localPath = untitled, id = "LSnoartst1")
+        for (song in listOf(byName, noArtist)) {
+            assertNull(song.title, tagsOf(song)?.takeIf { it.durationSeconds != null })
+            assertNull(song.id, songs.forRoom(song.id, song, lookUp = true))
+            assertEquals(song.id, answered())
+            val heard = songs.forRoom(song.id, song, lookUp = true) as PhoneSongs.Heard
+            assertEquals("flashBack01", heard.id)
+            assertEquals("Flash Back", heard.title)
+        }
+        assertEquals(listOf("flashBack01", "flashBack01"), idAsks)
         assertEquals(emptyList<String>(), searches)
     }
 
@@ -324,9 +357,13 @@ class PhoneSongsTest {
     fun `a file with no length is not searched for, since nothing could pass for the same recording`() = runBlocking {
         val songs = phoneSongs()
         val song = file(seconds = 0)
+        // Read for a video's link in its tags first (none here), and never searched for.
+        assertNull(songs.forRoom(song.id, song, lookUp = true))
+        answered()
         val answer = songs.forRoom(song.id, song, lookUp = true) as PhoneSongs.OnlyHere
         assertEquals("Instant Crush", answer.title)
         assertEquals(emptyList<String>(), searches)
+        assertEquals(emptyList<String>(), idAsks)
     }
 
     private val session = File("src/main/java/com/dd3boh/outertune/together/TogetherSession.kt").readText()

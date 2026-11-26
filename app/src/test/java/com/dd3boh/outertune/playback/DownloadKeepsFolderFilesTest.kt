@@ -79,7 +79,7 @@ class DownloadKeepsFolderFilesTest {
     @Test
     fun `no download and no liked catch up fetches a song whose file is in the folder`() {
         val download = util.substringAfter("private fun downloadSong(id: String").substringBefore("val downloadRequest =")
-        assertTrue("from memory only: a button calls it on the main thread", download.contains("if (keepFolderFile(id, title, look = false)) return true"))
+        assertTrue("from memory only: a button calls it on the main thread", download.contains("if (keepFolderFile(id, title, look = false)) {"))
         val settings = util.substringAfter("fun startLikedDownloads(").substringBefore("val batch =")
         assertTrue(settings.contains(".filterNot { keepFolderFile(it.id, it.title, look = true) }"))
         val sync = util.substringAfter("suspend fun downloadLikedSongs(").substringBefore("val pending =")

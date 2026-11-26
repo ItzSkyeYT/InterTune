@@ -252,6 +252,7 @@ import com.dd3boh.outertune.together.TogetherSession
 import com.dd3boh.outertune.together.RoomCode
 import com.dd3boh.outertune.together.RoomOnTv
 import com.dd3boh.outertune.together.RoomMemory
+import com.dd3boh.outertune.together.RoomWay
 import com.dd3boh.outertune.together.WhoAdded
 import com.dd3boh.outertune.together.hexToBytes
 import com.dd3boh.outertune.ui.dialog.togetherAvailable
@@ -549,6 +550,16 @@ class MusicService : MediaLibraryService(),
     /** A room this phone was in is on its way back with this service ([rejoinSavedRoom]): the sheet keeps showing it. */
     val togetherComing = MutableStateFlow(false)
 
+    /**
+     * A command the listener gives by hand comes in now: a seek, a skip or a list asked of the app's player (RoutedPlayer:
+     * the screens, the notification, a headset, a car, a watch) or of the player the screens act on in the same tap
+     * (PlayerConnection.loadQueueIfEmpty). A room this phone follows takes what the player does in this turn as the
+     * listener's at once (TogetherSession.byHand). Main thread.
+     */
+    fun byHand() {
+        together.value?.byHand()
+    }
+
     /** The room this phone is in, kept so that it comes back: see [RoomMemory]. */
     private val roomMemory by lazy { RoomMemory(File(noBackupFilesDir, RoomMemory.FILE)) }
     private var roomTouchedAt = 0L
@@ -572,12 +583,25 @@ class MusicService : MediaLibraryService(),
         scope.launch(Dispatchers.IO) { roomMemory.lead(code, key) }
     }
 
+    /** This phone listens in the room [code] the [way] it does now: kept, so that the room comes back with it (RoomWay). */
+    fun roomWay(code: RoomCode, way: RoomWay) {
+        scope.launch(Dispatchers.IO) { roomMemory.way(code, way) }
+    }
+
     /**
      * This phone hosts the room [code] now: its host handed it on as it left (together/RoomHandOn). Kept so, so that it
      * comes back to it as its host, with the key it had there (RoomMemory.hosted).
      */
     fun roomHosted(code: RoomCode) {
         scope.launch(Dispatchers.IO) { roomMemory.hosted(code) }
+    }
+
+    /**
+     * This phone, the host of the room [code], is leaving it and hands it on (together/RoomHandOn): forgotten now, so that
+     * a service that stops before the next host answers never brings this phone back as a second host of it.
+     */
+    fun roomLeaving(code: RoomCode) {
+        if (together.value?.code == code) roomMemory.forget()
     }
 
     /**
@@ -588,7 +612,8 @@ class MusicService : MediaLibraryService(),
      *
      * [identity] is the key a room that comes back signs with, the same as before (RoomMemory). [hostHeardAt] is, for a
      * guest's room that comes back, when it last heard the host: kept as the room's time, and the host's absence counted
-     * from it. [lead] is who was in control as this phone last knew it, for a room that comes back.
+     * from it. [lead] is who was in control as this phone last knew it, for a room that comes back. [way] is how this phone
+     * listened in it, for a room that comes back or moves to a new code (RoomWay).
      */
     fun startTogether(
         code: RoomCode,
@@ -601,6 +626,7 @@ class MusicService : MediaLibraryService(),
         lead: String? = null,
         /** Whose each song was in the room this one carries on from under a new code (moveTogether). */
         carried: WhoAdded.Carried? = null,
+        way: RoomWay? = null,
     ): TogetherSession? {
         if (destroyed) {
             Log.w(TAG, "No room is made on a service that has stopped")
@@ -611,22 +637,23 @@ class MusicService : MediaLibraryService(),
         // Another room in its place: the one it replaces ends, and an owner's says so. Not when the room carries on under
         // a new code (moveTogether): its people have moved with it.
         together.value?.let { if (moving) it.stop() else it.closeNow() }
-        val session = if (identity != null) TogetherSession(this, code, owner, relays, name, identity, hostHeardAt = hostHeardAt ?: 0L, lead = lead)
-        else TogetherSession(this, code, owner, relays, name, hostHeardAt = hostHeardAt ?: 0L, carried = carried)
+        val session = if (identity != null) TogetherSession(this, code, owner, relays, name, identity, hostHeardAt = hostHeardAt ?: 0L, lead = lead, way = way)
+        else TogetherSession(this, code, owner, relays, name, hostHeardAt = hostHeardAt ?: 0L, carried = carried, way = way)
         together.value = session
         session.start()
         // Not now for a guest's room that comes back: saved as now, a room its host had closed was kept six more hours
         // by every start.
         roomTouchedAt = hostHeardAt ?: System.currentTimeMillis()
-        roomMemory.save(code, owner, session.identityHex, roomTouchedAt, lead)
+        roomMemory.save(code, owner, session.identityHex, roomTouchedAt, lead, session.way())
         return session
     }
 
     /** The room carries on under [code], each phone as it was: what its owner does after sending someone out. */
     fun moveTogether(code: RoomCode) {
         val room = together.value ?: return
-        // The songs others put in stay theirs under the new code, where everyone has a new key (WhoAdded).
-        startTogether(code, room.owner, room.relays, room.name, moving = true, carried = room.carriedSongs())
+        // The songs others put in stay theirs under the new code, where everyone has a new key (WhoAdded). And this phone
+        // listens as it did: paused here, or on its own way (RoomWay); a new session followed and played.
+        startTogether(code, room.owner, room.relays, room.name, moving = true, carried = room.carriedSongs(), way = room.way())
     }
 
     /** The room is over, by the person's own hand or because it was closed: it is forgotten, and does not come back. */
@@ -638,6 +665,9 @@ class MusicService : MediaLibraryService(),
 
     /** The room stops here with the service and is remembered: the next service joins it again (rejoinSavedRoom). */
     private fun pauseTogether() {
+        // How this phone listened, kept on the spot, so that the room comes back so (RoomWay): the room's own next look,
+        // which keeps it as it changes, never comes for a service that ends. A pause just made (a swipe away) is in it.
+        together.value?.let { roomMemory.way(it.code, it.way()) }
         together.value?.stop()
         together.value = null
     }
@@ -665,6 +695,9 @@ class MusicService : MediaLibraryService(),
                     hostHeardAt = saved.aliveAt.takeIf { !saved.owner },
                     // Control where it was: a host's restart no longer takes it from the guest who has it.
                     lead = saved.lead,
+                    // Paused here or on its own way as it was, and paused here unless it was with the room and playing:
+                    // nothing plays aloud by itself as the app opens again (RoomWay).
+                    way = RoomWay.afterRestart(saved.way),
                 )
             } finally {
                 togetherComing.value = false
@@ -1614,6 +1647,8 @@ class MusicService : MediaLibraryService(),
         player = exoPlayer
         if (Unreleased.CASTING) {
             val routed = RoutedPlayer(exoPlayer)
+            // What the screens and the session ask of it is the listener's, by hand: a room takes it so (byHand).
+            routed.onAsked = ::byHand
             routedPlayer = routed
             player = routed
             sleepTimer = SleepTimer(scope, routed)
@@ -2502,8 +2537,9 @@ class MusicService : MediaLibraryService(),
 
     /**
      * The last radio asked for at the end of an album (EndlessQueue): which run of which queue,
-     * and the song it was asked from. Kept from the moment it is asked, answered or not, so an
-     * album is asked once for each end it has. Main thread.
+     * and the song it was asked from. Kept from the moment it is asked, so an album is asked once
+     * for each end it has; forgotten when the ask brought nothing back or its answer was dropped,
+     * so the next song change asks again (26 Nov 2026). Main thread.
      */
     private var endRadioAsked: EndlessQueue.Asked? = null
 
@@ -6469,11 +6505,16 @@ class MusicService : MediaLibraryService(),
         ) {
             Log.d(TAG, "onMediaItemTransition: Triggering queue auto load more" + if (endRadio) " (the end of an album, a radio from $endSeed)" else "")
             if (endRun != null && endSeed != null) endRadioAsked = EndlessQueue.Asked(endRun, endSeed)
+            val asked = endRadioAsked.takeIf { endRun != null && endSeed != null }
             scope.launch(SilentHandler) {
+                // An album's ask that brought nothing back or whose answer was dropped spent nothing: the album's next song
+                // change asks again, as offline does. Kept as asked, the album played out and the music stopped (26 Nov 2026).
+                fun spentNothing() { if (asked != null && endRadioAsked == asked) endRadioAsked = null }
                 val endpoint = playlistId // playlistId.substringBefore("\n")
                 val continuation = null // playlistId.substringAfter("\n")
                 val yq = YouTubeQueue(WatchEndpoint(endpoint, continuation))
                 val fromYouTube = yq.nextPage()
+                if (endRadio && fromYouTube.drop(1).isEmpty()) spentNothing()
                 // YouTube gave this seed nothing, however it was asked: the app's own picks keep a
                 // radio going (LocalRadio). Not an album's first radio, which stays an album.
                 val own = Unreleased.RADIO_FALLBACK && !endRadio && fromYouTube.drop(1).isEmpty()
@@ -6500,7 +6541,7 @@ class MusicService : MediaLibraryService(),
                     activePlayer.mediaItemCount > 0 && qbInit.value &&
                     queueBoard.getCurrentQueue()?.id == q.id &&
                     (!endRadio || (q.playlistId == null && q.getSize() == songCount && AdaptiveQueue.runKey(q.id, q.runId) == endRun))
-                if (!wanted()) return@launch
+                if (!wanted()) return@launch spentNothing()
                 // Seed the next page from something the listener actually finished.
                 //
                 // This used to be a random pick from the last four songs of the page just
@@ -6548,7 +6589,7 @@ class MusicService : MediaLibraryService(),
                     }
                     Log.i(TAG, "onMediaItemTransition: " + NeverHeardQueue.said("a top-up", kept.songs.size, kept.passedOver, pages))
                     // The queue may have moved on while it was read and asked for.
-                    if (!wanted()) return@launch
+                    if (!wanted()) return@launch spentNothing()
                     kept.songs
                 }
                 val next = RadioPage.nextSeed(anchor, joining, songs, asked = playlistId)

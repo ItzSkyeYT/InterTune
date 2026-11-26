@@ -52,11 +52,13 @@ val DownloadCopiesLookedKey = longPreferencesKey("downloadCopiesLookedAt")
  *
  * Removing is safe to stop anywhere, the app ended included. For each song, the file it keeps is
  * looked at first and must still be there, whole, under the name it was found with, or nothing of
- * that song is touched; it is never deleted; each copy is looked at again and deleted only if it is
- * still the file found; the rename to the download's name comes after the copies have gone; then the
- * database points at the file kept. A song the player has open waits until it is let go, a few
- * minutes at most, or for a later time. [record] records a song's file kept as its download, the
- * download map with it (DownloadUtil.recordKeptCopy).
+ * that song is touched; it is never deleted, nor a copy under a name the phone's storage takes for
+ * it, and it is looked at again after each copy: gone all the same, nothing more of that song goes;
+ * each copy is looked at again and deleted only if it is still the file found (DownloadCopies.remove);
+ * the rename to the download's name comes after the copies have gone; then the database points at
+ * the file kept. A song the player has open waits until it is let go, a few minutes at most, or for
+ * a later time. [record] records a song's file kept as its download, the download map with it
+ * (DownloadUtil.recordKeptCopy).
  */
 class DownloadCopiesCleanup(
     private val context: Context,
@@ -191,39 +193,25 @@ class DownloadCopiesCleanup(
     private fun removeFrom(song: DownloadCopies.Song, found: Picture, step: () -> Unit): Removed {
         val folder = folder()
         // The file kept first: still there, whole and the file found, or nothing of this song is touched.
-        val kept = folder.lookAt(song.keep.key)
-        if (kept == null || kept.name != song.keep.name || kept.size == 0L) {
+        // Then each copy still the file found, never the file kept (DownloadCopies.remove).
+        val gone = DownloadCopies.remove(song, folder::lookAt, folder::removeCopy, step)
+        if (gone == null) {
             Log.w(TAG, "${song.id}: ${song.keep.name} is not there as it was found, none of its files is touched")
-            song.remove.forEach { _ -> step() }
             return Removed(0, 0)
         }
-        var files = 0
-        var bytes = 0L
-        var allGone = true
-        for (copy in song.remove) {
-            val now = folder.lookAt(copy.key)
-            when {
-                // Gone already.
-                now == null -> Unit
-                // Not the file found any more: left as it is.
-                now.name != copy.name || DownloadCopies.parse(now.name)?.id != song.id -> allGone = false
-                folder.removeCopy(copy.key) -> {
-                    files++
-                    bytes += now.size ?: 0L
-                }
-                else -> allGone = false
-            }
-            step()
+        if (gone.keptLost) {
+            Log.e(TAG, "${song.id}: ${song.keep.name} went with one of its copies, the others stay")
+            return Removed(gone.files, gone.bytes)
         }
         // A copy kept takes its download's name once that name is free, so that other players see it again.
-        val name = song.renameTo?.takeIf { allGone && folder.canLookUp() && folder.lookUp(it) == null }
+        val name = song.renameTo?.takeIf { gone.allGone && folder.canLookUp() && folder.lookUp(it) == null }
         val uri = folder.keepFile(song.id, song.keep.key, name)
         val path = runCatching { fileFromUri(context, uri)?.absolutePath }.getOrNull()
         // The database ends pointing at the file kept (DownloadCopies.repoints), for a song it has.
         if (path != null && song.id in found.recorded && DownloadCopies.repoints(song.id, found.recorded[song.id], path, found.folderPath)) {
             record(song.id, path)
         }
-        return Removed(files, bytes)
+        return Removed(gone.files, gone.bytes)
     }
 
     companion object {

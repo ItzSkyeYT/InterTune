@@ -535,7 +535,11 @@ class LibraryViewModel @Inject constructor(
     /** The library's order after a drag on this page: every album, artist and playlist, as shown. */
     fun saveCustomOrder(keys: List<String>) {
         viewModelScope.launch(Dispatchers.IO) {
-            context.dataStore.edit { it[LibraryCustomOrderKey] = PlaylistOrder.encode(keys) }
+            context.dataStore.edit {
+                // What is not shown keeps its place: an album or an artist of a blocked artist (LibraryOrder.keepsPlace).
+                val saved = LibraryOrder.saved(it[LibraryCustomOrderKey], it[PlaylistCustomOrderKey])
+                it[LibraryCustomOrderKey] = PlaylistOrder.encode(LibraryOrder.refill(saved, keys) { true })
+            }
         }
     }
 

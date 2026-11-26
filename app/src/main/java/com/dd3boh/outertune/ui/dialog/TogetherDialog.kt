@@ -144,6 +144,10 @@ import com.dd3boh.outertune.playback.PlayerConnection
 import com.dd3boh.outertune.together.RoomCode
 import com.dd3boh.outertune.together.RoomRole
 import com.dd3boh.outertune.together.TogetherSession
+import com.dd3boh.outertune.ui.screens.walkthrough.Tour
+import com.dd3boh.outertune.ui.screens.walkthrough.TourSpot
+import com.dd3boh.outertune.ui.screens.walkthrough.TourTargets
+import com.dd3boh.outertune.ui.screens.walkthrough.tourTarget
 import com.dd3boh.outertune.ui.utils.LocalLandscape
 import com.dd3boh.outertune.ui.utils.shrinkToFit
 import com.dd3boh.outertune.utils.dataStore
@@ -235,6 +239,12 @@ fun TogetherSheet(onDismiss: () -> Unit) {
     // drawn again with: until then it shows the room it showed, or with none, neither a start page nor a room.
     val ready = playerConnection.isAlive || session != null
 
+    // For the tour: the sheet says it is up as a screen does (Tour.ROUTE_TOGETHER_SHEET).
+    DisposableEffect(Unit) {
+        TourTargets.screenArrived(Tour.ROUTE_TOGETHER_SHEET)
+        onDispose { TourTargets.screenLeft(Tour.ROUTE_TOGETHER_SHEET) }
+    }
+
     fun open(code: RoomCode, owner: Boolean) {
         if (!playerConnection.isAlive) return
         haptics.performHapticFeedback(HapticFeedbackType.Confirm)
@@ -285,53 +295,58 @@ fun TogetherSheet(onDismiss: () -> Unit) {
             else WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom)
         },
     ) {
-        if (!ready) Box(Modifier.fillMaxWidth().padding(vertical = 56.dp), contentAlignment = Alignment.Center) {
-            CircularProgressIndicator()
-        } else AnimatedContent(
-            targetState = session,
-            contentKey = { it?.code?.raw },
-            transitionSpec = {
-                (fadeIn(tween(240, delayMillis = 60)) + slideInVertically(tween(240)) { it / 16 }) togetherWith fadeOut(tween(120))
-            },
-            label = "together",
-        ) { room ->
-            Column(
-                Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 24.dp)
-                    .padding(bottom = 16.dp)
-            ) {
-                if (room == null) {
-                    // As the player draws it: a song from a file has the file's path there, and showed nothing.
-                    val coverPx = with(LocalDensity.current) { 46.dp.roundToPx() }
-                    StartPage(
-                        cover = song?.getThumbnailModel(coverPx, coverPx),
-                        onStart = {
-                            scope.launch {
-                                if (needsName(context.dataStore.data.first()[TogetherNameKey])) askingName = true
-                                else open(RoomCode.generate(), owner = true)
-                            }
-                        },
-                        onJoin = { code ->
-                            scope.launch {
-                                if (needsName(context.dataStore.data.first()[TogetherNameKey])) {
-                                    joinAfterName = code.raw
-                                    askingName = true
-                                } else open(code, owner = false)
-                            }
-                        },
-                    )
-                } else {
-                    // The walk over this page after the tour's pages (RoomWalk).
-                    RoomWalkArea(owner = room.owner) {
-                        RoomPage(room, song, onLeave = {
-                            haptics.performHapticFeedback(HapticFeedbackType.ToggleOff)
-                            room.leave()
-                        })
+        // A box round the page for the tour's stop in it (What's new's Listen together, TourSpot), which
+        // dims the page round Start a room and holds the bubble.
+        Box(Modifier.fillMaxWidth()) {
+            if (!ready) Box(Modifier.fillMaxWidth().padding(vertical = 56.dp), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator()
+            } else AnimatedContent(
+                targetState = session,
+                contentKey = { it?.code?.raw },
+                transitionSpec = {
+                    (fadeIn(tween(240, delayMillis = 60)) + slideInVertically(tween(240)) { it / 16 }) togetherWith fadeOut(tween(120))
+                },
+                label = "together",
+            ) { room ->
+                Column(
+                    Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 24.dp)
+                        .padding(bottom = 16.dp)
+                ) {
+                    if (room == null) {
+                        // As the player draws it: a song from a file has the file's path there, and showed nothing.
+                        val coverPx = with(LocalDensity.current) { 46.dp.roundToPx() }
+                        StartPage(
+                            cover = song?.getThumbnailModel(coverPx, coverPx),
+                            onStart = {
+                                scope.launch {
+                                    if (needsName(context.dataStore.data.first()[TogetherNameKey])) askingName = true
+                                    else open(RoomCode.generate(), owner = true)
+                                }
+                            },
+                            onJoin = { code ->
+                                scope.launch {
+                                    if (needsName(context.dataStore.data.first()[TogetherNameKey])) {
+                                        joinAfterName = code.raw
+                                        askingName = true
+                                    } else open(code, owner = false)
+                                }
+                            },
+                        )
+                    } else {
+                        // The walk over this page after the tour's pages (RoomWalk).
+                        RoomWalkArea(owner = room.owner) {
+                            RoomPage(room, song, onLeave = {
+                                haptics.performHapticFeedback(HapticFeedbackType.ToggleOff)
+                                room.leave()
+                            })
+                        }
                     }
                 }
             }
+            TourSpot(Tour.ROUTE_TOGETHER_SHEET, Modifier.matchParentSize())
         }
     }
 }
@@ -368,6 +383,7 @@ private fun StartPage(cover: Any?, onStart: () -> Unit, onJoin: (RoomCode) -> Un
             modifier = Modifier
                 .fillMaxWidth()
                 .heightIn(min = 52.dp)
+                .tourTarget(Tour.TOGETHER_START)
         ) {
             Icon(Icons.Rounded.Add, contentDescription = null, modifier = Modifier.size(ButtonDefaults.IconSize))
             Spacer(Modifier.width(ButtonDefaults.IconSpacing))
@@ -440,15 +456,15 @@ private fun RoomPage(room: TogetherSession, song: MediaMetadata?, onLeave: () ->
     var showingQr by rememberSaveable { mutableStateOf(false) }
     if (showingQr) RoomQrDialog(room.code, onDismiss = { showingQr = false })
     // The owner's leaving is asked first (his word of 17 Oct 2026): hand the room on, the others carrying on, or close it
-    // for everyone (his find of 23 Nov 2026, RoomLeaveDialog). Who would get it is looked at as the sheet draws, with
-    // every word in the room.
+    // for everyone (his find of 23 Nov 2026, RoomLeaveDialog). Who would get it as the room's last look saw it, two seconds
+    // ago at most, and the room goes to that one: a phone that went quiet is no longer offered while the dialog is open.
     var confirmingClose by rememberSaveable { mutableStateOf(false) }
     if (confirmingClose) {
         RoomLeaveDialog(
-            choice = room.leaveChoice(),
+            choice = status.leaveChoice,
             onHandOn = {
                 haptics.performHapticFeedback(HapticFeedbackType.Confirm)
-                if (room.handOnAndLeave()) confirmingClose = false
+                if (room.handOnAndLeave(status.leaveChoice.heirKey)) confirmingClose = false
             },
             onClose = {
                 confirmingClose = false
@@ -694,17 +710,22 @@ private fun RoomPage(room: TogetherSession, song: MediaMetadata?, onLeave: () ->
         }
         Spacer(Modifier.height(24.dp))
         WalkFrom(WalkStop.LEAVE)
+        // Handing the room on, the host stays until the phone it named says it hosts the room, about a second (RoomHandOn):
+        // the button says so meanwhile, and asks nothing more.
+        val handingTo = status.handingTo
         OutlinedButton(
             onClick = { if (room.owner) confirmingClose = true else onLeave() },
+            enabled = handingTo == null,
             colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.5f)),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = if (handingTo == null) 0.5f else 0.2f)),
             modifier = Modifier.fillMaxWidth(),
         ) {
             Icon(Icons.AutoMirrored.Rounded.Logout, contentDescription = null, modifier = Modifier.size(ButtonDefaults.IconSize))
             Spacer(Modifier.width(ButtonDefaults.IconSpacing))
             // Everyone leaves the same way; the owner is then asked whether the room goes on without it (RoomLeaveDialog).
             // Without the flag the owner's leaving closes the room for everyone, and says so, as before.
-            Text(stringResource(if (room.owner && !Unreleased.ROOM_HAND_ON) R.string.together_close_room else R.string.together_leave))
+            if (handingTo != null) Text(stringResource(R.string.together_handing_on, handingTo))
+            else Text(stringResource(if (room.owner && !Unreleased.ROOM_HAND_ON) R.string.together_close_room else R.string.together_leave))
         }
         WalkTo(WalkStop.LEAVE)
         // The tour of a room, any time (RoomTour).

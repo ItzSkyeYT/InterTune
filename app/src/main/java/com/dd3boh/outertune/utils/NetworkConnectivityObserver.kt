@@ -42,6 +42,8 @@ class NetworkConnectivityObserver(
     private val networkCallback = object : ConnectivityManager.NetworkCallback() {
         override fun onAvailable(network: Network) {
             synchronized(availableNetworks) { availableNetworks.add(network) }
+            // Requests to YouTube are asked again only while there is a network (NetworkPatience).
+            NetworkPatience.online = true
             if (toldOffline) {
                 toldOffline = false
                 ReportTrail.thisRun.network(ReportTrail.Network.BACK)
@@ -59,6 +61,7 @@ class NetworkConnectivityObserver(
                 availableNetworks.remove(network)
                 availableNetworks.size
             }
+            NetworkPatience.online = remaining > 0
             if (remaining == 0 && !toldOffline) {
                 toldOffline = true
                 ReportTrail.thisRun.network(ReportTrail.Network.LOST)
@@ -103,7 +106,9 @@ class NetworkConnectivityObserver(
         // Said at once: the callbacks say nothing at all while there is no network, so a start
         // with none was taken for online, and the wait for the network gave up and never came
         // back when it arrived.
-        _networkStatus.trySend(onlineNow())
+        val onlineAtStart = onlineNow()
+        NetworkPatience.online = onlineAtStart
+        _networkStatus.trySend(onlineAtStart)
         val request = NetworkRequest.Builder()
             .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
             .build()
@@ -116,10 +121,10 @@ class NetworkConnectivityObserver(
 
     private fun weakOf(caps: NetworkCapabilities): Boolean {
         val signal = if (Build.VERSION.SDK_INT >= 29) caps.signalStrength.takeIf { it != NetworkCapabilities.SIGNAL_STRENGTH_UNSPECIFIED } else null
+        // Mobile data as such is not weak (NetworkPatience.isWeak): only a slow link or a Wi-Fi signal at the edge.
         return NetworkPatience.isWeak(
             downstreamKbps = caps.linkDownstreamBandwidthKbps.takeIf { it > 0 },
             signalDbm = signal,
-            metered = !caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED),
         )
     }
 

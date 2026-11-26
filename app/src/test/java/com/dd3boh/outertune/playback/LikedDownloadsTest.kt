@@ -49,6 +49,19 @@ class LikedDownloadsTest {
         assertTrue(listener.contains("if (download.state == Download.STATE_FAILED || download.state == Download.STATE_REMOVING) {\n                        forgetLikedDownload(download.request.id)\n"))
     }
 
+    /**
+     * 26 Nov 2026 (the whole-app scan): a liked song the setting had downloaded, then downloaded by
+     * hand with a playlist's Download, stayed the setting's, since downloadSong returned for a song
+     * already there before it handed it over; unliking it later deleted it. Asked for by hand, a
+     * song already downloaded or already in a download folder is the person's.
+     */
+    @Test
+    fun `a song already downloaded and asked for by hand becomes the person's`() {
+        val download = util.substringAfter("private fun downloadSong(id: String, title: String, byLikes: Boolean = false): Boolean {")
+        assertTrue(download, "if (!isNotDownloaded(id)) {\n            if (!byLikes) forgetLikedDownload(id)\n            return true\n        }" in download)
+        assertTrue(download, "if (keepFolderFile(id, title, look = false)) {\n            if (!byLikes) forgetLikedDownload(id)\n            return true\n        }" in download)
+    }
+
     @Test
     fun `every way of taking back a like asks, behind the flag and the switch`() {
         assertTrue("unlikeRemovesDownloads(songs.filter { !it.liked })" in util)

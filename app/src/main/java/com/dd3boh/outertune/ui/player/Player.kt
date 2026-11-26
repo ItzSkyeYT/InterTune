@@ -282,6 +282,9 @@ import com.dd3boh.outertune.ui.component.button.ResizableIconButton
 import com.dd3boh.outertune.ui.component.dismissedAnchor
 import com.dd3boh.outertune.ui.component.rememberBottomSheetState
 import com.dd3boh.outertune.ui.menu.PlayerMenu
+import com.dd3boh.outertune.ui.screens.walkthrough.Tour
+import com.dd3boh.outertune.ui.screens.walkthrough.TourTargets
+import com.dd3boh.outertune.ui.screens.walkthrough.tourTarget
 import com.dd3boh.outertune.ui.theme.extractGradientColors
 import com.dd3boh.outertune.ui.utils.SnapLayoutInfoProvider
 import com.dd3boh.outertune.ui.utils.readingDirection
@@ -1021,6 +1024,13 @@ fun BottomSheetPlayer(
     ) {
         Log.v(TAG, "PLR-3.1")
 
+        // For the tour, whose AirPlay stop points at the cast button by the title: the player says it
+        // is up as a screen does (Tour.ROUTE_NOW_PLAYING), from the moment it starts to open.
+        DisposableEffect(Unit) {
+            TourTargets.screenArrived(Tour.ROUTE_NOW_PLAYING)
+            onDispose { TourTargets.screenLeft(Tour.ROUTE_NOW_PLAYING) }
+        }
+
         val lol: @Composable BoxScope.() -> Unit = {
             /**
              * Landscape gets a tighter gutter and a larger type scale. In landscape the controls
@@ -1113,13 +1123,17 @@ fun BottomSheetPlayer(
                 }
             }
 
+            // The small Classic player's one row (queue, timer, like, menu) has no cast button, pinned or not: its menu
+            // offers Cast then, or the cast sheet could not be opened from the player there (26 Nov 2026).
+            var castOffScreen by remember { mutableStateOf(false) }
             val showPlayerMenu: () -> Unit = {
                 menuState.show {
                     PlayerMenu(
                         mediaMetadata = mediaMetadata,
                         navController = navController,
                         playerBottomSheetState = state,
-                        onDismiss = menuState::dismiss
+                        onDismiss = menuState::dismiss,
+                        castOffScreen = castOffScreen,
                     )
                 }
             }
@@ -1351,6 +1365,7 @@ fun BottomSheetPlayer(
                             onClick = { pinActions.run(pin) },
                             backdrop = buttonBackdrop,
                             glassIntensity = glassIntensity,
+                            modifier = if (pin == PlayerPin.CAST) Modifier.tourTarget(Tour.PLAYER_CAST) else Modifier,
                         )
                     }
                 }
@@ -1559,6 +1574,7 @@ fun BottomSheetPlayer(
                                     backdrop = buttonBackdrop,
                                     glassIntensity = glassIntensity,
                                     onClick = { pinActions.run(pin) },
+                                    modifier = if (pin == PlayerPin.CAST) Modifier.tourTarget(Tour.PLAYER_CAST) else Modifier,
                                 )
                             }
                         } }
@@ -2170,6 +2186,7 @@ fun BottomSheetPlayer(
                                     .align(Alignment.TopEnd)
                                     .windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Top))
                                     .padding(end = 4.dp)
+                                    .tourTarget(Tour.PLAYER_CAST)
                             )
                         }
                     } }
@@ -2196,6 +2213,10 @@ fun BottomSheetPlayer(
                                     horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
                                     modifier = Modifier.fillMaxSize()
                                 ) {
+                                    DisposableEffect(Unit) {
+                                        castOffScreen = true
+                                        onDispose { castOffScreen = false }
+                                    }
                                     queueCircle()
                                     timerCircle()
                                     likeCircle()
@@ -2761,6 +2782,8 @@ private fun PlayerCircleButton(
     on: Boolean? = null,
     /** What a tap feels like under the Vibration setting's Strong (Haptics): a like's own, else as [buttonFeel] says of [on]. */
     tap: Feel = buttonFeel(turnsOff = on),
+    /** On the circle itself: the tour's mark, for the cast button (Tour.PLAYER_CAST). */
+    modifier: Modifier = Modifier,
 ) {
     val haptic = LocalHapticFeedback.current
     // A long press says the button's own name (LongPressLabel), nothing shown otherwise. The label's box
@@ -2768,7 +2791,7 @@ private fun PlayerCircleButton(
     OptionalLongPressLabel(contentDescription, Modifier.offset(y = 5.dp)) {
         Box(
             contentAlignment = Alignment.Center,
-            modifier = Modifier
+            modifier = modifier
                 .size(36.dp)
                 .clip(CircleShape)
                 .background(container)
@@ -2811,6 +2834,8 @@ private fun PlayerActionSegment(
     tap: Feel = buttonFeel(turnsOff = on),
     /** A round button of its own, as high as it is wide: the room's beside the buttons by the title. */
     circle: Boolean = false,
+    /** On the segment itself: the tour's mark, for the cast button (Tour.PLAYER_CAST). */
+    modifier: Modifier = Modifier,
 ) {
     val haptic = LocalHapticFeedback.current
     // A long press says the button's own name (LongPressLabel), nothing shown otherwise.
@@ -2818,7 +2843,7 @@ private fun PlayerActionSegment(
         Row(
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier
+            modifier = modifier
                 .then(if (circle) Modifier.size(40.dp) else Modifier.height(40.dp).widthIn(min = width))
                 .clip(shape)
                 .then(

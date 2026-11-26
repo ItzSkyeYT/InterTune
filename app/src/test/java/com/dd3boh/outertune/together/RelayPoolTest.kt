@@ -190,4 +190,38 @@ class RelayPoolTest {
         pool.stop()
         job.cancel()
     }
+
+    @Test
+    fun `a relay that had stayed up starts its waits again from a second when it drops`() {
+        // The waits: a second, doubling, half a minute at most.
+        assertEquals(listOf(1_000L, 2_000L, 4_000L, 8_000L, 16_000L, 30_000L, 30_000L), (0..6).map(RelayRetry::waitMs))
+        // A connection that never opened, or opened a moment before, keeps its count.
+        assertEquals(5, RelayRetry.attemptAfter(5, openedAt = null, now = 100_000L))
+        assertEquals(5, RelayRetry.attemptAfter(5, openedAt = 90_000L, now = 100_000L))
+        // One that stayed up a while counts as a first try again.
+        assertEquals(0, RelayRetry.attemptAfter(5, openedAt = 60_000L, now = 100_000L))
+    }
+
+    @Test
+    fun `after a failed try a relay that then stayed up is asked again within a second of its next drop`() {
+        var now = 0L
+        val relays = Relays()
+        val job = SupervisorJob()
+        val pool = RelayPool(listOf("wss://one.example"), buildJsonObject {}, relays, CoroutineScope(job + Dispatchers.Default), clock = { now })
+        pool.start()
+        // The first try fails before it opens: the next one waits a second.
+        val (first, firstListener) = relays.made.single()
+        firstListener.onFailure(first, IOException("no network"), null)
+        Thread.sleep(1_600)
+        assertEquals(2, relays.made.size)
+        // That one opens and stays up a minute, then drops: asked again after a second, not after the two its count says.
+        val (second, secondListener) = relays.made[1]
+        secondListener.onOpen(second, opened(second))
+        now += 60_000L
+        secondListener.onFailure(second, IOException("gone"), null)
+        Thread.sleep(1_600)
+        assertEquals("a relay that had stayed up waited as after a failed try", 3, relays.made.size)
+        pool.stop()
+        job.cancel()
+    }
 }

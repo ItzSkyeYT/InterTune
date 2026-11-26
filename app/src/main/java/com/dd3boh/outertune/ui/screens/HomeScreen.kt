@@ -165,6 +165,7 @@ import com.dd3boh.outertune.ui.menu.YouTubeArtistMenu
 import com.dd3boh.outertune.ui.menu.YouTubePlaylistMenu
 import com.dd3boh.outertune.ui.menu.YouTubeSongMenu
 import com.dd3boh.outertune.ui.utils.SnapLayoutInfoProvider
+import com.dd3boh.outertune.ui.utils.OpensOnScreen
 import com.dd3boh.outertune.utils.rememberEnumPreference
 import com.dd3boh.outertune.utils.rememberPreference
 import com.dd3boh.outertune.viewmodels.HomeViewModel
@@ -183,6 +184,7 @@ import kotlin.random.Random
 import com.dd3boh.outertune.ui.screens.recap.RecapBanner
 import com.dd3boh.outertune.ui.screens.recap.rememberRecapOnHome
 import com.dd3boh.outertune.ui.screens.walkthrough.Tour
+import com.dd3boh.outertune.ui.screens.walkthrough.TourInSheet
 import com.dd3boh.outertune.ui.screens.walkthrough.WelcomeBanner
 import com.dd3boh.outertune.ui.screens.walkthrough.WelcomeCard
 import com.dd3boh.outertune.ui.screens.walkthrough.tourTarget
@@ -244,7 +246,12 @@ fun HomeScreen(
     // Listen together from Home too, beside Account: the player's menu is two taps further and
     // needs a song playing to be found (his word of 17 Oct 2026).
     var showTogether by rememberSaveable { mutableStateOf(false) }
-    if (showTogether) TogetherSheet(onDismiss = { showTogether = false })
+    // Opened by a tap, and by Listen together's Show me on the What's new page: its second stop is
+    // Start a room, in this sheet, which the tour opens here as a tap on the tile would (TourInSheet).
+    // That one comes from an effect, so the sheet waits for the app to be on screen (#197).
+    if (showTogether) OpensOnScreen { TogetherSheet(onDismiss = { showTogether = false }) }
+    val tourAtSheet = TourInSheet.stop?.route == Tour.ROUTE_TOGETHER_SHEET
+    LaunchedEffect(tourAtSheet) { if (tourAtSheet) showTogether = true }
 
     val isPlaying by playerConnection.isPlaying.collectAsState()
     val mediaMetadata by playerConnection.mediaMetadata.collectAsState()
@@ -701,7 +708,7 @@ fun HomeScreen(
                             title = stringResource(R.string.together_title),
                             icon = Icons.Rounded.Group,
                             onClick = { showTogether = true },
-                            modifier = tile,
+                            modifier = tile.tourTarget(Tour.HOME_TOGETHER),
                             beside = tilesBeside,
                             titleSize = titleSize,
                         )

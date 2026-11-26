@@ -64,10 +64,20 @@ class DownloadRemoveGoneTest {
     }
 
     @Test
+    fun `a note for a burst is said once, then again after the gap`() {
+        val note = com.dd3boh.outertune.playback.downloadManager.OnceInAWhile(10_000)
+        assertTrue(note.due(1_000_000))
+        assertFalse("the album's next song, a second later", note.due(1_001_000))
+        assertFalse(note.due(1_009_999))
+        assertTrue("ten seconds on, a new removal is told again", note.due(1_010_000))
+    }
+
+    @Test
     fun `a song's download is over when its file went or was gone, and at no other time`() {
         assertTrue(FileRemoval.DELETED.over)
         assertTrue(FileRemoval.GONE.over)
-        assertFalse("nothing was tried: no file known, or one in an extra folder, which is never changed", FileRemoval.NOT_HERE.over)
+        assertFalse("nothing was tried: no file known", FileRemoval.NOT_HERE.over)
+        assertFalse("nothing was tried: a file in an extra folder, which is never changed", FileRemoval.READ_ONLY.over)
         assertFalse("the file is still there", FileRemoval.REFUSED.over)
     }
 }

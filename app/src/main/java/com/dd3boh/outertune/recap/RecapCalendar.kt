@@ -57,6 +57,18 @@ object RecapCalendar {
     }
 
     /**
+     * The year to write down as the pop-up's when the Recap of [opened] was opened another way on
+     * [today] (its notification, a banner): the one on show, when that is the Recap opened, so the
+     * pop-up does not bring up by itself what was just watched. Null for last year's Recap, whose
+     * pop-up says nothing about this year's, and before any is on show: a look from the developer
+     * options before the reveal day is not the reveal.
+     */
+    fun popUpShownBy(today: LocalDate, opened: Int, revealedEarly: Boolean = false): Int? {
+        val year = yearOnShow(today, revealedEarly) ?: return null
+        return year.takeIf { opened >= it }
+    }
+
+    /**
      * Whether the banner also stands at the top of Home on [today]: from the reveal day until
      * [POP_UP_UNTIL] of the next year, opened or not. A year-long banner on Home would go stale;
      * the one in Settings stays the whole year.

@@ -187,8 +187,10 @@ class WelcomeBackTest {
 
     @Test
     fun `asked for from Settings, it lists everything whoever asks`() {
-        assertEquals(ids(NEW_THINGS), ids(newThingsFor(0, buildVersionCode = v011, everything = true)))
-        assertEquals(ids(NEW_THINGS), ids(newThingsFor(v0115, buildVersionCode = v0115, everything = true)))
+        // Everything listed: a release's smaller things kept off its page (listed = false) are off this one too.
+        val listed = NEW_THINGS.filter { it.listed }
+        assertEquals(ids(listed), ids(newThingsFor(0, buildVersionCode = v011, everything = true)))
+        assertEquals(ids(listed), ids(newThingsFor(v0115, buildVersionCode = v0115, everything = true)))
     }
 
     // What is not there on this install
@@ -203,7 +205,7 @@ class WelcomeBackTest {
         // Nor in the list asked for from Settings, where "Show me" would lead nowhere just the
         // same, and it is the only thing that goes.
         val everything = newThingsFor(0, buildVersionCode = v0115, everything = true, install = noChips)
-        assertEquals(ids(NEW_THINGS) - "quick_picks", ids(everything))
+        assertEquals(ids(NEW_THINGS.filter { it.listed }) - "quick_picks", ids(everything))
     }
 
     @Test
@@ -250,8 +252,8 @@ class WelcomeBackTest {
 
     @Test
     fun `a setting is reached the way somebody would go there, through the row it is under`() {
-        val insideSettings = NEW_THINGS.filter { thing -> thing.stops.any { it.route != null } }
-        assertEquals(listOf("listenbrainz", "vibration", "metrolist_import", "file_format", "block_artist", "liked_sync", "album_goes_on", "animations", "downloads_move", "report_send", "backup_parts", "player_pins", "settings_search", "battery_use", "share_links", "radios", "living_blur", "sleep_schedule", "content_filters", "equalizer", "resume_bluetooth", "library_import", "explain_pictures", "problem_report", "spatial_audio"), ids(insideSettings))
+        val insideSettings = NEW_THINGS.filter { thing -> thing.stops.isNotEmpty() && thing.stops.all { it.route?.startsWith(Tour.ROUTE_SETTINGS) == true } }
+        assertEquals(listOf("listenbrainz", "file_format", "block_artist", "varispeed", "vibration", "metrolist_import", "liked_sync", "album_goes_on", "animations", "downloads_move", "report_send", "backup_parts", "player_pins", "settings_search", "battery_use", "share_links", "radios", "living_blur", "sleep_schedule", "content_filters", "equalizer", "resume_bluetooth", "library_import", "explain_pictures", "problem_report", "spatial_audio"), ids(insideSettings))
         // What is on the list of settings itself is pointed at there, and there is nothing to go
         // into: the search over the list, and Battery use, a row of its own on it.
         val onTheList = listOf("settings_search", "battery_use")
@@ -443,23 +445,19 @@ class WelcomeBackTest {
         assertTrue(newThingsFor(v0125, buildVersionCode = v0129).none { it.release == "0.13" })
         assertTrue(newThingsFor(v0125, buildVersionCode = v01210).none { it.release == "0.13" })
         val things = newThingsFor(v0129, buildVersionCode = v013)
-        // The headline features first (21 Nov 2026, the release inventory), then his eight of 8 Nov 2026, then the four
-        // merged since (drafted 12 Nov for his yes): Stats' plays, swiping out of the queue with Undo, the move to a
-        // chosen folder, original audio.
+        // The headline features alone, in his order of 26 Nov 2026, each with a Show me (WhatsNew013Test holds the rest).
         assertEquals(
-            listOf("together", "airplay", "listenbrainz", "vibration", "metrolist_import", "custom_order", "file_format",
-                "block_artist", "dont_play", "saved_twice", "sleep_timer_more", "liked_sync", "album_goes_on", "recognise_offline", "animations",
-                "stats_plays", "queue_swipe_undo", "downloads_move", "original_audio"),
+            listOf("together", "airplay", "listenbrainz", "file_format", "block_artist", "custom_order", "varispeed",
+                "vibration", "metrolist_import"),
             ids(things),
         )
         // A phone without rooms (before Android 8) is not told about them.
         assertTrue(newThingsFor(v0129, buildVersionCode = v013, install = Install(rooms = false)).none { it.id == "together" })
-        // 0.12.10, fixes only, took 102: whoever had a tour on it is owed the same nineteen.
+        // 0.12.10, fixes only, took 102: whoever had a tour on it is owed the same nine.
         assertEquals(ids(things), ids(newThingsFor(v01210, buildVersionCode = v013)))
         assertEquals("0.13", releaseAt(v013))
         assertEquals("0.12.8", releaseAt(v01210))
-        // The card on Home counts the nine that have somewhere to show in Settings; the ten that
-        // live on Home, in the player, the queue, menus and lists are read on the page.
+        // The card on Home counts all nine: each has somewhere to show, in Settings or out of it.
         assertEquals(WelcomeCard(count = 9, since = "0.12.8"), welcomeCardFor(seenVersionCode = v0129, buildVersionCode = v013, enabled = true))
         assertEquals(WelcomeCard(count = 9, since = "0.12.8"), welcomeCardFor(seenVersionCode = v01210, buildVersionCode = v013, enabled = true))
     }

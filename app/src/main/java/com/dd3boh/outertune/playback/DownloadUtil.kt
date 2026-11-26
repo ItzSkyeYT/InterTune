@@ -73,6 +73,7 @@ import com.dd3boh.outertune.playback.downloadManager.ExportResult
 import com.dd3boh.outertune.playback.downloadManager.ExportSkip
 import com.dd3boh.outertune.playback.downloadManager.ExportSources
 import com.dd3boh.outertune.playback.downloadManager.FileRemoval
+import com.dd3boh.outertune.playback.downloadManager.OnceInAWhile
 import com.dd3boh.outertune.playback.downloadManager.HeldWhilePlaying
 import com.dd3boh.outertune.playback.downloadManager.MoveNotice
 import com.dd3boh.outertune.playback.downloadManager.SkipReason
@@ -1054,12 +1055,20 @@ class DownloadUtil @Inject constructor(
      */
     private fun downloadSong(id: String, title: String, byLikes: Boolean = false): Boolean {
         // Already landed or in flight, which the map shows without any help from here. Not the
-        // liked-songs setting's then, even when it asks: it was there before it.
-        if (!isNotDownloaded(id)) return true
+        // liked-songs setting's then, even when it asks: it was there before it. Asked for by hand
+        // (a playlist's or an album's Download), it is the person's from now on, even one the
+        // setting fetched: taking back its like keeps it, as the switch's line says (26 Nov 2026).
+        if (!isNotDownloaded(id)) {
+            if (!byLikes) forgetLikedDownload(id)
+            return true
+        }
         // A file of the song in a download folder already: recorded, not fetched again and written
         // a second time beside itself. The folder's list only, read from memory: this runs on the
         // main thread for a button (keepFolderFile).
-        if (keepFolderFile(id, title, look = false)) return true
+        if (keepFolderFile(id, title, look = false)) {
+            if (!byLikes) forgetLikedDownload(id)
+            return true
+        }
         val downloadRequest = DownloadRequest.Builder(id, id.toUri())
             .setCustomCacheKey(id)
             .setData(title.toByteArray())
@@ -1159,6 +1168,8 @@ class DownloadUtil @Inject constructor(
     // download menu is a Compose onClick handler: a few hundred songs kept in a download folder
     // froze the UI for the whole loop and could show an ANR. Fired on dlCoroutine instead, so the
     // caller returns at once.
+    private val readOnlyNote = OnceInAWhile(10_000)
+
     private fun deleteSong(id: String) {
         CoroutineScope(dlCoroutine).launch {
             val removal = localMgr.deleteFile(id)
@@ -1167,6 +1178,11 @@ class DownloadUtil @Inject constructor(
             // dlCoroutine is not (ToastOnMainThreadTest).
             if (removal == FileRemoval.REFUSED) {
                 withContext(Dispatchers.Main) { Toaster.show(context, R.string.remove_download_refused, Toast.LENGTH_LONG) }
+            }
+            // A file in an extra import folder stays, as that folder is only read: said once for a
+            // whole album's removal, with where to remove it instead.
+            if (removal == FileRemoval.READ_ONLY && readOnlyNote.due(System.currentTimeMillis())) {
+                withContext(Dispatchers.Main) { Toaster.show(context, R.string.remove_download_read_only, Toast.LENGTH_LONG) }
             }
             // A file gone already (deleted in a file manager) ends the song's download as a deleted
             // one does. It used to give up here and leave the song listed with its download state

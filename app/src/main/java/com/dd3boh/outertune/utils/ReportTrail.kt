@@ -157,6 +157,7 @@ class ReportTrail(
         HANDED_ON_HERE("handed the room on and left it"),
         HANDED_ON("the room's host left and handed it on"),
         HANDED_HERE("the room's host left and handed it to this phone"),
+        NOBODY_TOOK("nobody took the room as its host left, so it was closed"),
         SENT_OUT("sent out of the room by its host"),
         MOVED("the room moved to a new code"),
         HOST_AWAY("the room's host went quiet"),

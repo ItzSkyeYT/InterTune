@@ -168,6 +168,8 @@ fun PlayerMenu(
      * leaves it out: the heart is on the player beside it.
      */
     songHeader: Boolean = false,
+    /** The player's cast button, pinned or not, is not on screen: the small Classic player's one row has none. */
+    castOffScreen: Boolean = false,
 ) {
     mediaMetadata ?: return
     val context = LocalContext.current
@@ -182,7 +184,7 @@ fun PlayerMenu(
     val buttonsStyle by rememberEnumPreference(PlayerButtonsStyleKey, defaultValue = PlayerButtonsStyle.CLASSIC)
     val pinsRaw by rememberPreference(PlayerPinsKey, "")
     val castPlaces = if (buttonsStyle == PlayerButtonsStyle.CLASSIC) listOf(PinPlace.CLASSIC) else listOf(PinPlace.CONNECTED_TITLE, PinPlace.CONNECTED_ROW)
-    val castInMenu = !songHeader && !PlayerPins.castPinned(PlayerPins.read(pinsRaw), castPlaces)
+    val castInMenu = !songHeader && (castOffScreen || !PlayerPins.castPinned(PlayerPins.read(pinsRaw), castPlaces))
     val castLook = if (castInMenu) rememberCastLook() else null
 
     val playerConnection = LocalPlayerConnection.current ?: return

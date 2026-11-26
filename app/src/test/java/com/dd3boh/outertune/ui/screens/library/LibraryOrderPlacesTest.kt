@@ -51,7 +51,7 @@ class LibraryOrderPlacesTest {
         assertTrue("LibraryOrder.playlistIds(LibraryOrder.saved(it[LibraryCustomOrderKey], it[PlaylistCustomOrderKey]))" in models)
         assertTrue("if (sortType == LibrarySortType.CUSTOM) LibraryOrder.saved(it[LibraryCustomOrderKey], it[PlaylistCustomOrderKey])" in models)
         assertTrue("a drag under Playlists keeps the albums and artists in place", "LibraryOrder.refill(saved, ids.map { id -> LibraryOrder.PLAYLIST + id })" in models)
-        assertTrue("it[LibraryCustomOrderKey] = PlaylistOrder.encode(keys)" in models)
+        assertTrue("it[LibraryCustomOrderKey] = PlaylistOrder.encode(LibraryOrder.refill(saved, keys) { true })" in models)
         assertTrue("PlaylistOrder.apply(it, LibraryOrder.playlistIds(LibraryOrder.saved(libraryOrder, customOrder)))" in code("ui/dialog/AddToPlaylistDialog.kt"))
     }
 }

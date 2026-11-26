@@ -59,6 +59,11 @@ class MenuChoicesTest {
         assertEquals("action_download", MenuChoices.entryName("action_download"))
         assertEquals("action_download", MenuChoices.entryName("remove_download"))
         assertEquals("action_download", MenuChoices.entryName("downloading"))
+        // 26 Nov 2026 (the whole-app scan): these came back in their other state, hidden or not.
+        assertEquals("action_download", MenuChoices.entryName("cancel_download"))
+        assertEquals("action_like_all", MenuChoices.entryName("action_remove_like_all"))
+        assertEquals("queue_learn_on", MenuChoices.entryName("queue_learn_off"))
+        assertEquals("view_artist", MenuChoices.entryName("no_artist_found"))
         assertEquals("add_to_library", MenuChoices.entryName("remove_from_library"))
         assertEquals("add_all_to_library", MenuChoices.entryName("remove_all_from_library"))
         assertEquals("menu_dont_play_song", MenuChoices.entryName("menu_dont_play_lift"))

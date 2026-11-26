@@ -40,12 +40,19 @@ object MenuChoices {
 
     /**
      * Entries whose text follows a state, under the name of their other state, so that hiding one hides the
-     * entry whatever it says: Download is also Remove download and Downloading, Add to library is also
-     * Remove from library, Don't play this song is also Allow this song again, Dislike and Remove dislike.
+     * entry whatever it says: Download is also Remove download, Downloading and Cancel download, Add to
+     * library is also Remove from library, Don't play this song is also Allow this song again, Dislike and
+     * Remove dislike, Like all is also Remove like from all, View artist is also No artist found.
      */
     private val SAME_ENTRY = mapOf(
         "remove_download" to "action_download",
         "downloading" to "action_download",
+        // The plainer words of the Storage page's look C (DownloadsSimpleLook): a song downloading says Cancel download.
+        "cancel_download" to "action_download",
+        "action_remove_like_all" to "action_like_all",
+        "queue_learn_off" to "queue_learn_on",
+        // View artist, greyed as No artist found for a song with no artist.
+        "no_artist_found" to "view_artist",
         "remove_from_library" to "add_to_library",
         "remove_all_from_library" to "add_all_to_library",
         "menu_dont_play_lift" to "menu_dont_play_song",
