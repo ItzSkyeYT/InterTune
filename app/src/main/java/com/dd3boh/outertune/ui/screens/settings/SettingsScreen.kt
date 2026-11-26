@@ -157,7 +157,6 @@ fun SettingsScreen(
             PreferenceEntry(
                 modifier = Modifier.tourTarget(Tour.ROW_LIBRARY),
                 title = { Text(stringResource(R.string.grp_library_and_content)) },
-                description = stringResource(R.string.settings_library_description),
                 icon = { Icon(Icons.AutoMirrored.Rounded.LibraryBooks, null) },
                 onClick = { navController.navigate("settings/library") }
             )
@@ -280,7 +279,6 @@ fun SettingsScreen(
             }
             PreferenceEntry(
                 title = { Text(stringResource(R.string.advanced)) },
-                description = stringResource(R.string.settings_advanced_description),
                 icon = { Icon(Icons.Rounded.Tune, null) },
                 onClick = { navController.navigate("settings/advanced") }
             )
