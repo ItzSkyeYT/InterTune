@@ -1,0 +1,20 @@
+<!-- The notification's repeat button when repeat is on, as the player draws it: a lit rounded box
+     (corner 12/38 of its side) with the glyph cut out of it, the glyph 32/38 of the box. White so the
+     system tints it. The group scales the glyph about the centre; the box is drawn larger by the
+     inverse, so it comes out filling the icon. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="960"
+    android:viewportHeight="960">
+    <group
+        android:pivotX="480"
+        android:pivotY="480"
+        android:scaleX="0.84211"
+        android:scaleY="0.84211">
+        <path
+            android:fillColor="@android:color/white"
+            android:fillType="evenOdd"
+            android:pathData="M270.0,-90.0L690.0,-90.0A360.0,360.0 0 0 1 1050.0,270.0L1050.0,690.0A360.0,360.0 0 0 1 690.0,1050.0L270.0,1050.0A360.0,360.0 0 0 1 -90.0,690.0L-90.0,270.0A360.0,360.0 0 0 1 270.0,-90.0ZM460,600v-180h-60v-60h120v240h-60ZM280,880 L120,720l160,-160 56,58 -62,62h406v-160h80v240L274,760l62,62 -56,58ZM200,440v-240h486l-62,-62 56,-58 160,160 -160,160 -56,-58 62,-62L280,280v160h-80Z" />
+    </group>
+</vector>
