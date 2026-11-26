@@ -55,7 +55,8 @@ fun <T> turnEach(items: List<T>, isNow: (T) -> Boolean, turn: (T) -> Unit): List
 /**
  * Liked songs: the heart, tapped off, through the function the player's heart and the widget's use
  * ([turnLike]): the row stored without its like and the unlike sent to YouTube Music when the app
- * may write to the account. Undo taps it on again the same way.
+ * may write to the account. Undo taps it on again the same way. Unlike the heart, it keeps the
+ * copy's download even with "Remove the download with the like" on: nothing here leaves the phone.
  */
 private class LikedShelf(private val database: MusicDatabase, private val downloadUtil: DownloadUtil) : SavedTwiceShelf {
 
@@ -65,7 +66,7 @@ private class LikedShelf(private val database: MusicDatabase, private val downlo
     }
 
     private fun heart(ids: List<String>, likedNow: Boolean): List<String> =
-        turnEach(ids, isNow = { database.songRow(it)?.liked == likedNow }) { database.turnLike(it, downloadUtil) }
+        turnEach(ids, isNow = { database.songRow(it)?.liked == likedNow }) { database.turnLike(it, downloadUtil, keepDownloads = true) }
 }
 
 /**

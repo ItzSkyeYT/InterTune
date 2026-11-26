@@ -177,7 +177,7 @@ class SavedTwiceShelfTest {
     @Test
     fun `out of Liked goes the way the heart goes, and Undo taps it on again`() {
         val liked = shelfClass("LikedShelf")
-        assertTrue("taken out with the player's heart", "database.turnLike(it, downloadUtil)" in liked)
+        assertTrue("taken out with the player's heart, its downloads kept", "database.turnLike(it, downloadUtil, keepDownloads = true)" in liked)
         // Both ways the same toggle, guarded by the like as it is now.
         assertTrue("liked now, so the heart takes it off", "heart(copies.map { it.songId }.distinct(), likedNow = true)" in liked)
         assertTrue("not liked now, so Undo puts it on", "heart(taken, likedNow = false)" in liked)
@@ -227,5 +227,8 @@ class SavedTwiceShelfTest {
                 assertFalse("$path calls $call", call in text)
             }
         }
+        // Nor through the heart: with "Remove the download with the like" on, taking a copy out of
+        // Liked deleted its download, the setting's own, while the screen said nothing goes (26 Nov 2026).
+        assertTrue(code("playback/SongLike.kt"), "if (song.liked || !keepDownloads) downloadUtil.autoDownloadOnLike(song)" in code("playback/SongLike.kt"))
     }
 }
