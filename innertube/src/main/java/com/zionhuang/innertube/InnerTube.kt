@@ -141,13 +141,14 @@ class InnerTube {
             requestTimeoutMillis = NetworkPatience.requestTimeoutMs(false)
         }
 
-        // A weak connection is not a dead one: a request that never got through is asked again,
-        // twice, with a growing pause (NetworkPatience), before anything calls YouTube unreachable.
+        // A weak connection is not a dead one: a request refused or whose name was not found is asked
+        // again, twice, with a growing pause (NetworkPatience), before anything calls YouTube
+        // unreachable; never offline, after a wait that ran out, or for the request that starts a song.
         // The longer waits of a weak network are set on each request, in ytClient.
         install(HttpRequestRetry) {
             maxRetries = NetworkPatience.MAX_RETRIES
             retryOnExceptionIf { request, cause ->
-                NetworkPatience.shouldRetry(cause, request.url.encodedPath, retryCount)
+                NetworkPatience.shouldRetry(cause, request.url.encodedPath)
             }
             delayMillis { retry -> NetworkPatience.backoffMs(retry) }
         }
