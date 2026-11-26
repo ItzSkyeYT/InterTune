@@ -407,8 +407,9 @@ interface ListenDao {
         SELECT listen.id, song.title, listen.endReason, listen.origin, listen.originSlot, listen.ratio,
                listen.playedMs, listen.endedAt, listen.counted, listen.autoplayDepth, listen.learn
         FROM listen JOIN song ON song.id = listen.songId
-        ORDER BY listen.endedAt DESC LIMIT :limit
+        ORDER BY CASE WHEN listen.endedAt = 0 THEN 1 ELSE 0 END DESC, listen.endedAt DESC LIMIT :limit
     """)
+    /** The newest listens, the one still going (endedAt 0) first: it came last, as the oldest of all (26 Nov 2026). */
     fun recentListenRows(limit: Int): Flow<List<ListenRow>>
 
     @Query("SELECT duration FROM song WHERE id = :id")

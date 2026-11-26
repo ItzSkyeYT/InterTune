@@ -444,11 +444,15 @@ fun RecommendationsDoingSettings(
                 val afterPick = if (row.autoplayDepth > 0) {
                     pluralStringResource(R.plurals.recommendations_recent_after_pick, row.autoplayDepth, row.autoplayDepth)
                 } else ""
-                val time = timeFormat.format(Date(row.endedAt))
-                val ended = when (listenDay(row.endedAt, now, zone)) {
-                    ListenDay.TODAY -> time
-                    ListenDay.YESTERDAY -> stringResource(R.string.recommendations_recent_yesterday, time)
-                    ListenDay.EARLIER -> stringResource(R.string.recommendations_recent_day_time, dayFormat.format(Date(row.endedAt)), time)
+                // A listen still going has no end yet (endedAt 0): no date, its "in progress" says when. It read
+                // "Jan 1, 1:00 AM", the clock's zero (26 Nov 2026).
+                val ended = if (row.endedAt <= 0L) null else {
+                    val time = timeFormat.format(Date(row.endedAt))
+                    when (listenDay(row.endedAt, now, zone)) {
+                        ListenDay.TODAY -> time
+                        ListenDay.YESTERDAY -> stringResource(R.string.recommendations_recent_yesterday, time)
+                        ListenDay.EARLIER -> stringResource(R.string.recommendations_recent_day_time, dayFormat.format(Date(row.endedAt)), time)
+                    }
                 }
                 PreferenceEntry(
                     title = { Text(row.title) },
@@ -457,7 +461,7 @@ fun RecommendationsDoingSettings(
                     description = heard + origin + afterPick +
                             (if (row.counted) "" else stringResource(R.string.recommendations_recent_not_counted)) +
                             (if (row.learn) "" else stringResource(R.string.recommendations_recent_not_learned)) +
-                            " · " + ended,
+                            (ended?.let { " · $it" } ?: ""),
                     onClick = null,
                 )
             }
