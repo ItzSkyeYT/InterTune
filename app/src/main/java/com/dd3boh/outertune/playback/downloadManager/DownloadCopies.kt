@@ -36,7 +36,9 @@ import java.util.Locale
  * under the name asked: once Edit song has put "hello" right as "Hello", "Hello [id].mka (5)" is
  * the file "hello [id].mka (5)". Two names that [fold] alike may be one file, so such a file is
  * found once, a song holding two such names is left as it is, and a removal never deletes the file
- * a song keeps under another of its names (26 Nov 2026).
+ * a song keeps under another of its names (26 Nov 2026). So in a folder that lists as empty, where
+ * each name is asked, "Song [id].MKA (1)" is the copy "(1)": one name to the phone, that song's
+ * file. A listing gives each name as it is, and there it is not ours (27 Nov 2026).
  */
 object DownloadCopies {
     /**
@@ -75,6 +77,25 @@ object DownloadCopies {
 
     /** The names the [n]th copy of [base]'s download has, each way a clash made one. */
     fun copyNames(base: String, n: Int): List<String> = listOf("$base.mka ($n)", "$base ($n).mka")
+
+    /**
+     * The name a copy has once a song keeps it: its download's own, "<title> [<id>].mka" ([Name.ownName]).
+     * The clean-up names the copy it keeps so, then records it (DownloadCopiesCleanup), and an app ended
+     * between the two leaves the database the copy's old name: the scan then looks under this one
+     * (DownloadDirectoryManagerOt.lookAgain). Null for a name that is no copy.
+     */
+    fun ownNameOf(name: String): String? = parse(name)?.takeIf { it.copy != null }?.ownName
+
+    /**
+     * Of a folder's [names], the files of the songs that have a copy among them: all that [plan] needs,
+     * each then looked at for its size. A folder of thousands of downloads and no copy, as nearly
+     * everyone's is, needs no look at all (a look was about a millisecond a file, at every start).
+     */
+    fun ofSongsWithCopies(names: Collection<String>): Set<String> {
+        val ours = names.mapNotNull { name -> parse(name)?.let { name to it } }
+        val copied = ours.filter { it.second.copy != null }.mapTo(HashSet()) { it.second.id }
+        return ours.filter { it.second.id in copied }.mapTo(LinkedHashSet()) { it.first }
+    }
 
     /**
      * [name] as the phone's storage tells names apart, or a little coarser: letter case aside, "ß" as
@@ -145,6 +166,18 @@ object DownloadCopies {
         val bytes: Long get() = songs.sumOf { song -> song.remove.sumOf { it.size ?: 0L } }
     }
 
+    /** How long the card's Not now keeps it down while the copies stay as they were: a week. */
+    const val PUT_OFF_MS = 7 * 24 * 60 * 60 * 1000L
+
+    /**
+     * Whether the card says the [files] extra copies a look found, Not now having been tapped on [putOff] of
+     * them at [putOffAt] (0 when never): at once when there are more than those, and again a week after Not now
+     * while any are left (his word of 27 Nov 2026). Not now used to keep it down until more came, which for a
+     * folder whose copies no longer grow, as dvd's, was for good. A clock put back before Not now shows it.
+     */
+    fun cardShows(files: Int, putOff: Int, putOffAt: Long, now: Long): Boolean =
+        files > 0 && (files > putOff || now - putOffAt !in 0 until PUT_OFF_MS)
+
     /**
      * What to do with [files], a download folder's, given [recorded]: the name of each song's file as
      * the app's database has it, for the songs whose file it has in this folder.
@@ -207,6 +240,11 @@ object DownloadCopies {
      * phone's storage may take for its own ([mayBeOneFile]: there, deleting "Hello [id].mka (5)"
      * deletes "hello [id].mka (5)"). It is looked at again after each copy deleted, and should one have
      * taken it all the same, the removal stops there: the song's other copies stay.
+     *
+     * The highest numbers go first, its download last: a removal the app ends leaves each song's copies
+     * from (1) up, which a folder that lists as empty gives up again by name ([lookFor] stops [MISSES]
+     * numbers past the last one there). Deleted from (1) up, the copies left past a gap of three were
+     * never found again (27 Nov 2026).
      */
     fun remove(song: Song, lookAt: (String) -> File?, delete: (String) -> Boolean, step: () -> Unit): Removal? {
         fun keptThere() = lookAt(song.keep.key).let { it != null && it.name == song.keep.name && it.size != 0L }
@@ -217,7 +255,7 @@ object DownloadCopies {
         var files = 0
         var bytes = 0L
         var allGone = true
-        for ((i, copy) in song.remove.withIndex()) {
+        for ((i, copy) in song.remove.sortedByDescending { parse(it.name)?.copy ?: 0 }.withIndex()) {
             if (copy.key == song.keep.key || mayBeOneFile(copy.name, song.keep.name)) {
                 // The file kept itself: never.
                 allGone = false

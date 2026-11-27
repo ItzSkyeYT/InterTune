@@ -30,8 +30,8 @@ class DownloadCopiesWiringTest {
     private fun body(text: String, start: String) = text.substringAfter(start).substringBefore("\n    }\n")
 
     @Test
-    fun `the cleanup is held back for the debug app, the Preview and the Tester app`() {
-        assertTrue(flags.contains("val DOWNLOAD_COPIES_CLEANUP = BuildConfig.PREVIEW_FEATURES"))
+    fun `the cleanup is in every build, and nothing is looked for or shown but under its flag`() {
+        assertTrue(flags.contains("val DOWNLOAD_COPIES_CLEANUP = true"))
         assertTrue("nothing is looked for without it", cleanup.contains("if (!Unreleased.DOWNLOAD_COPIES_CLEANUP || _state.value is State.Removing) return"))
         assertTrue("and no card", note.contains("if (!Unreleased.DOWNLOAD_COPIES_CLEANUP) return"))
         val start = util.substringAfter("firstListing.countDown()").substringBefore("dropSongCacheCopiesOfDownloads()")
@@ -90,6 +90,42 @@ class DownloadCopiesWiringTest {
     }
 
     @Test
+    fun `a song whose copy was named back just as the app ended keeps its download at the next start`() {
+        // The copy a song keeps is named back to its download's name, then recorded: an app ended between
+        // the two left the database the copy's old name, and on a phone whose folder lists as empty the
+        // next start's rescan let the song's download go, its file right there (27 Nov 2026).
+        val one = body(cleanup, "private fun removeFrom(")
+        assertTrue("named first, recorded after", one.indexOf("folder.keepFile(song.id, song.keep.key, name)") in 0 until one.indexOf("record(song.id, path)"))
+        val look = folder.substringAfter("fun lookAgain(").substringBefore("private fun adopt(")
+        assertTrue("the scan looks under the name it was given", look.contains("val found = document(uri) ?: namedBack(id, root, path)"))
+        val back = body(folder, "private fun namedBack(")
+        assertTrue("in the main folder only, where the clean-up works", back.contains("if (root.dir !== mainDir) return null"))
+        assertTrue("at its top only", back.contains("if ('/' in relative) return null"))
+        assertTrue("a copy of this very song", back.contains("DownloadCopies.ownNameOf(relative)?.takeIf { DownloadCopies.parse(relative)?.id == id }"))
+    }
+
+    @Test
+    fun `Not now keeps the card down a week while copies are left, and more copies bring it back at once`() {
+        // His word of 27 Nov 2026: it kept the card down until more copies came, for good for dvd's folder.
+        val find = body(cleanup, "suspend fun find() {")
+        assertTrue(find.contains("val shows = DownloadCopies.cardShows(files, putOff, putOffAt, System.currentTimeMillis())"))
+        assertTrue(find.contains("_state.value = if (shows) State.Found(files, found.plan.bytes) else State.None"))
+        val notNow = body(cleanup, "fun notNow() {")
+        assertTrue(notNow.contains("it[DownloadCopiesPutOffKey] = shown.files"))
+        assertTrue(notNow.contains("it[DownloadCopiesPutOffAtKey] = at"))
+        // A look by name in a folder that lists as empty rests 12 hours only when the card would stay down.
+        assertTrue(cleanup.contains("val quiet = !DownloadCopies.cardShows("))
+    }
+
+    @Test
+    fun `the folder's listing looks one file at a time only at the songs with a copy`() {
+        // A look a file, at every start, was about a millisecond for each download of everyone's folder.
+        val listed = body(folder, "fun ourFilesListed(): DownloadCopies.Listed? {")
+        assertTrue(listed.contains("val wanted = DownloadCopies.ofSongsWithCopies(listed.mapNotNull { it.name })"))
+        assertTrue(listed.indexOf("if (name !in wanted) return@mapNotNull null") in 0 until listed.indexOf("described(file.uri)"))
+    }
+
+    @Test
     fun `only the folder the app was given is looked at`() {
         val listed = body(folder, "fun ourFilesListed(): DownloadCopies.Listed? {")
         assertTrue(listed.contains("(mainDir as? TreeDocumentFileOt)?.listFilesOrNull()"))
@@ -108,12 +144,12 @@ class DownloadCopiesWiringTest {
     }
 
     @Test
-    fun `its words are in English and French, held from translators until it ships`() {
+    fun `its words are in English and French, open to translators`() {
         val english = File("src/main/res/values/strings-ot.xml").readText()
         val french = File("src/main/res/values-fr/strings-ot.xml").readText()
         val names = listOf("dl_copies_title", "dl_copies_body", "dl_copies_remove", "dl_copies_not_now", "dl_copies_removing", "dl_copies_removed")
         for (name in names) {
-            assertTrue("$name in English, held", Regex("""<(string|plurals) name="$name" translatable="false">""").containsMatchIn(english))
+            assertTrue("$name in English, open to translators", Regex("""<(string|plurals) name="$name">""").containsMatchIn(english))
             assertTrue("$name in French", Regex("""<(string|plurals) name="$name">""").containsMatchIn(french))
         }
         // Next to the move's words, the closest of the folder's.

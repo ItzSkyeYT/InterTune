@@ -353,7 +353,7 @@ class DownloadDirectoryManagerOt(private var context: Context, private var dir: 
             val root = roots.firstOrNull { path.startsWith(it.path + "/") }
                 ?: return@mapValues if (allDirs.size == roots.size) FolderFileCheck.GONE else FolderFileCheck.UNKNOWN
             val uri = DocumentsContract.buildDocumentUriUsingTree(root.dir.uri, childDocumentId(root.documentId, path.removePrefix(root.path + "/")))
-            val found = document(uri)
+            val found = document(uri) ?: namedBack(id, root, path)
             if (found != null) {
                 adopt(id, found)
                 FolderFileCheck.THERE
@@ -376,6 +376,24 @@ class DownloadDirectoryManagerOt(private var context: Context, private var dir: 
         synchronized(this) {
             availableFiles = availableFiles.filterNot { it.uri == file.uri }.toSet() + file
         }
+    }
+
+    /**
+     * [id]'s download under its own name, "<title> [<id>].mka", for a recorded file of the main folder
+     * that is one of its copies and is not there: the clean-up names the copy a song keeps back to that
+     * name, then records it (DownloadCopiesCleanup), and an app ended between the two left the database
+     * the copy's old name. On a phone whose folder lists as empty the next start then let the song's
+     * download go, its file right there (27 Nov 2026). Null for anything else: another folder, a folder
+     * inside it, a name that is no copy of this song, nothing there.
+     */
+    private fun namedBack(id: String, root: FolderRoot, path: String): TreeDocumentFileOt? {
+        if (root.dir !== mainDir) return null
+        val relative = path.removePrefix(root.path + "/")
+        if ('/' in relative) return null
+        val own = DownloadCopies.ownNameOf(relative)?.takeIf { DownloadCopies.parse(relative)?.id == id } ?: return null
+        val found = document(DocumentsContract.buildDocumentUriUsingTree(root.dir.uri, childDocumentId(root.documentId, own))) ?: return null
+        Log.i(TAG, "$relative is not there, its song's download $own is: kept, as the clean-up named it")
+        return found
     }
 
     /**
@@ -475,15 +493,18 @@ class DownloadDirectoryManagerOt(private var context: Context, private var dir: 
     fun mainFolderPath(): String? = mainDir?.let { dir -> runCatching { fileFromUri(context, dir.uri)?.absolutePath?.trimEnd('/') }.getOrNull() }
 
     /**
-     * The main folder's files that are ours (DownloadCopies.parse), each with its size, from a listing
-     * of that folder alone: never an extra folder, never a folder inside it. Null when it cannot be
-     * listed; nothing listed when it lists as empty, as dvd's did, which [lookUp] gets round.
+     * The main folder's files that are ours (DownloadCopies.parse) and of a song with a copy
+     * (DownloadCopies.ofSongsWithCopies), each with its size, from a listing of that folder alone: never
+     * an extra folder, never a folder inside it. Null when it cannot be listed; nothing listed when it
+     * lists as empty, as dvd's did, which [lookUp] gets round. Only those are looked at one by one: a
+     * look is about a millisecond, and every download of everyone's folder had one at every start.
      */
     fun ourFilesListed(): DownloadCopies.Listed? {
         val listed = (mainDir as? TreeDocumentFileOt)?.listFilesOrNull() ?: return null
+        val wanted = DownloadCopies.ofSongsWithCopies(listed.mapNotNull { it.name })
         val ours = listed.mapNotNull { file ->
             val name = file.name ?: return@mapNotNull null
-            if (DownloadCopies.parse(name) == null) return@mapNotNull null
+            if (name !in wanted) return@mapNotNull null
             described(file.uri)?.let { DownloadCopies.File(it.name, it.size, file.uri.toString()) }
         }
         return DownloadCopies.Listed(listed.size, ours)

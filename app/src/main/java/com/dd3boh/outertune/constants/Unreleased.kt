@@ -1042,11 +1042,12 @@ object Unreleased {
      * whose folder lists as empty got one more copy of every liked song at each liked catch up (dvd,
      * 23 Nov 2026: five of each of his 397 songs). A card at the top of Library > Downloaded songs says
      * how many there are and the room they take, with Remove and Not now; nothing is deleted before
-     * Remove, and each song keeps one file. Its texts (dl_copies_*) are held from translators, the
-     * French beside them. Without the flag nothing is looked for and the card never shows. To ship:
-     * set this to true, add it to ReleasedFlagsTest and open its texts to translators.
+     * Remove, and each song keeps one file. Without the flag nothing is looked for and the card never
+     * shows. On for everyone in 0.13 (his word of 27 Nov 2026: "only if it works well and is robust
+     * enough"), after a skeptic's tests and an emulator walk with real downloads, planted copies and
+     * look-alikes (experiments/bugs/dvd-copies-1123/robust-1127); its texts open to translators.
      */
-    val DOWNLOAD_COPIES_CLEANUP = BuildConfig.PREVIEW_FEATURES
+    val DOWNLOAD_COPIES_CLEANUP = true
 
     /**
      * The adaptive queue reads a skip by what the skipped song is like (an idea of 9 Nov 2026). A song
