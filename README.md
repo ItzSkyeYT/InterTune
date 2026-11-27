@@ -208,7 +208,7 @@ Every change in detail, and why this fork exists: [docs/FEATURES.md](https://git
 What's being worked on, roughly in order. `[x]` is done, `[~]` is built and being tested, `[ ]` is still to do. Nothing here has a date, and plans can change. Ideas are welcome in #feature-requests on [Discord](https://discord.gg/68jmqhMjXk) or as a [GitHub issue](https://github.com/ItzSkyeYT/InterTune/issues/new/choose).
 
 <details>
-<summary><b>Next: 0.13</b> · 52 of 55 done, 3 to test</summary>
+<summary><b>Next: 0.13</b> · 54 of 57 done, 3 to test</summary>
 
 `[x]` Listen together: one person plays, friends follow the same song in real time\
 `[x]` In a room, a guest who casts to a TV or speaker plays on their own, and catches up with the room when the cast ends\
@@ -256,6 +256,8 @@ What's being worked on, roughly in order. `[x]` is done, `[~]` is built and bein
 `[x]` Choose what's in the three-dot menus\
 `[x]` Arrange the player's buttons by dragging them into boxes shaped like the player's bars\
 `[x]` In Classic, the player's three-dots button at the top or at the bottom\
+`[x]` A song tapped on the Shelf widget plays without opening the app\
+`[x]` Downloaded songs offers to remove the extra copies an old bug left, keeping one file of each\
 `[x]` Albums and artists in your own order too\
 `[x]` Repeat and shuffle on a lit box when they're on, so off no longer looks greyed out ([#182](https://github.com/ItzSkyeYT/InterTune/issues/182))\
 `[x]` The cast button with the player's buttons by the title, where you can move it like them, and a small badge on the mini player during a cast or a room\
