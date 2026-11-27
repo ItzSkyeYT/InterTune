@@ -115,9 +115,11 @@ class LongPressLabelTest {
 
     @Test
     fun `the queue's transport buttons and the player's rows of buttons say their name too`() {
-        for (name in listOf("stringResource(R.string.widget_previous)", "seekBackName()", "playPauseName(isPlaying && playbackState != STATE_ENDED)", "seekForwardName()", "stringResource(R.string.widget_next)", "saveQueueDescription")) {
+        for (name in listOf("stringResource(R.string.widget_previous)", "seekBackName()", "playName", "seekForwardName()", "stringResource(R.string.widget_next)", "saveQueueDescription")) {
             assertTrue(name, queue.contains("LongPressLabel($name"))
         }
+        // The play button's name is Mute or Unmute while a guest only listens in a room (26 Nov 2026), else Play or Pause.
+        assertTrue(queue.contains("val playName = if (roomMuteButton) muteName(roomMuted) else playPauseName(isPlaying && playbackState != STATE_ENDED)"))
         // The player's circles beside the title and its connected segments say theirs from one place each,
         // by the content description they already have, and a button without a name shows nothing.
         val player = File(sources, "ui/player/Player.kt").readText()
