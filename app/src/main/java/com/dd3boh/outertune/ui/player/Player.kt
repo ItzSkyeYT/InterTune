@@ -267,7 +267,6 @@ import com.dd3boh.outertune.constants.ShowLyricsKey
 import com.dd3boh.outertune.constants.SwipeToSkipKey
 import com.dd3boh.outertune.constants.TabletUiKey
 import com.dd3boh.outertune.constants.SwipeToDismissPlayerKey
-import com.dd3boh.outertune.constants.GroupedPlayerControlsKey
 import com.dd3boh.outertune.constants.PlayerGlassIntensityKey
 import com.dd3boh.outertune.constants.PlayerLiquidGlassKey
 import com.dd3boh.outertune.extensions.metadata
@@ -427,7 +426,6 @@ fun BottomSheetPlayer(
 
     val liquidGlass by rememberPreference(PlayerLiquidGlassKey, defaultValue = false)
     val swipeToDismissPlayer by rememberPreference(SwipeToDismissPlayerKey, defaultValue = true)
-    val groupedControls by rememberPreference(GroupedPlayerControlsKey, defaultValue = true)
     val playerBackdrop = rememberLayerBackdrop()
     // Battery use on Saver: the glass keeps its shapes and places and is drawn still, so the
     // player's background is not recorded for it and nothing blurs or bends it (LocalGlassStill).
@@ -1118,8 +1116,8 @@ fun BottomSheetPlayer(
             var showRoom by rememberSaveable { mutableStateOf(false) }
             if (showRoom) TogetherSheet(onDismiss = { showRoom = false })
 
-            // Glass for the connected buttons whenever the player has it, grouped controls or not:
-            // they are separate buttons either way.
+            // Glass for the connected buttons whenever the player has it: they are separate buttons,
+            // apart from the transport buttons' bar.
             val buttonBackdrop = if (liquidGlass) playerBackdrop else null
 
             val shareLink = rememberShareLink()
@@ -1799,12 +1797,14 @@ fun BottomSheetPlayer(
                     // place, not a modifier of the row: the glass library draws its rim after whatever is
                     // inside the glass, so the rim crossed the play button, which is as tall as the bar, at
                     // its top and bottom edges (dvd, 13 Nov 2026). Drawn first, the rim is under the button.
+                    // There whenever Liquid glass is on: "Group the player buttons", which took the bar away,
+                    // went in 0.13 (his ask of 27 Nov 2026), and everyone has its default.
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = hPadding)
                     ) {
-                        if (liquidGlass && groupedControls) {
+                        if (liquidGlass) {
                             Box(
                                 Modifier
                                     .matchParentSize()
