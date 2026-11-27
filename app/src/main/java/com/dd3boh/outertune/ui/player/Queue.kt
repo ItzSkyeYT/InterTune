@@ -163,7 +163,8 @@ import com.dd3boh.outertune.extensions.metadata
 import com.dd3boh.outertune.extensions.move
 import com.dd3boh.outertune.extensions.supportsWideScreen
 import com.dd3boh.outertune.extensions.toMediaItem
-import com.dd3boh.outertune.extensions.toggleRepeatMode
+import androidx.compose.material.icons.automirrored.rounded.VolumeOff
+import androidx.compose.material.icons.automirrored.rounded.VolumeUp
 import com.dd3boh.outertune.together.guestArranges
 import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.models.MultiQueueObject
@@ -494,6 +495,10 @@ fun BoxScope.QueueContent(
     val shuffleModeEnabled by playerConnection.shuffleModeEnabled.collectAsState()
     val canSkipPrevious by playerConnection.canSkipPrevious.collectAsState()
     val canSkipNext by playerConnection.canSkipNext.collectAsState()
+    // A guest who listens in a room: the bar's transport shown disabled, its play button a mute (RoomListen).
+    val roomListens by playerConnection.roomListens.collectAsState()
+    val roomMuteButton by playerConnection.roomMuteButton.collectAsState()
+    val roomMuted by playerConnection.roomMuted.collectAsState()
     val repeatMode by playerConnection.repeatMode.collectAsState()
     val seekIncrement by rememberEnumPreference(
         key = SeekIncrementKey,
@@ -1995,7 +2000,7 @@ fun BoxScope.QueueContent(
                                         .padding(4.dp)
                                         .named(shuffleName(shuffleModeEnabled)),
                                     color = iconButtonColor,
-                                    enabled = barWorks,
+                                    enabled = barWorks && !orderHeld,
                                     onClick = {
                                         if (orderHeld) return@ShuffleButton sayOrderHeld(context, playerConnection)
                                         // As the player's: under Strong as a like, read before the tap turns it.
@@ -2035,7 +2040,7 @@ fun BoxScope.QueueContent(
                                                                         modifier = Modifier
                                                                             .size(32.dp)
                                                                             .named(seekBackName()),
-                                                                        enabled = barWorks,
+                                                                        enabled = barWorks && !roomListens,
                                                                         onClick = {
                                                                             playerConnection.loadQueueIfEmpty().let { it.seekTo(it.currentPosition - seekIncrement.millisec) }
                                                                         }
@@ -2047,16 +2052,22 @@ fun BoxScope.QueueContent(
                         Spacer(Modifier.width(8.dp))
 
                         Box(modifier = Modifier.weight(1f)) {
-                            LongPressLabel(playPauseName(isPlaying && playbackState != STATE_ENDED), Modifier.align(Alignment.Center)) {
+                            val playName = if (roomMuteButton) muteName(roomMuted) else playPauseName(isPlaying && playbackState != STATE_ENDED)
+                            LongPressLabel(playName, Modifier.align(Alignment.Center)) {
                                                             ResizableIconButton(
-                                                                icon = if (playbackState == STATE_ENDED) Icons.Rounded.Replay else if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                                                                icon = when {
+                                                                    roomMuteButton -> if (roomMuted) Icons.AutoMirrored.Rounded.VolumeOff else Icons.AutoMirrored.Rounded.VolumeUp
+                                                                    playbackState == STATE_ENDED -> Icons.Rounded.Replay
+                                                                    isPlaying -> Icons.Rounded.Pause
+                                                                    else -> Icons.Rounded.PlayArrow
+                                                                },
                                                                 modifier = Modifier
                                                                     .size(36.dp)
-                                                                    .named(playPauseName(isPlaying && playbackState != STATE_ENDED)),
+                                                                    .named(playName),
                                                                 color = iconButtonColor,
                                                                 enabled = barWorks,
                                                                 onClick = {
-                                                                    if (playbackState == STATE_ENDED) {
+                                                                    if (playbackState == STATE_ENDED && !roomMuteButton) {
                                                                         playerConnection.player.seekTo(0, 0)
                                                                         playerConnection.player.playWhenReady = true
                                                                     } else {
@@ -2079,7 +2090,7 @@ fun BoxScope.QueueContent(
                                                                         modifier = Modifier
                                                                             .size(32.dp)
                                                                             .named(seekForwardName()),
-                                                                        enabled = barWorks,
+                                                                        enabled = barWorks && !roomListens,
                                                                         onClick = {
                                                                             playerConnection.loadQueueIfEmpty().let { it.seekTo(it.currentPosition + seekIncrement.millisec) }
                                                                         }
@@ -2115,12 +2126,12 @@ fun BoxScope.QueueContent(
                                         .padding(4.dp)
                                         .named(repeatName(repeatMode)),
                                     color = iconButtonColor,
-                                    enabled = barWorks,
+                                    enabled = barWorks && !orderHeld,
                                     onClick = {
                                         if (orderHeld) return@RepeatButton sayOrderHeld(context, playerConnection)
                                         // As the player's: only the tap from off turns it on, into one and back off is the pop.
                                         val feel = repeatFeel(repeatMode)
-                                        playerConnection.player.toggleRepeatMode()
+                                        playerConnection.toggleRepeat()
                                         haptic.felt(feel, HapticFeedbackType.SegmentFrequentTick)
                                     }
                                 )

@@ -11,7 +11,10 @@ enum class RoomRole {
     /** The owner while someone else is in control: can take control back. */
     OWNER_GAVE,
 
-    /** A guest while someone else is in control: adds songs, pauses just for itself. */
+    /**
+     * A guest while someone else is in control: adds songs, and mutes just for itself (26 Nov 2026, Spotify's Jam); with
+     * control for everyone (RoomSettings.everyoneControls) its moves are the room's too, and the sheet says so.
+     */
     GUEST;
 
     companion object {

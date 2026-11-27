@@ -49,6 +49,13 @@ fun Player.togglePlayPause() {
     }
 }
 
+/** The repeat mode after [mode] in the buttons' order: off, all, one, off. */
+fun nextRepeatMode(mode: Int): Int = when (mode) {
+    Player.REPEAT_MODE_OFF -> Player.REPEAT_MODE_ALL
+    Player.REPEAT_MODE_ALL -> Player.REPEAT_MODE_ONE
+    else -> Player.REPEAT_MODE_OFF
+}
+
 fun Player.toggleRepeatMode() {
     repeatMode = when (repeatMode) {
         REPEAT_MODE_OFF -> REPEAT_MODE_ALL

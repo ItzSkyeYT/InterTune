@@ -70,10 +70,16 @@ class RoomByHandTest {
         }
     }
 
+    /** His word of 26 Nov 2026 (Spotify's Jam): a guest plays for the room only with control, else it is asked to leave. */
     @Test
-    fun `a song or a list started here takes a guest its own way at once, before it has loaded`() {
+    fun `a song or a list started on a guest goes to the room with control, else asks to leave first`() {
         val play = body(connection, "fun playQueue(")
-        assertTrue(play, play.indexOf("service.together.value?.listenerStarts()") in 0 until play.indexOf("service.playQueue("))
-        assertTrue("listenerChose(\"a song of their own\", pressed = true)" in body(session, "fun listenerStarts()"))
+        // Not while this phone casts on its own (GuestCast): the cast plays its own music (review of 27 Nov 2026).
+        val room = play.indexOf("if (room != null && room.following && !room.status.value.ownWay) {")
+        assertTrue(play, room in 0 until play.lastIndexOf("start()"))
+        assertTrue(play, play.indexOf("room.playForRoom(songs)") in room until play.indexOf("leaveToPlay.value = LeaveToPlay("))
+        // Leave (or, for the host who gave control away, take it back), then play.
+        assertTrue(play, "if (room.owner) room.takeBack() else room.leave()\n                start()" in play)
+        assertFalse("fun listenerStarts()" in session)
     }
 }

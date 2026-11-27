@@ -27,6 +27,7 @@ import androidx.media3.session.MediaLibraryService.MediaLibrarySession
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSession.MediaItemsWithStartPosition
 import androidx.media3.session.SessionCommand
+import androidx.media3.session.SessionCommands
 import androidx.media3.session.SessionError
 import androidx.media3.session.SessionResult
 import com.dd3boh.outertune.R
@@ -107,18 +108,22 @@ class MediaLibrarySessionCallback @Inject constructor(
     ): MediaSession.ConnectionResult {
         val connectionResult = super.onConnect(session, controller)
         return MediaSession.ConnectionResult.accept(
-            connectionResult.availableSessionCommands.buildUpon()
-                .add(MediaSessionConstants.CommandToggleLibrary)
-                .add(MediaSessionConstants.CommandToggleLike)
-                .add(MediaSessionConstants.CommandToggleStartRadio)
-                .add(MediaSessionConstants.CommandToggleShuffle)
-                .add(MediaSessionConstants.CommandToggleRepeatMode)
-                .add(MediaSessionConstants.CommandToggleDislike)
-                .add(SessionCommand(MusicService.COMMAND_GET_BINDER, Bundle.EMPTY))
-                .build(),
-            connectionResult.availablePlayerCommands
+            sessionCommands(connectionResult.availableSessionCommands),
+            // Without skip and seek while this phone only listens in a room (RoomSessionCommands).
+            RoomSessionCommands.playerCommands(connectionResult.availablePlayerCommands, locked = service.roomLocksSession),
         )
     }
+
+    /** [base] with the app's own commands: what every controller is given, at its connection and as a room locks (MusicService). */
+    fun sessionCommands(base: SessionCommands): SessionCommands = base.buildUpon()
+        .add(MediaSessionConstants.CommandToggleLibrary)
+        .add(MediaSessionConstants.CommandToggleLike)
+        .add(MediaSessionConstants.CommandToggleStartRadio)
+        .add(MediaSessionConstants.CommandToggleShuffle)
+        .add(MediaSessionConstants.CommandToggleRepeatMode)
+        .add(MediaSessionConstants.CommandToggleDislike)
+        .add(SessionCommand(MusicService.COMMAND_GET_BINDER, Bundle.EMPTY))
+        .build()
 
     override fun onCustomCommand(
         session: MediaSession,
@@ -130,8 +135,9 @@ class MediaLibrarySessionCallback @Inject constructor(
             MediaSessionConstants.ACTION_TOGGLE_LIKE -> toggleLike()
             MediaSessionConstants.ACTION_TOGGLE_START_RADIO -> toggleStartRadio()
             MediaSessionConstants.ACTION_TOGGLE_LIBRARY -> toggleLibrary()
-            MediaSessionConstants.ACTION_TOGGLE_SHUFFLE -> session.player.toggleShuffleMode()
-            MediaSessionConstants.ACTION_TOGGLE_REPEAT_MODE -> session.player.toggleRepeatMode()
+            // In a room this phone follows, the room's shuffle and repeat (MusicService.roomShuffleAsked, review of 27 Nov 2026).
+            MediaSessionConstants.ACTION_TOGGLE_SHUFFLE -> if (!service.roomShuffleAsked()) session.player.toggleShuffleMode()
+            MediaSessionConstants.ACTION_TOGGLE_REPEAT_MODE -> if (!service.roomRepeatAsked()) session.player.toggleRepeatMode()
             MediaSessionConstants.ACTION_TOGGLE_DISLIKE -> toggleDislike()
             MusicService.COMMAND_GET_BINDER -> return Futures.immediateFuture(
                 SessionResult(SessionResult.RESULT_SUCCESS).apply {

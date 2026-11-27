@@ -34,6 +34,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -43,6 +44,10 @@ import androidx.navigation.NavController
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.TogetherCatchUpKey
 import com.dd3boh.outertune.constants.TogetherEveryoneArrangesKey
+import com.dd3boh.outertune.constants.TogetherEveryoneControlsKey
+import com.dd3boh.outertune.together.RoomSettings
+import com.dd3boh.outertune.utils.dataStore
+import com.dd3boh.outertune.utils.get
 import com.dd3boh.outertune.constants.TogetherEveryoneSeeksKey
 import com.dd3boh.outertune.constants.TogetherDelayKey
 import com.dd3boh.outertune.constants.TogetherNameKey
@@ -76,8 +81,12 @@ fun ListenTogetherSettings(
     val (tolerance, onToleranceChange) = rememberPreference(TogetherToleranceKey, defaultValue = SyncLock.DEFAULT_TOLERANCE_MS.toInt())
     val (catchUp, onCatchUpChange) = rememberPreference(TogetherCatchUpKey, defaultValue = TogetherTuning.DEFAULT_CATCH_UP_PERCENT)
     // The rooms this phone makes: set once, as the name is, and changeable in the room's sheet too (RoomSettingsSwitches).
-    val (everyoneSeeks, onEveryoneSeeksChange) = rememberPreference(TogetherEveryoneSeeksKey, defaultValue = false)
-    val (everyoneArranges, onEveryoneArrangesChange) = rememberPreference(TogetherEveryoneArrangesKey, defaultValue = false)
+    // One switch since 26 Nov 2026 (Spotify's Jam), either of the two before it on reading as it on until changed.
+    val context = LocalContext.current
+    val controlsBefore = remember {
+        RoomSettings.kept(null, context.dataStore[TogetherEveryoneSeeksKey], context.dataStore[TogetherEveryoneArrangesKey])
+    }
+    val (everyoneControls, onEveryoneControlsChange) = rememberPreference(TogetherEveryoneControlsKey, defaultValue = controlsBefore)
     val (delay, onDelayChange) = rememberPreference(TogetherDelayKey, defaultValue = 0)
 
     ColumnWithContentPadding(
@@ -115,19 +124,12 @@ fun ListenTogetherSettings(
         PreferenceGroupTitle(title = stringResource(R.string.together_room_settings))
         ElevatedCard(modifier = Modifier.fillMaxWidth()) {
             SwitchPreference(
-                modifier = Modifier.settingRow(R.string.together_everyone_seeks),
-                title = { Text(stringResource(R.string.together_everyone_seeks)) },
-                description = stringResource(R.string.together_everyone_seeks_explain),
+                modifier = Modifier.settingRow(R.string.together_everyone_controls),
+                title = { Text(stringResource(R.string.together_everyone_controls)) },
+                description = stringResource(R.string.together_everyone_controls_explain),
                 icon = { Icon(Icons.Rounded.FastForward, null) },
-                checked = everyoneSeeks,
-                onCheckedChange = onEveryoneSeeksChange,
-            )
-            SwitchPreference(
-                modifier = Modifier.settingRow(R.string.together_everyone_arranges),
-                title = { Text(stringResource(R.string.together_everyone_arranges)) },
-                icon = { Icon(Icons.AutoMirrored.Rounded.QueueMusic, null) },
-                checked = everyoneArranges,
-                onCheckedChange = onEveryoneArrangesChange,
+                checked = everyoneControls,
+                onCheckedChange = onEveryoneControlsChange,
             )
         }
 

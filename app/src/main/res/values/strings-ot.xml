@@ -2756,11 +2756,11 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="together_tour_control_body">The host starts with control, so they pick what plays and can change the queue. Tap on someone to give it to them, and take it back whenever you want.</string>
     <string name="together_tour_add_title">Anyone can add songs</string>
     <string name="together_tour_add_body">Just press Play next on a song and it\'ll play after the current one, for everyone in the room.</string>
-    <string name="together_tour_own_title">Your own way</string>
-    <string name="together_tour_own_body">Pausing only pauses for you. You can listen on your own but catch up whenever you want.</string>
+    <string name="together_tour_own_title">Listen, or mute</string>
+    <string name="together_tour_own_body">Guests listen while the host controls the music, and the host can let everyone control it. Mute to stay in step quietly, or leave to play your own.</string>
     <string name="together_walk_role">This tells you who\'s picking the music right now, and what you can do.</string>
     <string name="together_walk_invite">Send the link to your friends, or let them scan the QR code.</string>
-    <string name="together_walk_playing">This is what the room\'s playing. If you\'re listening on your own, just press Catch up to get back in.</string>
+    <string name="together_walk_playing">This is what the room\'s playing, at the same moment on every phone.</string>
     <string name="together_walk_proposal">When someone proposes a song it shows up here, just press Play it or Not now.</string>
     <string name="together_walk_people">Everyone in the room. The star is the host and the ring is whoever\'s picking the music.</string>
     <string name="together_walk_people_host">Everyone in the room. Tap on someone to give them control or remove them from the room.</string>
@@ -2783,16 +2783,13 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="together_join_closes_yours">You host a room: joining this one closes yours for everyone. To keep it going, hand it on first with Leave.</string>
     <string name="together_share">Share</string>
     <string name="together_invite_line">Join my room on InterTune:\n%1$s</string>
-    <string name="together_own_way">Playing on your own</string>
     <!-- Under the player's seek bar, between the two times, beside Catch up, while a guest in a listening room plays on its own (RoomOnBar). As short as it can be. -->
-    <string name="together_on_your_own">On your own</string>
     <!-- Said when a guest touches the seek bar while the host lets only the person in control move in the song (RoomSettings): the name is the person in control's. -->
     <string name="together_seek_held">%1$s decides where the song is</string>
     <string name="together_seek_held_host">The host decides where the song is</string>
     <!-- Said when a guest following a listening room taps shuffle or repeat, which are the room's: the name is the person in control's. -->
     <string name="together_order_held">%1$s decides on shuffle and repeat</string>
     <string name="together_order_held_host">The host decides on shuffle and repeat</string>
-    <string name="together_catch_up">Catch up</string>
     <string name="together_suggested">Added to the room: it plays next</string>
     <plurals name="together_suggested_many">
         <item quantity="one">Added to the room: %1$d song plays next</item>
@@ -2840,7 +2837,9 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="together_you_control">You have control</string>
     <string name="together_has_control">%1$s chooses the music for now.</string>
     <string name="together_role_in_control">You choose the music. Anyone in the room can add songs.</string>
-    <string name="together_role_guest">%1$s chooses the music. You can add songs, and pause just for you.</string>
+    <string name="together_role_guest">%1$s chooses the music. You can add songs, and mute just for you.</string>
+    <string name="together_role_guest_controls">%1$s is in control, and everyone can control the music.</string>
+    <string name="together_control_older">%1$s has an older InterTune, so only they control the music.</string>
     <string name="together_take_back">Choose the music</string>
     <string name="together_give_control">Give control</string>
     <string name="together_give_control_to">Give control to %1$s</string>
@@ -2854,9 +2853,24 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="together_kick">Remove from the room</string>
     <!-- The host's own part of the room sheet: switches for who may do what in the room (RoomSettings). -->
     <string name="together_room_settings">Room settings</string>
-    <string name="together_everyone_seeks">Let everyone move in the song</string>
-    <string name="together_everyone_seeks_explain">Just for them, until they catch up.</string>
-    <string name="together_everyone_arranges">Let everyone change the queue</string>
+    <string name="together_everyone_controls">Let everyone control the music</string>
+    <string name="together_everyone_controls_explain">Guests can then play, pause, skip and change the queue for everyone.</string>
+    <!-- Said when a guest who only listens in a room tried to change what plays (a notification, a watch): who controls it. -->
+    <string name="together_control_held">%1$s controls the music</string>
+    <string name="together_control_held_host">The host controls the music</string>
+    <!-- The play button of a guest who only listens in a room: its sound off, in step with the room. -->
+    <string name="together_mute">Mute</string>
+    <string name="together_unmute">Unmute</string>
+    <string name="together_nobody_plays">Nobody is playing for the room right now. Leave it to play your own music.</string>
+    <string name="together_nobody_plays_short">Nobody is playing for the room right now</string>
+    <!-- Asked when a guest who only listens taps a song: in a room the host chooses the music. -->
+    <string name="together_leave_to_play">Leave the room to play this?</string>
+    <string name="together_leave_to_play_body">The room goes on without you. You can join again with its code.</string>
+    <string name="together_leave_and_play">Leave and play</string>
+    <!-- The same for the host who gave control to someone else. -->
+    <string name="together_take_to_play">Take control back to play this?</string>
+    <string name="together_take_to_play_body">It plays for everyone in the room.</string>
+    <string name="together_take_and_play">Take control and play</string>
     <!-- Said to the person in control when a guest moved or took out a song in the room's queue (Arrange): the guest's name. -->
     <string name="together_arranged">%1$s changed the queue</string>
     <string name="together_kicked">You were removed from the room</string>
@@ -2878,7 +2892,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="together_song_matched">%1$s is playing a song from their phone, so you\'re hearing the YouTube Music version. It might not be exactly the same.</string>
     <string name="together_song_version">YouTube Music version</string>
     <string name="together_paused_here">Paused here. Press play to go back to where the room is.</string>
-    <string name="together_catch_up_after_cast">You\'ll catch up when the cast ends.</string>
+    <string name="together_catch_up_after_cast">You\'ll be back with the room when the cast ends.</string>
     <string name="together_in_room">In a room</string>
     <string name="settings_together_description">Your name in rooms, and how closely phones keep in step</string>
     <string name="together_settings_you">You</string>
@@ -2906,10 +2920,6 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="together_scan">Scan a QR code</string>
     <string name="together_scan_hint">Point the camera at the QR code on the other phone.</string>
     <string name="together_scan_refused">Scanning needs the camera. Allow it for InterTune in the phone\'s settings, or type the code.</string>
-    <string name="together_propose">Propose this song</string>
-    <string name="together_proposed">Song proposed</string>
-    <string name="together_propose_to">Propose to %1$s</string>
-    <string name="together_proposed_to">Proposed to %1$s</string>
     <string name="together_proposal_title">%1$s proposes a song</string>
     <string name="together_proposal_notice">%1$s proposes %2$s</string>
     <string name="together_proposals_channel">Room proposals</string>

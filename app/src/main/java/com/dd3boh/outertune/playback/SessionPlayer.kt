@@ -68,6 +68,26 @@ class SessionPlayer(player: Player) : ForwardingPlayer(player) {
         super.removeListener(listener)
     }
 
+    /**
+     * A pause asked through the session, by the notification, the lock screen, a headset, a watch or a car (media3 calls
+     * pause for each of them, and setPlayWhenReady(false) as the service stops, which is not a listener's): true when a
+     * listening room took it in its place, a guest's mute (TogetherSession.askedPause, review of 27 Nov 2026).
+     */
+    var onAskedPause: () -> Boolean = { false }
+
+    /** A play asked through the session, the same way: the listener's, by hand (TogetherSession.byHand). */
+    var onAskedPlay: () -> Unit = {}
+
+    override fun pause() {
+        if (onAskedPause()) return
+        super.pause()
+    }
+
+    override fun play() {
+        onAskedPlay()
+        super.play()
+    }
+
     override fun getMediaMetadata(): MediaMetadata {
         val told = super.getMediaMetadata()
         val (stored, name) = renamed ?: return told

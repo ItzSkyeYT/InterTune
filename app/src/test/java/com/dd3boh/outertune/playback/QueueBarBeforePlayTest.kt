@@ -21,14 +21,16 @@ class QueueBarBeforePlayTest {
     private val sheet = File("src/main/java/com/dd3boh/outertune/ui/player/Queue.kt").readText()
     private val bar = sheet.substring(
         sheet.indexOf("ShuffleButton("),
-        sheet.indexOf("playerConnection.player.toggleRepeatMode()"),
+        sheet.indexOf("playerConnection.toggleRepeat()"),
     )
 
     @Test
     fun `the bar works for the saved queue before play, not for a queue only looked at`() {
         assertTrue(sheet.contains("val barWorks = !detachedHead || movesStoredQueue"))
         assertFalse("a control of the bar still off for the saved queue", bar.contains("!detachedHead"))
-        assertEquals("shuffle, back, play, forward and repeat", 5, Regex("""enabled = barWorks,""").findAll(bar).count())
+        // Shuffle, back, forward and repeat off too while this phone only listens in a room (RoomListen, 26 Nov 2026).
+        assertEquals("play", 1, Regex("""enabled = barWorks,""").findAll(bar).count())
+        assertEquals("shuffle, back, forward and repeat", 4, Regex("""enabled = barWorks && !(orderHeld|roomListens),""").findAll(sheet).count())
         assertTrue(bar.contains("enabled = barWorks && (canSkipPrevious || movesStoredQueue),"))
         assertTrue(bar.contains("enabled = barWorks && (canSkipNext || movesStoredQueue),"))
     }
@@ -36,7 +38,7 @@ class QueueBarBeforePlayTest {
     @Test
     fun `every control of the bar loads the saved queue first`() {
         assertTrue(bar.contains("playerConnection.loadQueueIfEmpty().seekToPrevious()"))
-        // Next through the connection, which loads the saved queue first (RoomSkip: and a room guest's Next with nothing after).
+        // Next through the connection, which loads the saved queue first.
         assertTrue(bar.contains("playerConnection.skipToNext()"))
         assertEquals("both seek buttons", 2, Regex("""playerConnection\.loadQueueIfEmpty\(\)\.let \{ it\.seekTo\(""").findAll(bar).count())
         // Shuffle loads it on the line before, however deep the button sits (its long-press label wraps it).
@@ -44,7 +46,7 @@ class QueueBarBeforePlayTest {
         // Play goes through togglePlayPause, which loads the saved queue itself.
         assertTrue(bar.contains("playerConnection.togglePlayPause()"))
         val connection = File("src/main/java/com/dd3boh/outertune/playback/PlayerConnection.kt").readText()
-        assertTrue(connection.contains("fun togglePlayPause() {\n        loadQueueIfEmpty().togglePlayPause()"))
+        assertTrue(connection.substringAfter("fun togglePlayPause() {").substringBefore("\n    }\n").contains("loadQueueIfEmpty().togglePlayPause()"))
         assertTrue(connection.contains("fun skipToNext(player: Player = loadQueueIfEmpty())"))
     }
 }

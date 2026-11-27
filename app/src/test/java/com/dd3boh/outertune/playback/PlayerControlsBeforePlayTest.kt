@@ -23,14 +23,15 @@ class PlayerControlsBeforePlayTest {
     private val player = File("src/main/java/com/dd3boh/outertune/ui/player/Player.kt").readText()
     private val controls = player.substring(
         player.indexOf("ShuffleButton("),
-        player.indexOf("playerConnection.player.toggleRepeatMode()"),
+        player.indexOf("playerConnection.toggleRepeat()"),
     )
 
     @Test
     fun `no control of the full player waits for the player to hold a song`() {
         assertFalse("a control still greyed out until play", controls.contains("currentMediaItem != null"))
-        // Repeat is the player's own setting: an empty player takes it, and loading the saved queue keeps it.
-        assertTrue(controls.contains("enabled = true,"))
+        // Repeat is the player's own setting: an empty player takes it, and loading the saved queue keeps it. Shuffle and
+        // repeat are off only while this phone only listens in a room (RoomListen, 26 Nov 2026).
+        assertEquals("shuffle and repeat", 2, Regex("""enabled = !orderHeld,""").findAll(player).count())
     }
 
     @Test
@@ -46,7 +47,7 @@ class PlayerControlsBeforePlayTest {
         )
         assertTrue(controls.contains("playerConnection.loadQueueIfEmpty().seekToPrevious()"))
         // Next goes through the connection, which loads the saved queue before it moves on (and, in a listening room,
-        // takes a guest with nothing after its song its own way: RoomSkip).
+        // nothing else: a guest who only listens in a room has it shown disabled, RoomListen).
         assertTrue(controls.contains("playerConnection.skipToNext()"))
         assertTrue(File("src/main/java/com/dd3boh/outertune/playback/PlayerConnection.kt").readText().contains("fun skipToNext(player: Player = loadQueueIfEmpty())"))
         assertTrue(controls.contains("playerConnection.togglePlayPause()"))

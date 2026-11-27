@@ -29,6 +29,8 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.automirrored.rounded.VolumeOff
+import androidx.compose.material.icons.automirrored.rounded.VolumeUp
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Replay
@@ -222,6 +224,9 @@ fun MiniPlayer(
                         )
                     }
 
+                    // A guest who listens in a room: a mute in the play button's place (RoomListen, 26 Nov 2026).
+                    val muteButton by playerConnection.roomMuteButton.collectAsState()
+                    val muted by playerConnection.roomMuted.collectAsState()
                     IconButton(
                         onClick = {
                             // Same three-tap bug as the full player. The connection loads the saved queue
@@ -230,12 +235,20 @@ fun MiniPlayer(
                         }
                     ) {
                         Icon(
-                            imageVector = if (playbackState == Player.STATE_ENDED) Icons.Rounded.Replay else if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                            imageVector = when {
+                                muteButton -> if (muted) Icons.AutoMirrored.Rounded.VolumeOff else Icons.AutoMirrored.Rounded.VolumeUp
+                                playbackState == Player.STATE_ENDED -> Icons.Rounded.Replay
+                                isPlaying -> Icons.Rounded.Pause
+                                else -> Icons.Rounded.PlayArrow
+                            },
                             tint = iconButtonColor,
                             // The three buttons were bare pictures: a screen reader had nothing to read out
                             // for them, and nothing that drives the app by what is on screen could find
                             // them. They are named as the widget names its own.
-                            contentDescription = stringResource(if (isPlaying) R.string.widget_pause else R.string.widget_play)
+                            contentDescription = when {
+                                muteButton -> stringResource(if (muted) R.string.together_unmute else R.string.together_mute)
+                                else -> stringResource(if (isPlaying) R.string.widget_pause else R.string.widget_play)
+                            }
                         )
                     }
 

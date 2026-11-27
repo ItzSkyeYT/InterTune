@@ -104,10 +104,12 @@ class VarispeedTest {
         assertTrue(speed, "val pitch = if (linked()) 1f else player.playbackParameters.pitch" in speed)
         assertTrue(speed, "PlaybackParameters(speed.toFloat(), pitch)" in speed)
         assertFalse("a restore still keeps the room's pitch", "speed(service.exoPlayer, speedBefore.toDouble())" in session)
-        // Room stopped, own way, paused here, made the leader, the leader gone quiet, a guest's cast begun, the leader's
-        // song from its own files that nothing here can play (holdForPhoneSong), and nobody playing for the room (goAlone):
-        // eight, besides its own line.
-        assertEquals(8, Regex("""\bownSpeed\(\)""").findAll(session).count() - 1)
+        // Room stopped, paused here, made the leader, the leader gone quiet (which is also nobody playing for the room), a
+        // guest's cast begun, and the leader's song from its own files that nothing here can play (holdForPhoneSong): six,
+        // besides its own line. Own way and its goAlone went on 26 Nov 2026 (rooms on Spotify Jam's model): a guest follows
+        // the room's speed for as long as it is in the room, muted or not.
+        assertEquals(6, Regex("""\bownSpeed\(\)""").findAll(session).count() - 1)
+        assertTrue("ownSpeed()" in session.substringAfter("No playback from the leader for").substringBefore("_status.value = _status.value.copy(waitingForHost = true"))
         assertTrue("ownSpeed()" in session.substringAfter("private fun holdForPhoneSong(").substringBefore("\n    }\n"))
         val own = session.substringAfter("private fun ownSpeed() {").substringBefore("\n    }\n")
         assertTrue(own, "Varispeed.parameters(speedBefore, 0, linked = true)" in own)

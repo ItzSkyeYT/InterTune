@@ -128,11 +128,9 @@ class RoomLocalFilesTest {
         // a guest proposes its own song first or nothing (the proposal is built from ownQueue)
         val propose = session.substringAfter("fun propose()").substringBefore("\n    }\n")
         assertTrue("it.isNotEmpty() && it.first().id == service.exoPlayer.currentMediaItem?.mediaId" in propose)
-        // and the sheet does not offer Propose for a song from this phone
+        // and the sheet offers no Propose at all since 26 Nov 2026 (guests listen, or leave: Spotify's Jam)
         val sheet = File("src/main/java/com/dd3boh/outertune/ui/dialog/TogetherDialog.kt").readText()
-        assertTrue("canPropose = song?.isLocal != true," in sheet)
-        val ownWay = sheet.substringAfter("private fun OwnWay(").substringBefore("\n}\n")
-        assertTrue(ownWay.indexOf("if (canPropose) {") in 0 until ownWay.indexOf("OutlinedButton(onClick = onPropose"))
+        assertFalse("onPropose" in sheet)
     }
 
     @Test

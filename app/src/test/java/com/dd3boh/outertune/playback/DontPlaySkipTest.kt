@@ -220,7 +220,7 @@ class DontPlaySkipTest {
         assertTrue("val startPicked = reason != Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED || unpickedStart == 0L || q?.runId != unpickedStart" in transition)
         // Read once, whatever the flag or the lists say, so it never lands on a later load.
         val read = transition.indexOf("if (!startPicked) unpickedStart = 0L")
-        assertTrue(read in 0 until transition.indexOf("if (Unreleased.ARTIST_BLOCK && mediaItem != null && (!ContentFilter.current.blocked.isEmpty"))
+        assertTrue(read in 0 until transition.indexOf("if (Unreleased.ARTIST_BLOCK && !inRoom && mediaItem != null && (!ContentFilter.current.blocked.isEmpty"))
         // A start loaded under the song playing has no song change: that song goes on.
         val carried = body(service, "fun carriedOnInto(")
         assertTrue(carried.indexOf("if (q.runId == unpickedStart) unpickedStart = 0L") in carried.indexOf("if (heard.runKey == before) return") until carried.indexOf("choiceCarriedOn = true"))
