@@ -105,6 +105,19 @@ class DownloadCopiesWiringTest {
     }
 
     @Test
+    fun `Not now keeps the card down a week while copies are left, and more copies bring it back at once`() {
+        // His word of 27 Nov 2026: it kept the card down until more copies came, for good for dvd's folder.
+        val find = body(cleanup, "suspend fun find() {")
+        assertTrue(find.contains("val shows = DownloadCopies.cardShows(files, putOff, putOffAt, System.currentTimeMillis())"))
+        assertTrue(find.contains("_state.value = if (shows) State.Found(files, found.plan.bytes) else State.None"))
+        val notNow = body(cleanup, "fun notNow() {")
+        assertTrue(notNow.contains("it[DownloadCopiesPutOffKey] = shown.files"))
+        assertTrue(notNow.contains("it[DownloadCopiesPutOffAtKey] = at"))
+        // A look by name in a folder that lists as empty rests 12 hours only when the card would stay down.
+        assertTrue(cleanup.contains("val quiet = !DownloadCopies.cardShows("))
+    }
+
+    @Test
     fun `the folder's listing looks one file at a time only at the songs with a copy`() {
         // A look a file, at every start, was about a millisecond for each download of everyone's folder.
         val listed = body(folder, "fun ourFilesListed(): DownloadCopies.Listed? {")

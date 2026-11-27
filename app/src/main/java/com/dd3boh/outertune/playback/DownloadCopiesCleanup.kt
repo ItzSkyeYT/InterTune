@@ -32,10 +32,13 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
-/** How many extra copies the card said when Not now was tapped: it comes back only for more than that. */
+/** How many extra copies the card said when Not now was tapped: more than that bring it back at once (DownloadCopies.cardShows). */
 val DownloadCopiesPutOffKey = intPreferencesKey("downloadCopiesPutOff")
 
-/** When a look by name, in a folder that lists as empty, last found no copy: not looked again for 12 hours. */
+/** When Not now was tapped: the card comes back a week later while copies are left (DownloadCopies.cardShows). */
+val DownloadCopiesPutOffAtKey = longPreferencesKey("downloadCopiesPutOffAt")
+
+/** When a look by name, in a folder that lists as empty, last found nothing the card would say: not looked again for 12 hours. */
 val DownloadCopiesLookedKey = longPreferencesKey("downloadCopiesLookedAt")
 
 /**
@@ -94,7 +97,7 @@ class DownloadCopiesCleanup(
     @Volatile
     private var picture: Picture? = null
 
-    /** Looks for the copies, off the main thread, and puts the card up when there are some, unless they were put off. */
+    /** Looks for the copies, off the main thread, and puts the card up when there are some, unless Not now keeps it down (DownloadCopies.cardShows). */
     suspend fun find() {
         if (!Unreleased.DOWNLOAD_COPIES_CLEANUP || _state.value is State.Removing) return
         val found = withContext(Dispatchers.IO) { lock.withLock { look() } } ?: return
@@ -102,8 +105,10 @@ class DownloadCopiesCleanup(
         picture = found
         val files = found.plan.files
         val putOff = context.dataStore.get(DownloadCopiesPutOffKey, 0)
-        _state.value = if (files > putOff) State.Found(files, found.plan.bytes) else State.None
-        Log.i(TAG, "${found.plan.songs.size} songs have $files extra copies in the download folder, ${found.plan.bytes} bytes" + if (files in 1..putOff) ", put off" else "")
+        val putOffAt = context.dataStore.get(DownloadCopiesPutOffAtKey, 0L)
+        val shows = DownloadCopies.cardShows(files, putOff, putOffAt, System.currentTimeMillis())
+        _state.value = if (shows) State.Found(files, found.plan.bytes) else State.None
+        Log.i(TAG, "${found.plan.songs.size} songs have $files extra copies in the download folder, ${found.plan.bytes} bytes" + if (files > 0 && !shows) ", put off" else "")
     }
 
     private suspend fun look(): Picture? {
@@ -125,13 +130,16 @@ class DownloadCopiesCleanup(
             else -> {
                 // The folder lists as empty: each song's files are asked for by name, which takes a
                 // few seconds for a few hundred songs. Not again for 12 hours once it found nothing
-                // the card would say (none, or no more than were put off).
+                // the card would say (none, or what Not now keeps down).
                 val now = System.currentTimeMillis()
                 val last = context.dataStore.get(DownloadCopiesLookedKey, 0L)
                 if (now - last in 0 until LOOK_AGAIN_MS) return null
                 val bases = songs.map { fatName("${it.song.title} [${it.id}]") } + names.values.mapNotNull { DownloadCopies.parse(it)?.base }
                 DownloadCopies.lookFor(bases, names.values, folder::lookUp).also { found ->
-                    val quiet = DownloadCopies.plan(found, names).files <= context.dataStore.get(DownloadCopiesPutOffKey, 0)
+                    val quiet = !DownloadCopies.cardShows(
+                        DownloadCopies.plan(found, names).files, context.dataStore.get(DownloadCopiesPutOffKey, 0),
+                        context.dataStore.get(DownloadCopiesPutOffAtKey, 0L), now,
+                    )
                     runCatching { context.dataStore.edit { it[DownloadCopiesLookedKey] = if (quiet) now else 0L } }
                     Log.i(TAG, "The download folder lists as empty: ${songs.size} songs' files asked for by name, ${found.size} found")
                 }
@@ -140,12 +148,18 @@ class DownloadCopiesCleanup(
         return Picture(DownloadCopies.plan(files, names), recorded, folderPath)
     }
 
-    /** The card's Not now: down until more copies than these are found. */
+    /** The card's Not now: down for a week, or until more copies than these are found, whichever comes first (DownloadCopies.cardShows). */
     fun notNow() {
         val shown = _state.value as? State.Found ?: return
         _state.value = State.None
+        val at = System.currentTimeMillis()
         CoroutineScope(Dispatchers.IO).launch {
-            runCatching { context.dataStore.edit { it[DownloadCopiesPutOffKey] = shown.files } }
+            runCatching {
+                context.dataStore.edit {
+                    it[DownloadCopiesPutOffKey] = shown.files
+                    it[DownloadCopiesPutOffAtKey] = at
+                }
+            }
         }
     }
 

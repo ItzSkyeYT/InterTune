@@ -166,6 +166,18 @@ object DownloadCopies {
         val bytes: Long get() = songs.sumOf { song -> song.remove.sumOf { it.size ?: 0L } }
     }
 
+    /** How long the card's Not now keeps it down while the copies stay as they were: a week. */
+    const val PUT_OFF_MS = 7 * 24 * 60 * 60 * 1000L
+
+    /**
+     * Whether the card says the [files] extra copies a look found, Not now having been tapped on [putOff] of
+     * them at [putOffAt] (0 when never): at once when there are more than those, and again a week after Not now
+     * while any are left (his word of 27 Nov 2026). Not now used to keep it down until more came, which for a
+     * folder whose copies no longer grow, as dvd's, was for good. A clock put back before Not now shows it.
+     */
+    fun cardShows(files: Int, putOff: Int, putOffAt: Long, now: Long): Boolean =
+        files > 0 && (files > putOff || now - putOffAt !in 0 until PUT_OFF_MS)
+
     /**
      * What to do with [files], a download folder's, given [recorded]: the name of each song's file as
      * the app's database has it, for the songs whose file it has in this folder.
