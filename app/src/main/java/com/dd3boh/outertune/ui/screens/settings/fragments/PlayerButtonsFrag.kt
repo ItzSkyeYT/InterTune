@@ -187,6 +187,8 @@ fun ColumnScope.PlayerButtonsFrag() {
             // Cast only where there is casting.
             available = PlayerPin.entries.filter { it != PlayerPin.CAST || Unreleased.CASTING },
             queueButton = queueAsButton,
+            // The three-dots button in the bar the Top or Bottom choice below puts it in, as in the player.
+            menuIn = MenuPlaces.barOf(buttonsStyle, menuPlace),
             onPinsChange = { onPinsRawChange(PlayerPins.write(it)) },
             name = { pinName(it) },
             icon = { pinIcon(it) },

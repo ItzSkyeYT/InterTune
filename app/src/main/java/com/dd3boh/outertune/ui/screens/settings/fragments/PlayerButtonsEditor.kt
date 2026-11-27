@@ -96,7 +96,8 @@ private class Move(val label: String, val room: String?, val enabled: Boolean, v
  * drawn like that bar of the player with its free spots and how many are free, then the buttons not shown as a grid of
  * tiles. A long press lifts a button to drag it into a place, from one place to another or back to Not shown; a full
  * place refuses it and its count shows why. A tap offers the same moves in a menu, and each button has them as
- * accessibility actions. Every move is [PinMoves.move], stored as the chips stored it ([onPinsChange]).
+ * accessibility actions. Every move is [PinMoves.move], stored as the chips stored it ([onPinsChange]). The three-dots
+ * button ends the bar of [menuIn], where the player has it (MenuPlaces.barOf), and no bar when that is none.
  */
 @Composable
 fun PlayerButtonsEditor(
@@ -105,6 +106,7 @@ fun PlayerButtonsEditor(
     most: (PinPlace) -> Int,
     available: List<PlayerPin>,
     queueButton: Boolean,
+    menuIn: PinPlace?,
     onPinsChange: (Map<PinPlace, List<PlayerPin>>) -> Unit,
     name: @Composable (PlayerPin) -> String,
     icon: @Composable (PlayerPin) -> Painter,
@@ -246,9 +248,9 @@ fun PlayerButtonsEditor(
                     modifier = Modifier.onGloballyPositioned { boxBounds[place] = it.boundsInRoot() },
                 ) {
                     // The bar as the player draws it: the queue first when it is a button, room for more further out
-                    // from the menu, the buttons in the place's own order, and the menu last.
+                    // from the menu, the buttons in the place's own order, and the menu last in the bar it stands in.
                     val queue: List<Spot> = if (queueButton && place != PinPlace.CONNECTED_TITLE) listOf(Spot.Queue) else emptyList()
-                    val menu: List<Spot> = if (place == PinPlace.CONNECTED_TITLE) emptyList() else listOf(Spot.Menu)
+                    val menu: List<Spot> = if (place == menuIn) listOf(Spot.Menu) else emptyList()
                     val spots: List<Spot> = queue + List(free) { Spot.Free } + chosen.map { Spot.Button(it) } + menu
                     PlaceBar(
                         spots = spots,

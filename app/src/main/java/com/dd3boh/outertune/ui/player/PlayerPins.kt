@@ -208,4 +208,14 @@ object MenuPlaces {
 
     fun write(raw: String, style: PlayerButtonsStyle, place: MenuPlace): String =
         (parse(raw) + (style to place)).entries.joinToString(";") { (s, p) -> s.name + "=" + p.name }
+
+    /**
+     * The bar of buttons the three-dots button ends at [place], as the player draws it, for the buttons editor's boxes:
+     * Classic's circles at the top and none at the bottom, where it stands under the controls on its own; Connected's
+     * pair by the title at the top, its row at the bottom.
+     */
+    fun barOf(style: PlayerButtonsStyle, place: MenuPlace): PinPlace? = when (style) {
+        PlayerButtonsStyle.CLASSIC -> if (place == MenuPlace.TOP) PinPlace.CLASSIC else null
+        PlayerButtonsStyle.CONNECTED -> if (place == MenuPlace.TOP) PinPlace.CONNECTED_TITLE else PinPlace.CONNECTED_ROW
+    }
 }

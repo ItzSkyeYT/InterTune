@@ -8,6 +8,7 @@ package com.dd3boh.outertune.ui.player
 
 import com.dd3boh.outertune.constants.PlayerButtonsStyle
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
@@ -56,6 +57,18 @@ class MenuPlaceTest {
         assertTrue("PlayerMenuPlaceKey" in frag && "MenuPlaces.write(" in frag)
         val sample = src("ui/screens/settings/fragments/PlayerStyleSample.kt")
         assertTrue("menuPlace" in sample)
+    }
+
+    @Test
+    fun `the buttons editor draws the three-dots button in the bar where the player has it`() {
+        // Never chosen, the bars the editor has always ended with it: Classic's circles, Connected's row.
+        assertEquals(PinPlace.CLASSIC, MenuPlaces.barOf(PlayerButtonsStyle.CLASSIC, MenuPlaces.defaultFor(PlayerButtonsStyle.CLASSIC)))
+        assertEquals(PinPlace.CONNECTED_ROW, MenuPlaces.barOf(PlayerButtonsStyle.CONNECTED, MenuPlaces.defaultFor(PlayerButtonsStyle.CONNECTED)))
+        // Moved: Classic's stands under the controls in no bar, Connected's ends the pair by the title.
+        assertNull(MenuPlaces.barOf(PlayerButtonsStyle.CLASSIC, MenuPlace.BOTTOM))
+        assertEquals(PinPlace.CONNECTED_TITLE, MenuPlaces.barOf(PlayerButtonsStyle.CONNECTED, MenuPlace.TOP))
+        assertTrue("menuIn = MenuPlaces.barOf(buttonsStyle, menuPlace)," in src("ui/screens/settings/fragments/PlayerButtonsFrag.kt"))
+        assertTrue("val menu: List<Spot> = if (place == menuIn) listOf(Spot.Menu) else emptyList()" in src("ui/screens/settings/fragments/PlayerButtonsEditor.kt"))
     }
 
     @Test
