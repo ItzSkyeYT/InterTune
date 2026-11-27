@@ -297,7 +297,57 @@ class DownloadCopiesTest {
         val gone = DownloadCopies.remove(song, storage::lookAt, delete) { steps++ }
         assertEquals(DownloadCopies.Removal(1, 2_296_381L, allGone = false, keptLost = true), gone)
         assertEquals(3, steps)
-        assertEquals(setOf("$carpet.mka (2)", "$carpet.mka (3)"), storage.disk.keys)
+        // The highest number went first.
+        assertEquals(setOf("$carpet.mka (1)", "$carpet.mka (2)"), storage.disk.keys)
+    }
+
+    @Test
+    fun `a Remove the app ends leaves the copies that a folder listing as empty finds again`() {
+        // His folder, the database at the newest copy, the removal ended after a few deletions, and the next start
+        // asks the folder for each name again. Deleted from (1) up, three missing in a row hid the copies left past
+        // them from every look after it: they stayed for good, and no card ever said so (27 Nov 2026).
+        for (deletions in 0..5) {
+            val storage = PhoneStorage(mapOf("$carpet.mka" to 1_174_405L) + (1..5).associate { "$carpet.mka ($it)" to 2_296_381L })
+            val recorded = mapOf("2YvDwY80qJl" to "$carpet.mka (5)")
+            val song = DownloadCopies.plan(DownloadCopies.lookFor(listOf(carpet), recorded.values, storage::lookUp), recorded).songs.single()
+            var left = deletions
+            val delete = { key: String -> if (left-- <= 0) throw IllegalStateException("the app ended") else storage.delete(key) }
+            runCatching { DownloadCopies.remove(song, storage::lookAt, delete) {} }
+            val found = DownloadCopies.lookFor(listOf(carpet), recorded.values, storage::lookUp).map { it.name }.toSet()
+            assertEquals("ended after $deletions deletions", storage.disk.keys, found)
+        }
+    }
+
+    @Test
+    fun `Not now keeps the card down a week while copies are left, more copies bring it back at once, and Remove ends it`() {
+        // The clock fixed: Not now tapped on 27 Nov 2026 at 20:00 in Paris, on his song's five copies.
+        val day = 24 * 60 * 60 * 1000L
+        val tapped = 1_795_806_000_000L
+        val storage = PhoneStorage(mapOf("$carpet.mka" to 1_174_405L) + (1..5).associate { "$carpet.mka ($it)" to 2_296_381L })
+        val recorded = mapOf("2YvDwY80qJl" to "$carpet.mka")
+        fun look() = DownloadCopies.plan(DownloadCopies.lookFor(listOf(carpet), recorded.values, storage::lookUp), recorded)
+        val putOff = look().files
+        assertEquals(5, putOff)
+        assertTrue("never put off", DownloadCopies.cardShows(putOff, 0, 0L, tapped))
+        assertFalse("just after Not now", DownloadCopies.cardShows(look().files, putOff, tapped, tapped))
+        assertFalse("day 6", DownloadCopies.cardShows(look().files, putOff, tapped, tapped + 6 * day))
+        assertFalse("a moment before the week", DownloadCopies.cardShows(look().files, putOff, tapped, tapped + 7 * day - 1))
+        assertTrue("day 7", DownloadCopies.cardShows(look().files, putOff, tapped, tapped + 7 * day))
+        // A copy deleted by hand, fewer left: still the week.
+        storage.disk.remove("$carpet.mka (5)")
+        assertFalse("day 6, fewer left", DownloadCopies.cardShows(look().files, putOff, tapped, tapped + 6 * day))
+        assertTrue("day 7, fewer left", DownloadCopies.cardShows(look().files, putOff, tapped, tapped + 7 * day))
+        // More copies than were put off: at once, on day 1.
+        storage.disk["$carpet.mka (5)"] = 2_296_381L
+        storage.disk["$carpet.mka (6)"] = 2_296_381L
+        assertTrue("more copies, day 1", DownloadCopies.cardShows(look().files, putOff, tapped, tapped + day))
+        // Remove: none left, and no card ever after.
+        DownloadCopies.remove(look().songs.single(), storage::lookAt, storage::delete) {}
+        assertEquals(0, look().files)
+        for (at in listOf(tapped + day, tapped + 7 * day, tapped + 30 * day)) assertFalse(DownloadCopies.cardShows(look().files, putOff, tapped, at))
+        assertFalse(DownloadCopies.cardShows(0, 0, 0L, tapped))
+        // A clock put back to before Not now shows the card rather than keeping it down longer.
+        assertTrue(DownloadCopies.cardShows(5, 5, tapped, tapped - day))
     }
 
     @Test

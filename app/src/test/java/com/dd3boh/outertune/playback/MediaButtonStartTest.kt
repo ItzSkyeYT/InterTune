@@ -351,8 +351,11 @@ class MediaButtonStartTest {
         val plain = start.indexOf("else if (intent.action == Intent.ACTION_MEDIA_BUTTON && !MediaButtonStart.isPlain(intent))")
         val press = start.indexOf("holdForegroundForMediaButton(MediaButtonStart.keyOf(intent), MediaButtonStart.handedAtOf(intent, flags))")
         assertTrue(start, plain >= 0 && plain < press)
-        // Nothing else in the service starts the guard, so the plain press reaches media3 alone.
-        assertEquals("one caller", 2, Regex("""holdForegroundForMediaButton\(""").findAll(service).count())
+        // Nothing else in the service starts the guard, so the plain press reaches media3 alone: the media button's
+        // start, and a song tapped on the widget (27 Nov 2026), which Android waits on as on a play press.
+        assertEquals("two callers", 3, Regex("""holdForegroundForMediaButton\(""").findAll(service).count())
+        assertTrue("holdForegroundForMediaButton(KeyEvent.KEYCODE_MEDIA_PLAY, MediaButtonStart.handedAtOf(intent, flags))" in
+            body(service, "private fun playWidgetSong(intent: Intent, flags: Int) {"))
         // Still the start the service may have been created for: the next one is not counted from the process.
         val first = start.indexOf("firstStart = false")
         assertTrue(start, first > press && first < start.indexOf("return super.onStartCommand("))

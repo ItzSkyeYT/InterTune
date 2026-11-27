@@ -212,6 +212,32 @@ class MusicDatabase(
 abstract class InternalDatabase : RoomDatabase() {
     abstract val dao: DatabaseDao
 
+    /** Set as a close is asked for, before Room starts on it. See [inTransaction]. */
+    @Volatile
+    private var closeAsked = false
+
+    override fun close() {
+        closeAsked = true
+        super.close()
+    }
+
+    /**
+     * Whether this thread is inside one of this database's transactions. Room asks it on the
+     * thread that reads, before every Flow query and suspend read (DBUtil.performSuspending), and
+     * answers "the database is open, and it says so". A restore's close on another thread came
+     * between the two halves: the closed SQLiteDatabase then threw "attempt to re-open an
+     * already-closed object" on the thread that asked, the main thread, and the app stopped
+     * (#286). A closed database is in no transaction, the answer Room itself gives a moment later,
+     * so once a close has been asked for that is the answer here too: the read goes on to Room's
+     * scope, closed with the database, and ends there as a cancellation. Before a close was asked
+     * for, a database found closed is thrown as it was. ReadDuringCloseTest runs this on Room.
+     */
+    override fun inTransaction(): Boolean = try {
+        super.inTransaction()
+    } catch (e: IllegalStateException) {
+        if (closeAsked) false else throw e
+    }
+
     companion object {
         const val DB_NAME = "song.db"
         const val TEST_DB_NAME = "probe_song.db"

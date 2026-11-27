@@ -10,6 +10,7 @@
 package com.dd3boh.outertune
 
 import com.dd3boh.outertune.utils.AppLanguage
+import com.dd3boh.outertune.utils.ArtistCreditRepair
 import android.content.Context
 import com.dd3boh.outertune.utils.BuiltInKeys
 import com.dd3boh.outertune.recognition.RecognitionShortcut
@@ -99,7 +100,6 @@ import com.dd3boh.outertune.constants.PlayOrigin
 import com.dd3boh.outertune.models.DontPlay
 import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.models.toMediaMetadata
-import com.dd3boh.outertune.playback.queues.YouTubeQueue
 import androidx.lifecycle.lifecycleScope
 import com.dd3boh.outertune.constants.SongSortDescendingKey
 import com.dd3boh.outertune.constants.SongSortType
@@ -108,6 +108,8 @@ import com.dd3boh.outertune.extensions.toEnum
 import com.dd3boh.outertune.playback.queues.ListQueue
 import kotlinx.coroutines.flow.filterNotNull
 import com.dd3boh.outertune.widget.WidgetCommands
+import com.dd3boh.outertune.widget.WidgetSong
+import com.dd3boh.outertune.widget.WidgetSongStart
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
@@ -489,25 +491,10 @@ private fun playFromWidget(
     val duration = intent.getIntExtra(WidgetCommands.EXTRA_SONG_DURATION, 0)
     scope.launch {
         val known = runCatching { withContext(Dispatchers.IO) { database.song(id).first() } }.getOrNull()
-        val metadata = known?.toMediaMetadata() ?: MediaMetadata(
-            id = id,
-            title = title,
-            artists = listOf(MediaMetadata.Artist(null, artist)),
-            duration = duration,
-            thumbnailUrl = thumbnail,
-            genre = null,
-        )
-        when (widgetPlaybackKind(metadata)) {
-            WidgetPlaybackKind.LOCAL -> connection.playQueue(
-                ListQueue(title = metadata.title, items = listOf(metadata)),
-                origin = PlayOrigin.WIDGET,
-            )
-            WidgetPlaybackKind.RADIO -> connection.playQueue(
-                YouTubeQueue.radio(metadata),
-                isRadio = true,
-                origin = PlayOrigin.WIDGET,
-            )
-        }
+        // The same song and queue the player gives the tap when it plays it without the app (WidgetSongStart).
+        val song = WidgetSong(id = id, title = title, artist = artist, thumbnailUrl = thumbnail, durationSec = duration)
+        val play = WidgetSongStart.play(WidgetSongStart.metadata(known?.toMediaMetadata(), song))
+        connection.playQueue(play.queue, isRadio = play.isRadio, origin = PlayOrigin.WIDGET)
     }
 }
 
@@ -1031,6 +1018,13 @@ class MainActivity : ComponentActivity() {
                     )
                     // Once, and quietly: the track and disc numbers of local songs scanned before 0.12.5.
                     TrackTagReread.runOnce(this@MainActivity, database)
+                    // Once too: songs stored with their credit as one name get their artists back, and the
+                    // queues are read again so that the player shows them (ArtistCreditRepair).
+                    if (ArtistCreditRepair.runOnce(this@MainActivity, database) > 0) {
+                        playerConnection?.service?.refreshQueuesAfterScan()
+                        // The song shown before Play is the saved queue's, read at the start: shown again.
+                        withContext(Dispatchers.Main) { playerConnection?.storedQueueEdited() }
+                    }
                 }
             }
 

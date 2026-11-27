@@ -27,11 +27,14 @@ class ViewArtistTest {
 
     @Test
     fun `View artist is offered only when there is an artist to go to`() {
-        val offering = menus.listFiles { f -> f.extension == "kt" }!!.filter { "R.string.view_artist" in code(it) }
+        // The entries named View artist; the name also tells TalkBack what an artist's name does where it is a link,
+        // on a queued song's row (QueueMenuArtistTest).
+        val named = "title = R.string.view_artist"
+        val offering = menus.listFiles { f -> f.extension == "kt" }!!.filter { named in code(it) }
         assertTrue("found ${offering.map { it.name }}", offering.size >= 5)
         for (file in offering) {
             val text = code(file)
-            var at = text.indexOf("R.string.view_artist")
+            var at = text.indexOf(named)
             while (at >= 0) {
                 // Right above the entry: an if that asks for at least one artist.
                 val entry = text.lastIndexOf("GridMenuItem(", at)
@@ -47,7 +50,7 @@ class ViewArtistTest {
                     Regex("""\}\s*else \{\s*GridMenuItem\([^)]*R\.string\.no_artist_found,\s*enabled = false""")
                         .containsMatchIn(after),
                 )
-                at = text.indexOf("R.string.view_artist", at + 1)
+                at = text.indexOf(named, at + 1)
             }
         }
     }

@@ -1,5 +1,6 @@
 package com.dd3boh.outertune.viewmodels
 
+import com.dd3boh.outertune.models.ArtistCredit
 import com.dd3boh.outertune.models.ContentFilter
 import com.dd3boh.outertune.models.withoutBlocked
 import androidx.compose.runtime.getValue
@@ -54,6 +55,12 @@ class ArtistViewModel @Inject constructor(
     }
 
     fun fetchArtistsFromYTM() {
+        // An id made up here, for an artist YouTube gave no page (So What) or a file's: there is nothing to ask
+        // YouTube for, and the page opens on the songs in the library (ArtistScreen).
+        if (ArtistCredit.isMadeUp(artistId)) {
+            isLoading.value = false
+            return
+        }
         viewModelScope.launch {
             isLoading.value = true
             YouTube.artist(artistId)

@@ -19,6 +19,7 @@ import com.dd3boh.outertune.db.entities.FormatEntity
 import com.dd3boh.outertune.db.entities.GenreEntity
 import com.dd3boh.outertune.db.entities.Song
 import com.dd3boh.outertune.db.entities.SongEntity
+import com.dd3boh.outertune.models.ArtistCredit
 import com.dd3boh.outertune.models.SongTempData
 import com.dd3boh.outertune.ui.utils.ARTIST_SEPARATORS
 import com.dd3boh.outertune.ui.utils.EXTRACTOR_TAG
@@ -92,8 +93,7 @@ class TagLibScanner : MetadataScanner {
                     when (key) {
                         // why the fsck does an error here get swallowed silently????
                         "ARTISTS", "ARTIST", "artist" -> {
-                            val splitArtists = it.split(ARTIST_SEPARATORS)
-                            splitArtists.forEach { artistVal ->
+                            ArtistCredit.fromTag(it).forEach { artistVal ->
                                 artistList.add(ArtistEntity(ArtistEntity.generateArtistId(), artistVal, isLocal = true))
                             }
                         }

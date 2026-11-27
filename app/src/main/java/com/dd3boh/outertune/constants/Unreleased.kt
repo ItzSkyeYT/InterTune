@@ -145,7 +145,8 @@ object Unreleased {
      * the whole screen and the three settings in one glass bar (LivingBlurTune), opened from the sample in Look
      * and feel. In the debug app, the Preview and the Tester app since his pick of 20 Nov 2026 ("Into the Preview"),
      * and on for everyone in 0.13 on his yes of the same evening ("i like the fullscreen thing you made for today").
-     * Without it the sample has no full screen button, as before.
+     * Without it there is no button under the sample to open it, and since Living blur's rows in Look and feel went
+     * (27 Nov 2026) nothing would set the three: tidy the flag away, never turn it off.
      */
     val LIVING_TUNE = true
 
@@ -1059,11 +1060,12 @@ object Unreleased {
      * whose folder lists as empty got one more copy of every liked song at each liked catch up (dvd,
      * 23 Nov 2026: five of each of his 397 songs). A card at the top of Library > Downloaded songs says
      * how many there are and the room they take, with Remove and Not now; nothing is deleted before
-     * Remove, and each song keeps one file. Its texts (dl_copies_*) are held from translators, the
-     * French beside them. Without the flag nothing is looked for and the card never shows. To ship:
-     * set this to true, add it to ReleasedFlagsTest and open its texts to translators.
+     * Remove, and each song keeps one file. Without the flag nothing is looked for and the card never
+     * shows. On for everyone in 0.13 (his word of 27 Nov 2026: "only if it works well and is robust
+     * enough"), after a skeptic's tests and an emulator walk with real downloads, planted copies and
+     * look-alikes (experiments/bugs/dvd-copies-1123/robust-1127); its texts open to translators.
      */
-    val DOWNLOAD_COPIES_CLEANUP = BuildConfig.PREVIEW_FEATURES
+    val DOWNLOAD_COPIES_CLEANUP = true
 
     /**
      * The adaptive queue reads a skip by what the skipped song is like (an idea of 9 Nov 2026). A song

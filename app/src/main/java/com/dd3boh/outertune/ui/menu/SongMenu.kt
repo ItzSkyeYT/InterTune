@@ -497,7 +497,8 @@ fun SongMenu(
         ArtistDialog(
             navController = navController,
             artists = song.artists,
-            onDismiss = { showSelectArtistDialog = false }
+            onDismiss = { showSelectArtistDialog = false },
+            onOpened = onDismiss,
         )
     }
 

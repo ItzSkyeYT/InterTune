@@ -8,39 +8,68 @@ package com.dd3boh.outertune.models
 
 import com.zionhuang.innertube.models.Artist
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.File
 
-/** "View artist" only ever offers an artist it can open. */
+/**
+ * "View artist" offers every credited artist, and never opens "artist/null" (which crashed the app). One YouTube
+ * gave no page opens a search for its name: So What, of "Thread The Needle", was left out, and the choice
+ * offered Hoax and Dynamite MC alone (27 Nov 2026).
+ */
 class ArtistLinksTest {
-    @Test
-    fun `a credit with no id, like Various Artists, is left out`() {
-        val credits = listOf(Artist(name = "Various Artists", id = null))
-        assertEquals(emptyList<MediaMetadata.Artist>(), credits.withArtistIds())
-    }
+
+    private fun route(artist: MediaMetadata.Artist) = artist.viewRoute { it.replace(" ", "%20") }
 
     @Test
-    fun `the others keep their order`() {
+    fun `Thread The Needle offers its three artists, in their order`() {
         val credits = listOf(
-            Artist(name = "Queen", id = "UCiMhD4jzUqG-IgPzUmmytRQ"),
-            Artist(name = "Various Artists", id = null),
-            Artist(name = "Blank", id = ""),
-            Artist(name = "David Bowie", id = "UCyqqFFM3YtGUpNHIwtDeK5A"),
+            Artist(name = "Hoax", id = "UC0-C_jjGdhQ4x9pmMSEZLcg"),
+            Artist(name = "So What", id = null),
+            Artist(name = "Dynamite MC", id = "UCEMEp1vS0srzZBre3-J9JbQ"),
         )
+        val offered = credits.viewable()
+        assertEquals(listOf("Hoax", "So What", "Dynamite MC"), offered.map { it.name })
         assertEquals(
-            listOf(
-                MediaMetadata.Artist(id = "UCiMhD4jzUqG-IgPzUmmytRQ", name = "Queen"),
-                MediaMetadata.Artist(id = "UCyqqFFM3YtGUpNHIwtDeK5A", name = "David Bowie"),
-            ),
-            credits.withArtistIds(),
+            listOf("artist/UC0-C_jjGdhQ4x9pmMSEZLcg", "search/So%20What", "artist/UCEMEp1vS0srzZBre3-J9JbQ"),
+            offered.map(::route),
         )
     }
 
     @Test
-    fun `player artists with no id are left out, local ones stay`() {
+    fun `a credit with no id is a search for its name, never artist null`() {
+        val various = listOf(Artist(name = "Various Artists", id = null), Artist(name = "Blank id", id = ""))
+        val offered = various.viewable()
+        assertEquals(listOf(null, null), offered.map { it.id })
+        assertEquals(listOf("search/Various%20Artists", "search/Blank%20id"), offered.map(::route))
+        offered.forEach { assertFalse(route(it)!!.startsWith("artist/")) }
+    }
+
+    @Test
+    fun `an artist with neither an id nor a name is not offered`() {
+        val artists = listOf(MediaMetadata.Artist(id = null, name = " "), MediaMetadata.Artist(id = "", name = ""))
+        assertEquals(emptyList<MediaMetadata.Artist>(), artists.viewable())
+        assertNull(route(artists[0]))
+    }
+
+    @Test
+    fun `a menu closes once an artist is chosen from its list, as it does for one artist`() {
+        val menus = File("src/main/java/com/dd3boh/outertune/ui/menu").listFiles { f -> f.extension == "kt" }!!
+            .filter { "ArtistDialog(" in it.readText() }
+        assertTrue("found ${menus.map { it.name }}", menus.size >= 5)
+        for (menu in menus) assertTrue("${menu.name}: the menu stays open over the artist", "onOpened = onDismiss" in menu.readText())
+    }
+
+    @Test
+    fun `the player's artists, local and made up here, open their pages`() {
         val artists = listOf(
-            MediaMetadata.Artist(id = null, name = "Various Artists"),
             MediaMetadata.Artist(id = "LAabcdefgh", name = "Local", isLocal = true),
+            MediaMetadata.Artist(id = "LAqWgslcqk", name = "So What"),
+            MediaMetadata.Artist(id = null, name = "So What"),
         )
-        assertEquals(listOf(artists[1]), artists.withArtistIds())
+        assertEquals(artists, artists.viewable())
+        assertEquals(listOf("artist/LAabcdefgh", "artist/LAqWgslcqk", "search/So%20What"), artists.map(::route))
     }
 }

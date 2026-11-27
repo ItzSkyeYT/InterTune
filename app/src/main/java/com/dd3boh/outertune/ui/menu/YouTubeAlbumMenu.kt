@@ -38,7 +38,8 @@ import com.dd3boh.outertune.R
 import com.dd3boh.outertune.extensions.toMediaItem
 import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.models.toMediaMetadata
-import com.dd3boh.outertune.models.withArtistIds
+import com.dd3boh.outertune.models.viewRoute
+import com.dd3boh.outertune.models.viewable
 import com.dd3boh.outertune.playback.queues.YouTubeAlbumRadio
 import com.dd3boh.outertune.ui.component.button.IconButton
 import com.dd3boh.outertune.ui.component.items.YouTubeListItem
@@ -55,6 +56,7 @@ import kotlinx.coroutines.flow.first
 import androidx.compose.ui.platform.LocalHapticFeedback
 import com.dd3boh.outertune.ui.component.tapTick
 import com.dd3boh.outertune.ui.player.likeName
+import com.dd3boh.outertune.utils.urlEncode
 
 @Composable
 fun YouTubeAlbumMenu(
@@ -80,7 +82,7 @@ fun YouTubeAlbumMenu(
     var showSelectArtistDialog by rememberSaveable {
         mutableStateOf(false)
     }
-    val artists = remember(albumItem) { albumItem.artists.orEmpty().withArtistIds() }
+    val artists = remember(albumItem) { albumItem.artists.orEmpty().viewable() }
 
     // The page's songs, for Play next and Add to queue while the album is not stored yet: they
     // acted on the stored album alone, and did nothing until the write below had landed.
@@ -196,7 +198,7 @@ fun YouTubeAlbumMenu(
                 title = R.string.view_artist
             ) {
                 if (artists.size == 1) {
-                    navController.navigate("artist/${artists[0].id}")
+                    artists[0].viewRoute { it.urlEncode() }?.let { navController.navigate(it) }
                     onDismiss()
                 } else {
                     showSelectArtistDialog = true
@@ -269,7 +271,8 @@ fun YouTubeAlbumMenu(
         ArtistDialog(
             navController = navController,
             artists = artists,
-            onDismiss = { showSelectArtistDialog = false }
+            onDismiss = { showSelectArtistDialog = false },
+            onOpened = onDismiss,
         )
     }
 }

@@ -70,7 +70,9 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastSumBy
 import androidx.compose.ui.window.DialogProperties
@@ -104,7 +106,8 @@ import com.dd3boh.outertune.constants.YtmSyncModeKey
 import com.dd3boh.outertune.models.DislikePlan
 import com.dd3boh.outertune.models.DontPlay
 import com.dd3boh.outertune.models.MediaMetadata
-import com.dd3boh.outertune.models.withArtistIds
+import com.dd3boh.outertune.models.viewRoute
+import com.dd3boh.outertune.models.viewable
 import com.dd3boh.outertune.playback.queues.YouTubeQueue
 import com.dd3boh.outertune.ui.component.BigSeekBar
 import com.dd3boh.outertune.ui.component.BottomSheetState
@@ -134,10 +137,10 @@ import com.dd3boh.outertune.constants.ThumbnailCornerRadius
 import com.dd3boh.outertune.playback.PlayerConnection
 import com.dd3boh.outertune.ui.component.items.ItemThumbnail
 import com.dd3boh.outertune.ui.player.likeName
-import com.dd3boh.outertune.utils.joinByBullet
 import com.dd3boh.outertune.utils.makeTimeString
 import androidx.compose.ui.platform.LocalHapticFeedback
 import com.dd3boh.outertune.ui.component.tapTick
+import com.dd3boh.outertune.utils.urlEncode
 
 /**
  * A song of the queue liked, or its like taken back, from its menu (#219), the way the player's
@@ -217,7 +220,20 @@ fun PlayerMenu(
     var showSelectArtistDialog by rememberSaveable {
         mutableStateOf(false)
     }
-    val artists = remember(mediaMetadata) { mediaMetadata.artists.withArtistIds() }
+    // Every credited artist, one with no page as a search for its name (ArtistLinks).
+    val artists = remember(mediaMetadata) { mediaMetadata.artists.viewable() }
+    // To the song's artist: one at once, several by the choice of them. View artist goes this way, and so does
+    // the artist's name on the song's row on top of a queued song's menu (his ask of 27 Nov 2026).
+    val openArtist: () -> Unit = {
+        if (artists.size == 1) {
+            ActivityLog.note(context, database, mediaMetadata.id, SignalKind.ARTIST_PAGE)
+            artists[0].viewRoute { it.urlEncode() }?.let { navController.navigate(it) }
+            playerBottomSheetState.collapseSoft()
+            onDismiss()
+        } else {
+            showSelectArtistDialog = true
+        }
+    }
 
 
     var showPitchTempoDialog by rememberSaveable {
@@ -280,12 +296,39 @@ fun PlayerMenu(
         // The like as stored, so the heart turns as soon as the row is written, and the snapshot
         // the queue holds until the song has a row of its own.
         val liked = librarySong?.song?.liked ?: mediaMetadata.liked
+        val haptic = LocalHapticFeedback.current
         ListItem(
             title = mediaMetadata.title,
-            subtitle = joinByBullet(
-                mediaMetadata.artists.joinToString { it.name },
-                makeTimeString(mediaMetadata.duration * 1000L)
-            ),
+            // The artist and the length, as every song menu has them, the artist's name a way to the artist.
+            subtitle = {
+                val artistNames = mediaMetadata.artists.joinToString { it.name }
+                val length = makeTimeString(mediaMetadata.duration * 1000L)
+                if (artistNames.isNotEmpty()) {
+                    Text(
+                        text = artistNames,
+                        color = MaterialTheme.colorScheme.secondary,
+                        style = MaterialTheme.typography.bodySmall,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        // Shrinks before the length does, so a long line of artists never hides it.
+                        modifier = Modifier
+                            .weight(1f, fill = false)
+                            .clickable(enabled = artists.isNotEmpty(), onClickLabel = stringResource(R.string.view_artist), role = Role.Button) {
+                                haptic.tapTick()
+                                openArtist()
+                            }
+                    )
+                }
+                if (length.isNotEmpty()) {
+                    Text(
+                        // joinByBullet's bullet, the two lines being two texts.
+                        text = if (artistNames.isNotEmpty()) " • $length" else length,
+                        color = MaterialTheme.colorScheme.secondary,
+                        style = MaterialTheme.typography.bodySmall,
+                        maxLines = 1,
+                    )
+                }
+            },
             thumbnailContent = {
                 ItemThumbnail(
                     thumbnailUrl = mediaMetadata.thumbnailUrl,
@@ -423,17 +466,9 @@ fun PlayerMenu(
         if (artists.isNotEmpty()) {
             GridMenuItem(
                 icon = R.drawable.artist,
-                title = R.string.view_artist
-            ) {
-                if (artists.size == 1) {
-                    ActivityLog.note(context, database, mediaMetadata.id, SignalKind.ARTIST_PAGE)
-                    navController.navigate("artist/${artists[0].id}")
-                    playerBottomSheetState.collapseSoft()
-                    onDismiss()
-                } else {
-                    showSelectArtistDialog = true
-                }
-            }
+                title = R.string.view_artist,
+                onClick = openArtist
+            )
         } else {
             // No artist to go to: the entry stays, greyed out, and says so (#150).
             GridMenuItem(
@@ -660,7 +695,8 @@ fun PlayerMenu(
             onDismiss = {
                 playerBottomSheetState.collapseSoft()
                 showSelectArtistDialog = false
-            }
+            },
+            onOpened = onDismiss,
         )
     }
 

@@ -10,6 +10,7 @@ package com.dd3boh.outertune.ui.utils
 
 import android.Manifest
 import android.os.Build
+import com.dd3boh.outertune.models.ArtistCredit
 import com.dd3boh.outertune.models.CulmSongs
 import com.dd3boh.outertune.models.DirectoryTree
 import com.dd3boh.outertune.utils.fixFilePath
@@ -23,7 +24,8 @@ val MEDIA_PERMISSION_LEVEL =
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) Manifest.permission.READ_MEDIA_AUDIO
     else Manifest.permission.READ_EXTERNAL_STORAGE
 const val STORAGE_ROOT = "/storage/"
-val ARTIST_SEPARATORS = Regex("\\s*;\\s*|\\s*ft\\.\\s*|\\s*feat\\.\\s*|\\s*&\\s*|\\s*,\\s*", RegexOption.IGNORE_CASE)
+/** Where a file's tag is split into artists: see ArtistCredit.fromTag, which every scanner splits a tag with. */
+val ARTIST_SEPARATORS = ArtistCredit.TAG_SEPARATORS
 val uninitializedDirectoryTree = DirectoryTree(STORAGE_ROOT, CulmSongs(0))
 private val cachedDirectoryTree: ArrayList<DirectoryTree> = ArrayList()
 

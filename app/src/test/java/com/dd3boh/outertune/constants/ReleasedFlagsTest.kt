@@ -27,7 +27,7 @@ import java.io.File
  */
 class ReleasedFlagsTest {
 
-    /** On in every build, and so in a release. The second line went on for 0.11.5, the third on 14 Oct, the fourth for 0.12, the fifth for 0.12.1, the sixth for 0.12.5 (its last four picked on 26 Oct 2026), the eighth for 0.13 (picked on 8 Nov 2026), the three after it for 0.13 too (picked on 14 Nov 2026), Listen together and the Metrolist import for 0.13 (his word, 14 Nov 2026, late), the battery saver note for 0.13 (his yes, 18 Nov 2026), the line after it for 0.13 (his picks of 19 Nov 2026, each walked on the emulator that day), the one after it for 0.13 (his picks of 20 Nov 2026, the Living blur tuner his yes of that evening), and the last for 0.13 too (handing a room on as its host leaves, his word of 23 Nov 2026, walked on the emulator on 24 Nov). */
+    /** On in every build, and so in a release. The second line went on for 0.11.5, the third on 14 Oct, the fourth for 0.12, the fifth for 0.12.1, the sixth for 0.12.5 (its last four picked on 26 Oct 2026), the eighth for 0.13 (picked on 8 Nov 2026), the three after it for 0.13 too (picked on 14 Nov 2026), Listen together and the Metrolist import for 0.13 (his word, 14 Nov 2026, late), the battery saver note for 0.13 (his yes, 18 Nov 2026), the line after it for 0.13 (his picks of 19 Nov 2026, each walked on the emulator that day), the one after it for 0.13 (his picks of 20 Nov 2026, the Living blur tuner his yes of that evening), the one after it for 0.13 too (handing a room on as its host leaves, his word of 23 Nov 2026, walked on the emulator on 24 Nov), and the last for 0.13 (the clean-up of the extra download copies, his word of 27 Nov 2026 if robust enough, walked that evening). */
     private val inEveryBuild = setOf(
         "ENGINE", "SHORT_SETUP", "LOGIN_RETURNS",
         "STAND_INS", "VISIONOS_IDENTITIES", "WEB_FALLBACK", "LANDSCAPE", "EXPLAIN_PICTURES", "LIBRARY_IMPORT",
@@ -43,7 +43,7 @@ class ReleasedFlagsTest {
         "LISTEN_TOGETHER", "METROLIST_IMPORT", "SAVER_NOTE",
         "REPEAT_LIT_BOX", "CAST_AT_TOP", "LOCAL_REMOVE", "PLAYLIST_YT_SEARCH", "HAPTICS_MORE", "VARISPEED",
         "ROOM_AT_FREE_END", "LIVING_TUNE", "HAPTICS_FEEL", "LISTENBRAINZ",
-        "ROOM_HAND_ON",
+        "ROOM_HAND_ON", "DOWNLOAD_COPIES_CLEANUP",
     )
 
     private val sources = File("src/main/java/com/dd3boh/outertune")
@@ -299,6 +299,29 @@ class ReleasedFlagsTest {
         for (name in names) {
             assertTrue("$name is not open to translators", "<string name=\"$name\">" in english)
             assertTrue("$name has no French", "<string name=\"$name\">" in french)
+        }
+    }
+
+    // ---- what goes on for 0.13 ----
+
+    @Test
+    fun `the clean-up of the extra download copies is in every build, read where it was written, its texts open`() {
+        assertEquals(
+            setOf(
+                "playback/DownloadUtil.kt", "playback/DownloadCopiesCleanup.kt", "ui/component/DownloadCopiesNote.kt",
+                "ui/screens/playlist/AutoPlaylistScreen.kt",
+            ),
+            readers("DOWNLOAD_COPIES_CLEANUP"),
+        )
+        assertWritten("playback/DownloadUtil.kt", "if (Unreleased.DOWNLOAD_COPIES_CLEANUP) {")
+        assertWritten("playback/DownloadCopiesCleanup.kt", "if (!Unreleased.DOWNLOAD_COPIES_CLEANUP || _state.value is State.Removing) return")
+        assertWritten("ui/component/DownloadCopiesNote.kt", "if (!Unreleased.DOWNLOAD_COPIES_CLEANUP) return")
+        assertWritten("ui/screens/playlist/AutoPlaylistScreen.kt", "if (playlistType == PlaylistType.DOWNLOAD && Unreleased.DOWNLOAD_COPIES_CLEANUP) {")
+        val english = File("src/main/res/values/strings-ot.xml").readText()
+        val french = File("src/main/res/values-fr/strings-ot.xml").readText()
+        for (name in listOf("dl_copies_title", "dl_copies_body", "dl_copies_remove", "dl_copies_not_now", "dl_copies_removing", "dl_copies_removed")) {
+            assertTrue("$name is not open to translators", Regex("""<(string|plurals) name="$name">""").containsMatchIn(english))
+            assertTrue("$name has no French", Regex("""<(string|plurals) name="$name">""").containsMatchIn(french))
         }
     }
 

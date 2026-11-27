@@ -117,7 +117,8 @@ import kotlin.math.roundToInt
  * the picture in one bar where the player's controls are, glass with Liquid glass on. Every change is the setting itself,
  * so the player has it at once. The eye hides the bar, to see the picture whole.
  *
- * In the debug app, the Preview and the Tester app (Unreleased.LIVING_TUNE), his pick of 20 Nov 2026.
+ * For everyone in 0.13 (Unreleased.LIVING_TUNE), his pick of 20 Nov 2026, and since 27 Nov 2026 the one place the
+ * three are set: their rows in Look and feel went, and the button under the sample there opens this.
  */
 @Composable
 fun LivingBlurTune(onClose: () -> Unit) {

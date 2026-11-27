@@ -43,6 +43,7 @@ import com.dd3boh.outertune.db.entities.SongAlbumMap
 import com.dd3boh.outertune.db.entities.SongArtistMap
 import com.dd3boh.outertune.db.entities.SongEntity
 import com.dd3boh.outertune.db.entities.SongGenreMap
+import com.dd3boh.outertune.models.ArtistCredit
 import com.dd3boh.outertune.models.CulmSongs
 import com.dd3boh.outertune.models.DirectoryTree
 import com.dd3boh.outertune.models.MediaMetadata
@@ -877,7 +878,8 @@ class LocalMediaScanner(val context: Context, scannerImpl: ScannerImpl) {
                 val genresList = ArrayList<GenreEntity>()
 
 
-                artist.split(ARTIST_SEPARATORS).forEach { artistVal ->
+                // Never a name left empty, as "A, B, & C" leaves one between its comma and its "&" (ArtistCredit.fromTag).
+                ArtistCredit.fromTag(artist).forEach { artistVal ->
                     artistList.add(ArtistEntity(ArtistEntity.generateArtistId(), artistVal, isLocal = true))
                 }
 
