@@ -33,18 +33,22 @@ import kotlin.coroutines.cancellation.CancellationException
 /**
  * Where similar songs come from, as the app acts on it. The only way app code reads the mode, so
  * a build without a Last.fm key, or a release while the engine is held back, never asks Last.fm
- * anything whatever the stored setting says. From 1 December 2026 every build reads as one
- * without a key (LastFmEnd), so similar songs come from YouTube alone, without a word, and the
- * stored choice is left as it was.
+ * anything whatever the stored setting says. From 1 December 2026 Last.fm's similar songs need
+ * Last.fm Pro (LastFmEnd.similarGone), so every build reads as one without a key here: similar
+ * songs come from YouTube alone, without a word, and the stored choice is left as it was.
+ * Scrobbling is not touched: Last.fm keeps it free.
  */
 /**
- * Whether the first-run questions still owe the Last.fm one: only in a build that has a key and
- * shows the engine, since anywhere else there is nothing to ask for. With [listenBrainz]
- * (Unreleased.LB_SIMILAR) the question is ListenBrainz's, which needs no key, so it is owed
- * wherever the engine is shown, after 1 December too.
+ * Whether the first-run questions still owe the Last.fm one: only where Last.fm can still be
+ * asked for similar songs and the engine shows, since anywhere else there is nothing to ask for.
+ * With [listenBrainz] (Unreleased.LB_SIMILAR) the question is ListenBrainz's, which needs no key,
+ * so it is owed wherever the engine is shown, after 1 December too.
  */
 fun lastFmQuestionAskable(listenBrainz: Boolean = Unreleased.LB_SIMILAR): Boolean =
-    (listenBrainz || BuiltInKeys.lastFmApiKey.isNotEmpty()) && Unreleased.ENGINE
+    (listenBrainz || lastFmSimilarReachable()) && Unreleased.ENGINE
+
+/** Whether Last.fm can be asked for similar songs: a key built in, and before 1 December 2026 (LastFmEnd). */
+fun lastFmSimilarReachable(): Boolean = BuiltInKeys.lastFmApiKey.isNotEmpty() && !LastFmEnd.similarGone()
 
 /**
  * With [listenBrainz] (Unreleased.LB_SIMILAR) the second source is ListenBrainz (ListenBrainzSimilar),
@@ -52,7 +56,7 @@ fun lastFmQuestionAskable(listenBrainz: Boolean = Unreleased.LB_SIMILAR): Boolea
  */
 fun similarSourceOf(prefs: Preferences, listenBrainz: Boolean = Unreleased.LB_SIMILAR): SimilarSource = SimilarSources.effective(
     SimilarSources.stored(prefs[SimilarSourceKey], prefs[SimilarFromLastFmKey]),
-    hasKey = listenBrainz || BuiltInKeys.lastFmApiKey.isNotEmpty(),
+    hasKey = listenBrainz || lastFmSimilarReachable(),
     engineOn = Unreleased.ENGINE,
 )
 
@@ -61,8 +65,9 @@ fun similarSourceOf(prefs: Preferences, listenBrainz: Boolean = Unreleased.LB_SI
  *
  * Runs when similar songs come from Both or Last.fm only. Needs only the API key built into the
  * app, since track.getSimilar is a public read, so it works with no account connected. It never
- * runs in a build without a key, or in a release while the engine is held back, because
- * [similarSourceOf] reads as YouTube only there.
+ * runs in a build without a key, in a release while the engine is held back, or from 1 December
+ * 2026 (track.getSimilar then needs Last.fm Pro), because [similarSourceOf] reads as YouTube only
+ * there.
  */
 @Singleton
 class LastFmSimilar @Inject constructor(

@@ -43,8 +43,8 @@ import androidx.compose.ui.Modifier
  * The whole fragment hides itself when the build has no Last.fm API key, since every button in it
  * would fail.
  *
- * From 1 December 2026 Last.fm takes nothing from this app (LastFmEnd), and the card is one row
- * saying so in place of all of that.
+ * Should Last.fm refuse the app's key itself (LastFmEnd), the card is one row saying so in place
+ * of all of that. Not on 1 December 2026: Last.fm keeps scrobbling free.
  */
 @Composable
 fun ColumnScope.LastFmFrag(navController: NavController) {
@@ -53,8 +53,8 @@ fun ColumnScope.LastFmFrag(navController: NavController) {
     val context = LocalContext.current
 
     // Last.fm has closed: why, in one row with nothing to tap. Before the row for a build without
-    // a key, since the key reads as empty then too. The settings are held as a state so the switch
-    // in Developer turns the card at once. No tour target here: the tour's Last.fm stop finds no
+    // a key, since the key reads as empty then too. The settings are held as a state so a refusal
+    // turns the card at once. No tour target here: the tour's Last.fm stop finds no
     // row and is left out by itself (TourState.leaveOut).
     val settings by context.dataStore.data.collectAsState()
     if (LastFmEnd.closed(settings)) {

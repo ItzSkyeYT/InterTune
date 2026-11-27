@@ -1115,7 +1115,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="lastfm_unavailable_description">This copy of InterTune was built without a Last.fm key. Official releases have one.</string>
     <string name="lastfm_login_failed">Last.fm would not start the login: %1$s</string>
     <string name="lastfm_ended">Last.fm no longer works here</string>
-    <string name="lastfm_ended_description">Since 1 December, Last.fm only works in apps whose maker pays for Last.fm Pro. Your scrobbles stay on Last.fm.</string>
+    <string name="lastfm_ended_description">Last.fm turned this app\'s key away, so nothing more is sent to it. Your scrobbles stay on Last.fm.</string>
     <string name="polls_unavailable">Not available in this build</string>
     <string name="polls_unavailable_description">This copy of InterTune was built without a source for questions.</string>
     <string name="playlist_empty_title">Let\'s find something for this playlist</string>
@@ -2657,7 +2657,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="new_airplay_title">AirPlay speakers in the cast list</string>
     <string name="new_airplay_body">The cast button, now by the song\'s title, finds AirPlay speakers too. The equalizer and Audio normalization are heard on them.</string>
     <string name="new_listenbrainz_title">Scrobble to ListenBrainz</string>
-    <string name="new_listenbrainz_body">Last.fm stops on 1 December. Connect a ListenBrainz account and each song you finish goes to your profile there.</string>
+    <string name="new_listenbrainz_body">Connect a ListenBrainz account and each song you finish goes to your profile there, with or without Last.fm.</string>
     <string name="new_listenbrainz_way">Your accounts and what they keep in sync are set in here, ListenBrainz too.</string>
     <string name="new_listenbrainz_here">Connect with the user token from your ListenBrainz settings. Each song you finish then goes to your profile.</string>
     <string name="new_vibration_title">Vibration you can feel</string>

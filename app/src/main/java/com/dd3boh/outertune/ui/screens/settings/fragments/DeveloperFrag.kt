@@ -239,12 +239,11 @@ fun ColumnScope.DeveloperFrag(navController: NavController) {
                     },
                 )
             }
-            // Last.fm as it is from 1 December 2026 (LastFmEnd), to walk that before the date.
-            // Kept across starts, so the next start forgets the account as the first one after
-            // the date does.
+            // Last.fm as it is from 1 December 2026 (LastFmEnd.similarGone): similar songs from
+            // YouTube alone, scrobbling as before. To walk that before the date.
             val (lastFmEnded, onLastFmEndedChange) = rememberPreference(key = LastFmActAsEndedKey, defaultValue = false)
             SwitchPreference(
-                title = { Text("DEBUG: Act as after 1 December (Last.fm)") },
+                title = { Text("DEBUG: Act as after 1 December (Last.fm's similar songs)") },
                 icon = { Icon(Icons.Rounded.Science, null) },
                 checked = lastFmEnded,
                 onCheckedChange = onLastFmEndedChange,

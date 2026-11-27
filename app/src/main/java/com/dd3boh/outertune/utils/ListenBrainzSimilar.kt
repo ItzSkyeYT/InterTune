@@ -24,8 +24,8 @@ import kotlin.coroutines.cancellation.CancellationException
 
 /**
  * ListenBrainz's similar songs for the songs being played, in the place Last.fm's had (Unreleased.LB_SIMILAR), kept
- * in related_song_map as a source of their own (RelatedSongMap.SOURCE_LISTENBRAINZ). From 1 December 2026 Last.fm
- * takes nothing more from this app (LastFmEnd); ListenBrainz's data is open and free.
+ * in related_song_map as a source of their own (RelatedSongMap.SOURCE_LISTENBRAINZ). From 1 December 2026 Last.fm's
+ * similar songs need Last.fm Pro (LastFmEnd.similarGone; its scrobbling stays free); ListenBrainz's data is open and free.
  *
  * It does what LastFmSimilar did, where LastFmSimilar was asked (MusicService, Home): while similar songs come from
  * Both or the second source only (similarSourceOf), a song played is asked about when its list is missing or a

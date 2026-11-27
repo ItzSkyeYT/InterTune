@@ -77,9 +77,9 @@ import com.dd3boh.outertune.ui.component.PreferenceEntry
 import com.dd3boh.outertune.ui.component.PreferenceGroupTitle
 import com.dd3boh.outertune.ui.component.SwitchPreference
 import com.dd3boh.outertune.ui.screens.leanOptionName
-import com.dd3boh.outertune.utils.BuiltInKeys
 import com.dd3boh.outertune.utils.dataStore
 import com.dd3boh.outertune.utils.get
+import com.dd3boh.outertune.utils.lastFmSimilarReachable
 import com.dd3boh.outertune.utils.rememberEnumPreference
 import com.dd3boh.outertune.utils.rememberPreference
 import com.dd3boh.outertune.viewmodels.RecommendationsViewModel
@@ -248,12 +248,14 @@ fun RecommendationsSettings(
                     )
                 }
             }
-            // Needs the Last.fm key built into the app. A build without one, or a copy not signed with
-            // the release key, has nothing to ask with, so the choice is not shown rather than shown
-            // doing nothing, and the app acts as YouTube only. ListenBrainz in Last.fm's place
-            // (Unreleased.LB_SIMILAR) needs no key, and the choice and its words are its own.
+            // Needs the Last.fm key built into the app, and the days before 1 December 2026, when
+            // Last.fm's similar songs start to need Last.fm Pro (LastFmEnd). A build without a key,
+            // a copy not signed with the release key, or any build from that day has nothing to ask
+            // with, so the choice is not shown rather than shown doing nothing, and the app acts as
+            // YouTube only. ListenBrainz in Last.fm's place (Unreleased.LB_SIMILAR) needs no key and
+            // no date, and the choice and its words are its own.
             val listenBrainz = Unreleased.LB_SIMILAR
-            if (listenBrainz || BuiltInKeys.lastFmApiKey.isNotEmpty()) {
+            if (listenBrainz || lastFmSimilarReachable()) {
                 val similarTitle = stringResource(R.string.similar_source)
                 val similarInfo = stringResource(if (listenBrainz) R.string.similar_source_listenbrainz_info else R.string.similar_source_info)
                 EnumListPreference(

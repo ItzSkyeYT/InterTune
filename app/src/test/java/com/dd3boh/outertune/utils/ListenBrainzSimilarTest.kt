@@ -151,7 +151,7 @@ class ListenBrainzSimilarTest {
     fun `with ListenBrainz in Last-fm's place the choice holds after the first of December, and is asked for without a key`() {
         assumeTrue(Unreleased.ENGINE)
         val chosen = listOf(SimilarSource.BOTH, SimilarSource.LASTFM, SimilarSource.LASTFM, SimilarSource.YOUTUBE, SimilarSource.YOUTUBE)
-        for (day in listOf(LastFmEnd.END_MS - 1, LastFmEnd.END_MS)) {
+        for (day in listOf(LastFmEnd.PRO_FROM_MS - 1, LastFmEnd.PRO_FROM_MS)) {
             LastFmEnd.clock = { day }
             assertEquals(chosen, stored.map { similarSourceOf(it, listenBrainz = true) })
             assertTrue(lastFmQuestionAskable(listenBrainz = true))
@@ -161,7 +161,7 @@ class ListenBrainzSimilarTest {
     @Test
     fun `without the flag it is Last-fm's, as before - YouTube alone from the date, and no question`() {
         assumeTrue(Unreleased.ENGINE)
-        LastFmEnd.clock = { LastFmEnd.END_MS }
+        LastFmEnd.clock = { LastFmEnd.PRO_FROM_MS }
         assertEquals(List(stored.size) { SimilarSource.YOUTUBE }, stored.map { similarSourceOf(it, listenBrainz = false) })
         assertFalse(lastFmQuestionAskable(listenBrainz = false))
     }
@@ -174,7 +174,7 @@ class ListenBrainzSimilarTest {
         val similar = code("utils/LastFmSimilar.kt")
         assertTrue("fun lastFmQuestionAskable(listenBrainz: Boolean = Unreleased.LB_SIMILAR)" in similar)
         assertTrue("fun similarSourceOf(prefs: Preferences, listenBrainz: Boolean = Unreleased.LB_SIMILAR)" in similar)
-        assertTrue("hasKey = listenBrainz || BuiltInKeys.lastFmApiKey.isNotEmpty()," in similar)
+        assertTrue("hasKey = listenBrainz || lastFmSimilarReachable()," in similar)
     }
 
     @Test
@@ -274,7 +274,7 @@ class ListenBrainzSimilarTest {
     fun `the setting, the setup question and the card say ListenBrainz with the flag, Last-fm's words without it`() {
         val settings = code("ui/screens/settings/RecommendationsSettings.kt")
         assertTrue("val listenBrainz = Unreleased.LB_SIMILAR" in settings)
-        assertTrue("if (listenBrainz || BuiltInKeys.lastFmApiKey.isNotEmpty()) {" in settings)
+        assertTrue("if (listenBrainz || lastFmSimilarReachable()) {" in settings)
         for ((name, lastFm) in listOf(
             "similar_source_listenbrainz_info" to "similar_source_info",
             "similar_source_listenbrainz" to "similar_source_lastfm",

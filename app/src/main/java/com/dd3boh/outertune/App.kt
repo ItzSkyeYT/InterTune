@@ -175,8 +175,8 @@ class App : Application(), SingletonImageLoader.Factory {
         // 0.11 and 0.11.1 showed a test row that wrote the Bluetooth devices nearby to files in
         // this folder, which Android backs up. Nothing ever read them, so they go.
         GlobalScope.launch(Dispatchers.IO) { ProximityProbe.forgetOldLogs(getExternalFilesDir(null)) }
-        // From 1 December 2026 Last.fm takes nothing from this app (LastFmEnd), so its account
-        // goes too, once: a sign-in nobody can use stays out of the settings and of backups.
+        // Once Last.fm has refused the app's key (LastFmEnd), its account goes too, once: a
+        // sign-in nobody can use stays out of the settings and of backups.
         GlobalScope.launch(Dispatchers.IO) { Scrobbler.forgetIfClosed(dataStore) }
 
         instance = this;

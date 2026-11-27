@@ -54,12 +54,13 @@ import java.time.Instant
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
- * Last.fm from 1 December 2026, when it starts refusing InterTune's key (LastFmEnd): from that
- * moment the key reads as empty, every way to Last.fm takes the path a build without a key takes,
- * and nothing is sent. Moved through on a clock of the test's own, either side of the date.
+ * Last.fm from 1 December 2026 (LastFmEnd). Last.fm keeps scrobbling free (its announcement of
+ * 26 Nov 2026), so from that day only its similar songs stop: they need Last.fm Pro. Scrobbles,
+ * now playing, logging in and the account go on. Moved through on a clock of the test's own,
+ * either side of the date.
  *
- * And before the date, should Last.fm refuse the key early: the first refusal closes it the same
- * way, written down so that it holds after a restart.
+ * And should Last.fm refuse the key itself one day: the first refusal of a scrobbling call closes
+ * it all, written down so that it holds after a restart.
  */
 class LastFmEndTest {
 
@@ -72,8 +73,8 @@ class LastFmEndTest {
         PreferenceDataStoreFactory.create(scope = storeScope) { dir.root.resolve("settings.preferences_pb") }
     }
 
-    private val dayBefore = LastFmEnd.END_MS - 1
-    private val theDay = LastFmEnd.END_MS
+    private val dayBefore = LastFmEnd.PRO_FROM_MS - 1
+    private val theDay = LastFmEnd.PRO_FROM_MS
 
     @After
     fun putBack() {
@@ -124,67 +125,62 @@ class LastFmEndTest {
     }
 
     @Test
-    fun `closed from midnight UTC on the first of December, open a millisecond before`() {
-        assertEquals(Instant.parse("2026-12-01T00:00:00Z").toEpochMilli(), LastFmEnd.END_MS)
-        assertFalse(LastFmEnd.closed(dayBefore, null))
-        assertTrue(LastFmEnd.closed(theDay, null))
-        assertTrue("and after it, for good", LastFmEnd.closed(Instant.parse("2031-06-01T12:00:00Z").toEpochMilli(), null))
-        assertFalse("a long way before", LastFmEnd.closed(Instant.parse("2026-11-18T17:00:00Z").toEpochMilli(), mutablePreferencesOf()))
+    fun `similar songs stop at midnight UTC on the first of December, and nothing else does`() {
+        assertEquals(Instant.parse("2026-12-01T00:00:00Z").toEpochMilli(), LastFmEnd.PRO_FROM_MS)
+        assertFalse(LastFmEnd.similarGone(dayBefore, null))
+        assertTrue(LastFmEnd.similarGone(theDay, null))
+        assertTrue("and after it, for good", LastFmEnd.similarGone(Instant.parse("2031-06-01T12:00:00Z").toEpochMilli(), null))
+        assertFalse("a long way before", LastFmEnd.similarGone(Instant.parse("2026-11-18T17:00:00Z").toEpochMilli(), mutablePreferencesOf()))
+        // Last.fm itself is not closed by a date any more.
+        LastFmEnd.clock = { theDay }
+        assertFalse(LastFmEnd.closed(null))
+        assertFalse(LastFmEnd.closed(mutablePreferencesOf()))
+        assertFalse(LastFmEnd.closed())
     }
 
     @Test
-    fun `a debug build can act as after the date, and nothing else can`() {
-        assertEquals(BuildConfig.DEBUG, LastFmEnd.closed(dayBefore, mutablePreferencesOf(LastFmActAsEndedKey to true)))
-        assertFalse(LastFmEnd.closed(dayBefore, mutablePreferencesOf(LastFmActAsEndedKey to false)))
-        // Read through the settings the app attached, as BuiltInKeys reads it.
+    fun `a debug build can act as after the date for similar songs, and that closes nothing`() {
+        assertEquals(BuildConfig.DEBUG, LastFmEnd.similarGone(dayBefore, mutablePreferencesOf(LastFmActAsEndedKey to true)))
+        assertFalse(LastFmEnd.similarGone(dayBefore, mutablePreferencesOf(LastFmActAsEndedKey to false)))
+        assertFalse(LastFmEnd.closed(mutablePreferencesOf(LastFmActAsEndedKey to true)))
+        // Read through the settings the app attached, as Scrobbler reads it.
         LastFmEnd.clock = { dayBefore }
         LastFmEnd.attach(settings(LastFmActAsEndedKey to true))
-        assertEquals(BuildConfig.DEBUG, LastFmEnd.closed())
+        assertEquals(BuildConfig.DEBUG, LastFmEnd.similarGone())
+        assertFalse(LastFmEnd.closed())
     }
 
     @Test
-    fun `the key and its secret read as empty from the date`() {
+    fun `the key and its secret are still there after the date`() {
         assumeTheBuildHasAKey()
-        LastFmEnd.clock = { dayBefore }
+        LastFmEnd.clock = { theDay }
         assertTrue(BuiltInKeys.lastFmApiKey.isNotEmpty())
         assertTrue(BuiltInKeys.lastFmApiSecret.isNotEmpty())
-        LastFmEnd.clock = { theDay }
-        assertEquals("", BuiltInKeys.lastFmApiKey)
-        assertEquals("", BuiltInKeys.lastFmApiSecret)
     }
 
     @Test
-    fun `nothing reaches Last-fm from the date, where the day before everything did`() = runBlocking {
+    fun `from the date scrobbles, now playing and logins still go out, and similar songs do not`() = runBlocking {
         assumeTheBuildHasAKey()
         val requests = AtomicInteger()
         val scrobbler = scrobbler(settings(LastFmSessionKey to "session", LastFmUsernameKey to "someone"), requests)
 
         LastFmEnd.clock = { dayBefore }
         assertTrue(scrobbler.isAvailable)
+        assertTrue(scrobbler.canFindSimilar)
         askEverything(scrobbler)
         assertEquals("the day before, each of the five went out", 5, requests.get())
 
         LastFmEnd.clock = { theDay }
-        assertFalse(scrobbler.isAvailable)
+        assertTrue(scrobbler.isAvailable)
         assertFalse(scrobbler.canFindSimilar)
         repeat(3) { askEverything(scrobbler) }
-        assertEquals("from the first of December, not one more", 5, requests.get())
+        assertEquals("from the first of December, four of the five each time", 5 + 3 * 4, requests.get())
         assertTrue(scrobbler.similar("Somebody", "A song").isFailure)
-        assertTrue(scrobbler.beginLogin().isFailure)
+        assertEquals("and similar songs never went out", 17, requests.get())
     }
 
     @Test
-    fun `the second step of a login checks the key like every other call`() = runBlocking {
-        assumeTheBuildHasAKey()
-        val requests = AtomicInteger()
-        val scrobbler = scrobbler(settings(), requests)
-        LastFmEnd.clock = { theDay }
-        assertTrue(scrobbler.completeLogin("token").isFailure)
-        assertEquals("the login screen, left open over the date, asked Last.fm all the same", 0, requests.get())
-    }
-
-    @Test
-    fun `the account is forgotten at the first start from the date, and the choices are kept`() = runBlocking {
+    fun `the account is kept from the date, and only a refused key forgets it`() = runBlocking {
         val settings = settings(
             LastFmSessionKey to "session",
             LastFmUsernameKey to "someone",
@@ -193,11 +189,12 @@ class LastFmEndTest {
         )
         LastFmEnd.attach(settings)
 
-        LastFmEnd.clock = { dayBefore }
-        Scrobbler.forgetIfClosed(settings)
-        assertEquals("kept before the date", "session", settings[LastFmSessionKey])
-
         LastFmEnd.clock = { theDay }
+        Scrobbler.forgetIfClosed(settings)
+        assertEquals("kept after the date", "session", settings[LastFmSessionKey])
+        assertEquals("someone", settings[LastFmUsernameKey])
+
+        settings.edit { it[LastFmRefusedAtKey] = theDay }
         Scrobbler.forgetIfClosed(settings)
         assertNull(settings[LastFmSessionKey])
         assertNull(settings[LastFmUsernameKey])
@@ -252,7 +249,7 @@ class LastFmEndTest {
     }
 
     @Test
-    fun `a refused key closes Last-fm at once, before the date too, and nothing more is sent`() = runBlocking {
+    fun `a refused key closes Last-fm at once, and nothing more is sent`() = runBlocking {
         assumeTheBuildHasAKey()
         val settings = settings(LastFmSessionKey to "session", LastFmUsernameKey to "someone", SimilarSourceKey to "BOTH")
         LastFmEnd.attach(settings)
@@ -270,27 +267,44 @@ class LastFmEndTest {
         repeat(3) { askEverything(scrobbler) }
         assertEquals("no retry, nothing queued, nothing more at all", 1, requests.get())
 
-        // A restart reads it back, and forgets the account as from the date.
+        // A restart reads it back, and forgets the account.
         Scrobbler.forgetIfClosed(settings)
         assertNull(settings[LastFmSessionKey])
         assertEquals("BOTH", settings[SimilarSourceKey])
     }
 
     @Test
-    fun `a suspended key met by similar songs or by a login closes it the same way`() = runBlocking {
+    fun `a suspended key met by a login closes it the same way`() = runBlocking {
         assumeTheBuildHasAKey()
         LastFmEnd.clock = { dayBefore }
-        for (ask in listOf<suspend (Scrobbler) -> Unit>({ it.similar("Somebody", "A song") }, { it.beginLogin() })) {
-            // A phone of its own each time: the first one is closed for good.
-            val settings = SettingsSnapshot(PreferenceDataStoreFactory.create(scope = storeScope) { dir.newFolder().resolve("settings.preferences_pb") })
-            LastFmEnd.attach(settings)
-            val requests = AtomicInteger()
-            val scrobbler = refusing(settings, code = 26, requests)
-            ask(scrobbler)
-            assertNotNull(settings[LastFmRefusedAtKey])
-            repeat(2) { askEverything(scrobbler) }
-            assertEquals(1, requests.get())
+        val settings = settings()
+        LastFmEnd.attach(settings)
+        val requests = AtomicInteger()
+        val scrobbler = refusing(settings, code = 26, requests)
+        scrobbler.beginLogin()
+        assertNotNull(settings[LastFmRefusedAtKey])
+        repeat(2) { askEverything(scrobbler) }
+        assertEquals(1, requests.get())
+    }
+
+    @Test
+    fun `similar songs refused with the key's codes only fail, and the scrobbles go on`() = runBlocking {
+        // From 1 December Last.fm may answer a call that needs Pro with 10 or 26 as well. Only the
+        // calls it keeps free say anything about the key.
+        assumeTheBuildHasAKey()
+        LastFmEnd.clock = { dayBefore }
+        val settings = settings(LastFmSessionKey to "session", LastFmUsernameKey to "someone")
+        LastFmEnd.attach(settings)
+        val requests = AtomicInteger()
+        for (code in listOf(10, 26)) {
+            assertTrue(refusing(settings, code = code, requests).similar("Somebody", "A song").isFailure)
         }
+        assertNull(settings[LastFmRefusedAtKey])
+        assertFalse(LastFmEnd.closed())
+        assertEquals("session", settings[LastFmSessionKey])
+        val scrobbles = AtomicInteger()
+        scrobbler(settings, scrobbles).scrobble(song, playedMs = 150_000, startedAtSeconds = 1_795_000_000)
+        assertEquals(1, scrobbles.get())
     }
 
     @Test
@@ -321,7 +335,7 @@ class LastFmEndTest {
     }
 
     @Test
-    fun `similar songs come from YouTube alone once Last-fm has closed, and the choice is kept`() {
+    fun `similar songs come from YouTube alone from the date, and the choice is kept`() {
         assumeTheBuildHasAKey()
         val stored = listOf(
             mutablePreferencesOf(SimilarSourceKey to SimilarSource.BOTH.name),
@@ -343,7 +357,7 @@ class LastFmEndTest {
     }
 
     @Test
-    fun `setup and the questions after an update stop asking about Last-fm`() {
+    fun `setup and the questions after an update stop asking about Last-fm's similar songs from the date`() {
         assumeTheBuildHasAKey()
         // Last.fm's question, as without ListenBrainz in its place (Unreleased.LB_SIMILAR): ListenBrainzSimilarTest has that one.
         LastFmEnd.clock = { dayBefore }
@@ -354,12 +368,12 @@ class LastFmEndTest {
     }
 
     @Test
-    fun `Recommendations hides the choice, and a catch-up stops when Last-fm closes on its way`() {
-        // The choice of where similar songs come from is drawn only with a key, which reads as
-        // empty from the date: no Both or Last.fm only left to pick that would do nothing. Or with
-        // ListenBrainz in Last.fm's place (Unreleased.LB_SIMILAR), which needs none.
+    fun `Recommendations hides the choice, and a catch-up stops when similar songs go on its way`() {
+        // The choice of where similar songs come from is drawn only while Last.fm can be asked
+        // for them, so not from the date: no Both or Last.fm only left to pick that would do nothing.
+        // Or with ListenBrainz in Last.fm's place (Unreleased.LB_SIMILAR), which needs neither.
         val recommendations = File("src/main/java/com/dd3boh/outertune/ui/screens/settings/RecommendationsSettings.kt").readText()
-        val gate = recommendations.indexOf("if (listenBrainz || BuiltInKeys.lastFmApiKey.isNotEmpty()) {")
+        val gate = recommendations.indexOf("if (listenBrainz || lastFmSimilarReachable()) {")
         assertTrue(gate in 0 until recommendations.indexOf("settingRow(R.string.similar_source)"))
         // The catch-up looks again before each song, and stops as one that gave up: nothing is
         // recorded, and Home is not told of neighbours that never came.
@@ -385,6 +399,17 @@ class LastFmEndTest {
             assertTrue("$folder/$name: $words", Regex("""[.!?](?=\s|$)""").findAll(words).count() <= 2)
         }
         assertNotEquals(text("values", "lastfm_ended_description").second, text("values-fr", "lastfm_ended_description").second)
-        assertTrue("it names what Last.fm now asks for", "Last.fm Pro" in text("values", "lastfm_ended_description").second)
+        assertTrue("it says what happened: the key was turned away", "key" in text("values", "lastfm_ended_description").second)
+    }
+
+    @Test
+    fun `no text says Last-fm stops on 1 December any more`() {
+        for ((folder, month) in listOf("values" to "December", "values-fr" to "décembre")) {
+            val xml = File("src/main/res/$folder/strings-ot.xml").readText()
+            val stale = Regex("""<string name="([^"]+)"[^>]*>([^<]*)</string>""").findAll(xml)
+                .filter { "Last.fm" in it.groupValues[2] && month in it.groupValues[2] }
+                .map { it.groupValues[1] }.toList()
+            assertEquals("$folder: $stale", emptyList<String>(), stale)
+        }
     }
 }
