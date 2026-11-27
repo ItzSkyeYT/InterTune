@@ -6,6 +6,8 @@
 
 package com.dd3boh.outertune.ui.screens.settings.fragments
 
+import androidx.compose.ui.unit.dp
+import com.dd3boh.outertune.ui.player.PlayerPin
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -73,6 +75,64 @@ class PlayerButtonsEditorTest {
         assertTrue(".clickable { if (lifted == null) menuOf = pin }" in editor)
         assertTrue("customActions = moves.filter { it.enabled }" in editor)
         assertTrue("enabled = move.enabled," in editor)
+    }
+
+    @Test
+    fun `Not shown stands four to a row, as wide and as far apart as a bar's four, filling the box as they do`() {
+        // His phone's box on 27 Nov 2026 (about 287dp inside): the bar under the controls fills it with four, a row too.
+        for (circles in listOf(false, true)) {
+            val gap = spotGap(circles)
+            val cell = spotWidth(287.dp, NotShownRows.ROW, gap)
+            assertEquals(287f, (cell * NotShownRows.ROW + gap * (NotShownRows.ROW - 1)).value, 0.01f)
+        }
+        assertEquals(4, NotShownRows.ROW)
+        // No wider than a thumb needs on a wide screen, where the row is centred as the bar of four is.
+        assertEquals(72.dp, spotWidth(400.dp, NotShownRows.ROW, spotGap(circles = false)))
+        // The bars and the rows size their spots by the same rule, with the style's own gap.
+        assertTrue("val cell = spotWidth(maxWidth, spots.size, gap)" in editor)
+        assertTrue("val cell = spotWidth(maxWidth, NotShownRows.ROW, gap)" in editor)
+        assertEquals(2, Regex("""val gap = spotGap\(circles\)""").findAll(editor).count())
+        assertTrue("circles = PinPlace.CLASSIC in places," in editor)
+        // A short last row keeps the columns; a long name has a third line rather than being cut.
+        assertTrue("repeat(NotShownRows.ROW - row.size) { Spacer(Modifier.width(cell)) }" in editor)
+        assertTrue("Labelled(width, name, dim = ghost, lines = 3) {" in editor)
+    }
+
+    @Test
+    fun `Not shown shows its first row until Show more, folded again each time the page opens`() {
+        val rest = listOf(PlayerPin.SHARE, PlayerPin.LYRICS, PlayerPin.TIMER, PlayerPin.LIKE, PlayerPin.CAST)
+        assertEquals(rest.take(4), NotShownRows.drawn(rest, open = false))
+        assertEquals(rest, NotShownRows.drawn(rest, open = true))
+        assertEquals(1, NotShownRows.folded(rest))
+        assertEquals("four or fewer: nothing to fold, no Show more", 0, NotShownRows.folded(rest.take(4)))
+        assertTrue("NotShownRows.drawn(rest, open).chunked(NotShownRows.ROW)" in editor)
+        assertTrue("if (folded > 0) {" in editor)
+        // Not saved: remembered for the page's life only.
+        assertTrue("var unfolded by remember { mutableStateOf(false) }" in editor)
+        assertFalse("rememberSaveable" in editor)
+        // The app's own words for it, Stats' Show N more and Show fewer, already in English and French.
+        assertTrue("pluralStringResource(R.plurals.stats_show_more, folded," in editor)
+        assertTrue("stringResource(R.string.stats_show_fewer)" in editor)
+        val english = File("src/main/res/values/strings-ot.xml").readText()
+        val french = File("src/main/res/values-fr/strings-ot.xml").readText()
+        for (words in listOf(english, french)) {
+            assertTrue("<plurals name=\"stats_show_more\">" in words && "<string name=\"stats_show_fewer\">" in words)
+        }
+    }
+
+    @Test
+    fun `a button put back in folded Not shown is seen where it lands, and one folded away is under no finger`() {
+        val rest = listOf(PlayerPin.SHARE, PlayerPin.LYRICS, PlayerPin.TIMER, PlayerPin.LIKE, PlayerPin.CAST)
+        assertFalse("in the first row it shows", NotShownRows.hides(rest, PlayerPin.SHARE))
+        assertTrue("past it the box opens", NotShownRows.hides(rest, PlayerPin.CAST))
+        // The folded box takes the drop as one box, and opens for it, by a drop or by Remove, the menu's or TalkBack's.
+        assertTrue("modifier = Modifier.onGloballyPositioned { boxBounds[NotShown] = it.boundsInRoot() }," in editor)
+        assertTrue("if (box == NotShown) showWhereItLands(after, pin)" in editor)
+        assertTrue("if (to == null) showWhereItLands(it, pin)" in editor)
+        // A button folded away leaves no spot behind that a long press would lift it from.
+        assertTrue("DisposableEffect(pin) { onDispose { buttonBounds.remove(pin) } }" in editor)
+        assertTrue("row.forEach { pin -> key(pin) { tile(pin, cell) } }" in editor)
+        assertTrue("is Spot.Button -> key(spot.pin) {" in editor)
     }
 
     @Test
