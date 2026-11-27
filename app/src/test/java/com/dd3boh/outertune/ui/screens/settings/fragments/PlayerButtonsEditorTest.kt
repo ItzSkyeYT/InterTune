@@ -25,7 +25,16 @@ class PlayerButtonsEditorTest {
     @Test
     fun `the page shows the editor in place of the chips, under the same tour mark`() {
         assertTrue("PlayerButtonsEditor(" in page)
-        assertFalse("FilterChip" in page)
+        // No chip is left for a button: the page's only chips are the three-dots button's Top and Bottom, under the
+        // editor (MenuPlaceTest), and they write its place, never the buttons.
+        val menuRow = page.indexOf("Modifier.settingRow(R.string.player_menu_place)")
+        assertTrue(page.indexOf("PlayerButtonsEditor(") in 0 until menuRow)
+        val chips = Regex("""FilterChip\(""").findAll(page).map { it.range.first }.toList()
+        assertEquals(1, chips.size)
+        assertTrue(chips.single() > menuRow)
+        val chip = page.substring(chips.single()).substringBefore("SwitchPreference(")
+        assertTrue(chip, "onMenuPlaceRawChange(MenuPlaces.write(" in chip)
+        assertFalse(chip, "onPinsRawChange" in chip)
         assertTrue(page.indexOf("tourTarget(Tour.SETTING_PLAYER_PINS)") < page.indexOf("PlayerButtonsEditor("))
     }
 
