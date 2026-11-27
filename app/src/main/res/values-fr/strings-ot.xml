@@ -1877,7 +1877,7 @@
     <string name="new_settings_search_body">Tapez en haut des paramètres pour trouver n\'importe quel réglage, même avec des fautes, et y arriver directement.</string>
     <string name="new_battery_use_body">Complète, Équilibrée ou Économie, dans Paramètres &gt; Utilisation de la batterie. Économie s\'active avec l\'économiseur de batterie du téléphone, sauf si vous le désactivez.</string>
     <string name="new_player_pins_way">Les boutons qui restent sur le lecteur se choisissent ici.</string>
-    <string name="new_player_pins_here">Touchez un bouton pour l\'épingler sur le lecteur, et touchez-le à nouveau pour le remettre dans le menu.</string>
+    <string name="new_player_pins_here">Maintenez un bouton et glissez-le où vous voulez sur le lecteur, ou touchez-le pour choisir sa place.</string>
     <string name="new_settings_search_here">Tapez ce que vous voulez changer, même avec des fautes, et touchez un résultat pour y arriver directement.</string>
     <string name="new_battery_use_here">Choisissez ici Complète, Équilibrée ou Économie, et Économie s\'active avec l\'économiseur de batterie du téléphone.</string>
     <!-- About in a fork's build, in place of InterTune's name and logo (FORKS.md, his yes of 27 Oct 2026). -->
@@ -2212,6 +2212,17 @@
     <string name="player_pins_under_controls">Sous les commandes</string>
     <string name="player_pin_lyrics">Paroles</string>
     <string name="player_pins_reset">Réinitialiser</string>
+    <string name="player_pins_not_shown">Non affichés</string>
+    <plurals name="player_pins_free">
+        <item quantity="one">%d libre</item>
+        <item quantity="many">%d libres</item>
+        <item quantity="other">%d libres</item>
+    </plurals>
+    <string name="player_pins_full">Complet</string>
+    <string name="player_pins_menu">Menu</string>
+    <string name="player_pins_put_by_title">Mettre à côté du titre</string>
+    <string name="player_pins_put_under_controls">Mettre sous les commandes</string>
+    <string name="player_pins_remove">Retirer</string>
     <!-- Saved twice (issue #47, Unreleased.SAVED_TWICE). -->
     <string name="saved_twice">En double</string>
     <plurals name="saved_twice_button">

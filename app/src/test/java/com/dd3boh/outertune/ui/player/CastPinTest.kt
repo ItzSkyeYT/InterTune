@@ -181,9 +181,10 @@ class CastPinTest {
         val picker = File(source, "ui/player/CastPicker.kt").readText()
         assertEquals("only the host composes the sheet", 1, Regex("""\n\s+CastPicker\(session""").findAll(picker).count())
         assertTrue(picker.substringAfter("fun CastPickerHost()").substringBefore("\n}\n").contains("CastPicker(session"))
-        // Settings: a chip for it, always with room.
+        // Settings: a button for it in the editor, always with room (the chips' "enabled = on || pin == PlayerPin.CAST"
+        // until the editor of 26 Nov 2026; PinMovesTest has the rest).
         val settings = File(source, "ui/screens/settings/fragments/PlayerButtonsFrag.kt").readText()
-        assertTrue("enabled = on || pin == PlayerPin.CAST || !PlayerPins.full(chosen, most)," in settings)
+        assertTrue("return pin in chosen || pin == PlayerPin.CAST || !PlayerPins.full(chosen, most)" in File(source, "ui/player/PinMoves.kt").readText())
         assertTrue("PlayerPin.CAST -> R.string.cast" in settings)
     }
 
