@@ -12,6 +12,7 @@ import com.dd3boh.outertune.constants.OobeStatusKey
 import com.dd3boh.outertune.constants.ClassicPinsBefore013Key
 import com.dd3boh.outertune.constants.PinsBefore013Key
 import com.dd3boh.outertune.constants.CastPinAddedKey
+import com.dd3boh.outertune.constants.PlayerButtonsStyle
 import com.dd3boh.outertune.constants.PlayerPinsKey
 
 /**
@@ -195,3 +196,39 @@ open class PinsKeptAtUpdate(private val key: Preferences.Key<Boolean>, val BEFOR
     override suspend fun cleanUp() = Unit
 }
 
+
+/** Where the three-dots button stands: at the top of the player (by the title) or at the bottom (under the controls). */
+enum class MenuPlace { TOP, BOTTOM }
+
+/**
+ * The three-dots button's place, kept per style as "STYLE=PLACE" joined by ";". It has no "none": a style never chosen
+ * has it where it has always been, Classic's circles at the top and Connected's row at the bottom, so no player changes
+ * until somebody moves it, and a setting that cannot be read is the same.
+ */
+object MenuPlaces {
+    fun defaultFor(style: PlayerButtonsStyle): MenuPlace =
+        if (style == PlayerButtonsStyle.CLASSIC) MenuPlace.TOP else MenuPlace.BOTTOM
+
+    private fun parse(raw: String): Map<PlayerButtonsStyle, MenuPlace> = raw.split(";").mapNotNull { part ->
+        val at = part.indexOf('=')
+        if (at < 0) return@mapNotNull null
+        val style = PlayerButtonsStyle.entries.firstOrNull { it.name == part.substring(0, at) }
+        val place = MenuPlace.entries.firstOrNull { it.name == part.substring(at + 1) }
+        if (style != null && place != null) style to place else null
+    }.toMap()
+
+    fun read(raw: String, style: PlayerButtonsStyle): MenuPlace = parse(raw)[style] ?: defaultFor(style)
+
+    fun write(raw: String, style: PlayerButtonsStyle, place: MenuPlace): String =
+        (parse(raw) + (style to place)).entries.joinToString(";") { (s, p) -> s.name + "=" + p.name }
+
+    /**
+     * The bar of buttons the three-dots button ends at [place], as the player draws it, for the buttons editor's boxes:
+     * Classic's circles at the top and none at the bottom, where it stands under the controls on its own; Connected's
+     * pair by the title at the top, its row at the bottom.
+     */
+    fun barOf(style: PlayerButtonsStyle, place: MenuPlace): PinPlace? = when (style) {
+        PlayerButtonsStyle.CLASSIC -> if (place == MenuPlace.TOP) PinPlace.CLASSIC else null
+        PlayerButtonsStyle.CONNECTED -> if (place == MenuPlace.TOP) PinPlace.CONNECTED_TITLE else PinPlace.CONNECTED_ROW
+    }
+}

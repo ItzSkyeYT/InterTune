@@ -133,7 +133,7 @@ class QueueHeldRowTest {
         assertTrue(songList.contains("bottom = info.viewportEndOffset - heldRoomPx,"))
         assertTrue(songList.contains("val heldRoom = maxOf(contentPadding.calculateBottomPadding(), heldBottomRoom)"))
         // Drawn over the list, in the same box, and put where the edge says.
-        val box = songList.substringAfter(".movesListFromHeldRow(lazySongsListState)")
+        val box = songList.substringAfter(".movesListFromHeldRow(lazySongsListState, wheel)")
         assertTrue(box.indexOf("LazyColumn(") < box.indexOf("QueueHeldRow("))
         assertTrue(box.contains("Modifier.align(Alignment.TopCenter)"))
         assertTrue(box.contains("Modifier.align(Alignment.BottomCenter).padding(bottom = heldRoom)"))
@@ -198,10 +198,15 @@ class QueueHeldRowTest {
 
     @Test
     fun `a drag on the held row moves the list without joining the scrolls handed up to the sheet`() {
-        val drag = held.substringAfter("internal fun Modifier.movesListFromHeldRow(list: LazyListState): Modifier")
+        val drag = held.substringAfter("internal fun Modifier.movesListFromHeldRow(list: LazyListState, wheel: QueueWheel? = null): Modifier")
         assertTrue(drag.contains("draggable("))
         assertFalse("a scrollable would take part in the sheet's nested scroll", drag.contains(".scrollable("))
-        // The sheet's link stays on the list itself.
-        assertTrue(songList.contains("modifier = if (songsScroll != null) Modifier.nestedScroll(songsScroll) else Modifier"))
+        // The sheet's link stays on the list itself, with the queue wheel's inside it, which only listens: it takes none
+        // of a scroll, so the sheet is handed each one as before (QueueWheel).
+        assertTrue(songList.contains("modifier = (if (songsScroll != null) Modifier.nestedScroll(songsScroll) else Modifier).nestedScroll(wheel.connection)"))
+        val wheel = File("src/main/java/com/dd3boh/outertune/ui/player/QueueWheel.kt").readText()
+            .substringAfter("val connection = object : NestedScrollConnection {").substringBefore("\n    }\n")
+        assertTrue(wheel, "return Offset.Zero" in wheel)
+        assertFalse(wheel, "onPostScroll" in wheel || "onPreFling" in wheel || "onPostFling" in wheel)
     }
 }

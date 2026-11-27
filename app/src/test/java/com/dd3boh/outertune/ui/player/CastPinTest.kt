@@ -186,10 +186,13 @@ class CastPinTest {
         // The button at a tablet's top right and the pill open it; neither puts up its own any more.
         val picker = File(source, "ui/player/CastPicker.kt").readText()
         assertEquals("only the host composes the sheet", 1, Regex("""\n\s+CastPicker\(session""").findAll(picker).count())
-        // Settings: Add stays open for it in a full place, and offers only it there.
+        assertTrue(picker.substringAfter("fun CastPickerHost()").substringBefore("\n}\n").contains("CastPicker(session"))
+        // Settings: a button for it in the editor, always with room (the chips' "enabled = on || pin == PlayerPin.CAST"
+        // until the editor of 26 Nov 2026; PinMovesTest has the rest).
         val settings = File(source, "ui/screens/settings/fragments/PlayerButtonsFrag.kt").readText()
-        assertTrue("enabled = !PlayerPins.full(chosen, most) || (PlayerPin.CAST !in chosen && pinOffered(PlayerPin.CAST))," in settings)
-        assertTrue("(!full || it == PlayerPin.CAST)" in settings)
+        assertTrue("return pin in chosen || pin == PlayerPin.CAST || !PlayerPins.full(chosen, most)" in File(source, "ui/player/PinMoves.kt").readText())
+        // On the preview line the editor offers it only where casting is, as the player does (pinOffered).
+        assertTrue("available = PlayerPin.entries.filter { pinOffered(it) }," in settings)
     }
 
     @Test

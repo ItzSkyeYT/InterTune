@@ -9,6 +9,10 @@
 
 package com.dd3boh.outertune.ui.player
 
+import com.dd3boh.outertune.ui.component.wheelTick
+import com.dd3boh.outertune.ui.component.hapticsLive
+import androidx.compose.ui.platform.LocalView
+import android.os.SystemClock
 import androidx.compose.ui.focus.focusProperties
 import com.dd3boh.outertune.LocalDatabase
 import com.dd3boh.outertune.constants.PlayOrigin
@@ -1392,6 +1396,26 @@ fun BoxScope.QueueContent(
         val heldSong = visibleSongs.getOrNull(currentWindowIndex)
             ?.takeIf { QueueHeld.holds(isSearching, inSelectMode, detachedHead, reorderableState.isAnyItemDragging, placed) }
         val heldAt = if (heldSong != null) currentWindowIndex else -1
+
+        // The wheel (Ti-Die, #testers 26 Nov 2026): a light tick as each row crosses the middle under the finger or a
+        // fling, none when the app moves the list itself (QueueWheel). The setting decides what it feels like.
+        val wheel = remember { QueueWheel() }
+        val wheelHaptic = LocalHapticFeedback.current
+        val wheelView = LocalView.current
+        val wheelLive = remember { hapticsLive(wheelView.context) }
+        LaunchedEffect(lazySongsListState) {
+            if (!Unreleased.HAPTICS_FEEL) return@LaunchedEffect
+            snapshotFlow {
+                val info = lazySongsListState.layoutInfo
+                QueueWheel.middleRow(
+                    info.visibleItemsInfo.map { QueueWheel.Row(it.index, it.offset, it.size) },
+                    info.viewportStartOffset,
+                    info.viewportEndOffset,
+                )
+            }.collect { middle ->
+                if (wheel.crossed(middle, SystemClock.uptimeMillis())) wheelHaptic.wheelTick(wheelView, wheelLive)
+            }
+        }
         val heldEdge by remember(heldAt, heldRoomPx, rowPx) {
             derivedStateOf {
                 val info = lazySongsListState.layoutInfo
@@ -1429,7 +1453,7 @@ fun BoxScope.QueueContent(
             modifier = Modifier
                 .then(if (roomLine) Modifier else headerBand)
                 .padding(top = if (roomLine) 0.dp else contentPadding.calculateTopPadding())
-                .movesListFromHeldRow(lazySongsListState)
+                .movesListFromHeldRow(lazySongsListState, wheel)
         ) {
         LazyColumn(
             state = lazySongsListState,
@@ -1438,7 +1462,7 @@ fun BoxScope.QueueContent(
                 end = contentPadding.calculateEndPadding(listDirection),
                 bottom = contentPadding.calculateBottomPadding(),
             ),
-            modifier = if (songsScroll != null) Modifier.nestedScroll(songsScroll) else Modifier
+            modifier = (if (songsScroll != null) Modifier.nestedScroll(songsScroll) else Modifier).nestedScroll(wheel.connection)
         ) {
             if ((if (isSearching) filteredSongs else songs).isEmpty()) {
                 item {

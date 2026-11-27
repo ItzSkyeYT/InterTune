@@ -35,6 +35,7 @@ import com.kyant.backdrop.effects.vibrancy
 import com.kyant.backdrop.backdrops.LayerBackdrop
 import com.dd3boh.outertune.constants.PlayerButtonsStyle
 import com.dd3boh.outertune.constants.PlayerButtonsStyleKey
+import com.dd3boh.outertune.constants.PlayerMenuPlaceKey
 import com.dd3boh.outertune.constants.PlayerPinsKey
 import com.dd3boh.outertune.constants.QueueButtonKey
 import com.dd3boh.outertune.constants.OutputPillKey
@@ -461,6 +462,10 @@ fun BottomSheetPlayer(
     // The buttons kept outside the menu, per place (PlayerPins, issue #27): today's until chosen.
     val pinsRaw by rememberPreference(PlayerPinsKey, "")
     val pins = remember(pinsRaw) { PlayerPins.read(pinsRaw) }
+    // Where the three-dots button stands, top or bottom, and always one of the two (MenuPlaces): the style's old place until chosen.
+    val menuPlaceRaw by rememberPreference(PlayerMenuPlaceKey, "")
+    val menuAtTop = MenuPlaces.read(menuPlaceRaw, buttonsStyle) == MenuPlace.TOP
+    val menuAtBottom = !menuAtTop
     val queueAsButton by rememberPreference(QueueButtonKey, defaultValue = false)
     // Back from the queue closes the whole player, and the player opens where it was left (#30).
     val queueBackClosesPlayer by rememberPreference(QueueBackClosesPlayerKey, defaultValue = false)
@@ -871,6 +876,22 @@ fun BottomSheetPlayer(
         }
     } else null
 
+    // The player's menu, from its three-dots button wherever that stands, over the queue's strip too (menuInCorner,
+    // after the queue's sheet). The small Classic player's one row (queue, timer, like, menu) has no cast button, pinned
+    // or not: its menu offers Cast then, or the cast sheet could not be opened from the player there (26 Nov 2026).
+    var castOffScreen by remember { mutableStateOf(false) }
+    val showPlayerMenu: () -> Unit = {
+        menuState.show {
+            PlayerMenu(
+                mediaMetadata = mediaMetadata,
+                navController = navController,
+                playerBottomSheetState = state,
+                onDismiss = menuState::dismiss,
+                castOffScreen = castOffScreen,
+            )
+        }
+    }
+
     // Chromatic shock ripple, adapted from notK50BML/OuterTune. Wraps the whole sheet so the
     // refraction crosses the background and the controls together, which is what makes the
     // rainbow fringing show up along element edges. Gated on the player being expanded, so the
@@ -1128,21 +1149,6 @@ fun BottomSheetPlayer(
                 }
             }
 
-            // The small Classic player's one row (queue, timer, like, menu) has no cast button, pinned or not: its menu
-            // offers Cast then, or the cast sheet could not be opened from the player there (26 Nov 2026).
-            var castOffScreen by remember { mutableStateOf(false) }
-            val showPlayerMenu: () -> Unit = {
-                menuState.show {
-                    PlayerMenu(
-                        mediaMetadata = mediaMetadata,
-                        navController = navController,
-                        playerBottomSheetState = state,
-                        onDismiss = menuState::dismiss,
-                        castOffScreen = castOffScreen,
-                    )
-                }
-            }
-
             // With the queue on a button, this is the only way the queue sheet comes up.
             val openQueue: () -> Unit = {
                 queueSheetState.expandSoft()
@@ -1277,7 +1283,7 @@ fun BottomSheetPlayer(
                     roomCircle()
                     Spacer(modifier = Modifier.width(7.dp))
                 }
-                menuCircle()
+                if (menuAtTop) menuCircle()
             }
 
             /**
@@ -1296,7 +1302,7 @@ fun BottomSheetPlayer(
                     // The queue first and the menu last with the pins between, half on each side, and a
                     // listening room's circle while one is on: see classicSideColumns.
                     val pinned = classicPins(queueCircle = true)
-                    val (onLeft, onRight) = classicSideColumns(pinned, roomApart, roomAtFreeEnd = Unreleased.ROOM_AT_FREE_END)
+                    val (onLeft, onRight) = classicSideColumns(pinned, roomApart, roomAtFreeEnd = Unreleased.ROOM_AT_FREE_END, menu = menuAtTop)
                     for (circle in if (left) onLeft else onRight) {
                         when (circle) {
                             SideCircle.Queue -> queueCircle()
@@ -1406,12 +1412,26 @@ fun BottomSheetPlayer(
                                 backdrop = buttonBackdrop,
                                 glassIntensity = glassIntensity,
                             )
-                            if (titlePins.isNotEmpty()) Spacer(Modifier.width(RoomCircleGap))
+                            if (titlePins.isNotEmpty() || menuAtTop) Spacer(Modifier.width(RoomCircleGap))
                         }
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(ConnectedButtonGap)) {
+                        val titleCount = titlePins.size + if (menuAtTop) 1 else 0
                         titlePins.forEachIndexed { i, pin ->
-                            titleSegment(pin, connectedShape(first = i == 0, last = i == titlePins.lastIndex))
+                            titleSegment(pin, connectedShape(first = i == 0, last = i == titleCount - 1))
+                        }
+                        // The three-dots button at the top: the pair's last segment, in share's colours.
+                        if (menuAtTop) {
+                            PlayerActionSegment(
+                                painter = rememberVectorPainter(Icons.Rounded.MoreVert),
+                                contentDescription = stringResource(R.string.options),
+                                shape = connectedShape(first = titlePins.isEmpty(), last = true),
+                                container = MaterialTheme.colorScheme.secondaryContainer,
+                                content = MaterialTheme.colorScheme.onSecondaryContainer,
+                                onClick = showPlayerMenu,
+                                backdrop = buttonBackdrop,
+                                glassIntensity = glassIntensity,
+                            )
                         }
                     }
                 }
@@ -1464,16 +1484,25 @@ fun BottomSheetPlayer(
                     compactQuickActionWidth(
                         rowWidth = windowWidth() - hPadding * 2,
                         // The queue, the pins, the room while one is on, and the menu.
-                        count = rowPins.size + 2 + (if (roomApart) 1 else 0),
+                        count = rowPins.size + 1 + (if (menuAtBottom) 1 else 0) + (if (roomApart) 1 else 0),
                         gap = ConnectedButtonGap,
                         preferred = QuickActionWidth,
                     )
                 } else QuickActionWidth
+                // Every button of the row in the order drawn, so the first is round at its start and the last at its end
+                // whether the three-dots button is the last of them or stands at the top.
+                val rowTotal = (if (rowRoomFirst) 1 else 0) + (if (queueLayout.queueButton) 1 else 0) + rowPins.size +
+                    (if (rowRoomBeforeMenu) 1 else 0) + (if (menuAtBottom) 1 else 0)
+                fun shapeAt(index: Int): RoundedCornerShape = connectedShape(first = index == 0, last = index == rowTotal - 1)
+                val queueAt = if (rowRoomFirst) 1 else 0
+                val pinsAt = queueAt + if (queueLayout.queueButton) 1 else 0
+                val roomBeforeMenuAt = pinsAt + rowPins.size
+                val menuAt = roomBeforeMenuAt + if (rowRoomBeforeMenu) 1 else 0
                 val queueSegment: @Composable () -> Unit = {
                     PlayerActionSegment(
                         painter = rememberVectorPainter(Icons.AutoMirrored.Rounded.QueueMusic),
                         contentDescription = stringResource(R.string.queue),
-                        shape = connectedShape(first = !rowRoomFirst, last = false),
+                        shape = shapeAt(queueAt),
                         container = inactive,
                         filled = false,
                         content = onBackgroundColor,
@@ -1483,11 +1512,11 @@ fun BottomSheetPlayer(
                         onClick = openQueue,
                     )
                 }
-                val roomSegment: @Composable (Boolean) -> Unit = { first ->
+                val roomSegment: @Composable (Int) -> Unit = { at ->
                     PlayerActionSegment(
                         painter = rememberVectorPainter(Icons.Rounded.Group),
                         contentDescription = stringResource(R.string.together_in_room),
-                        shape = connectedShape(first = first, last = false),
+                        shape = shapeAt(at),
                         container = MaterialTheme.colorScheme.primary,
                         filled = true,
                         content = MaterialTheme.colorScheme.onPrimary,
@@ -1499,7 +1528,8 @@ fun BottomSheetPlayer(
                 }
                 // No room's segment hangs off this row any more (CentredRow's hangingFirst is not asked for): in the
                 // normal player it is by the title, and a small player counts it in with the rest.
-                CentredRow(
+                // Nothing in it, with the three-dots button at the top and nothing else here, is no row.
+                if (rowTotal > 0) CentredRow(
                     gap = ConnectedButtonGap,
                     gutter = hPadding,
                     modifier = Modifier
@@ -1507,10 +1537,10 @@ fun BottomSheetPlayer(
                         .padding(horizontal = hPadding)
                         .padding(top = ConnectedRowGap.above(compactPlayer))
                 ) {
-                    if (rowRoomFirst) roomSegment(true)
+                    if (rowRoomFirst) roomSegment(0)
                     if (queueLayout.queueButton) queueSegment()
                     rowPins.forEachIndexed { i, pin ->
-                        val shape = connectedShape(first = i == 0 && !queueLayout.queueButton && !rowRoomFirst, last = false)
+                        val shape = shapeAt(pinsAt + i)
                         val liked = currentSong?.song?.liked == true
                         PinGreyed(pinActions.unavailable(pin)) { when (pin) {
                             PlayerPin.LYRICS -> PlayerActionSegment(
@@ -1585,11 +1615,11 @@ fun BottomSheetPlayer(
                             }
                         } }
                     }
-                    if (rowRoomBeforeMenu) roomSegment(rowPins.isEmpty() && !queueLayout.queueButton)
-                    PlayerActionSegment(
+                    if (rowRoomBeforeMenu) roomSegment(roomBeforeMenuAt)
+                    if (menuAtBottom) PlayerActionSegment(
                         painter = rememberVectorPainter(Icons.Rounded.MoreVert),
                         contentDescription = stringResource(R.string.options),
-                        shape = connectedShape(first = rowPins.isEmpty() && !roomInRow && !queueLayout.queueButton, last = true),
+                        shape = shapeAt(menuAt),
                         container = inactive,
                         filled = false,
                         content = onBackgroundColor,
@@ -1976,6 +2006,20 @@ fun BottomSheetPlayer(
                 }
 
                 if (buttonsStyle == PlayerButtonsStyle.CONNECTED) quickActions()
+                // Classic has no row under its controls. Put at the bottom, the three-dots button stands over the queue's
+                // strip, in its corner beside the Output button (menuInCorner, after the queue's sheet), which moves
+                // nothing; a row of its own here lifted the controls by 60dp. Only where there is no strip under the
+                // controls (a small window, the two panes, a phone on its side) does it stand alone here, centred,
+                // where Connected's row stands.
+                else if (menuAtBottom && queueLayout.outputRoom == 0.dp) {
+                    Row(
+                        horizontalArrangement = Arrangement.Center,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = hPadding)
+                            .padding(top = ConnectedRowGap.above(compactPlayer))
+                    ) { menuCircle() }
+                }
             }
 
 
@@ -2142,7 +2186,7 @@ fun BottomSheetPlayer(
                         // handle.
                         .padding(
                             bottom = if (tabletTwoPane) TabletQueueHandleReserve
-                            // Less the output button's room, which is drawn below, in the strip itself.
+                            // Less the half of the queue's strip that its arrow gave up: the controls stand in it.
                             else queueReserve - queueLayout.outputRoom
                         )
                 ) {
@@ -2236,7 +2280,7 @@ fun BottomSheetPlayer(
                                     queueCircle()
                                     timerCircle()
                                     likeCircle()
-                                    menuCircle()
+                                    if (menuAtTop) menuCircle()
                                 }
                             }
                         }
@@ -2264,28 +2308,11 @@ fun BottomSheetPlayer(
                             // when the block has to shrink.
                             if (!compactPlayer) Spacer(Modifier.height(24.dp))
                         }
-                        if (queueLayout.outputRoom > 0.dp) {
-                            // Where the music is coming out, in the half of the queue's strip its
-                            // arrow gave up, drawn a little into the gap above so that it sits in
-                            // the middle of the two. Nothing above it has moved for it. Switched
-                            // off, the half stays, empty, so the arrow and the controls stay put:
-                            // without it everything above dropped by the half (48dp), and since the
-                            // pill was always there in 0.12, an update had moved everyone's controls.
-                            Box(
-                                contentAlignment = Alignment.Center,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(queueLayout.outputRoom)
-                                    .padding(horizontal = hPadding)
-                            ) {
-                                if (outputPill) OutputButton(
-                                    tint = onBackgroundColor,
-                                    modifier = Modifier.offset(y = (-6).dp),
-                                    backdrop = if (liquidGlass) playerBackdrop else null,
-                                    glassIntensity = glassIntensity,
-                                )
-                            }
-                        }
+                        // Nothing under them upright: the controls stand in the half of the queue's strip that its
+                        // arrow gave up, 48dp lower than 0.12 had them (his pick of 27 Nov 2026 from pictures of both,
+                        // as on the 0.13 line before 25 Nov), whether the Output button is on or off. The pill, and
+                        // Classic's three-dots button put at the bottom, are laid over the strip's corner instead
+                        // (menuInCorner, after the queue's sheet), so switching either moves nothing.
                     } else {
                         Spacer(Modifier.height(24.dp))
                     }
@@ -2359,6 +2386,43 @@ fun BottomSheetPlayer(
             glassIntensity = glassIntensity,
             backClosesPlayer = queueBack(queueBackClosesPlayer, compact = queueLayout.compactSheet, tabletPane = tabletTwoPane) == QueueBack.CLOSE_PLAYER,
         )
+
+        // Upright, the controls stand in the half of the queue's strip that its arrow gave up (his pick of 27 Nov 2026),
+        // so nothing has a row under them: where the music is coming out, with the Output button on, and Classic's
+        // three-dots button put at the bottom are laid over the strip's bottom right corner instead, as the pill is on a
+        // phone on its side, and never reach the arrow in its middle: a long name is cut short. Switching either moves
+        // nothing. Drawn after the queue's sheet, whose collapsed strip would take their taps, and gone once the queue
+        // is most of the way up.
+        val menuInCorner = buttonsStyle == PlayerButtonsStyle.CLASSIC && menuAtBottom
+        if ((outputPill || menuInCorner) && queueLayout.outputRoom > 0.dp && !tabletTwoPane && mediaMetadata != null && !queueCovers) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Bottom + WindowInsetsSides.End))
+                    .padding(end = 24.dp, bottom = 10.dp)
+                    .widthIn(max = windowWidth() / 2 - 24.dp - 32.dp)
+            ) {
+                if (outputPill) OutputButton(
+                    tint = onBackgroundColor,
+                    wide = false,
+                    modifier = Modifier.weight(1f, fill = false),
+                    backdrop = if (liquidGlass) playerBackdrop else null,
+                    glassIntensity = glassIntensity,
+                )
+                // PlayerCircleButton sits 5dp low, for the title's row it was made for: level with the pill here.
+                if (menuInCorner) Box(Modifier.offset(y = (-5).dp)) {
+                    PlayerCircleButton(
+                        painter = rememberVectorPainter(Icons.Rounded.MoreVert),
+                        contentDescription = stringResource(R.string.options),
+                        container = MaterialTheme.colorScheme.primary,
+                        content = MaterialTheme.colorScheme.onPrimary,
+                        onClick = showPlayerMenu,
+                    )
+                }
+            }
+        }
 
         // Where the music is coming out, on a phone on its side, where there is no row for it
         // under the controls: laid over the bottom right corner, under the play row with Classic

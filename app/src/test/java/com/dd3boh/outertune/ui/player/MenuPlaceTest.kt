@@ -1,0 +1,93 @@
+/*
+ * Copyright (C) 2026 InterTune
+ *
+ * SPDX-License-Identifier: GPL-3.0
+ */
+
+package com.dd3boh.outertune.ui.player
+
+import com.dd3boh.outertune.constants.PlayerButtonsStyle
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Test
+import java.io.File
+
+/**
+ * The three-dots button is placed at the top or the bottom of the player, never removed (Ti-Die and dvd, 24 Nov 2026;
+ * "it should always be in either top or bottom"). Nobody who never chooses sees it move.
+ */
+class MenuPlaceTest {
+
+    @Test
+    fun `never chosen, it stays where it has always been, Classic at the top and Connected at the bottom`() {
+        assertEquals(MenuPlace.TOP, MenuPlaces.read("", PlayerButtonsStyle.CLASSIC))
+        assertEquals(MenuPlace.BOTTOM, MenuPlaces.read("", PlayerButtonsStyle.CONNECTED))
+    }
+
+    @Test
+    fun `each style keeps its own choice`() {
+        val raw = MenuPlaces.write("", PlayerButtonsStyle.CLASSIC, MenuPlace.BOTTOM)
+        assertEquals(MenuPlace.BOTTOM, MenuPlaces.read(raw, PlayerButtonsStyle.CLASSIC))
+        assertEquals("Connected is not touched", MenuPlace.BOTTOM, MenuPlaces.read(raw, PlayerButtonsStyle.CONNECTED))
+        val both = MenuPlaces.write(raw, PlayerButtonsStyle.CONNECTED, MenuPlace.TOP)
+        assertEquals(MenuPlace.TOP, MenuPlaces.read(both, PlayerButtonsStyle.CONNECTED))
+        assertEquals(MenuPlace.BOTTOM, MenuPlaces.read(both, PlayerButtonsStyle.CLASSIC))
+    }
+
+    @Test
+    fun `a broken setting is the old place, not no place`() {
+        assertEquals(MenuPlace.TOP, MenuPlaces.read("CLASSIC=NOWHERE;;junk", PlayerButtonsStyle.CLASSIC))
+        assertEquals(MenuPlace.BOTTOM, MenuPlaces.read("CONNECTED=", PlayerButtonsStyle.CONNECTED))
+    }
+
+    @Test
+    fun `the picker has two places and no hidden choice`() {
+        assertEquals(listOf(MenuPlace.TOP, MenuPlace.BOTTOM), MenuPlace.entries)
+    }
+
+    private fun src(path: String) = File("src/main/java/com/dd3boh/outertune/$path").readText()
+
+    @Test
+    fun `the player draws the menu in exactly the place chosen, and the settings and picture follow it`() {
+        val player = src("ui/player/Player.kt")
+        assertTrue("MenuPlaces.read(" in player)
+        assertTrue("menuAtTop" in player && "menuAtBottom" in player)
+        val frag = src("ui/screens/settings/fragments/PlayerButtonsFrag.kt")
+        assertTrue("PlayerMenuPlaceKey" in frag && "MenuPlaces.write(" in frag)
+        val sample = src("ui/screens/settings/fragments/PlayerStyleSample.kt")
+        assertTrue("menuPlace" in sample)
+    }
+
+    @Test
+    fun `the buttons editor draws the three-dots button in the bar where the player has it`() {
+        // Never chosen, the bars the editor has always ended with it: Classic's circles, Connected's row.
+        assertEquals(PinPlace.CLASSIC, MenuPlaces.barOf(PlayerButtonsStyle.CLASSIC, MenuPlaces.defaultFor(PlayerButtonsStyle.CLASSIC)))
+        assertEquals(PinPlace.CONNECTED_ROW, MenuPlaces.barOf(PlayerButtonsStyle.CONNECTED, MenuPlaces.defaultFor(PlayerButtonsStyle.CONNECTED)))
+        // Moved: Classic's stands under the controls in no bar, Connected's ends the pair by the title.
+        assertNull(MenuPlaces.barOf(PlayerButtonsStyle.CLASSIC, MenuPlace.BOTTOM))
+        assertEquals(PinPlace.CONNECTED_TITLE, MenuPlaces.barOf(PlayerButtonsStyle.CONNECTED, MenuPlace.TOP))
+        assertTrue("menuIn = MenuPlaces.barOf(buttonsStyle, menuPlace)," in src("ui/screens/settings/fragments/PlayerButtonsFrag.kt"))
+        assertTrue("val menu: List<Spot> = if (place == menuIn) listOf(Spot.Menu) else emptyList()" in src("ui/screens/settings/fragments/PlayerButtonsEditor.kt"))
+    }
+
+    @Test
+    fun `Classic at the bottom stands over the queue's strip, which lifts nothing`() {
+        // A row of its own under Classic's controls lifted the controls, the seek bar, the title and the cover by 60dp
+        // (seen on the emulator, 25 Nov 2026: pause at y 2542 at the top, 2362 at the bottom). His rule: a setting may
+        // move its own row, the play controls never move. Since his pick of 27 Nov 2026 the controls stand in the half of
+        // the queue's strip that the button had (CastAtTopTest), so it is laid over the strip's corner, beside the Output
+        // button when that is on, after the queue's sheet so that its taps are its own, and it opens the player's menu.
+        val player = src("ui/player/Player.kt")
+        val corner = player.substringAfter("val menuInCorner = ").substringBefore("// Where the music is coming out, on a phone on its side")
+        assertTrue(corner, corner.startsWith("buttonsStyle == PlayerButtonsStyle.CLASSIC && menuAtBottom\n"))
+        assertTrue(corner, "if (menuInCorner) Box(Modifier.offset(y = (-5).dp)) {" in corner && "onClick = showPlayerMenu," in corner)
+        assertTrue(player.indexOf("val menuInCorner = ") > player.indexOf("QueueSheet("))
+        // One opener for the menu, wherever the button stands.
+        assertEquals(1, Regex("""val showPlayerMenu: \(\) -> Unit = \{""").findAll(player).count())
+        // A row under the controls only where there is no strip: a small window, the two-pane layouts, a phone on its side.
+        assertTrue("else if (menuAtBottom && queueLayout.outputRoom == 0.dp) {" in player)
+        // The style's picture puts it at the strip's right too.
+        assertTrue("Spot(u, SAMPLE_WIDTH - 24f - d, 175f, d, d)" in src("ui/screens/settings/fragments/PlayerStyleSample.kt"))
+    }
+}

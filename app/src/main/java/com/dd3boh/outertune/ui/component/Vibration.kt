@@ -20,24 +20,41 @@ import androidx.media3.common.Player
  * aren't really noticeable... how custom can we make them?"). The shape is Essentials', his design reference, whose
  * Disabled, Enabled and Stronger are these three (experiments/features/design-language/essentials-study.md, part 4).
  */
-enum class Vibration {
+enum class Vibration(
+    /** Its place on the slider: 0 is Off, 1 to 5 the five steps. */
+    val step: Int,
+    /** How much of Strong's strength a step plays where the vibrator has amplitude control. */
+    val strength: Float,
+) {
     /** None from the app at all. */
-    OFF,
+    OFF(0, 0f),
+
+    /** The gentlest step, the app's own at a quarter of Strong's strength. */
+    FAINT(1, 0.25f),
 
     /**
-     * The app's own feel per action, as Strong, at about half its strength (his pick of 21 Nov 2026: on phones whose
-     * own touch feedback is firm, the view's feedback that Light was felt as strong as Strong, to dvd and Ti-Die). Where
-     * the app cannot play its own (before Android 11, no vibrator), the view's own feedback, as before. Android's Touch
-     * feedback setting turns both off, as for every app.
+     * Step 2, and what "Light" is on the preview line since his pick of 21 Nov 2026 (on phones whose own touch feedback
+     * is firm, the view's feedback that Light was felt as strong as Strong, to dvd and Ti-Die): the app's own feel per
+     * action, softer than Strong, here at 0.4 of its strength. Where the app cannot play its own (before Android 11, no
+     * vibrator), the view's own feedback, as before. Android's Touch feedback setting turns both off, as for every app.
      */
-    LIGHT,
+    LIGHT(2, 0.4f),
 
-    /** The app's own, played through the vibrator as touch feedback, a feel per action ([Feel]). */
-    STRONG;
+    /** Step 3, the app's own at half of Strong's strength. */
+    MEDIUM(3, 0.5f),
+
+    /** Step 4, three quarters. */
+    FIRM(4, 0.75f),
+
+    /** Step 5, and what "Strong" always was: the app's own, played through the vibrator as touch feedback, a feel per action ([Feel]). */
+    STRONG(5, 1f);
 
     companion object {
         /** Strong for the trial: on his S25U Light is the gentlest Android has. */
         val DEFAULT = STRONG
+
+        /** The step [step] of the slider, 0 to 5; anything else is the nearest one. */
+        fun ofStep(step: Int): Vibration = entries[step.coerceIn(0, entries.lastIndex)]
     }
 }
 
@@ -115,12 +132,6 @@ data class VibratorCaps(
     val amplitudeControl: Boolean,
 )
 
-/** How strong Light is beside Strong: about half. */
-const val LIGHT_SCALE = 0.5f
-
-/** The faintest primitive Light plays: some vibrators play nothing at all below about this. */
-const val LIGHT_FLOOR = 0.15f
-
 /** The predefined effects a feel can be played with, the best first. */
 fun predefinedFor(feel: Feel): List<Int> = when (feel) {
     // An effect has no strength to turn: the pop keeps the tick, the phone's click being the volume's whole one.
@@ -131,53 +142,94 @@ fun predefinedFor(feel: Feel): List<Int> = when (feel) {
 }
 
 /**
- * The predefined effects Light falls back on where there are no primitives, a step lighter than Strong's: an effect
- * cannot be played softer. A like's double has no lighter effect: [buzzFor] plays it as soft pulses where it can.
- */
-fun lighterPredefinedFor(feel: Feel): List<Int> = when (feel) {
-    // The seek bar's ends play Strong's click, and the pop Strong's tick: the tick is the lightest there is for both.
-    Feel.TICK, Feel.LOW_TICK, Feel.CLICK, Feel.EDGE, Feel.POP -> listOf(VibrationEffect.EFFECT_TICK)
-    Feel.FIRM -> listOf(VibrationEffect.EFFECT_CLICK, VibrationEffect.EFFECT_TICK)
-    Feel.DOUBLE -> listOf(VibrationEffect.EFFECT_DOUBLE_CLICK)
-}
-
-/**
  * What [feel] plays under [vibration] on a phone that can do [caps].
  *
  * Off is nothing. Strong is the brief's feel per action (experiments/features/haptics-feel/BRIEF.md), played with the
  * best the vibrator has: its primitives where it plays the ones needed, else its predefined effect (unless it says it
  * has none: one that cannot say gets it, and Android plays its own stand-in where the hardware has none), else plain
- * pulses of 20 ms. Light is the same at about half the strength: the primitives at [LIGHT_SCALE], a lighter effect
- * ([lighterPredefinedFor]), softer or shorter pulses. Below Android 11, where there are no primitives and no answer
- * about effects, and on a phone without a vibrator, both are the view's own feedback ([Buzz.Light]).
+ * pulses of 20 ms. The steps under it, Light among them (the preview line's softer Light, his pick of 21 Nov 2026), are
+ * the same feel gentler (see [scaled] and [gentler]). Below Android 11, where there are no primitives and no answer
+ * about effects, and on a phone without a vibrator, every step is the view's own feedback ([Buzz.Light]).
  */
 fun buzzFor(feel: Feel, vibration: Vibration, caps: VibratorCaps): Buzz {
     if (vibration == Vibration.OFF) return Buzz.None
     if (caps.sdk < 30 || !caps.hasVibrator) return Buzz.Light
-    val light = vibration == Vibration.LIGHT
-    composition(feel, caps)?.let { return if (light) it.softer() else it }
-    if (light && feel == Feel.DOUBLE && caps.amplitudeControl) return pulsesFor(feel, caps).softer(caps)
-    val effects = if (light) lighterPredefinedFor(feel) else predefinedFor(feel)
-    effects.firstOrNull { caps.effects[it] != Vibrator.VIBRATION_EFFECT_SUPPORT_NO }?.let { return Buzz.Predefined(it) }
-    return if (light) pulsesFor(feel, caps).softer(caps) else pulsesFor(feel, caps)
+    val strong = strongBuzz(feel, caps)
+    if (vibration == Vibration.STRONG) return strong
+    // The steps under Strong, Light among them: scaled where the vibrator has amplitude control, else gentler effects
+    // one rung down each.
+    return if (caps.amplitudeControl) scaled(strong, feel, vibration.strength) else gentler(feel, vibration, caps)
 }
 
-/** Plain pulses, the last resort, at Strong's strength. */
-private fun pulsesFor(feel: Feel, caps: VibratorCaps): Buzz.Pulses = when (feel) {
-    Feel.DOUBLE -> Buzz.Pulses(count = 2, length = 20, gap = 60)
-    // Essentials' subtle stand-in, where the vibrator can play softly; only shorter where it cannot.
-    Feel.LOW_TICK -> if (caps.amplitudeControl) Buzz.Pulses(count = 1, length = 10, amplitude = 50) else Buzz.Pulses(count = 1, length = 10)
-    else -> Buzz.Pulses(count = 1, length = 20)
+/** Strong's own buzz for [feel]: the best the vibrator has (see [buzzFor]). */
+private fun strongBuzz(feel: Feel, caps: VibratorCaps): Buzz {
+    composition(feel, caps)?.let { return it }
+    predefinedFor(feel).firstOrNull { caps.effects[it] != Vibrator.VIBRATION_EFFECT_SUPPORT_NO }?.let { return Buzz.Predefined(it) }
+    return when (feel) {
+        Feel.DOUBLE -> Buzz.Pulses(count = 2, length = 20, gap = 60)
+        // Essentials' subtle stand-in, where the vibrator can play softly; only shorter where it cannot.
+        Feel.LOW_TICK -> if (caps.amplitudeControl) Buzz.Pulses(count = 1, length = 10, amplitude = 50) else Buzz.Pulses(count = 1, length = 10)
+        else -> Buzz.Pulses(count = 1, length = 20)
+    }
 }
 
-/** The same steps at [LIGHT_SCALE] of their strength, never under [LIGHT_FLOOR]. */
-fun Buzz.Primitives.softer(): Buzz.Primitives =
-    Buzz.Primitives(steps.map { it.copy(scale = (it.scale * LIGHT_SCALE).coerceAtLeast(LIGHT_FLOOR)) })
+/**
+ * Strong's [buzz] at [strength] of it, on a vibrator with amplitude control: a primitive's scale times it, a pulse's
+ * amplitude times it. An effect has no strength to turn, so it is played as a pulse of its length at that amplitude.
+ */
+private fun scaled(buzz: Buzz, feel: Feel, strength: Float): Buzz = when (buzz) {
+    is Buzz.Primitives -> Buzz.Primitives(buzz.steps.map { it.copy(scale = (it.scale * strength).coerceIn(0.05f, 1f)) })
+    is Buzz.Predefined -> Buzz.Pulses(
+        count = if (feel == Feel.DOUBLE) 2 else 1,
+        length = if (feel == Feel.DOUBLE) 20 else pulseLength(feel),
+        gap = if (feel == Feel.DOUBLE) 60 else 0,
+        amplitude = amplitudeOf(strength),
+    )
+    is Buzz.Pulses -> {
+        val full = if (buzz.amplitude == VibrationEffect.DEFAULT_AMPLITUDE) 255 else buzz.amplitude
+        buzz.copy(amplitude = amplitudeOf(strength * full / 255f))
+    }
+    else -> buzz
+}
 
-/** Half the amplitude where the vibrator can play softly, else a shorter pulse. */
-fun Buzz.Pulses.softer(caps: VibratorCaps): Buzz.Pulses =
-    if (caps.amplitudeControl) copy(amplitude = ((if (amplitude == VibrationEffect.DEFAULT_AMPLITUDE) 255 else amplitude) * LIGHT_SCALE).toInt().coerceAtLeast(1))
-    else copy(length = (length * 0.6f).toLong().coerceAtLeast(8))
+private fun amplitudeOf(strength: Float): Int = (strength * 255).toInt().coerceIn(1, 255)
+
+private fun pulseLength(feel: Feel): Long = when (feel) {
+    Feel.TICK, Feel.POP -> 12
+    Feel.LOW_TICK -> 10
+    Feel.CLICK, Feel.EDGE -> 18
+    else -> 22
+}
+
+/**
+ * The steps under Strong on a vibrator that cannot play softer (Niko's Android 13 phone buzzes hard even on Light): each
+ * step down is one rung down a ladder of plain pulses of 5, 10 and 15 ms, then the phone's tick, click and heavy click.
+ * Strong's own is where [feel] stands on it; the step under that is the rung under, and the gentlest stops on the first.
+ */
+private fun gentler(feel: Feel, vibration: Vibration, caps: VibratorCaps): Buzz {
+    val down = Vibration.STRONG.step - vibration.step
+    if (feel == Feel.DOUBLE) {
+        // Two pulses, 60 ms apart, of the length the step has.
+        return Buzz.Pulses(count = 2, length = PULSES[(3 - down).coerceIn(0, 2)], gap = 60)
+    }
+    val base = when (feel) {
+        Feel.LOW_TICK -> 2
+        Feel.TICK, Feel.POP -> 3
+        Feel.CLICK, Feel.EDGE -> 4
+        else -> 5
+    }
+    val rung = (base - down).coerceAtLeast(0)
+    if (rung < PULSES.size) return Buzz.Pulses(count = 1, length = PULSES[rung])
+    val effect = when (rung) {
+        3 -> VibrationEffect.EFFECT_TICK
+        4 -> VibrationEffect.EFFECT_CLICK
+        else -> VibrationEffect.EFFECT_HEAVY_CLICK
+    }
+    return if (caps.effects[effect] != Vibrator.VIBRATION_EFFECT_SUPPORT_NO) Buzz.Predefined(effect) else Buzz.Pulses(count = 1, length = PULSES.last())
+}
+
+/** The ladder's first rungs, a plain pulse's length in ms. */
+private val PULSES = longArrayOf(5, 10, 15)
 
 /** [feel] as primitives, where the phone plays the ones it needs. */
 private fun composition(feel: Feel, caps: VibratorCaps): Buzz.Primitives? {

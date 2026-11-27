@@ -84,7 +84,7 @@ class RoomQueueTest {
         val list = queue.substringAfter("val songList: @Composable ColumnScope.(PaddingValues) -> Unit").substringBefore("LazyColumn(")
         assertTrue("val roomLine = roomsQueue && (!detachedHead || movesStoredQueue)" in list)
         assertTrue("leaderName = roomLeaderName," in list.substringAfter("if (roomLine) {"))
-        assertTrue(list.indexOf("QueueRoomLine(") < list.indexOf(".movesListFromHeldRow(lazySongsListState)"))
+        assertTrue(list.indexOf("QueueRoomLine(") in 0 until list.indexOf(".movesListFromHeldRow(lazySongsListState, wheel)"))
     }
 
     /**

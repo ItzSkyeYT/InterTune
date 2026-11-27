@@ -132,6 +132,7 @@ val SETTINGS_INDEX: List<SettingEntry> = listOf(
     SettingEntry(Tour.ROUTE_LOOK_AND_FEEL, R.string.player_glass_intensity, under = R.string.player_liquid_glass),
     SettingEntry(Tour.ROUTE_LOOK_AND_FEEL, R.string.player_buttons_style, R.string.player_buttons_style_description),
     SettingEntry(Tour.ROUTE_LOOK_AND_FEEL, R.string.player_pins),
+    SettingEntry(Tour.ROUTE_LOOK_AND_FEEL, R.string.player_menu_place),
     SettingEntry(Tour.ROUTE_LOOK_AND_FEEL, R.string.queue_button),
     SettingEntry(Tour.ROUTE_LOOK_AND_FEEL, R.string.queue_back_closes_player),
     SettingEntry(Tour.ROUTE_LOOK_AND_FEEL, R.string.output_pill, words = listOf(R.string.cast), there = Unreleased.CAST_AT_TOP),

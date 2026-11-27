@@ -11,7 +11,6 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -20,37 +19,24 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.PushPin
 import androidx.compose.material.icons.rounded.KeyboardDoubleArrowDown
+import androidx.compose.material.icons.rounded.PushPin
 import androidx.compose.material.icons.rounded.SmartButton
 import androidx.compose.material.icons.rounded.Speaker
-import androidx.compose.material3.AssistChip
-import androidx.compose.material3.AssistChipDefaults
-import androidx.compose.material3.InputChip
-import androidx.compose.material3.InputChipDefaults
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.lazy.items
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import com.dd3boh.outertune.ui.component.items.ListItem
-import com.dd3boh.outertune.ui.dialog.ListDialog
 import com.dd3boh.outertune.ui.player.pinLabel
 import com.dd3boh.outertune.ui.player.pinOffered
 import com.dd3boh.outertune.ui.player.pinPainter
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
@@ -58,11 +44,15 @@ import com.dd3boh.outertune.R
 import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import com.dd3boh.outertune.constants.PlayerButtonsStyle
 import com.dd3boh.outertune.constants.PlayerButtonsStyleKey
+import com.dd3boh.outertune.constants.QueueBackClosesPlayerKey
 import com.dd3boh.outertune.constants.PlayerPinsKey
+import com.dd3boh.outertune.constants.PlayerMenuPlaceKey
+import com.dd3boh.outertune.ui.player.MenuPlace
+import com.dd3boh.outertune.ui.player.MenuPlaces
+import androidx.compose.material.icons.rounded.MoreVert
 import com.dd3boh.outertune.ui.player.PinPlace
 import com.dd3boh.outertune.ui.player.PlayerPin
 import com.dd3boh.outertune.ui.player.PlayerPins
-import com.dd3boh.outertune.constants.QueueBackClosesPlayerKey
 import com.dd3boh.outertune.constants.QueueButtonKey
 import com.dd3boh.outertune.constants.OutputPillKey
 import com.dd3boh.outertune.constants.Unreleased
@@ -95,6 +85,11 @@ fun ColumnScope.PlayerButtonsFrag() {
     // a chip each, in the places that style has. Today's until somebody chooses.
     val (pinsRaw, onPinsRawChange) = rememberPreference(PlayerPinsKey, defaultValue = "")
     val pins = remember(pinsRaw) { PlayerPins.read(pinsRaw) }
+
+    // The three-dots button is at the top or at the bottom of the player, never off it (MenuPlaces): where the
+    // style has always had it until somebody moves it.
+    val (menuPlaceRaw, onMenuPlaceRawChange) = rememberPreference(PlayerMenuPlaceKey, defaultValue = "")
+    val menuPlace = MenuPlaces.read(menuPlaceRaw, buttonsStyle)
 
     PreferenceEntry(
         modifier = Modifier.settingRow(R.string.player_buttons_style),
@@ -131,6 +126,7 @@ fun ColumnScope.PlayerButtonsFrag() {
                     style = style,
                     pins = pins,
                     queueButton = queueAsButton,
+                    menuPlace = MenuPlaces.read(menuPlaceRaw, style),
                     icon = { pinPainter(it, on = it == PlayerPin.LIKE) },
                     modifier = Modifier
                         .fillMaxWidth()
@@ -158,94 +154,63 @@ fun ColumnScope.PlayerButtonsFrag() {
         }
     }
 
-    // The row, its chips and the way back to the default under one mark, for the tour from What's
-    // new: its bubble is about the chips, and with the row alone marked it would stand over them.
+    val places = if (buttonsStyle == PlayerButtonsStyle.CLASSIC) listOf(PinPlace.CLASSIC)
+    else listOf(PinPlace.CONNECTED_TITLE, PinPlace.CONNECTED_ROW)
+    // The row, the editor and the way back to the default under one mark, for the tour from What's new: its bubble is
+    // about the editor, and with the row alone marked it would stand over it.
     Column(Modifier.fillMaxWidth().tourTarget(Tour.SETTING_PLAYER_PINS)) {
         PreferenceEntry(
             modifier = Modifier.settingRow(R.string.player_pins),
             title = { Text(stringResource(R.string.player_pins)) },
             icon = { Icon(Icons.Rounded.PushPin, null) },
+            // Back to the buttons the style shown has always had (his ask of 18 Oct 2026). Always there, and only
+            // greyed out while nothing differs, so the way back is never hidden.
+            trailingContent = {
+                TextButton(
+                    enabled = PlayerPins.changed(pins, places),
+                    onClick = { onPinsRawChange(PlayerPins.write(PlayerPins.reset(pins, places))) },
+                ) { Text(stringResource(R.string.player_pins_reset)) }
+            },
             onClick = null
         )
-        val places = if (buttonsStyle == PlayerButtonsStyle.CLASSIC) listOf(PinPlace.CLASSIC)
-        else listOf(PinPlace.CONNECTED_TITLE, PinPlace.CONNECTED_ROW)
-        // The place whose list of buttons to add is open.
-        var adding by remember { mutableStateOf<PinPlace?>(null) }
-        places.forEach { place ->
-            if (places.size > 1) {
-                Text(
-                    text = stringResource(if (place == PinPlace.CONNECTED_TITLE) R.string.player_pins_by_title else R.string.player_pins_under_controls),
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 4.dp)
-                )
-            }
-            val most = if (place == PinPlace.CLASSIC) PlayerPins.classicMost(queueAsButton) else place.most
-            val chosen = pins[place].orEmpty()
-            // What is pinned, a tap on one taking it off, and Add for the rest: every entry of the
-            // player's menu and Listen together are too many to show as chips side by side.
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = 16.dp, end = 16.dp, bottom = 8.dp)
-            ) {
-                chosen.forEach { pin ->
-                    val name = pinLabel(pin)
-                    val takeOff = stringResource(R.string.player_pins_take_off, name)
-                    InputChip(
-                        selected = true,
-                        onClick = { onPinsRawChange(PlayerPins.write(PlayerPins.toggle(pins, place, pin, most))) },
-                        label = { Text(name) },
-                        leadingIcon = {
-                            Icon(pinPainter(pin, on = pin == PlayerPin.LIKE), contentDescription = null, modifier = Modifier.size(InputChipDefaults.IconSize))
-                        },
-                        trailingIcon = {
-                            Icon(Icons.Rounded.Close, contentDescription = takeOff, modifier = Modifier.size(InputChipDefaults.IconSize))
-                        },
-                    )
-                }
-                AssistChip(
-                    // A full place takes no more until one comes off, but the cast button, which takes no room.
-                    enabled = !PlayerPins.full(chosen, most) || (PlayerPin.CAST !in chosen && pinOffered(PlayerPin.CAST)),
-                    onClick = { adding = place },
-                    label = { Text(stringResource(R.string.player_pins_add)) },
-                    leadingIcon = {
-                        Icon(Icons.Rounded.Add, contentDescription = null, modifier = Modifier.size(AssistChipDefaults.IconSize))
-                    },
-                )
-            }
-        }
-        adding?.let { place ->
-            val most = if (place == PinPlace.CLASSIC) PlayerPins.classicMost(queueAsButton) else place.most
-            ListDialog(onDismiss = { adding = null }) {
-                val full = PlayerPins.full(pins[place].orEmpty(), most)
-                items(PlayerPin.entries.filter { it !in pins[place].orEmpty() && pinOffered(it) && (!full || it == PlayerPin.CAST) }) { pin ->
-                    ListItem(
-                        title = pinLabel(pin),
-                        thumbnailContent = {
-                            Icon(pinPainter(pin, on = pin == PlayerPin.LIKE), contentDescription = null, modifier = Modifier.size(24.dp))
-                        },
-                        modifier = Modifier.clickable {
-                            onPinsRawChange(PlayerPins.write(PlayerPins.toggle(pins, place, pin, most)))
-                            adding = null
-                        },
-                    )
-                }
-            }
-        }
-        // Back to the buttons the style shown has always had (his ask of 18 Oct 2026). Always there,
-        // and only greyed out while nothing differs, so the way back is never hidden.
-        Row(
-            horizontalArrangement = Arrangement.End,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(end = 8.dp)
-        ) {
-            TextButton(
-                enabled = PlayerPins.changed(pins, places),
-                onClick = { onPinsRawChange(PlayerPins.write(PlayerPins.reset(pins, places))) },
-            ) { Text(stringResource(R.string.player_pins_reset)) }
+        // Ti-Die's ask of 26 Nov 2026, mock 2 his pick: a box per place shaped like that bar of the player, the buttons
+        // not shown as tiles, dragged or tapped where they go. Stored as the chips stored it, so no choice changes.
+        PlayerButtonsEditor(
+            pins = pins,
+            places = places,
+            // Classic has one fewer while the queue has a circle there; the cast button always has room.
+            most = { place -> if (place == PinPlace.CLASSIC) PlayerPins.classicMost(queueAsButton) else place.most },
+            // Every entry of the player's menu, Listen together where rooms are, cast where there is casting.
+            available = PlayerPin.entries.filter { pinOffered(it) },
+            queueButton = queueAsButton,
+            // The three-dots button in the bar the Top or Bottom choice below puts it in, as in the player.
+            menuIn = MenuPlaces.barOf(buttonsStyle, menuPlace),
+            onPinsChange = { onPinsRawChange(PlayerPins.write(it)) },
+            name = { pinLabel(it) },
+            icon = { pinPainter(it, on = it == PlayerPin.LIKE) },
+            modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 12.dp),
+        )
+    }
+    PreferenceEntry(
+        modifier = Modifier.settingRow(R.string.player_menu_place),
+        title = { Text(stringResource(R.string.player_menu_place)) },
+        icon = { Icon(Icons.Rounded.MoreVert, null) },
+        onClick = null
+    )
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 16.dp, end = 16.dp, bottom = 8.dp)
+            .selectableGroup()
+    ) {
+        MenuPlace.entries.forEach { place ->
+            FilterChip(
+                selected = place == menuPlace,
+                // One of the two always stays on: tapping the one shown does nothing, the other moves it.
+                onClick = { if (place != menuPlace) onMenuPlaceRawChange(MenuPlaces.write(menuPlaceRaw, buttonsStyle, place)) },
+                label = { Text(stringResource(if (place == MenuPlace.TOP) R.string.player_menu_top else R.string.player_menu_bottom)) },
+            )
         }
     }
     SwitchPreference(

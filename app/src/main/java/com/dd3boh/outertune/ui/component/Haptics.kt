@@ -30,13 +30,13 @@ import com.dd3boh.outertune.utils.get
 
 /**
  * The app's haptics as the Vibration setting has them (Unreleased.HAPTICS_FEEL): nothing under Off, the app's own under
- * Light and Strong, Light at about half the strength ([buzzFor] says what, per [Feel]).
+ * each of the five steps, from faint to Strong, Light among them, softer the lower ([buzzFor] says what, per [Feel]).
  *
  * Every haptic goes through [play]: the window's (FeltHaptics, which MainActivity hands down as LocalHapticFeedback),
  * and the ones that read the setting themselves, a tap's tick, the seek bar's and the volume's (MoreHaptics), which
  * also play in the menus and dialogs: their windows have Compose's own haptic feedback, not the main window's.
  *
- * Light and Strong are played through the vibrator as touch feedback, the way Android's own touch haptics are, so the
+ * Every step is played through the vibrator as touch feedback, the way Android's own touch haptics are, so the
  * phone's vibration switches and its touch strength still apply. They need android.permission.VIBRATE: without it, and
  * wherever the vibrator refuses, the view's own haptic stands in.
  */
@@ -63,14 +63,15 @@ object Haptics {
     }
 
     /**
-     * Plays [feel] as [choice] says: nothing under Off, the app's own under Light (softer) and Strong, and [light], the
-     * view's own haptic, wherever the app cannot play its own. Light where the flag is off is the view's own, unchanged.
+     * Plays [feel] as [choice] says: nothing under Off, the app's own under each step, Light among them (softer than
+     * Strong), and [light], the view's own haptic, wherever the app cannot play its own. Light where the flag is off is
+     * the view's own, unchanged.
      */
     inline fun play(feel: Feel, choice: Vibration = vibration(), light: () -> Unit) {
         when (choice) {
             Vibration.OFF -> Unit
             Vibration.LIGHT -> if (!Unreleased.HAPTICS_FEEL || !own(feel, choice)) light()
-            Vibration.STRONG -> if (!own(feel, choice)) light()
+            else -> if (!own(feel, choice)) light()
         }
     }
 

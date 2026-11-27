@@ -79,6 +79,14 @@ fun HapticFeedback.segmentTick(view: View, live: Boolean, frequent: Boolean = fa
 }
 
 /**
+ * The queue's wheel tick (QueueWheel; Ti-Die, #testers 26 Nov 2026): as light as the seek bar's, the low tick under the
+ * Vibration setting's steps, Light's own frequent tick under Light, nothing under Off.
+ */
+fun HapticFeedback.wheelTick(view: View, live: Boolean) {
+    if (Unreleased.HAPTICS_MORE) segmentTick(view, live, frequent = true)
+}
+
+/**
  * The seek bar's faint rumble while it is dragged (Unreleased.HAPTICS_MORE, #176): one light tick
  * each [steps]th of the bar the finger travels, as the Pixel's own volume slider ticks, and never
  * one for each move the slider reports, which came many times a frame and buzzed (why the tick

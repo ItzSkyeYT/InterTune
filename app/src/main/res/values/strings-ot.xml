@@ -987,7 +987,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="new_battery_use_body">Full, Balanced or Saver, in Settings &gt; Battery use. Saver comes on with the phone\'s battery saver unless you turn that off.</string>
     <!-- The bubbles of their Show me tours: held from translators until the words are agreed, their French beside them in values-fr. -->
     <string name="new_player_pins_way">The buttons that stay on the player are picked in here.</string>
-    <string name="new_player_pins_here">Tap a button to pin it to the player, and tap it again to put it back in the menu.</string>
+    <string name="new_player_pins_here">Hold a button and drag it where you want it on the player, or tap it to pick a place.</string>
     <string name="new_settings_search_here">Type what you want to change, typos and all, and tap a result to land right on it.</string>
     <string name="new_battery_use_here">Pick Full, Balanced or Saver in here, and Saver comes on with the phone\'s battery saver.</string>
     <!-- About in a fork's build, in place of InterTune's name and logo (FORKS.md, his yes of 27 Oct 2026). -->
@@ -2414,6 +2414,20 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="player_pins_under_controls">Under the controls</string>
     <string name="player_pin_lyrics">Lyrics</string>
     <string name="player_pins_reset">Reset to default</string>
+    <!-- The player buttons editor (PlayerButtonsEditor): the box of the buttons the player does not show, the room left in a place, and the moves a tap offers. -->
+    <string name="player_pins_not_shown">Not shown</string>
+    <plurals name="player_pins_free">
+        <item quantity="one">%d free</item>
+        <item quantity="other">%d free</item>
+    </plurals>
+    <string name="player_pins_full">Full</string>
+    <string name="player_pins_menu">Menu</string>
+    <string name="player_pins_put_by_title">Put by the title</string>
+    <string name="player_pins_put_under_controls">Put under the controls</string>
+    <string name="player_pins_remove">Remove</string>
+    <string name="player_menu_place">Three-dots button</string>
+    <string name="player_menu_top">Top</string>
+    <string name="player_menu_bottom">Bottom</string>
     <!-- Saved twice (issue #47, Unreleased.SAVED_TWICE): held back from translators until his yes on the words, their French beside them in values-fr. The place in each is the list the screen was opened from. -->
     <string name="saved_twice">Saved twice</string>
     <!-- For a screen reader: the round button beside Play and Shuffle, and the number on it. -->
@@ -2661,9 +2675,9 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="new_listenbrainz_way">Your accounts and what they keep in sync are set in here, ListenBrainz too.</string>
     <string name="new_listenbrainz_here">Connect with the user token from your ListenBrainz settings. Each song you finish then goes to your profile.</string>
     <string name="new_vibration_title">Vibration you can feel</string>
-    <string name="new_vibration_body">Off, Light or Strong, in Look and feel. Strong, the default, gives each button its own feel.</string>
+    <string name="new_vibration_body">Off, or five steps from faint to strong, in Look and feel. Strong, the default, gives each button its own feel.</string>
     <string name="new_vibration_way">How the app looks, moves and vibrates is set in here.</string>
-    <string name="new_vibration_here">Strong gives each button its own feel, and Light the same at half the strength. Off turns it off.</string>
+    <string name="new_vibration_here">Slide it from faint to strong: each step gives each button its own feel, gentler the lower. Off turns it off.</string>
     <string name="new_metrolist_title">Move over from Metrolist</string>
     <string name="new_metrolist_body">Import from Metrolist brings your likes, playlists, plays and the lyrics you edited over from a Metrolist backup.</string>
     <string name="new_metrolist_way">Backups, and libraries from other apps, are brought in here.</string>
@@ -3511,7 +3525,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <!-- Vibration under Look and feel: how strong the app's taps and ticks feel. -->
     <string name="vibration">Vibration</string>
     <string name="vibration_off">Off</string>
-    <string name="vibration_light">Light</string>
+    <string name="vibration_step">%1$d of 5</string>
     <string name="vibration_strong">Strong</string>
     <string name="search_words_vibration">haptics, haptic feedback, vibrate, buzz, touch feedback</string>
 </resources>

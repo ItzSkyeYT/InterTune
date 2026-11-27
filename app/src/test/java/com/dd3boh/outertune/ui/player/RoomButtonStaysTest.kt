@@ -83,12 +83,12 @@ class RoomButtonStaysTest {
             connectedRow,
             "if (queueLayout.queueButton) queueSegment()",
             "rowPins.forEachIndexed",
-            "if (rowRoomBeforeMenu) roomSegment(rowPins.isEmpty() && !queueLayout.queueButton)",
+            "if (rowRoomBeforeMenu) roomSegment(roomBeforeMenuAt)",
             "contentDescription = stringResource(R.string.options)",
         )
-        assertTrue("shape = connectedShape(first = !rowRoomFirst, last = false)" in connectedRow)
-        assertTrue("connectedShape(first = i == 0 && !queueLayout.queueButton && !rowRoomFirst, last = false)" in connectedRow)
-        assertTrue("connectedShape(first = rowPins.isEmpty() && !roomInRow && !queueLayout.queueButton, last = true)" in connectedRow)
+        assertTrue("shape = shapeAt(queueAt)" in connectedRow)
+        assertTrue("val shape = shapeAt(pinsAt + i)" in connectedRow)
+        assertTrue("shape = shapeAt(menuAt)" in connectedRow)
         // The row never hangs the room any more: the normal player has it by the title, a small player counts it in.
         assertEquals("hangingFirst is asked for nowhere", 0, Regex("""hangingFirst = """).findAll(player).count())
         // One circle and one segment, each drawn in the two places the flag chooses between.
@@ -99,7 +99,7 @@ class RoomButtonStaysTest {
 
     @Test
     fun `held back, a small player's columns are next-013's`() {
-        assertTrue("classicSideColumns(pinned, roomApart, roomAtFreeEnd = Unreleased.ROOM_AT_FREE_END)" in player)
+        assertTrue("classicSideColumns(pinned, roomApart, roomAtFreeEnd = Unreleased.ROOM_AT_FREE_END, menu = menuAtTop)" in player)
         for (pins in pinSets) for (inRoom in listOf(false, true)) {
             assertEquals("$pins, in a room $inRoom", next013Columns(pins, inRoom), classicSideColumns(pins, inRoom, roomAtFreeEnd = false))
         }
@@ -114,7 +114,7 @@ class RoomButtonStaysTest {
             "classicPins(queueCircle = queueLayout.queueButton)",
             "menuCircle()",
         )
-        assertInOrder(connectedRow, "if (rowRoomFirst) roomSegment(true)", "if (queueLayout.queueButton) queueSegment()", "rowPins.forEachIndexed")
+        assertInOrder(connectedRow, "if (rowRoomFirst) roomSegment(0)", "if (queueLayout.queueButton) queueSegment()", "rowPins.forEachIndexed")
     }
 
     @Test
@@ -132,7 +132,7 @@ class RoomButtonStaysTest {
             "contentDescription = stringResource(R.string.together_in_room)",
             "shape = CircleShape,\n                                circle = true,",
             "onClick = { showRoom = true },",
-            "if (titlePins.isNotEmpty()) Spacer(Modifier.width(RoomCircleGap))",
+            "if (titlePins.isNotEmpty() || menuAtTop) Spacer(Modifier.width(RoomCircleGap))",
             "titlePins.forEachIndexed",
         )
         // Seen arriving: the player open and no sheet over it, then kept, a room coming back with a new service too. Held
@@ -143,7 +143,7 @@ class RoomButtonStaysTest {
         assertTrue(arrival, "!roomCircleShown && state.isExpanded && windowFocused -> {" in arrival)
         assertTrue(player.indexOf("var roomCircleShown") in 0 until player.indexOf("val connectedButtons"))
         // The pair is the same in a room and out of one: the room takes nothing of it.
-        assertTrue("titleSegment(pin, connectedShape(first = i == 0, last = i == titlePins.lastIndex))" in pair)
+        assertTrue("titleSegment(pin, connectedShape(first = i == 0, last = i == titleCount - 1))" in pair)
         val segment = player.substringAfter("private fun PlayerActionSegment(").substringBefore("\n}")
         assertTrue(segment, "OptionalLongPressLabel(contentDescription) {" in segment)
         assertFalse("onLongClick" in segment)

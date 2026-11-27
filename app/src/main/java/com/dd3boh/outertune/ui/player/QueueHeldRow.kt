@@ -202,13 +202,21 @@ internal fun Modifier.queueHeaderBand(color: Color, height: Dp): Modifier =
  * the list hands up to the queue's sheet (rememberQueueSheetScroll), which decide when it closes.
  */
 @Composable
-internal fun Modifier.movesListFromHeldRow(list: LazyListState): Modifier {
+internal fun Modifier.movesListFromHeldRow(list: LazyListState, wheel: QueueWheel? = null): Modifier {
     val fling = ScrollableDefaults.flingBehavior()
     val state = remember(list) { ListDrag(list) }
     return draggable(
         state = state,
         orientation = Orientation.Vertical,
-        onDragStopped = { velocity -> list.scroll { with(fling) { performFling(-velocity) } } },
+        onDragStarted = { wheel?.holding = true },
+        onDragStopped = { velocity ->
+            // The drag's fling is the finger's as well: the wheel ticks along it (QueueWheel).
+            try {
+                list.scroll { with(fling) { performFling(-velocity) } }
+            } finally {
+                wheel?.holding = false
+            }
+        },
     )
 }
 
