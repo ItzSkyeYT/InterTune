@@ -54,10 +54,13 @@ val DownloadCopiesLookedKey = longPreferencesKey("downloadCopiesLookedAt")
  * looked at first and must still be there, whole, under the name it was found with, or nothing of
  * that song is touched; it is never deleted, nor a copy under a name the phone's storage takes for
  * it, and it is looked at again after each copy: gone all the same, nothing more of that song goes;
- * each copy is looked at again and deleted only if it is still the file found (DownloadCopies.remove);
+ * each copy is looked at again and deleted only if it is still the file found, the highest numbers
+ * first, so that a removal ended halfway leaves copies a look by name finds again (DownloadCopies.remove);
  * the rename to the download's name comes after the copies have gone; then the database points at
- * the file kept. A song the player has open waits until it is let go, a few minutes at most, or for
- * a later time. [record] records a song's file kept as its download, the download map with it
+ * the file kept. An app ended between those two leaves the database the copy's old name, and the scan
+ * then finds the song's file under the name it was given (DownloadDirectoryManagerOt.lookAgain). A
+ * song the player has open waits until it is let go, a few minutes at most, or for a later time.
+ * [record] records a song's file kept as its download, the download map with it
  * (DownloadUtil.recordKeptCopy).
  */
 class DownloadCopiesCleanup(

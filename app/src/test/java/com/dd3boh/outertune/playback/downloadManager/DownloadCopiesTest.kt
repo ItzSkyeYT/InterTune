@@ -297,7 +297,8 @@ class DownloadCopiesTest {
         val gone = DownloadCopies.remove(song, storage::lookAt, delete) { steps++ }
         assertEquals(DownloadCopies.Removal(1, 2_296_381L, allGone = false, keptLost = true), gone)
         assertEquals(3, steps)
-        assertEquals(setOf("$carpet.mka (2)", "$carpet.mka (3)"), storage.disk.keys)
+        // The highest number went first.
+        assertEquals(setOf("$carpet.mka (1)", "$carpet.mka (2)"), storage.disk.keys)
     }
 
     @Test
