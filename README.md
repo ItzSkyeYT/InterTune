@@ -208,7 +208,7 @@ Every change in detail, and why this fork exists: [docs/FEATURES.md](https://git
 What's being worked on, roughly in order. `[x]` is done, `[~]` is built and being tested, `[ ]` is still to do. Nothing here has a date, and plans can change. Ideas are welcome in #feature-requests on [Discord](https://discord.gg/68jmqhMjXk) or as a [GitHub issue](https://github.com/ItzSkyeYT/InterTune/issues/new/choose).
 
 <details>
-<summary><b>Next: 0.13</b> · 50 of 55 done, 5 to test</summary>
+<summary><b>Next: 0.13</b> · 51 of 55 done, 4 to test</summary>
 
 `[x]` Listen together: one person plays, friends follow the same song in real time\
 `[x]` In a room, a guest who casts to a TV or speaker plays on their own, and catches up with the room when the cast ends\
@@ -216,7 +216,7 @@ What's being worked on, roughly in order. `[x]` is done, `[~]` is built and bein
 `[x]` In a room everyone sees who's picking the music, and the host can hand control to someone and take it back\
 `[x]` The host can leave a room without closing it: they hand it to someone and everyone keeps listening\
 `[x]` Propose a song to whoever's picking the music, they get a notification with Play it or Not now\
-`[~]` Rooms work like a Spotify Jam: guests listen along and can mute, and the host can let everyone control the music\
+`[x]` Rooms work like a Spotify Jam: guests listen along and can mute, and the host can let everyone control the music\
 `[x]` Songs other people add in a room don't change your own recommendations\
 `[x]` Songs from your own files play in a room as their YouTube Music version\
 `[x]` How rooms work: a short tutorial that also walks you through the room's sheet\
