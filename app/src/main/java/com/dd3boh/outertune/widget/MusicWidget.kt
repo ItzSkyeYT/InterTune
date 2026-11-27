@@ -311,6 +311,12 @@ private fun Body(drawn: WidgetStore.Drawn, quiet: Boolean = false) {
 @Composable
 private fun openApp(): Action = actionStartActivity(WidgetCommands.appIntent(LocalContext.current))
 
+/**
+ * A song of a list tapped: it plays where the player is, and the app stays where it was, running or not
+ * (WidgetCommands.playSong). It used to open the app on the song, every time.
+ */
+private fun playOnTap(song: WidgetSong): Action = actionRunCallback<PlaySongAction>(WidgetCommands.songParameters(song))
+
 @Composable
 private fun Heading(which: WidgetList, paint: Paint, height: Int) {
     Text(
@@ -615,7 +621,7 @@ private fun BigCoverLook(l: Look, frame: GlanceModifier, list: List<WidgetSong>,
     val first = if (alone) list.firstOrNull() else null
     val song = first ?: l.song
     val art = if (alone) first?.let { l.firsts[it.id] ?: l.art[it.id] } else l.cover
-    val tap = first?.let { actionStartActivity(WidgetCommands.playIntent(context, it)) } ?: openApp()
+    val tap = first?.let { playOnTap(it) } ?: openApp()
     val onCover = l.paint.copy(text = OnCover, muted = OnCoverMuted)
     Box(modifier = frame) {
         look.heroPicture?.let { pic ->
@@ -641,7 +647,7 @@ private fun BigCoverLook(l: Look, frame: GlanceModifier, list: List<WidgetSong>,
                 Box(modifier = GlanceModifier.fillMaxSize()) {
                     for ((index, spot) in row) {
                         val pick = list.getOrNull(index + offset) ?: continue
-                        At(box.w, box.h, l.rtl, spot.at(-box.x, -box.y)) { MosaicCover(l, pick, spot, look.pickRadius, context) }
+                        At(box.w, box.h, l.rtl, spot.at(-box.x, -box.y)) { MosaicCover(l, pick, spot, look.pickRadius) }
                     }
                 }
             }
@@ -651,9 +657,9 @@ private fun BigCoverLook(l: Look, frame: GlanceModifier, list: List<WidgetSong>,
 
 /** A cover of Big cover's mosaic, rounded as its own picture (Android 11 and under cannot round a widget's image), tapped to play its song. */
 @Composable
-private fun MosaicCover(l: Look, song: WidgetSong, spot: Spot, radius: Int, context: Context) {
+private fun MosaicCover(l: Look, song: WidgetSong, spot: Spot, radius: Int) {
     val art = l.art[song.id]?.let { WidgetPictures.rounded(it, spot.w, radius) }
-    val modifier = GlanceModifier.size(spot.w.dp, spot.h.dp).clickable(actionStartActivity(WidgetCommands.playIntent(context, song)))
+    val modifier = GlanceModifier.size(spot.w.dp, spot.h.dp).clickable(playOnTap(song))
     if (art != null) {
         Image(provider = ImageProvider(art), contentDescription = song.title, contentScale = ContentScale.FillBounds, modifier = modifier)
     } else {
@@ -713,7 +719,7 @@ private fun RowsLook(l: Look, frame: GlanceModifier, list: List<WidgetSong>, whi
                             Box(
                                 modifier = GlanceModifier
                                     .fillMaxSize()
-                                    .clickable(actionStartActivity(WidgetCommands.playIntent(context, song)))
+                                    .clickable(playOnTap(song))
                                     .semantics { contentDescription = song.title },
                             ) {}
                         }

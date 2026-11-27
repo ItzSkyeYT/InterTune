@@ -9,11 +9,13 @@ package com.dd3boh.outertune.widget
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import android.util.Log
 import android.view.KeyEvent
 import androidx.core.content.ContextCompat
 import androidx.glance.GlanceId
 import androidx.glance.action.ActionParameters
+import androidx.glance.action.mutableActionParametersOf
 import androidx.glance.appwidget.action.ActionCallback
 import androidx.media3.common.C
 import androidx.media3.common.Player
@@ -131,7 +133,7 @@ object WidgetCommands {
     /**
      * A song of Up next tapped: the queue plays on from it, as a tap on it in the queue does. With no
      * service, or a queue that has moved on and no longer has it next, the song is played the way a
-     * Quick pick on the widget plays it, so the tap is never silence.
+     * Quick pick on the widget plays it ([playSong]), so the tap is never silence.
      */
     suspend fun playUpNext(context: Context, songId: String) {
         val service = MusicService.alive()
@@ -145,8 +147,71 @@ object WidgetCommands {
             openApp(context)
             return
         }
+        playSong(context, song)
+    }
+
+    /**
+     * A song of the widget's lists tapped: it plays where the player is, and the app stays where it was, running or
+     * not, as Up next and the buttons have always done. What plays is what the app plays for the same tap
+     * ([WidgetSongStart]).
+     *
+     * The service is started as the play button starts it ([mediaKey]), with startForegroundService, which Android
+     * allows from a tap on a widget on Android 12 and later: the tap is the listener's own doing, and the launcher
+     * that sends it is in front. Android then waits for the player's notification, and the service looks at the start
+     * as at a play press (MediaButtonStart), so the wait is met whatever comes of the song. Where Android refuses the
+     * start, and on a phone that follows a listening room, where a song played asks first whether to leave the room
+     * (MusicService.songTapNeedsTheApp), the app opens on the song as the tap always did: never nothing.
+     */
+    fun playSong(context: Context, song: WidgetSong) = songTap(
+        needsTheApp = MusicService.alive()?.songTapNeedsTheApp() == true,
+        start = { startSong(context, song) },
+        openOnSong = { openOnSong(context, song) },
+    )
+
+    /** The service started on [song], which it takes from [WidgetSongStart]: false where Android would not start it. */
+    private fun startSong(context: Context, song: WidgetSong): Boolean {
+        val tap = WidgetSongStart.hand(song)
+        val intent = MediaButtonStart.markHanded(WidgetSongStart.intent(context, tap))
+        val started = runCatching {
+            // Not ContextCompat's, which drops the answer: an app the listener has restricted in the background
+            // gets null for a start Android drops without a word, and the tap then has to go to the app.
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) context.startForegroundService(intent) else context.startService(intent)
+        }.onFailure { Log.w(TAG, "Could not start the player on the song", it) }.getOrNull() != null
+        if (!started) WidgetSongStart.take(tap)
+        return started
+    }
+
+    /** The app opened on [song], which it plays as it always has for a song tapped on the widget. */
+    fun openOnSong(context: Context, song: WidgetSong) {
         runCatching { context.startActivity(playIntent(context, song)) }
             .onFailure { Log.w(TAG, "Could not open the app on the song", it) }
+    }
+
+    /** What a tap on a song of a list carries: what [playIntent] gave the app, so the tap needs no lookup. */
+    private val SongId = ActionParameters.Key<String>("widget_tap_song_id")
+    private val SongTitle = ActionParameters.Key<String>("widget_tap_song_title")
+    private val SongArtist = ActionParameters.Key<String>("widget_tap_song_artist")
+    private val SongThumbnail = ActionParameters.Key<String>("widget_tap_song_thumbnail")
+    private val SongDuration = ActionParameters.Key<Int>("widget_tap_song_duration")
+
+    /** [song] as the parameters of its tap ([PlaySongAction]). */
+    fun songParameters(song: WidgetSong): ActionParameters = mutableActionParametersOf(
+        SongId to song.id,
+        SongTitle to song.title,
+        SongArtist to song.artist,
+        SongDuration to song.durationSec,
+    ).apply { song.thumbnailUrl?.let { set(SongThumbnail, it) } }
+
+    /** The song a tap's [parameters] are for ([songParameters]), null when they name none. */
+    fun songOf(parameters: ActionParameters): WidgetSong? {
+        val id = parameters[SongId]?.takeIf { it.isNotEmpty() } ?: return null
+        return WidgetSong(
+            id = id,
+            title = parameters[SongTitle].orEmpty(),
+            artist = parameters[SongArtist].orEmpty(),
+            thumbnailUrl = parameters[SongThumbnail],
+            durationSec = parameters[SongDuration] ?: 0,
+        )
     }
 
     fun openApp(context: Context) = runCatching {
@@ -156,7 +221,10 @@ object WidgetCommands {
     fun appIntent(context: Context): Intent =
         Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
 
-    /** Tapping a Quick pick opens the app on that song and plays it, exactly as tapping the card does. */
+    /**
+     * The app opened on a song of the widget, which it plays, exactly as tapping the card does: where the song cannot
+     * be played without the app ([openOnSong]). A tap on a song used to open the app this way every time.
+     */
     fun playIntent(context: Context, song: WidgetSong): Intent =
         appIntent(context)
             .setAction(ACTION_PLAY_SONG)
@@ -215,6 +283,23 @@ class PlayUpNextAction : ActionCallback {
         val id = parameters[WidgetCommands.UpNextSong] ?: return
         WidgetCommands.playUpNext(context, id)
     }
+}
+
+/** A song of one of the widget's lists, played without the app coming up ([WidgetCommands.playSong]). */
+class PlaySongAction : ActionCallback {
+    override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {
+        Log.d(WidgetStore.DRAW_TAG, "Tapped a song")
+        val song = WidgetCommands.songOf(parameters) ?: return WidgetCommands.openApp(context)
+        WidgetCommands.playSong(context, song)
+    }
+}
+
+/**
+ * What a tap on a song does, apart from Android so a test can drive it: the app opens on the song where it [needsTheApp],
+ * and where the player's service could not be [start]ed on it. Never nothing.
+ */
+internal fun songTap(needsTheApp: Boolean, start: () -> Boolean, openOnSong: () -> Unit) {
+    if (needsTheApp || !start()) openOnSong()
 }
 
 /** The next [count] songs of the queue after the one playing, in the order the player will play them. */
