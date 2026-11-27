@@ -41,7 +41,8 @@ class QueueMenuArtistTest {
     fun `one artist opens at once, several are offered to pick from, the same as View artist`() {
         assertTrue(openArtist.contains("if (artists.size == 1) {"))
         assertTrue(openArtist.contains("ActivityLog.note(context, database, mediaMetadata.id, SignalKind.ARTIST_PAGE)"))
-        assertTrue(openArtist.contains("navController.navigate(\"artist/\${artists[0].id}\")"))
+        // One artist opens by its route, a search for its name when it has no page (ArtistLinks, the artists fix of 27 Nov).
+        assertTrue(openArtist.contains("artists[0].viewRoute { it.urlEncode() }?.let { navController.navigate(it) }"))
         assertTrue("the player makes way for the artist's page", openArtist.contains("playerBottomSheetState.collapseSoft()"))
         assertTrue(openArtist.contains("onDismiss()"))
         assertTrue(openArtist.contains("showSelectArtistDialog = true"))
