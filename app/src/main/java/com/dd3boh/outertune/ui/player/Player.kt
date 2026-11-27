@@ -35,6 +35,7 @@ import com.kyant.backdrop.effects.vibrancy
 import com.kyant.backdrop.backdrops.LayerBackdrop
 import com.dd3boh.outertune.constants.PlayerButtonsStyle
 import com.dd3boh.outertune.constants.PlayerButtonsStyleKey
+import com.dd3boh.outertune.constants.PlayerMenuPlaceKey
 import com.dd3boh.outertune.constants.PlayerPinsKey
 import com.dd3boh.outertune.constants.QueueButtonKey
 import com.dd3boh.outertune.constants.OutputPillKey
@@ -461,6 +462,10 @@ fun BottomSheetPlayer(
     // The buttons kept outside the menu, per place (PlayerPins, issue #27): today's until chosen.
     val pinsRaw by rememberPreference(PlayerPinsKey, "")
     val pins = remember(pinsRaw) { PlayerPins.read(pinsRaw) }
+    // Where the three-dots button stands, top or bottom, and always one of the two (MenuPlaces): the style's old place until chosen.
+    val menuPlaceRaw by rememberPreference(PlayerMenuPlaceKey, "")
+    val menuAtTop = MenuPlaces.read(menuPlaceRaw, buttonsStyle) == MenuPlace.TOP
+    val menuAtBottom = !menuAtTop
     val queueAsButton by rememberPreference(QueueButtonKey, defaultValue = false)
     // Back from the queue closes the whole player, and the player opens where it was left (#30).
     val queueBackClosesPlayer by rememberPreference(QueueBackClosesPlayerKey, defaultValue = false)
@@ -1272,7 +1277,7 @@ fun BottomSheetPlayer(
                     roomCircle()
                     Spacer(modifier = Modifier.width(7.dp))
                 }
-                menuCircle()
+                if (menuAtTop) menuCircle()
             }
 
             /**
@@ -1291,7 +1296,7 @@ fun BottomSheetPlayer(
                     // The queue first and the menu last with the pins between, half on each side, and a
                     // listening room's circle while one is on: see classicSideColumns.
                     val pinned = classicPins(queueCircle = true)
-                    val (onLeft, onRight) = classicSideColumns(pinned, inRoom, roomAtFreeEnd = Unreleased.ROOM_AT_FREE_END)
+                    val (onLeft, onRight) = classicSideColumns(pinned, inRoom, roomAtFreeEnd = Unreleased.ROOM_AT_FREE_END, menu = menuAtTop)
                     for (circle in if (left) onLeft else onRight) {
                         when (circle) {
                             SideCircle.Queue -> queueCircle()
@@ -1401,12 +1406,26 @@ fun BottomSheetPlayer(
                                 backdrop = buttonBackdrop,
                                 glassIntensity = glassIntensity,
                             )
-                            if (titlePins.isNotEmpty()) Spacer(Modifier.width(RoomCircleGap))
+                            if (titlePins.isNotEmpty() || menuAtTop) Spacer(Modifier.width(RoomCircleGap))
                         }
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(ConnectedButtonGap)) {
+                        val titleCount = titlePins.size + if (menuAtTop) 1 else 0
                         titlePins.forEachIndexed { i, pin ->
-                            titleSegment(pin, connectedShape(first = i == 0, last = i == titlePins.lastIndex))
+                            titleSegment(pin, connectedShape(first = i == 0, last = i == titleCount - 1))
+                        }
+                        // The three-dots button at the top: the pair's last segment, in share's colours.
+                        if (menuAtTop) {
+                            PlayerActionSegment(
+                                painter = rememberVectorPainter(Icons.Rounded.MoreVert),
+                                contentDescription = stringResource(R.string.options),
+                                shape = connectedShape(first = titlePins.isEmpty(), last = true),
+                                container = MaterialTheme.colorScheme.secondaryContainer,
+                                content = MaterialTheme.colorScheme.onSecondaryContainer,
+                                onClick = showPlayerMenu,
+                                backdrop = buttonBackdrop,
+                                glassIntensity = glassIntensity,
+                            )
                         }
                     }
                 }
@@ -1459,16 +1478,25 @@ fun BottomSheetPlayer(
                     compactQuickActionWidth(
                         rowWidth = windowWidth() - hPadding * 2,
                         // The queue, the pins, the room while one is on, and the menu.
-                        count = rowPins.size + 2 + (if (inRoom) 1 else 0),
+                        count = rowPins.size + 1 + (if (menuAtBottom) 1 else 0) + (if (inRoom) 1 else 0),
                         gap = ConnectedButtonGap,
                         preferred = QuickActionWidth,
                     )
                 } else QuickActionWidth
+                // Every button of the row in the order drawn, so the first is round at its start and the last at its end
+                // whether the three-dots button is the last of them or stands at the top.
+                val rowTotal = (if (rowRoomFirst) 1 else 0) + (if (queueLayout.queueButton) 1 else 0) + rowPins.size +
+                    (if (rowRoomBeforeMenu) 1 else 0) + (if (menuAtBottom) 1 else 0)
+                fun shapeAt(index: Int): RoundedCornerShape = connectedShape(first = index == 0, last = index == rowTotal - 1)
+                val queueAt = if (rowRoomFirst) 1 else 0
+                val pinsAt = queueAt + if (queueLayout.queueButton) 1 else 0
+                val roomBeforeMenuAt = pinsAt + rowPins.size
+                val menuAt = roomBeforeMenuAt + if (rowRoomBeforeMenu) 1 else 0
                 val queueSegment: @Composable () -> Unit = {
                     PlayerActionSegment(
                         painter = rememberVectorPainter(Icons.AutoMirrored.Rounded.QueueMusic),
                         contentDescription = stringResource(R.string.queue),
-                        shape = connectedShape(first = !rowRoomFirst, last = false),
+                        shape = shapeAt(queueAt),
                         container = inactive,
                         filled = false,
                         content = onBackgroundColor,
@@ -1478,11 +1506,11 @@ fun BottomSheetPlayer(
                         onClick = openQueue,
                     )
                 }
-                val roomSegment: @Composable (Boolean) -> Unit = { first ->
+                val roomSegment: @Composable (Int) -> Unit = { at ->
                     PlayerActionSegment(
                         painter = rememberVectorPainter(Icons.Rounded.Group),
                         contentDescription = stringResource(R.string.together_in_room),
-                        shape = connectedShape(first = first, last = false),
+                        shape = shapeAt(at),
                         container = MaterialTheme.colorScheme.primary,
                         filled = true,
                         content = MaterialTheme.colorScheme.onPrimary,
@@ -1494,7 +1522,8 @@ fun BottomSheetPlayer(
                 }
                 // No room's segment hangs off this row any more (CentredRow's hangingFirst is not asked for): in the
                 // normal player it is by the title, and a small player counts it in with the rest.
-                CentredRow(
+                // Nothing in it, with the three-dots button at the top and nothing else here, is no row.
+                if (rowTotal > 0) CentredRow(
                     gap = ConnectedButtonGap,
                     gutter = hPadding,
                     modifier = Modifier
@@ -1502,10 +1531,10 @@ fun BottomSheetPlayer(
                         .padding(horizontal = hPadding)
                         .padding(top = ConnectedRowGap.above(compactPlayer))
                 ) {
-                    if (rowRoomFirst) roomSegment(true)
+                    if (rowRoomFirst) roomSegment(0)
                     if (queueLayout.queueButton) queueSegment()
                     rowPins.forEachIndexed { i, pin ->
-                        val shape = connectedShape(first = i == 0 && !queueLayout.queueButton && !rowRoomFirst, last = false)
+                        val shape = shapeAt(pinsAt + i)
                         val liked = currentSong?.song?.liked == true
                         when (pin) {
                             PlayerPin.LYRICS -> PlayerActionSegment(
@@ -1579,11 +1608,11 @@ fun BottomSheetPlayer(
                             }
                         }
                     }
-                    if (rowRoomBeforeMenu) roomSegment(rowPins.isEmpty() && !queueLayout.queueButton)
-                    PlayerActionSegment(
+                    if (rowRoomBeforeMenu) roomSegment(roomBeforeMenuAt)
+                    if (menuAtBottom) PlayerActionSegment(
                         painter = rememberVectorPainter(Icons.Rounded.MoreVert),
                         contentDescription = stringResource(R.string.options),
-                        shape = connectedShape(first = rowPins.isEmpty() && !roomInRow && !queueLayout.queueButton, last = true),
+                        shape = shapeAt(menuAt),
                         container = inactive,
                         filled = false,
                         content = onBackgroundColor,
@@ -1970,6 +1999,19 @@ fun BottomSheetPlayer(
                 }
 
                 if (buttonsStyle == PlayerButtonsStyle.CONNECTED) quickActions()
+                // Classic has no row under its controls. Put at the bottom, the three-dots button stands in the half of the
+                // queue's strip under them (with the Output button, see outputRoom), which moves nothing; a row of its own
+                // here lifted the controls by 60dp. Only where there is no such half (a small window, the two panes, a
+                // phone on its side) does it stand alone here, centred, where Connected's row stands.
+                else if (menuAtBottom && queueLayout.outputRoom == 0.dp) {
+                    Row(
+                        horizontalArrangement = Arrangement.Center,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = hPadding)
+                            .padding(top = ConnectedRowGap.above(compactPlayer))
+                    ) { menuCircle() }
+                }
             }
 
 
@@ -2230,7 +2272,7 @@ fun BottomSheetPlayer(
                                     queueCircle()
                                     timerCircle()
                                     likeCircle()
-                                    menuCircle()
+                                    if (menuAtTop) menuCircle()
                                 }
                             }
                         }
@@ -2272,12 +2314,25 @@ fun BottomSheetPlayer(
                                     .height(queueLayout.outputRoom)
                                     .padding(horizontal = hPadding)
                             ) {
-                                if (outputPill) OutputButton(
-                                    tint = onBackgroundColor,
+                                // Classic's three-dots button, put at the bottom, stands in this half too, beside the
+                                // pill when that is on: Classic has no row under its controls, and one of its own there
+                                // lifted the controls, the seek bar, the title and the cover by 60dp.
+                                val menuInHalf = buttonsStyle == PlayerButtonsStyle.CLASSIC && menuAtBottom
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+                                    verticalAlignment = Alignment.CenterVertically,
                                     modifier = Modifier.offset(y = (-6).dp),
-                                    backdrop = if (liquidGlass) playerBackdrop else null,
-                                    glassIntensity = glassIntensity,
-                                )
+                                ) {
+                                    if (outputPill) OutputButton(
+                                        tint = onBackgroundColor,
+                                        modifier = Modifier.weight(1f, fill = false),
+                                        backdrop = if (liquidGlass) playerBackdrop else null,
+                                        glassIntensity = glassIntensity,
+                                    )
+                                    // PlayerCircleButton sits 5dp low, for the title's row it was made for: level
+                                    // with the pill here (seen 5dp low beside it on the emulator, 25 Nov 2026).
+                                    if (menuInHalf) Box(Modifier.offset(y = (-5).dp)) { menuCircle() }
+                                }
                             }
                         }
                     } else {

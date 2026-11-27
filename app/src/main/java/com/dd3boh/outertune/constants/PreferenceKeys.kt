@@ -553,6 +553,9 @@ val PlayerButtonsStyleKey = stringPreferencesKey("playerButtonsStyle")
 /** The buttons the player keeps outside its menu, per place, as [com.dd3boh.outertune.ui.player.PlayerPins] writes them; today's until chosen. */
 val PlayerPinsKey = stringPreferencesKey("playerPins")
 
+/** Where the three-dots button stands, top or bottom, per style, as [com.dd3boh.outertune.ui.player.MenuPlaces] writes it; today's until chosen. */
+val PlayerMenuPlaceKey = stringPreferencesKey("playerMenuPlace")
+
 /** Set once the player's buttons of an install set up before 0.13 were written down as they were (PinsBefore013). */
 val PinsBefore013Key = booleanPreferencesKey("pinsBefore013")
 

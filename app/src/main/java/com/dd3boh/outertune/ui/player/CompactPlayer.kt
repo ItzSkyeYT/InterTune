@@ -178,13 +178,13 @@ internal sealed interface SideCircle {
  * its circles move down 22dp while the room lasts; the other column stays. Without it, as in a
  * release, it is counted in, right before the menu.
  */
-internal fun classicSideColumns(pins: List<PlayerPin>, inRoom: Boolean, roomAtFreeEnd: Boolean): Pair<List<SideCircle>, List<SideCircle>> {
+internal fun classicSideColumns(pins: List<PlayerPin>, inRoom: Boolean, roomAtFreeEnd: Boolean, menu: Boolean = true): Pair<List<SideCircle>, List<SideCircle>> {
     val roomCounted = inRoom && !roomAtFreeEnd
     val circles = buildList<SideCircle> {
         add(SideCircle.Queue)
         pins.forEach { add(SideCircle.Pin(it)) }
         if (roomCounted) add(SideCircle.Room)
-        add(SideCircle.Menu)
+        if (menu) add(SideCircle.Menu)
     }
     val onLeft = (circles.size + 1) / 2
     val left = circles.take(onLeft)

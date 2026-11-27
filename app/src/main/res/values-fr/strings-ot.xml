@@ -2223,6 +2223,9 @@
     <string name="player_pins_put_by_title">Mettre à côté du titre</string>
     <string name="player_pins_put_under_controls">Mettre sous les commandes</string>
     <string name="player_pins_remove">Retirer</string>
+    <string name="player_menu_place">Bouton à trois points</string>
+    <string name="player_menu_top">Haut</string>
+    <string name="player_menu_bottom">Bas</string>
     <!-- Saved twice (issue #47, Unreleased.SAVED_TWICE). -->
     <string name="saved_twice">En double</string>
     <plurals name="saved_twice_button">
