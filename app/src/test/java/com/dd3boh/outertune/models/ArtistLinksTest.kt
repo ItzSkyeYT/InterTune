@@ -10,7 +10,9 @@ import com.zionhuang.innertube.models.Artist
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.File
 
 /**
  * "View artist" offers every credited artist, and never opens "artist/null" (which crashed the app). One YouTube
@@ -50,6 +52,14 @@ class ArtistLinksTest {
         val artists = listOf(MediaMetadata.Artist(id = null, name = " "), MediaMetadata.Artist(id = "", name = ""))
         assertEquals(emptyList<MediaMetadata.Artist>(), artists.viewable())
         assertNull(route(artists[0]))
+    }
+
+    @Test
+    fun `a menu closes once an artist is chosen from its list, as it does for one artist`() {
+        val menus = File("src/main/java/com/dd3boh/outertune/ui/menu").listFiles { f -> f.extension == "kt" }!!
+            .filter { "ArtistDialog(" in it.readText() }
+        assertTrue("found ${menus.map { it.name }}", menus.size >= 5)
+        for (menu in menus) assertTrue("${menu.name}: the menu stays open over the artist", "onOpened = onDismiss" in menu.readText())
     }
 
     @Test

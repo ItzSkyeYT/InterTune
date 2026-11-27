@@ -335,7 +335,8 @@ fun YouTubeSongMenu(
         ArtistDialog(
             navController = navController,
             artists = artists,
-            onDismiss = { showSelectArtistDialog = false }
+            onDismiss = { showSelectArtistDialog = false },
+            onOpened = onDismiss,
         )
     }
 

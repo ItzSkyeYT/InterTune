@@ -663,7 +663,8 @@ fun PlayerMenu(
             onDismiss = {
                 playerBottomSheetState.collapseSoft()
                 showSelectArtistDialog = false
-            }
+            },
+            onOpened = onDismiss,
         )
     }
 

@@ -311,7 +311,8 @@ fun AlbumMenu(
         ArtistDialog(
             navController = navController,
             artists = album.artists,
-            onDismiss = { showSelectArtistDialog = false }
+            onDismiss = { showSelectArtistDialog = false },
+            onOpened = onDismiss,
         )
     }
 

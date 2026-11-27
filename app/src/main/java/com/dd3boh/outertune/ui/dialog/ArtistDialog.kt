@@ -34,6 +34,8 @@ fun ArtistDialog(
     navController: NavController,
     artists: List<MediaMetadata.Artist>,
     onDismiss: () -> Unit,
+    /** After an artist was opened: the menu the choice came from closes, as it does for a song with one artist. */
+    onOpened: () -> Unit = {},
 ) {
     // Every credited artist: one YouTube gave no page opens a search for its name (viewRoute). Navigating to an
     // artist with no id crashed, and they were left out since: So What was missing from "Thread The Needle"'s.
@@ -45,6 +47,7 @@ fun ArtistDialog(
             val open = {
                 artist.viewRoute { it.urlEncode() }?.let { navController.navigate(it) }
                 onDismiss()
+                onOpened()
             }
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -80,6 +83,8 @@ fun ArtistDialog(
     navController: NavController,
     artists: List<ArtistEntity>,
     onDismiss: () -> Unit,
+    /** See the other ArtistDialog. */
+    onOpened: () -> Unit = {},
 ) {
     ListDialog(
         onDismiss = onDismiss
@@ -95,6 +100,7 @@ fun ArtistDialog(
                     .clickable {
                         navController.navigate("artist/${artist.id}")
                         onDismiss()
+                        onOpened()
                     }
                     .padding(horizontal = 12.dp),
             ) {

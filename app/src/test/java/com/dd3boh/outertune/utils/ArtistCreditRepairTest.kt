@@ -61,7 +61,7 @@ class ArtistCreditRepairTest {
         val fixed = ArtistCreditRepair.run(
             marks,
             page = ::page,
-            ask = { ids -> asked += ids; youtube.filterKeys { it in ids } },
+            ask = { ids -> asked += ids; ArtistCreditRepair.Asked.Named(youtube.filterKeys { it in ids }) },
             split = { id, artists ->
                 val name = stored.first { it.songId == id }.name
                 ArtistCredit.splits("LAhoaxComb", name, false, artists.map { it.name }).also { if (it) split[id] = artists }
@@ -79,10 +79,10 @@ class ArtistCreditRepairTest {
         val marks = Marks()
         var answering = false
         val asked = mutableListOf<String>()
-        fun ask(ids: List<String>): Map<String, List<MediaMetadata.Artist>>? {
-            if (!answering) return null
+        fun ask(ids: List<String>): ArtistCreditRepair.Asked {
+            if (!answering) return ArtistCreditRepair.Asked.Unreachable
             asked += ids
-            return youtube.filterKeys { it in ids }
+            return ArtistCreditRepair.Asked.Named(youtube.filterKeys { it in ids })
         }
         val first = ArtistCreditRepair.run(marks, page = ::page, ask = { ask(it) }, split = { _, _ -> true }, pauseMs = 0)
         assertEquals(0, first)
@@ -97,9 +97,59 @@ class ArtistCreditRepairTest {
     }
 
     @Test
+    fun `a song YouTube no longer has holds none of the others back`() = runBlocking {
+        // get_queue answers 404 for a whole request with one id it does not have (27 Nov 2026).
+        val gone = "goneSong001"
+        val many = (stored + StoredCredit(gone, "Gone & Away") +
+                (1..40).map { StoredCredit("other${it.toString().padStart(3, '0')}x", "Other $it & Friend") }).sortedBy { it.songId }
+        var requests = 0
+        val split = mutableListOf<String>()
+        val marks = Marks()
+        val fixed = ArtistCreditRepair.run(
+            marks,
+            page = { after, limit -> many.filter { it.songId > after }.take(limit) },
+            ask = { ids ->
+                requests++
+                if (gone in ids) ArtistCreditRepair.Asked.Refused else ArtistCreditRepair.Asked.Named(youtube.filterKeys { it in ids })
+            },
+            split = { id, artists -> (artists.size > 1).also { if (it) split += id } },
+            pauseMs = 0,
+        )
+        assertEquals(listOf("RuFu8i6JLhE"), split)
+        assertEquals(1, fixed)
+        assertTrue(marks.done)
+        assertTrue("$requests requests", requests <= 16)
+    }
+
+    @Test
+    fun `YouTube unreachable or refusing everything stops the pass, not done`() = runBlocking {
+        var requests = 0
+        val offline = Marks()
+        val none = ArtistCreditRepair.run(offline, page = ::page, ask = { requests++; ArtistCreditRepair.Asked.Unreachable }, split = { _, _ -> true }, pauseMs = 0)
+        assertEquals(0, none)
+        assertFalse(offline.done)
+        assertEquals(1, requests)
+
+        // Refusing every request, whatever is in it: a page of many songs is not taken for that many songs gone.
+        val many = (1..50).map { StoredCredit("song${it.toString().padStart(3, '0')}xx", "A$it & B$it") }
+        requests = 0
+        val refused = Marks()
+        val fixed = ArtistCreditRepair.run(
+            refused,
+            page = { after, limit -> many.filter { it.songId > after }.take(limit) },
+            ask = { requests++; ArtistCreditRepair.Asked.Refused },
+            split = { _, _ -> true },
+            pauseMs = 0,
+        )
+        assertEquals(0, fixed)
+        assertFalse(refused.done)
+        assertTrue("$requests requests", requests <= 10)
+    }
+
+    @Test
     fun `a pass that is done is not run again`() = runBlocking {
         var asked = false
-        val fixed = ArtistCreditRepair.run(Marks(done = true), page = ::page, ask = { asked = true; emptyMap() }, split = { _, _ -> true }, pauseMs = 0)
+        val fixed = ArtistCreditRepair.run(Marks(done = true), page = ::page, ask = { asked = true; ArtistCreditRepair.Asked.Named(emptyMap()) }, split = { _, _ -> true }, pauseMs = 0)
         assertEquals(0, fixed)
         assertFalse(asked)
     }

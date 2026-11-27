@@ -16,6 +16,7 @@ import com.dd3boh.outertune.extensions.isInternetConnected
 import com.dd3boh.outertune.models.ArtistCredit
 import com.dd3boh.outertune.models.MediaMetadata
 import com.zionhuang.innertube.YouTube
+import io.ktor.client.plugins.ResponseException
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
@@ -60,18 +61,30 @@ object ArtistCreditRepair {
         suspend fun setDone()
     }
 
+    /** What YouTube Music said when asked for some songs' artists. */
+    sealed interface Asked {
+        /** The artists it names now, for each song it answered for. */
+        data class Named(val artists: Map<String, List<MediaMetadata.Artist>>) : Asked
+
+        /** It refused the whole request, as it does when one of the songs is gone (get_queue answers 404). */
+        data object Refused : Asked
+
+        /** It could not be asked: offline, or any other failure. */
+        data object Unreachable : Asked
+    }
+
     /**
      * Runs the pass, or what is left of it, and returns how many songs got their artists back.
      *
-     * [page] gives the songs to look at after an id, in id order (DatabaseDao.creditsToAsk). [ask] gives the
-     * artists YouTube names now for each id it answered for, or null when it could not be asked: the pass stops
-     * there, not done. [split] gives a song those artists when they spell its stored name, and says whether it
-     * did (DatabaseDao.splitStoredCredit).
+     * [page] gives the songs to look at after an id, in id order (DatabaseDao.creditsToAsk). [ask] asks YouTube
+     * for the artists of some songs (askAround): when it cannot be asked, the pass stops there, not done. [split]
+     * gives a song those artists when they spell its stored name, and says whether it did
+     * (DatabaseDao.splitStoredCredit).
      */
     suspend fun run(
         marks: Marks,
         page: (afterId: String, limit: Int) -> List<StoredCredit>,
-        ask: suspend (ids: List<String>) -> Map<String, List<MediaMetadata.Artist>>?,
+        ask: suspend (ids: List<String>) -> Asked,
         split: (songId: String, artists: List<MediaMetadata.Artist>) -> Boolean,
         pauseMs: Long = PAUSE_MS,
     ): Int {
@@ -85,7 +98,7 @@ object ArtistCreditRepair {
             // "Milk Talk" is one name and never needed asking about.
             val wanted = songs.filter { ArtistCredit.maybeSeveral(it.name) }
             if (wanted.isNotEmpty()) {
-                val answer = ask(wanted.map { it.songId }) ?: return fixed
+                val answer = askAround(wanted.map { it.songId }, ask, IntArray(1)) ?: return fixed
                 for (song in wanted) {
                     val artists = answer[song.songId] ?: continue
                     if (split(song.songId, artists)) fixed++
@@ -97,6 +110,37 @@ object ArtistCreditRepair {
         }
         marks.setDone()
         return fixed
+    }
+
+    /** Refusals in a row that mean YouTube refuses everything, not one song gone. */
+    private const val REFUSALS = 10
+
+    /**
+     * [ids] asked of YouTube Music. One song it no longer has makes it refuse the whole request, so a refused
+     * request is asked again in halves, down to that song, which is left out: a gone song costs about a dozen
+     * requests and holds none of the others back. Null when it cannot be asked, or after [REFUSALS] refusals in a
+     * row, counted in [refusals].
+     */
+    private suspend fun askAround(
+        ids: List<String>,
+        ask: suspend (ids: List<String>) -> Asked,
+        refusals: IntArray,
+    ): Map<String, List<MediaMetadata.Artist>>? {
+        when (val asked = ask(ids)) {
+            is Asked.Named -> {
+                refusals[0] = 0
+                return asked.artists
+            }
+            Asked.Unreachable -> return null
+            Asked.Refused -> {
+                refusals[0]++
+                if (refusals[0] >= REFUSALS) return null
+                if (ids.size == 1) return emptyMap()
+                val first = askAround(ids.subList(0, ids.size / 2), ask, refusals) ?: return null
+                val second = askAround(ids.subList(ids.size / 2, ids.size), ask, refusals) ?: return null
+                return first + second
+            }
+        }
     }
 
     /** One pass at a time, whatever starts it. */
@@ -117,9 +161,19 @@ object ArtistCreditRepair {
                 marks = marks,
                 page = { after, limit -> database.creditsToAsk(after, limit) },
                 ask = { ids ->
-                    YouTube.queue(ids).onFailure { Log.w(TAG, "YouTube Music did not answer for ${ids.size} songs", it) }
-                        .getOrNull()
-                        ?.associate { song -> song.id to song.artists.map { MediaMetadata.Artist(id = it.id, name = it.name) } }
+                    YouTube.queue(ids).fold(
+                        onSuccess = { songs ->
+                            Asked.Named(songs.associate { song -> song.id to song.artists.map { MediaMetadata.Artist(id = it.id, name = it.name) } })
+                        },
+                        onFailure = { e ->
+                            if ((e as? ResponseException)?.response?.status?.value == 404) {
+                                Asked.Refused
+                            } else {
+                                Log.w(TAG, "YouTube Music did not answer for ${ids.size} songs", e)
+                                Asked.Unreachable
+                            }
+                        },
+                    )
                 },
                 split = { id, artists -> database.splitStoredCredit(id, artists) },
             )
