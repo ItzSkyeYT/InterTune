@@ -2007,10 +2007,10 @@ fun BottomSheetPlayer(
 
                 if (buttonsStyle == PlayerButtonsStyle.CONNECTED) quickActions()
                 // Classic has no row under its controls. Put at the bottom, the three-dots button stands over the queue's
-                // strip, in its corner beside the Output button (menuInCorner, after the queue's sheet), which moves
-                // nothing; a row of its own here lifted the controls by 60dp. Only where there is no strip under the
-                // controls (a small window, the two panes, a phone on its side) does it stand alone here, centred,
-                // where Connected's row stands.
+                // strip, in its right corner, the Output button then in the left one (menuInCorner, after the queue's
+                // sheet), which moves nothing; a row of its own here lifted the controls by 60dp. Only where there is
+                // no strip under the controls (a small window, the two panes, a phone on its side) does it stand alone
+                // here, centred, where Connected's row stands.
                 else if (menuAtBottom && queueLayout.outputRoom == 0.dp) {
                     Row(
                         horizontalArrangement = Arrangement.Center,
@@ -2311,7 +2311,7 @@ fun BottomSheetPlayer(
                         // Nothing under them upright: the controls stand in the half of the queue's strip that its
                         // arrow gave up, 48dp lower than 0.12 had them (his pick of 27 Nov 2026 from pictures of both,
                         // as on the 0.13 line before 25 Nov), whether the Output button is on or off. The pill, and
-                        // Classic's three-dots button put at the bottom, are laid over the strip's corner instead
+                        // Classic's three-dots button put at the bottom, are laid over the strip's corners instead
                         // (menuInCorner, after the queue's sheet), so switching either moves nothing.
                     } else {
                         Spacer(Modifier.height(24.dp))
@@ -2389,30 +2389,38 @@ fun BottomSheetPlayer(
 
         // Upright, the controls stand in the half of the queue's strip that its arrow gave up (his pick of 27 Nov 2026),
         // so nothing has a row under them: where the music is coming out, with the Output button on, and Classic's
-        // three-dots button put at the bottom are laid over the strip's bottom right corner instead, as the pill is on a
+        // three-dots button put at the bottom are laid over the strip's bottom corners instead, as the pill is on a
         // phone on its side, and never reach the arrow in its middle: a long name is cut short. Switching either moves
-        // nothing. Drawn after the queue's sheet, whose collapsed strip would take their taps, and gone once the queue
-        // is most of the way up.
+        // none of the controls, and the pill never moves the three-dots button. Drawn after the queue's sheet, whose
+        // collapsed strip would take their taps, and gone once the queue is most of the way up.
         val menuInCorner = buttonsStyle == PlayerButtonsStyle.CLASSIC && menuAtBottom
         if ((outputPill || menuInCorner) && queueLayout.outputRoom > 0.dp && !tabletTwoPane && mediaMetadata != null && !queueCovers) {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically,
+            // The pill has the bottom right corner, or the bottom left one, mirrored, where Classic's three-dots button
+            // stands in the right (27 Nov 2026; Spotify keeps its device picker at the bottom left): beside the button
+            // it had too little of the half for "This phone", cut to "This p..." on a 448dp screen.
+            if (outputPill) OutputButton(
+                tint = onBackgroundColor,
+                wide = false,
+                backdrop = if (liquidGlass) playerBackdrop else null,
+                glassIntensity = glassIntensity,
+                modifier = Modifier
+                    .align(if (menuInCorner) Alignment.BottomStart else Alignment.BottomEnd)
+                    .windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Bottom + if (menuInCorner) WindowInsetsSides.Start else WindowInsetsSides.End))
+                    .padding(start = if (menuInCorner) 24.dp else 0.dp, end = if (menuInCorner) 0.dp else 24.dp, bottom = 10.dp)
+                    .widthIn(max = windowWidth() / 2 - 24.dp - 32.dp)
+            )
+            // In a slot as tall as the pill, so that the two are level and the pill moves it by nothing: in one row with
+            // the pill, which centred them, it rose 4dp each time the pill came on. PlayerCircleButton sits 5dp low, for
+            // the title's row it was made for: centred in its slot here.
+            if (menuInCorner) Box(
+                contentAlignment = Alignment.Center,
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
                     .windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Bottom + WindowInsetsSides.End))
                     .padding(end = 24.dp, bottom = 10.dp)
-                    .widthIn(max = windowWidth() / 2 - 24.dp - 32.dp)
+                    .height(OutputPillHeight)
             ) {
-                if (outputPill) OutputButton(
-                    tint = onBackgroundColor,
-                    wide = false,
-                    modifier = Modifier.weight(1f, fill = false),
-                    backdrop = if (liquidGlass) playerBackdrop else null,
-                    glassIntensity = glassIntensity,
-                )
-                // PlayerCircleButton sits 5dp low, for the title's row it was made for: level with the pill here.
-                if (menuInCorner) Box(Modifier.offset(y = (-5).dp)) {
+                Box(Modifier.offset(y = (-5).dp)) {
                     PlayerCircleButton(
                         painter = rememberVectorPainter(Icons.Rounded.MoreVert),
                         contentDescription = stringResource(R.string.options),

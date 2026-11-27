@@ -19,8 +19,10 @@ import com.dd3boh.listenbrainz.models.Listen
  * - Refused (a 400): at least one play in the batch is wrong as it is (a phone clock far off, a
  *   stray character), and sending it again gets the same answer. The batch goes again one by one
  *   to find it; a play refused on its own is dropped, its reason in the log.
- * - The token refused (a 401 or a 403): nothing more goes and everything not taken stays, for a
- *   token that works.
+ * - The token refused (a 401 or a 403 for a token ListenBrainz does not know): nothing more goes
+ *   and everything not taken stays, for a token that works.
+ * - The account refused (the same 401 for a token it knows: no verified email, or paused):
+ *   everything not taken stays, for a later run once the account takes listens.
  * - Asked to wait (a 429), ListenBrainz in trouble (5xx), no connection: everything not taken
  *   stays for a later run. The client's gate waits out the pause ListenBrainz asked for anyway.
  */

@@ -103,9 +103,11 @@ class CastAtTopTest {
         val upright = player.indexOf("OutputButton(", corner)
         val block = player.substring(corner, upright)
         assertTrue(block, "if ((outputPill || menuInCorner) && queueLayout.outputRoom > 0.dp && !tabletTwoPane && mediaMetadata != null && !queueCovers) {" in block)
-        assertTrue(block, ".align(Alignment.BottomEnd)" in block)
+        // In the strip's bottom right corner, the left one where Classic's three-dots button has the right (MenuPlaceTest).
+        val pill = player.substring(upright, player.indexOf("\n            )\n", upright))
+        assertTrue(pill, ".align(if (menuInCorner) Alignment.BottomStart else Alignment.BottomEnd)" in pill)
         // Never as far as the queue's arrow in the middle of the strip: a long name is cut short.
-        assertTrue(block, ".widthIn(max = windowWidth() / 2 - 24.dp - 32.dp)" in block)
+        assertTrue(pill, ".widthIn(max = windowWidth() / 2 - 24.dp - 32.dp)" in pill)
         assertTrue("wide = false," in player.substring(upright, player.indexOf(")", upright)))
     }
 

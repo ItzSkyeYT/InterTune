@@ -143,10 +143,18 @@ val ListenBrainzUserKey = stringPreferencesKey("listenBrainzUser")
 val ListenBrainzScrobbleKey = booleanPreferencesKey("listenBrainzScrobble")
 
 /**
- * When ListenBrainz last refused the token (a 401 or a 403), absent while it takes it. Nothing is
- * sent until a token is pasted again; plays keep waiting in the outbox for it.
+ * When ListenBrainz last refused the token (a 401 or a 403, for a token it does not know), absent
+ * while it takes it. Nothing is sent until a token is pasted again; plays keep waiting in the
+ * outbox for it.
  */
 val ListenBrainzRefusedAtKey = longPreferencesKey("listenBrainzRefusedAt")
+
+/**
+ * Why ListenBrainz takes no listens from the account although it knows the token, by the name of
+ * a ListenBrainzStanding (NEEDS_EMAIL, ACCOUNT_REFUSED); absent while it takes them. Plays keep
+ * waiting in the outbox, and each one finished asks again; a new token would not help.
+ */
+val ListenBrainzAccountRefusedKey = stringPreferencesKey("listenBrainzAccountRefused")
 val AudioGaplessOffloadKey = booleanPreferencesKey("enableGaplessOffload")
 
 val MaxQueuesKey = intPreferencesKey("maxQueues")

@@ -79,6 +79,20 @@ class OutboxRunTest {
     }
 
     @Test
+    fun `an account refused keeps everything not yet taken, for a later run`() = runBlocking<Unit> {
+        var asked = 0
+        val outcome = OutboxRun.run(waiting, send = answer {
+            if (++asked == 1) ok
+            else failure(ListenBrainzException.AccountRefused(401, "The listens were rejected because your MetaBrainz account does not have a verified email address.", needsEmail = true))
+        })
+        assertEquals(waiting.take(100), outcome.sent)
+        assertTrue(outcome.dropped.isEmpty())
+        // Not TOKEN_REFUSED: the run comes back, and goes through once the email is verified.
+        assertEquals(OutboxRun.Next.LATER, outcome.next)
+        assertEquals(2, requests.size)
+    }
+
+    @Test
     fun `asked to wait, the run stops and everything stays for a later one`() = runBlocking<Unit> {
         val outcome = OutboxRun.run(waiting, send = answer { failure(ListenBrainzException.RateLimited(5_000, "You have exceeded your rate limit.")) })
         assertTrue(outcome.sent.isEmpty() && outcome.dropped.isEmpty())

@@ -6,8 +6,10 @@
 
 package com.dd3boh.outertune.ui.player
 
+import androidx.compose.ui.unit.dp
 import com.dd3boh.outertune.constants.PlayerButtonsStyle
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -76,12 +78,12 @@ class MenuPlaceTest {
         // A row of its own under Classic's controls lifted the controls, the seek bar, the title and the cover by 60dp
         // (seen on the emulator, 25 Nov 2026: pause at y 2542 at the top, 2362 at the bottom). His rule: a setting may
         // move its own row, the play controls never move. Since his pick of 27 Nov 2026 the controls stand in the half of
-        // the queue's strip that the button had (CastAtTopTest), so it is laid over the strip's corner, beside the Output
-        // button when that is on, after the queue's sheet so that its taps are its own, and it opens the player's menu.
+        // the queue's strip that the button had (CastAtTopTest), so it is laid over the strip's right corner, the Output
+        // button then in the left one, after the queue's sheet so that its taps are its own, and it opens the player's menu.
         val player = src("ui/player/Player.kt")
         val corner = player.substringAfter("val menuInCorner = ").substringBefore("// Where the music is coming out, on a phone on its side")
         assertTrue(corner, corner.startsWith("buttonsStyle == PlayerButtonsStyle.CLASSIC && menuAtBottom\n"))
-        assertTrue(corner, "if (menuInCorner) Box(Modifier.offset(y = (-5).dp)) {" in corner && "onClick = showPlayerMenu," in corner)
+        assertTrue(corner, "if (menuInCorner) Box(" in corner && "Box(Modifier.offset(y = (-5).dp)) {" in corner && "onClick = showPlayerMenu," in corner)
         assertTrue(player.indexOf("val menuInCorner = ") > player.indexOf("QueueSheet("))
         // One opener for the menu, wherever the button stands.
         assertEquals(1, Regex("""val showPlayerMenu: \(\) -> Unit = \{""").findAll(player).count())
@@ -89,5 +91,29 @@ class MenuPlaceTest {
         assertTrue("else if (menuAtBottom && queueLayout.outputRoom == 0.dp) {" in player)
         // The style's picture puts it at the strip's right too.
         assertTrue("Spot(u, SAMPLE_WIDTH - 24f - d, 175f, d, d)" in src("ui/screens/settings/fragments/PlayerStyleSample.kt"))
+    }
+
+    @Test
+    fun `Classic's three-dots keeps the right corner in a slot as tall as the pill, and the pill takes the left one`() {
+        // Round four's pictures (experiments/agents-1127/round-four, 27 Nov 2026): in one row with the Output button, which
+        // centred the two, the button rose 4dp each time the pill came on (Options at y 2800 with it off, 2788 with it on,
+        // on the emulator's 1344x2992), and the pill, left with what the button did not take of the half, said "This p...".
+        val player = src("ui/player/Player.kt")
+        val corner = player.substringAfter("val menuInCorner = ").substringBefore("// Where the music is coming out, on a phone on its side")
+        assertFalse("no row holds the two any more", "Row(" in corner)
+        // The button alone in the right corner, in a slot as tall as the pill, so the two are level and the pill moves it
+        // by nothing.
+        val slot = corner.substring(corner.indexOf("if (menuInCorner) Box("), corner.indexOf("PlayerCircleButton("))
+        assertTrue(slot, "contentAlignment = Alignment.Center," in slot)
+        assertTrue(slot, ".align(Alignment.BottomEnd)" in slot && ".padding(end = 24.dp, bottom = 10.dp)" in slot)
+        assertTrue(slot, ".height(OutputPillHeight)" in slot)
+        assertEquals(44.dp, OutputPillHeight)
+        assertEquals("both pills, this phone's and a cast's", 2, Regex("""\.requiredHeight\(OutputPillHeight\)""").findAll(src("ui/player/CastPicker.kt")).count())
+        // The pill in the left corner, mirrored: 24dp in from the side, 10dp up, and never as far as the queue's arrow.
+        val pill = corner.substring(corner.indexOf("OutputButton("), corner.indexOf("if (menuInCorner) Box("))
+        assertTrue(pill, ".align(if (menuInCorner) Alignment.BottomStart else Alignment.BottomEnd)" in pill)
+        assertTrue(pill, "WindowInsetsSides.Bottom + if (menuInCorner) WindowInsetsSides.Start else WindowInsetsSides.End" in pill)
+        assertTrue(pill, ".padding(start = if (menuInCorner) 24.dp else 0.dp, end = if (menuInCorner) 0.dp else 24.dp, bottom = 10.dp)" in pill)
+        assertTrue(pill, ".widthIn(max = windowWidth() / 2 - 24.dp - 32.dp)" in pill)
     }
 }
