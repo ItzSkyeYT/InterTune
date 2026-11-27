@@ -39,6 +39,7 @@ import android.os.PowerManager
 import android.os.SystemClock
 import android.util.AtomicFile
 import android.util.Log
+import android.view.KeyEvent
 import android.widget.Toast
 import androidx.core.app.ServiceCompat
 import androidx.core.content.getSystemService
@@ -303,7 +304,10 @@ import com.zionhuang.innertube.models.WatchEndpoint
 import dagger.hilt.android.AndroidEntryPoint
 import io.ktor.client.plugins.ResponseException
 import io.github.anilbeesetti.nextlib.media3ext.ffdecoder.NextRenderersFactory
+import com.dd3boh.outertune.widget.WidgetCommands
 import com.dd3boh.outertune.widget.WidgetLayout
+import com.dd3boh.outertune.widget.WidgetSong
+import com.dd3boh.outertune.widget.WidgetSongStart
 import com.dd3boh.outertune.widget.WidgetStore
 import com.dd3boh.outertune.widget.upNext
 import com.dd3boh.outertune.widget.likeGuess
@@ -7497,6 +7501,7 @@ class MusicService : MediaLibraryService(),
         if (!mediaButtonPending) return
         ReportTrail.thisRun.owedStart(ReportTrail.Owed.MET_BEFORE_STOP, owedFor())
         mediaButtonPending = false
+        widgetSongOwed = null
         mediaButtonHandler.removeCallbacks(mediaButtonGuard)
         if (holdingForMediaButton || foregroundNow()) return
         if (holdForeground()) ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
@@ -7585,6 +7590,8 @@ class MusicService : MediaLibraryService(),
                 holdingForMediaButton && resumptionRunning -> mediaButtonHandler.postDelayed(this, 10_000)
                 else -> giveUpMediaButtonStart("nothing to play in time")
             }
+            // Seen to: a song the widget handed over for the start is in the player, or went to the app.
+            if (!mediaButtonPending) widgetSongOwed = null
         }
     }
 
@@ -7610,6 +7617,14 @@ class MusicService : MediaLibraryService(),
     private fun giveUpMediaButtonStart(why: String) {
         if (!mediaButtonPending || destroyed) return
         if (::player.isInitialized && player.mediaItemCount > 0) return
+        // A song tapped on the widget that is not in the player by now goes to the app, as the tap always did: never
+        // nothing. Android lets the app come up for a few seconds after a tap only, which this look is within on
+        // Android 12 and 12L (6 s or so), and mostly not from Android 13, where it comes at 20 s.
+        widgetSongOwed?.let { song ->
+            widgetSongOwed = null
+            Log.i(TAG, "A song tapped on the widget did not reach the player in time: the app opens on it")
+            WidgetCommands.openOnSong(this, song)
+        }
         mediaButtonPending = false
         mediaButtonHandler.removeCallbacks(mediaButtonGuard)
         Log.i(TAG, "Media button start: $why, so the service stops")
@@ -7623,6 +7638,53 @@ class MusicService : MediaLibraryService(),
     /** The resumption found nothing: [giveUpMediaButtonStart] after media3 has put that answer in the player. */
     fun letGoOfMediaButtonHoldSoon(why: String) {
         mediaButtonHandler.post { giveUpMediaButtonStart(why) }
+    }
+
+    /**
+     * The song a tap on the widget handed over for the start Android waits on now, while it is on its way into the
+     * player ([playWidgetSong]): a start given up before the song is in opens the app on it instead
+     * ([giveUpMediaButtonStart]). Main thread.
+     */
+    private var widgetSongOwed: WidgetSong? = null
+
+    /**
+     * Whether a song tapped on the widget is the app's to play rather than this service's ([playWidgetSong]): on a
+     * phone that follows a listening room, a song played plays for the room or asks first whether to leave it
+     * (PlayerConnection.playQueue), and both are the app's to do.
+     */
+    fun songTapNeedsTheApp(): Boolean = together.value?.let { it.following && !it.status.value.ownWay } == true
+
+    /**
+     * A song tapped on the widget, played here without the app (WidgetSongStart): the queue the app gives the same
+     * tap, the library's own song where it has it, alone when it is a file on the phone and with its radio otherwise.
+     *
+     * The widget started the service with startForegroundService, as its play button does, so Android waits on this
+     * start as on a play press, and the guard looks at it the same way, ahead of the song: from Android 12 nothing is
+     * held early, media3's own notification meets the wait once the song is in, and a start that came to nothing in
+     * time is met and given up, its song then opened in the app ([widgetSongOwed]). A start that hands over no song, as
+     * one from another app would (the service is exported for media3's controllers), plays nothing, and the guard
+     * meets what Android waits for.
+     */
+    private fun playWidgetSong(intent: Intent, flags: Int) {
+        holdForegroundForMediaButton(KeyEvent.KEYCODE_MEDIA_PLAY, MediaButtonStart.handedAtOf(intent, flags))
+        val song = WidgetSongStart.take(intent) ?: return
+        Log.i(TAG, "A song tapped on the widget plays here, without the app")
+        widgetSongOwed = song.takeIf { mediaButtonPending }
+        // media3 adds the session itself for a media button's start (MediaSessionService.onStartCommand), and this one
+        // is none: added here, so that its notification follows the player before any controller has connected.
+        if (::mediaSession.isInitialized && !isSessionAdded(mediaSession)) addSession(mediaSession)
+        scope.launch {
+            val known = runCatching { withContext(Dispatchers.IO) { database.song(song.id).first() } }.getOrNull()
+            if (destroyed) return@launch
+            if (songTapNeedsTheApp()) {
+                widgetSongOwed = null
+                WidgetCommands.openOnSong(this@MusicService, song)
+                return@launch
+            }
+            val play = WidgetSongStart.play(WidgetSongStart.metadata(known?.toMediaMetadata(), song))
+            // Started as the app starts it (PlayerConnection.playQueue, from MainActivity's playFromWidget).
+            playQueue(play.queue, replace = true, isRadio = play.isRadio, origin = PlayOrigin.WIDGET)
+        }
     }
 
     override fun onUpdateNotification(
@@ -7714,6 +7776,8 @@ class MusicService : MediaLibraryService(),
         if (intent == null) settleAfterRestart()
         else if (intent.action == Intent.ACTION_MEDIA_BUTTON && !MediaButtonStart.isPlain(intent))
             holdForegroundForMediaButton(MediaButtonStart.keyOf(intent), MediaButtonStart.handedAtOf(intent, flags))
+        // A song tapped on the widget, which plays here without the app (WidgetSongStart).
+        else if (intent.action == WidgetSongStart.ACTION) playWidgetSong(intent, flags)
         // Only the start the service was created for began with the process.
         firstStart = false
         return super.onStartCommand(intent, flags, startId)
