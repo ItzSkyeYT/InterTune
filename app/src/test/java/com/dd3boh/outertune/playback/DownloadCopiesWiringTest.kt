@@ -30,8 +30,8 @@ class DownloadCopiesWiringTest {
     private fun body(text: String, start: String) = text.substringAfter(start).substringBefore("\n    }\n")
 
     @Test
-    fun `the cleanup is held back for the debug app, the Preview and the Tester app`() {
-        assertTrue(flags.contains("val DOWNLOAD_COPIES_CLEANUP = BuildConfig.PREVIEW_FEATURES"))
+    fun `the cleanup is in every build, and nothing is looked for or shown but under its flag`() {
+        assertTrue(flags.contains("val DOWNLOAD_COPIES_CLEANUP = true"))
         assertTrue("nothing is looked for without it", cleanup.contains("if (!Unreleased.DOWNLOAD_COPIES_CLEANUP || _state.value is State.Removing) return"))
         assertTrue("and no card", note.contains("if (!Unreleased.DOWNLOAD_COPIES_CLEANUP) return"))
         val start = util.substringAfter("firstListing.countDown()").substringBefore("dropSongCacheCopiesOfDownloads()")
@@ -131,12 +131,12 @@ class DownloadCopiesWiringTest {
     }
 
     @Test
-    fun `its words are in English and French, held from translators until it ships`() {
+    fun `its words are in English and French, open to translators`() {
         val english = File("src/main/res/values/strings-ot.xml").readText()
         val french = File("src/main/res/values-fr/strings-ot.xml").readText()
         val names = listOf("dl_copies_title", "dl_copies_body", "dl_copies_remove", "dl_copies_not_now", "dl_copies_removing", "dl_copies_removed")
         for (name in names) {
-            assertTrue("$name in English, held", Regex("""<(string|plurals) name="$name" translatable="false">""").containsMatchIn(english))
+            assertTrue("$name in English, open to translators", Regex("""<(string|plurals) name="$name">""").containsMatchIn(english))
             assertTrue("$name in French", Regex("""<(string|plurals) name="$name">""").containsMatchIn(french))
         }
         // Next to the move's words, the closest of the folder's.
