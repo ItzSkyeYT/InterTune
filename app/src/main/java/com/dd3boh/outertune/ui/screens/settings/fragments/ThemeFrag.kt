@@ -32,7 +32,6 @@ import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.BlurOn
 import androidx.compose.material.icons.rounded.Contrast
 import androidx.compose.material.icons.rounded.DarkMode
-import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Repeat
 import androidx.compose.material.icons.rounded.Shuffle
@@ -41,8 +40,8 @@ import androidx.compose.material.icons.rounded.SkipPrevious
 import androidx.compose.material.icons.rounded.SwipeLeft
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Tune
-import androidx.compose.material.icons.rounded.ViewAgenda
-import androidx.compose.material.icons.rounded.Waves
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.MaterialTheme
@@ -81,7 +80,6 @@ import com.dd3boh.outertune.constants.AnimationsKey
 import com.dd3boh.outertune.constants.BackAnimationsKey
 import com.dd3boh.outertune.constants.PureBlackKey
 import com.dd3boh.outertune.constants.PlayerGlassIntensityKey
-import com.dd3boh.outertune.constants.GroupedPlayerControlsKey
 import com.dd3boh.outertune.ui.component.EnumListPreference
 import com.dd3boh.outertune.ui.component.PreferenceEntry
 import com.dd3boh.outertune.ui.component.SwitchPreference
@@ -207,10 +205,6 @@ fun ColumnScope.ThemePlayerFrag() {
         PlayerLiquidGlassKey,
         defaultValue = false
     )
-    val (groupedControls, onGroupedControlsChange) = rememberPreference(
-        GroupedPlayerControlsKey,
-        defaultValue = true
-    )
 
     // Battery use on Saver draws the default background in place of Living blur, and the choice
     // stays as it is: the line under the row says so.
@@ -241,20 +235,13 @@ fun ColumnScope.ThemePlayerFrag() {
     )
 
     // Only there with the style it belongs to, and right under it. Shown through the same reveal
-    // the glass slider further down uses.
-    val (livingStrength, onLivingStrengthChange) = rememberPreference(
-        LivingStrengthKey,
-        defaultValue = LivingField.DEFAULT_STRENGTH
-    )
-    val (livingSmoothing, onLivingSmoothingChange) = rememberPreference(
-        LivingSmoothingKey,
-        defaultValue = LivingField.DEFAULT_SMOOTHING
-    )
-    val (livingColours, onLivingColoursChange) = rememberEnumPreference(
-        LivingColoursKey,
-        defaultValue = LivingColours.MAIN
-    )
-    // The whole-screen tuner (Unreleased.LIVING_TUNE), opened from the sample's corner.
+    // the glass slider further down uses. The sample draws what is set; the three are set in the
+    // whole-screen tuner alone since its rows here went (his ask of 27 Nov 2026: "everything
+    // happens in the fullscreen thing").
+    val livingStrength by rememberPreference(LivingStrengthKey, defaultValue = LivingField.DEFAULT_STRENGTH)
+    val livingSmoothing by rememberPreference(LivingSmoothingKey, defaultValue = LivingField.DEFAULT_SMOOTHING)
+    val livingColours by rememberEnumPreference(LivingColoursKey, defaultValue = LivingColours.MAIN)
+    // The whole-screen tuner (Unreleased.LIVING_TUNE), opened from the button under the sample.
     var tuning by rememberSaveable { mutableStateOf(false) }
     if (tuning) LivingBlurTune(onClose = { tuning = false })
     AnimatedVisibility(playerBackground == PlayerBackgroundStyle.LIVING && Unreleased.LIVING_BACKGROUND) {
@@ -265,11 +252,25 @@ fun ColumnScope.ThemePlayerFrag() {
                 colours = livingColours,
                 modifier = Modifier.padding(start = 16.dp, top = 4.dp, end = 16.dp, bottom = 8.dp),
                 paused = tuning,
-                onFullScreen = if (Unreleased.LIVING_TUNE) ({ tuning = true }) else null,
             )
+            // The one way to the three now: a button with its name right under the sample, in the app's own
+            // words for it, where an icon in the sample's corner was. Under it, not in it: the sample has no
+            // room to spare at a large font on a small phone, and Ti-Die's layout of 19 Nov 2026 keeps
+            // buttons out of its words.
+            if (Unreleased.LIVING_TUNE) {
+                FilledTonalButton(
+                    onClick = { tuning = true },
+                    contentPadding = ButtonDefaults.ButtonWithIconContentPadding,
+                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp),
+                ) {
+                    Icon(Icons.Rounded.Tune, contentDescription = null, modifier = Modifier.size(ButtonDefaults.IconSize))
+                    Spacer(Modifier.width(ButtonDefaults.IconSpacing))
+                    Text(stringResource(R.string.living_tune_open))
+                }
+            }
             // With animations off it stands still, here and in the player: said, with the switch
-            // that does it, so that the sliders are not taken for broken (#49). Android's own is
-            // named first, as the Animations switch at the top cannot undo it.
+            // that does it, so that the sample and the tuner are not taken for broken (#49).
+            // Android's own is named first, as the Animations switch at the top cannot undo it.
             val stillBecause = when {
                 Animations.offInSystem -> R.string.living_blur_still_animations
                 Animations.off -> R.string.living_blur_still_switch
@@ -279,62 +280,6 @@ fun ColumnScope.ThemePlayerFrag() {
                 Box(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp)) {
                     MeaningLine(stringResource(stillBecause))
                 }
-            }
-            EnumListPreference(
-                modifier = Modifier.settingRow(R.string.player_living_colours),
-                title = { Text(stringResource(R.string.player_living_colours)) },
-                icon = { Icon(Icons.Rounded.Palette, null) },
-                selectedValue = livingColours,
-                onValueSelected = onLivingColoursChange,
-                valueText = {
-                    when (it) {
-                        LivingColours.MAIN -> stringResource(R.string.player_living_colours_main)
-                        LivingColours.COVER -> stringResource(R.string.player_living_colours_cover)
-                    }
-                }
-            )
-            PreferenceEntry(
-                modifier = Modifier.settingRow(R.string.player_living_strength),
-                title = { Text(stringResource(R.string.player_living_strength)) },
-                icon = { Icon(Icons.Rounded.GraphicEq, null) },
-                // A label for the slider underneath, not a button.
-                onClick = null
-            )
-            Column(modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp)) {
-                Text(
-                    text = stringResource(
-                        R.string.player_glass_intensity_value,
-                        (livingStrength * 100).roundToInt()
-                    ),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.secondary
-                )
-                Slider(
-                    value = livingStrength,
-                    onValueChange = onLivingStrengthChange,
-                    valueRange = 0f..1f
-                )
-            }
-            PreferenceEntry(
-                modifier = Modifier.settingRow(R.string.player_living_smoothing),
-                title = { Text(stringResource(R.string.player_living_smoothing)) },
-                icon = { Icon(Icons.Rounded.Waves, null) },
-                onClick = null
-            )
-            Column(modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp)) {
-                Text(
-                    text = stringResource(
-                        R.string.player_glass_intensity_value,
-                        (livingSmoothing * 100).roundToInt()
-                    ),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.secondary
-                )
-                Slider(
-                    value = livingSmoothing,
-                    onValueChange = onLivingSmoothingChange,
-                    valueRange = 0f..1f
-                )
             }
         }
     }
@@ -365,19 +310,8 @@ fun ColumnScope.ThemePlayerFrag() {
     // Battery use on Saver keeps the glass where it is and draws it still (BatteryUse.glassStill).
     if (liquidGlass && BatteryUse.glassStill(LocalBatteryMode.current)) InfoLabel(stringResource(R.string.battery_saver_glass_note))
 
-    // Always drawn, dimmed when glass is off, rather than hidden. It only does anything with glass
-    // on (Player.kt gates on `liquidGlass && groupedControls`), but hiding it outright meant the
-    // 0.10.2 notes could point people at a setting that was not on their screen, and it read as
-    // missing. Its description already says it needs Liquid glass, which is the whole explanation.
-    SwitchPreference(
-        modifier = Modifier.settingRow(R.string.grouped_player_controls),
-        title = { Text(stringResource(R.string.grouped_player_controls)) },
-        description = stringResource(R.string.grouped_player_controls_description),
-        icon = { Icon(Icons.Rounded.ViewAgenda, null) },
-        checked = groupedControls,
-        onCheckedChange = onGroupedControlsChange,
-        isEnabled = liquidGlass
-    )
+    // No "Group the player buttons" switch since 0.13 (his ask of 21 and 27 Nov 2026): with Liquid
+    // glass on, the player's buttons always share one glass bar, as they did by default.
 
     // Below Android 13, and beside the side navigation, the app draws no floating glass at all, so a
     // sample there would stay flat whatever the switch and the slider said. There is none, and the
@@ -393,7 +327,6 @@ fun ColumnScope.ThemePlayerFrag() {
     if (noSampleBecause == null) {
         GlassSample(
             intensity = glassIntensity,
-            grouped = liquidGlass && groupedControls,
             modifier = Modifier.padding(start = 16.dp, top = 4.dp, end = 16.dp, bottom = 8.dp)
         )
     }
@@ -451,9 +384,8 @@ fun ColumnScope.ThemePlayerFrag() {
  * is off. The slider means "how much glass", and people have read it backwards before, so it is
  * worth letting them see which way it goes.
  *
- * Two rows. The player's five buttons, inside one glass bar or each on its own as "Group the player
- * buttons" has them, since that switch is right above and what it does could not be seen without
- * going to the player and back. And under them a button, an icon button and a seek bar, which are
+ * Two rows. The player's five buttons, inside one glass bar as the player has them with glass, each
+ * on its own flat circle without. And under them a button, an icon button and a seek bar, which are
  * the other shapes glass comes in: a tinted pill, a plain circle, a long thin track.
  *
  * For looking at only. Nothing in it takes a touch, so a drag that starts on it still scrolls the
@@ -465,7 +397,7 @@ fun ColumnScope.ThemePlayerFrag() {
  * strip recorded once, and a handful of small shapes blurring only what is under them.
  */
 @Composable
-private fun GlassSample(intensity: Float, grouped: Boolean, modifier: Modifier = Modifier) {
+private fun GlassSample(intensity: Float, modifier: Modifier = Modifier) {
     val colors = MaterialTheme.colorScheme
     // The app's own test for glass, so the sample is flat wherever the floating controls are.
     val glassOn = LocalAppBackdrop.current != null
@@ -517,7 +449,7 @@ private fun GlassSample(intensity: Float, grouped: Boolean, modifier: Modifier =
                 .matchParentSize()
                 .padding(horizontal = 12.dp, vertical = 6.dp)
         ) {
-            // The player's own five buttons, in one glass bar or each on its own.
+            // The player's own five buttons, in one glass bar where there is glass, each on its own without.
             val buttons = listOf(Icons.Rounded.Shuffle, Icons.Rounded.SkipPrevious, Icons.Rounded.PlayArrow, Icons.Rounded.SkipNext, Icons.Rounded.Repeat)
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -526,7 +458,7 @@ private fun GlassSample(intensity: Float, grouped: Boolean, modifier: Modifier =
                     .fillMaxWidth()
                     .height(46.dp)
                     .then(
-                        if (grouped && glass != null) Modifier.floatingGlass(glass, CircleShape)
+                        if (glass != null) Modifier.floatingGlass(glass, CircleShape)
                         else Modifier
                     )
                     .padding(horizontal = 6.dp)
@@ -539,11 +471,9 @@ private fun GlassSample(intensity: Float, grouped: Boolean, modifier: Modifier =
                             .size(if (play) 38.dp else 36.dp)
                             .then(
                                 when {
-                                    // Play is the filled one in the player too, grouped or not.
-                                    play && glass != null && !grouped -> Modifier.floatingGlass(glass, CircleShape, glass.buttonTint())
+                                    // Play is the filled one in the player too, glass or not.
                                     play -> Modifier.background(colors.primaryContainer, CircleShape)
-                                    grouped && glass != null -> Modifier
-                                    glass != null -> Modifier.floatingGlass(glass, CircleShape)
+                                    glass != null -> Modifier
                                     else -> Modifier.background(flat, CircleShape)
                                 }
                             )

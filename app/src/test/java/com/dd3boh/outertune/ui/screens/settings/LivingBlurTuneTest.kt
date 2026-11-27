@@ -14,9 +14,9 @@ import org.junit.Test
 import java.io.File
 
 /**
- * Living blur tuned on the whole screen (his ask of 20 Nov 2026, a mockup first): the debug app
- * only until he has seen it, opened from the sample in Look and feel, and changing the very
- * settings the rows under the sample change, so the player has each change at once.
+ * Living blur tuned on the whole screen (his ask of 20 Nov 2026, a mockup first): for everyone in 0.13,
+ * opened from the sample in Look and feel, and changing the very settings the player reads, so it has
+ * each change at once. Since 27 Nov 2026 the only place they are set: the rows under the sample went.
  */
 class LivingBlurTuneTest {
 
@@ -28,13 +28,12 @@ class LivingBlurTuneTest {
     }
 
     @Test
-    fun `the sample opens it, and only where the flag is on`() {
+    fun `the button under the sample opens it, and only where the flag is on`() {
         val theme = read("ui/screens/settings/fragments/ThemeFrag.kt")
-        assertTrue(theme.contains("onFullScreen = if (Unreleased.LIVING_TUNE) ({ tuning = true }) else null"))
+        assertTrue("no button without the flag", theme.contains("if (Unreleased.LIVING_TUNE) {\n                FilledTonalButton(\n                    onClick = { tuning = true },"))
         assertTrue("the sample asks no frames under it", theme.contains("paused = tuning"))
         assertTrue(theme.contains("if (tuning) LivingBlurTune(onClose = { tuning = false })"))
         val sample = read("ui/screens/settings/fragments/LivingBlurSample.kt")
-        assertTrue("no button without the flag", sample.contains("if (onFullScreen != null) {"))
         assertTrue(sample.contains("covered = paused"))
     }
 

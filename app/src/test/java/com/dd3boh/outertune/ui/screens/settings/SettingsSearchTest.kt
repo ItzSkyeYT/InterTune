@@ -172,6 +172,12 @@ class SettingsSearchTest {
         assertTrue("Equalizer" in titles(inEnglish, "EQ"))
         // A choice's name finds the setting it is a choice of.
         assertTrue("Player background style" in titles(inEnglish, "living blur"))
+        // The name of a row that went finds the row it hangs from now: Living blur's three are set in the tuner,
+        // opened from the sample under the style (27 Nov 2026).
+        for (typed in listOf("living blur smoothing", "living blur intensity", "living blur colours")) {
+            assertEquals(typed, "Player background style", titles(inEnglish, typed).first())
+        }
+        assertEquals("Style d'arrière-plan du lecteur", titles(inFrench, "douceur du flou vivant").first())
     }
 
     @Test

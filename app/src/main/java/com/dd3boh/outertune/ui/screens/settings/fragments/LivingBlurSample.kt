@@ -20,11 +20,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Fullscreen
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -60,9 +58,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
- * Living blur as it will look in the player, small, beside the two sliders that shape it: the real
- * background with a cover standing in it, moving to whatever is playing at the sliders' values as
- * they are dragged. Tuning it by going to the player and back for every change is not tuning.
+ * Living blur as it will look in the player, small: the real background with a cover standing in it,
+ * moving to whatever is playing as it is set. Tuning it by going to the player and back for every
+ * change is not tuning. It is set in the whole-screen tuner (LivingBlurTune), from the button under it.
  *
  * It needs music to move to. With a song playing it uses that. With none it says so, and the refresh
  * button on the cover's corner plays one, or another one when a song plays (Ti-Die's ask of 19 Nov
@@ -78,7 +76,6 @@ fun LivingBlurSample(
     colours: LivingColours,
     modifier: Modifier = Modifier,
     paused: Boolean = false,
-    onFullScreen: (() -> Unit)? = null,
 ) {
     val playerConnection = LocalPlayerConnection.current ?: return
     val context = LocalContext.current
@@ -154,22 +151,22 @@ fun LivingBlurSample(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
-                    Text(
-                        text = stringResource(R.string.player_living_sample_playing),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                    // The artist under it, as the player and the tuner have them (the line about the sliders went with them).
+                    song!!.artists.joinToString { it.name }.takeIf { it.isNotBlank() }?.let { artists ->
+                        Text(
+                            text = artists,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
                 } else {
                     Text(
                         text = stringResource(R.string.player_living_sample_silent),
                         style = MaterialTheme.typography.bodyMedium,
                     )
                 }
-            }
-        }
-        if (onFullScreen != null) {
-            IconButton(onClick = onFullScreen, modifier = Modifier.align(Alignment.TopEnd)) {
-                Icon(Icons.Rounded.Fullscreen, stringResource(R.string.living_tune_open))
             }
         }
     }

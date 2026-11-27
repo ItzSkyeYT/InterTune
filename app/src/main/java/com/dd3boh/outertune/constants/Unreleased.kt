@@ -145,7 +145,8 @@ object Unreleased {
      * the whole screen and the three settings in one glass bar (LivingBlurTune), opened from the sample in Look
      * and feel. In the debug app, the Preview and the Tester app since his pick of 20 Nov 2026 ("Into the Preview"),
      * and on for everyone in 0.13 on his yes of the same evening ("i like the fullscreen thing you made for today").
-     * Without it the sample has no full screen button, as before.
+     * Without it there is no button under the sample to open it, and since Living blur's rows in Look and feel went
+     * (27 Nov 2026) nothing would set the three: tidy the flag away, never turn it off.
      */
     val LIVING_TUNE = true
 

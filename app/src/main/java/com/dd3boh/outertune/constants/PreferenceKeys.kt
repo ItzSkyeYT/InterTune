@@ -547,13 +547,9 @@ val ShareLinkKindKey = stringPreferencesKey("shareLinkKind")
  */
 val ReportWayKey = stringPreferencesKey("reportWay")
 
-/**
- * Whether the transport controls sit inside one shared panel, or stand on their own.
- *
- * Only visible when liquid glass is on, since that panel is the glass slab. Default true keeps the
- * grouped look; off returns to free-standing buttons over the artwork.
- */
-val GroupedPlayerControlsKey = booleanPreferencesKey("groupedPlayerControls")
+// groupedPlayerControls was "Group the player buttons", up to 0.12.11: off, the transport buttons
+// stood on their own over the artwork, without Liquid glass's bar. It went in 0.13 (his ask of
+// 27 Nov 2026) and everyone has the bar. The stored value is left alone, as playerGlass's is.
 
 /** Which set of buttons the player shows. See [PlayerButtonsStyle]. */
 val PlayerButtonsStyleKey = stringPreferencesKey("playerButtonsStyle")

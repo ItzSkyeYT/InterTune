@@ -122,12 +122,10 @@ val SETTINGS_INDEX: List<SettingEntry> = listOf(
     SettingEntry(Tour.ROUTE_LOOK_AND_FEEL, R.string.high_contrast, R.string.high_contrast_description, under = R.string.enable_dynamic_theme),
     SettingEntry(Tour.ROUTE_LOOK_AND_FEEL, R.string.dark_theme, words = listOf(R.string.search_words_dark_theme)),
     SettingEntry(Tour.ROUTE_LOOK_AND_FEEL, R.string.pure_black, words = listOf(R.string.search_words_pure_black)),
-    SettingEntry(Tour.ROUTE_LOOK_AND_FEEL, R.string.player_background_style, words = listOf(R.string.player_background_blur, R.string.player_background_living, R.string.player_background_gradient)),
-    SettingEntry(Tour.ROUTE_LOOK_AND_FEEL, R.string.player_living_colours, under = R.string.player_background_style),
-    SettingEntry(Tour.ROUTE_LOOK_AND_FEEL, R.string.player_living_strength, under = R.string.player_background_style),
-    SettingEntry(Tour.ROUTE_LOOK_AND_FEEL, R.string.player_living_smoothing, under = R.string.player_background_style),
+    // Living blur's colours, strength and smoothing had rows under the style until 27 Nov 2026; they are set in the
+    // tuner the sample under it opens, and their names find the style.
+    SettingEntry(Tour.ROUTE_LOOK_AND_FEEL, R.string.player_background_style, words = listOf(R.string.player_background_blur, R.string.player_background_living, R.string.player_background_gradient, R.string.player_living_colours, R.string.player_living_strength, R.string.player_living_smoothing)),
     SettingEntry(Tour.ROUTE_LOOK_AND_FEEL, R.string.player_liquid_glass, R.string.player_liquid_glass_description, words = listOf(R.string.search_words_glass)),
-    SettingEntry(Tour.ROUTE_LOOK_AND_FEEL, R.string.grouped_player_controls, R.string.grouped_player_controls_description),
     SettingEntry(Tour.ROUTE_LOOK_AND_FEEL, R.string.player_glass_intensity, under = R.string.player_liquid_glass),
     SettingEntry(Tour.ROUTE_LOOK_AND_FEEL, R.string.player_buttons_style, R.string.player_buttons_style_description),
     SettingEntry(Tour.ROUTE_LOOK_AND_FEEL, R.string.player_pins),
