@@ -321,6 +321,7 @@ import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.job
 import kotlinx.coroutines.plus
 import androidx.compose.runtime.snapshotFlow
 import kotlinx.coroutines.flow.Flow
@@ -5838,9 +5839,17 @@ class MusicService : MediaLibraryService(),
      * A restore is about to close the database, put the backup's in its place and restart the
      * app: the music stops first, so that playing writes nothing more into a database that is
      * closing (a listen's progress, the next song, the place in the queue). Main thread.
+     *
+     * Then this service's observers and reads on the database end: its own scope, whose Flows
+     * collect on the main thread, and offloadScope, whose read of the saved queues was still under
+     * way when the database closed under it (#287). What they still run, and what is under way on
+     * lastingScope, which is not stopped, is handed back for the restore to wait for before it
+     * closes the database.
      */
-    fun stopForRestore() {
+    fun stopForRestore(): List<Job> {
         if (::exoPlayer.isInitialized) activePlayer.pause()
+        val ended = listOf(scope, offloadScope).map { it.coroutineContext.job.apply { cancel() } }
+        return ended + lastingScope.coroutineContext.job.children
     }
 
     /**

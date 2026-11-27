@@ -31,9 +31,11 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
@@ -321,12 +323,19 @@ class BackupRestoreViewModel @Inject constructor(
         }
 
         // The music stops before the database closes, so that playing writes nothing more into
-        // it. The player's service stays up until the restart below: the open screen holds it
-        // bound, so stopping it here would not end it. What it still writes after the close fails
-        // on the closed database and is logged.
-        withContext(Dispatchers.Main) {
-            runCatching { MusicService.alive()?.stopForRestore() }
+        // it, and the player's service ends its observers and reads on it. What the service still
+        // has under way is waited for, SERVICE_WORK_WAIT_MS at most: a read the close came down on
+        // stopped the app (#287, the saved queues). The service itself stays up until the restart
+        // below: the open screen holds it bound, so stopping it here would not end it. What still
+        // reaches the database after the close fails on the closed database and is logged, or, for
+        // a screen's Flow, ends as a cancellation (InternalDatabase.inTransaction, #286).
+        val serviceWork = withContext(Dispatchers.Main) {
+            runCatching { MusicService.alive()?.stopForRestore().orEmpty() }
                 .onFailure { Log.w(TAG, "Could not stop the music before the restore", it) }
+                .getOrDefault(emptyList())
+        }
+        if (withTimeoutOrNull(SERVICE_WORK_WAIT_MS) { serviceWork.joinAll() } == null) {
+            Log.w(TAG, "The player's service was still at work on the database after $SERVICE_WORK_WAIT_MS ms, the restore goes on")
         }
 
         // From the close on the app has to restart whatever happens: it cannot go on without its
@@ -401,6 +410,9 @@ class BackupRestoreViewModel @Inject constructor(
          * a backup changes nothing and says so.
          */
         val PICK_BACKUP = arrayOf("*/*")
+
+        /** How long a restore waits for the player's service to end its work on the database before it closes it anyway. */
+        private const val SERVICE_WORK_WAIT_MS = 5_000L
 
         private val backupRunning = MutableStateFlow(false)
         private val restoreRunning = MutableStateFlow(false)
