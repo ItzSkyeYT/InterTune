@@ -279,7 +279,8 @@ What's being worked on, roughly in order. `[x]` is done, `[~]` is built and bein
 `[x]` Similar songs from ListenBrainz, in place of Last.fm\
 `[~]` ListenBrainz's playlists made for you on Home, and its picks in Discover\
 `[ ]` The player's background on one full-screen page, every style and its settings together\
-`[~]` Unison as a lyrics source, with its credit wherever the lyrics show ([#145](https://github.com/ItzSkyeYT/InterTune/issues/145))
+`[~]` Unison as a lyrics source, with its credit wherever the lyrics show ([#145](https://github.com/ItzSkyeYT/InterTune/issues/145))\
+`[ ]` Album and playlist pages redone: a big cover with its details under it, no cover beside each song, your likes and the most played songs marked, and the page in the cover's colours ([#289](https://github.com/ItzSkyeYT/InterTune/issues/289))
 
 </details>
 
