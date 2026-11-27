@@ -208,7 +208,7 @@ Every change in detail, and why this fork exists: [docs/FEATURES.md](https://git
 What's being worked on, roughly in order. `[x]` is done, `[~]` is built and being tested, `[ ]` is still to do. Nothing here has a date, and plans can change. Ideas are welcome in #feature-requests on [Discord](https://discord.gg/68jmqhMjXk) or as a [GitHub issue](https://github.com/ItzSkyeYT/InterTune/issues/new/choose).
 
 <details>
-<summary><b>Next: 0.13</b> · 51 of 55 done, 4 to test</summary>
+<summary><b>Next: 0.13</b> · 52 of 55 done, 3 to test</summary>
 
 `[x]` Listen together: one person plays, friends follow the same song in real time\
 `[x]` In a room, a guest who casts to a TV or speaker plays on their own, and catches up with the room when the cast ends\
@@ -230,7 +230,7 @@ What's being worked on, roughly in order. `[x]` is done, `[~]` is built and bein
 `[x]` Your playlists in your own order, dragged where you want them\
 `[x]` What's playing works offline and names the song once you're back online ([#48](https://github.com/ItzSkyeYT/InterTune/issues/48))\
 `[x]` What you have heard shows each song with its cover and menu, like every other list\
-`[~]` Scrobbling to ListenBrainz, beside Last.fm or instead of it ([#159](https://github.com/ItzSkyeYT/InterTune/issues/159))\
+`[x]` Scrobbling to ListenBrainz, beside Last.fm or instead of it ([#159](https://github.com/ItzSkyeYT/InterTune/issues/159))\
 `[x]` Albums carry on into a radio when they end\
 `[~]` A sleep timer with more ways to stop: at a clock time, or at the end of the song, the album or the queue\
 `[x]` Pick a playlist's cover\
