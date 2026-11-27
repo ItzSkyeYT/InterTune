@@ -15,6 +15,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Album
+import androidx.compose.material.icons.rounded.Email
 import androidx.compose.material.icons.rounded.Link
 import androidx.compose.material.icons.rounded.LinkOff
 import androidx.compose.material3.Icon
@@ -44,10 +45,12 @@ import com.dd3boh.listenbrainz.models.TokenCheck
 import com.dd3boh.outertune.LocalScrobbler
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.Links
+import com.dd3boh.outertune.constants.ListenBrainzAccountRefusedKey
 import com.dd3boh.outertune.constants.ListenBrainzRefusedAtKey
 import com.dd3boh.outertune.constants.ListenBrainzScrobbleKey
 import com.dd3boh.outertune.constants.ListenBrainzTokenKey
 import com.dd3boh.outertune.constants.ListenBrainzUserKey
+import com.dd3boh.outertune.listenbrainz.ListenBrainzStanding
 import com.dd3boh.outertune.ui.component.ExplainedSwitchPreference
 import com.dd3boh.outertune.ui.component.PreferenceEntry
 import com.dd3boh.outertune.ui.dialog.DefaultDialog
@@ -66,11 +69,14 @@ import kotlinx.coroutines.launch
  * ListenBrainz whose it is before keeping it. Once connected the token is never shown again; the
  * row names the account and disconnects, and the switch pauses sending without disconnecting.
  * When ListenBrainz no longer takes the token, the row says so and leads to the dialog again,
- * while the plays keep waiting for a token that works.
+ * while the plays keep waiting for a token that works. When it takes the token but no listens from
+ * the account (ListenBrainzStanding), most often for an email not verified, the row says that and
+ * leads to the page that fixes it: a new token would change nothing.
  */
 @Composable
 fun ColumnScope.ListenBrainzFrag() {
     val scope = rememberCoroutineScope()
+    val uriHandler = LocalUriHandler.current
     val sender = LocalScrobbler.current.listenBrainz
     // Where the tour stops once an account is connected: the row that says so (Connect carries its own mark).
     val connectedMark = Modifier.tourTarget(Tour.SETTING_LISTENBRAINZ)
@@ -78,6 +84,7 @@ fun ColumnScope.ListenBrainzFrag() {
     val (token, _) = rememberPreference(ListenBrainzTokenKey, "")
     val (user, _) = rememberPreference(ListenBrainzUserKey, "")
     val (refusedAt, _) = rememberPreference(ListenBrainzRefusedAtKey, 0L)
+    val (accountRefused, _) = rememberPreference(ListenBrainzAccountRefusedKey, "")
     val (scrobbling, onScrobblingChange) = rememberPreference(ListenBrainzScrobbleKey, true)
     var connecting by rememberSaveable { mutableStateOf(false) }
 
@@ -106,6 +113,24 @@ fun ColumnScope.ListenBrainzFrag() {
             description = stringResource(R.string.listenbrainz_refused_description),
             icon = { Icon(Icons.Rounded.LinkOff, null) },
             onClick = { connecting = true },
+        )
+    } else if (accountRefused == ListenBrainzStanding.NEEDS_EMAIL.name) {
+        // ListenBrainz's own refusal names this page, where the email is verified.
+        PreferenceEntry(
+            modifier = connectedMark,
+            title = { Text(stringResource(R.string.listenbrainz_needs_email)) },
+            description = stringResource(R.string.listenbrainz_needs_email_description),
+            icon = { Icon(Icons.Rounded.Email, null) },
+            onClick = { uriHandler.openUri(Links.METABRAINZ_PROFILE) },
+        )
+    } else if (accountRefused.isNotEmpty()) {
+        // Paused, or a reason ListenBrainz did not have when this was written: its own pages say more.
+        PreferenceEntry(
+            modifier = connectedMark,
+            title = { Text(stringResource(R.string.listenbrainz_account_refused)) },
+            description = stringResource(R.string.listenbrainz_account_refused_description),
+            icon = { Icon(Icons.Rounded.LinkOff, null) },
+            onClick = { uriHandler.openUri(Links.LISTENBRAINZ_SETTINGS) },
         )
     } else {
         PreferenceEntry(

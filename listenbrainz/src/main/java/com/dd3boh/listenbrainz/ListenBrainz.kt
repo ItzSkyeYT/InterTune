@@ -53,8 +53,9 @@ import java.util.concurrent.atomic.AtomicLong
  *
  * Failures come back as [ListenBrainzException]s, sorted by what to do with the listen: keep it
  * for later ([ListenBrainzException.Unreachable], [ListenBrainzException.Unavailable],
- * [ListenBrainzException.RateLimited]), drop it ([ListenBrainzException.Refused]), or send nothing
- * more until the listener pastes a token again ([ListenBrainzException.TokenRefused]).
+ * [ListenBrainzException.RateLimited]), drop it ([ListenBrainzException.Refused]), send nothing
+ * more until the listener pastes a token again ([ListenBrainzException.TokenRefused]), or keep it
+ * until ListenBrainz takes listens from the account again ([ListenBrainzException.AccountRefused]).
  *
  * @param app who is asking: the User-Agent, and the player and client named in every listen.
  * @param root the API's address. Another server that speaks this API can go here.
@@ -88,11 +89,16 @@ class ListenBrainz(
      */
     suspend fun validateToken(token: String): Result<TokenCheck> = attempt(token) {
         val key = usable(token) ?: return@attempt TokenCheck(valid = false, userName = null)
+        check(key, token)
+    }
+
+    /** /1/validate-token's verdict on [key], a token [usable] let through. Fails as [attempt] expects. */
+    private suspend fun check(key: String, token: String): TokenCheck {
         val response = gate.pass { client.get("$root/1/validate-token") { identify(key); patient() } }
         val text = response.bodyAsText()
         if (!response.status.isSuccess()) throw refusal(response, text, token)
         val answer = json.decodeFromString(TokenResponse.serializer(), text)
-        if (answer.valid == true) TokenCheck(valid = true, userName = answer.userName)
+        return if (answer.valid == true) TokenCheck(valid = true, userName = answer.userName)
         else TokenCheck(valid = false, userName = null)
     }
 
@@ -190,7 +196,26 @@ class ListenBrainz(
                 setBody(TextContent(body, ContentType.Application.Json))
             }
         } ?: return@attempt
-        if (!response.status.isSuccess()) throw refusal(response, response.bodyAsText(), token)
+        if (!response.status.isSuccess()) throw whose(refusal(response, response.bodyAsText(), token), key, token)
+    }
+
+    /**
+     * ListenBrainz refuses listens with the same 401 for a token it does not know ("Invalid
+     * authorization token.") and for an account it takes no listens from: one with no verified
+     * email, or a paused one (its server code, read 27 Nov 2026). Only the first wants a new token,
+     * and /1/validate-token, which looks up the token and nothing else, tells them apart. With no
+     * verdict from it, nothing is decided and the listen is kept, as for a server in trouble.
+     */
+    private suspend fun whose(refusal: ListenBrainzException, key: String, token: String): ListenBrainzException {
+        if (refusal !is ListenBrainzException.TokenRefused) return refusal
+        val verdict = attempt(token) { check(key, token) }.getOrElse { e ->
+            return e as? ListenBrainzException.RateLimited
+                ?: e as? ListenBrainzException.Unreachable
+                ?: ListenBrainzException.Unavailable(refusal.status, refusal.message.orEmpty())
+        }
+        if (!verdict.valid) return refusal
+        val said = refusal.message.orEmpty()
+        return ListenBrainzException.AccountRefused(refusal.status, said, needsEmail = said.contains("email", ignoreCase = true))
     }
 
     /**
@@ -235,7 +260,7 @@ class ListenBrainz(
             ?: "HTTP $status"
         return when (status) {
             // "Invalid authorization token.", and also an account that may not send: no verified
-            // email, or paused. validateToken tells the two apart if it matters.
+            // email, or paused. To listens, whose() asks validate-token which of the two it is.
             401, 403 -> ListenBrainzException.TokenRefused(status, said)
             429 -> ListenBrainzException.RateLimited(Gate.holdAfter(response), said)
             // The request itself: bad JSON, a field out of bounds, too large. The same request gets
@@ -375,13 +400,22 @@ class ListenBrainz(
 sealed class ListenBrainzException(message: String) : Exception(message) {
 
     /**
-     * 401 or 403: ListenBrainz will not take listens with this token. Most often it is wrong or was
-     * reset on the settings page ("Invalid authorization token."), but the same answer comes for an
-     * account with no verified email or a paused one, with ListenBrainz's reason as the text.
-     * Nothing more should go until the listener pastes a token again; what waits is kept.
+     * 401 or 403: ListenBrainz will not take listens with this token, which it does not know
+     * (/1/validate-token says so): wrong, or reset on the settings page ("Invalid authorization
+     * token."). Nothing more should go until the listener pastes a token again; what waits is kept.
+     * A token it knows on an account that may not send gets [AccountRefused] instead.
      * [status] 0: the token was refused here, never sent, because no header could carry it.
      */
     class TokenRefused(val status: Int, message: String) : ListenBrainzException(message)
+
+    /**
+     * 401 or 403 to listens with a token ListenBrainz knows: the account takes no listens for now.
+     * Most often it has no verified email ([needsEmail]: "The listens were rejected because your
+     * MetaBrainz account does not have a verified email address."), otherwise it is paused, with
+     * ListenBrainz's reason as the text. A new token would not help. Keep the listen: it goes once
+     * the account is put right on ListenBrainz's side.
+     */
+    class AccountRefused(val status: Int, message: String, val needsEmail: Boolean) : ListenBrainzException(message)
 
     /**
      * 429, or a pause ListenBrainz asked for that is longer than [Gate] waits out. Keep the listen

@@ -3294,6 +3294,10 @@
     <string name="listenbrainz_scrobble_explain">Envoyé pour chaque titre terminé :\n• son nom, son artiste, son album et sa durée\n• l\'heure d\'écoute et son lien YouTube Music\n• le nom et la version d\'InterTune\nLe titre en cours part aussi, sans l\'heure. Vos écoutes y sont publiques, et rien ne part tant que « Suspendre l\'historique d\'écoute » est activé.</string>
     <string name="listenbrainz_refused">ListenBrainz n\'accepte plus votre jeton</string>
     <string name="listenbrainz_refused_description">Collez le nouveau depuis votre page de paramètres. Les écoutes en attente partiront dès que ça fonctionnera.</string>
+    <string name="listenbrainz_needs_email">ListenBrainz demande un e-mail vérifié</string>
+    <string name="listenbrainz_needs_email_description">Appuyez pour vérifier le vôtre sur votre profil MetaBrainz. Les écoutes en attente partiront dès que ce sera fait.</string>
+    <string name="listenbrainz_account_refused">ListenBrainz refuse vos écoutes</string>
+    <string name="listenbrainz_account_refused_description">Votre jeton fonctionne, mais ListenBrainz n\'accepte pas les écoutes de votre compte pour l\'instant. Les écoutes en attente partiront dès qu\'il les acceptera.</string>
     <string name="search_words_listenbrainz">listenbrainz, scrobble, scrobbling</string>
     <!-- Vibration under Look and feel (Unreleased.HAPTICS_FEEL): held from translators until his pick. -->
     <string name="vibration">Vibration</string>

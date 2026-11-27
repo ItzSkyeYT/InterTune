@@ -3485,6 +3485,10 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="listenbrainz_scrobble_explain">Sent for each song you finish:\n• its title, artist, album and length\n• when you played it, and its YouTube Music link\n• InterTune\'s name and version\nThe song playing goes too, without the time. Your listens are public there, and nothing goes while \"Pause listen history\" is on.</string>
     <string name="listenbrainz_refused">ListenBrainz no longer accepts your token</string>
     <string name="listenbrainz_refused_description">Paste the new one from your settings page. Listens waiting here go out once it works.</string>
+    <string name="listenbrainz_needs_email">ListenBrainz needs a verified email</string>
+    <string name="listenbrainz_needs_email_description">Tap to verify yours on your MetaBrainz profile. Listens waiting here go out once it\'s done.</string>
+    <string name="listenbrainz_account_refused">ListenBrainz isn\'t taking your listens</string>
+    <string name="listenbrainz_account_refused_description">Your token works, but ListenBrainz won\'t take listens from your account right now. Listens waiting here go out once it does.</string>
     <string name="search_words_listenbrainz">listenbrainz, scrobble, scrobbling</string>
     <!-- Vibration under Look and feel: how strong the app's taps and ticks feel. -->
     <string name="vibration">Vibration</string>

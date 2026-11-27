@@ -43,8 +43,9 @@ import java.net.UnknownHostException
  * listen goes out as, the headers, what each answer becomes, the pace, and the batch rules.
  *
  * The answers marked "asked 18 Nov" are ListenBrainz's own, word for word, to a made-up token
- * (experiments/features/listenbrainz/probe/answers-20261118.txt). The others are put together
- * from its docs and server code, which say what they hold but were not seen live.
+ * (experiments/features/listenbrainz/probe/answers-20261118.txt), and asked again 27 Nov
+ * (experiments/agents-1127/lb-token/api/). The others are put together from its docs and server
+ * code, which say what they hold but were not seen live.
  */
 class ListenBrainzClientTest {
 
@@ -57,6 +58,21 @@ class ListenBrainzClientTest {
 
     /** Asked 18 Nov, POST /1/submit-listens with a made-up token. */
     private val badToken = """{"code":401,"error":"Invalid authorization token."}"""
+
+    /** Asked 18 and 27 Nov, GET /1/validate-token with a made-up token: HTTP 200, the verdict in the body. */
+    private val unknownToken = """{"code":200,"message":"Token invalid.","valid":false}"""
+
+    /** validate-token for a token it knows, from its docs. It looks the token up and nothing else. */
+    private val knownToken = """{"code":200,"message":"Token valid.","valid":true,"user_name":"someone"}"""
+
+    /**
+     * submit-listens for a token it knows, on an account with no verified email: its server code
+     * (REJECT_LISTENS_WITHOUT_EMAIL_ERROR, read 27 Nov), word for word. Still HTTP 401.
+     */
+    private val noEmail = """{"code":401,"error":"The listens were rejected because your MetaBrainz account does not have a verified email address. Please check your inbox for a verification email, or go to your MetaBrainz profile page to verify your email: https://metabrainz.org/profile. Read the blog post at https://blog.metabrainz.org/?p=8915 to understand why we need your email."}"""
+
+    /** The same for a paused account (REJECT_LISTENS_FROM_PAUSED_USER_ERROR, read 27 Nov). */
+    private val paused = """{"code":401,"error":"User account is paused and is currently not accepting listens. Feel free to contact us if you have any questions about this. https://metabrainz.org/contact"}"""
 
     private class Sent(
         val method: HttpMethod,
@@ -111,6 +127,14 @@ class ListenBrainzClientTest {
 
     private fun <T> Result<T>.failure(): ListenBrainzException =
         exceptionOrNull() as? ListenBrainzException ?: error("expected a ListenBrainzException, got $this")
+
+    /** [verdict] to /1/validate-token, as ListenBrainz gives it, and [listens] to everything else. */
+    private fun MockRequestHandleScope.asking(
+        request: HttpRequestData,
+        verdict: String,
+        listens: MockRequestHandleScope.() -> HttpResponseData,
+    ): HttpResponseData =
+        if (request.url.encodedPath.endsWith("/1/validate-token")) reply(HttpStatusCode.OK, verdict) else listens()
 
     // The JSON
 
@@ -260,18 +284,24 @@ class ListenBrainzClientTest {
         assertTrue(tooLarge is ListenBrainzException.Refused)
         assertEquals("HTTP 413", tooLarge.message)
 
-        // Stop until a new token: what ListenBrainz says goes with it.
-        val unknown = refusalOf { reply(HttpStatusCode.Unauthorized, badToken) }
+        // Stop until a new token, once validate-token says it does not know it: what ListenBrainz says goes with it.
+        val unknown = refusalOf { asking(it, unknownToken) { reply(HttpStatusCode.Unauthorized, badToken) } }
         assertTrue(unknown is ListenBrainzException.TokenRefused)
         assertEquals(401, (unknown as ListenBrainzException.TokenRefused).status)
         assertEquals("Invalid authorization token.", unknown.message)
-        val noEmail = refusalOf {
-            reply(HttpStatusCode.Unauthorized, """{"code":401,"error":"The listens were rejected because your MetaBrainz account does not have a verified email address."}""")
-        }
-        assertTrue(noEmail is ListenBrainzException.TokenRefused)
-        assertTrue(noEmail.message!!.startsWith("The listens were rejected"))
-        val forbidden = refusalOf { reply(HttpStatusCode.Forbidden, """{"code":403,"error":"Forbidden"}""") }
+        val forbidden = refusalOf { asking(it, unknownToken) { reply(HttpStatusCode.Forbidden, """{"code":403,"error":"Forbidden"}""") } }
         assertEquals(403, (forbidden as ListenBrainzException.TokenRefused).status)
+
+        // Keep it until the account takes listens: the same 401, for a token validate-token knows. A new token
+        // would change nothing (27 Nov 2026: a fresh token, "no longer accepts your token" again).
+        val unverified = refusalOf { asking(it, knownToken) { reply(HttpStatusCode.Unauthorized, noEmail) } }
+        assertTrue("$unverified", unverified is ListenBrainzException.AccountRefused)
+        assertEquals(401, (unverified as ListenBrainzException.AccountRefused).status)
+        assertTrue(unverified.needsEmail)
+        assertTrue(unverified.message!!.startsWith("The listens were rejected because your MetaBrainz account does not have a verified email address."))
+        val pausedAccount = refusalOf { asking(it, knownToken) { reply(HttpStatusCode.Unauthorized, paused) } }
+        assertTrue("$pausedAccount", pausedAccount is ListenBrainzException.AccountRefused)
+        assertFalse((pausedAccount as ListenBrainzException.AccountRefused).needsEmail)
 
         // Wait, then send it: as long as ListenBrainz says.
         val tooFast = refusalOf {
@@ -291,6 +321,67 @@ class ListenBrainzClientTest {
             val e = refusalOf { throw thrown }
             assertTrue("$thrown", e is ListenBrainzException.Unreachable)
         }
+    }
+
+    /**
+     * His report of 27 Nov 2026: "no longer accepts your token" with a token just pasted. ListenBrainz
+     * answers listens with 401 for a token it does not know and for an account with no verified email
+     * alike, and validate-token, which the connect dialog asks, looks only at the token. The client
+     * asks it once more after a 401 to listens, through the same gate, and only a token it does not
+     * know comes back as one refused, in every kind of request.
+     */
+    @Test
+    fun aFreshTokenOnAnAccountWithNoVerifiedEmailIsNotATokenRefused() = runBlocking<Unit> {
+        val f = Fixture { asking(it, knownToken) { reply(HttpStatusCode.Unauthorized, noEmail) } }
+        // What the connect dialog asks: the token is good, and it is kept.
+        assertEquals(TokenCheck(valid = true, userName = "someone"), f.lb.validateToken(token).getOrThrow())
+        // What playing now, a finished listen and the outbox's batch then get.
+        for (result in listOf(f.lb.playingNow(token, f.rick()), f.lb.single(token, f.rick()), f.lb.import(token, listOf(f.rick(), f.rick(at = 1795000300))))) {
+            val e = result.failure()
+            assertTrue("$e", e is ListenBrainzException.AccountRefused && e.needsEmail)
+        }
+        // Each refusal of listens asked validate-token once, a second later, with the same token.
+        assertEquals(
+            listOf("validate-token", "submit-listens", "validate-token", "submit-listens", "validate-token", "submit-listens", "validate-token"),
+            f.sent.map { it.url.substringAfterLast("/") },
+        )
+        assertTrue(f.sent.all { it.authorization == "Token $token" })
+        assertEquals(f.sent.indices.map { it * 1_000L }, f.sent.map { it.at })
+    }
+
+    @Test
+    fun aTokenReallyRefusedIsStillOne() = runBlocking<Unit> {
+        // The token reset on the settings page: listens refused, and validate-token does not know it.
+        val f = Fixture { asking(it, unknownToken) { reply(HttpStatusCode.Unauthorized, badToken) } }
+        val e = f.lb.single(token, f.rick()).failure()
+        assertTrue("$e", e is ListenBrainzException.TokenRefused)
+        assertEquals("Invalid authorization token.", e.message)
+        assertEquals(listOf("submit-listens", "validate-token"), f.sent.map { it.url.substringAfterLast("/") })
+    }
+
+    @Test
+    fun aRefusalWithNoVerdictDecidesNothing() = runBlocking<Unit> {
+        // validate-token gives no verdict: the listen is kept for later, and neither the token nor the account is blamed.
+        val offline = Fixture { request ->
+            if (request.url.encodedPath.endsWith("/1/validate-token")) throw UnknownHostException("api.listenbrainz.org")
+            reply(HttpStatusCode.Unauthorized, noEmail)
+        }
+        assertTrue(offline.lb.single(token, offline.rick()).failure() is ListenBrainzException.Unreachable)
+        val tooFast = Fixture { request ->
+            if (request.url.encodedPath.endsWith("/1/validate-token")) {
+                reply(HttpStatusCode.TooManyRequests, """{"code":429,"error":"You have exceeded your rate limit. See the X-RateLimit-* response headers for more information on your current rate limit."}""", "X-RateLimit-Remaining" to "0", "X-RateLimit-Reset-In" to "9")
+            } else reply(HttpStatusCode.Unauthorized, badToken)
+        }
+        assertEquals(9_000L, (tooFast.lb.single(token, tooFast.rick()).failure() as ListenBrainzException.RateLimited).retryAfterMs)
+        val troubled = Fixture { request ->
+            if (request.url.encodedPath.endsWith("/1/validate-token")) respond("<html>502</html>", HttpStatusCode.BadGateway, headersOf(HttpHeaders.ContentType, "text/html"))
+            else reply(HttpStatusCode.Unauthorized, badToken)
+        }
+        val e = troubled.lb.single(token, troubled.rick()).failure()
+        assertTrue("$e", e is ListenBrainzException.Unavailable)
+        // The same 401 to validate-token: something in the way that is not ListenBrainz judging the token.
+        val blocked = Fixture { reply(HttpStatusCode.Forbidden, """{"code":403,"error":"Forbidden"}""") }
+        assertTrue(blocked.lb.single(token, blocked.rick()).failure() is ListenBrainzException.Unavailable)
     }
 
     /**
