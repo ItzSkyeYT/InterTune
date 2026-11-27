@@ -225,6 +225,12 @@ fun CastPickerHost() {
 }
 
 /**
+ * The Output button's height as a pill, in a corner of the queue's strip upright and on a phone on its side. Classic's
+ * three-dots button, in the strip's other corner, stands in a slot this tall, level with it.
+ */
+internal val OutputPillHeight = 44.dp
+
+/**
  * Where the music is coming out, under the player's controls, and the way to send it elsewhere.
  *
  * Day to day it is a quiet pill that names what Android is playing through: this phone, the
@@ -263,7 +269,7 @@ fun OutputButton(
             color = if (backdrop != null) Color.Transparent else MaterialTheme.colorScheme.primary,
             contentColor = MaterialTheme.colorScheme.onPrimary,
             modifier = modifier
-                .requiredHeight(44.dp)
+                .requiredHeight(OutputPillHeight)
                 .frosted(backdrop, glassIntensity, CircleShape, MaterialTheme.colorScheme.primary.copy(alpha = lerp(0.95f, 0.8f, glassIntensity.coerceIn(0f, 1f))), still),
         ) {
             Row(
@@ -311,7 +317,7 @@ fun OutputButton(
             color = if (backdrop != null) Color.Transparent else tint.copy(alpha = 0.12f),
             contentColor = tint,
             modifier = modifier
-                .requiredHeight(44.dp)
+                .requiredHeight(OutputPillHeight)
                 .frosted(backdrop, glassIntensity, CircleShape, tint.copy(alpha = 0.16f), still),
         ) {
             Row(
