@@ -236,6 +236,9 @@ import com.dd3boh.outertune.ui.menu.rememberDontPlay
 import com.dd3boh.outertune.ui.player.BottomSheetPlayer
 import com.dd3boh.outertune.ui.screens.settings.SettingJumpHost
 import com.dd3boh.outertune.ui.screens.settings.SettingsFollowTheTurn
+import com.dd3boh.outertune.ui.screens.settings.fragments.LivingTuneDoor
+import com.dd3boh.outertune.ui.screens.settings.fragments.LivingTuneHost
+import com.dd3boh.outertune.ui.screens.settings.fragments.LocalLivingTune
 import com.dd3boh.outertune.ui.screens.walkthrough.Tour
 import com.dd3boh.outertune.ui.screens.walkthrough.tourTarget
 import com.dd3boh.outertune.ui.screens.walkthrough.TourOverlay
@@ -1679,6 +1682,10 @@ class MainActivity : ComponentActivity() {
                         }
                     }
 
+                    // The whole-screen Living blur tuner, open or not (LivingTuneDoor): Look and feel opens it and it is drawn
+                    // below, over every screen, so that Settings changing panes as the phone turns does not close it.
+                    val livingTune = rememberSaveable(saver = LivingTuneDoor.Saver) { LivingTuneDoor() }
+
                     CompositionLocalProvider(
                         LocalHapticFeedback provides haptic,
                         LocalDatabase provides database,
@@ -1711,6 +1718,7 @@ class MainActivity : ComponentActivity() {
                         LocalBatteryMode provides batteryMode,
                         LocalGlassStill provides glassStill,
                         LocalDontPlay provides dontPlay,
+                        LocalLivingTune provides livingTune,
                         dpadBringIntoView(),
                     ) {
                         /**
@@ -2116,6 +2124,9 @@ class MainActivity : ComponentActivity() {
                             // The playlist the year card saved, opened as a playlist of the library is (Playlist.navigationRoute).
                             onOpenPlaylist = { id -> navController.navigate("local_playlist/$id") },
                         )
+
+                        // The Living blur tuner Look and feel opened, over whatever is on screen.
+                        LivingTuneHost(livingTune)
 
                         /*
                          * A word when the phone's battery saver puts the app on Saver (SaverNote): what

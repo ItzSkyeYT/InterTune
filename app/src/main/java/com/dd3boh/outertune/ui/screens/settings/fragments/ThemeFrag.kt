@@ -48,9 +48,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
@@ -241,9 +238,9 @@ fun ColumnScope.ThemePlayerFrag() {
     val livingStrength by rememberPreference(LivingStrengthKey, defaultValue = LivingField.DEFAULT_STRENGTH)
     val livingSmoothing by rememberPreference(LivingSmoothingKey, defaultValue = LivingField.DEFAULT_SMOOTHING)
     val livingColours by rememberEnumPreference(LivingColoursKey, defaultValue = LivingColours.MAIN)
-    // The whole-screen tuner (Unreleased.LIVING_TUNE), opened from the button under the sample.
-    var tuning by rememberSaveable { mutableStateOf(false) }
-    if (tuning) LivingBlurTune(onClose = { tuning = false })
+    // The whole-screen tuner (Unreleased.LIVING_TUNE), opened from the button under the sample. The activity keeps it
+    // open and draws it (LivingTuneHost): turning the phone moves this page into Settings' two panes and back.
+    val tune = LocalLivingTune.current
     AnimatedVisibility(playerBackground == PlayerBackgroundStyle.LIVING && Unreleased.LIVING_BACKGROUND) {
         Column {
             LivingBlurSample(
@@ -251,7 +248,7 @@ fun ColumnScope.ThemePlayerFrag() {
                 smoothing = livingSmoothing,
                 colours = livingColours,
                 modifier = Modifier.padding(start = 16.dp, top = 4.dp, end = 16.dp, bottom = 8.dp),
-                paused = tuning,
+                paused = tune.open,
             )
             // The one way to the three now: a button with its name right under the sample, in the app's own
             // words for it, where an icon in the sample's corner was. Under it, not in it: the sample has no
@@ -259,7 +256,7 @@ fun ColumnScope.ThemePlayerFrag() {
             // buttons out of its words.
             if (Unreleased.LIVING_TUNE) {
                 FilledTonalButton(
-                    onClick = { tuning = true },
+                    onClick = { tune.open = true },
                     contentPadding = ButtonDefaults.ButtonWithIconContentPadding,
                     modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp),
                 ) {

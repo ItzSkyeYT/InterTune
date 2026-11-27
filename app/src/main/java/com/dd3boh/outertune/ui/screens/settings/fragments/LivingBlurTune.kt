@@ -15,6 +15,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -45,6 +46,7 @@ import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
@@ -54,14 +56,18 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -70,6 +76,7 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -77,7 +84,9 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.window.DialogWindowProvider
@@ -99,6 +108,9 @@ import com.dd3boh.outertune.ui.player.LivingField
 import com.dd3boh.outertune.ui.utils.GlassSpec
 import com.dd3boh.outertune.ui.utils.LocalGlassStill
 import com.dd3boh.outertune.ui.utils.stillGlass
+import com.dd3boh.outertune.ui.utils.LocalLandscape
+import com.dd3boh.outertune.ui.utils.SameTextSize
+import com.dd3boh.outertune.ui.utils.shrinkToFit
 import com.dd3boh.outertune.utils.rememberEnumPreference
 import com.dd3boh.outertune.utils.rememberPreference
 import com.kyant.backdrop.backdrops.layerBackdrop
@@ -184,8 +196,10 @@ fun LivingBlurTune(onClose: () -> Unit) {
                 Box(Modifier.fillMaxSize().background(scrim))
             }
 
+            // Wider than tall, a phone on its side: the cover beside the bar, and the bar's two sliders side by side.
+            val sideBySide = with(LocalLandscape.current) { TunePlan.sideBySide(windowWidth, windowHeight) }
             // Clear of the camera's cut too, which a phone on its side has at one end.
-            TuneScreen(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
+            TuneScreen(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing), sideBySide) {
                 // The buttons' outer edges on the bar's, 12 dp in from the sides.
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -253,37 +267,25 @@ fun LivingBlurTune(onClose: () -> Unit) {
                         enter = fadeIn() + slideInVertically { it / 4 },
                         exit = fadeOut() + slideOutVertically { it / 4 },
                     ) {
-                        Column(
-                            modifier = Modifier
-                                .onSizeChanged { barHeight = it.height }
-                                .padding(start = 12.dp, end = 12.dp, bottom = 12.dp)
-                                .fillMaxWidth()
-                                .pane(pane, RoundedCornerShape(28.dp))
-                                // It scrolls only where the screen is too short for all of it: a small window, a phone on its side.
-                                .clip(RoundedCornerShape(28.dp))
-                                .verticalScroll(rememberScrollState())
-                                // As much room under the play row as at the sides (it had 16 dp).
-                                .padding(start = 20.dp, top = 16.dp, end = 20.dp, bottom = 20.dp),
-                        ) {
+                        // The settings, and the play row under them that is never scrolled away nor cut (TuneBar).
+                        TuneBar(pane, onHeight = { barHeight = it }, settings = {
+                            // The two names one size, kept beside the tick (SegmentLabel).
+                            val segments = remember { SameTextSize() }
                             SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
                                 SegmentedButton(
                                     selected = colours == LivingColours.MAIN,
                                     onClick = { onColours(LivingColours.MAIN) },
                                     shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
-                                ) { Text(stringResource(R.string.living_tune_three_colours), maxLines = 1) }
+                                ) { SegmentLabel(stringResource(R.string.living_tune_three_colours), segments) }
                                 SegmentedButton(
                                     selected = colours == LivingColours.COVER,
                                     onClick = { onColours(LivingColours.COVER) },
                                     shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
-                                ) { Text(stringResource(R.string.living_tune_cover), maxLines = 1) }
+                                ) { SegmentLabel(stringResource(R.string.living_tune_cover), segments) }
                             }
                             Spacer(Modifier.height(12.dp))
-                            TuneSlider(R.string.living_tune_strength, strength, onStrength)
-                            // A slider's name nearer its own slider than the one above.
-                            Spacer(Modifier.height(8.dp))
-                            TuneSlider(R.string.living_tune_smoothing, smoothing, onSmoothing)
-                            // The play row clear of the handle above it (6 dp under it before).
-                            Spacer(Modifier.height(16.dp))
+                            TuneSliders(sideBySide, strength, onStrength, smoothing, onSmoothing)
+                        }) {
                             if (song != null) {
                                 // The player's own three, in its order.
                                 Row(
@@ -318,15 +320,114 @@ fun LivingBlurTune(onClose: () -> Unit) {
     }
 }
 
+/**
+ * The bar: [settings] over [play] on one pane, the play row with as much room under it as at the sides and 16 dp over it,
+ * clear of the handle above. Where the screen is too short for all of it (a small window, large text, a phone on its side
+ * with his own colours' row) the settings scroll and the play row stays whole under them: it was the one cut, half out of
+ * the bar, on his S25U on its side (his report of 27 Nov 2026).
+ */
 @Composable
-private fun TuneSlider(@StringRes label: Int, value: Float, onChange: (Float) -> Unit) {
-    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(top = 4.dp)) {
-        Text(
-            stringResource(label),
-            style = MaterialTheme.typography.titleSmall,
-            color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.weight(1f),
+private fun TuneBar(
+    pane: Pane,
+    onHeight: (Int) -> Unit,
+    settings: @Composable ColumnScope.() -> Unit,
+    play: @Composable ColumnScope.() -> Unit,
+) {
+    val shape = RoundedCornerShape(28.dp)
+    Column(
+        modifier = Modifier
+            .onSizeChanged { onHeight(it.height) }
+            .padding(start = 12.dp, end = 12.dp, bottom = 12.dp)
+            .fillMaxWidth()
+            .pane(pane, shape)
+            .clip(shape),
+    ) {
+        Column(
+            // What the play row leaves, and no more than the settings need.
+            modifier = Modifier
+                .weight(1f, fill = false)
+                .verticalScroll(rememberScrollState())
+                .padding(start = 20.dp, top = 16.dp, end = 20.dp),
+            content = settings,
         )
+        Column(Modifier.fillMaxWidth().padding(start = 20.dp, top = 16.dp, end = 20.dp, bottom = 20.dp), content = play)
+    }
+}
+
+/**
+ * A name in the segmented button, kept beside its tick: Material gives the label the whole segment, the tick's room too,
+ * and in French at text size 1.3 "Trois couleurs" ran into the divider with the tick on the outline. Where even that room
+ * is too short the two names get smaller together ([names]).
+ */
+@Composable
+private fun SegmentLabel(text: String, names: SameTextSize) {
+    // The button's own style, which gives its size in sp, as shrinkToFit needs.
+    val style = MaterialTheme.typography.labelLarge.merge(LocalTextStyle.current)
+    val autoSize = style.shrinkToFit(smallest = 11.sp, text = text, row = names)
+    val tick = SegmentedButtonDefaults.IconSize + SEGMENT_ICON_GAP
+    // Made again for each new autoSize: a Text does not see that one changed (see shrinkToFit).
+    key(autoSize) {
+        Text(
+            text,
+            style = style,
+            autoSize = autoSize,
+            maxLines = 1,
+            modifier = Modifier.layout { measurable, constraints ->
+                val room = if (constraints.hasBoundedWidth) {
+                    constraints.copy(minWidth = 0, maxWidth = (constraints.maxWidth - tick.roundToPx()).coerceAtLeast(0))
+                } else constraints
+                val placeable = measurable.measure(room)
+                layout(placeable.width, placeable.height) { placeable.placeRelative(0, 0) }
+            },
+        )
+    }
+}
+
+/** Between the segmented button's tick and its name (Material's own, not public). */
+private val SEGMENT_ICON_GAP = 8.dp
+
+/**
+ * Strength and Smoothing, one over the other; on a phone on its side ([sideBySide]) side by side, each over half the bar.
+ * On its side the bar has only the screen's height, and one over the other they left the play row no room: on his S25U
+ * with his own colours' row the play button was cut in half (his report of 27 Nov 2026). Their names one size.
+ */
+@Composable
+private fun TuneSliders(sideBySide: Boolean, strength: Float, onStrength: (Float) -> Unit, smoothing: Float, onSmoothing: (Float) -> Unit) {
+    val names = remember { SameTextSize() }
+    if (sideBySide) {
+        Row(horizontalArrangement = Arrangement.spacedBy(SLIDERS_GAP)) {
+            Column(Modifier.weight(1f)) { TuneSlider(R.string.living_tune_strength, strength, onStrength, names) }
+            Column(Modifier.weight(1f)) { TuneSlider(R.string.living_tune_smoothing, smoothing, onSmoothing, names) }
+        }
+    } else {
+        TuneSlider(R.string.living_tune_strength, strength, onStrength, names)
+        // A slider's name nearer its own slider than the one above.
+        Spacer(Modifier.height(8.dp))
+        TuneSlider(R.string.living_tune_smoothing, smoothing, onSmoothing, names)
+    }
+}
+
+/** Between the two sliders side by side: the bar's own margin. */
+private val SLIDERS_GAP = 20.dp
+
+/** A slider with its name and value over it. The name smaller where half a narrow bar cannot hold it whole ([names]). */
+@Composable
+private fun TuneSlider(@StringRes label: Int, value: Float, onChange: (Float) -> Unit, names: SameTextSize) {
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(top = 4.dp)) {
+        val name = stringResource(label)
+        val style = MaterialTheme.typography.titleSmall
+        val autoSize = style.shrinkToFit(smallest = 11.sp, text = name, row = names)
+        // Made again for each new autoSize: a Text does not see that one changed (see shrinkToFit).
+        key(autoSize) {
+            Text(
+                name,
+                style = style,
+                color = MaterialTheme.colorScheme.onSurface,
+                autoSize = autoSize,
+                maxLines = 1,
+                modifier = Modifier.weight(1f),
+            )
+        }
         Text(
             stringResource(R.string.player_glass_intensity_value, (value * 100).roundToInt()),
             style = MaterialTheme.typography.labelLarge,
@@ -340,16 +441,15 @@ private fun TuneSlider(@StringRes label: Int, value: Float, onChange: (Float) ->
  * The tuner's three parts, in this order: the top row, the cover with the song, the bar. Upright they stand one over the
  * other, the bar at the bottom with the room it needs and the cover in what is left between. Wider than tall, a phone on
  * its side, the cover is beside the bar, as the player has it: the bar has the end half, top to bottom, and the top row
- * and the cover share the other.
+ * and the cover share the other. [sideBySide] is the window's (TunePlan.sideBySide), which the bar's sliders go by too.
  */
 @Composable
-private fun TuneScreen(modifier: Modifier, content: @Composable () -> Unit) {
+private fun TuneScreen(modifier: Modifier, sideBySide: Boolean, content: @Composable () -> Unit) {
     Layout(content, modifier) { parts, constraints ->
         val (topRow, coverAndSong, bar) = parts
         val width = constraints.maxWidth
         val height = constraints.maxHeight
-        val sideBySide = TunePlan.sideBySide(width, height)
-        val barWidth = TunePlan.barWidth(width, height)
+        val barWidth = TunePlan.barWidth(width, sideBySide)
         val startWidth = if (sideBySide) width - barWidth else width
         val top = topRow.measure(Constraints(maxWidth = startWidth, maxHeight = height))
         val below = (height - top.height).coerceAtLeast(0)
@@ -401,13 +501,13 @@ private val COVER_SONG_GAP = 12.dp
 /** Above the bar where it has the screen's whole height: the top row's own margin over its buttons. */
 private val BAR_TOP = 8.dp
 
-/** The tuner's arithmetic, in pixels, apart so that LivingBlurTuneTest can hold it to a screen's numbers. */
+/** The tuner's arithmetic, apart so that LivingBlurTuneTest can hold it to a screen's numbers. */
 internal object TunePlan {
-    /** Wider than tall: the cover beside the bar. */
-    fun sideBySide(width: Int, height: Int): Boolean = width > height
+    /** A window wider than tall, a phone on its side: the cover beside the bar, and the bar's sliders side by side. */
+    fun sideBySide(width: Dp, height: Dp): Boolean = width > height
 
     /** The bar's width: the end half side by side, else the whole width. */
-    fun barWidth(width: Int, height: Int): Int = if (sideBySide(width, height)) width / 2 else width
+    fun barWidth(width: Int, sideBySide: Boolean): Int = if (sideBySide) width / 2 else width
 
     /** The cover's side in a room [width] by [height], with [songHeight] of lines [gap] under it: as big as both let it be. */
     fun coverSide(width: Int, height: Int, songHeight: Int, gap: Int): Int = min(width, height - songHeight - gap).coerceAtLeast(0)
@@ -451,4 +551,28 @@ private fun Modifier.pane(pane: Pane, shape: Shape): Modifier {
             },
         )
         .background(pane.tint, shape)
+}
+
+/**
+ * Whether the whole-screen tuner is open. The activity keeps it and draws the tuner over every screen ([LivingTuneHost]);
+ * Look and feel's button opens it. Look and feel kept it before, and turning the phone, which moves Look and feel between a
+ * page of its own and Settings' two panes, made it anew and closed the tuner (his report of 27 Nov 2026). Saved with the
+ * activity, so a change of language or text size, which makes the activity anew, leaves it open too.
+ */
+@Stable
+class LivingTuneDoor {
+    var open by mutableStateOf(false)
+
+    companion object {
+        val Saver: Saver<LivingTuneDoor, Boolean> = Saver(save = { it.open }, restore = { LivingTuneDoor().apply { open = it } })
+    }
+}
+
+/** The activity's [LivingTuneDoor]. Where no activity gives one (a preview) a door of its own, which nothing draws. */
+val LocalLivingTune = staticCompositionLocalOf { LivingTuneDoor() }
+
+/** The tuner while [door] is open, over whatever is on screen. Its own scope, so opening it recomposes nothing else. */
+@Composable
+fun LivingTuneHost(door: LivingTuneDoor) {
+    if (door.open) LivingBlurTune(onClose = { door.open = false })
 }
