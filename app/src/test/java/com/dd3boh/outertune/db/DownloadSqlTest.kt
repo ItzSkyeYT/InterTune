@@ -7,6 +7,7 @@
 package com.dd3boh.outertune.db
 
 import androidx.media3.exoplayer.offline.Download
+import com.dd3boh.outertune.playback.DownloadShown
 import com.dd3boh.outertune.playback.completedDownloadTime
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -101,6 +102,18 @@ class DownloadSqlTest {
             st.executeQuery(DownloadSql.LIKED_SONG_IDS).use { rs -> buildSet { while (rs.next()) add(rs.getString("id")) } }
         }
         assertEquals(setOf("never", "landed"), liked)
+    }
+
+    @Test
+    fun `what the screens show before the folders are listed is the landed downloads`() {
+        // Read as the app reads it, then kept as DownloadShown keeps it: the sentinels are not downloads.
+        val rows = db.createStatement().use { st ->
+            st.executeQuery(DownloadSql.RECORDED).use { rs ->
+                buildList { while (rs.next()) add(rs.getString("id") to Converters().fromTimestamp(rs.getLong("dateDownload"))) }
+            }
+        }
+        assertEquals(setOf("failed", "queued", "landed"), rows.map { it.first }.toSet())
+        assertEquals(mapOf("landed" to LocalDateTime.of(2023, 11, 14, 22, 13, 20)), DownloadShown.recorded(rows))
     }
 
     private companion object {

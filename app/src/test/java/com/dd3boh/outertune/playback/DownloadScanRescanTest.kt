@@ -10,8 +10,10 @@ import com.dd3boh.outertune.playback.downloadManager.unlistedDownloadDirs
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.File
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneOffset
@@ -51,6 +53,89 @@ class DownloadScanRescanTest {
             unlistedRoots = listOf(null)
         )
         assertEquals(setOf("a"), covered)
+    }
+
+    // idsSparedByUnlistedFolders: only a folder whose permission this install holds spares its songs (#278)
+
+    /** This phone's card, picked here. */
+    private val card = "content://com.android.externalstorage.documents/tree/1234-5678%3AMusic%2FInterTune"
+
+    /** The old phone's card, picked there and come with a backup: this phone has no such card and no permission for it. */
+    private val oldCard = "content://com.android.externalstorage.documents/tree/9A1B-2C3D%3AMusic%2FInterTune"
+
+    @Test
+    fun `a folder not listed whose permission is held spares its songs, as a card that is out`() {
+        val spared = idsSparedByUnlistedFolders(
+            mapOf("onCard" to "/storage/1234-5678/Music/InterTune/a.mka", "elsewhere" to "/storage/emulated/0/Music/b.mka"),
+            unlisted = mapOf(card to "/storage/1234-5678/Music/InterTune"),
+            held = listOf(main, card),
+        )
+        assertEquals(setOf("onCard"), spared)
+    }
+
+    @Test
+    fun `a folder from another phone, with no permission here, spares nothing`() {
+        val songs = mapOf(
+            "restored" to "/storage/9A1B-2C3D/Music/InterTune/a.mka",
+            "here" to "/storage/emulated/0/Music/InterTune/b.mka",
+        )
+        // Its card is not on this phone, so its path is not known: as a root, that covered every song.
+        assertEquals(emptySet<String>(), idsSparedByUnlistedFolders(songs, unlisted = mapOf(oldCard to null), held = listOf(main)))
+        assertEquals(
+            emptySet<String>(),
+            idsSparedByUnlistedFolders(songs, unlisted = mapOf(oldCard to "/storage/9A1B-2C3D/Music/InterTune"), held = emptyList()),
+        )
+    }
+
+    @Test
+    fun `with the old phone's folder and this phone's card both not listed, only the card spares`() {
+        val spared = idsSparedByUnlistedFolders(
+            mapOf("restored" to "/storage/9A1B-2C3D/Music/InterTune/a.mka", "onCard" to "/storage/1234-5678/Music/InterTune/b.mka"),
+            unlisted = mapOf(oldCard to null, card to "/storage/1234-5678/Music/InterTune"),
+            held = listOf(card),
+        )
+        assertEquals(setOf("onCard"), spared)
+    }
+
+    @Test
+    fun `a song kept inside the app is never touched by the rule`() {
+        for (held in listOf(listOf(card), emptyList(), null)) {
+            assertEquals(emptySet<String>(), idsSparedByUnlistedFolders(mapOf("inside" to null), mapOf(card to null), held))
+        }
+    }
+
+    @Test
+    fun `permissions that could not be read spare under every folder not listed, as before`() {
+        val songs = mapOf("restored" to "/storage/9A1B-2C3D/Music/InterTune/a.mka", "inside" to null)
+        assertEquals(setOf("restored"), idsSparedByUnlistedFolders(songs, unlisted = mapOf(oldCard to null), held = null))
+    }
+
+    @Test
+    fun `a permission on a tree holds for the folder known by its top document`() {
+        assertTrue(sameFolder(card, "$card/document/1234-5678%3AMusic%2FInterTune"))
+        assertTrue(sameFolder(card, "content://com.android.externalstorage.documents/tree/1234-5678:Music%2FInterTune"))
+    }
+
+    @Test
+    fun `another folder, its parent, another provider or no address is not the same folder`() {
+        assertFalse(sameFolder(card, oldCard))
+        assertFalse(sameFolder(card, "content://com.android.externalstorage.documents/tree/1234-5678%3AMusic"))
+        assertFalse(sameFolder(card, "content://com.example.documents/tree/1234-5678%3AMusic%2FInterTune"))
+        assertFalse(sameFolder(card, "not an address"))
+    }
+
+    @Test
+    fun `both scans spare through the permission check`() {
+        val util = File("src/main/java/com/dd3boh/outertune/playback/DownloadUtil.kt").readText()
+        val rescan = util.substringAfter("private suspend fun rescanDownloadsLocked()").substringBefore("suspend fun scanDownloads()")
+        val scan = util.substringAfter("private suspend fun scanDownloadsLocked()").substringBefore("companion object")
+        for (body in listOf(rescan, scan)) {
+            assertTrue(body.contains("val spared = sparedUnderUnlistedFolders("))
+            assertFalse(body.contains("idsCoveredByUnlistedRoot("))
+        }
+        val helper = util.substringAfter("private fun sparedUnderUnlistedFolders(").substringBefore("private suspend fun rescanDownloadsLocked()")
+        assertTrue(helper.contains("contentResolver.persistedUriPermissions"))
+        assertTrue(helper.contains("idsSparedByUnlistedFolders(idToLocalPath, folders, held)"))
     }
 
     // unlistedDownloadDirs

@@ -143,6 +143,7 @@ import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.playback.PlayerConnection
 import com.dd3boh.outertune.together.RoomCode
 import com.dd3boh.outertune.together.RoomRole
+import com.dd3boh.outertune.together.controlFromOlder
 import com.dd3boh.outertune.together.TogetherSession
 import com.dd3boh.outertune.ui.screens.walkthrough.Tour
 import com.dd3boh.outertune.ui.screens.walkthrough.TourSpot
@@ -536,8 +537,23 @@ private fun RoomPage(room: TogetherSession, song: MediaMetadata?, onLeave: () ->
                     room.takeBack()
                 })
             }
-            RoomRole.GUEST -> RoleLine(R.string.together_role_guest, leaderName, glow = leaderDev)
+            // With control for everyone (RoomSettings.everyoneControls), the guest's line says so: its buttons work for all.
+            RoomRole.GUEST -> RoleLine(
+                if (status.settings?.everyoneControls == true && status.leaderControls) R.string.together_role_guest_controls else R.string.together_role_guest,
+                leaderName,
+                glow = leaderDev,
+            )
             null -> Unit
+        }
+        // The host lets everyone control the music, but the one in control is on an older InterTune, which drops a guest's
+        // moves (Control): this phone listens, and says why (review of 27 Nov 2026).
+        if (controlFromOlder(status)) {
+            Spacer(Modifier.height(8.dp))
+            Text(
+                stringResource(R.string.together_control_older, leaderName),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
         WalkTo(WalkStop.ROLE)
 
@@ -614,27 +630,21 @@ private fun RoomPage(room: TogetherSession, song: MediaMetadata?, onLeave: () ->
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        if (!status.leading && !hostAway) {
+        // Nobody plays for the room (the host away past the wait): said, with Leave below (RoomListen, 26 Nov 2026). Nobody
+        // goes their own way in a room any more, so the guest's music stays the room's until someone plays again.
+        if (!status.leading && status.nobodyPlays) {
+            Spacer(Modifier.height(16.dp))
+            Text(
+                stringResource(R.string.together_nobody_plays),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        } else if (!status.leading && !hostAway) {
             Spacer(Modifier.height(16.dp))
             when {
                 status.waitingForHost -> Waiting()
-                // On its own while this phone casts (GuestCast), without Catch up and Propose, which work on the phone's own
-                // player.
+                // Away from the room while this phone casts (GuestCast): back with it by itself when the cast ends.
                 status.ownWay && status.casting -> CastOwnWay(catchUpAfter = status.catchUpAfterCast)
-                status.ownWay -> OwnWay(
-                    proposed = status.proposed,
-                    // A song from a file on this phone: the leader could never play it.
-                    canPropose = song?.isLocal != true,
-                    to = status.leaderName,
-                    onPropose = {
-                        haptics.performHapticFeedback(HapticFeedbackType.Confirm)
-                        room.propose()
-                    },
-                    onCatchUp = {
-                        haptics.performHapticFeedback(HapticFeedbackType.Confirm)
-                        room.catchUp()
-                    },
-                )
                 status.pausedHere -> PausedHere()
                 // Said with the song, above (SongOnlyThere).
                 status.songOnlyThere -> Unit
@@ -1102,7 +1112,7 @@ private fun SongOnlyThere(song: String?, name: String?) {
     }
 }
 
-/** A follower paused by its listener: the room goes on, and play brings this phone back to it. */
+/** A follower paused by the phone itself (a call, headphones out): the room goes on, and play brings this phone back to it. */
 @Composable
 private fun PausedHere() {
     Text(
@@ -1112,59 +1122,17 @@ private fun PausedHere() {
     )
 }
 
-@Composable
-private fun OwnWay(proposed: Boolean, canPropose: Boolean, to: String?, onPropose: () -> Unit, onCatchUp: () -> Unit) {
-    Column(Modifier.fillMaxWidth()) {
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-            Text(stringResource(R.string.together_own_way), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-            Spacer(Modifier.width(12.dp))
-            FilledTonalButton(onClick = onCatchUp) {
-                Icon(Icons.Rounded.Sync, contentDescription = null, modifier = Modifier.size(ButtonDefaults.IconSize))
-                Spacer(Modifier.width(ButtonDefaults.IconSpacing))
-                Text(stringResource(R.string.together_catch_up))
-            }
-        }
-        // What this phone plays on its own, offered to the one who leads, queue and all (his ask of
-        // 17 Oct 2026). Sent once; another song of its own can be proposed again. Not for a song from a file on this
-        // phone, which no other phone can play (TogetherSession.propose).
-        if (canPropose) {
-            Spacer(Modifier.height(10.dp))
-            OutlinedButton(onClick = onPropose, enabled = !proposed, modifier = Modifier.fillMaxWidth()) {
-                Icon(Icons.AutoMirrored.Rounded.QueueMusic, contentDescription = null, modifier = Modifier.size(ButtonDefaults.IconSize))
-                Spacer(Modifier.width(ButtonDefaults.IconSpacing))
-                // Named for the one in control, [to], who is the one asked: it said "the host" while dvd had control
-                // (22 Nov 2026). Without their name yet, the song alone.
-                Text(
-                    when {
-                        to == null -> stringResource(if (proposed) R.string.together_proposed else R.string.together_propose)
-                        proposed -> stringResource(R.string.together_proposed_to, to)
-                        else -> stringResource(R.string.together_propose_to, to)
-                    },
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-        }
-    }
-}
-
 /**
- * A guest on its own while this phone casts: the own way's line, and for one that stopped following for the cast, that it
- * catches up when the cast ends (his pick of 20 Nov 2026).
+ * A guest away from the room while this phone casts (his pick of 20 Nov 2026): that it is back with the room when the
+ * cast ends.
  */
 @Composable
 private fun CastOwnWay(catchUpAfter: Boolean) {
-    Column(Modifier.fillMaxWidth()) {
-        Text(stringResource(R.string.together_own_way), style = MaterialTheme.typography.bodyMedium)
-        if (catchUpAfter) {
-            Spacer(Modifier.height(6.dp))
-            Text(
-                stringResource(R.string.together_catch_up_after_cast),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-    }
+    Text(
+        stringResource(R.string.together_catch_up_after_cast),
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
 }
 
 /**

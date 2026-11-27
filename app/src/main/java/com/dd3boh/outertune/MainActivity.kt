@@ -212,6 +212,7 @@ import com.dd3boh.outertune.playback.MusicService
 import com.dd3boh.outertune.playback.PlayerConnection
 import com.dd3boh.outertune.search.SystemSearch
 import com.dd3boh.outertune.utils.YouTubeLink
+import com.dd3boh.outertune.ui.dialog.RoomLeaveToPlay
 import com.dd3boh.outertune.ui.dialog.TogetherInviteDialog
 import com.dd3boh.outertune.ui.dialog.TogetherSheet
 import com.dd3boh.outertune.together.InviteAnswer
@@ -1650,6 +1651,8 @@ class MainActivity : ComponentActivity() {
                     }
                     // How rooms work, by itself the first time this phone is in a room, however it got there.
                     RoomTourOnFirstRoom(playerConnection)
+                    // A song started on a phone that only listens in a room: leave to play it, or not (RoomLeaveToPlay).
+                    RoomLeaveToPlay(playerConnection)
                     LaunchedEffect(pendingLaunchLink, pendingLink.link, playerConnection, oobeStatus) {
                         val link = pendingLaunchLink ?: pendingLink.link ?: return@LaunchedEffect
                         // A live one, as for the widget's songs: see PlayerConnection.isAlive.

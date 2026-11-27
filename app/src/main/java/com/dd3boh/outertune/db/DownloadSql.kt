@@ -22,6 +22,13 @@ object DownloadSql {
     /** Run before the map of downloads is read from the database. See DownloadUtil.rescanDownloads. */
     const val CLEAR_SENTINELS = "UPDATE song SET dateDownload = NULL WHERE dateDownload IN (0, 1)"
 
+    /**
+     * The downloads as the database records them, each song's id and date and nothing else: what the
+     * screens show until the download folders have been listed since the start (DownloadShown). The
+     * sentinels an older scan stored are left to DownloadShown.recorded, which keeps landed dates only.
+     */
+    const val RECORDED = "SELECT id, dateDownload FROM song WHERE isLocal = 0 AND dateDownload IS NOT NULL"
+
     /** The Downloaded list as the media browser (Android Auto) gets it. */
     const val DOWNLOADED_BY_DATE = "SELECT * FROM song WHERE isLocal = 0 AND dateDownload IS NOT NULL ORDER BY dateDownload"
 
@@ -37,3 +44,9 @@ object DownloadSql {
      */
     const val LIKED_SONG_IDS = "SELECT id FROM song WHERE liked"
 }
+
+/** A song's download as the database records it, as [DownloadSql.RECORDED] gives it. */
+data class RecordedDownload(
+    val id: String,
+    val dateDownload: java.time.LocalDateTime?,
+)

@@ -109,7 +109,9 @@ class RoomHandOnAnswerTest {
 
     @Test
     fun `Play it plays the guest's song when the player in control holds nothing`() {
-        val accept = body(session, "fun acceptProposal(withQueue: Boolean = false)")
+        // Played by playNow since 26 Nov 2026, which a guest's songs go through too while everyone controls the music.
+        assertTrue("playNow(ProposalLine.toPlay(proposal, withQueue), proposal.positionMs, proposal.receivedAt, proposal.from)" in body(session, "fun acceptProposal(withQueue: Boolean = false)"))
+        val accept = body(session, "private fun playNow(")
         assertTrue(accept, "if (playedBefore) service.enqueueNext(songs.map { it.toMediaItem() })" in accept)
         assertTrue(accept, "else service.playQueue(ListQueue(title = songs.first().title, items = songs), origin = PlayOrigin.EXTERNAL)" in accept)
     }

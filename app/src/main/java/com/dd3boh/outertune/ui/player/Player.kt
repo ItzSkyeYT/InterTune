@@ -272,7 +272,8 @@ import com.dd3boh.outertune.constants.PlayerLiquidGlassKey
 import com.dd3boh.outertune.extensions.metadata
 import com.dd3boh.outertune.extensions.supportsWideScreen
 import com.dd3boh.outertune.extensions.tabMode
-import com.dd3boh.outertune.extensions.toggleRepeatMode
+import androidx.compose.material.icons.automirrored.rounded.VolumeOff
+import androidx.compose.material.icons.automirrored.rounded.VolumeUp
 import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.playback.SavedQueueShown
 import com.dd3boh.outertune.ui.component.BottomSheet
@@ -355,6 +356,10 @@ fun BottomSheetPlayer(
 
     val canSkipPrevious by playerConnection.canSkipPrevious.collectAsState()
     val canSkipNext by playerConnection.canSkipNext.collectAsState()
+    // A guest who listens in a room: the transport shown disabled, the play button a mute (RoomListen, 26 Nov 2026).
+    val roomListens by playerConnection.roomListens.collectAsState()
+    val roomMuteButton by playerConnection.roomMuteButton.collectAsState()
+    val roomMuted by playerConnection.roomMuted.collectAsState()
 
     val qbInit by playerConnection.service.qbInit.collectAsState()
     val swipeToSkip by rememberPreference(SwipeToSkipKey, defaultValue = false)
@@ -1819,7 +1824,8 @@ fun BottomSheetPlayer(
                                         .align(Alignment.Center)
                                         .named(shuffleName(shuffleModeEnabled)),
                                     color = onBackgroundColor,
-                                    enabled = true,
+                                    // Shown disabled while this phone only listens in a room (RoomListen).
+                                    enabled = !orderHeld,
                                     // After a cold start the player holds nothing and shows the saved queue: the
                                     // first tap loads it, as skip and play do, and as the queue's own bar does (#127).
                                     // Read straight from the player, the button stayed greyed out until play.
@@ -1854,6 +1860,7 @@ fun BottomSheetPlayer(
                                 Box(modifier = Modifier.weight(1f)) {
                                     ResizableIconButton(
                                         icon = Icons.Rounded.FastRewind,
+                                        enabled = !roomListens,
                                         modifier = Modifier
                                             .size(transportIconSize)
                                             .align(Alignment.Center)
@@ -1885,8 +1892,15 @@ fun BottomSheetPlayer(
                                     }
                             ) {
                                 Image(
-                                    imageVector = if (playbackState == STATE_ENDED) Icons.Rounded.Replay else if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                                    contentDescription = playPauseName(isPlaying && playbackState != STATE_ENDED),
+                                    // A guest who listens in a room mutes here, in step with the room: the button's place,
+                                    // size and colour stay, only what it shows and does changes (RoomListen).
+                                    imageVector = when {
+                                        roomMuteButton -> if (roomMuted) Icons.AutoMirrored.Rounded.VolumeOff else Icons.AutoMirrored.Rounded.VolumeUp
+                                        playbackState == STATE_ENDED -> Icons.Rounded.Replay
+                                        isPlaying -> Icons.Rounded.Pause
+                                        else -> Icons.Rounded.PlayArrow
+                                    },
+                                    contentDescription = if (roomMuteButton) muteName(roomMuted) else playPauseName(isPlaying && playbackState != STATE_ENDED),
                                     colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.onPrimary),
                                     modifier = Modifier
                                         .align(Alignment.Center)
@@ -1900,6 +1914,7 @@ fun BottomSheetPlayer(
                                 Box(modifier = Modifier.weight(1f)) {
                                     ResizableIconButton(
                                         icon = Icons.Rounded.FastForward,
+                                        enabled = !roomListens,
                                         modifier = Modifier
                                             .size(transportIconSize)
                                             .align(Alignment.Center)
@@ -1945,13 +1960,13 @@ fun BottomSheetPlayer(
                                         .named(repeatName(repeatMode)),
                                     color = onBackgroundColor,
                                     // A setting of the player's: an empty one takes it too, and loading the saved queue
-                                    // leaves it as it is.
-                                    enabled = true,
+                                    // leaves it as it is. Shown disabled while this phone only listens in a room.
+                                    enabled = !orderHeld,
                                     onClick = {
                                         if (orderHeld) return@RepeatButton sayOrderHeld(context, playerConnection)
                                         // Off, all, one, off: only the tap from off turns it on. Into one and back off is the pop.
                                         val feel = repeatFeel(repeatMode)
-                                        playerConnection.player.toggleRepeatMode()
+                                        playerConnection.toggleRepeat()
                                         haptic.felt(feel, HapticFeedbackType.SegmentFrequentTick)
                                     }
                                 )
@@ -2647,7 +2662,7 @@ private fun SeekBar(
     color: Color,
     /** The room under the times, down to the buttons: part of the strip a drag is taken on. */
     below: Dp,
-    /** The listening room this phone is in: a guest's bar may be held, and says when it plays on its own (RoomOnBar.kt). */
+    /** The listening room this phone is in: a guest's bar may be held (RoomOnBar.kt). */
     room: TogetherSession? = null,
 ) {
     val shown = sliderPosition() ?: position()
@@ -2699,6 +2714,8 @@ private fun SeekBar(
         },
         modifier = Modifier
             .padding(horizontal = gutter)
+            // Shown disabled while this phone only listens in a room (RoomListen, 26 Nov 2026): same place and size.
+            .alpha(if (held) HELD_BAR_ALPHA else 1f)
             .onSizeChanged { barBottom = it.height }
             .onPreviewKeyEvent { event ->
                 // Held, left and right move nothing and say why; up and down still move on.
@@ -2724,8 +2741,7 @@ private fun SeekBar(
             overflow = TextOverflow.Ellipsis,
         )
 
-        // A guest on its own in a room: "On your own" and Catch up between the times, no taller than they are.
-        OwnWayOnBar(room, color, Modifier.weight(1f))
+        Spacer(Modifier.weight(1f))
 
         Text(
             text = if (duration != C.TIME_UNSET) makeTimeString(duration) else "",
@@ -2991,3 +3007,6 @@ private fun skipFromArtwork(playerConnection: PlayerConnection, forward: Boolean
 private fun OptionalLongPressLabel(label: String?, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
     if (label.isNullOrBlank()) Box(modifier) { content() } else LongPressLabel(label, modifier, content)
 }
+
+/** How a seek bar held in a room is drawn: as Material draws a disabled control's content. */
+private const val HELD_BAR_ALPHA = 0.38f

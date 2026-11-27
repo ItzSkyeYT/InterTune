@@ -34,7 +34,8 @@ class ControlNamesTest {
     @Test
     fun `the full player names shuffle, previous, play, next, repeat and the heart`() {
         for (name in row) assertTrue("Player.kt has no $name", name in player)
-        assertTrue("contentDescription = playPauseName(isPlaying && playbackState != STATE_ENDED)" in player)
+        // The play button names what a tap does, Mute or Unmute too while a guest only listens in a room (26 Nov 2026).
+        assertTrue("contentDescription = if (roomMuteButton) muteName(roomMuted) else playPauseName(isPlaying && playbackState != STATE_ENDED)," in player)
         // Like can be pinned in each place (issue #27): Classic's circle, the pair by the title, the row under the controls.
         assertEquals("every heart, the round one, the one by the title and the one under the controls", 3, Regex("""contentDescription = likeName\(""").findAll(player).count())
     }
@@ -42,7 +43,10 @@ class ControlNamesTest {
     @Test
     fun `the queue names the same row, and the arrow that opens it`() {
         for (name in row) assertTrue("Queue.kt has no $name", name in queue)
-        assertTrue(".named(playPauseName(isPlaying && playbackState != STATE_ENDED))" in queue)
+        assertTrue("val playName = if (roomMuteButton) muteName(roomMuted) else playPauseName(isPlaying && playbackState != STATE_ENDED)" in queue)
+        assertTrue(".named(playName)" in queue)
+        val names = File("src/main/java/com/dd3boh/outertune/ui/player/ControlNames.kt").readText()
+        assertTrue("stringResource(if (muted) R.string.together_unmute else R.string.together_mute)" in names.substringAfter("internal fun muteName(muted: Boolean): String ="))
         assertTrue("contentDescription = stringResource(R.string.queue)" in queue)
     }
 

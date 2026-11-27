@@ -437,6 +437,15 @@ class DownloadUtil @Inject constructor(
      */
     private val scanTouchedIds = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
 
+    /**
+     * The downloads the database records, shown until the download folders have been listed since
+     * the start: [downloads] is empty until then, and every downloaded song showed the plain
+     * Download arrow, the song the player came back to after the app was closed included (his
+     * report of 27 Nov 2026). For the screens only ([getDownload]): what downloads, plays or is
+     * removed still goes by [downloads] alone.
+     */
+    private val recordedUntilListed = RecordedUntilListed()
+
     var localMgr = DownloadDirectoryManagerOt(
         context,
         context.dataStore.get(DownloadPathKey, "").toUri(),
@@ -455,7 +464,9 @@ class DownloadUtil @Inject constructor(
      */
     private val coverChecks = Dispatchers.IO.limitedParallelism(1)
 
-    fun getDownload(songId: String): Flow<LocalDateTime?> = downloads.map { it[songId] }
+    /** The download of [songId] as the screens show it: see [recordedUntilListed]. */
+    fun getDownload(songId: String): Flow<LocalDateTime?> =
+        combine(downloads, recordedUntilListed.shown) { live, recorded -> DownloadShown.of(songId, live, recorded, scanTouchedIds) }
 
     /** Whether [id] has landed, in the app or in a download folder. A song on its way is not yet. */
     fun isDownloaded(id: String): Boolean = hasLanded(downloads.value[id])
@@ -1699,14 +1710,29 @@ class DownloadUtil @Inject constructor(
     suspend fun rescanDownloads() = scanLock.withLock { rescanDownloadsLocked() }
 
     /**
-     * The paths of the download folders the last full listing could not read, for
-     * idsCoveredByUnlistedRoot. absoluteFilePathFromUri, not fileFromUri: these are tree addresses
-     * with no document part, which fileFromUri throws on from API 30. A saved address that is not
-     * a tree makes even this throw; such a root reads as unknown (null), which spares every song:
-     * the safe side.
+     * The songs, out of [idToLocalPath], under a download folder the last full listing could not
+     * read and whose permission this install holds: left alone by a scan (idsSparedByUnlistedFolders,
+     * #278). Each folder's path comes from absoluteFilePathFromUri, not fileFromUri: these are tree
+     * addresses with no document part, which fileFromUri throws on from API 30. A saved address that
+     * is not a tree makes even this throw; such a root reads as unknown (null), which spares every
+     * song: the safe side, while its permission is held. Permissions that cannot be read spare
+     * under every folder, as before.
      */
-    private fun unlistedDownloadRoots(): List<String?> =
-        localMgr.unlistedDirs.map { runCatching { absoluteFilePathFromUri(context, it) }.getOrNull() }
+    private fun sparedUnderUnlistedFolders(idToLocalPath: Map<String, String?>): Set<String> {
+        val unlisted = localMgr.unlistedDirs
+        if (unlisted.isEmpty()) return emptySet()
+        val held = runCatching { context.contentResolver.persistedUriPermissions.map { it.uri.toString() } }
+            .onFailure { Log.w(TAG, "Could not read the folder permissions: every folder not listed spares its songs", it) }
+            .getOrNull()
+        val folders = unlisted.associate { it.toString() to runCatching { absoluteFilePathFromUri(context, it) }.getOrNull() }
+        val notHeld = held?.let { h -> folders.keys.count { address -> h.none { sameFolder(it, address) } } } ?: 0
+        if (notHeld > 0) Log.i(
+            TAG,
+            "$notHeld of ${folders.size} folders not listed have no permission here, as one from another phone: " +
+                "their songs are looked at as any other's"
+        )
+        return idsSparedByUnlistedFolders(idToLocalPath, folders, held)
+    }
 
     private suspend fun rescanDownloadsLocked() {
         Log.i(TAG, "+rescanDownloads()")
@@ -1719,13 +1745,11 @@ class DownloadUtil @Inject constructor(
         // get missing files not in custom downloads or in internal downloads, remove them
         val missingFiles =
             localMgr.getMissingFiles(dbDownloads.filterNot { it.song.dateDownload == null }).toMutableList()
-        // A folder that could not be listed at all (an SD card not mounted, a grant that is gone)
-        // reads as empty, and every song under it would otherwise look deleted here. Left alone
-        // instead, by the rule the library scanner applies to its own folders.
-        val spared = idsCoveredByUnlistedRoot(
-            dbDownloads.associate { it.song.id to it.song.localPath },
-            unlistedDownloadRoots()
-        )
+        // A folder that could not be listed at all (an SD card not mounted) reads as empty, and
+        // every song under it would otherwise look deleted here. Left alone instead, by the rule the
+        // library scanner applies to its own folders, while this install holds its permission: a
+        // folder from another phone, come with a backup, has none and is never listed (#278).
+        val spared = sparedUnderUnlistedFolders(dbDownloads.associate { it.song.id to it.song.localPath })
         missingFiles.removeIf { it.song.id in spared }
         Log.d(TAG, "Found ${missingFiles.size}/${dbDownloads.size} songs not in custom download directories")
         // Downloads media3 still has queued or running show as downloading. The database records
@@ -1771,6 +1795,10 @@ class DownloadUtil @Inject constructor(
         // removed mid-walk (Clear all downloads included) came back with its old date. Every id
         // the listener or deleteSong touched keeps its live value instead of the snapshot's.
         applyRescanResult(downloads, result, scanTouchedIds)
+        // The map says it all now: the database's record is no longer shown (recordedUntilListed).
+        // Here and not only after the first rescan in init: a scan asked for at the start
+        // (scanDownloads) can take the lock first, and its own rescan is the first listing then.
+        recordedUntilListed.listed()
         isProcessingDownloads.value = false
         Log.i(TAG, "-rescanDownloads()")
     }
@@ -1802,8 +1830,9 @@ class DownloadUtil @Inject constructor(
             // recorded all the same, without one (it threw "Hello darkness my old friend" and lost
             // its download).
             val listed = availableFiles.mapValues { (_, uri) -> runCatching { fileFromUri(context, uri)?.absolutePath }.getOrNull() }
-            // A folder that could not be listed at all reads as empty: its songs are left alone.
-            val spared = idsCoveredByUnlistedRoot(recorded, unlistedDownloadRoots())
+            // A folder that could not be listed at all reads as empty: its songs are left alone, while
+            // this install holds its permission (#278).
+            val spared = sparedUnderUnlistedFolders(recorded)
             // The finished downloads inside the app, as the listener writes them: failed, stopped
             // and queued ones used to be stored as the sentinels 0 and 1, which every downloaded
             // list and count took for downloads. See DownloadSql.
@@ -1897,8 +1926,14 @@ class DownloadUtil @Inject constructor(
         // TODO: make sure db is update when download is queued
         CoroutineScope(dlCoroutine).launch {
             try {
+                // What the database records, shown until the listing below has landed: before, the
+                // screens showed every download as not downloaded for as long (recordedUntilListed).
+                runCatching { recordedUntilListed.offer(DownloadShown.recorded(database.recordedDownloads().map { it.id to it.dateDownload })) }
+                    .onFailure { Log.w(TAG, "Could not read the downloads the database records", it) }
                 rescanDownloads()
             } finally {
+                // Shown from the map alone from now on, whatever happened to the listing.
+                recordedUntilListed.listed()
                 // Open whatever happened: a player waiting on it gives up at once from now on.
                 firstListing.countDown()
             }
@@ -2150,6 +2185,41 @@ fun qualityForDownload(setting: DownloadQuality, playback: AudioQuality, offered
 fun idsCoveredByUnlistedRoot(idToLocalPath: Map<String, String?>, unlistedRoots: List<String?>): Set<String> {
     if (unlistedRoots.isEmpty()) return emptySet()
     return idToLocalPath.filterValues { it != null && ScanMerge.coveredByUnlistedRoot(it, unlistedRoots) }.keys
+}
+
+/**
+ * The ids, out of [idToLocalPath], a scan leaves alone because their folder could not be listed
+ * (idsCoveredByUnlistedRoot), counting only the folders this install holds a permission for.
+ * [unlisted]: each folder the last full listing could not read, its address to its path on the
+ * phone (null when not known, which covers every song); [held]: the addresses of this install's
+ * persisted permissions (contentResolver.persistedUriPermissions), or null when they could not be
+ * read, which counts every folder, as before. A plain function of maps and lists, so it is tested
+ * without a phone.
+ *
+ * A folder picked on this phone keeps its permission while its SD card is out, and its songs wait
+ * for it. One picked on another phone and come with a backup has none here and can never be
+ * listed: spared, its songs stayed downloaded for ever, their files on the old phone's card, and
+ * failed to play offline (#278). They are looked at as any other's now, and read as not
+ * downloaded; no file is touched. A song kept inside the app has no path and is never spared here:
+ * media3's index keeps it, as before.
+ */
+fun idsSparedByUnlistedFolders(idToLocalPath: Map<String, String?>, unlisted: Map<String, String?>, held: List<String>?): Set<String> {
+    val sparing = unlisted.filterKeys { address -> held == null || held.any { sameFolder(it, address) } }
+    return idsCoveredByUnlistedRoot(idToLocalPath, sparing.values.toList())
+}
+
+/**
+ * Whether the addresses [a] and [b] are the same folder: the same text, or the same tree of the
+ * same provider. A permission is held on a tree's address, "content://<provider>/tree/<id>"; a
+ * folder that opened and could not be listed is known by its top document's,
+ * ".../tree/<id>/document/<id>"; and an id can be written "%3A" or ":".
+ */
+fun sameFolder(a: String, b: String): Boolean {
+    if (a == b) return true
+    val treeA = runCatching { FolderNesting.treeDocumentId(a) }.getOrNull() ?: return false
+    val treeB = runCatching { FolderNesting.treeDocumentId(b) }.getOrNull() ?: return false
+    fun provider(address: String) = address.substringAfter("://").substringBefore('/')
+    return treeA == treeB && provider(a) == provider(b)
 }
 
 /**

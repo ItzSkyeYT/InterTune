@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.VolumeOff
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.Sync
 import androidx.compose.material3.MaterialTheme
@@ -388,7 +389,8 @@ fun RoomTourPicture(scene: RoomTourScene, running: Boolean, modifier: Modifier =
             TourSong(scheme.tertiary, lerp(scheme.tertiary, scheme.tertiaryContainer, 0.55f)),
         ),
         // The player's Pause and the room sheet's Catch up, as people see them there.
-        pause = rememberVectorPainter(Icons.Rounded.Pause),
+        // The mute a guest's play button is in a room (RoomListen, 26 Nov 2026), drawn where the Pause sign was.
+        pause = rememberVectorPainter(Icons.AutoMirrored.Rounded.VolumeOff),
         catchUp = rememberVectorPainter(Icons.Rounded.Sync),
     )
     Canvas(
@@ -726,42 +728,33 @@ private fun DrawScope.adding(t: Float, ink: TourInk) {
 }
 
 /**
- * The room's phone on the left, yours on the right, in step with waves between them. You pause: your playhead stops
- * and the room's goes on. You play: yours glides back to the room's. You play another song: your phone turns a little
- * away with its own cover. Catch up: it turns back, with the room's song and the room's place.
+ * The room's phone on the left, yours on the right, in step with waves between them, on the same song at the same place
+ * all along (his word of 26 Nov 2026, Spotify's Jam: guests listen, and nobody goes their own way in a room). Where you
+ * paused before, you mute now: the mute sign comes over your cover and goes, your playhead going on with the room's.
  */
 private fun DrawScope.ownWay(t: Float, ink: TourInk) {
     val width = min(size.height * 0.46f, size.width * 0.2f)
     val middle = Offset(size.width / 2f, size.height / 2f)
     val apart = size.width * 0.2f
     val roomAt = middle.copy(x = middle.x - apart)
-    val away = ownAway(t)
-    val yoursAt = Offset(middle.x + apart + away * 6.dp.toPx(), middle.y + away * 3.dp.toPx())
+    val yoursAt = middle.copy(x = middle.x + apart)
     val u = t.mod(OWN_LOOP)
     val now = ink.songs[ownRoomSong(t)]
     val roomSong = if (t < OWN_LOOP) now else mix(ink.songs[1 - ownRoomSong(t)], now, tourStep(u, 0f, COVER_FADE))
     // Before the first change there is no song before: the first is there from the start, its playhead too.
     val roomShown = if (t < OWN_LOOP) 1f - tourStep(u, OWN_LOOP - DIP_OUT, DIP_OUT) else songShown(u, OWN_LOOP)
-    val yoursShown = min(roomShown, ownJumpShown(t))
     val edge = width / 2f + 4.dp.toPx()
-    waves(roomAt.copy(x = roomAt.x + edge), yoursAt.copy(x = yoursAt.x - edge), t, ink.accent, ownLinked(t))
+    waves(roomAt.copy(x = roomAt.x + edge), yoursAt.copy(x = yoursAt.x - edge), t, ink.accent, 1f)
     phone(roomAt, width, ink, roomSong, screen = 1f, head = ownRoomHead(t), shown = roomShown)
-    // Your own song in the room's other colour: always far from the room's, whatever the theme makes of its colours.
-    val yours = mix(roomSong, ink.songs[1 - ownRoomSong(t)], ownSongMix(t))
-    val pause = ownPauseSign(t)
-    val (catching, turned) = ownCatchSign(t)
+    val mute = ownPauseSign(t)
     phone(
-        yoursAt, width, ink, yours, screen = 1f, head = ownHead(t), shown = yoursShown, turn = 7f * away,
+        yoursAt, width, ink, roomSong, screen = 1f, head = ownRoomHead(t), shown = roomShown,
         sign = { coverAt, side ->
             val centre = Offset(coverAt.x + side / 2f, coverAt.y + side / 2f)
-            // The player's own Pause, and Catch up's own sign going once round, over the cover.
-            if (pause > 0f) {
-                drawCircle(Color.Black.copy(alpha = 0.3f * pause), side * 0.32f, centre)
-                icon(ink.pause, centre, side * 0.4f, pause)
-            }
-            if (catching > 0f) {
-                drawCircle(Color.Black.copy(alpha = 0.3f * catching), side * 0.32f, centre)
-                rotate(360f * turned, centre) { icon(ink.catchUp, centre, side * 0.4f, catching) }
+            // The player's own Mute, over the cover, where Pause was.
+            if (mute > 0f) {
+                drawCircle(Color.Black.copy(alpha = 0.3f * mute), side * 0.32f, centre)
+                icon(ink.pause, centre, side * 0.4f, mute)
             }
         },
     )

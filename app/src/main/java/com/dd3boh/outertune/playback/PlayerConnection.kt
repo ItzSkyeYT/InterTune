@@ -27,14 +27,21 @@ import com.dd3boh.outertune.constants.PlayOrigin
 import com.dd3boh.outertune.constants.PlayingQueueKey
 import com.dd3boh.outertune.db.MusicDatabase
 import com.dd3boh.outertune.db.entities.LyricsEntity.Companion.uninitializedLyric
+import com.dd3boh.outertune.db.entities.Song
 import com.dd3boh.outertune.extensions.currentMetadata
 import com.dd3boh.outertune.extensions.getCurrentQueueIndex
 import com.dd3boh.outertune.extensions.getQueueWindows
 import com.dd3boh.outertune.extensions.metadata
 import com.dd3boh.outertune.extensions.togglePlayPause
 import com.dd3boh.outertune.lyrics.LyricsLookup
+import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.playback.queues.Queue
-import com.dd3boh.outertune.together.RoomSkip
+import com.dd3boh.outertune.extensions.nextRepeatMode
+import com.dd3boh.outertune.together.RoomListen
+import com.dd3boh.outertune.together.RoomPlayNext
+import com.dd3boh.outertune.together.RoomTap
+import com.dd3boh.outertune.together.listensOnly
+import com.dd3boh.outertune.utils.Toaster
 import com.dd3boh.outertune.utils.dataStore
 import com.dd3boh.outertune.utils.get
 import com.dd3boh.outertune.utils.reportException
@@ -90,8 +97,18 @@ class PlayerConnection(
     )
     val waitingForNetworkConnection: StateFlow<Boolean> = service.waitingForNetworkConnection.asStateFlow()
     val mediaMetadata = MutableStateFlow(player.currentMetadata)
+
+    /**
+     * The row of the song the saved queue came back to, read with it (init), until play loads it. The
+     * song on screen was shown from that read, and the database was asked for its row only after it:
+     * on a phone busy starting, the heart stood empty meanwhile over a liked song (his report of
+     * 27 Nov 2026). See RestoredRow.
+     */
+    private val restoredRow = RestoredRow<Song> { it.id }
+
+    /** The song on screen's row: led by the one read with the saved queue while that is the song, then the database's own. */
     val currentSong = mediaMetadata.flatMapLatest {
-        database.song(it?.id)
+        restoredRow.lead(it?.id, database.song(it?.id))
     }
     /** The playing song's lyrics, with the id of the song they are of: the last song's stay up while the next one's are looked up. */
     val currentLyrics: Flow<Pair<String, SemanticLyrics>> = LyricsLookup.bySong(mediaMetadata) { mediaMetadata ->
@@ -122,6 +139,27 @@ class PlayerConnection(
     val canSkipPrevious = MutableStateFlow(true)
     val canSkipNext = MutableStateFlow(true)
 
+    /**
+     * This phone only listens in a listening room (listensOnly, his word of 26 Nov 2026, Spotify's Jam): shuffle, previous,
+     * next, repeat and the seek bar are shown disabled where they are, and the play button is a mute ([roomMuteButton]).
+     */
+    val roomListens = MutableStateFlow(false)
+
+    /** The play button is a mute: this phone listens, and is not paused here by the phone itself (a call, headphones out). */
+    val roomMuteButton = MutableStateFlow(false)
+
+    /** This phone muted in the room: its player plays on in step, silent (MusicService.roomMuted). */
+    val roomMuted: StateFlow<Boolean> get() = service.roomMuted
+
+    /**
+     * A song or a list started on a phone that only listens in a room: asked first, "Leave the room to play this?" (the host
+     * who gave control away: take it back to play this). Null while nothing is asked. [play] leaves (or takes control) and
+     * plays it.
+     */
+    data class LeaveToPlay(val host: Boolean, val play: () -> Unit)
+
+    val leaveToPlay = MutableStateFlow<LeaveToPlay?>(null)
+
     val error = MutableStateFlow<PlaybackException?>(null)
 
     init {
@@ -136,19 +174,30 @@ class PlayerConnection(
         shuffleModeEnabled.value = player.shuffleModeEnabled
         repeatMode.value = player.repeatMode
 
-        // In a listening room Next also hangs on who is in control (roomSkipsOnOwn), which no event of the player's says.
+        // In a listening room the transport hangs on who controls the music (listensOnly), which no event of the player's says.
         scope.launch {
-            service.together.flatMapLatest { room -> room?.status?.map { it.leading } ?: flowOf(null) }
+            service.together.flatMapLatest { room ->
+                room?.status?.map { Triple(listensOnly(it), listensOnly(it) && !it.pausedHere, it.roomShuffle) } ?: flowOf(Triple(false, false, null))
+            }
                 .distinctUntilChanged()
-                .collect { updateCanSkipPreviousAndNext() }
+                .collect { (listens, muteButton, _) ->
+                    roomListens.value = listens
+                    roomMuteButton.value = muteButton
+                    // The room's shuffle on a guest's buttons (RoomListen.shownShuffle).
+                    shuffleModeEnabled.value = shownShuffle()
+                    updateCanSkipPreviousAndNext()
+                }
         }
 
         scope.launch {
             // Only what Play can load: with Persistent queue off the board holds no saved queue,
             // and the rows are the ones saved before the switch went off (SavedQueueShown.song).
-            val resumption = if (SavedQueueShown.song(player.currentMetadata != null, service.dataStore.get(PersistentQueueKey, true))) {
-                database.getResumptionQueue(service.dataStore[PlayingQueueKey])
+            val restored = if (SavedQueueShown.song(player.currentMetadata != null, service.dataStore.get(PersistentQueueKey, true))) {
+                database.getResumption(service.dataStore[PlayingQueueKey])
             } else null
+            val resumption = restored?.queue
+            // Before the song is shown, which asks for its row: see restoredRow.
+            if (player.currentMetadata == null) restoredRow.set(restored?.current)
             mediaMetadata.value = player.currentMetadata ?: resumption?.getCurrentSong()
             if (resumption != null && player.currentMediaItem == null) {
                 restoredPosition.value = resumption.lastSongPos.takeIf { it > 0 }
@@ -167,6 +216,12 @@ class PlayerConnection(
      * The loading is here now, for all of them. setCurrQueue never prepares; the toggle does.
      */
     fun togglePlayPause() {
+        // A guest who listens in a room: the button is a mute, its player in step with the room either way (RoomListen).
+        val room = service.together.value
+        if (room != null && roomMuteButton.value) {
+            room.toggleMute()
+            return
+        }
         loadQueueIfEmpty().togglePlayPause()
     }
 
@@ -216,20 +271,48 @@ class PlayerConnection(
         /** Start radio on a song: in a listening room a whole start, not a song tapped (RoomTap). */
         radioAsked: Boolean = false,
     ) {
-        // On a phone that follows a room, what the listener starts takes it its own way at once (TogetherSession.listenerStarts).
-        service.together.value?.listenerStarts()
-        service.playQueue(
-            queue = queue,
-            shouldResume = shouldResume,
-            replace = replace,
-            title = title,
-            isRadio = isRadio,
-            origin = origin,
-            originSlot = originSlot,
-            tappedAt = tappedAt,
-            discoverRow = discoverRow,
-            radioAsked = radioAsked,
-        )
+        val start = {
+            service.playQueue(
+                queue = queue,
+                shouldResume = shouldResume,
+                replace = replace,
+                title = title,
+                isRadio = isRadio,
+                origin = origin,
+                originSlot = originSlot,
+                tappedAt = tappedAt,
+                discoverRow = discoverRow,
+                radioAsked = radioAsked,
+            )
+        }
+        // On a phone that follows a room (his word of 26 Nov 2026, Spotify's Jam): a guest the host lets control the music
+        // plays it for everyone; any other is asked whether to leave the room to play it, as in a Jam.
+        // Not while this phone casts on its own (GuestCast): its cast plays its own music, as before (review of 27 Nov 2026).
+        val room = service.together.value
+        if (room != null && room.following && !room.status.value.ownWay) {
+            if (room.controls) {
+                scope.launch {
+                    val songs = roomSongsOf(queue, radioAsked)
+                    if (songs.isEmpty()) Toaster.show(service, service.getString(R.string.together_suggested_files))
+                    else room.playForRoom(songs)
+                }
+                return
+            }
+            leaveToPlay.value = LeaveToPlay(host = room.owner) {
+                if (room.owner) room.takeBack() else room.leave()
+                start()
+            }
+            return
+        }
+        start()
+    }
+
+    /** What a start plays, for the room: the song tapped, or the list from its first song, files on this phone left out. */
+    private suspend fun roomSongsOf(queue: Queue, radioAsked: Boolean): List<MediaMetadata> {
+        val songs = RoomTap.songOf(queue, radioAsked)?.let { listOf(it) } ?: runCatching { queue.getInitialStatus() }.getOrNull()
+            ?.let { status -> status.items.drop(status.mediaItemIndex.coerceAtLeast(0)) }
+            .orEmpty()
+        return RoomPlayNext.plan(songs).toRoom
     }
 
     /**
@@ -256,11 +339,8 @@ class PlayerConnection(
      */
     fun enqueueNext(items: List<MediaItem>) {
         // A guest following a room has one Play next: it goes to the room (the person in control puts it next),
-        // as the queue here is only a copy of theirs. A guest on its own way keeps its own.
+        // as the queue here is only a copy of theirs.
         if (toRoom(items, atEnd = false)) return
-        // While nobody plays for the room, its own queue is where they go: said once, before the queue changes
-        // (TogetherSession.addedHere).
-        service.together.value?.addedHere()
         service.enqueueNext(items)
     }
 
@@ -275,7 +355,6 @@ class PlayerConnection(
     fun enqueueEnd(items: List<MediaItem>) {
         // The same for Add to queue: the end of the room's queue, not of this phone's copy.
         if (toRoom(items, atEnd = true)) return
-        service.together.value?.addedHere()
         service.enqueueEnd(items)
     }
 
@@ -284,7 +363,13 @@ class PlayerConnection(
      * out and why. True when it was done here; false for the person in control and a guest on its own way.
      */
     private fun toRoom(items: List<MediaItem>, atEnd: Boolean): Boolean {
+        // Not while this phone casts on its own (GuestCast): its Play next and Add to queue are its own then.
         val room = service.together.value?.takeIf { it.following && !it.status.value.ownWay } ?: return false
+        // Nobody plays for the room (the host away): nothing sent goes anywhere, and the phone's own queue is the room's copy.
+        if (room.status.value.nobodyPlays) {
+            Toaster.show(service, service.getString(R.string.together_nobody_plays_short))
+            return true
+        }
         val plan = com.dd3boh.outertune.together.RoomPlayNext.plan(items.mapNotNull { it.metadata })
         val lines = mutableListOf<String>()
         if (plan.toRoom.isNotEmpty()) {
@@ -324,8 +409,9 @@ class PlayerConnection(
     override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
         if (mediaItem != null) {
             restoredPosition.value = null
+            restoredRow.clear()
             // See onTimelineChanged.
-            shuffleModeEnabled.value = player.shuffleModeEnabled
+            shuffleModeEnabled.value = shownShuffle()
         }
         mediaMetadata.value = mediaItem?.metadata
         currentMediaItemIndex.value = player.currentMediaItemIndex
@@ -336,13 +422,14 @@ class PlayerConnection(
     override fun onTimelineChanged(timeline: Timeline, reason: Int) {
         if (!timeline.isEmpty) {
             restoredPosition.value = null
+            restoredRow.clear()
             // The restored queue's shuffle stood in for the player's while the player was empty
             // (see init), and goes with the position. Playing something else instead of the
             // restored queue leaves the player's own flag as it was, so no change event came to
             // replace the stand-in: shuffle showed on over a queue playing in order, and the
             // first tap turned it on rather than off. Resuming the restored queue does not
             // flicker, because setCurrQueue sets the flag in the same call that loads the songs.
-            shuffleModeEnabled.value = player.shuffleModeEnabled
+            shuffleModeEnabled.value = shownShuffle()
         }
         queueWindows.value = player.getQueueWindows()
         queuePlaylistId.value = service.queuePlaylistId
@@ -355,12 +442,30 @@ class PlayerConnection(
      * Shuffles the queue
      */
     fun triggerShuffle() {
+        // On a phone that follows a room, the room's shuffle: asked of the one in control, or who decides said (MusicService).
+        if (service.roomShuffleAsked()) return
         player.shuffleModeEnabled = !player.shuffleModeEnabled
         updateCanSkipPreviousAndNext()
     }
 
+    /**
+     * The shuffle the buttons show: the room's on a phone that follows one, whose copy of the room's queue is in the room's
+     * order with its own player's shuffle off; the player's own otherwise (RoomListen.shownShuffle, review of 27 Nov 2026).
+     */
+    private fun shownShuffle(): Boolean {
+        val room = service.together.value?.takeIf { it.following && !it.status.value.ownWay }
+        return RoomListen.shownShuffle(follows = room != null, roomShuffle = room?.status?.value?.roomShuffle, playerShuffle = player.shuffleModeEnabled)
+    }
+
+    /** Repeat's next mode, off, all, one: for the room when this phone, a guest, controls the music with everyone. */
+    fun toggleRepeat() {
+        // On a phone that follows a room, the room's repeat, as shuffle (MusicService.roomRepeatAsked).
+        if (service.roomRepeatAsked()) return
+        player.repeatMode = nextRepeatMode(player.repeatMode)
+    }
+
     override fun onShuffleModeEnabledChanged(enabled: Boolean) {
-        shuffleModeEnabled.value = enabled
+        shuffleModeEnabled.value = shownShuffle()
         updateCanSkipPreviousAndNext()
     }
 
@@ -384,38 +489,19 @@ class PlayerConnection(
                     || player.isCommandAvailable(COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM)
             canSkipNext.value = window.isLive() && window.isDynamic
                     || player.isCommandAvailable(COMMAND_SEEK_TO_NEXT_MEDIA_ITEM)
-                    || roomSkipsOnOwn()
+            // A guest who listens in a room: shown disabled where they are (RoomListen).
+            if (roomListens.value) {
+                canSkipPrevious.value = false
+                canSkipNext.value = false
+            }
         } else {
             canSkipPrevious.value = false
             canSkipNext.value = false
         }
     }
 
-    /**
-     * A phone in a listening room that someone else is in control of, with nothing after its song here: Next still takes
-     * it its own way, to a radio of the song (RoomSkip, [skipToNext]).
-     */
-    private fun roomSkipsOnOwn(): Boolean = RoomSkip.onOwn(
-        follows = service.together.value?.following == true,
-        hasNext = player.isCommandAvailable(COMMAND_SEEK_TO_NEXT_MEDIA_ITEM),
-        songId = player.currentMediaItem?.mediaId,
-        local = player.currentMetadata?.isLocal == true,
-    )
-
-    /**
-     * Next, as the app's Next buttons press it, on [player], the saved queue loaded first. On a phone in a listening room
-     * that someone else is in control of, with nothing after its song ([roomSkipsOnOwn]), the phone goes its own way to
-     * the song's radio, from the song after it, as it goes its own way on any skip there, Catch up offered as then.
-     */
+    /** Next, as the app's Next buttons press it, on [player], the saved queue loaded first. */
     fun skipToNext(player: Player = loadQueueIfEmpty()) {
-        val room = service.together.value
-        val song = this.player.currentMetadata
-        if (room != null && song != null && roomSkipsOnOwn()) {
-            // Its own way first, so that the room's next word does not put its queue back while the radio loads.
-            room.skipOnOwn()
-            playQueue(RoomSkip.RadioAfter(song), isRadio = true)
-            return
-        }
         player.seekToNext()
     }
 

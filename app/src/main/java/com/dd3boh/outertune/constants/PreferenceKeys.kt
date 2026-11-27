@@ -851,11 +851,17 @@ val TogetherDelayKey = intPreferencesKey("togetherDelayMs")
 /** Whether a guest sees how close it follows the host: the meter under the room's song. Off unless switched on. */
 val TogetherShowTimingKey = booleanPreferencesKey("togetherShowTiming")
 
-/** A host's room settings (RoomSettings), from its last room: everyone may move in the song. Unset is off. */
+/** Before 26 Nov 2026, a host's room settings: everyone may move in the song. Read only while [TogetherEveryoneControlsKey] is unset. */
 val TogetherEveryoneSeeksKey = booleanPreferencesKey("togetherEveryoneSeeks")
 
-/** A host's room settings (RoomSettings), from its last room: everyone may change the queue. Unset is off. */
+/** Before 26 Nov 2026, a host's room settings: everyone may change the queue. Read only while [TogetherEveryoneControlsKey] is unset. */
 val TogetherEveryoneArrangesKey = booleanPreferencesKey("togetherEveryoneArranges")
+
+/**
+ * A host's room settings (RoomSettings), from its last room: everyone may control the music. Unset: either of the two
+ * switches before it on (RoomSettings.kept), else off.
+ */
+val TogetherEveryoneControlsKey = booleanPreferencesKey("togetherEveryoneControls")
 
 /** Add confident matches to the playlist without being asked. Continuous runs only. */
 val RecogniseAutoAddKey = booleanPreferencesKey("recogniseAutoAdd")

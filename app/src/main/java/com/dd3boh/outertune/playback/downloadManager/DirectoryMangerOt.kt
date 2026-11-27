@@ -698,7 +698,8 @@ enum class FileRemoval(val over: Boolean) {
     /**
      * The file is there and could not be deleted (a permission, a provider that does not delete),
      * or the folder cannot be reached to say whether it is (a card not mounted, a grant that is
-     * gone). The song stays listed, as a scan spares it (unlistedDownloadDirs).
+     * gone). The song stays listed, as a scan spares it while the folder's permission is held
+     * (unlistedDownloadDirs, idsSparedByUnlistedFolders).
      */
     REFUSED(false),
 }

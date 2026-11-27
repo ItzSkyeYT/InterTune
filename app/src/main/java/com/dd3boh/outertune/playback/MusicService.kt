@@ -247,6 +247,10 @@ import com.dd3boh.outertune.playback.ListenReporting.AddressFrom
 import com.dd3boh.outertune.playback.queues.ListQueue
 import com.dd3boh.outertune.playback.queues.Queue
 import com.dd3boh.outertune.playback.queues.YouTubeQueue
+import com.dd3boh.outertune.together.listensOnly
+import com.dd3boh.outertune.together.RoomListen
+import com.dd3boh.outertune.extensions.nextRepeatMode
+import com.dd3boh.outertune.together.orderHeldLine
 import com.dd3boh.outertune.together.RoomTap
 import com.dd3boh.outertune.together.TogetherSession
 import com.dd3boh.outertune.together.RoomCode
@@ -658,8 +662,13 @@ class MusicService : MediaLibraryService(),
 
     /** The room is over, by the person's own hand or because it was closed: it is forgotten, and does not come back. */
     fun stopTogether() {
+        // A room that ends while this phone is muted pauses it, rather than playing the room's song aloud by itself (the
+        // host closed the room, this phone was sent out, the host is gone, the room failed: review of 27 Nov 2026).
+        val wasMuted = roomMuted.value
         together.value?.stop()
         together.value = null
+        if (wasMuted) player.pause()
+        roomMuted.value = false
         roomMemory.forget()
     }
 
@@ -1265,6 +1274,12 @@ class MusicService : MediaLibraryService(),
     val playerVolume = MutableStateFlow(dataStore.get(PlayerVolumeKey, 1f).coerceIn(0f, 1f))
 
     /**
+     * A guest who listens in a room muted its phone (TogetherSession.toggleMute, his word of 26 Nov 2026): the player plays
+     * on in step with the room, its volume 0, so unmuting is where the room is. Off as the room is left (stopTogether).
+     */
+    val roomMuted = MutableStateFlow(false)
+
+    /**
      * Battery use as it stands (BatteryUse), kept by its observer in onCreate. Read at
      * construction, as the head tracking switch is, so the first song is set up knowing it. A flow
      * for the volume, which Saver holds at 100%; the radios and the stream's resolver read its value
@@ -1278,7 +1293,7 @@ class MusicService : MediaLibraryService(),
      * The player's gain line and Mix's stage read this one, so that a blend scales each song as
      * the player would.
      */
-    private val heardVolume: Float get() = BatteryUse.volume(playerVolume.value, batteryMode)
+    private val heardVolume: Float get() = if (roomMuted.value) 0f else BatteryUse.volume(playerVolume.value, batteryMode)
 
     /**
      * Battery use in force from these settings and the phone's battery saver, which runs the app as
@@ -1670,6 +1685,16 @@ class MusicService : MediaLibraryService(),
         // run on this service's scope and end with it.
         val covers = SessionBitmapLoader(this, CoroutineScope(scope.coroutineContext + coilCoroutine))
         val sessionPlayer = SessionPlayer(player)
+        // A pause through the session is the listener's own, a guest's mute when it only listens in a room; the app's own
+        // pauses never go through it (TogetherSession.askedPause, review of 27 Nov 2026).
+        sessionPlayer.onAskedPause = { together.value?.askedPause() == true }
+        sessionPlayer.onAskedPlay = { byHand() }
+        // A guest who only listens in a room: the notification and the lock screen offer no skip or seek (RoomSessionCommands).
+        scope.launch {
+            together.flatMapLatest { room -> room?.status?.map(::listensOnly) ?: flowOf(false) }
+                .distinctUntilChanged()
+                .collect { lockSessionForRoom(it) }
+        }
         covers.sharper = { stored, sharp ->
             scope.launch { sessionPlayer.coverArrived(stored.toUri(), sharp.toUri()) }
         }
@@ -1809,7 +1834,7 @@ class MusicService : MediaLibraryService(),
             combine(
                 // Saver holds the volume at 100%: past it the gain is on the samples, which the
                 // low-power path never sees (BatteryUse.volume).
-                combine(playerVolume, batteryModeNow) { volume, mode -> BatteryUse.volume(volume, mode) },
+                combine(playerVolume, batteryModeNow, roomMuted) { volume, mode, muted -> if (muted) 0f else BatteryUse.volume(volume, mode) },
                 normalizeFactor,
                 sleepTimer.fadeFactor,
                 proximityVolume.factor,
@@ -3564,6 +3589,13 @@ class MusicService : MediaLibraryService(),
             // waiting for it (see deInitQueue); read after it lands, or this reads the rows it is
             // still in the middle of writing and treats a genuine save as if it had never happened.
             pendingQueueSave?.join()
+            // The same for the save of the service before this one in this process (queueSaveUnderWay).
+            queueSaveUnderWay?.takeIf { it.isActive }?.let { save ->
+                Log.i(TAG, "The last service's queue save is still under way: the saved queues are read once it has landed")
+                if (withTimeoutOrNull(LAST_QUEUE_SAVE_WAIT_MS) { save.join() } == null) {
+                    Log.w(TAG, "The last service's queue save was not in after $LAST_QUEUE_SAVE_WAIT_MS ms: the saved queues are read without it")
+                }
+            }
             val persistQueue = dataStore.get(PersistentQueueKey, true)
             val maxQueues = dataStore.get(MaxQueuesKey, 19)
             // The queue playing, by its id: the board's own while it holds one (built again after a
@@ -3718,13 +3750,14 @@ class MusicService : MediaLibraryService(),
                 // Given up when it is not in by then: the place in the queue, if the process
                 // dies before it is.
                 val save = lastingScope.launch { saveQueueToDisk(pos, playerSongId) }
+                queueSaveUnderWay = save
                 if (!save.joinWithin(QUEUE_SAVE_WAIT_MS)) {
                     Log.w(TAG, "The queue save was not in after $QUEUE_SAVE_WAIT_MS ms, teardown goes on without it")
                 }
             } else {
                 pendingQueueSave = scope.launch(Dispatchers.IO) {
                     saveQueueToDisk(pos, playerSongId)
-                }
+                }.also { queueSaveUnderWay = it }
             }
         }
         // do not replace the object. Can lead to entire queue being deleted even though it is supposed to be saved already
@@ -5524,7 +5557,10 @@ class MusicService : MediaLibraryService(),
      * show more. See [MediaControlButtons].
      */
     fun updateNotification() {
-        val buttons = if (inCar) MediaControlButtons.CAR else MediaControlButtons.layout(mediaControlButtons)
+        // Shuffle and repeat are the room's while this phone only listens in one (RoomSessionCommands).
+        val buttons = RoomSessionCommands.buttons(
+            if (inCar) MediaControlButtons.CAR else MediaControlButtons.layout(mediaControlButtons), roomLocksSession,
+        )
         val layout = buttons.map(::mediaControlButton)
         // Each send has media3 post the notification anew and the system draw it again, and this
         // runs on every change to the playing song's row (a play counted, its format found), most
@@ -5534,6 +5570,45 @@ class MusicService : MediaLibraryService(),
         if (layout == sentLayout) return
         sentLayout = layout
         mediaSession.setCustomLayout(layout)
+    }
+
+    /** This phone only listens in a listening room: the session offers no skip, seek, shuffle or repeat (RoomSessionCommands). */
+    var roomLocksSession = false
+        private set
+
+    /** Gives every controller the session's commands as the room has them now, and the notification its buttons. Main thread. */
+    private fun lockSessionForRoom(locked: Boolean) {
+        if (roomLocksSession == locked) return
+        roomLocksSession = locked
+        val session = mediaSession
+        val commands = mediaLibrarySessionCallback.sessionCommands(MediaSession.ConnectionResult.DEFAULT_SESSION_AND_LIBRARY_COMMANDS)
+        val playerCommands = RoomSessionCommands.playerCommands(MediaSession.ConnectionResult.DEFAULT_PLAYER_COMMANDS, locked)
+        session.connectedControllers.forEach { controller ->
+            runCatching { session.setAvailableCommands(controller, commands, playerCommands) }.onFailure { reportException(it) }
+        }
+        updateNotification()
+    }
+
+    /**
+     * Shuffle asked for by the listener (the player's and the queue's buttons, the notification's own) on a phone that
+     * follows a room: the room's (review of 27 Nov 2026). A guest the host lets control the music asks the one in control
+     * for the opposite of the room's shuffle; any other is told who decides. False outside a room, or while this phone
+     * casts on its own: the player's own shuffle then.
+     */
+    fun roomShuffleAsked(): Boolean {
+        val room = together.value?.takeIf { it.following && !it.status.value.ownWay } ?: return false
+        val status = room.status.value
+        if (room.controls) room.askOrder(shuffle = !RoomListen.shownShuffle(follows = true, roomShuffle = status.roomShuffle, playerShuffle = exoPlayer.shuffleModeEnabled))
+        else Toaster.show(this, orderHeldLine(this, status))
+        return true
+    }
+
+    /** Repeat asked for the same way: the room's next mode, off, all, one, asked of the one in control, or who decides said. */
+    fun roomRepeatAsked(): Boolean {
+        val room = together.value?.takeIf { it.following && !it.status.value.ownWay } ?: return false
+        if (room.controls) room.askOrder(repeat = nextRepeatMode(exoPlayer.repeatMode))
+        else Toaster.show(this, orderHeldLine(this, room.status.value))
+        return true
     }
 
     /** The buttons last sent to the session by [updateNotification]. */
@@ -6661,7 +6736,10 @@ class MusicService : MediaLibraryService(),
         // pick, read at that start's own song change only (unpickedStart).
         val startPicked = reason != Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED || unpickedStart == 0L || q?.runId != unpickedStart
         if (!startPicked) unpickedStart = 0L
-        if (Unreleased.ARTIST_BLOCK && mediaItem != null && (!ContentFilter.current.blocked.isEmpty || !ContentFilter.current.dontPlay.isEmpty)) {
+        // Not on a phone that follows a room: the room's song is the room's, and passing it over went to the room as the
+        // guest's Next, or fought the room's next look for it (review of 27 Nov 2026).
+        val inRoom = together.value?.following == true
+        if (Unreleased.ARTIST_BLOCK && !inRoom && mediaItem != null && (!ContentFilter.current.blocked.isEmpty || !ContentFilter.current.dontPlay.isEmpty)) {
             val id = mediaItem.mediaId
             val back = !isCasting && transitionWentBack
             val dontPlay = DontPlaySkip.passes(reason, chosen = chosen, byHand = id in heard.byHand, casting = isCasting, startPicked = startPicked)
@@ -6674,7 +6752,7 @@ class MusicService : MediaLibraryService(),
 
         // Block everywhere: an AI song the player came to by itself is passed over, once this
         // transition has been seen through like any other (AiFilter).
-        if (Unreleased.AI_FILTER && reason == MEDIA_ITEM_TRANSITION_REASON_AUTO && mediaItem != null) {
+        if (Unreleased.AI_FILTER && !inRoom && reason == MEDIA_ITEM_TRANSITION_REASON_AUTO && mediaItem != null) {
             val id = mediaItem.mediaId
             scope.launch {
                 if (activePlayer.currentMediaItem?.mediaId == id) {
@@ -7906,6 +7984,22 @@ class MusicService : MediaLibraryService(),
 
         /** The Mix playlist the debug app's trial queue counts as (see mixTrial). */
         private const val MIX_TRIAL_PLAYLIST = "mix-trial"
+
+        /**
+         * The last queue save a service launched, kept for the process rather than the service: the
+         * next service is made in the same process when the app is opened again soon after it was
+         * closed, and its initQueue read the saved queues while that save could still be writing
+         * them, once onDestroy's wait for it had run out (QUEUE_SAVE_WAIT_MS) on a database slow to
+         * write. The board then held the place, the song and the queue before the close while the
+         * screen, reading later, showed the ones after it: Play went back to the board's, and the
+         * board's next save wrote them over the newer ones (his report of 27 Nov 2026).
+         */
+        @Volatile
+        private var queueSaveUnderWay: kotlinx.coroutines.Job? = null
+
+        /** How long initQueue waits for [queueSaveUnderWay]: a database that never answers is not waited on for ever, and the read after would not answer either. */
+        private const val LAST_QUEUE_SAVE_WAIT_MS = 10_000L
+
         /**
          * Skip silence that only skips silence. media3's defaults count anything under level 1024 (about
          * -30 dBFS) for 100 ms as silence and play it faster, so the quiet start of a piano piece or a fade

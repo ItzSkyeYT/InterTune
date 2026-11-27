@@ -15,6 +15,7 @@ import com.dd3boh.outertune.db.LibrarySql
 import com.dd3boh.outertune.db.LocalFolderDates
 import com.dd3boh.outertune.db.LocalSongFile
 import com.dd3boh.outertune.db.LocalSql
+import com.dd3boh.outertune.db.RecordedDownload
 import com.dd3boh.outertune.db.StatsSql
 import com.dd3boh.outertune.db.entities.PlayCountEntity
 import com.dd3boh.outertune.db.entities.PlayedSong
@@ -413,6 +414,14 @@ interface SongsDao {
     @Transaction
     @Query("SELECT * FROM song WHERE isLocal = 0 AND dateDownload IS NOT NULL")
     fun downloadedOrQueuedSongs(): Flow<List<Song>>
+
+    /**
+     * The downloads as the database records them, read once: shown until the download folders have
+     * been listed since the start (DownloadShown). A plain read rather than a Flow's first value, with
+     * no relations: it is asked as early as the start allows, before the listing.
+     */
+    @Query(DownloadSql.RECORDED)
+    fun recordedDownloads(): List<RecordedDownload>
 
     @Transaction
     @Query("SELECT * FROM song WHERE isLocal = 0 AND dateDownload IS NULL AND localPath IS NULL")

@@ -209,8 +209,8 @@ class WhoAddedTest {
         assertTrue(put.indexOf("songs.forEach { whoAdded.put(it.id, from) }") in 0 until put.indexOf("service.enqueue"))
         assertTrue("putSuggested(listOf(song), message.atEnd, message.by, from)" in session)
         // a proposal said yes to
-        val accept = body(session, "fun acceptProposal(withQueue: Boolean = false)")
-        assertTrue(accept.indexOf("whoAdded.came(proposed, proposal.from") in 0 until accept.indexOf("service.enqueueNext("))
+        val accept = body(session, "private fun playNow(")
+        assertTrue(accept.indexOf("whoAdded.came(proposed, from") in 0 until accept.indexOf("service.enqueueNext("))
         // following: the leader's queue and the leader's song
         val match = body(session, "private fun matchQueue()")
         assertTrue(match.indexOf("whoAdded.came(room.songs, leaderKey") in 0 until match.indexOf("service.playQueue("))
