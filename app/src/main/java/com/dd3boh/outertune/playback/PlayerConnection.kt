@@ -27,6 +27,7 @@ import com.dd3boh.outertune.constants.PlayOrigin
 import com.dd3boh.outertune.constants.PlayingQueueKey
 import com.dd3boh.outertune.db.MusicDatabase
 import com.dd3boh.outertune.db.entities.LyricsEntity.Companion.uninitializedLyric
+import com.dd3boh.outertune.db.entities.Song
 import com.dd3boh.outertune.extensions.currentMetadata
 import com.dd3boh.outertune.extensions.getCurrentQueueIndex
 import com.dd3boh.outertune.extensions.getQueueWindows
@@ -90,8 +91,18 @@ class PlayerConnection(
     )
     val waitingForNetworkConnection: StateFlow<Boolean> = service.waitingForNetworkConnection.asStateFlow()
     val mediaMetadata = MutableStateFlow(player.currentMetadata)
+
+    /**
+     * The row of the song the saved queue came back to, read with it (init), until play loads it. The
+     * song on screen was shown from that read, and the database was asked for its row only after it:
+     * on a phone busy starting, the heart stood empty meanwhile over a liked song (his report of
+     * 27 Nov 2026). See RestoredRow.
+     */
+    private val restoredRow = RestoredRow<Song> { it.id }
+
+    /** The song on screen's row: led by the one read with the saved queue while that is the song, then the database's own. */
     val currentSong = mediaMetadata.flatMapLatest {
-        database.song(it?.id)
+        restoredRow.lead(it?.id, database.song(it?.id))
     }
     /** The playing song's lyrics, with the id of the song they are of: the last song's stay up while the next one's are looked up. */
     val currentLyrics: Flow<Pair<String, SemanticLyrics>> = LyricsLookup.bySong(mediaMetadata) { mediaMetadata ->
@@ -146,9 +157,12 @@ class PlayerConnection(
         scope.launch {
             // Only what Play can load: with Persistent queue off the board holds no saved queue,
             // and the rows are the ones saved before the switch went off (SavedQueueShown.song).
-            val resumption = if (SavedQueueShown.song(player.currentMetadata != null, service.dataStore.get(PersistentQueueKey, true))) {
-                database.getResumptionQueue(service.dataStore[PlayingQueueKey])
+            val restored = if (SavedQueueShown.song(player.currentMetadata != null, service.dataStore.get(PersistentQueueKey, true))) {
+                database.getResumption(service.dataStore[PlayingQueueKey])
             } else null
+            val resumption = restored?.queue
+            // Before the song is shown, which asks for its row: see restoredRow.
+            if (player.currentMetadata == null) restoredRow.set(restored?.current)
             mediaMetadata.value = player.currentMetadata ?: resumption?.getCurrentSong()
             if (resumption != null && player.currentMediaItem == null) {
                 restoredPosition.value = resumption.lastSongPos.takeIf { it > 0 }
@@ -324,6 +338,7 @@ class PlayerConnection(
     override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
         if (mediaItem != null) {
             restoredPosition.value = null
+            restoredRow.clear()
             // See onTimelineChanged.
             shuffleModeEnabled.value = player.shuffleModeEnabled
         }
@@ -336,6 +351,7 @@ class PlayerConnection(
     override fun onTimelineChanged(timeline: Timeline, reason: Int) {
         if (!timeline.isEmpty) {
             restoredPosition.value = null
+            restoredRow.clear()
             // The restored queue's shuffle stood in for the player's while the player was empty
             // (see init), and goes with the position. Playing something else instead of the
             // restored queue leaves the player's own flag as it was, so no change event came to

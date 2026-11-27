@@ -3540,6 +3540,13 @@ class MusicService : MediaLibraryService(),
             // waiting for it (see deInitQueue); read after it lands, or this reads the rows it is
             // still in the middle of writing and treats a genuine save as if it had never happened.
             pendingQueueSave?.join()
+            // The same for the save of the service before this one in this process (queueSaveUnderWay).
+            queueSaveUnderWay?.takeIf { it.isActive }?.let { save ->
+                Log.i(TAG, "The last service's queue save is still under way: the saved queues are read once it has landed")
+                if (withTimeoutOrNull(LAST_QUEUE_SAVE_WAIT_MS) { save.join() } == null) {
+                    Log.w(TAG, "The last service's queue save was not in after $LAST_QUEUE_SAVE_WAIT_MS ms: the saved queues are read without it")
+                }
+            }
             val persistQueue = dataStore.get(PersistentQueueKey, true)
             val maxQueues = dataStore.get(MaxQueuesKey, 19)
             // The queue playing, by its id: the board's own while it holds one (built again after a
@@ -3694,13 +3701,14 @@ class MusicService : MediaLibraryService(),
                 // Given up when it is not in by then: the place in the queue, if the process
                 // dies before it is.
                 val save = lastingScope.launch { saveQueueToDisk(pos, playerSongId) }
+                queueSaveUnderWay = save
                 if (!save.joinWithin(QUEUE_SAVE_WAIT_MS)) {
                     Log.w(TAG, "The queue save was not in after $QUEUE_SAVE_WAIT_MS ms, teardown goes on without it")
                 }
             } else {
                 pendingQueueSave = scope.launch(Dispatchers.IO) {
                     saveQueueToDisk(pos, playerSongId)
-                }
+                }.also { queueSaveUnderWay = it }
             }
         }
         // do not replace the object. Can lead to entire queue being deleted even though it is supposed to be saved already
@@ -7861,6 +7869,22 @@ class MusicService : MediaLibraryService(),
 
         /** The Mix playlist the debug app's trial queue counts as (see mixTrial). */
         private const val MIX_TRIAL_PLAYLIST = "mix-trial"
+
+        /**
+         * The last queue save a service launched, kept for the process rather than the service: the
+         * next service is made in the same process when the app is opened again soon after it was
+         * closed, and its initQueue read the saved queues while that save could still be writing
+         * them, once onDestroy's wait for it had run out (QUEUE_SAVE_WAIT_MS) on a database slow to
+         * write. The board then held the place, the song and the queue before the close while the
+         * screen, reading later, showed the ones after it: Play went back to the board's, and the
+         * board's next save wrote them over the newer ones (his report of 27 Nov 2026).
+         */
+        @Volatile
+        private var queueSaveUnderWay: kotlinx.coroutines.Job? = null
+
+        /** How long initQueue waits for [queueSaveUnderWay]: a database that never answers is not waited on for ever, and the read after would not answer either. */
+        private const val LAST_QUEUE_SAVE_WAIT_MS = 10_000L
+
         /**
          * Skip silence that only skips silence. media3's defaults count anything under level 1024 (about
          * -30 dBFS) for 100 ms as silence and play it faster, so the quiet start of a piano piece or a fade

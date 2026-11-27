@@ -437,6 +437,15 @@ class DownloadUtil @Inject constructor(
      */
     private val scanTouchedIds = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
 
+    /**
+     * The downloads the database records, shown until the download folders have been listed since
+     * the start: [downloads] is empty until then, and every downloaded song showed the plain
+     * Download arrow, the song the player came back to after the app was closed included (his
+     * report of 27 Nov 2026). For the screens only ([getDownload]): what downloads, plays or is
+     * removed still goes by [downloads] alone.
+     */
+    private val recordedUntilListed = RecordedUntilListed()
+
     var localMgr = DownloadDirectoryManagerOt(
         context,
         context.dataStore.get(DownloadPathKey, "").toUri(),
@@ -455,7 +464,9 @@ class DownloadUtil @Inject constructor(
      */
     private val coverChecks = Dispatchers.IO.limitedParallelism(1)
 
-    fun getDownload(songId: String): Flow<LocalDateTime?> = downloads.map { it[songId] }
+    /** The download of [songId] as the screens show it: see [recordedUntilListed]. */
+    fun getDownload(songId: String): Flow<LocalDateTime?> =
+        combine(downloads, recordedUntilListed.shown) { live, recorded -> DownloadShown.of(songId, live, recorded, scanTouchedIds) }
 
     /** Whether [id] has landed, in the app or in a download folder. A song on its way is not yet. */
     fun isDownloaded(id: String): Boolean = hasLanded(downloads.value[id])
@@ -1771,6 +1782,10 @@ class DownloadUtil @Inject constructor(
         // removed mid-walk (Clear all downloads included) came back with its old date. Every id
         // the listener or deleteSong touched keeps its live value instead of the snapshot's.
         applyRescanResult(downloads, result, scanTouchedIds)
+        // The map says it all now: the database's record is no longer shown (recordedUntilListed).
+        // Here and not only after the first rescan in init: a scan asked for at the start
+        // (scanDownloads) can take the lock first, and its own rescan is the first listing then.
+        recordedUntilListed.listed()
         isProcessingDownloads.value = false
         Log.i(TAG, "-rescanDownloads()")
     }
@@ -1897,8 +1912,14 @@ class DownloadUtil @Inject constructor(
         // TODO: make sure db is update when download is queued
         CoroutineScope(dlCoroutine).launch {
             try {
+                // What the database records, shown until the listing below has landed: before, the
+                // screens showed every download as not downloaded for as long (recordedUntilListed).
+                runCatching { recordedUntilListed.offer(DownloadShown.recorded(database.recordedDownloads().map { it.id to it.dateDownload })) }
+                    .onFailure { Log.w(TAG, "Could not read the downloads the database records", it) }
                 rescanDownloads()
             } finally {
+                // Shown from the map alone from now on, whatever happened to the listing.
+                recordedUntilListed.listed()
                 // Open whatever happened: a player waiting on it gives up at once from now on.
                 firstListing.countDown()
             }

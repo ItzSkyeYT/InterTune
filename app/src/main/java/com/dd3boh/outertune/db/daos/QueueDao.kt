@@ -9,6 +9,7 @@ import androidx.room.Transaction
 import androidx.room.Update
 import com.dd3boh.outertune.db.entities.QueueEntity
 import com.dd3boh.outertune.db.entities.QueueSong
+import com.dd3boh.outertune.db.entities.Song
 import com.dd3boh.outertune.db.entities.QueueSongMap
 import com.dd3boh.outertune.models.MultiQueueObject
 import com.dd3boh.outertune.models.toMediaMetadata
@@ -27,6 +28,12 @@ internal fun closeShuffleGaps(songs: MutableList<MediaMetadata>): MutableList<Me
     songs.sortedBy { it.shuffleIndex }.forEachIndexed { i, song -> song.shuffleIndex = i }
     return songs
 }
+
+/**
+ * The saved queue a resume plays and the row of the song it is on, read together (QueueDao.getResumption).
+ * [current] is null when the place names no row of the list.
+ */
+class Resumption(val queue: MultiQueueObject, val current: Song?)
 
 /**
  * Where the queue playing stands among [ids], the queues in the order the list of queues shows
@@ -89,14 +96,21 @@ interface QueueDao {
      * The saved queue a resume plays: the queue playing, [playingId] (PlayingQueueKey), or the last
      * one when none has that id (playingQueueAt). Null when there is no queue, or it has no songs.
      */
-    suspend fun getResumptionQueue(playingId: Long?): MultiQueueObject? {
+    suspend fun getResumptionQueue(playingId: Long?): MultiQueueObject? = getResumption(playingId)?.queue
+
+    /**
+     * [getResumptionQueue], with the row of the song the queue is on as it was read with it: the
+     * screens show that song until play (PlayerConnection), and its row says at once whether it is
+     * liked and downloaded.
+     */
+    suspend fun getResumption(playingId: Long?): Resumption? {
         val queues = getAllQueues().first()
         if (queues.isEmpty()) return null
         val q = queues[playingQueueAt(queues.map { it.id }, playingId)]
         val shuffledSongs = getQueueSongs(q.id).first()
         if (shuffledSongs.isEmpty()) return null
 
-        return MultiQueueObject(
+        val queue = MultiQueueObject(
             id = q.id,
             title = q.title,
             queue = closeShuffleGaps(shuffledSongs.map {
@@ -114,6 +128,10 @@ interface QueueDao {
             index = q.index,
             playlistId = q.playlistId
         )
+        // The list is the rows in their order, so the song at the queue's place is that row. Asked
+        // after getCurrentSong, which first puts a place that names no song back on the first one.
+        val current = queue.getCurrentSong()
+        return Resumption(queue, shuffledSongs.getOrNull(queue.queuePos)?.song?.takeIf { it.id == current?.id })
     }
     // endregion
 

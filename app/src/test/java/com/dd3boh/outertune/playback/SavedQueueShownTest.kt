@@ -47,9 +47,10 @@ class SavedQueueShownTest {
     fun `the connection asks before it reads the saved queue`() {
         val init = connection.substringAfter("init {").substringBefore("fun togglePlayPause()")
         val asked = init.indexOf("SavedQueueShown.song(player.currentMetadata != null, service.dataStore.get(PersistentQueueKey, true))")
-        val read = init.indexOf("database.getResumptionQueue(")
+        // The saved queue and the row of its song, read together (RestoredSongShownTest).
+        val read = init.indexOf("database.getResumption(")
         assertTrue("the saved queue is read without asking whether it is shown", asked in 0 until read)
-        assertTrue("one read of the saved queue", init.indexOf("database.getResumptionQueue(", read + 1) < 0)
+        assertTrue("one read of the saved queue", init.indexOf("database.getResumption", read + 1) < 0)
     }
 
     @Test

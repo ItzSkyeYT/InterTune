@@ -191,8 +191,9 @@ class QueueResumeTest {
     @Test
     fun `every resume reads the saved queue by the noted id`() {
         val calls = sources.walkTopDown().filter { it.extension == "kt" }
-            .flatMap { file -> Regex("""getResumptionQueue\(([^)]*)\)""").findAll(file.readText()).map { file.name to it.groupValues[1] } }
-            .filter { (_, args) -> !args.startsWith("playingId:") }
+            .flatMap { file -> Regex("""getResumption(?:Queue)?\(([^)]*)\)""").findAll(file.readText()).map { file.name to it.groupValues[1] } }
+            // Not the definitions, nor the one handing its id on to the other (QueueDao).
+            .filter { (_, args) -> !args.startsWith("playingId") }
             .toList()
         // The mini player, the headset's button, and the car's three.
         assertEquals(calls.toString(), 5, calls.size)
