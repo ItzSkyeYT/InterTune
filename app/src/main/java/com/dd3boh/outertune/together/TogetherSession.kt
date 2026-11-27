@@ -138,6 +138,10 @@ class TogetherSession(
         val settings: RoomSettings? = null,
         /** The person in control takes a guest's change to the queue (Arrange): its Here says so, a build before this one's does not. */
         val leaderArranges: Boolean = false,
+        /** The person in control takes a guest's moves (Control): its Here says so since 27 Nov 2026, an older build's does not. */
+        val leaderControls: Boolean = false,
+        /** The room's shuffle as the person in control last said it (Queue): what a guest's shuffle button shows (RoomListen). */
+        val roomShuffle: Boolean? = null,
         /** The leader's last song from someone else, "title, by whom". */
         val lastSuggestion: String? = null,
         /** The others heard in the room lately, the owner first. */
@@ -422,7 +426,7 @@ class TogetherSession(
         // music from this player and giving it back (MusicService.handOverTo, takeBack), which are never the listener's.
         // A command given by hand is the listener's at once, the session's window or not (byHand).
         override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
-            if (!leading && !service.castOn) listenerPlayed(playWhenReady, reason)
+            if (!leading && !service.castOn) listenerPlayed(playWhenReady)
             wake.trySend(Unit)
         }
 
@@ -712,6 +716,7 @@ class TogetherSession(
         handOn.handing?.let(::handOnWord) ?: TogetherMessage.Here(
             name, owner, lead = if (owner) leaderKey else null, leadSince = if (owner) leadGivenAt else null,
             settings = if (owner) _status.value.settings else null, arranges = true, dev = devProof, takesRoom = true,
+            controls = true,
         )
     )
 
@@ -1026,6 +1031,8 @@ class TogetherSession(
             }
             // Whether this phone, given control, takes a guest's change to the queue (Arrange): an older build drops it.
             if (message.arranges) arrangers += from else arrangers -= from
+            // And a guest's moves while the host lets everyone control the music (Control): a build before 27 Nov drops them.
+            if (message.controls) controllers += from else controllers -= from
         }
         said.keys.retainAll(heard.keys)
         handOn.keep(heard.keys)
@@ -1076,6 +1083,7 @@ class TogetherSession(
                 if (leaderKey == null) lead(from)
                 if (from == leaderKey) {
                     roomQueue = message
+                    if (_status.value.roomShuffle != message.shuffle) _status.value = _status.value.copy(roomShuffle = message.shuffle)
                     // A song that waits for this queue (toLeadersSong) is taken at once, not at the
                     // next look, two seconds away in a paused room.
                     wake.trySend(Unit)
@@ -1233,6 +1241,7 @@ class TogetherSession(
             leading = leading,
             leaderName = leaderKey?.takeIf { it != me }?.let { said[it]?.first }?.ifBlank { null },
             leaderArranges = leaderKey.let { it != null && (it == me || it in arrangers) },
+            leaderControls = leaderKey.let { it != null && (it == me || it in controllers) },
             leaveChoice = leaveChoice(),
         )
     }
@@ -1255,6 +1264,12 @@ class TogetherSession(
 
     /** Who said in their Here that, given control, they take a guest's change to the queue (Arrange). */
     private val arrangers = mutableSetOf<String>()
+
+    /** Who said in their Here that, given control, they take a guest's moves (Control): see [guestControls]. */
+    private val controllers = mutableSetOf<String>()
+
+    /** The order a guest's moves are taken in, by when the guest made them: see [ControlOrder]. */
+    private val controlOrder = ControlOrder()
 
     /**
      * A guest that may change the room's queue ([guestArranges]) moved [songId] in its own copy, to come right after
@@ -1408,6 +1423,7 @@ class TogetherSession(
     private fun handOnWord(handing: RoomHandOn.Handing) = TogetherMessage.Here(
         name, owner = true, lead = handing.to, leadSince = handing.since,
         settings = _status.value.settings, arranges = true, dev = devProof, takesRoom = true, host = handing.to,
+        controls = true,
     )
 
     /** Says the word again while this phone hands the room on, and passes over a phone that does not take it: see [handTo]. */
@@ -1807,7 +1823,9 @@ class TogetherSession(
         if (!pressed && System.currentTimeMillis() < ownCommandUntil) return
         if (ownWay || lastState == null) return
         val player = service.exoPlayer
-        if (guestControls(_status.value)) {
+        // Only what the listener asked for goes to the room, never the app's own move (a song its content filter passes
+        // over, one gone from YouTube): review of 27 Nov 2026.
+        if (pressed && guestControls(_status.value)) {
             val song = player.currentMediaItem?.mediaId ?: return
             val to = leaderKey ?: return
             askRoom(TogetherMessage.Control(to, songId = song, positionMs = player.currentPosition.coerceAtLeast(0))) { it.songId == song }
@@ -1825,8 +1843,7 @@ class TogetherSession(
      * in control, for everyone. A guest who listens has its seeks held before this (seekHeldHere).
      */
     private fun movedInSong(positionMs: Long) {
-        if (!handTurn && System.currentTimeMillis() < ownCommandUntil) return
-        if (ownWay || lastState == null || !guestControls(_status.value)) return
+        if (!handTurn || ownWay || lastState == null || !guestControls(_status.value)) return
         val song = service.exoPlayer.currentMediaItem?.mediaId ?: return
         val to = leaderKey ?: return
         askRoom(TogetherMessage.Control(to, songId = song, positionMs = positionMs.coerceAtLeast(0))) { state ->
@@ -1841,7 +1858,7 @@ class TogetherSession(
      * would otherwise put it back for a moment, and the guest hear its own skip undone and done again.
      */
     private fun askRoom(message: TogetherMessage.Control, answered: (TogetherMessage.State) -> Boolean) {
-        send(message)
+        send(message.copy(at = System.currentTimeMillis()))
         asked = answered
         askedUntil = System.currentTimeMillis() + ASK_HOLD_MS
         lock.reset()
@@ -1907,7 +1924,7 @@ class TogetherSession(
     fun askOrder(shuffle: Boolean? = null, repeat: Int? = null) {
         if (!guestControls(_status.value)) return
         val to = leaderKey ?: return
-        send(TogetherMessage.Control(to, shuffle = shuffle, repeat = repeat))
+        send(TogetherMessage.Control(to, shuffle = shuffle, repeat = repeat, at = System.currentTimeMillis()))
         Log.i(TAG, "Asked the one in control for shuffle $shuffle, repeat $repeat")
     }
 
@@ -1917,6 +1934,10 @@ class TogetherSession(
      */
     private fun controlled(message: TogetherMessage.Control, from: String) {
         if (from in sentOut) return
+        if (!controlOrder.take(from, message.at)) {
+            Log.i(TAG, "${from.take(8)}'s older move came late: left")
+            return
+        }
         val player = service.exoPlayer
         message.shuffle?.let { if (player.shuffleModeEnabled != it) player.shuffleModeEnabled = it }
         message.repeat?.let { if (player.repeatMode != it) player.repeatMode = it }
@@ -1945,40 +1966,54 @@ class TogetherSession(
     }
 
     /**
-     * A pause or a play on a follower ([reason], the player's). By its listener (the notification, a headset, a watch: the
-     * screens' button is a mute already, PlayerConnection.togglePlayPause), a pause is a mute (his word of 26 Nov 2026,
-     * after Ti-Die: "you can still stop music without actually pausing"): its player plays on, in step and silent. A guest
-     * the host lets control the music pauses or plays the room ([askRoom]). Paused by the phone itself while the room plays
-     * (a call, headphones out, another app's music), it is paused here: Play takes it to where the room is ([PauseHere]).
+     * A pause or a play on a follower. The listener's own, by hand (the screens through PlayerConnection, the media
+     * session through SessionPlayer: [byHand]), with control for everyone: the room plays or pauses ([askRoom]). A
+     * guest who listens never gets here with a pause of its own: the screens' button and the session's pause are a mute
+     * before it reaches the player (togglePlayPause, [askedPause]). Any other pause, the app's or the phone's (a swipe
+     * from recents, the mini player swiped away, Recognise, a stall, an error, the sleep timer, a call, headphones out),
+     * is a pause here while the room plays on: Play takes it to where the room is ([PauseHere]), and a Play of the
+     * listener's own takes the mute with it (RoomListen.playUnmutes, review of 27 Nov 2026).
      */
-    private fun listenerPlayed(playWhenReady: Boolean, reason: Int) {
+    private fun listenerPlayed(playWhenReady: Boolean) {
         val room = lastState ?: return
         if (ownWay) return
         // The room's song is one from the files of the one in control, which nothing here can play (holdForPhoneSong): a
         // pause or a play here changes nothing of the room's.
         if (fromThisPhone(null, room.songId)) return
-        val byListener = reason == Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST
-        if (byListener && !pausedHere && playWhenReady != room.playing) {
+        if (handTurn && !pausedHere && playWhenReady != room.playing) {
             if (guestControls(_status.value)) {
                 val to = leaderKey ?: return
                 askRoom(TogetherMessage.Control(to, playing = playWhenReady)) { it.playing == playWhenReady }
                 Log.i(TAG, if (playWhenReady) "Play asked of the one in control" else "Pause asked of the one in control")
                 return
             }
-            if (!playWhenReady) {
-                mine()
-                service.exoPlayer.playWhenReady = true
-                toggleMute()
-                return
-            }
             // A play while the room is paused: the next look pauses it again, with the room.
-            sayHeld()
+            if (playWhenReady) sayHeld()
         }
+        val was = pausedHere
         pausedHere = PauseHere.after(pausedHere, playWhenReady, room.playing) ?: return
+        if (RoomListen.playUnmutes(was, pausedHere, byHand = handTurn, muted = muted)) {
+            muted = false
+            Log.i(TAG, "Played again by hand after a pause here: the mute goes with it")
+        }
         lock.reset()
         if (pausedHere) ownSpeed()
         _status.value = _status.value.copy(pausedHere = pausedHere, driftMs = null, locked = false)
-        Log.i(TAG, if (pausedHere) "Paused here by the phone; the room plays on" else "Playing again: back to where the leader is")
+        Log.i(TAG, if (pausedHere) "Paused here; the room plays on" else "Playing again: back to where the leader is")
+    }
+
+    /**
+     * A pause asked through the media session (SessionPlayer.pause: the notification, a headset, a watch, a car), before
+     * it reaches the player. A guest who listens mutes in its place, its player playing on in step (RoomListen.pauseMutes):
+     * true, the pause goes no further. Anyone else pauses as asked, by hand ([byHand]): false.
+     */
+    fun askedPause(): Boolean {
+        if (!leading && !service.castOn && RoomListen.pauseMutes(listensOnly(_status.value), lastState?.playing, pausedHere)) {
+            toggleMute()
+            return true
+        }
+        byHand()
+        return false
     }
 
     /** At each look: whether nobody plays for the room ([nobodyPlays]), said in the status, and the mute where it has no button. */
@@ -2060,7 +2095,7 @@ class TogetherSession(
         if (_status.value.songUnavailable && refusal.refusedId == null) _status.value = _status.value.copy(songUnavailable = false)
         if (dataWait.songIs(state.songId) || (_status.value.tooSlow && !dataWait.tooSlow)) _status.value = _status.value.copy(tooSlow = false)
         // Marked paused here while its player plays: the play was missed, and it is back with the room.
-        if (pausedHere && player.playWhenReady) listenerPlayed(true, Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST)
+        if (pausedHere && player.playWhenReady) listenerPlayed(true)
         // A move of this guest's asked of the one in control (askRoom): its player stays as the guest left it until the
         // room's word says it is made, or for ASK_HOLD_MS, so that the room's older word does not undo it meanwhile.
         asked?.let { answered ->

@@ -244,6 +244,9 @@ import com.dd3boh.outertune.playback.queues.ListQueue
 import com.dd3boh.outertune.playback.queues.Queue
 import com.dd3boh.outertune.playback.queues.YouTubeQueue
 import com.dd3boh.outertune.together.listensOnly
+import com.dd3boh.outertune.together.RoomListen
+import com.dd3boh.outertune.extensions.nextRepeatMode
+import com.dd3boh.outertune.together.orderHeldLine
 import com.dd3boh.outertune.together.RoomTap
 import com.dd3boh.outertune.together.TogetherSession
 import com.dd3boh.outertune.together.RoomCode
@@ -653,8 +656,12 @@ class MusicService : MediaLibraryService(),
 
     /** The room is over, by the person's own hand or because it was closed: it is forgotten, and does not come back. */
     fun stopTogether() {
+        // A room that ends while this phone is muted pauses it, rather than playing the room's song aloud by itself (the
+        // host closed the room, this phone was sent out, the host is gone, the room failed: review of 27 Nov 2026).
+        val wasMuted = roomMuted.value
         together.value?.stop()
         together.value = null
+        if (wasMuted) player.pause()
         roomMuted.value = false
         roomMemory.forget()
     }
@@ -1664,11 +1671,15 @@ class MusicService : MediaLibraryService(),
         // run on this service's scope and end with it.
         val covers = SessionBitmapLoader(this, CoroutineScope(scope.coroutineContext + coilCoroutine))
         val sessionPlayer = SessionPlayer(player)
-        // A guest who only listens in a room: the notification and the lock screen offer no skip or seek (SessionPlayer).
+        // A pause through the session is the listener's own, a guest's mute when it only listens in a room; the app's own
+        // pauses never go through it (TogetherSession.askedPause, review of 27 Nov 2026).
+        sessionPlayer.onAskedPause = { together.value?.askedPause() == true }
+        sessionPlayer.onAskedPlay = { byHand() }
+        // A guest who only listens in a room: the notification and the lock screen offer no skip or seek (RoomSessionCommands).
         scope.launch {
             together.flatMapLatest { room -> room?.status?.map(::listensOnly) ?: flowOf(false) }
                 .distinctUntilChanged()
-                .collect { sessionPlayer.roomLocked = it }
+                .collect { lockSessionForRoom(it) }
         }
         covers.sharper = { stored, sharp ->
             scope.launch { sessionPlayer.coverArrived(stored.toUri(), sharp.toUri()) }
@@ -5501,7 +5512,10 @@ class MusicService : MediaLibraryService(),
      * show more. See [MediaControlButtons].
      */
     fun updateNotification() {
-        val buttons = if (inCar) MediaControlButtons.CAR else MediaControlButtons.layout(mediaControlButtons)
+        // Shuffle and repeat are the room's while this phone only listens in one (RoomSessionCommands).
+        val buttons = RoomSessionCommands.buttons(
+            if (inCar) MediaControlButtons.CAR else MediaControlButtons.layout(mediaControlButtons), roomLocksSession,
+        )
         val layout = buttons.map(::mediaControlButton)
         // Each send has media3 post the notification anew and the system draw it again, and this
         // runs on every change to the playing song's row (a play counted, its format found), most
@@ -5511,6 +5525,45 @@ class MusicService : MediaLibraryService(),
         if (layout == sentLayout) return
         sentLayout = layout
         mediaSession.setCustomLayout(layout)
+    }
+
+    /** This phone only listens in a listening room: the session offers no skip, seek, shuffle or repeat (RoomSessionCommands). */
+    var roomLocksSession = false
+        private set
+
+    /** Gives every controller the session's commands as the room has them now, and the notification its buttons. Main thread. */
+    private fun lockSessionForRoom(locked: Boolean) {
+        if (roomLocksSession == locked) return
+        roomLocksSession = locked
+        val session = mediaSession
+        val commands = mediaLibrarySessionCallback.sessionCommands(MediaSession.ConnectionResult.DEFAULT_SESSION_AND_LIBRARY_COMMANDS)
+        val playerCommands = RoomSessionCommands.playerCommands(MediaSession.ConnectionResult.DEFAULT_PLAYER_COMMANDS, locked)
+        session.connectedControllers.forEach { controller ->
+            runCatching { session.setAvailableCommands(controller, commands, playerCommands) }.onFailure { reportException(it) }
+        }
+        updateNotification()
+    }
+
+    /**
+     * Shuffle asked for by the listener (the player's and the queue's buttons, the notification's own) on a phone that
+     * follows a room: the room's (review of 27 Nov 2026). A guest the host lets control the music asks the one in control
+     * for the opposite of the room's shuffle; any other is told who decides. False outside a room, or while this phone
+     * casts on its own: the player's own shuffle then.
+     */
+    fun roomShuffleAsked(): Boolean {
+        val room = together.value?.takeIf { it.following && !it.status.value.ownWay } ?: return false
+        val status = room.status.value
+        if (room.controls) room.askOrder(shuffle = !RoomListen.shownShuffle(follows = true, roomShuffle = status.roomShuffle, playerShuffle = exoPlayer.shuffleModeEnabled))
+        else Toaster.show(this, orderHeldLine(this, status))
+        return true
+    }
+
+    /** Repeat asked for the same way: the room's next mode, off, all, one, asked of the one in control, or who decides said. */
+    fun roomRepeatAsked(): Boolean {
+        val room = together.value?.takeIf { it.following && !it.status.value.ownWay } ?: return false
+        if (room.controls) room.askOrder(repeat = nextRepeatMode(exoPlayer.repeatMode))
+        else Toaster.show(this, orderHeldLine(this, room.status.value))
+        return true
     }
 
     /** The buttons last sent to the session by [updateNotification]. */
@@ -6630,7 +6683,10 @@ class MusicService : MediaLibraryService(),
         // pick, read at that start's own song change only (unpickedStart).
         val startPicked = reason != Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED || unpickedStart == 0L || q?.runId != unpickedStart
         if (!startPicked) unpickedStart = 0L
-        if (Unreleased.ARTIST_BLOCK && mediaItem != null && (!ContentFilter.current.blocked.isEmpty || !ContentFilter.current.dontPlay.isEmpty)) {
+        // Not on a phone that follows a room: the room's song is the room's, and passing it over went to the room as the
+        // guest's Next, or fought the room's next look for it (review of 27 Nov 2026).
+        val inRoom = together.value?.following == true
+        if (Unreleased.ARTIST_BLOCK && !inRoom && mediaItem != null && (!ContentFilter.current.blocked.isEmpty || !ContentFilter.current.dontPlay.isEmpty)) {
             val id = mediaItem.mediaId
             val back = !isCasting && transitionWentBack
             val dontPlay = DontPlaySkip.passes(reason, chosen = chosen, byHand = id in heard.byHand, casting = isCasting, startPicked = startPicked)
@@ -6643,7 +6699,7 @@ class MusicService : MediaLibraryService(),
 
         // Block everywhere: an AI song the player came to by itself is passed over, once this
         // transition has been seen through like any other (AiFilter).
-        if (Unreleased.AI_FILTER && reason == MEDIA_ITEM_TRANSITION_REASON_AUTO && mediaItem != null) {
+        if (Unreleased.AI_FILTER && !inRoom && reason == MEDIA_ITEM_TRANSITION_REASON_AUTO && mediaItem != null) {
             val id = mediaItem.mediaId
             scope.launch {
                 if (activePlayer.currentMediaItem?.mediaId == id) {

@@ -70,7 +70,8 @@ class AiFilterFlagTest {
         assertWritten("ui/screens/settings/LibrarySettings.kt", "if (Unreleased.AI_FILTER) AiFilterFrag()")
         assertWritten("ui/menu/AiArtistMark.kt", "if (!Unreleased.AI_FILTER || filter.isOff || !AiArtistList.isChannelId(artistId)) return")
         assertWritten("ui/screens/search/OnlineSearchResult.kt", "if (Unreleased.AI_FILTER && aiHidden > 0) {")
-        assertWritten("playback/MusicService.kt", "if (Unreleased.AI_FILTER && reason == MEDIA_ITEM_TRANSITION_REASON_AUTO && mediaItem != null) {")
+        // Never on a phone that follows a listening room, whose song is the room's (review of 27 Nov 2026).
+        assertWritten("playback/MusicService.kt", "if (Unreleased.AI_FILTER && !inRoom && reason == MEDIA_ITEM_TRANSITION_REASON_AUTO && mediaItem != null) {")
     }
 
     @Test

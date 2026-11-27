@@ -139,7 +139,7 @@ class SyncLockTest {
     @Test
     fun `a follower's pause is its own, and play takes it back to the leader`() {
         val listener = session.substringAfter("override fun onPlayWhenReadyChanged").substringBefore("override fun")
-        assertTrue(listener.contains("listenerPlayed(playWhenReady, reason)"))
+        assertTrue(listener.contains("listenerPlayed(playWhenReady)"))
         assertFalse(listener.contains("listenerChose"))
         assertTrue(session.substringAfter("private fun follow()").contains("if (ownWay || pausedHere) return"))
     }

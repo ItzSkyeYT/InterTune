@@ -58,45 +58,35 @@ class SessionPlayer(player: Player) : ForwardingPlayer(player) {
         })
     }
 
-    /** Each listener as the player is given it: the same, its commands filtered while a room locks them ([roomLocked]). */
-    private val given = HashMap<Player.Listener, Player.Listener>()
-
     override fun addListener(listener: Player.Listener) {
         listeners += listener
-        val filtered = object : Player.Listener by listener {
-            override fun onAvailableCommandsChanged(availableCommands: Player.Commands) =
-                listener.onAvailableCommandsChanged(roomFiltered(availableCommands))
-        }
-        given[listener] = filtered
-        super.addListener(filtered)
+        super.addListener(listener)
     }
 
     override fun removeListener(listener: Player.Listener) {
         listeners -= listener
-        super.removeListener(given.remove(listener) ?: listener)
+        super.removeListener(listener)
     }
 
     /**
-     * A guest who only listens in a listening room (listensOnly, his word of 26 Nov 2026, Spotify's Jam): the notification,
-     * the lock screen, a watch and a car are not offered previous, next, a move in the song, shuffle or repeat, as far as
-     * media3 lets the session say so. A press that still comes is held by the room (TogetherSession.listenerChose). Main
-     * thread.
+     * A pause asked through the session, by the notification, the lock screen, a headset, a watch or a car (media3 calls
+     * pause for each of them, and setPlayWhenReady(false) as the service stops, which is not a listener's): true when a
+     * listening room took it in its place, a guest's mute (TogetherSession.askedPause, review of 27 Nov 2026).
      */
-    var roomLocked: Boolean = false
-        set(value) {
-            if (field == value) return
-            field = value
-            val now = availableCommands
-            runCatching { listeners.toList().forEach { it.onAvailableCommandsChanged(now) } }
-                .onFailure { reportException(it) }
-        }
+    var onAskedPause: () -> Boolean = { false }
 
-    private fun roomFiltered(commands: Player.Commands): Player.Commands =
-        if (!roomLocked) commands else commands.buildUpon().removeAll(*ROOM_LOCKED).build()
+    /** A play asked through the session, the same way: the listener's, by hand (TogetherSession.byHand). */
+    var onAskedPlay: () -> Unit = {}
 
-    override fun getAvailableCommands(): Player.Commands = roomFiltered(super.getAvailableCommands())
+    override fun pause() {
+        if (onAskedPause()) return
+        super.pause()
+    }
 
-    override fun isCommandAvailable(command: Int): Boolean = super.isCommandAvailable(command) && !(roomLocked && command in ROOM_LOCKED)
+    override fun play() {
+        onAskedPlay()
+        super.play()
+    }
 
     override fun getMediaMetadata(): MediaMetadata {
         val told = super.getMediaMetadata()
@@ -132,13 +122,6 @@ class SessionPlayer(player: Player) : ForwardingPlayer(player) {
     override fun getBufferedPercentage(): Int = bufferedPercent(bufferedPosition, duration)
 
     companion object {
-        /** What a guest who only listens in a room is not offered outside the app: see [roomLocked]. */
-        val ROOM_LOCKED = intArrayOf(
-            Player.COMMAND_SEEK_TO_PREVIOUS, Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM, Player.COMMAND_SEEK_TO_NEXT,
-            Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM, Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM, Player.COMMAND_SEEK_BACK,
-            Player.COMMAND_SEEK_FORWARD, Player.COMMAND_SET_SHUFFLE_MODE, Player.COMMAND_SET_REPEAT_MODE,
-        )
-
         /** [position] of [duration] in whole percent, 0 to 100 whatever the two say. */
         fun bufferedPercent(position: Long, duration: Long): Int = when {
             position == C.TIME_UNSET || duration == C.TIME_UNSET -> 0

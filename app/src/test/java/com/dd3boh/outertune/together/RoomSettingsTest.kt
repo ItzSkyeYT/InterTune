@@ -85,6 +85,7 @@ class RoomSettingsTest {
 
     @Test
     fun `a guest listens unless the host lets everyone control the music`() {
+        val guest = guest.copy(leaderControls = true)
         assertTrue(listensOnly(guest.copy(settings = listens)))
         assertTrue(listensOnly(guest))
         // Waiting for the room, or nobody playing for it: nothing it does here is the room's.
@@ -100,6 +101,26 @@ class RoomSettingsTest {
         assertFalse(guestControls(guest.copy(settings = controls, waitingForHost = true)))
         assertFalse(guestControls(guest.copy(settings = controls, leading = true)))
         assertFalse(guestControls(guest.copy(settings = listens)))
+        // Under one in control on a build before 27 Nov 2026, which drops a guest's moves: it listens, and is told why.
+        val older = guest.copy(settings = controls, leaderControls = false)
+        assertFalse(guestControls(older))
+        assertTrue(listensOnly(older))
+        assertTrue(controlFromOlder(older))
+        assertFalse(controlFromOlder(guest.copy(settings = controls)))
+        assertFalse(controlFromOlder(older.copy(waitingForHost = true)))
+        // Its queue changes still go to one in control that takes them (Arrange, since 22 Nov 2026).
+        assertTrue(guestArranges(older.copy(leaderArranges = true)))
+    }
+
+    @Test
+    fun `the one in control says it takes a guest's moves, and a build before it says nothing`() {
+        val here = TogetherMessage.Here("Ti-Die", owner = true, lead = "ab12", settings = controls, arranges = true, controls = true)
+        assertEquals(here, TogetherMessage.decodeFrom(TogetherMessage.encode(here, sender = "ab12"), "ab12"))
+        val old = """{"t":"here","name":"Ti-Die","owner":true,"lead":"ab12","arranges":true,"k":"ab12"}"""
+        assertFalse((TogetherMessage.decodeFrom(old, "ab12") as TogetherMessage.Here).controls)
+        // Every Here this build says, the host's handing-on word included.
+        assertEquals(2, Regex("""arranges = true, dev = devProof, takesRoom = true,(\s*host = handing\.to,)?\s*controls = true,""").findAll(session).count())
+        assertTrue("leaderControls = leaderKey.let { it != null && (it == me || it in controllers) }," in session)
     }
 
     @Test

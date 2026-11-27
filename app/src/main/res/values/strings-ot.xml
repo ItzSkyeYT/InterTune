@@ -2839,6 +2839,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="together_role_in_control">You choose the music. Anyone in the room can add songs.</string>
     <string name="together_role_guest">%1$s chooses the music. You can add songs, and mute just for you.</string>
     <string name="together_role_guest_controls">%1$s is in control, and everyone can control the music.</string>
+    <string name="together_control_older">%1$s has an older InterTune, so only they control the music.</string>
     <string name="together_take_back">Choose the music</string>
     <string name="together_give_control">Give control</string>
     <string name="together_give_control_to">Give control to %1$s</string>

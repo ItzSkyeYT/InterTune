@@ -142,6 +142,7 @@ import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.playback.PlayerConnection
 import com.dd3boh.outertune.together.RoomCode
 import com.dd3boh.outertune.together.RoomRole
+import com.dd3boh.outertune.together.controlFromOlder
 import com.dd3boh.outertune.together.TogetherSession
 import com.dd3boh.outertune.ui.screens.walkthrough.Tour
 import com.dd3boh.outertune.ui.screens.walkthrough.TourSpot
@@ -535,11 +536,21 @@ private fun RoomPage(room: TogetherSession, song: MediaMetadata?, onLeave: () ->
             }
             // With control for everyone (RoomSettings.everyoneControls), the guest's line says so: its buttons work for all.
             RoomRole.GUEST -> RoleLine(
-                if (status.settings?.everyoneControls == true) R.string.together_role_guest_controls else R.string.together_role_guest,
+                if (status.settings?.everyoneControls == true && status.leaderControls) R.string.together_role_guest_controls else R.string.together_role_guest,
                 leaderName,
                 glow = leaderDev,
             )
             null -> Unit
+        }
+        // The host lets everyone control the music, but the one in control is on an older InterTune, which drops a guest's
+        // moves (Control): this phone listens, and says why (review of 27 Nov 2026).
+        if (controlFromOlder(status)) {
+            Spacer(Modifier.height(8.dp))
+            Text(
+                stringResource(R.string.together_control_older, leaderName),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
         WalkTo(WalkStop.ROLE)
 

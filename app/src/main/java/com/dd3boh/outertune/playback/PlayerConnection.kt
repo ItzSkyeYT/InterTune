@@ -35,6 +35,8 @@ import com.dd3boh.outertune.extensions.togglePlayPause
 import com.dd3boh.outertune.lyrics.LyricsLookup
 import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.playback.queues.Queue
+import com.dd3boh.outertune.extensions.nextRepeatMode
+import com.dd3boh.outertune.together.RoomListen
 import com.dd3boh.outertune.together.RoomPlayNext
 import com.dd3boh.outertune.together.RoomTap
 import com.dd3boh.outertune.together.listensOnly
@@ -164,12 +166,14 @@ class PlayerConnection(
         // In a listening room the transport hangs on who controls the music (listensOnly), which no event of the player's says.
         scope.launch {
             service.together.flatMapLatest { room ->
-                room?.status?.map { listensOnly(it) to (listensOnly(it) && !it.pausedHere) } ?: flowOf(false to false)
+                room?.status?.map { Triple(listensOnly(it), listensOnly(it) && !it.pausedHere, it.roomShuffle) } ?: flowOf(Triple(false, false, null))
             }
                 .distinctUntilChanged()
-                .collect { (listens, muteButton) ->
+                .collect { (listens, muteButton, _) ->
                     roomListens.value = listens
                     roomMuteButton.value = muteButton
+                    // The room's shuffle on a guest's buttons (RoomListen.shownShuffle).
+                    shuffleModeEnabled.value = shownShuffle()
                     updateCanSkipPreviousAndNext()
                 }
         }
@@ -269,8 +273,9 @@ class PlayerConnection(
         }
         // On a phone that follows a room (his word of 26 Nov 2026, Spotify's Jam): a guest the host lets control the music
         // plays it for everyone; any other is asked whether to leave the room to play it, as in a Jam.
+        // Not while this phone casts on its own (GuestCast): its cast plays its own music, as before (review of 27 Nov 2026).
         val room = service.together.value
-        if (room != null && room.following) {
+        if (room != null && room.following && !room.status.value.ownWay) {
             if (room.controls) {
                 scope.launch {
                     val songs = roomSongsOf(queue, radioAsked)
@@ -344,7 +349,8 @@ class PlayerConnection(
      * out and why. True when it was done here; false for the person in control and a guest on its own way.
      */
     private fun toRoom(items: List<MediaItem>, atEnd: Boolean): Boolean {
-        val room = service.together.value?.takeIf { it.following } ?: return false
+        // Not while this phone casts on its own (GuestCast): its Play next and Add to queue are its own then.
+        val room = service.together.value?.takeIf { it.following && !it.status.value.ownWay } ?: return false
         // Nobody plays for the room (the host away): nothing sent goes anywhere, and the phone's own queue is the room's copy.
         if (room.status.value.nobodyPlays) {
             Toaster.show(service, service.getString(R.string.together_nobody_plays_short))
@@ -390,7 +396,7 @@ class PlayerConnection(
         if (mediaItem != null) {
             restoredPosition.value = null
             // See onTimelineChanged.
-            shuffleModeEnabled.value = player.shuffleModeEnabled
+            shuffleModeEnabled.value = shownShuffle()
         }
         mediaMetadata.value = mediaItem?.metadata
         currentMediaItemIndex.value = player.currentMediaItemIndex
@@ -407,7 +413,7 @@ class PlayerConnection(
             // replace the stand-in: shuffle showed on over a queue playing in order, and the
             // first tap turned it on rather than off. Resuming the restored queue does not
             // flicker, because setCurrQueue sets the flag in the same call that loads the songs.
-            shuffleModeEnabled.value = player.shuffleModeEnabled
+            shuffleModeEnabled.value = shownShuffle()
         }
         queueWindows.value = player.getQueueWindows()
         queuePlaylistId.value = service.queuePlaylistId
@@ -420,31 +426,30 @@ class PlayerConnection(
      * Shuffles the queue
      */
     fun triggerShuffle() {
-        // A guest who controls the music with everyone: the one in control shuffles the room's queue (TogetherMessage.Control).
-        service.together.value?.takeIf { it.following && it.controls }?.let { room ->
-            room.askOrder(shuffle = !player.shuffleModeEnabled)
-            return
-        }
+        // On a phone that follows a room, the room's shuffle: asked of the one in control, or who decides said (MusicService).
+        if (service.roomShuffleAsked()) return
         player.shuffleModeEnabled = !player.shuffleModeEnabled
         updateCanSkipPreviousAndNext()
     }
 
+    /**
+     * The shuffle the buttons show: the room's on a phone that follows one, whose copy of the room's queue is in the room's
+     * order with its own player's shuffle off; the player's own otherwise (RoomListen.shownShuffle, review of 27 Nov 2026).
+     */
+    private fun shownShuffle(): Boolean {
+        val room = service.together.value?.takeIf { it.following && !it.status.value.ownWay }
+        return RoomListen.shownShuffle(follows = room != null, roomShuffle = room?.status?.value?.roomShuffle, playerShuffle = player.shuffleModeEnabled)
+    }
+
     /** Repeat's next mode, off, all, one: for the room when this phone, a guest, controls the music with everyone. */
     fun toggleRepeat() {
-        val next = when (player.repeatMode) {
-            Player.REPEAT_MODE_OFF -> Player.REPEAT_MODE_ALL
-            Player.REPEAT_MODE_ALL -> Player.REPEAT_MODE_ONE
-            else -> Player.REPEAT_MODE_OFF
-        }
-        service.together.value?.takeIf { it.following && it.controls }?.let { room ->
-            room.askOrder(repeat = next)
-            return
-        }
-        player.repeatMode = next
+        // On a phone that follows a room, the room's repeat, as shuffle (MusicService.roomRepeatAsked).
+        if (service.roomRepeatAsked()) return
+        player.repeatMode = nextRepeatMode(player.repeatMode)
     }
 
     override fun onShuffleModeEnabledChanged(enabled: Boolean) {
-        shuffleModeEnabled.value = enabled
+        shuffleModeEnabled.value = shownShuffle()
         updateCanSkipPreviousAndNext()
     }
 

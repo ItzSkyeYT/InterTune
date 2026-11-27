@@ -78,6 +78,11 @@ sealed interface TogetherMessage {
         val name: String, val owner: Boolean, val lead: String? = null, val leadSince: Long? = null,
         val settings: RoomSettings? = null, val arranges: Boolean = false, val dev: String? = null,
         val takesRoom: Boolean = false, val host: String? = null,
+        /**
+         * Whether this phone, in control, takes a guest's [Control] (27 Nov 2026): a build before it drops it unread, so a
+         * guest asks it only of a phone in control that said so, as [arranges] does for an Arrange.
+         */
+        val controls: Boolean = false,
     ) : TogetherMessage
 
     /**
@@ -143,6 +148,11 @@ sealed interface TogetherMessage {
         val shuffle: Boolean? = null,
         val repeat: Int? = null,
         val songs: List<Song> = emptyList(),
+        /**
+         * When the guest made the move, by its own clock: the relays do not keep order, so a quick pause and play, or two
+         * quick Nexts, could land the other way round. The one in control takes a guest's moves in this order (ControlOrder).
+         */
+        val at: Long = 0L,
     ) : TogetherMessage
 
     /** The owner sends the phone with key [to] out of the room. */
@@ -206,6 +216,7 @@ sealed interface TogetherMessage {
                 message.dev?.let { put("dev", it) }
                 message.settings?.let { put("settings", it.toJson()) }
                 if (message.arranges) put("arranges", true)
+                if (message.controls) put("controls", true)
                 message.lead?.let { put("lead", it) }
                 message.leadSince?.let { put("since", it) }
                 if (message.takesRoom) put("takes", true)
@@ -241,6 +252,7 @@ sealed interface TogetherMessage {
                 message.shuffle?.let { put("shuffle", it) }
                 message.repeat?.let { put("repeat", it) }
                 if (message.songs.isNotEmpty()) put("songs", songsJson(message.songs.take(QUEUE_SONGS)))
+                if (message.at > 0) put("at", message.at)
             }
             is Kick -> buildJsonObject { put("t", "kick"); put("to", message.to) }
             is Move -> buildJsonObject { put("t", "move"); put("to", message.to); put("code", message.sealedCode) }
@@ -318,6 +330,7 @@ sealed interface TogetherMessage {
                     shuffle = (o["shuffle"] as? JsonPrimitive)?.booleanOrNull,
                     repeat = (o["repeat"] as? JsonPrimitive)?.intOrNull?.coerceIn(0, 2),
                     songs = if (o["songs"] != null) songsOf(o).take(QUEUE_SONGS) else emptyList(),
+                    at = (o["at"] as? JsonPrimitive)?.longOrNull ?: 0L,
                 )
                 "kick" -> Kick(s("to"))
                 "move" -> Move(s("to"), s("code"))
@@ -326,7 +339,11 @@ sealed interface TogetherMessage {
                 else -> null
             }
             // The owner's room settings, one more field of its Here (RoomSettings): none from an older build.
-            return if (message is Here) message.copy(settings = RoomSettings.of(o["settings"]), arranges = o["arranges"]?.jsonPrimitive?.content == "true") else message
+            return if (message is Here) message.copy(
+                settings = RoomSettings.of(o["settings"]),
+                arranges = o["arranges"]?.jsonPrimitive?.content == "true",
+                controls = o["controls"]?.jsonPrimitive?.content == "true",
+            ) else message
         }
     }
 }
@@ -785,5 +802,22 @@ class SyncLock(
         /** Above [Follow.IN_STEP_MS], or it would lock and unlock on the same readings. */
         const val MIN_TOLERANCE_MS = 30L
         const val MAX_TOLERANCE_MS = 200L
+    }
+}
+
+/**
+ * The order the one in control takes a guest's moves in (TogetherMessage.Control.at, 27 Nov 2026): never one older than
+ * the newest already taken from the same guest, as the relays do not keep order. A move without a time (0) is taken.
+ */
+internal class ControlOrder {
+    private val newest = HashMap<String, Long>()
+
+    /** Whether the move [from] made at [at] is taken: true for the first, and for each newer than the last taken. */
+    fun take(from: String, at: Long): Boolean {
+        if (at <= 0L) return true
+        val before = newest[from]
+        if (before != null && at < before) return false
+        newest[from] = at
+        return true
     }
 }

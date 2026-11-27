@@ -2628,6 +2628,7 @@
     <string name="together_role_in_control">Vous choisissez la musique. Tout le monde dans le salon peut ajouter des titres.</string>
     <string name="together_role_guest">%1$s choisit la musique. Vous pouvez ajouter des titres, et couper le son juste pour vous.</string>
     <string name="together_role_guest_controls">%1$s a la main, et tout le monde peut contrôler la musique.</string>
+    <string name="together_control_older">%1$s a une version plus ancienne d\'InterTune : lui seul contrôle la musique.</string>
     <string name="together_take_back">Reprendre la main</string>
     <string name="together_give_control">Donner la main</string>
     <string name="together_give_control_to">Donner la main à %1$s</string>

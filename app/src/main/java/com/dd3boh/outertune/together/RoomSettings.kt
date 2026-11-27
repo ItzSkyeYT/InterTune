@@ -78,11 +78,22 @@ internal fun followsRoom(status: TogetherSession.Status): Boolean =
  * until unmuted. Also while it waits to hear the room, or nobody plays for it: nothing it does here is the room's.
  */
 fun listensOnly(status: TogetherSession.Status): Boolean =
-    !status.leading && !status.casting && status.settings?.everyoneControls != true
+    !status.leading && !status.casting && !(status.settings?.everyoneControls == true && status.leaderControls)
 
-/** Whether this phone, a guest, controls the music for everyone: it follows the room and the host lets everyone control it. */
+/**
+ * Whether this phone, a guest, controls the music for everyone: it follows the room, the host lets everyone control it,
+ * and the one in control takes a guest's moves ([TogetherSession.Status.leaderControls], 27 Nov 2026). A build before
+ * this one drops them, so a guest under one in control on such a build listens, and the room's sheet says why.
+ */
 internal fun guestControls(status: TogetherSession.Status): Boolean =
-    followsRoom(status) && status.settings?.everyoneControls == true
+    followsRoom(status) && status.settings?.everyoneControls == true && status.leaderControls
+
+/**
+ * Whether the room's sheet says that the one in control is on an older InterTune, which drops a guest's moves: the host
+ * lets everyone control the music, and this phone follows someone whose word never said it takes them.
+ */
+fun controlFromOlder(status: TogetherSession.Status): Boolean =
+    !status.leading && !status.waitingForHost && status.settings?.everyoneControls == true && !status.leaderControls
 
 /**
  * Whether this phone's moves in the song are held: it only listens ([listensOnly]). The seek bar then does not move at
@@ -93,12 +104,12 @@ internal fun guestControls(status: TogetherSession.Status): Boolean =
 internal fun seekHeld(status: TogetherSession.Status): Boolean = listensOnly(status)
 
 /**
- * Whether this phone may change the room's queue: it controls the music with everyone ([guestControls]), and the person
- * in control takes a guest's changes ([TogetherSession.Status.leaderArranges]). A build before this
+ * Whether this phone may change the room's queue: it follows the room ([followsRoom]), the host lets everyone control the
+ * music, and the person in control takes a guest's changes ([TogetherSession.Status.leaderArranges]). A build before this
  * one drops them, so with one in control the queue stays the room's to look at.
  */
 internal fun guestArranges(status: TogetherSession.Status): Boolean =
-    guestControls(status) && status.leaderArranges
+    followsRoom(status) && status.settings?.everyoneControls == true && status.leaderArranges
 
 /** Why a move in the song did nothing: who decides where the song is, by name, or the host while no name is known yet. */
 fun seekHeldLine(context: Context, status: TogetherSession.Status): String =

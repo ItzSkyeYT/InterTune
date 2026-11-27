@@ -74,7 +74,8 @@ class RoomByHandTest {
     @Test
     fun `a song or a list started on a guest goes to the room with control, else asks to leave first`() {
         val play = body(connection, "fun playQueue(")
-        val room = play.indexOf("if (room != null && room.following) {")
+        // Not while this phone casts on its own (GuestCast): the cast plays its own music (review of 27 Nov 2026).
+        val room = play.indexOf("if (room != null && room.following && !room.status.value.ownWay) {")
         assertTrue(play, room in 0 until play.lastIndexOf("start()"))
         assertTrue(play, play.indexOf("room.playForRoom(songs)") in room until play.indexOf("leaveToPlay.value = LeaveToPlay("))
         // Leave (or, for the host who gave control away, take it back), then play.

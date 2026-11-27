@@ -170,7 +170,7 @@ class GuestCastTest {
         // The cast's own changes to the phone's player, as it takes the music away and gives it back, are never the
         // listener's: no pause here, no own way of the listener's (which would not catch up after the cast).
         val played = session.substringAfter("override fun onPlayWhenReadyChanged(").substringBefore("override fun onMediaItemTransition(")
-        assertTrue("if (!leading && !service.castOn) listenerPlayed(playWhenReady, reason)" in played)
+        assertTrue("if (!leading && !service.castOn) listenerPlayed(playWhenReady)" in played)
         val moved = session.substringAfter("override fun onMediaItemTransition(").substringBefore("override fun onPositionDiscontinuity(")
         assertTrue(moved.indexOf("if (service.castOn) {") in 0 until moved.indexOf("listenerChose("))
         val sought = session.substringAfter("override fun onPositionDiscontinuity(").substringBefore("override fun onEvents(")
