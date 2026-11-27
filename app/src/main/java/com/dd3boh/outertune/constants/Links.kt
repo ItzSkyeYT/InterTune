@@ -37,4 +37,10 @@ object Links {
     /** Where a ListenBrainz account's user token is, for pasting into the app (ListenBrainzFrag). */
     const val LISTENBRAINZ_SETTINGS = "https://listenbrainz.org/settings/"
 
+    /**
+     * Where a ListenBrainz account's email is verified: the page ListenBrainz's own refusal of
+     * listens names for an account with no verified email (ListenBrainzFrag).
+     */
+    const val METABRAINZ_PROFILE = "https://metabrainz.org/profile"
+
 }

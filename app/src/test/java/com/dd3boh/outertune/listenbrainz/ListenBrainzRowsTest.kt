@@ -48,14 +48,25 @@ class ListenBrainzRowsTest {
     }
 
     @Test
-    fun `three states - not connected, connected, and a token refused`() {
+    fun `four states - not connected, connected, a token refused, and an account refused`() {
         val notConnected = frag.substringAfter("if (token.isBlank()) {").substringBefore("return")
         assertTrue("R.string.listenbrainz_connect)" in notConnected)
         assertTrue("connecting = true" in notConnected)
-        val refused = frag.substringAfter("if (refusedAt > 0L) {").substringBefore("} else {")
+        val refused = frag.substringAfter("if (refusedAt > 0L) {").substringBefore("} else if (")
         assertTrue("R.string.listenbrainz_refused)" in refused)
         // A refused token leads back to the dialog, with the plays still waiting.
         assertTrue("connecting = true" in refused)
+        // A token that works on an account ListenBrainz takes no listens from (27 Nov 2026: "no longer accepts your
+        // token" for a token just pasted) leads to the page that fixes it, never to the dialog: a new token changes nothing.
+        val needsEmail = frag.substringAfter("} else if (accountRefused == ListenBrainzStanding.NEEDS_EMAIL.name) {").substringBefore("} else ")
+        assertTrue("R.string.listenbrainz_needs_email)" in needsEmail)
+        assertTrue("uriHandler.openUri(Links.METABRAINZ_PROFILE)" in needsEmail)
+        val accountRefused = frag.substringAfter("} else if (accountRefused.isNotEmpty()) {").substringBefore("} else {")
+        assertTrue("R.string.listenbrainz_account_refused)" in accountRefused)
+        assertTrue("uriHandler.openUri(Links.LISTENBRAINZ_SETTINGS)" in accountRefused)
+        for (row in listOf(needsEmail, accountRefused)) assertFalse("connecting = true" in row)
+        assertTrue(frag.indexOf("if (refusedAt > 0L) {") < frag.indexOf("} else if (accountRefused == ListenBrainzStanding.NEEDS_EMAIL.name) {"))
+        assertTrue("const val METABRAINZ_PROFILE = \"https://metabrainz.org/profile\"" in File(sources, "constants/Links.kt").readText())
         val connected = frag.substringAfter("} else {").substringBefore("ExplainedSwitchPreference(")
         assertTrue("R.string.listenbrainz_connected_as, user" in connected)
         assertTrue("sender.disconnect()" in connected)
@@ -94,10 +105,13 @@ class ListenBrainzRowsTest {
 
     @Test
     fun `disconnecting forgets the token, the name and the plays waiting`() {
-        val disconnect = sender.substringAfter("suspend fun disconnect(").substringBefore("private suspend fun refused(")
-        for (forgotten in listOf("it.remove(ListenBrainzTokenKey)", "it.remove(ListenBrainzUserKey)", "outbox.clear()")) {
+        val disconnect = sender.substringAfter("suspend fun disconnect(").substringBefore("private suspend fun note(")
+        for (forgotten in listOf("it.remove(ListenBrainzTokenKey)", "it.remove(ListenBrainzUserKey)", "it.remove(ListenBrainzRefusedAtKey)", "it.remove(ListenBrainzAccountRefusedKey)", "outbox.clear()")) {
             assertTrue(forgotten, forgotten in disconnect)
         }
+        // A token pasted again forgets both refusals: what still stands comes back with ListenBrainz's next answer.
+        val connect = sender.substringAfter("suspend fun connect(").substringBefore("suspend fun disconnect(")
+        assertTrue("it.remove(ListenBrainzRefusedAtKey)" in connect && "it.remove(ListenBrainzAccountRefusedKey)" in connect)
     }
 
     @Test

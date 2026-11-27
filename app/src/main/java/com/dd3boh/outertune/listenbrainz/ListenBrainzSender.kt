@@ -14,6 +14,7 @@ import com.dd3boh.listenbrainz.ListenBrainzException
 import com.dd3boh.listenbrainz.models.TokenCheck
 import com.dd3boh.outertune.BuildConfig
 import com.dd3boh.outertune.constants.Links
+import com.dd3boh.outertune.constants.ListenBrainzAccountRefusedKey
 import com.dd3boh.outertune.constants.ListenBrainzRefusedAtKey
 import com.dd3boh.outertune.constants.ListenBrainzScrobbleKey
 import com.dd3boh.outertune.constants.ListenBrainzTokenKey
@@ -48,18 +49,23 @@ class ListenBrainzSender @Inject constructor(
     /** ListenBrainz said no to the token: plays wait for a new one. */
     private val tokenRefused get() = context.dataStore.get(ListenBrainzRefusedAtKey, 0L) > 0L
 
+    /** ListenBrainz knows the token but takes no listens from the account for now (ListenBrainzStanding). */
+    private val accountRefused get() = context.dataStore.get(ListenBrainzAccountRefusedKey, "").isNotEmpty()
+
     /** Connected, with Scrobble what I play on. */
     private fun sending(): Boolean =
         Unreleased.LISTENBRAINZ && token.isNotBlank() && context.dataStore.get(ListenBrainzScrobbleKey, true)
 
-    /** "Playing now", at a song's first sound. Never kept: by the time it could go, another song plays. */
+    /**
+     * "Playing now", at a song's first sound. Never kept: by the time it could go, another song
+     * plays. Not sent while the account is refused either, where it would only be refused again.
+     */
     suspend fun nowPlaying(metadata: MediaMetadata) {
-        if (!sending() || tokenRefused) return
+        if (!sending() || tokenRefused || accountRefused) return
         val listen = ListenRules.listenOf(client, metadata, startedAtSeconds = null, durationSeconds = metadata.duration) ?: return
-        client.playingNow(token, listen).onFailure { e ->
-            Log.i(TAG, "ListenBrainz: playing now not sent, ${said(e)}")
-            if (e is ListenBrainzException.TokenRefused) refused(e)
-        }
+        val result = client.playingNow(token, listen)
+        result.onFailure { e -> Log.i(TAG, "ListenBrainz: playing now not sent, ${said(e)}") }
+        note(result)
     }
 
     /**
@@ -74,7 +80,10 @@ class ListenBrainzSender @Inject constructor(
         outbox.keep(kept)
         // It waits for a token that works, and goes with what else waits once there is one.
         if (tokenRefused) return
-        client.single(token, listen)
+        // Sent while the account is refused all the same: a play taken is how the app learns that
+        // ListenBrainz takes them again, the email verified.
+        val result = client.single(token, listen)
+        result
             .onSuccess {
                 outbox.remove(listOf(kept))
                 Log.i(TAG, "ListenBrainz: listen sent")
@@ -85,13 +94,15 @@ class ListenBrainzSender @Inject constructor(
                         outbox.remove(listOf(kept))
                         Log.w(TAG, "ListenBrainz: refused (${e.status}): ${e.message}")
                     }
-                    is ListenBrainzException.TokenRefused -> refused(e)
+                    // It waits for a new token, or for the account to take listens again: note() says which.
+                    is ListenBrainzException.TokenRefused, is ListenBrainzException.AccountRefused -> Unit
                     else -> {
                         Log.i(TAG, "ListenBrainz: ${outbox.of(kept.user).size} waiting, ${said(e)}")
                         ListenBrainzWorker.schedule(context)
                     }
                 }
             }
+        note(result)
     }
 
     /** What waits in the outbox, sent: ListenBrainzWorker's run. */
@@ -106,14 +117,16 @@ class ListenBrainzSender @Inject constructor(
         val left = waiting.size - outcome.sent.size - outcome.dropped.size
         Log.i(TAG, "ListenBrainz: ${outcome.sent.size} sent, ${outcome.dropped.size} dropped, $left waiting" +
                 (outcome.stoppedBy?.let { ", ${said(it)}" } ?: ""))
-        (outcome.stoppedBy as? ListenBrainzException.TokenRefused)?.let { refused(it) }
+        if (outcome.sent.isNotEmpty()) note(Result.success(Unit))
+        outcome.stoppedBy?.let { note(Result.failure<Unit>(it)) }
         return outcome.next
     }
 
     /**
      * Asks ListenBrainz whose [pasted] is, and keeps it when ListenBrainz knows it, with the
-     * account's name. Plays kept under another account are dropped, the refusal of an earlier
-     * token is forgotten, and what waits goes. A token ListenBrainz does not know is success with
+     * account's name. Plays kept under another account are dropped, a refusal of an earlier token
+     * or of the account is forgotten, and what waits goes: the account's refusal, if it stands,
+     * comes back with ListenBrainz's next answer. A token ListenBrainz does not know is success with
      * valid false; a failure is no answer.
      */
     suspend fun connect(pasted: String): Result<TokenCheck> {
@@ -125,6 +138,7 @@ class ListenBrainzSender @Inject constructor(
                 it[ListenBrainzTokenKey] = key
                 it[ListenBrainzUserKey] = name
                 it.remove(ListenBrainzRefusedAtKey)
+                it.remove(ListenBrainzAccountRefusedKey)
             }
             outbox.keepOnly(name)
             if (ListenOutbox.anyWaiting(context)) ListenBrainzWorker.schedule(context)
@@ -138,9 +152,33 @@ class ListenBrainzSender @Inject constructor(
             it.remove(ListenBrainzTokenKey)
             it.remove(ListenBrainzUserKey)
             it.remove(ListenBrainzRefusedAtKey)
+            it.remove(ListenBrainzAccountRefusedKey)
         }
         outbox.clear()
         Log.i(TAG, "ListenBrainz: disconnected")
+    }
+
+    /**
+     * What ListenBrainz's answer to listens says about the token and the account, kept where the
+     * card reads it (ListenBrainzStanding). Only a token ListenBrainz does not know is refused().
+     */
+    private suspend fun note(result: Result<*>) {
+        when (val standing = ListenBrainzStanding.after(result)) {
+            ListenBrainzStanding.TAKEN -> if (accountRefused) {
+                context.dataStore.edit { it.remove(ListenBrainzAccountRefusedKey) }
+                Log.i(TAG, "ListenBrainz: the account takes listens again")
+                // What waited for it goes now.
+                ListenBrainzWorker.schedule(context)
+            }
+            ListenBrainzStanding.TOKEN_REFUSED -> refused(result.exceptionOrNull() as ListenBrainzException.TokenRefused)
+            ListenBrainzStanding.NEEDS_EMAIL, ListenBrainzStanding.ACCOUNT_REFUSED -> {
+                Log.w(TAG, "ListenBrainz: the token works, the account takes no listens, ${said(result.exceptionOrNull()!!)}")
+                if (context.dataStore.get(ListenBrainzAccountRefusedKey, "") != standing.name) {
+                    context.dataStore.edit { it[ListenBrainzAccountRefusedKey] = standing.name }
+                }
+            }
+            null -> Unit
+        }
     }
 
     private suspend fun refused(e: ListenBrainzException.TokenRefused) {
@@ -161,6 +199,7 @@ class ListenBrainzSender @Inject constructor(
             is ListenBrainzException.Unavailable -> "ListenBrainz unavailable (${e.status}): ${e.message}"
             is ListenBrainzException.Refused -> "refused (${e.status}): ${e.message}"
             is ListenBrainzException.TokenRefused -> "token refused (${e.status}): ${e.message}"
+            is ListenBrainzException.AccountRefused -> "account refused (${e.status}): ${e.message}"
             else -> e.javaClass.simpleName
         }
     }
