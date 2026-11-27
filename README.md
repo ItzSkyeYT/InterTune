@@ -208,7 +208,7 @@ Every change in detail, and why this fork exists: [docs/FEATURES.md](https://git
 What's being worked on, roughly in order. `[x]` is done, `[~]` is built and being tested, `[ ]` is still to do. Nothing here has a date, and plans can change. Ideas are welcome in #feature-requests on [Discord](https://discord.gg/68jmqhMjXk) or as a [GitHub issue](https://github.com/ItzSkyeYT/InterTune/issues/new/choose).
 
 <details>
-<summary><b>Next: 0.13</b> · 50 of 53 done, 3 to test</summary>
+<summary><b>Next: 0.13</b> · 50 of 55 done, 5 to test</summary>
 
 `[x]` Listen together: one person plays, friends follow the same song in real time\
 `[x]` In a room, a guest who casts to a TV or speaker plays on their own, and catches up with the room when the cast ends\
@@ -216,7 +216,7 @@ What's being worked on, roughly in order. `[x]` is done, `[~]` is built and bein
 `[x]` In a room everyone sees who's picking the music, and the host can hand control to someone and take it back\
 `[x]` The host can leave a room without closing it: they hand it to someone and everyone keeps listening\
 `[x]` Propose a song to whoever's picking the music, they get a notification with Play it or Not now\
-`[x]` Room settings: the host chooses if everyone can move in the song or change the queue\
+`[~]` Rooms work like a Spotify Jam: guests listen along and can mute, and the host can let everyone control the music\
 `[x]` Songs other people add in a room don't change your own recommendations\
 `[x]` Songs from your own files play in a room as their YouTube Music version\
 `[x]` How rooms work: a short tutorial that also walks you through the room's sheet\
@@ -254,13 +254,15 @@ What's being worked on, roughly in order. `[x]` is done, `[~]` is built and bein
 `[x]` Save your recap as a video to share, with its music\
 `[x]` Four more Recap slides from your own year: your seasons, your 2 AM songs, the week you couldn't stop and the one you came back to\
 `[x]` Choose what's in the three-dot menus\
+`[x]` Arrange the player's buttons by dragging them into boxes shaped like the player's bars\
+`[x]` In Classic, the player's three-dots button at the top or at the bottom\
 `[x]` Albums and artists in your own order too\
 `[x]` Repeat and shuffle on a lit box when they're on, so off no longer looks greyed out ([#182](https://github.com/ItzSkyeYT/InterTune/issues/182))\
 `[x]` The cast button with the player's buttons by the title, where you can move it like them, and a small badge on the mini player during a cast or a room\
 `[x]` Remove a song on your phone from the library, or leave out a whole folder, with Undo\
 `[x]` A playlist's search looks on YouTube Music too, with an add button on each song\
 `[x]` Varispeed: the pitch follows the speed, like a record ([#225](https://github.com/ItzSkyeYT/InterTune/issues/225))\
-`[x]` More haptic feedback, and a Vibration setting: Off, Light or Strong ([#176](https://github.com/ItzSkyeYT/InterTune/issues/176))\
+`[~]` More haptic feedback, and Vibration as Off or five steps on a slider, with the queue ticking like a wheel as you scroll it ([#176](https://github.com/ItzSkyeYT/InterTune/issues/176))\
 `[x]` A full-screen tuner for Living blur's colours and movement\
 `[x]` Bring your library over from a Metrolist backup, from its Android app or its new one
 
