@@ -603,8 +603,12 @@ private fun NavGraphBuilder.screen(
     floating: Boolean = true,
     content: @Composable AnimatedContentScope.(NavBackStackEntry) -> Unit,
 ) = composable(route = route, arguments = arguments) { entry ->
-    Box(Modifier.fillMaxSize().pageFillWhileLeaving(transition)) {
-        TopBarGlassDestination(floating) { content(entry) }
+    // The page's own Backs, a selection's, a search's, a dialog's, go where they always went, not
+    // behind the nav host's (PagesBack).
+    PageBackOwner {
+        Box(Modifier.fillMaxSize().pageFillWhileLeaving(transition)) {
+            TopBarGlassDestination(floating) { content(entry) }
+        }
     }
     // For the tour, which asks whether a screen is drawn before it decides that a setting it
     // meant to point at there is not on this install. After the content, so that every row that
