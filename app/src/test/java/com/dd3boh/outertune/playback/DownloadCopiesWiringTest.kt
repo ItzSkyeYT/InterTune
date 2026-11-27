@@ -90,6 +90,29 @@ class DownloadCopiesWiringTest {
     }
 
     @Test
+    fun `a song whose copy was named back just as the app ended keeps its download at the next start`() {
+        // The copy a song keeps is named back to its download's name, then recorded: an app ended between
+        // the two left the database the copy's old name, and on a phone whose folder lists as empty the
+        // next start's rescan let the song's download go, its file right there (27 Nov 2026).
+        val one = body(cleanup, "private fun removeFrom(")
+        assertTrue("named first, recorded after", one.indexOf("folder.keepFile(song.id, song.keep.key, name)") in 0 until one.indexOf("record(song.id, path)"))
+        val look = folder.substringAfter("fun lookAgain(").substringBefore("private fun adopt(")
+        assertTrue("the scan looks under the name it was given", look.contains("val found = document(uri) ?: namedBack(id, root, path)"))
+        val back = body(folder, "private fun namedBack(")
+        assertTrue("in the main folder only, where the clean-up works", back.contains("if (root.dir !== mainDir) return null"))
+        assertTrue("at its top only", back.contains("if ('/' in relative) return null"))
+        assertTrue("a copy of this very song", back.contains("DownloadCopies.ownNameOf(relative)?.takeIf { DownloadCopies.parse(relative)?.id == id }"))
+    }
+
+    @Test
+    fun `the folder's listing looks one file at a time only at the songs with a copy`() {
+        // A look a file, at every start, was about a millisecond for each download of everyone's folder.
+        val listed = body(folder, "fun ourFilesListed(): DownloadCopies.Listed? {")
+        assertTrue(listed.contains("val wanted = DownloadCopies.ofSongsWithCopies(listed.mapNotNull { it.name })"))
+        assertTrue(listed.indexOf("if (name !in wanted) return@mapNotNull null") in 0 until listed.indexOf("described(file.uri)"))
+    }
+
+    @Test
     fun `only the folder the app was given is looked at`() {
         val listed = body(folder, "fun ourFilesListed(): DownloadCopies.Listed? {")
         assertTrue(listed.contains("(mainDir as? TreeDocumentFileOt)?.listFilesOrNull()"))
