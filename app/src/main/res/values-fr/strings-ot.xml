@@ -2223,6 +2223,8 @@
     <string name="player_pins_put_by_title">Mettre à côté du titre</string>
     <string name="player_pins_put_under_controls">Mettre sous les commandes</string>
     <string name="player_pins_remove">Retirer</string>
+    <string name="player_pins_menu_only">Menu seulement</string>
+    <string name="player_pins_menu_stays">Toujours affiché</string>
     <string name="player_menu_place">Bouton à trois points</string>
     <string name="player_menu_top">Haut</string>
     <string name="player_menu_bottom">Bas</string>

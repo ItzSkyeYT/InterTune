@@ -66,11 +66,16 @@ class MenuPlaceTest {
         // Never chosen, the bars the editor has always ended with it: Classic's circles, Connected's row.
         assertEquals(PinPlace.CLASSIC, MenuPlaces.barOf(PlayerButtonsStyle.CLASSIC, MenuPlaces.defaultFor(PlayerButtonsStyle.CLASSIC)))
         assertEquals(PinPlace.CONNECTED_ROW, MenuPlaces.barOf(PlayerButtonsStyle.CONNECTED, MenuPlaces.defaultFor(PlayerButtonsStyle.CONNECTED)))
-        // Moved: Classic's stands under the controls in no bar, Connected's ends the pair by the title.
+        // Moved: Classic's stands under the controls in no bar (the editor's corner box), Connected's ends the pair by
+        // the title. The editor is given the choice and the bar of each place, and draws it where the choice puts it.
         assertNull(MenuPlaces.barOf(PlayerButtonsStyle.CLASSIC, MenuPlace.BOTTOM))
         assertEquals(PinPlace.CONNECTED_TITLE, MenuPlaces.barOf(PlayerButtonsStyle.CONNECTED, MenuPlace.TOP))
-        assertTrue("menuIn = MenuPlaces.barOf(buttonsStyle, menuPlace)," in src("ui/screens/settings/fragments/PlayerButtonsFrag.kt"))
-        assertTrue("val menu: List<Spot> = if (place == menuIn) listOf(Spot.Menu) else emptyList()" in src("ui/screens/settings/fragments/PlayerButtonsEditor.kt"))
+        val frag = src("ui/screens/settings/fragments/PlayerButtonsFrag.kt")
+        assertTrue("menuAt = menuPlace," in frag && "menuBar = { MenuPlaces.barOf(buttonsStyle, it) }," in frag)
+        val editor = src("ui/screens/settings/fragments/PlayerButtonsEditor.kt")
+        assertTrue("val menuIn = MenuMoves.boxOf(menuPreview ?: menuAt, menuBar)" in editor)
+        assertTrue("val menu: List<Spot> = if (place == menuIn) listOf(Spot.Menu) else emptyList()" in editor)
+        assertTrue("spots = listOf(if (menuIn == Corner) Spot.Menu else Spot.Free)," in editor)
     }
 
     @Test

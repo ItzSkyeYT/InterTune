@@ -77,6 +77,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.min
 import com.dd3boh.outertune.R
+import com.dd3boh.outertune.ui.player.MenuPlace
 import com.dd3boh.outertune.ui.player.PinMoves
 import com.dd3boh.outertune.ui.player.PinPlace
 import com.dd3boh.outertune.ui.player.PlayerPin
@@ -85,7 +86,16 @@ import java.text.NumberFormat
 import kotlin.math.roundToInt
 
 /** The box of the buttons the player does not show, as a drop target beside the places. */
-private object NotShown
+internal object NotShown
+
+/**
+ * Classic's bottom right corner, where its three-dots button stands at the bottom, alone and in no bar: a box of its own
+ * in the editor, for that button only.
+ */
+internal object Corner
+
+/** The three-dots button, held and tapped as a button is. */
+private object MenuButton
 
 /**
  * Not shown's rows (his ask of 27 Nov 2026: "only show everything when the user clicks on the show more as well as
@@ -110,6 +120,26 @@ internal fun spotGap(circles: Boolean): Dp = if (circles) 8.dp else 2.dp
 /** The width of each of [count] spots side by side in [width], [gap] apart: as wide as the box allows, and no wider than a thumb needs. */
 internal fun spotWidth(width: Dp, count: Int, gap: Dp): Dp = min(72.dp, (width - gap * (count - 1)) / count.coerceAtLeast(1))
 
+/**
+ * The three-dots button in the editor (his ask of 27 Nov 2026: "make it be like any other button but cannot be removed"):
+ * it goes between its two places, Top and Bottom, and never into Not shown. Its box at each is the bar it ends there, or
+ * Classic's [Corner], where it stands at the bottom in no bar. Where it is, is the Top or Bottom choice itself.
+ */
+internal object MenuMoves {
+    /** Its box at [at], in the style whose bars [bar] gives. */
+    fun boxOf(at: MenuPlace, bar: (MenuPlace) -> PinPlace?): Any = bar(at) ?: Corner
+
+    /** Where it stands if let go over [box]: the place whose box that is; none over Not shown or outside the boxes. */
+    fun placeOver(box: Any?, bar: (MenuPlace) -> PinPlace?): MenuPlace? =
+        if (box == null) null else MenuPlace.entries.firstOrNull { boxOf(it, bar) == box }
+
+    /** Whether the style has a place for it in no bar, Classic's corner, which then has a box. */
+    fun hasCorner(bar: (MenuPlace) -> PinPlace?): Boolean = MenuPlace.entries.any { bar(it) == null }
+
+    /** Where a tap or TalkBack can send it from [at]: its other place, never off the player. */
+    fun targets(at: MenuPlace): List<MenuPlace> = MenuPlace.entries.filter { it != at }
+}
+
 /** What one spot of a place's bar holds: a button that can move, room for one more, or the queue or the menu. */
 private sealed interface Spot {
     data class Button(val pin: PlayerPin) : Spot
@@ -118,17 +148,19 @@ private sealed interface Spot {
     data object Menu : Spot
 }
 
-/** One way a button can go, offered by a tap, and as an accessibility action. Null [to] takes it off the player. */
-private class Move(val label: String, val room: String?, val enabled: Boolean, val to: PinPlace?)
+/** One way a button can go, offered by a tap, and as an accessibility action. */
+private class Move(val label: String, val room: String?, val enabled: Boolean, val go: () -> Unit)
 
 /**
  * The player buttons editor (Ti-Die's ask of 26 Nov 2026, mock 2 his pick): a box for each place of the style shown,
- * drawn like that bar of the player with its free spots and how many are free, then the buttons not shown as tiles, four
- * to a row and folded to the first row until Show more ([NotShownGrid]). A long press lifts a button to drag it into a
- * place, from one place to another or back to Not shown; a full place refuses it and its count shows why. A tap offers
- * the same moves in a menu, and each button has them as accessibility actions. Every move is [PinMoves.move], stored as
- * the chips stored it ([onPinsChange]). The three-dots button ends the bar of [menuIn], where the player has it
- * (MenuPlaces.barOf), and no bar when that is none.
+ * drawn like that bar of the player with its free spots and how many are free, Classic's corner where its three-dots
+ * button can stand at the bottom, then the buttons not shown as tiles, four to a row and folded to the first row until
+ * Show more ([NotShownGrid]). A long press lifts a button to drag it into a place, from one place to another or back to
+ * Not shown; a full place refuses it and its count shows why. The three-dots button is lifted, tapped and moved the same
+ * way, between [menuAt] and its other place ([MenuMoves]), and that move is the Top or Bottom choice ([onMenuMove]); Not
+ * shown refuses it and says why, and the corner refuses every other button. A tap offers the same moves in a menu, and
+ * each button has them as accessibility actions. Every move of a button is [PinMoves.move], stored as the chips stored
+ * it ([onPinsChange]).
  */
 @Composable
 fun PlayerButtonsEditor(
@@ -137,39 +169,51 @@ fun PlayerButtonsEditor(
     most: (PinPlace) -> Int,
     available: List<PlayerPin>,
     queueButton: Boolean,
-    menuIn: PinPlace?,
+    menuAt: MenuPlace,
+    menuBar: (MenuPlace) -> PinPlace?,
     onPinsChange: (Map<PinPlace, List<PlayerPin>>) -> Unit,
+    onMenuMove: (MenuPlace) -> Unit,
     name: @Composable (PlayerPin) -> String,
     icon: @Composable (PlayerPin) -> Painter,
     modifier: Modifier = Modifier,
 ) {
     val haptics = LocalHapticFeedback.current
-    // The button held, and the finger, in the editor's own coordinates.
-    var lifted by remember { mutableStateOf<PlayerPin?>(null) }
+    // What is held, a button or the three-dots button ([MenuButton]), and the finger, in the editor's own coordinates.
+    var lifted by remember { mutableStateOf<Any?>(null) }
     var finger by remember { mutableStateOf(Offset.Zero) }
-    // The place that refused the last drop, red for a moment.
-    var refused by remember { mutableStateOf<PinPlace?>(null) }
-    var menuOf by remember { mutableStateOf<PlayerPin?>(null) }
+    // The box that refused the last drop, red for a moment.
+    var refused by remember { mutableStateOf<Any?>(null) }
+    var menuOf by remember { mutableStateOf<Any?>(null) }
     // Not shown shows its first row until Show more. Not saved: the page opens with it folded every time.
     var unfolded by remember { mutableStateOf(false) }
     // Where things are, in the window: the editor, each button that can move, and each box. The boxes are taken as
     // they are at the lift, so a box growing or shrinking under the finger while it shows the drop cannot flicker.
     val editor = remember { arrayOfNulls<LayoutCoordinates>(1) }
-    val buttonBounds = remember { HashMap<PlayerPin, Rect>() }
+    val buttonBounds = remember { HashMap<Any, Rect>() }
     val boxBounds = remember { HashMap<Any, Rect>() }
     val boxesAtLift = remember { HashMap<Any, Rect>() }
+    // The boxes on the page: the places of the style shown, Classic's corner where it has one, and Not shown. Only they
+    // take a drop, never a box of the other style left from before a switch.
+    val corner = MenuMoves.hasCorner(menuBar)
+    val boxes: List<Any> = places + listOfNotNull(Corner.takeIf { corner }) + NotShown
 
     val currentPins by rememberUpdatedState(pins)
     val currentPlaces by rememberUpdatedState(places)
     val currentMost by rememberUpdatedState(most)
     val currentAvailable by rememberUpdatedState(available)
+    val currentMenuAt by rememberUpdatedState(menuAt)
+    val currentMenuBar by rememberUpdatedState(menuBar)
+    val currentBoxes by rememberUpdatedState(boxes)
     val change by rememberUpdatedState(onPinsChange)
+    val moveMenu by rememberUpdatedState(onMenuMove)
 
     fun inWindow(local: Offset): Offset? = editor[0]?.takeIf { it.isAttached }?.localToRoot(local)
     fun boxAt(local: Offset): Any? = inWindow(local)?.let { at -> boxesAtLift.entries.firstOrNull { it.value.contains(at) }?.key }
     fun moved(pin: PlayerPin, box: Any?): Map<PinPlace, List<PlayerPin>>? = when (box) {
         is PinPlace -> PinMoves.move(currentPins, currentPlaces, pin, box, currentMost)
         NotShown -> PinMoves.move(currentPins, currentPlaces, pin, null, currentMost)
+        // Classic's corner holds the three-dots button alone.
+        Corner -> null
         else -> currentPins
     }
 
@@ -187,21 +231,25 @@ fun PlayerButtonsEditor(
         }
     }
 
-    // While a button is held over a box, the boxes show the drop: the button where it would land, or the box red.
-    val hover = lifted?.let { boxAt(finger) }
-    val preview = lifted?.let { pin -> hover?.let { moved(pin, it) } }
-    val refusing = if (lifted != null && hover is PinPlace && preview == null) hover else refused
+    // While something is held over a box, the boxes show the drop: where it would land, or the box red.
+    val held = lifted
+    val hover = held?.let { boxAt(finger) }
+    val preview = (held as? PlayerPin)?.let { pin -> hover?.let { moved(pin, it) } }
+    // The three-dots button goes to its other place only: Not shown refuses it.
+    val menuPreview = if (held == MenuButton) MenuMoves.placeOver(hover, menuBar) else null
+    val refusing = when {
+        held is PlayerPin && hover != null && preview == null -> hover
+        held == MenuButton && hover != null && menuPreview == null -> hover
+        else -> refused
+    }
     val shown = preview ?: pins
+    val menuIn = MenuMoves.boxOf(menuPreview ?: menuAt, menuBar)
 
-    val putLabels = places.associateWith { stringResource(if (it == PinPlace.CONNECTED_ROW) R.string.player_pins_put_under_controls else R.string.player_pins_put_by_title) }
+    val putByTitle = stringResource(R.string.player_pins_put_by_title)
+    val putUnderControls = stringResource(R.string.player_pins_put_under_controls)
+    val putLabels = places.associateWith { if (it == PinPlace.CONNECTED_ROW) putUnderControls else putByTitle }
     val removeLabel = stringResource(R.string.player_pins_remove)
     val roomTexts = places.associateWith { roomText(PinMoves.free(pins[it].orEmpty(), most(it))) }
-
-    fun movesOf(pin: PlayerPin): List<Move> {
-        val from = PinMoves.placeOf(pins, places, pin)
-        return places.filter { it != from }.map { Move(putLabels.getValue(it), roomTexts.getValue(it).takeIf { _ -> pin != PlayerPin.CAST }, PinMoves.fits(pins, it, pin, most(it)), it) } +
-                listOfNotNull(if (from != null) Move(removeLabel, null, true, null) else null)
-    }
 
     fun moveTo(pin: PlayerPin, to: PinPlace?) {
         menuOf = null
@@ -213,22 +261,35 @@ fun PlayerButtonsEditor(
         }
     }
 
+    fun movesOf(pin: PlayerPin): List<Move> {
+        val from = PinMoves.placeOf(pins, places, pin)
+        return places.filter { it != from }.map { to -> Move(putLabels.getValue(to), roomTexts.getValue(to).takeIf { pin != PlayerPin.CAST }, PinMoves.fits(pins, to, pin, most(to))) { moveTo(pin, to) } } +
+                listOfNotNull(if (from != null) Move(removeLabel, null, true) { moveTo(pin, null) } else null)
+    }
+
+    // The three-dots button's: its other place, which always has room for it, and no Remove.
+    fun menuMoves(): List<Move> = MenuMoves.targets(menuAt).map { to ->
+        Move(if (to == MenuPlace.TOP) putByTitle else putUnderControls, null, true) {
+            menuOf = null
+            onMenuMove(to)
+        }
+    }
+
     @Composable
-    fun Movable(pin: PlayerPin, content: @Composable () -> Unit) {
-        val moves = movesOf(pin)
+    fun Movable(button: Any, moves: List<Move>, content: @Composable () -> Unit) {
         // Folded away or gone to another box, it is under no finger any more: a long press where it was lifts nothing.
-        DisposableEffect(pin) { onDispose { buttonBounds.remove(pin) } }
+        DisposableEffect(button) { onDispose { buttonBounds.remove(button) } }
         Box(
             Modifier
-                .onGloballyPositioned { buttonBounds[pin] = it.boundsInRoot() }
+                .onGloballyPositioned { buttonBounds[button] = it.boundsInRoot() }
                 .semantics {
-                    customActions = moves.filter { it.enabled }.map { move -> CustomAccessibilityAction(move.label) { moveTo(pin, move.to); true } }
+                    customActions = moves.filter { it.enabled }.map { move -> CustomAccessibilityAction(move.label) { move.go(); true } }
                 }
                 // A tap that ends a long press without a move is the press, not a tap.
-                .clickable { if (lifted == null) menuOf = pin }
+                .clickable { if (lifted == null) menuOf = button }
         ) {
             content()
-            DropdownMenu(expanded = menuOf == pin && lifted == null, onDismissRequest = { menuOf = null }) {
+            DropdownMenu(expanded = menuOf == button && lifted == null, onDismissRequest = { menuOf = null }) {
                 moves.forEach { move ->
                     DropdownMenuItem(
                         text = { Text(move.label) },
@@ -236,7 +297,7 @@ fun PlayerButtonsEditor(
                             { Text(move.room, style = MaterialTheme.typography.labelMedium) }
                         } else null,
                         enabled = move.enabled,
-                        onClick = { moveTo(pin, move.to) },
+                        onClick = move.go,
                     )
                 }
             }
@@ -249,14 +310,14 @@ fun PlayerButtonsEditor(
             .pointerInput(Unit) {
                 detectDragGesturesAfterLongPress(
                     onDragStart = { at ->
-                        val pin = inWindow(at)?.let { w -> buttonBounds.entries.firstOrNull { it.value.contains(w) }?.key }
-                        if (pin != null) {
+                        val button = inWindow(at)?.let { w -> buttonBounds.entries.firstOrNull { it.value.contains(w) }?.key }
+                        if (button != null) {
                             boxesAtLift.clear()
-                            boxesAtLift.putAll(boxBounds)
+                            boxesAtLift.putAll(boxBounds.filterKeys { it in currentBoxes })
                             menuOf = null
                             refused = null
                             finger = at
-                            lifted = pin
+                            lifted = button
                             haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                         }
                     },
@@ -267,16 +328,26 @@ fun PlayerButtonsEditor(
                         }
                     },
                     onDragEnd = {
-                        val pin = lifted
-                        if (pin != null) {
-                            val box = boxAt(finger)
-                            val after = moved(pin, box)
-                            if (after == null) {
-                                refused = box as PinPlace
-                                haptics.performHapticFeedback(HapticFeedbackType.Reject)
-                            } else if (after != currentPins) {
-                                change(after)
-                                if (box == NotShown) showWhereItLands(after, pin)
+                        val box = boxAt(finger)
+                        when (val button = lifted) {
+                            is PlayerPin -> {
+                                val after = moved(button, box)
+                                if (after == null) {
+                                    refused = box
+                                    haptics.performHapticFeedback(HapticFeedbackType.Reject)
+                                } else if (after != currentPins) {
+                                    change(after)
+                                    if (box == NotShown) showWhereItLands(after, button)
+                                }
+                            }
+                            MenuButton -> {
+                                val to = MenuMoves.placeOver(box, currentMenuBar)
+                                if (box != null && to == null) {
+                                    refused = box
+                                    haptics.performHapticFeedback(HapticFeedbackType.Reject)
+                                } else if (to != null && to != currentMenuAt) {
+                                    moveMenu(to)
+                                }
                             }
                         }
                         lifted = null
@@ -292,7 +363,7 @@ fun PlayerButtonsEditor(
                 PlaceBox(
                     title = stringResource(if (place == PinPlace.CONNECTED_ROW) R.string.player_pins_under_controls else R.string.player_pins_by_title),
                     room = roomText(free),
-                    taking = hover == place && preview != null,
+                    taking = hover == place && (preview != null || menuPreview != null),
                     refusing = refusing == place,
                     modifier = Modifier.onGloballyPositioned { boxBounds[place] = it.boundsInRoot() },
                 ) {
@@ -308,7 +379,31 @@ fun PlayerButtonsEditor(
                         lifted = lifted,
                         name = name,
                         icon = icon,
-                        movable = { pin, content -> Movable(pin, content) },
+                        movable = { pin, content -> Movable(pin, movesOf(pin), content) },
+                        movableMenu = { content -> Movable(MenuButton, menuMoves(), content) },
+                    )
+                }
+            }
+
+            // Classic's corner under the controls, where its three-dots button stands at the bottom in no bar: a box of
+            // its own after the bar by the title, the button at its right as in the player, or its spot while it is up.
+            if (corner) {
+                PlaceBox(
+                    title = stringResource(R.string.player_pins_under_controls),
+                    room = stringResource(R.string.player_pins_menu_only),
+                    taking = hover == Corner && menuPreview != null,
+                    refusing = refusing == Corner,
+                    modifier = Modifier.onGloballyPositioned { boxBounds[Corner] = it.boundsInRoot() },
+                ) {
+                    PlaceBar(
+                        spots = listOf(if (menuIn == Corner) Spot.Menu else Spot.Free),
+                        circles = true,
+                        centred = false,
+                        lifted = lifted,
+                        name = name,
+                        icon = icon,
+                        movable = { pin, content -> Movable(pin, movesOf(pin), content) },
+                        movableMenu = { content -> Movable(MenuButton, menuMoves(), content) },
                     )
                 }
             }
@@ -317,9 +412,10 @@ fun PlayerButtonsEditor(
             val rest = available.filter { it !in placed }
             PlaceBox(
                 title = stringResource(R.string.player_pins_not_shown),
-                room = null,
-                taking = hover == NotShown && lifted?.let { PinMoves.placeOf(pins, places, it) } != null,
-                refusing = false,
+                // Why it refuses the three-dots button, in red while it does.
+                room = if (refusing == NotShown) stringResource(R.string.player_pins_menu_stays) else null,
+                taking = hover == NotShown && (held as? PlayerPin)?.let { PinMoves.placeOf(pins, places, it) } != null,
+                refusing = refusing == NotShown,
                 modifier = Modifier.onGloballyPositioned { boxBounds[NotShown] = it.boundsInRoot() },
             ) {
                 NotShownGrid(
@@ -327,12 +423,12 @@ fun PlayerButtonsEditor(
                     open = unfolded,
                     circles = PinPlace.CLASSIC in places,
                     onOpenChange = { unfolded = it },
-                    tile = { pin, width -> Movable(pin) { Tile(width, name(pin), icon(pin), ghost = pin == lifted) } },
+                    tile = { pin, width -> Movable(pin, movesOf(pin)) { Tile(width, name(pin), icon(pin), ghost = pin == lifted) } },
                 )
             }
         }
 
-        lifted?.let { pin ->
+        held?.let { button ->
             val density = LocalDensity.current
             val w = 60.dp
             val h = 48.dp
@@ -348,7 +444,12 @@ fun PlayerButtonsEditor(
                     .background(MaterialTheme.colorScheme.surfaceContainerHighest, shape)
                     .border(2.dp, if (red) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary, shape)
             ) {
-                Icon(icon(pin), null, tint = if (red) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
+                Icon(
+                    if (button is PlayerPin) icon(button) else rememberVectorPainter(Icons.Rounded.MoreVert),
+                    null,
+                    tint = if (red) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(24.dp),
+                )
             }
         }
     }
@@ -406,17 +507,19 @@ private fun PlaceBox(
 
 /**
  * A place's bar: Classic's circles, or Connected's segments joined into one bar, round at its two ends. By the title
- * it ends at the right as in the player, and under the controls it is centred. Each spot has its name under it.
+ * it ends at the right as in the player, and under the controls it is centred. Each spot has its name under it. The
+ * buttons and the three-dots button can be lifted and tapped ([movable], [movableMenu]); the queue cannot.
  */
 @Composable
 private fun PlaceBar(
     spots: List<Spot>,
     circles: Boolean,
     centred: Boolean,
-    lifted: PlayerPin?,
+    lifted: Any?,
     name: @Composable (PlayerPin) -> String,
     icon: @Composable (PlayerPin) -> Painter,
     movable: @Composable (PlayerPin, @Composable () -> Unit) -> Unit,
+    movableMenu: @Composable (@Composable () -> Unit) -> Unit,
 ) {
     BoxWithConstraints(Modifier.fillMaxWidth()) {
         val gap = spotGap(circles)
@@ -442,8 +545,10 @@ private fun PlaceBar(
                     Spot.Queue -> Labelled(cell, stringResource(R.string.queue), dim = false) {
                         Face(faceWidth, faceHeight, shape, rememberVectorPainter(Icons.AutoMirrored.Rounded.QueueMusic), FaceLook.Filled)
                     }
-                    Spot.Menu -> Labelled(cell, stringResource(R.string.player_pins_menu), dim = false) {
-                        Face(faceWidth, faceHeight, shape, rememberVectorPainter(Icons.Rounded.MoreVert), FaceLook.Filled)
+                    Spot.Menu -> movableMenu {
+                        Labelled(cell, stringResource(R.string.player_pins_menu), dim = lifted == MenuButton) {
+                            Face(faceWidth, faceHeight, shape, rememberVectorPainter(Icons.Rounded.MoreVert), if (lifted == MenuButton) FaceLook.Ghost else FaceLook.Filled)
+                        }
                     }
                 }
             }
