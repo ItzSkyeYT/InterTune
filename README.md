@@ -278,7 +278,8 @@ What's being worked on, roughly in order. `[x]` is done, `[~]` is built and bein
 `[ ]` Testers first, then everyone once it beats today's picks\
 `[x]` Similar songs from ListenBrainz, in place of Last.fm\
 `[~]` ListenBrainz's playlists made for you on Home, and its picks in Discover\
-`[ ]` The player's background on one full-screen page, every style and its settings together
+`[ ]` The player's background on one full-screen page, every style and its settings together\
+`[~]` Unison as a lyrics source, with its credit wherever the lyrics show ([#145](https://github.com/ItzSkyeYT/InterTune/issues/145))
 
 </details>
 
@@ -303,7 +304,6 @@ What's being worked on, roughly in order. `[x]` is done, `[~]` is built and bein
 `[ ]` Music videos ([#96](https://github.com/ItzSkyeYT/InterTune/issues/96))\
 `[ ]` Bring your library over from InnerTune, ViMusic, SimpMusic or Kreate\
 `[~]` A thumbs down that YouTube Music hears too, then a Dislike button in the notification ([#171](https://github.com/ItzSkyeYT/InterTune/issues/171))\
-`[x]` Unison as a lyrics source ([#145](https://github.com/ItzSkyeYT/InterTune/issues/145))\
 `[x]` NetEase Cloud Music as a lyrics source, for more word by word lyrics\
 `[x]` Lock a room so no one new can join, even with the code\
 `[~]` Emoji reactions in a room\
