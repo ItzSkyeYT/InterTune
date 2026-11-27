@@ -72,17 +72,22 @@ class MenuPlaceTest {
     }
 
     @Test
-    fun `Classic at the bottom stands in the half under the controls, which lifts nothing`() {
+    fun `Classic at the bottom stands over the queue's strip, which lifts nothing`() {
         // A row of its own under Classic's controls lifted the controls, the seek bar, the title and the cover by 60dp
         // (seen on the emulator, 25 Nov 2026: pause at y 2542 at the top, 2362 at the bottom). His rule: a setting may
-        // move its own row, the play controls never move. The half of the queue's strip that the Output button has is
-        // there whether the pill is on or off, so the button goes in it, beside the pill when that is on.
+        // move its own row, the play controls never move. Since his pick of 27 Nov 2026 the controls stand in the half of
+        // the queue's strip that the button had (CastAtTopTest), so it is laid over the strip's corner, beside the Output
+        // button when that is on, after the queue's sheet so that its taps are its own, and it opens the player's menu.
         val player = src("ui/player/Player.kt")
-        val half = player.substring(player.indexOf("if (queueLayout.outputRoom > 0.dp) {"))
-        val inHalf = half.substring(0, half.indexOf("} else {"))
-        assertTrue(inHalf, "buttonsStyle == PlayerButtonsStyle.CLASSIC && menuAtBottom" in inHalf)
-        assertTrue(inHalf, "menuCircle()" in inHalf)
-        // A row under the controls only where there is no half: a small window, the two-pane layouts, a phone on its side.
+        val corner = player.substringAfter("val menuInCorner = ").substringBefore("// Where the music is coming out, on a phone on its side")
+        assertTrue(corner, corner.startsWith("buttonsStyle == PlayerButtonsStyle.CLASSIC && menuAtBottom\n"))
+        assertTrue(corner, "if (menuInCorner) Box(Modifier.offset(y = (-5).dp)) {" in corner && "onClick = showPlayerMenu," in corner)
+        assertTrue(player.indexOf("val menuInCorner = ") > player.indexOf("QueueSheet("))
+        // One opener for the menu, wherever the button stands.
+        assertEquals(1, Regex("""val showPlayerMenu: \(\) -> Unit = \{""").findAll(player).count())
+        // A row under the controls only where there is no strip: a small window, the two-pane layouts, a phone on its side.
         assertTrue("else if (menuAtBottom && queueLayout.outputRoom == 0.dp) {" in player)
+        // The style's picture puts it at the strip's right too.
+        assertTrue("Spot(u, SAMPLE_WIDTH - 24f - d, 175f, d, d)" in src("ui/screens/settings/fragments/PlayerStyleSample.kt"))
     }
 }

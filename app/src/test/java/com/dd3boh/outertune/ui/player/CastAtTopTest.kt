@@ -87,18 +87,26 @@ class CastAtTopTest {
     }
 
     @Test
-    fun `turning the pill off moves nothing, its room under the controls is kept`() {
-        // The queue's arrow and the controls stay where the pill left them, so flipping the switch moves nothing.
+    fun `the controls stand in the strip's half the pill had, and switching the pill moves nothing`() {
+        // His pick of 27 Nov 2026 from pictures of both (experiments/agents-1127/player-spot/sheet.png): the controls 48dp
+        // lower than 0.12 had them, in the half of the queue's strip that its arrow gave up, as on the 0.13 line before
+        // 25 Nov (pause at y 2350 rather than 2206 on the emulator's 1344x2992). The column keeps clear only the strip's
+        // other half, where the arrow is, and draws nothing the half's height under the controls.
         assertTrue("outputRow = Unreleased.CASTING," in player)
         assertTrue("bottom = if (tabletTwoPane) TabletQueueHandleReserve" in player)
         assertTrue("else queueReserve - queueLayout.outputRoom" in player)
-        // And the half itself is kept with the switch off: only the pill in it goes. Without it the cover, the title, the
-        // seek bar and the controls all dropped by the half (48dp) under everyone who updated from 0.12, where the pill
-        // always stood (seen on the emulator, 25 Nov 2026: pause at y 2206 with the pill, 2350 without, on 1344x2992).
-        assertTrue("if (queueLayout.outputRoom > 0.dp) {" in player)
-        assertFalse("if (queueLayout.outputRoom > 0.dp && outputPill)" in player)
-        val half = player.substring(player.indexOf("if (queueLayout.outputRoom > 0.dp) {"))
-        assertTrue(".height(queueLayout.outputRoom)" in half.substring(0, half.indexOf("OutputButton(")))
+        assertFalse(".height(queueLayout.outputRoom)" in player)
+        // With the switch on as off: the pill takes no room under the controls, it is laid over the strip's corner after
+        // the queue's sheet (whose strip would take its taps), as on a phone on its side, so flipping it moves nothing.
+        val corner = player.indexOf("val menuInCorner = ")
+        assertTrue(corner > player.indexOf("QueueSheet("))
+        val upright = player.indexOf("OutputButton(", corner)
+        val block = player.substring(corner, upright)
+        assertTrue(block, "if ((outputPill || menuInCorner) && queueLayout.outputRoom > 0.dp && !tabletTwoPane && mediaMetadata != null && !queueCovers) {" in block)
+        assertTrue(block, ".align(Alignment.BottomEnd)" in block)
+        // Never as far as the queue's arrow in the middle of the strip: a long name is cut short.
+        assertTrue(block, ".widthIn(max = windowWidth() / 2 - 24.dp - 32.dp)" in block)
+        assertTrue("wide = false," in player.substring(upright, player.indexOf(")", upright)))
     }
 
     @Test

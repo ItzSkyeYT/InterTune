@@ -876,6 +876,22 @@ fun BottomSheetPlayer(
         }
     } else null
 
+    // The player's menu, from its three-dots button wherever that stands, over the queue's strip too (menuInCorner,
+    // after the queue's sheet). The small Classic player's one row (queue, timer, like, menu) has no cast button, pinned
+    // or not: its menu offers Cast then, or the cast sheet could not be opened from the player there (26 Nov 2026).
+    var castOffScreen by remember { mutableStateOf(false) }
+    val showPlayerMenu: () -> Unit = {
+        menuState.show {
+            PlayerMenu(
+                mediaMetadata = mediaMetadata,
+                navController = navController,
+                playerBottomSheetState = state,
+                onDismiss = menuState::dismiss,
+                castOffScreen = castOffScreen,
+            )
+        }
+    }
+
     // Chromatic shock ripple, adapted from notK50BML/OuterTune. Wraps the whole sheet so the
     // refraction crosses the background and the controls together, which is what makes the
     // rainbow fringing show up along element edges. Gated on the player being expanded, so the
@@ -1111,21 +1127,6 @@ fun BottomSheetPlayer(
                 mediaMetadata?.let { song ->
                     ActivityLog.note(context, database, song.id, SignalKind.SHARE)
                     shareLink(ShareLinks.song(song.id, song.title, song.artists.map { it.name }, song.duration, song.album != null)) {}
-                }
-            }
-
-            // The small Classic player's one row (queue, timer, like, menu) has no cast button, pinned or not: its menu
-            // offers Cast then, or the cast sheet could not be opened from the player there (26 Nov 2026).
-            var castOffScreen by remember { mutableStateOf(false) }
-            val showPlayerMenu: () -> Unit = {
-                menuState.show {
-                    PlayerMenu(
-                        mediaMetadata = mediaMetadata,
-                        navController = navController,
-                        playerBottomSheetState = state,
-                        onDismiss = menuState::dismiss,
-                        castOffScreen = castOffScreen,
-                    )
                 }
             }
 
@@ -1999,10 +2000,11 @@ fun BottomSheetPlayer(
                 }
 
                 if (buttonsStyle == PlayerButtonsStyle.CONNECTED) quickActions()
-                // Classic has no row under its controls. Put at the bottom, the three-dots button stands in the half of the
-                // queue's strip under them (with the Output button, see outputRoom), which moves nothing; a row of its own
-                // here lifted the controls by 60dp. Only where there is no such half (a small window, the two panes, a
-                // phone on its side) does it stand alone here, centred, where Connected's row stands.
+                // Classic has no row under its controls. Put at the bottom, the three-dots button stands over the queue's
+                // strip, in its corner beside the Output button (menuInCorner, after the queue's sheet), which moves
+                // nothing; a row of its own here lifted the controls by 60dp. Only where there is no strip under the
+                // controls (a small window, the two panes, a phone on its side) does it stand alone here, centred,
+                // where Connected's row stands.
                 else if (menuAtBottom && queueLayout.outputRoom == 0.dp) {
                     Row(
                         horizontalArrangement = Arrangement.Center,
@@ -2178,7 +2180,7 @@ fun BottomSheetPlayer(
                         // handle.
                         .padding(
                             bottom = if (tabletTwoPane) TabletQueueHandleReserve
-                            // Less the output button's room, which is drawn below, in the strip itself.
+                            // Less the half of the queue's strip that its arrow gave up: the controls stand in it.
                             else queueReserve - queueLayout.outputRoom
                         )
                 ) {
@@ -2300,41 +2302,11 @@ fun BottomSheetPlayer(
                             // when the block has to shrink.
                             if (!compactPlayer) Spacer(Modifier.height(24.dp))
                         }
-                        if (queueLayout.outputRoom > 0.dp) {
-                            // Where the music is coming out, in the half of the queue's strip its
-                            // arrow gave up, drawn a little into the gap above so that it sits in
-                            // the middle of the two. Nothing above it has moved for it. Switched
-                            // off, the half stays, empty, so the arrow and the controls stay put:
-                            // without it everything above dropped by the half (48dp), and since the
-                            // pill was always there in 0.12, an update had moved everyone's controls.
-                            Box(
-                                contentAlignment = Alignment.Center,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(queueLayout.outputRoom)
-                                    .padding(horizontal = hPadding)
-                            ) {
-                                // Classic's three-dots button, put at the bottom, stands in this half too, beside the
-                                // pill when that is on: Classic has no row under its controls, and one of its own there
-                                // lifted the controls, the seek bar, the title and the cover by 60dp.
-                                val menuInHalf = buttonsStyle == PlayerButtonsStyle.CLASSIC && menuAtBottom
-                                Row(
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.offset(y = (-6).dp),
-                                ) {
-                                    if (outputPill) OutputButton(
-                                        tint = onBackgroundColor,
-                                        modifier = Modifier.weight(1f, fill = false),
-                                        backdrop = if (liquidGlass) playerBackdrop else null,
-                                        glassIntensity = glassIntensity,
-                                    )
-                                    // PlayerCircleButton sits 5dp low, for the title's row it was made for: level
-                                    // with the pill here (seen 5dp low beside it on the emulator, 25 Nov 2026).
-                                    if (menuInHalf) Box(Modifier.offset(y = (-5).dp)) { menuCircle() }
-                                }
-                            }
-                        }
+                        // Nothing under them upright: the controls stand in the half of the queue's strip that its
+                        // arrow gave up, 48dp lower than 0.12 had them (his pick of 27 Nov 2026 from pictures of both,
+                        // as on the 0.13 line before 25 Nov), whether the Output button is on or off. The pill, and
+                        // Classic's three-dots button put at the bottom, are laid over the strip's corner instead
+                        // (menuInCorner, after the queue's sheet), so switching either moves nothing.
                     } else {
                         Spacer(Modifier.height(24.dp))
                     }
@@ -2408,6 +2380,43 @@ fun BottomSheetPlayer(
             glassIntensity = glassIntensity,
             backClosesPlayer = queueBack(queueBackClosesPlayer, compact = queueLayout.compactSheet, tabletPane = tabletTwoPane) == QueueBack.CLOSE_PLAYER,
         )
+
+        // Upright, the controls stand in the half of the queue's strip that its arrow gave up (his pick of 27 Nov 2026),
+        // so nothing has a row under them: where the music is coming out, with the Output button on, and Classic's
+        // three-dots button put at the bottom are laid over the strip's bottom right corner instead, as the pill is on a
+        // phone on its side, and never reach the arrow in its middle: a long name is cut short. Switching either moves
+        // nothing. Drawn after the queue's sheet, whose collapsed strip would take their taps, and gone once the queue
+        // is most of the way up.
+        val menuInCorner = buttonsStyle == PlayerButtonsStyle.CLASSIC && menuAtBottom
+        if ((outputPill || menuInCorner) && queueLayout.outputRoom > 0.dp && !tabletTwoPane && mediaMetadata != null && !queueCovers) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Bottom + WindowInsetsSides.End))
+                    .padding(end = 24.dp, bottom = 10.dp)
+                    .widthIn(max = windowWidth() / 2 - 24.dp - 32.dp)
+            ) {
+                if (outputPill) OutputButton(
+                    tint = onBackgroundColor,
+                    wide = false,
+                    modifier = Modifier.weight(1f, fill = false),
+                    backdrop = if (liquidGlass) playerBackdrop else null,
+                    glassIntensity = glassIntensity,
+                )
+                // PlayerCircleButton sits 5dp low, for the title's row it was made for: level with the pill here.
+                if (menuInCorner) Box(Modifier.offset(y = (-5).dp)) {
+                    PlayerCircleButton(
+                        painter = rememberVectorPainter(Icons.Rounded.MoreVert),
+                        contentDescription = stringResource(R.string.options),
+                        container = MaterialTheme.colorScheme.primary,
+                        content = MaterialTheme.colorScheme.onPrimary,
+                        onClick = showPlayerMenu,
+                    )
+                }
+            }
+        }
 
         // Where the music is coming out, on a phone on its side, where there is no row for it
         // under the controls: laid over the bottom right corner, under the play row with Classic
