@@ -24,7 +24,9 @@ import com.dd3boh.outertune.constants.ListItemHeight
 import com.dd3boh.outertune.constants.ListThumbnailSize
 import com.dd3boh.outertune.db.entities.ArtistEntity
 import com.dd3boh.outertune.models.MediaMetadata
-import com.dd3boh.outertune.models.withArtistIds
+import com.dd3boh.outertune.models.viewRoute
+import com.dd3boh.outertune.models.viewable
+import com.dd3boh.outertune.utils.urlEncode
 
 @JvmName("ArtistDialogMediaMetadataArtist")
 @Composable
@@ -33,20 +35,22 @@ fun ArtistDialog(
     artists: List<MediaMetadata.Artist>,
     onDismiss: () -> Unit,
 ) {
-    // An artist with no id cannot be opened, and navigating to one crashed: see withArtistIds.
-    val openable = artists.withArtistIds()
+    // Every credited artist: one YouTube gave no page opens a search for its name (viewRoute). Navigating to an
+    // artist with no id crashed, and they were left out since: So What was missing from "Thread The Needle"'s.
+    val openable = artists.viewable()
     ListDialog(
         onDismiss = onDismiss
     ) {
         items(openable) { artist ->
+            val open = {
+                artist.viewRoute { it.urlEncode() }?.let { navController.navigate(it) }
+                onDismiss()
+            }
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
                     .height(ListItemHeight)
-                    .clickable {
-                        navController.navigate("artist/${artist.id}")
-                        onDismiss()
-                    }
+                    .clickable { open() }
                     .padding(horizontal = 12.dp),
             ) {
                 Box(
@@ -54,10 +58,7 @@ fun ArtistDialog(
                     modifier = Modifier
                         .fillParentMaxWidth()
                         .height(ListItemHeight)
-                        .clickable {
-                            navController.navigate("artist/${artist.id}")
-                            onDismiss()
-                        }
+                        .clickable { open() }
                         .padding(horizontal = 24.dp),
                 ) {
                     Text(

@@ -482,6 +482,8 @@ val LocalMediaPermissionAskedKey = booleanPreferencesKey("localMediaPermissionAs
  * (issue #39). "trackTagsReread" was the pass of 0.12.5, which looked at the track numbers only.
  */
 val TrackTagsRereadKey = booleanPreferencesKey("trackTagsRereadDiscs")
+/** Set once ArtistCreditRepair has asked about every kept song whose credit was stored as one name. */
+val ArtistCreditRepairedKey = booleanPreferencesKey("artistCreditRepaired")
 
 /**
  * Experimental settings

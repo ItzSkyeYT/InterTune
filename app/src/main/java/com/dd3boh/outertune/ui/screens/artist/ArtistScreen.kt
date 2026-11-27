@@ -4,6 +4,7 @@ import com.dd3boh.outertune.ui.menu.rememberArtistBlock
 import com.dd3boh.outertune.ui.menu.BlockedNote
 import com.dd3boh.outertune.ui.menu.BlockArtistIcon
 import com.dd3boh.outertune.ui.menu.BlockArtistConfirm
+import com.dd3boh.outertune.models.ArtistCredit
 import com.dd3boh.outertune.models.BlockedArtist
 import com.dd3boh.outertune.constants.Unreleased
 import android.content.Intent
@@ -174,7 +175,8 @@ fun ArtistScreen(
 
     val lazyListState = rememberLazyListState()
     val snackbarHostState = LocalSnackbarHostState.current
-    var showLocal by rememberSaveable { mutableStateOf(false) }
+    // From the first frame for an artist whose id was made up here: see isLocalArtist below.
+    var showLocal by rememberSaveable { mutableStateOf(ArtistCredit.isMadeUp(viewModel.artistId)) }
 
     // A blocked artist's page, opened from an old link or a shared one, is blank but for one line
     // and Unblock (ArtistBlock).
@@ -196,7 +198,10 @@ fun ArtistScreen(
     // A local artist opens on the local page. Keyed on that alone, and only ever switching to it:
     // keyed on the artist row, it put the page back online whenever the row changed, a tap on the
     // heart for one, and on every rotation, undoing the switch to the local page.
-    val isLocalArtist = libraryArtist?.artist?.isLocal == true
+    // So does an artist YouTube gave no page, whose id was made up here (So What, of "Thread The
+    // Needle"): its online page had nothing to load, and it opened on that, empty but for Shuffle and
+    // the globe that switches to the songs in the library (27 Nov 2026). Known from its id at once.
+    val isLocalArtist = libraryArtist?.artist?.isLocal == true || ArtistCredit.isMadeUp(viewModel.artistId)
     LaunchedEffect(isLocalArtist) {
         if (isLocalArtist) showLocal = true
     }
@@ -639,7 +644,8 @@ fun ArtistScreen(
         )
 
         HideOnScrollFAB(
-            visible = librarySongs.isNotEmpty() && libraryArtist?.artist?.isLocal != true,
+            // Not for an artist with no page online to switch to.
+            visible = librarySongs.isNotEmpty() && !isLocalArtist,
             lazyListState = lazyListState,
             icon = if (showLocal) Icons.Rounded.LibraryMusic else Icons.Rounded.Language,
             onClick = {

@@ -75,6 +75,9 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import com.dd3boh.outertune.ui.component.tapTick
 import com.dd3boh.outertune.ui.component.Feel
 import com.dd3boh.outertune.ui.player.likeName
+import com.dd3boh.outertune.utils.urlEncode
+import com.dd3boh.outertune.models.viewRoute
+import com.dd3boh.outertune.models.viewable
 
 @Composable
 fun YouTubeSongMenu(
@@ -93,13 +96,9 @@ fun YouTubeSongMenu(
 
     val librarySong by remember(song.id) { database.song(song.id) }.collectAsState(initial = null)
     val download by remember(song.id) { downloadUtil.getDownload(song.id) }.collectAsState(initial = null)
-    val artists = remember {
-        song.artists.mapNotNull {
-            it.id?.let { artistId ->
-                MediaMetadata.Artist(id = artistId, name = it.name)
-            }
-        }
-    }
+    // Every credited artist, one YouTube gave no page as a search for its name (ArtistLinks): So What, of
+    // "Thread The Needle", was left out, and the choice offered Hoax and Dynamite MC alone.
+    val artists = remember { song.artists.viewable() }
 
     var showChooseQueueDialog by rememberSaveable {
         mutableStateOf(false)
@@ -240,7 +239,7 @@ fun YouTubeSongMenu(
             ) {
                 if (artists.size == 1) {
                     ActivityLog.note(context, database, song.id, SignalKind.ARTIST_PAGE)
-                    navController.navigate("artist/${artists[0].id}")
+                    artists[0].viewRoute { it.urlEncode() }?.let { navController.navigate(it) }
                     onDismiss()
                 } else {
                     showSelectArtistDialog = true

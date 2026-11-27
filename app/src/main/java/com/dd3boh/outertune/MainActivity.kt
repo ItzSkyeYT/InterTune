@@ -10,6 +10,7 @@
 package com.dd3boh.outertune
 
 import com.dd3boh.outertune.utils.AppLanguage
+import com.dd3boh.outertune.utils.ArtistCreditRepair
 import android.content.Context
 import com.dd3boh.outertune.utils.BuiltInKeys
 import com.dd3boh.outertune.recognition.RecognitionShortcut
@@ -1027,6 +1028,13 @@ class MainActivity : ComponentActivity() {
                     )
                     // Once, and quietly: the track and disc numbers of local songs scanned before 0.12.5.
                     TrackTagReread.runOnce(this@MainActivity, database)
+                    // Once too: songs stored with their credit as one name get their artists back, and the
+                    // queues are read again so that the player shows them (ArtistCreditRepair).
+                    if (ArtistCreditRepair.runOnce(this@MainActivity, database) > 0) {
+                        playerConnection?.service?.refreshQueuesAfterScan()
+                        // The song shown before Play is the saved queue's, read at the start: shown again.
+                        withContext(Dispatchers.Main) { playerConnection?.storedQueueEdited() }
+                    }
                 }
             }
 

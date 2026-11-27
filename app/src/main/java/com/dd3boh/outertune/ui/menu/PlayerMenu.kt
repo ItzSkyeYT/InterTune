@@ -104,7 +104,8 @@ import com.dd3boh.outertune.constants.YtmSyncModeKey
 import com.dd3boh.outertune.models.DislikePlan
 import com.dd3boh.outertune.models.DontPlay
 import com.dd3boh.outertune.models.MediaMetadata
-import com.dd3boh.outertune.models.withArtistIds
+import com.dd3boh.outertune.models.viewRoute
+import com.dd3boh.outertune.models.viewable
 import com.dd3boh.outertune.playback.queues.YouTubeQueue
 import com.dd3boh.outertune.ui.component.BigSeekBar
 import com.dd3boh.outertune.ui.component.BottomSheetState
@@ -138,6 +139,7 @@ import com.dd3boh.outertune.utils.joinByBullet
 import com.dd3boh.outertune.utils.makeTimeString
 import androidx.compose.ui.platform.LocalHapticFeedback
 import com.dd3boh.outertune.ui.component.tapTick
+import com.dd3boh.outertune.utils.urlEncode
 
 /**
  * A song of the queue liked, or its like taken back, from its menu (#219), the way the player's
@@ -217,7 +219,8 @@ fun PlayerMenu(
     var showSelectArtistDialog by rememberSaveable {
         mutableStateOf(false)
     }
-    val artists = remember(mediaMetadata) { mediaMetadata.artists.withArtistIds() }
+    // Every credited artist, one with no page as a search for its name (ArtistLinks).
+    val artists = remember(mediaMetadata) { mediaMetadata.artists.viewable() }
 
 
     var showPitchTempoDialog by rememberSaveable {
@@ -427,7 +430,7 @@ fun PlayerMenu(
             ) {
                 if (artists.size == 1) {
                     ActivityLog.note(context, database, mediaMetadata.id, SignalKind.ARTIST_PAGE)
-                    navController.navigate("artist/${artists[0].id}")
+                    artists[0].viewRoute { it.urlEncode() }?.let { navController.navigate(it) }
                     playerBottomSheetState.collapseSoft()
                     onDismiss()
                 } else {

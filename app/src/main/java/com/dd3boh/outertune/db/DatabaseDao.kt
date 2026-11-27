@@ -34,6 +34,7 @@ import com.dd3boh.outertune.db.entities.SongArtistMap
 import com.dd3boh.outertune.db.entities.SongEntity
 import com.dd3boh.outertune.db.entities.SongGenreMap
 import com.dd3boh.outertune.extensions.toSQLiteQuery
+import com.dd3boh.outertune.models.ArtistCredit
 import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.models.MultiQueueObject
 import com.dd3boh.outertune.models.toMediaMetadata
@@ -217,25 +218,12 @@ interface DatabaseDao : SongsDao, AlbumsDao, ArtistsDao, PlaylistsDao, QueueDao,
             // seen, many first met in a radio or a search without a length. A length this one knows
             // fills that gap, so a queue restored after a restart still has it (5 Nov 2026).
             if (mediaMetadata.duration > 0) fillSongDuration(mediaMetadata.id, mediaMetadata.duration)
+            // And a credit YouTube once sent as one name takes the artists it names now: see
+            // splitStoredCredit. Nothing else of a song already stored is written again.
+            if (!mediaMetadata.isLocal) splitStoredCredit(mediaMetadata.id, mediaMetadata.artists)
             return
         }
-        mediaMetadata.artists.forEachIndexed { index, artist ->
-            val artistId = artist.id ?: artistByName(artist.name)?.id ?: ArtistEntity.generateArtistId()
-            insert( // TODO: use upsert???
-                ArtistEntity(
-                    id = artistId,
-                    name = artist.name,
-                    isLocal = artist.isLocal
-                )
-            )
-            insert(
-                SongArtistMap(
-                    songId = mediaMetadata.id,
-                    artistId = artistId,
-                    position = index
-                )
-            )
-        }
+        linkArtists(mediaMetadata.id, mediaMetadata.artists)
         mediaMetadata.genre?.forEachIndexed { index, genre ->
             val genreId = genreByName(genre.title)?.id ?: GenreEntity.generateGenreId()
             insert( // TODO: use upsert???
@@ -292,6 +280,61 @@ interface DatabaseDao : SongsDao, AlbumsDao, ArtistsDao, PlaylistsDao, QueueDao,
                 )
             )
         }
+    }
+
+    /**
+     * [artists] as the song's, in their order: each by its YouTube id, or else by an artist row of the same
+     * name, or else under an id made up here (ArtistEntity.generateArtistId).
+     */
+    fun linkArtists(songId: String, artists: List<MediaMetadata.Artist>) {
+        artists.forEachIndexed { index, artist ->
+            val artistId = artist.id ?: artistByName(artist.name)?.id ?: ArtistEntity.generateArtistId()
+            insert( // TODO: use upsert???
+                ArtistEntity(
+                    id = artistId,
+                    name = artist.name,
+                    isLocal = artist.isLocal
+                )
+            )
+            insert(
+                SongArtistMap(
+                    songId = songId,
+                    artistId = artistId,
+                    position = index
+                )
+            )
+        }
+    }
+
+    /** See CreditSql.ARTISTS_OF_SONG. */
+    @Query(CreditSql.ARTISTS_OF_SONG)
+    fun artistsOfSong(songId: String): List<ArtistEntity>
+
+    /** See CreditSql.CREDITS_TO_ASK and ArtistCreditRepair. */
+    @Query(CreditSql.CREDITS_TO_ASK)
+    fun creditsToAsk(afterId: String, limit: Int): List<StoredCredit>
+
+    /** See CreditSql.DELETE_IF_UNUSED. */
+    @Query(CreditSql.DELETE_IF_UNUSED)
+    fun deleteArtistIfUnused(artistId: String)
+
+    /**
+     * A song from YouTube stored with its whole credit as one artist ("Hoax, So What, & Dynamite MC", under an
+     * id made up here) takes [artists] in its place, when they are that one name split (ArtistCredit.spells):
+     * linked as a new song's are (linkArtists), and the old artist row goes once nothing names it. Anything else
+     * is left as it is: a song with two artists or more, a file's artist, one with YouTube's id, or names that do
+     * not spell it. The song's own row, with its like, its plays, its download and its place in the library, is
+     * never touched. True when the artists were replaced.
+     */
+    @Transaction
+    fun splitStoredCredit(songId: String, artists: List<MediaMetadata.Artist>): Boolean {
+        if (artists.size < 2) return false
+        val stored = artistsOfSong(songId).singleOrNull() ?: return false
+        if (!ArtistCredit.splits(stored.id, stored.name, stored.isLocal, artists.map { it.name })) return false
+        unlinkSongArtists(songId)
+        linkArtists(songId, artists)
+        deleteArtistIfUnused(stored.id)
+        return true
     }
 
     @Transaction
