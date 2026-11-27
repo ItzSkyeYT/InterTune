@@ -69,7 +69,9 @@ import com.dd3boh.outertune.constants.SignalKind
 import com.dd3boh.outertune.constants.SyncMode
 import com.dd3boh.outertune.constants.YtmSyncModeKey
 import com.dd3boh.outertune.models.MediaMetadata
-import com.dd3boh.outertune.models.withArtistIds
+import com.dd3boh.outertune.models.viewRoute
+import com.dd3boh.outertune.models.viewable
+import com.dd3boh.outertune.utils.urlEncode
 import com.dd3boh.outertune.playback.queues.YouTubeQueue
 import com.dd3boh.outertune.ui.component.BottomSheetState
 import com.dd3boh.outertune.ui.component.items.ListItem
@@ -201,7 +203,8 @@ internal fun rememberPinActions(
     // As the menu has it: while sync is read only, only local playlists can be edited.
     val syncMode by rememberEnumPreference(key = YtmSyncModeKey, defaultValue = SyncMode.RW)
     val inPlaylists = if (syncMode == SyncMode.RO) containing.filter { it.playlist.isLocal } else containing
-    val artists = remember(mediaMetadata) { mediaMetadata?.artists?.withArtistIds().orEmpty() }
+    // Every credited artist, one with no page as a search for its name (ArtistLinks), as the player's menu has them.
+    val artists = remember(mediaMetadata) { mediaMetadata?.artists?.viewable().orEmpty() }
     val equalizerLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { }
 
     var showQueues by rememberSaveable { mutableStateOf(false) }
@@ -352,7 +355,7 @@ internal fun rememberPinActions(
                 }
                 PlayerPin.ARTIST -> if (artists.size == 1) {
                     ActivityLog.note(context, database, song.id, SignalKind.ARTIST_PAGE)
-                    navController.navigate("artist/${artists[0].id}")
+                    artists[0].viewRoute { it.urlEncode() }?.let { navController.navigate(it) }
                     playerBottomSheetState.collapseSoft()
                 } else {
                     showArtists = true
