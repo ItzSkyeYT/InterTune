@@ -1,5 +1,7 @@
 package com.dd3boh.outertune.ui.screens.settings.fragments
 
+import androidx.compose.material3.Slider
+import kotlin.math.roundToInt
 import com.dd3boh.outertune.utils.ContentLocale
 import com.dd3boh.outertune.utils.AppLanguage
 import androidx.compose.material.icons.rounded.Translate
@@ -463,33 +465,49 @@ fun ColumnScope.SwipeGesturesFrag() {
 }
 
 /**
- * "Vibration": Off, Light or Strong (Unreleased.HAPTICS_FEEL, Haptics), how the app's haptics feel. A pick plays one
- * buzz of itself, so the choice is felt as it is made: play and pause's firm click, nothing for Off.
+ * "Vibration" (Unreleased.HAPTICS_FEEL, Haptics), how the app's haptics feel: a slider of six places, Off and then five
+ * steps, from faint to Strong (Ti-Die and Niko, #testers 24 Nov 2026: a five-step slider instead of none, light, strong).
+ * Step 2 is what Light always was and step 5 what Strong was, so nobody's old choice changes. Dragging it plays one buzz
+ * of each place as it is reached, so the choice is felt as it is made: play and pause's firm click, nothing for Off.
  */
 @Composable
 fun ColumnScope.VibrationFrag() {
-    val (vibration, onVibrationChange) = rememberEnumPreference(VibrationKey, defaultValue = Vibration.DEFAULT)
+    val (saved, onVibrationChange) = rememberEnumPreference(VibrationKey, defaultValue = Vibration.DEFAULT)
+    // What the slider shows at once; the setting itself is written a moment later.
+    var vibration by remember { mutableStateOf(saved) }
     val haptic = LocalHapticFeedback.current
     // Light's buzz is Compose's own: the window's (FeltHaptics) still holds the choice before as the new one is picked.
     val platform = (haptic as? FeltHaptics)?.platform ?: haptic
 
-    EnumListPreference(
+    PreferenceEntry(
         modifier = Modifier.tourTarget(Tour.SETTING_VIBRATION).settingRow(R.string.vibration),
         title = { Text(stringResource(R.string.vibration)) },
+        description = if (vibration == Vibration.OFF) stringResource(R.string.vibration_off)
+        else stringResource(R.string.vibration_step, vibration.step),
         icon = { Icon(Icons.Rounded.Vibration, null) },
-        selectedValue = vibration,
-        valueText = {
-            when (it) {
-                Vibration.OFF -> stringResource(R.string.vibration_off)
-                Vibration.LIGHT -> stringResource(R.string.vibration_light)
-                Vibration.STRONG -> stringResource(R.string.vibration_strong)
+        onClick = null,
+    )
+    Slider(
+        value = vibration.step.toFloat(),
+        onValueChange = { value ->
+            val picked = Vibration.ofStep(value.roundToInt())
+            if (picked != vibration) {
+                vibration = picked
+                onVibrationChange(picked)
+                Haptics.sample(picked, platform)
             }
         },
-        onValueSelected = { picked ->
-            onVibrationChange(picked)
-            Haptics.sample(picked, platform)
-        },
+        valueRange = 0f..Vibration.STRONG.step.toFloat(),
+        steps = Vibration.STRONG.step - 1,
+        modifier = Modifier.padding(horizontal = 16.dp),
     )
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(start = 24.dp, end = 24.dp, bottom = 8.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Text(stringResource(R.string.vibration_off), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(stringResource(R.string.vibration_strong), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
 }
 
 /**

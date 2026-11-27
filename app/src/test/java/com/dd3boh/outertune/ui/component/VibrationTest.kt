@@ -69,7 +69,9 @@ class VibrationTest {
     @Test
     fun `Strong is the trial's default, his S25U finding Light too faint`() {
         assertEquals(Vibration.STRONG, Vibration.DEFAULT)
-        assertEquals(listOf(Vibration.OFF, Vibration.LIGHT, Vibration.STRONG), Vibration.entries)
+        // Off and five steps, in the slider's order.
+        assertEquals(listOf(Vibration.OFF, Vibration.FAINT, Vibration.LIGHT, Vibration.MEDIUM, Vibration.FIRM, Vibration.STRONG), Vibration.entries)
+        assertEquals(listOf(0, 1, 2, 3, 4, 5), Vibration.entries.map { it.step })
     }
 
     // ---- Strong on his S25U: the primitives ----
@@ -262,7 +264,7 @@ class VibrationTest {
         assertTrue("context.dataStore[VibrationKey].toEnum(Vibration.DEFAULT)" in vibration)
         val play = haptics.substringAfter("inline fun play(").substringBefore("\n    }")
         assertTrue(play, "Vibration.OFF -> Unit" in play && "Vibration.LIGHT -> light()" in play)
-        assertTrue(play, "Vibration.STRONG -> if (!strong(feel)) light()" in play)
+        assertTrue(play, "else -> if (!strong(feel, choice)) light()" in play)
         // And the window keeps Compose's own haptic feedback where the flag is off.
         assertTrue("if (Unreleased.HAPTICS_FEEL) FeltHaptics(platform) else platform" in haptics)
     }
@@ -364,6 +366,9 @@ class VibrationTest {
         assertTrue("SwipeGesturesFrag()\n            if (Unreleased.HAPTICS_FEEL) VibrationFrag()" in look)
         val row = source("ui/screens/settings/fragments/InterfaceFrag.kt").substringAfter("fun ColumnScope.VibrationFrag() {").substringBefore("\n}")
         assertTrue(row, "rememberEnumPreference(VibrationKey, defaultValue = Vibration.DEFAULT)" in row)
+        // A slider of six places, Off at one end and Strong at the other, labelled there only.
+        assertTrue(row, "valueRange = 0f..Vibration.STRONG.step.toFloat()" in row)
+        assertTrue(row, "steps = Vibration.STRONG.step - 1" in row)
         assertTrue(row, ".settingRow(R.string.vibration)" in row)
         // What's new's card for Vibration shows the row with its Show me (21 Nov 2026).
         assertTrue(row, "Modifier.tourTarget(Tour.SETTING_VIBRATION)" in row)
@@ -377,7 +382,7 @@ class VibrationTest {
         val english = File("src/main/res/values/strings-ot.xml").readText()
         val french = File("src/main/res/values-fr/strings-ot.xml").readText()
         fun line(xml: String, name: String) = xml.lines().singleOrNull { "name=\"$name\"" in it } ?: error("$name is missing")
-        for (name in listOf("vibration", "vibration_off", "vibration_light", "vibration_strong")) {
+        for (name in listOf("vibration", "vibration_off", "vibration_step", "vibration_strong")) {
             for (xml in listOf(english, french)) {
                 val entry = line(xml, name)
                 assertFalse("$name is still held: $entry", "translatable=\"false\"" in entry)
@@ -400,5 +405,105 @@ class VibrationTest {
         val stripped = Regex("""android\.permission\.VIBRATE"\s+tools:node="remove"""").containsMatchIn(release)
         assertTrue("the setting is held back but a release still asks to vibrate", !held || stripped)
         assertTrue("the setting ships but its manifest takes the vibrator away", held || !stripped)
+    }
+
+    // ---- the five steps (Ti-Die and Niko, #testers 24 and 26 Nov 2026) ----
+
+    @Test
+    fun `an old Light or Strong reads as the same feel, and the stored names are kept`() {
+        // The setting is stored by name: what an update finds on a phone from before the slider.
+        assertEquals(Vibration.LIGHT, Vibration.valueOf("LIGHT"))
+        assertEquals(Vibration.STRONG, Vibration.valueOf("STRONG"))
+        assertEquals(Vibration.OFF, Vibration.valueOf("OFF"))
+        for (caps in listOf(s25u, effectsOnly, s25u.copy(amplitudeControl = false), s25u.copy(sdk = 30), s25u.copy(sdk = 26))) {
+            for (feel in Feel.entries) {
+                assertEquals(Buzz.Light, buzzFor(feel, Vibration.LIGHT, caps))
+                // Step 5 is exactly Strong's, on every phone, amplitude control or not.
+                assertEquals(strong(feel, caps), buzzFor(feel, Vibration.STRONG, caps))
+            }
+        }
+        assertEquals(steps(Step(tick, 1f)), strong(Feel.TICK, s25u.copy(amplitudeControl = false)))
+        assertEquals(Vibration.OFF, Vibration.ofStep(-3))
+        assertEquals(Vibration.STRONG, Vibration.ofStep(9))
+        assertEquals(Vibration.MEDIUM, Vibration.ofStep(3))
+    }
+
+    @Test
+    fun `with amplitude control each step plays the same feel at more of its strength`() {
+        val s = listOf(Vibration.FAINT, Vibration.MEDIUM, Vibration.FIRM, Vibration.STRONG)
+        for (feel in Feel.entries) {
+            val scales = s.map { v ->
+                val b = buzzFor(feel, v, s25u) as Buzz.Primitives
+                b.steps.map { it.scale }
+            }
+            for ((a, b) in scales.zipWithNext()) {
+                assertTrue("$feel: $scales", a.zip(b).all { (x, y) -> x < y })
+            }
+            // The primitives themselves stay Strong's, only their strength changes.
+            val prims = s.map { v -> (buzzFor(feel, v, s25u) as Buzz.Primitives).steps.map { it.primitive } }
+            assertTrue(prims.all { it == prims.last() })
+        }
+        assertEquals(steps(Step(tick, 0.25f)), buzzFor(Feel.TICK, Vibration.FAINT, s25u))
+        assertEquals(steps(Step(click, 0.5f)), buzzFor(Feel.FIRM, Vibration.MEDIUM, s25u))
+    }
+
+    @Test
+    fun `an effect with amplitude control but no primitives is a pulse at the step's amplitude`() {
+        val a = listOf(Vibration.FAINT, Vibration.MEDIUM, Vibration.FIRM).map {
+            (buzzFor(Feel.TICK, it, effectsOnly) as Buzz.Pulses).amplitude
+        }
+        assertEquals(a.sorted(), a)
+        assertTrue(a.all { it in 1..255 } && a.distinct().size == 3)
+    }
+
+    @Test
+    fun `without amplitude control the steps are gentler effects, a rung down each, as Niko's phone needs`() {
+        // Niko's Android 13 phone: effects, no amplitude control. Every step is a distinct feel for the common tick.
+        val niko = s25u.copy(sdk = 33, primitives = setOf(click, tick), amplitudeControl = false)
+        val rungs = listOf(Vibration.FAINT, Vibration.MEDIUM, Vibration.FIRM, Vibration.STRONG).map { buzzFor(Feel.TICK, it, niko) }
+        assertEquals(Buzz.Pulses(count = 1, length = 5), rungs[0])
+        assertEquals(Buzz.Pulses(count = 1, length = 10), rungs[1])
+        assertEquals(Buzz.Pulses(count = 1, length = 15), rungs[2])
+        assertEquals(steps(Step(tick, 1f)), rungs[3])
+        // A firm click comes down through the click and the tick before it reaches the pulses.
+        val firm = listOf(Vibration.MEDIUM, Vibration.FIRM, Vibration.STRONG).map { buzzFor(Feel.FIRM, it, niko.copy(primitives = emptySet())) }
+        assertEquals(listOf(
+            Buzz.Predefined(VibrationEffect.EFFECT_TICK),
+            Buzz.Predefined(VibrationEffect.EFFECT_CLICK),
+            Buzz.Predefined(VibrationEffect.EFFECT_HEAVY_CLICK),
+        ), firm)
+        // The like's two buzzes keep their gap and shorten.
+        val like = listOf(Vibration.FAINT, Vibration.MEDIUM, Vibration.FIRM).map { buzzFor(Feel.DOUBLE, it, niko) as Buzz.Pulses }
+        assertTrue(like.all { it.count == 2 && it.gap == 60L })
+        assertEquals(like.map { it.length }.sorted(), like.map { it.length })
+        // No step of a phone that says it cannot play an effect asks for it.
+        val none = niko.copy(primitives = emptySet(), effects = Feel.entries.flatMap { predefinedFor(it) }.associateWith { no })
+        for (v in Vibration.entries) for (feel in Feel.entries) {
+            val b = buzzFor(feel, v, none)
+            assertFalse("$v $feel $b", b is Buzz.Predefined)
+        }
+    }
+
+    @Test
+    fun `a step never asks for more than the phone has, nor a primitive it lacks`() {
+        for (caps in listOf(s25u, effectsOnly, s25u.copy(amplitudeControl = false), s25u.copy(primitives = setOf(click, tick), sdk = 30))) {
+            for (v in Vibration.entries) for (feel in Feel.entries) {
+                when (val b = buzzFor(feel, v, caps)) {
+                    is Buzz.Primitives -> assertTrue("$v $feel", b.steps.all { it.primitive in caps.primitives && it.scale in 0f..1f })
+                    is Buzz.Pulses -> assertTrue("$v $feel $b", b.amplitude == VibrationEffect.DEFAULT_AMPLITUDE || b.amplitude in 1..255)
+                    else -> Unit
+                }
+            }
+        }
+        assertEquals(Buzz.None, buzzFor(Feel.TICK, Vibration.OFF, s25u))
+    }
+
+    @Test
+    fun `the slider's text is short, in both languages, and the steps are told`() {
+        val english = File("src/main/res/values/strings-ot.xml").readText()
+        val french = File("src/main/res/values-fr/strings-ot.xml").readText()
+        assertTrue("%1\$d of 5" in english)
+        assertTrue("%1\$d sur 5" in french)
+        assertFalse("vibration_light" in english || "vibration_light" in french)
     }
 }
