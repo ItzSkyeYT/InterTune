@@ -301,6 +301,23 @@ class DownloadCopiesTest {
     }
 
     @Test
+    fun `a Remove the app ends leaves the copies that a folder listing as empty finds again`() {
+        // His folder, the database at the newest copy, the removal ended after a few deletions, and the next start
+        // asks the folder for each name again. Deleted from (1) up, three missing in a row hid the copies left past
+        // them from every look after it: they stayed for good, and no card ever said so (27 Nov 2026).
+        for (deletions in 0..5) {
+            val storage = PhoneStorage(mapOf("$carpet.mka" to 1_174_405L) + (1..5).associate { "$carpet.mka ($it)" to 2_296_381L })
+            val recorded = mapOf("2YvDwY80qJl" to "$carpet.mka (5)")
+            val song = DownloadCopies.plan(DownloadCopies.lookFor(listOf(carpet), recorded.values, storage::lookUp), recorded).songs.single()
+            var left = deletions
+            val delete = { key: String -> if (left-- <= 0) throw IllegalStateException("the app ended") else storage.delete(key) }
+            runCatching { DownloadCopies.remove(song, storage::lookAt, delete) {} }
+            val found = DownloadCopies.lookFor(listOf(carpet), recorded.values, storage::lookUp).map { it.name }.toSet()
+            assertEquals("ended after $deletions deletions", storage.disk.keys, found)
+        }
+    }
+
+    @Test
     fun `nothing of a song is touched when the file it keeps is not there as it was found`() {
         val files = mapOf("$carpet.mka (5)" to 2_296_381L, "$carpet.mka (1)" to 2_296_381L)
         for (since in listOf<(PhoneStorage) -> Unit>({ it.disk.remove("$carpet.mka (5)") }, { it.disk["$carpet.mka (5)"] = 0L })) {
