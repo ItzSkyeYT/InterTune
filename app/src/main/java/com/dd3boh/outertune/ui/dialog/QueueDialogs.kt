@@ -25,18 +25,43 @@ import androidx.compose.ui.text.input.TextFieldValue
 import com.dd3boh.outertune.LocalPlayerConnection
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.ListThumbnailSize
+import com.dd3boh.outertune.extensions.toMediaItem
+import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.models.MultiQueueObject
 import com.dd3boh.outertune.ui.component.items.ListItem
 import com.dd3boh.outertune.ui.component.items.QueueListItem
+import kotlinx.coroutines.launch
 
 
+/**
+ * Add to queue: the choice of this phone's queues for [songs], or a new one, which [onAdd] adds them to. Every menu's
+ * Add to queue opens it.
+ *
+ * A phone that follows a listening room as a guest has no choice to make (his word of 27 Nov 2026, Spotify's Jam): its
+ * queues are the room's copy, put back by the room's next word, and the ones from before the room, out of sight. The
+ * songs go to the end of the room's queue with the room's own words, as its Play next goes to the room
+ * (PlayerConnection.enqueueEnd). Decided here, as it opens, so that no menu goes round it.
+ */
 @Composable
 fun AddToQueueDialog(
     initialTextFieldValue: String? = null,
+    songs: suspend () -> List<MediaMetadata>,
     onAdd: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {
     val playerConnection = LocalPlayerConnection.current
+    val guest = remember { playerConnection?.takeIf { it.addsToRoom } }
+    if (guest != null) {
+        LaunchedEffect(Unit) {
+            // On the connection's scope: the menu may close before a playlist's songs have come.
+            guest.scope.launch {
+                val items = runCatching { songs() }.getOrDefault(emptyList()).map { it.toMediaItem() }
+                if (items.isNotEmpty()) guest.enqueueEnd(items)
+            }
+            onDismiss()
+        }
+        return
+    }
     var queues by remember {
         mutableStateOf(emptyList<MultiQueueObject>())
     }

@@ -316,6 +316,7 @@ fun SelectionMediaMetadataMenu(
 
     if (showChooseQueueDialog) {
         AddToQueueDialog(
+            songs = { selection },
             onAdd = { queueName ->
                 val q = playerConnection.service.queueBoard.addQueue(
                     queueName,

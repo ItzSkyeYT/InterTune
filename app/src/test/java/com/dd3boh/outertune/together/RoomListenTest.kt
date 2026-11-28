@@ -186,7 +186,8 @@ class RoomListenTest {
         assertTrue("if (Unreleased.AI_FILTER && !inRoom && " in service)
         // A guest that casts plays its own music on the cast, as before 26 Nov 2026: no leave asked, its adds its own.
         assertTrue("if (room != null && room.following && !room.status.value.ownWay) {" in body(connection, "fun playQueue("))
-        assertTrue("takeIf { it.following && !it.status.value.ownWay } ?: return false" in body(connection, "private fun toRoom("))
+        assertTrue("val room = followedRoom() ?: return false" in body(connection, "private fun toRoom("))
+        assertTrue("private fun followedRoom() = service.together.value?.takeIf { it.following && !it.status.value.ownWay }" in connection)
     }
 
     @Test

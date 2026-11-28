@@ -228,6 +228,7 @@ fun YouTubeAlbumMenu(
 
     if (showChooseQueueDialog) {
         AddToQueueDialog(
+            songs = { songsToQueue },
             onAdd = { queueName ->
                 songsToQueue.takeIf { it.isNotEmpty() }?.let { songs ->
                     val q = playerConnection.service.queueBoard.addQueue(
