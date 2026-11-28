@@ -40,8 +40,6 @@ import androidx.compose.material.icons.rounded.SkipPrevious
 import androidx.compose.material.icons.rounded.SwipeLeft
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Tune
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.MaterialTheme
@@ -238,7 +236,7 @@ fun ColumnScope.ThemePlayerFrag() {
     val livingStrength by rememberPreference(LivingStrengthKey, defaultValue = LivingField.DEFAULT_STRENGTH)
     val livingSmoothing by rememberPreference(LivingSmoothingKey, defaultValue = LivingField.DEFAULT_SMOOTHING)
     val livingColours by rememberEnumPreference(LivingColoursKey, defaultValue = LivingColours.MAIN)
-    // The whole-screen tuner (Unreleased.LIVING_TUNE), opened from the button under the sample. The activity keeps it
+    // The whole-screen tuner (Unreleased.LIVING_TUNE), opened from the pencil on the sample. The activity keeps it
     // open and draws it (LivingTuneHost): turning the phone moves this page into Settings' two panes and back.
     val tune = LocalLivingTune.current
     AnimatedVisibility(playerBackground == PlayerBackgroundStyle.LIVING && Unreleased.LIVING_BACKGROUND) {
@@ -249,22 +247,11 @@ fun ColumnScope.ThemePlayerFrag() {
                 colours = livingColours,
                 modifier = Modifier.padding(start = 16.dp, top = 4.dp, end = 16.dp, bottom = 8.dp),
                 paused = tune.open,
+                // The one way to the three: a pencil with "Edit" in the sample's top end corner, which keeps
+                // its words clear of it (Ti-Die's layout of 28 Nov 2026, in place of a wide "Tune on the
+                // whole screen" button under the sample; the search still finds the style by those words).
+                onEdit = if (Unreleased.LIVING_TUNE) ({ tune.open = true }) else null,
             )
-            // The one way to the three now: a button with its name right under the sample, in the app's own
-            // words for it, where an icon in the sample's corner was. Under it, not in it: the sample has no
-            // room to spare at a large font on a small phone, and Ti-Die's layout of 19 Nov 2026 keeps
-            // buttons out of its words.
-            if (Unreleased.LIVING_TUNE) {
-                FilledTonalButton(
-                    onClick = { tune.open = true },
-                    contentPadding = ButtonDefaults.ButtonWithIconContentPadding,
-                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp),
-                ) {
-                    Icon(Icons.Rounded.Tune, contentDescription = null, modifier = Modifier.size(ButtonDefaults.IconSize))
-                    Spacer(Modifier.width(ButtonDefaults.IconSpacing))
-                    Text(stringResource(R.string.living_tune_open))
-                }
-            }
             // With animations off it stands still, here and in the player: said, with the switch
             // that does it, so that the sample and the tuner are not taken for broken (#49).
             // Android's own is named first, as the Animations switch at the top cannot undo it.

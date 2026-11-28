@@ -33,9 +33,9 @@ class LivingBlurTuneTest {
     }
 
     @Test
-    fun `the button under the sample opens it, and only where the flag is on`() {
+    fun `the pencil on the sample opens it, and only where the flag is on`() {
         val theme = read("ui/screens/settings/fragments/ThemeFrag.kt")
-        assertTrue("no button without the flag", theme.contains("if (Unreleased.LIVING_TUNE) {\n                FilledTonalButton(\n                    onClick = { tune.open = true },"))
+        assertTrue("no pencil without the flag", theme.contains("onEdit = if (Unreleased.LIVING_TUNE) ({ tune.open = true }) else null,"))
         assertTrue("the sample asks no frames under it", theme.contains("paused = tune.open"))
         assertTrue(theme.contains("val tune = LocalLivingTune.current"))
         val sample = read("ui/screens/settings/fragments/LivingBlurSample.kt")
