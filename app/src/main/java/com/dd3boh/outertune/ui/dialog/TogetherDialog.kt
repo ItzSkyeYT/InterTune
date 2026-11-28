@@ -700,7 +700,9 @@ private fun RoomPage(room: TogetherSession, song: MediaMetadata?, onLeave: () ->
             onKick = { haptics.performHapticFeedback(HapticFeedbackType.Reject); room.kick(it) },
         )
         WalkTo(WalkStop.PEOPLE)
-        if (!status.leading) {
+        // Only where Play next and Add to queue reach the room: not for a guest casting on its own (GuestCast), whose two
+        // are its own, as PlayerConnection.followedRoom says.
+        if (!status.leading && !status.ownWay) {
             Spacer(Modifier.height(14.dp))
             Text(
                 stringResource(R.string.together_suggest_hint),

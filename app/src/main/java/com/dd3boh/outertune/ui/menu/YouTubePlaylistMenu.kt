@@ -332,6 +332,9 @@ fun YouTubePlaylistMenu(
             },
             onDismiss = {
                 showChooseQueueDialog = false
+                // A guest's songs go to the room while YouTube gives the playlist, which takes seconds: the menu goes at
+                // once, as Play next's does, so that a second tap does not send them twice.
+                if (playerConnection.addsToRoom) onDismiss()
             }
         )
     }

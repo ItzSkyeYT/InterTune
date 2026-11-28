@@ -200,9 +200,12 @@ fun FolderMenu(
             icon = Icons.AutoMirrored.Rounded.QueueMusic,
             title = R.string.add_to_queue
         ) {
-            showChooseQueueDialog = true
+            // Opened once the folder's songs are read, as Add to playlist: a guest's songs go to the room as it opens,
+            // and it read none yet, so the first tap did nothing (28 Nov 2026).
             coroutineScope.launch(Dispatchers.IO) {
-                fetchAllSongsRecursive()
+                fetchAllSongsRecursive {
+                    showChooseQueueDialog = true
+                }
             }
         }
         GridMenuItem(

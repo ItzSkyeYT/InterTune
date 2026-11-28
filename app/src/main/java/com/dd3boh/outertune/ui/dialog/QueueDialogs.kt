@@ -30,6 +30,7 @@ import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.models.MultiQueueObject
 import com.dd3boh.outertune.ui.component.items.ListItem
 import com.dd3boh.outertune.ui.component.items.QueueListItem
+import com.dd3boh.outertune.utils.Toaster
 import kotlinx.coroutines.launch
 
 
@@ -56,7 +57,9 @@ fun AddToQueueDialog(
             // On the connection's scope: the menu may close before a playlist's songs have come.
             guest.scope.launch {
                 val items = runCatching { songs() }.getOrDefault(emptyList()).map { it.toMediaItem() }
-                if (items.isNotEmpty()) guest.enqueueEnd(items)
+                // Nothing came (a playlist YouTube did not give, a list not read yet): said, rather than nothing at all.
+                if (items.isEmpty()) Toaster.show(guest.service, R.string.together_suggested_none)
+                else guest.enqueueEnd(items)
             }
             onDismiss()
         }
