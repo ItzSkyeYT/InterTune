@@ -45,23 +45,38 @@ data class BackupParts(
 
 /** The settings that sign in to an account: YouTube Music's, Last.fm's and ListenBrainz's. */
 object SignIns {
-    val KEYS: List<Preferences.Key<String>> = listOf(
-        InnerTubeCookieKey, DataSyncIdKey, AccountNameKey, AccountEmailKey, AccountChannelHandleKey,
-        LastFmSessionKey, LastFmUsernameKey,
-        ListenBrainzTokenKey, ListenBrainzUserKey,
+    /**
+     * Each account's settings, which go together, the one that signs in first: YouTube's cookie,
+     * Last.fm's session, ListenBrainz's token. One account's name is never kept with another's key.
+     */
+    val SERVICES: List<List<Preferences.Key<String>>> = listOf(
+        listOf(InnerTubeCookieKey, DataSyncIdKey, AccountNameKey, AccountEmailKey, AccountChannelHandleKey),
+        listOf(LastFmSessionKey, LastFmUsernameKey),
+        listOf(ListenBrainzTokenKey, ListenBrainzUserKey),
     )
+
+    val KEYS: List<Preferences.Key<String>> = SERVICES.flatten()
 
     fun without(prefs: Preferences): Preferences =
         prefs.toMutablePreferences().apply { KEYS.forEach { remove(it) } }.toPreferences()
 
     /**
-     * A restored backup's settings, with the sign-ins already on this phone kept when the backup has
-     * none of its own: a restore must not sign anybody out. A backup that holds sign-ins brings them.
+     * A restored backup's settings, with each account this phone is signed in to kept when the
+     * backup has no sign-in of its own for it: a restore must not sign anybody out. A backup that
+     * holds a sign-in brings it, for that account alone: one with YouTube's used to sign the phone
+     * out of ListenBrainz too. A name without its key is no sign-in (Last.fm's after a disconnect).
      */
-    fun keptOver(restored: Preferences, current: Preferences): Preferences {
-        if (KEYS.any { restored[it] != null }) return restored
-        return restored.toMutablePreferences().apply { KEYS.forEach { key -> current[key]?.let { this[key] = it } } }.toPreferences()
-    }
+    fun keptOver(restored: Preferences, current: Preferences): Preferences =
+        restored.toMutablePreferences().apply {
+            for (service in SERVICES) {
+                val signsIn = service.first()
+                if (!restored[signsIn].isNullOrBlank() || current[signsIn].isNullOrBlank()) continue
+                for (setting in service) {
+                    val phone = current[setting]
+                    if (phone != null) this[setting] = phone else remove(setting)
+                }
+            }
+        }.toPreferences()
 }
 
 /**
