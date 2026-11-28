@@ -771,6 +771,22 @@ class QueueBoard(
     }
 
     /**
+     * The current queue made to start again from its first song when it had played to its end
+     * (ResumePoint.playFrom), for Play on an empty player, before the queue is loaded into it. True when it was.
+     */
+    fun startOverIfEnded(): Boolean {
+        val q = getCurrentQueue()?.takeIf { it.queue.isNotEmpty() } ?: return false
+        val songs = q.getCurrentQueueShuffled()
+        val at = q.getQueuePosShuffled()
+        val start = ResumePoint.playFrom(at, songs.size, q.lastSongPos, songs.getOrNull(at)?.duration ?: 0)
+        if (start == at to q.lastSongPos) return false
+        Log.i(TAG, "Queue ${q.title} had played to its end: Play starts it again from its first song")
+        q.setCurrentQueuePos(start.first)
+        q.lastSongPos = start.second
+        return true
+    }
+
+    /**
      * Load the current queue into the media player
      *
      * @param shouldResume Set to true for the player should resume playing at the current song's last save position or

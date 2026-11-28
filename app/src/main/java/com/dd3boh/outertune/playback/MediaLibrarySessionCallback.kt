@@ -38,6 +38,7 @@ import com.dd3boh.outertune.db.MusicDatabase
 import com.dd3boh.outertune.db.entities.PlaylistEntity
 import com.dd3boh.outertune.db.entities.Song
 import com.dd3boh.outertune.extensions.metadata
+import com.dd3boh.outertune.extensions.playSafe
 import com.dd3boh.outertune.extensions.toMediaItem
 import com.dd3boh.outertune.extensions.toggleRepeatMode
 import com.dd3boh.outertune.extensions.toggleShuffleMode
@@ -186,8 +187,9 @@ class MediaLibrarySessionCallback @Inject constructor(
      * A headset's, a speaker's or a car's play/pause (or a wired headset's button) that reaches the
      * running service while the player is empty: the saved queue plays, as the app's own play button
      * plays it (EmptyPlayerPress). media3 left the press a toggle of the empty player, which did
-     * nothing. Every other key, and every key that came as a start of the service, goes on to media3
-     * as before.
+     * nothing. And play from the widget or the notification on a queue that has played to its end
+     * starts it again from its first song (EndedQueuePress). Every other key, and every other key that
+     * came as a start of the service, goes on to media3 as before.
      */
     override fun onMediaButtonEvent(
         session: MediaSession,
@@ -202,6 +204,16 @@ class MediaLibrarySessionCallback @Inject constructor(
         val key = runCatching { IntentCompat.getParcelableExtra(intent, Intent.EXTRA_KEY_EVENT, KeyEvent::class.java) }.getOrNull()
             ?: return false
         val legacy = controllerInfo.controllerVersion == MediaSession.ControllerInfo.LEGACY_CONTROLLER_VERSION
+        // Play on a queue that has played to its end, from the widget or the notification: it starts again from its
+        // first song, as the app's own Play does, where media3 paused the ended player (EndedQueuePress).
+        val player = session.player
+        if (EndedQueuePress.startsOver(key.keyCode, key.action, key.repeatCount, legacy,
+                ended = player.playbackState == Player.STATE_ENDED && player.mediaItemCount > 0,
+                listensInRoom = service.together.value?.listens == true)) {
+            Log.i(TAG, "Play on a queue that had played to its end: it starts again from its first song")
+            player.playSafe()
+            return true
+        }
         val now = SystemClock.elapsedRealtime()
         // The second press of a double click, or a second press because nothing seemed to happen:
         // media3 never saw the first one, so it would take this one for a single press and pause the
@@ -230,11 +242,13 @@ class MediaLibrarySessionCallback @Inject constructor(
             val q = database.getResumptionQueue(context.dataStore[PlayingQueueKey]) ?: return@withContext null
             Log.i(TAG, "Resumption queue found. Loading queue: size = ${q.queue.size}, queue name = ${q.title}, " +
                     "queuePosShuffled = ${q.getQueuePosShuffled()}, lastSongPos = ${q.lastSongPos},")
-            q to MediaItemsWithStartPosition(
-                q.getCurrentQueueShuffled().map { it.toMediaItem() },
-                q.getQueuePosShuffled(),
-                q.lastSongPos
-            )
+            val songs = q.getCurrentQueueShuffled()
+            val at = q.getQueuePosShuffled()
+            // A queue that had played to its end starts again from its first song, as the app's Play starts it
+            // (ResumePoint.playFrom): resumed where it ended, the widget's Play played its last moment and stopped.
+            val (index, positionMs) = ResumePoint.playFrom(at, songs.size, q.lastSongPos, songs.getOrNull(at)?.duration ?: 0)
+            if (index != at || positionMs != q.lastSongPos) Log.i(TAG, "The queue had played to its end: it starts again from its first song")
+            q to MediaItemsWithStartPosition(songs.map { it.toMediaItem() }, index, positionMs)
         } ?: return null
         // The system asked for this, from a media button or its own resumption notification, not
         // the listener choosing a song. The fragment it continues carries the real origin.

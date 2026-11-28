@@ -170,6 +170,69 @@ class MediaButtonStartTest {
     }
 
     @Test
+    fun `a press that plays nothing is met a second after it, before Android may stop the service of an idle app`() {
+        // 28 Nov 2026, Pixel 5 on Android 14: Play on the widget over a queue that had ended, the app idle for 18
+        // minutes. The press paused the ended player, nothing played, and Android stopped the service for app idle 15 s
+        // later, before the guard's look at 20 s: "Bringing down service while still waiting for start foreground".
+        val ended = androidx.media3.common.Player.STATE_ENDED
+        val idle = androidx.media3.common.Player.STATE_IDLE
+        val buffering = androidx.media3.common.Player.STATE_BUFFERING
+        val ready = androidx.media3.common.Player.STATE_READY
+        fun look(fg: Boolean = false, way: Boolean = false, play: Boolean, state: Int) = MediaButtonStart.earlyLook(fg, way, play, state)
+        val meet = MediaButtonStart.EarlyLook.MEET
+        // That press: paused on an ended queue. Android refusing the sound (a call) leaves it paused too.
+        assertEquals(meet, look(play = false, state = ended))
+        assertEquals(meet, look(play = false, state = ready))
+        assertEquals(meet, look(play = false, state = idle))
+        assertEquals(meet, look(play = true, state = ended))
+        // Playing or about to: media3 is in the foreground with its notification by itself.
+        assertEquals(MediaButtonStart.EarlyLook.MEDIA3, look(play = true, state = buffering))
+        assertEquals(MediaButtonStart.EarlyLook.MEDIA3, look(play = true, state = ready))
+        for (play in listOf(true, false)) for (state in listOf(idle, buffering, ready, ended)) {
+            assertEquals(MediaButtonStart.EarlyLook.MEDIA3, look(fg = true, play = play, state = state))
+            // A saved queue being read, an empty player, a song tapped on the widget: not yet, and the guard as before.
+            assertEquals(MediaButtonStart.EarlyLook.AGAIN, look(way = true, play = play, state = state))
+        }
+        // Set to play and stopped by an error: the app may try again, so it is left to the guard as before.
+        assertEquals(MediaButtonStart.EarlyLook.AGAIN, look(play = true, state = idle))
+
+        // A second: after media3 has taken the press (a double press's wait, 300 ms), before the guard on every Android,
+        // and far before the 15 s that Android gave the idle app.
+        assertEquals(1_000L, MediaButtonStart.EARLY_LOOK_MS)
+        for (sdk in 26..37) assertTrue("$sdk", MediaButtonStart.EARLY_LOOK_MS < MediaButtonStart.guardMs(sdk, held = false))
+
+        val service = source("MusicService.kt")
+        val hold = body(service, holdStart)
+        // Fresh for each press, and only when nothing holds the foreground from the press.
+        val fresh = hold.indexOf("mediaButtonHandler.removeCallbacks(mediaButtonEarlyLook)")
+        val posted = hold.indexOf("if (!held) mediaButtonHandler.postDelayed(mediaButtonEarlyLook, MediaButtonStart.EARLY_LOOK_MS)")
+        assertTrue(hold, fresh >= 0 && posted > fresh && posted > hold.indexOf("val held = "))
+        val early = service.substringAfter("private val mediaButtonEarlyLook = object : Runnable {").substringBefore("\n    }\n")
+        assertTrue(early, "if (!mediaButtonPending || destroyed || holdingForMediaButton || !::player.isInitialized) return" in early)
+        assertTrue(early, "val onItsWay = resumptionRunning || player.mediaItemCount == 0 || widgetSongOwed != null" in early)
+        assertTrue(early, "MediaButtonStart.earlyLook(foregroundNow(), onItsWay, player.playWhenReady, player.playbackState)" in early)
+        assertTrue(early, "MediaButtonStart.EarlyLook.AGAIN -> mediaButtonHandler.postDelayed(this, MediaButtonStart.EARLY_LOOK_MS)" in early)
+        assertTrue(early, "MediaButtonStart.EarlyLook.MEET -> meetPressThatPlaysNothing()" in early)
+
+        // Met and let go: the player's own notification into the foreground and out again as media3 leaves it after a
+        // pause (DETACH, the notification stays); the plain one, up and away, when none shows. The service is not
+        // stopped here: Android may stop it now, which is an ordinary stop.
+        val met = body(service, "private fun meetPressThatPlaysNothing()")
+        val settled = met.indexOf("mediaButtonPending = false")
+        assertTrue(met, settled >= 0 && settled < met.indexOf("ServiceCompat.startForeground("))
+        assertTrue(met, "mediaButtonHandler.removeCallbacks(mediaButtonGuard)" in met)
+        assertTrue(met, "ReportTrail.thisRun.owedStart(ReportTrail.Owed.NOTHING_PLAYS, owedFor())" in met)
+        val up = met.indexOf("ServiceCompat.startForeground(this, NOTIFICATION_ID, shown, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)")
+        val away = met.indexOf("ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_DETACH)")
+        assertTrue(met, up >= 0 && away > up)
+        assertTrue(met, "if (holdForeground()) ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)" in met)
+        assertTrue("a refusal is caught: Android drops its demand before it decides", "} catch (e: Exception) {" in met)
+        assertFalse(met, "stopSelf()" in met)
+        val shown = service.substringAfter("private fun playerNotification(): Notification? = runCatching {").substringBefore("}.getOrNull()")
+        assertTrue(shown, "activeNotifications?.firstOrNull { it.id == NOTIFICATION_ID }?.notification" in shown)
+    }
+
+    @Test
     fun `the plain notification goes a minute after a song that never started, and the service stays`() {
         assertEquals(60_000L, MediaButtonStart.LET_GO_MS)
         val letGo = body(source("MusicService.kt"), "private val mediaButtonLetGo = Runnable {")

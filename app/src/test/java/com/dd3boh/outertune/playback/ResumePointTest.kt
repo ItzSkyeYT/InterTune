@@ -9,6 +9,8 @@ package com.dd3boh.outertune.playback
 import androidx.media3.common.C
 import androidx.media3.common.Player
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /** Where a queue picks up again after the service stops, and after a change of song. */
@@ -65,5 +67,34 @@ class ResumePointTest {
     fun `a list loaded from the top drops an old point`() {
         // The same queue started again from its first second, at the place it was paused before.
         assertEquals(C.TIME_UNSET, ResumePoint.afterTransition(Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED, playerPositionMs = 0, savedPositionMs = 150_000))
+    }
+
+    @Test
+    fun `a queue that had played to its end is played again from its first song`() {
+        // The tester's queue of 28 Nov 2026: Downloaded songs, 3 songs, the last (Highway to Hell, stored as 208 s)
+        // ended at 208430 ms. Loaded there, Play played its last moment and stopped.
+        assertTrue(ResumePoint.playedToEnd(index = 2, size = 3, positionMs = 208_430, durationSec = 208))
+        assertEquals(0 to C.TIME_UNSET, ResumePoint.playFrom(index = 2, size = 3, positionMs = 208_430, durationSec = 208))
+        // A song stored a little longer than the player found it: the end all the same.
+        assertTrue(ResumePoint.playedToEnd(index = 2, size = 3, positionMs = 208_430, durationSec = 209))
+        assertTrue(ResumePoint.playedToEnd(index = 2, size = 3, positionMs = 208_000, durationSec = 210))
+        // A queue of one song, at its end: from its top.
+        assertEquals(0 to C.TIME_UNSET, ResumePoint.playFrom(index = 0, size = 1, positionMs = 180_100, durationSec = 180))
+    }
+
+    @Test
+    fun `anywhere else a queue picks up where it stopped`() {
+        // Paused in the last song, more than two seconds before its end.
+        assertFalse(ResumePoint.playedToEnd(index = 2, size = 3, positionMs = 205_000, durationSec = 208))
+        assertEquals(2 to 205_000L, ResumePoint.playFrom(index = 2, size = 3, positionMs = 205_000, durationSec = 208))
+        // At the end of a song that is not the last: the next one plays, as it would have.
+        assertEquals(1 to 208_430L, ResumePoint.playFrom(index = 1, size = 3, positionMs = 208_430, durationSec = 208))
+        // A forty-minute mix paused at 40:00.
+        assertEquals(0 to fortyMinutes, ResumePoint.playFrom(index = 0, size = 1, positionMs = fortyMinutes, durationSec = 3_600))
+        // No point saved, a length not known, or nothing in the queue.
+        assertEquals(2 to C.TIME_UNSET, ResumePoint.playFrom(index = 2, size = 3, positionMs = C.TIME_UNSET, durationSec = 208))
+        assertFalse(ResumePoint.playedToEnd(index = 2, size = 3, positionMs = 208_430, durationSec = 0))
+        assertFalse(ResumePoint.playedToEnd(index = 2, size = 3, positionMs = 208_430, durationSec = -1))
+        assertFalse(ResumePoint.playedToEnd(index = 0, size = 0, positionMs = 208_430, durationSec = 208))
     }
 }

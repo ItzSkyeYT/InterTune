@@ -21,6 +21,8 @@ import com.dd3boh.outertune.constants.RelatedRefreshCountKey
 import com.dd3boh.outertune.constants.RelatedRefreshDayKey
 import com.dd3boh.outertune.engine.DatabaseBackfillIo
 import com.dd3boh.outertune.engine.LegacyBackfill
+import android.app.Notification
+import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.ComponentName
 import android.content.Context
@@ -3697,6 +3699,8 @@ class MusicService : MediaLibraryService(),
             if (!qbInit.value) initQueue(onlyIfNeeded = true)
             // Something may have been loaded meanwhile, a tap in the app: that one plays as it is.
             if (activePlayer.mediaItemCount == 0) {
+                // From its first song when it had played to its end, as the app's play button plays it.
+                queueBoard.startOverIfEnded()
                 val loaded = queueBoard.setCurrQueue(shouldResume = true)
                 if (loaded == null || activePlayer.mediaItemCount == 0) {
                     Log.i(TAG, "$what with nothing loaded, and no saved queue to play")
@@ -7481,6 +7485,7 @@ class MusicService : MediaLibraryService(),
         // Nothing holds the foreground now, whatever an earlier press left here.
         holdingForMediaButton = false
         mediaButtonHandler.removeCallbacks(mediaButtonLetGo)
+        mediaButtonHandler.removeCallbacks(mediaButtonEarlyLook)
         val sinceStart = MediaButtonStart.sinceStart(handedAt, firstStart, processStartedAt, createdAt, SystemClock.uptimeMillis())
         if (MediaButtonStart.tooLateToWait(Build.VERSION.SDK_INT, sinceStart)) {
             Log.i(TAG, "Media button start: ${sinceStart}ms of Android's ${MediaButtonStart.limitMs(Build.VERSION.SDK_INT)}ms already gone, so the foreground is held at once")
@@ -7489,7 +7494,59 @@ class MusicService : MediaLibraryService(),
         mediaButtonOrigin = sinceStart?.let { SystemClock.uptimeMillis() - it }
         ReportTrail.thisRun.startedFromOutside(ReportTrail.Outside.MEDIA_BUTTON, sinceStart)
         mediaButtonHandler.postDelayed(mediaButtonGuard, MediaButtonStart.guardDelayMs(Build.VERSION.SDK_INT, held, sinceStart))
+        // A press that plays nothing is met as soon as that is known: Android may stop the service before the guard looks.
+        if (!held) mediaButtonHandler.postDelayed(mediaButtonEarlyLook, MediaButtonStart.EARLY_LOOK_MS)
     }
+
+    /**
+     * A second after a play press Android waits on, and every second while what it asked for is on its way into the
+     * player: a press that plays nothing is met at once ([MediaButtonStart.earlyLook], [meetPressThatPlaysNothing]).
+     * The guard still looks at its time, at whatever this leaves.
+     */
+    private val mediaButtonEarlyLook = object : Runnable {
+        override fun run() {
+            if (!mediaButtonPending || destroyed || holdingForMediaButton || !::player.isInitialized) return
+            val onItsWay = resumptionRunning || player.mediaItemCount == 0 || widgetSongOwed != null
+            when (MediaButtonStart.earlyLook(foregroundNow(), onItsWay, player.playWhenReady, player.playbackState)) {
+                MediaButtonStart.EarlyLook.MEDIA3 -> Unit
+                MediaButtonStart.EarlyLook.AGAIN -> mediaButtonHandler.postDelayed(this, MediaButtonStart.EARLY_LOOK_MS)
+                MediaButtonStart.EarlyLook.MEET -> meetPressThatPlaysNothing()
+            }
+        }
+    }
+
+    /**
+     * A play press that plays nothing (a queue at its end that the press paused, a song whose sound Android refused):
+     * what Android waits for is met now and let go at once, so a stop that comes after, Android's own for an idle app
+     * included, is an ordinary stop. The player's own notification takes the foreground and leaves it again, shown as
+     * it was, as media3 leaves it after a pause; with none showing, the plain one, up and away at once.
+     */
+    private fun meetPressThatPlaysNothing() {
+        mediaButtonPending = false
+        widgetSongOwed = null
+        mediaButtonHandler.removeCallbacks(mediaButtonGuard)
+        ReportTrail.thisRun.owedStart(ReportTrail.Owed.NOTHING_PLAYS, owedFor())
+        val shown = playerNotification()
+        if (shown == null) {
+            Log.i(TAG, "Media button start: the press plays nothing, and no player notification shows: the plain one, up and away")
+            if (holdForeground()) ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
+            holdingForMediaButton = false
+            return
+        }
+        try {
+            ServiceCompat.startForeground(this, NOTIFICATION_ID, shown, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
+            ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_DETACH)
+            Log.i(TAG, "Media button start: the press plays nothing, so the player's notification took the foreground and let it go")
+        } catch (e: Exception) {
+            // Asking is enough: Android drops its demand before it decides whether to refuse (settleAfterRestart).
+            Log.i(TAG, "Media button start: the press plays nothing; the foreground asked for and refused (${e.javaClass.simpleName}), which meets its demand all the same")
+        }
+    }
+
+    /** The player's notification as it shows now, media3's under [NOTIFICATION_ID]; null when none shows. */
+    private fun playerNotification(): Notification? = runCatching {
+        getSystemService<NotificationManager>()?.activeNotifications?.firstOrNull { it.id == NOTIFICATION_ID }?.notification
+    }.getOrNull()
 
     /**
      * The service is about to stop while a media button's start may still be owed: Android closes
