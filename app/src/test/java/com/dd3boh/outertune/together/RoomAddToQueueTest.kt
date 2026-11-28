@@ -78,6 +78,20 @@ class RoomAddToQueueTest {
         assertTrue(item, "showChooseQueueDialog = true\n            coroutineScope" !in item)
     }
 
+    @Test
+    fun `a YouTube playlist's menu goes as a guest's songs go, and a list that came back empty is said`() {
+        // The playlist takes seconds to come: a second tap in the menu sent the songs to the room twice.
+        val dialog = main("ui/menu/YouTubePlaylistMenu.kt").substringAfter("AddToQueueDialog(").substringBefore("\n    }\n")
+        val dismiss = dialog.substringAfter("onDismiss = {")
+        assertTrue(dismiss, "showChooseQueueDialog = false" in dismiss)
+        assertTrue(dismiss, "if (playerConnection.addsToRoom) onDismiss()" in dismiss)
+        val guest = body(body(main("ui/dialog/QueueDialogs.kt"), "fun AddToQueueDialog("), "if (guest != null) {")
+        assertTrue(guest, "if (items.isEmpty()) Toaster.show(guest.service, R.string.together_suggested_none)" in guest)
+        for (folder in listOf("values", "values-fr")) {
+            assertTrue(folder, "name=\"together_suggested_none\"" in File("src/main/res/$folder/strings-ot.xml").readText())
+        }
+    }
+
     /** The text of the function or block whose head is [head], braces matched. */
     private fun body(text: String, head: String): String {
         val start = text.indexOf(head)

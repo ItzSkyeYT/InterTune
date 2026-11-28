@@ -2611,6 +2611,7 @@
         <item quantity="other">%1$d titres ajoutés au salon ; les autres sont restés dehors</item>
     </plurals>
     <string name="together_suggested_files">Les titres de vos fichiers ne peuvent pas être lus par les autres</string>
+    <string name="together_suggested_none">Rien n\'a été ajouté au salon : la liste est revenue vide. Réessayez.</string>
     <string name="together_from_guest">%1$s propose %2$s : il passe ensuite</string>
     <string name="together_from_guest_end">%1$s a ajouté %2$s à la fin de la file</string>
     <plurals name="together_from_guest_many">

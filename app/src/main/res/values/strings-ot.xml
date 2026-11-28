@@ -2824,6 +2824,7 @@ while also allowing users to translate our app as well. New, specific strings to
         <item quantity="other">%1$d songs added to the room; the rest stayed out</item>
     </plurals>
     <string name="together_suggested_files">Songs from your files can\'t be played by the others</string>
+    <string name="together_suggested_none">Nothing added to the room: the list came back empty. Try again.</string>
     <string name="together_from_guest">%1$s suggested %2$s: it plays next</string>
     <string name="together_from_guest_end">%1$s added %2$s to the end of the queue</string>
     <plurals name="together_from_guest_many">
