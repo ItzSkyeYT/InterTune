@@ -61,7 +61,19 @@ class NotificationAskPlacesTest {
             .filter { it.isFile && it.extension == "kt" && it.readText().contains("NotificationAsk.atUse()") }
             .map { it.relativeTo(root).path }
             .toSortedSet()
-        assertEquals(sortedSetOf("playback/DownloadUtil.kt", "ui/component/SleepTimer.kt", "ui/dialog/TogetherDialog.kt"), callers)
+        assertEquals(
+            sortedSetOf("playback/DownloadUtil.kt", "ui/component/SleepTimer.kt", "ui/dialog/TogetherDialog.kt", "ui/screens/settings/fragments/PlayerFrag.kt"),
+            callers,
+        )
+    }
+
+    @Test
+    fun `turning Every night on asks, in the sheet and in Player and audio, and turning it off does not`() {
+        // The timer it starts at night has no screen to ask on, so the switch is the use.
+        val sheet = read("ui/component/SleepTimer.kt").substringAfter("private fun SleepSwitches(").substringBefore("\n/**")
+        assertTrue(sheet.contains("SwitchRow(checked = night, onChange = { onNight(it); if (it) NotificationAsk.atUse() })"))
+        val settings = read("ui/screens/settings/fragments/PlayerFrag.kt").substringAfter("fun ColumnScope.SleepScheduleFrag()").substringBefore("\n/**")
+        assertTrue(settings.contains("onCheckedChange = { onOnChange(it); if (it) NotificationAsk.atUse() },"))
     }
 
     @Test
