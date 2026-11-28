@@ -121,7 +121,7 @@ class SignalPathTest {
     @Test
     fun `it comes after the menu items people know the place of`() {
         val menu = File("src/main/java/com/dd3boh/outertune/ui/menu/PlayerMenu.kt").readText()
-        val advanced = menu.indexOf("title = R.string.advanced")
+        val advanced = menu.indexOf("title = R.string.tempo_and_pitch")
         val signal = menu.indexOf("title = R.string.signal_path")
         val tracking = menu.indexOf("title = R.string.head_tracking_recentre")
         assertTrue("Signal path moved the items around it", advanced in 0 until signal && signal < tracking)

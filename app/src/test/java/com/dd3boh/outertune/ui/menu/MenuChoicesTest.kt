@@ -68,6 +68,8 @@ class MenuChoicesTest {
         assertEquals("add_all_to_library", MenuChoices.entryName("remove_all_from_library"))
         assertEquals("menu_dont_play_song", MenuChoices.entryName("menu_dont_play_lift"))
         assertEquals("share", MenuChoices.entryName("share"))
+        // 28 Nov 2026: the player menu's Advanced is named Tempo and Pitch; hidden as Advanced, it stays hidden.
+        assertEquals("advanced", MenuChoices.entryName("tempo_and_pitch"))
     }
 
     @Test

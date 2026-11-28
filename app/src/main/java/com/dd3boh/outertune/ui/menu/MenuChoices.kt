@@ -63,6 +63,8 @@ object MenuChoices {
         "lyrics_share_picture_or_video" to "lyrics_share_picture",
         "mix_edit_last_transition" to "mix_edit_transition",
         "mix_menu_off" to "mix_menu_on",
+        // The player menu's Tempo and Pitch was called Advanced until 0.13: hidden under that name, it stays hidden.
+        "tempo_and_pitch" to "advanced",
     )
 
     /** The name an entry is hidden under, from its text's resource name. */
