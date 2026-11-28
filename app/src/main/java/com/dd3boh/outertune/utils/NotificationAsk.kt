@@ -10,9 +10,12 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
 import android.util.Log
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import com.dd3boh.outertune.MainActivity
 import com.dd3boh.outertune.constants.NotificationsAskedKey
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -51,6 +54,23 @@ object NotificationAsk {
     /** Whether Android's question is put now. */
     fun shouldAsk(sdk: Int, granted: Boolean, askedBefore: Boolean, saidNo: Boolean): Boolean =
         sdk >= Build.VERSION_CODES.TIRAMISU && !granted && !askedBefore && !saidNo
+
+    /**
+     * The mark that the question has been put, left in [store]. False when it could not be written, a
+     * full phone above all: the question is put all the same, and a mark never closes the app. Uncaught,
+     * the write's error ended the app and the music with it, at every first use while the phone was full.
+     */
+    suspend fun markAsked(store: DataStore<Preferences>): Boolean = try {
+        store.edit { it[NotificationsAskedKey] = true }
+        true
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        Log.w(TAG, "The mark that notifications were asked for could not be saved", e)
+        false
+    }
+
+    private const val TAG = "NotificationAsk"
 }
 
 /**
@@ -67,7 +87,7 @@ suspend fun MainActivity.askForNotificationsOnce() {
         saidNo = shouldShowRequestPermissionRationale(permission),
     )
     if (!ask) return
-    dataStore.edit { it[NotificationsAskedKey] = true }
+    NotificationAsk.markAsked(dataStore)
     Log.i("NotificationAsk", "Asking Android for notifications, once")
     notificationLauncher.launch(permission)
 }

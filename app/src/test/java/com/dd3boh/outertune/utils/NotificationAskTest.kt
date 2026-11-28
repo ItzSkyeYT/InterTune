@@ -6,16 +6,25 @@
 
 package com.dd3boh.outertune.utils
 
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.emptyPreferences
+import com.dd3boh.outertune.constants.NotificationsAskedKey
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.async
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.IOException
 
 /**
  * Android's question about notifications, put once (the whole-app scan of 28 Nov 2026, platform
@@ -67,5 +76,41 @@ class NotificationAskTest {
     fun `a use with no screen to ask on is let go, not kept for the next start`() = runBlocking {
         NotificationAsk.atUse()
         assertNull(withTimeoutOrNull(200) { NotificationAsk.used.first() })
+    }
+
+    /** The settings file, held here, every write as DataStore makes it: a whole new set of settings. */
+    private open class Store(private val fails: Throwable? = null) : DataStore<Preferences> {
+        var now: Preferences = emptyPreferences()
+        override val data: Flow<Preferences> get() = flowOf(now)
+        override suspend fun updateData(transform: suspend (t: Preferences) -> Preferences): Preferences {
+            fails?.let { throw it }
+            return transform(now).also { now = it }
+        }
+    }
+
+    @Test
+    fun `the mark is left where it can be written`() = runBlocking {
+        val store = Store()
+        assertTrue(NotificationAsk.markAsked(store))
+        assertEquals(true, store.now[NotificationsAskedKey])
+    }
+
+    @Test
+    fun `on a full phone the mark is let go and nothing closes the app`() = runBlocking {
+        // DataStore's error when its file cannot be written (28 Nov review: uncaught, it ended the app and the music).
+        val full = Store(IOException("write failed: ENOSPC (No space left on device)"))
+        assertFalse(NotificationAsk.markAsked(full))
+        assertNull(full.now[NotificationsAskedKey])
+    }
+
+    @Test
+    fun `a write stopped with its screen still stops, it is not swallowed`() {
+        var thrown: Throwable? = null
+        try {
+            runBlocking { NotificationAsk.markAsked(Store(CancellationException("the screen went"))) }
+        } catch (e: CancellationException) {
+            thrown = e
+        }
+        assertTrue(thrown is CancellationException)
     }
 }

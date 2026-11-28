@@ -77,7 +77,7 @@ class NotificationAskPlacesTest {
     @Test
     fun `the mark is left before Android's question, which a no before stops`() {
         val ask = read("utils/NotificationAsk.kt").substringAfter("suspend fun MainActivity.askForNotificationsOnce() {")
-        val mark = ask.indexOf("dataStore.edit { it[NotificationsAskedKey] = true }")
+        val mark = ask.indexOf("NotificationAsk.markAsked(dataStore)")
         val launch = ask.indexOf("notificationLauncher.launch(permission)")
         assertTrue("the mark, then the question", mark in 0 until launch)
         assertTrue(ask.contains("askedBefore = dataStore.get(NotificationsAskedKey, defaultValue = false)"))
