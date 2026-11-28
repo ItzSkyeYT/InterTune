@@ -32,8 +32,12 @@ enum class SkipReason {
 
 class ExportSkip(val item: ExportItem, val reason: SkipReason)
 
-/** How an export ended: how many songs were exported, which were not and why, and whether it was stopped before the end. */
-class ExportResult(val exported: Int, val skipped: List<ExportSkip>, val stopped: Boolean = false) {
+/**
+ * How an export ended: how many songs were exported, which were not and why, and whether it was stopped before the end.
+ * [folderRefused]: the folder could not be written at all (deleted, or its permission gone), so nothing was tried. It is
+ * said as that, with the way to choose another folder, and never as songs that "could not be converted" (28 Nov 2026).
+ */
+class ExportResult(val exported: Int, val skipped: List<ExportSkip>, val stopped: Boolean = false, val folderRefused: Boolean = false) {
     fun count(reason: SkipReason): Int = skipped.count { it.reason == reason }
 }
 
@@ -43,9 +47,10 @@ object ExportSummary {
 
     /**
      * The parts of the line in the order they are said, each with its count: how many were exported
-     * always, even none, and a reason for skipping only when a song was skipped for it.
+     * always, even none, and a reason for skipping only when a song was skipped for it. None for a
+     * folder that could not be written: the line says that instead (exportLine).
      */
-    fun parts(result: ExportResult): List<Pair<Part, Int>> = buildList {
+    fun parts(result: ExportResult): List<Pair<Part, Int>> = if (result.folderRefused) emptyList() else buildList {
         add(Part.EXPORTED to result.exported)
         for ((reason, part) in REASONS) {
             val n = result.count(reason)

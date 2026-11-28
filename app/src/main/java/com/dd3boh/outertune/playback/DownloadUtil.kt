@@ -1490,12 +1490,23 @@ class DownloadUtil @Inject constructor(
         if (exportState.value is ExportState.Finished) exportState.value = ExportState.Idle
     }
 
+    /**
+     * Whether an export can write into [target]: a folder that opens and takes files, by the rule the
+     * export itself applies. A download folder deleted, or one whose permission is gone, cannot, and
+     * the sheet does not offer it (ExportSheet). Asks the folder: off the main thread.
+     */
+    fun canExportInto(target: Uri): Boolean = runCatching {
+        DocumentFile.fromTreeUri(context, target)?.let { it.isDirectory && it.canWrite() } ?: false
+    }.getOrDefault(false)
+
     private suspend fun exportSongs(items: List<ExportItem>, format: DownloadFormat, bitrate: DownloadBitrate, target: Uri): ExportResult =
         withContext(Dispatchers.IO) {
             val dir = runCatching { DocumentFile.fromTreeUri(context, target) }.getOrNull()
             if (dir == null || !dir.isDirectory || !dir.canWrite()) {
+                // Said as the folder's refusal, with the way to choose another: nothing was converted, and every
+                // song used to be counted as one that "could not be converted" (28 Nov 2026).
                 Log.w(TAG, "Export: nothing can be written to $target")
-                return@withContext ExportResult(0, items.map { ExportSkip(it, SkipReason.FAILED) })
+                return@withContext ExportResult(0, emptyList(), folderRefused = true)
             }
             // Original into a download folder: the song's file is there already, and a copy would be a second one.
             val inDownloads = localMgr.allDirs.any { FolderNesting.isSameOrInside(target.toString(), it.uri.toString()) }

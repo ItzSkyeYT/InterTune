@@ -2600,6 +2600,9 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="export_done_title">Export finished</string>
     <string name="export_stopped_title">Export stopped</string>
     <string name="export_names_more">%1$s and %2$d more</string>
+    <!-- An export into a folder that cannot be written (deleted, or its permission gone): said in the sheet, with the button that picks another folder, or in a toast when the sheet is closed (so 70 characters at most). -->
+    <string name="export_folder_refused">InterTune can\'t write to this folder. Nothing was exported.</string>
+    <string name="export_choose_folder">Choose another folder</string>
     <plurals name="export_exported">
         <item quantity="one">%1$d song exported</item>
         <item quantity="other">%1$d songs exported</item>
