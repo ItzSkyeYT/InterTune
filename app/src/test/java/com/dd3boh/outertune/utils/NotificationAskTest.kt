@@ -9,6 +9,8 @@ package com.dd3boh.outertune.utils
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.emptyPreferences
+import androidx.datastore.preferences.core.mutablePreferencesOf
+import androidx.datastore.preferences.core.stringPreferencesKey
 import com.dd3boh.outertune.constants.NotificationsAskedKey
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineStart
@@ -101,6 +103,19 @@ class NotificationAskTest {
         val full = Store(IOException("write failed: ENOSPC (No space left on device)"))
         assertFalse(NotificationAsk.markAsked(full))
         assertNull(full.now[NotificationsAskedKey])
+    }
+
+    @Test
+    fun `a restored backup never brings the mark of another phone or of an install before`() {
+        val other = stringPreferencesKey("someSetting")
+        val fromBackup = mutablePreferencesOf(NotificationsAskedKey to true, other to "restored")
+        // A new phone, or the app installed again: never asked here, so it asks at the first use.
+        val kept = NotificationAsk.keptOver(fromBackup, emptyPreferences())
+        assertNull(kept[NotificationsAskedKey])
+        assertEquals("restored", kept[other])
+        // A phone asked already keeps its mark, whatever the backup says.
+        val asked = mutablePreferencesOf(NotificationsAskedKey to true)
+        assertEquals(true, NotificationAsk.keptOver(mutablePreferencesOf(other to "restored"), asked)[NotificationsAskedKey])
     }
 
     @Test

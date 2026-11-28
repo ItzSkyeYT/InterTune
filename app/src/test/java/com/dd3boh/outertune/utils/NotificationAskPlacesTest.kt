@@ -75,6 +75,12 @@ class NotificationAskPlacesTest {
     }
 
     @Test
+    fun `a restore keeps this phone's own mark, from every kind of backup`() {
+        val restore = read("viewmodels/BackupRestoreViewModel.kt").substringAfter("private fun writeSettings(").substringBefore("\n    }\n")
+        assertTrue(restore.contains("NotificationAsk.keptOver(SignIns.keptOver(restored, current), current)"))
+    }
+
+    @Test
     fun `the mark is left before Android's question, which a no before stops`() {
         val ask = read("utils/NotificationAsk.kt").substringAfter("suspend fun MainActivity.askForNotificationsOnce() {")
         val mark = ask.indexOf("NotificationAsk.markAsked(dataStore)")

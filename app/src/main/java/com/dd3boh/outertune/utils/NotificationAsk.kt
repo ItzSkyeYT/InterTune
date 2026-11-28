@@ -70,6 +70,17 @@ object NotificationAsk {
         false
     }
 
+    /**
+     * A restored backup's settings with this phone's own mark in place of the backup's. Android's answer
+     * belongs to an install: a mark carried over from another phone, or from before a reinstall, kept the
+     * new install from ever asking. Done at the restore, so backups already made with the mark are covered.
+     */
+    fun keptOver(restored: Preferences, current: Preferences): Preferences =
+        restored.toMutablePreferences().apply {
+            val phone = current[NotificationsAskedKey]
+            if (phone != null) this[NotificationsAskedKey] = phone else remove(NotificationsAskedKey)
+        }.toPreferences()
+
     private const val TAG = "NotificationAsk"
 }
 

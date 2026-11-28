@@ -23,6 +23,7 @@ import com.dd3boh.outertune.utils.BackupWriter
 import com.dd3boh.outertune.utils.FailureLog
 import com.dd3boh.outertune.utils.PlaylistCovers
 import com.dd3boh.outertune.utils.SettingsFile
+import com.dd3boh.outertune.utils.NotificationAsk
 import com.dd3boh.outertune.utils.SignIns
 import com.dd3boh.outertune.utils.dataStore
 import com.dd3boh.outertune.utils.reportException
@@ -381,13 +382,16 @@ class BackupRestoreViewModel @Inject constructor(
     /**
      * Puts a backup's settings in place, with the sign-ins already on this phone kept when the
      * backup has none: a backup leaves them out unless asked, and a restore must not sign anybody
-     * out. Settings that cannot be read that way are written as they came, as before.
+     * out. This phone's own mark that notifications were asked for is kept too, whatever the backup
+     * says (NotificationAsk.keptOver). Settings that cannot be read that way are written as they came,
+     * as before.
      */
     private fun writeSettings(bytes: ByteArray) {
         val settings = runCatching {
             runBlocking {
                 val restored = SettingsFile.decode(bytes, context.cacheDir)
-                SettingsFile.encode(SignIns.keptOver(restored, context.dataStore.current), context.cacheDir)
+                val current = context.dataStore.current
+                SettingsFile.encode(NotificationAsk.keptOver(SignIns.keptOver(restored, current), current), context.cacheDir)
             }
         }.getOrElse {
             Log.w(TAG, "The backup's settings could not be read; written as they are", it)
