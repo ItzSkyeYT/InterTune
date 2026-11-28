@@ -1543,6 +1543,7 @@
     <string name="import_library_error_no_title">Ce fichier n\'a pas de colonne avec le nom des titres. Sa première ligne est : %1$s</string>
     <string name="import_library_error_no_tracks">Ce fichier a des noms de colonnes, mais aucun titre en dessous.</string>
     <string name="import_library_error_not_songs">C\'est une liste d\'albums ou d\'artistes. Seuls les titres peuvent être importés pour l\'instant : exportez plutôt la playlist ou vos titres aimés.</string>
+    <string name="import_library_error_backup">Ce fichier est une sauvegarde, pas une liste de titres. Utilisez Restaurer, ou Importer depuis Metrolist pour une sauvegarde Metrolist.</string>
     <string name="import_library_contents">%1$s dans %2$s</string>
     <string name="import_library_checked">%1$d sur %2$d recherchés</string>
     <string name="import_library_matched">Trouvés</string>

@@ -229,7 +229,9 @@ class LibraryImport internal constructor(
             return
         }
         if (bytes.size > MAX_BYTES) {
-            show(mine, State(stage = Stage.FAILED, fileName = name, problem = ImportParse.Problem.NOT_TEXT))
+            // Larger than any export. A backup can be, and is still told apart by the start of its zip.
+            val problem = if (ImportFile.isBackup(bytes)) ImportParse.Problem.BACKUP else ImportParse.Problem.NOT_TEXT
+            show(mine, State(stage = Stage.FAILED, fileName = name, problem = problem))
             return
         }
         val parsed =

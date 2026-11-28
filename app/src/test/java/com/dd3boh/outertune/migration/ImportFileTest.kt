@@ -183,6 +183,61 @@ class ImportFileTest {
         assertEquals(296, result.playlists[1].tracks.single().durationSeconds)
     }
 
+    /** A zip of [entries], each a name and what it holds, in that order. */
+    private fun zip(vararg entries: Pair<String, ByteArray>): ByteArray {
+        val out = java.io.ByteArrayOutputStream()
+        java.util.zip.ZipOutputStream(out).use { zip ->
+            for ((name, data) in entries) {
+                zip.putNextEntry(java.util.zip.ZipEntry(name))
+                zip.write(data)
+                zip.closeEntry()
+            }
+        }
+        return out.toByteArray()
+    }
+
+    /**
+     * A Pixel 5, 28 Nov 2026: a Metrolist backup picked here was "a file that has column names but no songs under
+     * them", as every zip with no CSV inside was, an InterTune backup too.
+     */
+    @Test
+    fun `a backup is told it is one, and a zip with nothing to read that it is no CSV`() {
+        val database = "SQLite format 3\u0000".toByteArray() + ByteArray(4096)
+        val backups = mapOf(
+            "InterTune's, OuterTune's or InnerTune's" to zip("settings.preferences_pb" to ByteArray(64), "song.db" to database),
+            "a library alone" to zip("song.db" to database, "transitions.json" to "{}".toByteArray()),
+            "the settings alone" to zip("settings.preferences_pb" to ByteArray(64)),
+            "the new Metrolist app's" to zip("backup.json" to "{}".toByteArray(), "settings.json" to "{}".toByteArray(), "song.db" to database),
+        )
+        for ((which, bytes) in backups) {
+            assertEquals(which, ImportParse.Problem.BACKUP, (ImportFile.parseArchive(bytes) as ImportParse.Failed).problem)
+            assertTrue(which, ImportFile.isBackup(bytes))
+        }
+        // Not a list of songs, and nothing in it to read as one.
+        val pictures = zip("cover.jpg" to ByteArray(64), "notes.pdf" to ByteArray(64))
+        assertEquals(ImportParse.Problem.NOT_TEXT, (ImportFile.parseArchive(pictures) as ImportParse.Failed).problem)
+        assertTrue(!ImportFile.isBackup(pictures))
+        // A list with no songs in it is still that.
+        val emptyList = zip("road_trip.csv" to "Track Name,Artist Name(s)\r\n".toByteArray())
+        assertEquals(ImportParse.Problem.NO_TRACKS, (ImportFile.parseArchive(emptyList) as ImportParse.Failed).problem)
+        assertTrue(!ImportFile.isBackup(emptyList))
+        // Neither is a file that is no zip at all.
+        assertTrue(!ImportFile.isBackup("Title,Artist\n".toByteArray()))
+    }
+
+    @Test
+    fun `a backup larger than what is read of a file is still known by its first entries`() {
+        val big = zip("settings.preferences_pb" to ByteArray(64), "song.db" to kotlin.random.Random(7).nextBytes(256 * 1024))
+        // Cut where the read stops, as LibraryImport's is past its limit: the database is not all there.
+        val start = big.copyOf(big.size / 2)
+        assertTrue(ImportFile.isBackup(start))
+        assertEquals(ImportParse.Problem.BACKUP, (ImportFile.parseArchive(start) as ImportParse.Failed).problem)
+        val metrolist = zip("backup.json" to "{}".toByteArray(), "song.db" to kotlin.random.Random(8).nextBytes(256 * 1024))
+        assertTrue(ImportFile.isBackup(metrolist.copyOf(metrolist.size / 2)))
+        val cutPictures = zip("a.jpg" to kotlin.random.Random(9).nextBytes(256 * 1024), "song.db" to ByteArray(64))
+        assertTrue("only what is there is read", !ImportFile.isBackup(cutPictures.copyOf(cutPictures.size / 2)))
+    }
+
     @Test
     fun `file names read back as playlist names`() {
         assertEquals("Road trip", ImportFile.nameFromFile("road_trip.csv"))

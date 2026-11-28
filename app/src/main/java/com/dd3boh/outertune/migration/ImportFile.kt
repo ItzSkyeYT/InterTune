@@ -79,6 +79,9 @@ sealed interface ImportParse {
 
         /** A header and nothing under it with a title. */
         NO_TRACKS,
+
+        /** A backup of this app, of OuterTune or InnerTune, or of Metrolist: Restore or Import from Metrolist takes it. */
+        BACKUP,
     }
 }
 
@@ -177,13 +180,18 @@ object ImportFile {
         var skipped = 0
         var format: ExportFormat? = null
         var budget = maxBytes
+        // What else the zip held, for the answer when no song comes out of it.
+        var backup = false
+        var texts = 0
         try {
             java.util.zip.ZipInputStream(bytes.inputStream()).use { zip ->
                 while (budget > 0) {
                     val entry = zip.nextEntry ?: break
                     val name = entry.name.substringAfterLast('/')
                     if (entry.isDirectory || name.startsWith(".") || "__MACOSX" in entry.name) continue
+                    if (name in BACKUP_ENTRIES) backup = true
                     if (!name.endsWith(".csv", ignoreCase = true) && !name.endsWith(".txt", ignoreCase = true)) continue
+                    texts++
                     val data = readAtMost(zip, budget)
                     budget -= data.size
                     val parsed = parse(decode(data), nameFromFile(name))
@@ -195,10 +203,44 @@ object ImportFile {
                 }
             }
         } catch (e: java.io.IOException) {
-            if (playlists.isEmpty()) return ImportParse.Failed(ImportParse.Problem.NOT_TEXT, e.message)
+            if (playlists.isEmpty()) {
+                return if (backup) ImportParse.Failed(ImportParse.Problem.BACKUP) else ImportParse.Failed(ImportParse.Problem.NOT_TEXT, e.message)
+            }
         }
-        if (playlists.isEmpty()) return ImportParse.Failed(ImportParse.Problem.NO_TRACKS)
+        if (playlists.isEmpty()) return ImportParse.Failed(
+            when {
+                // A backup's database and settings, and no list of songs: every backup, ours or Metrolist's, was told
+                // it had column names and no songs under them (a Pixel 5, 28 Nov 2026).
+                backup -> ImportParse.Problem.BACKUP
+                // Nothing in it that could be a list, which is no file of column names either.
+                texts == 0 -> ImportParse.Problem.NOT_TEXT
+                else -> ImportParse.Problem.NO_TRACKS
+            }
+        )
         return ImportParse.Parsed(format ?: ExportFormat.CSV, playlists, skipped)
+    }
+
+    /**
+     * What only a backup's zip holds, by name: song.db, the database of InterTune, OuterTune, InnerTune and Metrolist;
+     * settings.preferences_pb, the settings they keep beside it or alone; backup.json, the new Metrolist app's note of
+     * what it wrote. No export of a list of songs holds any of them.
+     */
+    private val BACKUP_ENTRIES = setOf("song.db", "settings.preferences_pb", "backup.json")
+
+    /**
+     * Whether [bytes], a zip or the start of one, is a backup rather than an export ([BACKUP_ENTRIES]). Only the names
+     * are read, as far as the bytes go: a backup can be larger than any export, and than what is read of a file here
+     * (LibraryImport.MAX_BYTES), and its first entries already name it.
+     */
+    fun isBackup(bytes: ByteArray): Boolean {
+        if (!isZip(bytes)) return false
+        return try {
+            java.util.zip.ZipInputStream(bytes.inputStream()).use { zip ->
+                generateSequence { zip.nextEntry }.any { it.name.substringAfterLast('/') in BACKUP_ENTRIES }
+            }
+        } catch (e: java.io.IOException) {
+            false
+        }
     }
 
     private fun readAtMost(input: java.io.InputStream, limit: Int): ByteArray {

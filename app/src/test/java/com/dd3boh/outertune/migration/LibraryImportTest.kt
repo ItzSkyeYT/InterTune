@@ -211,6 +211,37 @@ class LibraryImportTest {
         assertNull(state.progress)
     }
 
+    /** A Pixel 5, 28 Nov 2026: a backup picked here was "a file that has column names but no songs under them". */
+    @Test
+    fun `a backup picked here says it is one, small or larger than any export, and looks nothing up`() = runBlocking {
+        val youTube = has(1)
+        val session = session(youTube)
+        val zipped = java.io.ByteArrayOutputStream()
+        java.util.zip.ZipOutputStream(zipped).use { zip ->
+            for ((name, data) in listOf("settings.preferences_pb" to ByteArray(64), "song.db" to ByteArray(4096))) {
+                zip.putNextEntry(java.util.zip.ZipEntry(name))
+                zip.write(data)
+                zip.closeEntry()
+            }
+        }
+        val backup = zipped.toByteArray()
+
+        session.open { LibraryImport.Picked("InterTune_26_20261128.backup", backup) }
+        var state = withTimeout(10_000) { session.state.first { it.fileName == "InterTune_26_20261128.backup" && it.stage == Stage.FAILED } }
+        assertEquals(ImportParse.Problem.BACKUP, state.problem)
+
+        // Past what is read of a file, as a large library's backup is: the start of its zip still says what it is.
+        session.open { LibraryImport.Picked("big.backup", backup + ByteArray(LibraryImport.MAX_BYTES)) }
+        state = withTimeout(10_000) { session.state.first { it.fileName == "big.backup" && it.stage == Stage.FAILED } }
+        assertEquals(ImportParse.Problem.BACKUP, state.problem)
+        // And something else that large is still no CSV.
+        session.open { LibraryImport.Picked("film.mp4", ByteArray(LibraryImport.MAX_BYTES + 1)) }
+        state = withTimeout(10_000) { session.state.first { it.fileName == "film.mp4" && it.stage == Stage.FAILED } }
+        assertEquals(ImportParse.Problem.NOT_TEXT, state.problem)
+
+        assertTrue(youTube.queries.isEmpty())
+    }
+
     @Test
     fun `the count on the screen follows the lookups`() = runBlocking {
         val youTube = has(5)

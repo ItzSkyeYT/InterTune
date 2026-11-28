@@ -1914,6 +1914,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="import_library_error_no_title">There is no column of song titles in that file. Its first line reads: %1$s</string>
     <string name="import_library_error_no_tracks">That file has column names but no songs under them.</string>
     <string name="import_library_error_not_songs">That is a list of albums or artists. Only songs can be imported for now: export the playlist or your liked songs instead.</string>
+    <string name="import_library_error_backup">That file is a backup, not a list of songs. Use Restore, or Import from Metrolist for one from Metrolist.</string>
     <string name="import_library_contents">%1$s in %2$s</string>
     <string name="import_library_checked">Looked up %1$d of %2$d</string>
     <string name="import_library_matched">Matched</string>
