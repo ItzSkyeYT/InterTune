@@ -70,6 +70,51 @@ class RoomAddToQueueTest {
         }
     }
 
+    @Test
+    fun `a folder's choice opens once its songs are read`() {
+        // As its Add to playlist: a guest's songs go to the room as the choice opens, and the first tap sent none.
+        val item = main("ui/menu/FolderMenu.kt").substringAfter("title = R.string.add_to_queue").substringBefore("GridMenuItem(")
+        assertTrue(item, Regex("""fetchAllSongsRecursive \{\s*showChooseQueueDialog = true\s*}""").containsMatchIn(item))
+        assertTrue(item, "showChooseQueueDialog = true\n            coroutineScope" !in item)
+    }
+
+    @Test
+    fun `a YouTube playlist's menu goes as a guest's songs go, and a list that came back empty is said`() {
+        // The playlist takes seconds to come: a second tap in the menu sent the songs to the room twice.
+        val dialog = main("ui/menu/YouTubePlaylistMenu.kt").substringAfter("AddToQueueDialog(").substringBefore("\n    }\n")
+        val dismiss = dialog.substringAfter("onDismiss = {")
+        assertTrue(dismiss, "showChooseQueueDialog = false" in dismiss)
+        assertTrue(dismiss, "if (playerConnection.addsToRoom) onDismiss()" in dismiss)
+        val guest = body(body(main("ui/dialog/QueueDialogs.kt"), "fun AddToQueueDialog("), "if (guest != null) {")
+        assertTrue(guest, "if (items.isEmpty()) Toaster.show(guest.service, R.string.together_suggested_none)" in guest)
+        for (folder in listOf("values", "values-fr")) {
+            assertTrue(folder, "name=\"together_suggested_none\"" in File("src/main/res/$folder/strings-ot.xml").readText())
+        }
+    }
+
+    @Test
+    fun `a guest is not offered to add the room's own queue to the room`() {
+        val menu = main("ui/menu/QueueMenu.kt")
+        val guard = menu.indexOf("if (!playerConnection.addsToRoom || mq.id != playerConnection.service.queueBoard.getCurrentQueue()?.id) {")
+        assertTrue(menu, guard >= 0)
+        assertTrue(menu.substring(guard).substringBefore("\n        }\n").contains("title = R.string.add_to_queue"))
+    }
+
+    @Test
+    fun `the playlist menu reads its songs at the tap when it has none yet`() {
+        // As its Play next's withSongs: the database may not have answered the menu yet.
+        val playlist = main("ui/menu/PlaylistMenu.kt").substringAfter("AddToQueueDialog(").substringBefore("onAdd =")
+        assertTrue(playlist, "songs.ifEmpty { database.playlistSongs(playlist.id).first().map(PlaylistSong::song) }" in playlist)
+    }
+
+    @Test
+    fun `the guest's hint shows only where Play next and Add to queue reach the room`() {
+        val sheet = main("ui/dialog/TogetherDialog.kt")
+        val hint = sheet.indexOf("stringResource(R.string.together_suggest_hint)")
+        val shown = sheet.lastIndexOf("if (", hint)
+        assertTrue(sheet.substring(shown, hint), sheet.substring(shown, hint).startsWith("if (!status.leading && !status.ownWay) {"))
+    }
+
     /** The text of the function or block whose head is [head], braces matched. */
     private fun body(text: String, head: String): String {
         val start = text.indexOf(head)

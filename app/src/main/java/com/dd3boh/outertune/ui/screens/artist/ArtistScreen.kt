@@ -88,6 +88,7 @@ import com.dd3boh.outertune.constants.AppBarHeight
 import com.dd3boh.outertune.constants.ArtistSongSortType
 import com.dd3boh.outertune.constants.ListThumbnailSize
 import com.dd3boh.outertune.constants.SwipeToQueueKey
+import com.dd3boh.outertune.db.ArtistPicture
 import com.dd3boh.outertune.db.entities.ArtistEntity
 import com.dd3boh.outertune.extensions.toMediaItem
 import com.dd3boh.outertune.models.toMediaMetadata
@@ -669,10 +670,13 @@ fun ArtistScreen(
                     }
                     IconButton(
                         onClick = {
+                            // The page's picture for a row that has none: a row made from a song's credits has
+                            // none, and liked here it stood in Library > Artists as an empty round (ArtistPicture).
+                            val picture = artistPage?.let(ArtistPicture::fromPage)
                             database.transaction {
                                 val artist = libraryArtist?.artist
                                 if (artist != null) {
-                                    update(artist.toggleLike())
+                                    update(artist.toggleLike().withPictureIfNone(picture))
                                 } else {
                                     artistPage?.artist?.let {
                                         insert(

@@ -58,6 +58,7 @@ import com.dd3boh.outertune.LocalDatabase
 import com.dd3boh.outertune.LocalPlayerConnection
 import com.dd3boh.outertune.LocalLoudnessRepair
 import com.dd3boh.outertune.utils.LoudnessRepair
+import com.dd3boh.outertune.utils.NotificationAsk
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -1250,7 +1251,8 @@ fun ColumnScope.SleepScheduleFrag() {
         explanation = stringResource(R.string.sleep_schedule_explain),
         icon = { Icon(Icons.Rounded.EventRepeat, null) },
         checked = on,
-        onCheckedChange = onOnChange,
+        // Its timer starts by itself at night, with no screen to ask on: turning it on is the use that asks (NotificationAsk).
+        onCheckedChange = { onOnChange(it); if (it) NotificationAsk.atUse() },
         modifier = Modifier.tourTarget(Tour.SETTING_SLEEP_SCHEDULE).settingRow(R.string.sleep_schedule),
     )
 

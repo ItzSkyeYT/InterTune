@@ -780,6 +780,17 @@ class Migration12To13 : AutoMigrationSpec {
             }
         }
 
+        // The new columns' words made numbers. SQLite before 3.23 (Android 7 to 10) reads DEFAULT false and
+        // DEFAULT true as the text 'false' and 'true' and gives every row there was that text, the two playlists
+        // made above included. Room reads both as 0, so every `isLocal = 0` in the app missed those songs (a
+        // download of one never showed under Downloaded) and a playlist of the phone's own could not be edited.
+        // A newer SQLite stores 0 and 1, and nothing here changes then.
+        for (table in listOf("song", "artist", "album", "playlist")) {
+            db.execSQL("UPDATE $table SET isLocal = 0 WHERE isLocal = 'false'")
+            db.execSQL("UPDATE $table SET isLocal = 1 WHERE isLocal = 'true'")
+        }
+        db.execSQL("UPDATE playlist SET isEditable = 1 WHERE isEditable = 'true'")
+        db.execSQL("UPDATE playlist SET isEditable = 0 WHERE isEditable = 'false'")
     }
 }
 

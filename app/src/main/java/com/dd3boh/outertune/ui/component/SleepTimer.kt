@@ -514,7 +514,8 @@ private fun SleepSwitches(letFinishApplies: Boolean) {
         SwitchRow(checked = fade, onChange = onFade) {
             Text(stringResource(R.string.sleep_fade_row, fadeSeconds), style = MaterialTheme.typography.bodyLarge)
         }
-        SwitchRow(checked = night, onChange = onNight) {
+        // Its timer starts by itself at night, with no screen to ask on: turning it on is the use that asks (NotificationAsk).
+        SwitchRow(checked = night, onChange = { onNight(it); if (it) NotificationAsk.atUse() }) {
             Text(stringResource(R.string.sleep_every_night), style = MaterialTheme.typography.bodyLarge)
             // The gaps either side of the dot are the width of a space, as in "Fade out · 30 s" above.
             Spacer(Modifier.width(SPACE_WIDTH))

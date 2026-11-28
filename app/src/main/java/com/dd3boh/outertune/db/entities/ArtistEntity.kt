@@ -32,6 +32,13 @@ data class ArtistEntity(
         bookmarkedAt = if (bookmarkedAt != null) null else LocalDateTime.now(),
     )
 
+    /**
+     * This row with [picture], from a place that knows the artist's, when it has none, as a row made from a song's
+     * credits has none (ArtistPicture). A row with a picture keeps it.
+     */
+    fun withPictureIfNone(picture: String?) =
+        if (thumbnailUrl == null && picture != null) copy(thumbnailUrl = picture) else this
+
     fun toggleLike() = localToggleLike().also {
         CoroutineScope(syncCoroutine).launch {
             if (!isLocal && mayPushToYouTube()) {

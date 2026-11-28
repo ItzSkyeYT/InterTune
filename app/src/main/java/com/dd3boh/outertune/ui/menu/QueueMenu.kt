@@ -69,11 +69,15 @@ fun QueueMenu(
             bottom = 8.dp + WindowInsets.systemBars.asPaddingValues().calculateBottomPadding()
         )
     ) {
-        GridMenuItem(
-            icon = Icons.AutoMirrored.Rounded.QueueMusic,
-            title = R.string.add_to_queue
-        ) {
-            showChooseQueueDialog = true
+        // Not on a guest's copy of the room's queue, the one playing: its Add to queue goes to the room, and would send the
+        // room its own songs again, at its end, for everyone (28 Nov 2026).
+        if (!playerConnection.addsToRoom || mq.id != playerConnection.service.queueBoard.getCurrentQueue()?.id) {
+            GridMenuItem(
+                icon = Icons.AutoMirrored.Rounded.QueueMusic,
+                title = R.string.add_to_queue
+            ) {
+                showChooseQueueDialog = true
+            }
         }
         GridMenuItem(
             icon = Icons.AutoMirrored.Rounded.PlaylistAdd,

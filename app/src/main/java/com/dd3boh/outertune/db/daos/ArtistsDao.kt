@@ -13,6 +13,7 @@ import androidx.sqlite.db.SupportSQLiteQuery
 import com.dd3boh.outertune.constants.ArtistFilter
 import com.dd3boh.outertune.constants.ArtistSongSortType
 import com.dd3boh.outertune.constants.ArtistSortType
+import com.dd3boh.outertune.db.ArtistPicture
 import com.dd3boh.outertune.db.LibrarySql
 import com.dd3boh.outertune.db.StatsSql
 import com.dd3boh.outertune.db.entities.Artist
@@ -196,6 +197,10 @@ interface ArtistsDao {
             )
         )
     }
+
+    /** See ArtistPicture.FILL. */
+    @Query(ArtistPicture.FILL)
+    fun fillArtistPicture(id: String, picture: String)
 
     @Transaction
     @Query("UPDATE song_artist_map SET artistId = :newId WHERE artistId = :oldId")

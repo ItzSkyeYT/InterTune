@@ -7,6 +7,8 @@
 package com.dd3boh.outertune.utils
 
 import android.content.Context
+import android.os.Handler
+import android.os.Looper
 import android.widget.Toast
 import androidx.annotation.StringRes
 
@@ -18,20 +20,32 @@ import androidx.annotation.StringRes
  * what it was about. The newest is the one that matters (his word, 4 Nov 2026).
  *
  * Made with the application's context, so the toast kept here until the next one holds no screen.
- * Called on the main thread, as Toast.makeText always was (ToastOnMainThreadTest).
+ * Made on the main thread, whatever thread asks for it: Android closes the app when a toast is made
+ * on a thread with no looper (#74), and a guest's Play next in a folder's menu asked from the
+ * database's IO thread (28 Nov 2026). Asked from another thread, it is posted to the main looper
+ * ([onMain], ToastOnMainThreadTest).
  */
 object Toaster {
     private var showing: Toast? = null
+    private val main by lazy { Handler(Looper.getMainLooper()) }
 
     fun show(context: Context, text: CharSequence?, duration: Int = Toast.LENGTH_SHORT) {
-        val toast = Toast.makeText(context.applicationContext ?: context, text, duration)
-        synchronized(this) {
-            showing?.cancel()
-            showing = toast
+        val app = context.applicationContext ?: context
+        onMain(Looper.myLooper() == Looper.getMainLooper(), { main.post(it) }) {
+            val toast = Toast.makeText(app, text, duration)
+            synchronized(this) {
+                showing?.cancel()
+                showing = toast
+            }
+            toast.show()
         }
-        toast.show()
     }
 
     fun show(context: Context, @StringRes text: Int, duration: Int = Toast.LENGTH_SHORT) =
         show(context, context.getString(text), duration)
+
+    /** [block] at once on the main thread ([onMainThread]); from any other, handed to [post] for the main looper. */
+    internal fun onMain(onMainThread: Boolean, post: (Runnable) -> Unit, block: () -> Unit) {
+        if (onMainThread) block() else post(Runnable { block() })
+    }
 }
