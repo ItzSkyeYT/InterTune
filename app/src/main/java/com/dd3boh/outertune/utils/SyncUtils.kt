@@ -683,7 +683,8 @@ class SyncUtils @Inject constructor(
                                     )
                                 )
                             } else if (localArtist.artist.bookmarkedAt == null && isLikedArtist) {
-                                update(localArtist.artist.localToggleLike())
+                                // YouTube's picture for a row that has none, as one made from a song's credits (ArtistPicture).
+                                update(localArtist.artist.localToggleLike().withPictureIfNone(remoteArtist.thumbnail))
                             }
                         }
                     }

@@ -59,7 +59,8 @@ fun YouTubeArtistMenu(
                     database.query {
                         val libraryArtistLocal = libraryArtist
                         if (libraryArtistLocal != null) {
-                            update(libraryArtistLocal.artist.toggleLike())
+                            // The item's picture for a row that has none, as one made from a song's credits (ArtistPicture).
+                            update(libraryArtistLocal.artist.toggleLike().withPictureIfNone(artist.thumbnail))
                         } else {
                             insert(
                                 ArtistEntity(

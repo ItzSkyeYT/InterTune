@@ -9,6 +9,7 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.dd3boh.outertune.db.ArtistPicture
 import com.dd3boh.outertune.db.MusicDatabase
 import com.dd3boh.outertune.utils.reportException
 import com.dd3boh.outertune.utils.ContentLocale
@@ -24,7 +25,7 @@ import javax.inject.Inject
 
 @HiltViewModel
 class ArtistViewModel @Inject constructor(
-    database: MusicDatabase,
+    private val database: MusicDatabase,
     savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
     val artistId = savedStateHandle.get<String>("artistId")!!
@@ -69,6 +70,9 @@ class ArtistViewModel @Inject constructor(
                     // loading shimmer never gives way to a page with nothing on it.
                     artistPage = ContentFilter.current.artist(it)
                     pageAsSent.value = it
+                    // A row with no picture, as one made from a song's credits, takes the page's: an artist
+                    // liked before the heart gave it shows in Library > Artists from now on (ArtistPicture).
+                    ArtistPicture.fromPage(it)?.let { picture -> database.query { fillArtistPicture(artistId, picture) } }
                 }.onFailure {
                     reportException(it)
                 }
