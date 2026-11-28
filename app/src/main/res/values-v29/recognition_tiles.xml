@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- From Android 10, the phone's own sound can be listened to: Song on this phone is offered. -->
+    <bool name="phone_song_tile_offered">true</bool>
+</resources>

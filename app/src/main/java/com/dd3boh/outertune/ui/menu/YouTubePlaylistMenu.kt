@@ -306,6 +306,13 @@ fun YouTubePlaylistMenu(
 
     if (showChooseQueueDialog) {
         AddToQueueDialog(
+            songs = {
+                songs.ifEmpty {
+                    withContext(Dispatchers.IO) {
+                        YouTube.playlist(playlist.id).completed().getOrNull()?.songs.orEmpty()
+                    }
+                }.map { it.toMediaMetadata() }
+            },
             onAdd = { queueName ->
                 coroutineScope.launch {
                     songs.ifEmpty {

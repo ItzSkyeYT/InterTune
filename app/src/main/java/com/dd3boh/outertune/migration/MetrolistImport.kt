@@ -270,6 +270,13 @@ object MetrolistImport {
                 // (its own reading is "isLocal or no browseId"), ours says it with isLocal. Without it the playlist
                 // could not be edited, nor offered in Add to playlist, while sync is Read only.
                 ours.exec("UPDATE playlist SET isLocal = 1 WHERE id = ? AND browseId IS NULL", listOf(r[id]))
+                // A cover picked in Metrolist is a file of its own (content://com.metrolist.music.FileProvider/...,
+                // Wrapped's a file: in its private folder), which no other app can read: the playlist showed an empty
+                // square. Without it, the playlist wears its first songs' covers, as any playlist with none of its own.
+                ours.exec(
+                    "UPDATE playlist SET thumbnailUrl = NULL WHERE id = ? AND thumbnailUrl NOT LIKE 'http://%' AND thumbnailUrl NOT LIKE 'https://%'",
+                    listOf(r[id]),
+                )
             }
         }
         val songs = shared(theirs, ours, "playlist_song_map") - "id"

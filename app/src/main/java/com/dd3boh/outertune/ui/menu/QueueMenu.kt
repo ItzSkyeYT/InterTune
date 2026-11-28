@@ -125,6 +125,7 @@ fun QueueMenu(
 
     if (showChooseQueueDialog) {
         AddToQueueDialog(
+            songs = { songs },
             onAdd = { queueName ->
                 val q = playerConnection.service.queueBoard.addQueue(
                     queueName,

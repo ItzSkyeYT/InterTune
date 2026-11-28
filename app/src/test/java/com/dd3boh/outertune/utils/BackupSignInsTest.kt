@@ -70,6 +70,55 @@ class BackupSignInsTest {
     }
 
     @Test
+    fun `a backup with one account's sign-in leaves the phone signed in to the others`() {
+        // A backup made with its sign-ins before 0.13, or any before 4 Nov 2026, holds YouTube's and
+        // Last.fm's and never ListenBrainz's: its restore signed the phone out of ListenBrainz.
+        val phone = mutablePreferencesOf(
+            InnerTubeCookieKey to "SID=phone", AccountNameKey to "Phone",
+            LastFmSessionKey to "lastfm-phone", LastFmUsernameKey to "phone-fm",
+            ListenBrainzTokenKey to "listenbrainz-phone", ListenBrainzUserKey to "phone-lb",
+        )
+        val restored = SignIns.keptOver(mutablePreferencesOf(InnerTubeCookieKey to "SID=backup", AccountNameKey to "Backup", other to "x"), phone)
+        assertEquals("SID=backup", restored[InnerTubeCookieKey])
+        assertEquals("Backup", restored[AccountNameKey])
+        assertEquals("lastfm-phone", restored[LastFmSessionKey])
+        assertEquals("phone-fm", restored[LastFmUsernameKey])
+        assertEquals("listenbrainz-phone", restored[ListenBrainzTokenKey])
+        assertEquals("phone-lb", restored[ListenBrainzUserKey])
+        assertEquals("x", restored[other])
+    }
+
+    @Test
+    fun `an account's settings come whole from one side, never its key from one and its name from the other`() {
+        assertEquals(listOf(InnerTubeCookieKey, LastFmSessionKey, ListenBrainzTokenKey), SignIns.SERVICES.map { it.first() })
+        assertEquals(SignIns.KEYS.toSet(), SignIns.SERVICES.flatten().toSet())
+        // The backup's YouTube account without the brand account the phone's uses: that one stays out.
+        val phone = mutablePreferencesOf(InnerTubeCookieKey to "SID=phone", DataSyncIdKey to "phone-brand")
+        assertNull(SignIns.keptOver(mutablePreferencesOf(InnerTubeCookieKey to "SID=backup"), phone)[DataSyncIdKey])
+        // A name the backup kept without its key does not sit beside the phone's key.
+        val kept = SignIns.keptOver(
+            mutablePreferencesOf(AccountNameKey to "Old name", AccountEmailKey to "old@example.com"),
+            mutablePreferencesOf(InnerTubeCookieKey to "SID=phone", AccountNameKey to "Phone"),
+        )
+        assertEquals("SID=phone", kept[InnerTubeCookieKey])
+        assertEquals("Phone", kept[AccountNameKey])
+        assertNull(kept[AccountEmailKey])
+    }
+
+    @Test
+    fun `Last-fm disconnected in the backup does not sign the phone out of it`() {
+        // Disconnecting leaves the name blank (LastFmFrag), so a backup made after it holds that.
+        val restored = SignIns.keptOver(
+            mutablePreferencesOf(LastFmUsernameKey to ""),
+            mutablePreferencesOf(LastFmSessionKey to "lastfm-phone", LastFmUsernameKey to "mel"),
+        )
+        assertEquals("lastfm-phone", restored[LastFmSessionKey])
+        assertEquals("mel", restored[LastFmUsernameKey])
+        // Signed out on both sides, the backup's settings are left as they are.
+        assertEquals("", SignIns.keptOver(mutablePreferencesOf(LastFmUsernameKey to ""), emptyPreferences())[LastFmUsernameKey])
+    }
+
+    @Test
     fun `the settings go through DataStore and back whole, and leave no file behind`() = runBlocking {
         val back = SettingsFile.decode(SettingsFile.encode(prefs, tmp.root), tmp.root)
         assertEquals(prefs.asMap(), back.asMap())

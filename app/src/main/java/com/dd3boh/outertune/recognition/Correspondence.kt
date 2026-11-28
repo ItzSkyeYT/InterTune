@@ -7,6 +7,7 @@
 package com.dd3boh.outertune.recognition
 
 import com.zionhuang.innertube.models.SongItem
+import com.zionhuang.innertube.models.YTItem
 
 /**
  * Whether a YouTube hit is plainly the thing Shazam named.
@@ -74,6 +75,15 @@ internal fun songItselfQuery(track: Recognised): String? {
     if (artist.isEmpty() || bare.isEmpty() || bare == track.title.trim()) return null
     return "$bare $artist"
 }
+
+/**
+ * The first [most] songs a search found, each once. YouTube's song search sometimes lists one song
+ * twice ("Explosions In The Sky Time Stops" had the same video first and third), and the screen
+ * keys the candidates by their id, where a key used twice closes the app (as #105 did on the
+ * playlist's quick search).
+ */
+internal fun firstSongs(items: List<YTItem>?, most: Int = 4): List<SongItem> =
+    items.orEmpty().filterIsInstance<SongItem>().distinctBy { it.id }.take(most)
 
 /**
  * The candidates once the song itself has been searched for ([songItselfQuery]): whatever in

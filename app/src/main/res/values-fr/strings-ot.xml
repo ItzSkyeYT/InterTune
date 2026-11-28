@@ -2235,6 +2235,7 @@
     <string name="player_pins_remove">Retirer</string>
     <string name="player_pins_menu_only">Menu seulement</string>
     <string name="player_pins_menu_stays">Toujours affiché</string>
+    <string name="player_pins_classic_menu_only">Avec les boutons Classiques, seul le menu va ici. Connectés permet d\'épingler des boutons sous les commandes.</string>
     <string name="player_menu_place">Bouton à trois points</string>
     <string name="player_menu_top">Haut</string>
     <string name="player_menu_bottom">Bas</string>
@@ -2580,7 +2581,7 @@
     <string name="together_walk_proposal">Quand quelqu\'un propose un titre, il s\'affiche ici, appuyez sur Le lancer ou Pas maintenant.</string>
     <string name="together_walk_people">Tout le monde dans le salon. L\'étoile, c\'est l\'hôte, et l\'anneau, c\'est la personne qui choisit la musique.</string>
     <string name="together_walk_people_host">Tout le monde dans le salon. Touchez quelqu\'un pour lui donner la main ou le retirer du salon.</string>
-    <string name="together_walk_settings">Les réglages de votre salon, pour choisir si tout le monde peut se déplacer dans le titre ou modifier la file d\'attente.</string>
+    <string name="together_walk_settings">Les réglages de votre salon : choisissez si tout le monde peut contrôler la musique.</string>
     <string name="together_walk_leave">Partez quand vous voulez, les autres continuent d\'écouter.</string>
     <string name="together_walk_close">Ça ferme le salon pour tout le monde.</string>
     <string name="together_walk_leave_host">Partez quand vous voulez. Vous pouvez confier le salon à quelqu\'un pour que tout le monde continue d\'écouter, ou le fermer.</string>
@@ -2648,7 +2649,7 @@
     <string name="together_behind">En retard</string>
     <string name="together_ahead">En avance</string>
     <string name="together_nothing_playing">Rien en lecture pour l\'instant</string>
-    <string name="together_suggest_hint">Pour ajouter un titre au salon, appuyez longuement dessus et choisissez Suivant.</string>
+    <string name="together_suggest_hint">Pour ajouter un titre au salon, appuyez longuement dessus et choisissez Suivant ou Ajouter à la file d\'attente.</string>
     <string name="together_you_control">Vous avez la main</string>
     <string name="together_has_control">%1$s choisit la musique pour l\'instant.</string>
     <string name="together_role_in_control">Vous choisissez la musique. Tout le monde dans le salon peut ajouter des titres.</string>

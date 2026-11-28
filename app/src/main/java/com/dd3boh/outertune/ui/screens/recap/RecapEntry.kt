@@ -10,6 +10,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -59,6 +60,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.currentStateAsState
 import com.dd3boh.outertune.BuildConfig
 import com.dd3boh.outertune.LocalDatabase
 import com.dd3boh.outertune.LocalPlayerConnection
@@ -72,6 +74,7 @@ import com.dd3boh.outertune.recap.RecapDoor
 import com.dd3boh.outertune.recap.RecapReader
 import com.dd3boh.outertune.recap.RecapSound
 import com.dd3boh.outertune.ui.utils.OpensOnScreen
+import com.dd3boh.outertune.ui.utils.windowMayOpen
 import com.dd3boh.outertune.utils.editOrSay
 import com.dd3boh.outertune.utils.rememberPreference
 import com.dd3boh.outertune.viewmodels.RecapState
@@ -86,10 +89,14 @@ import java.time.LocalDate
  * From the reveal day (RecapCalendar) it opens by itself, once a year: full screen, and gone with
  * the cross, Back or Done. Not over setup, nor over anything else that came up first ([quiet]: the
  * questions after an update, the welcome page, a tour, an update being offered, the account
- * notice); it waits until they are gone. And only for a year with enough music in it. It is
- * written down as shown the moment it opens, whatever is done with it, so it never comes back by
- * itself; the banner in Settings is there for that ([RecapBanner]). A Recap opened another way
- * first, from its notification or a banner, counts as shown too ([countAsPopUp]).
+ * notice); it waits until they are gone. Nor while the app is away: a screen in the background is
+ * composed again all the same (the date changing at midnight, the clock set), and a pop-up decided
+ * there was written down as shown before anyone saw it, so its notification, which is for a phone
+ * where the app is not opened, never came (RecapAlert); it waits for the app to be back. And only
+ * for a year with enough music in it. It is written down as shown the moment it opens, whatever is
+ * done with it, so it never comes back by itself; the banner in Settings is there for that
+ * ([RecapBanner]). A Recap opened another way first, from its notification or a banner, counts as
+ * shown too ([countAsPopUp]).
  *
  * The day is read again whenever the app comes back to the front and when the date changes
  * ([rememberToday]): a music app's screen lives for days, and one left open on the evening before
@@ -109,10 +116,13 @@ fun RecapEntry(setupDone: Boolean, quiet: Boolean, onOpenPlaylist: (String) -> U
     // (PREVIEW_FEATURES, as DeveloperFrag): a backup can bring the switch into a release.
     val early = revealedEarly && BuildConfig.PREVIEW_FEATURES
     val today = rememberToday()
+    // Decided only when its window may open, by the same rule (OpensOnScreen).
+    val screen by LocalLifecycleOwner.current.lifecycle.currentStateAsState()
+    val onScreen = windowMayOpen(screen, LocalActivity.current?.isFinishing == true)
     var open by rememberSaveable { mutableStateOf<Int?>(null) }
 
-    LaunchedEffect(setupDone, quiet, shownYear, early, today) {
-        if (!setupDone || quiet || open != null) return@LaunchedEffect
+    LaunchedEffect(setupDone, quiet, shownYear, early, today, onScreen) {
+        if (!setupDone || quiet || !onScreen || open != null) return@LaunchedEffect
         // The date as it looks: [today] says when to look again.
         val now = LocalDate.now()
         if (!RecapCalendar.popUpOwed(now, shownYear, early)) return@LaunchedEffect

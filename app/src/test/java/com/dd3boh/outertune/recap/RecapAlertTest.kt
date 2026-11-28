@@ -126,6 +126,22 @@ class RecapAlertTest {
     }
 
     @Test
+    fun `a look that tells nothing says why in the log, and one that fails says how`() {
+        // 28 Nov 2026: two looks on the reveal day told nothing and planned next year's, and the release build
+        // said not a word about why. Every way out of find without a Recap to tell names its reason, but a
+        // build without the Recap at all; a look or a start that throws writes the throwable.
+        val alert = code("recap/RecapAlert.kt")
+        val find = alert.substringAfter("private suspend fun find(").substringBefore("\n    }\n")
+        assertEquals(listOf("if (!Unreleased.RECAP) return null"), find.lines().map { it.trim() }.filter { "return null" in it })
+        assertTrue("none(\"notifications are off\")" in find && "none(\"too little music in \$onShow\")" in find)
+        val look = alert.substringAfter("suspend fun look(").substringBefore("\n    }\n")
+        assertTrue(".onFailure { Log.w(TAG, \"The look at \$now failed\", it) }" in look)
+        val plan = alert.substringAfter("suspend fun plan(").substringBefore("\n    }\n")
+        assertTrue(".onFailure { Log.w(TAG, \"The start's look at \$now failed\", it) }" in plan)
+        assertTrue("runCatching { RecapAlert.look(applicationContext) }.onFailure { Log.w(" in alert)
+    }
+
+    @Test
     fun `a Recap opened here takes its notification out of the shade`() {
         // Watched from the pop-up or a banner: "Your 2026 Recap is here" has nothing left to say.
         val opened = code("recap/RecapNotesOpen.kt").substringAfter("suspend fun opened(").substringBefore("\n    }\n")

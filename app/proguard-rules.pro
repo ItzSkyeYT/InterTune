@@ -93,3 +93,13 @@
 ## MP3 files (Mp3FileEncoder): jump3r's command line and its javax.sound wrapper are never used, and need classes Android lacks
 -dontwarn javax.sound.**
 -dontwarn java.beans.**
+
+## The same APK from every build: F-Droid builds each release again and publishes ours only if its build
+## matches it byte for byte. From the same inputs, on one thread, R8 8.11 found in one run that the engine's
+## row size is always 20 and wrote 20 wherever it is read, and in the next run did not (0.13's third release
+## candidate, 28 Nov 2026): the rows' code came out different, and with it whether a comparator of Lanes.kt's
+## quotas joined R8's class of merged comparators. Kept, the field is read as it is in every build.
+## SteadyProfileTest checks that the field still has this name.
+-keepclassmembers,allowshrinking,allowobfuscation class com.dd3boh.outertune.engine.EngineParams {
+    int rowSize;
+}

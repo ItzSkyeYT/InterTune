@@ -1,5 +1,6 @@
 package com.dd3boh.outertune.ui.screens.library
 
+import com.dd3boh.outertune.ui.component.KeptSelection
 import com.dd3boh.outertune.ui.component.ScreenBackHandler
 import android.content.pm.PackageManager
 import android.util.Log
@@ -39,10 +40,8 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -132,16 +131,13 @@ fun LibrarySongsScreen(
 
     // multiselect
     var inSelectMode by rememberSaveable { mutableStateOf(false) }
-    val selection = rememberSaveable(
-        saver = listSaver<MutableList<String>, String>(
-            save = { it.toList() },
-            restore = { it.toMutableStateList() }
-        )
-    ) { mutableStateListOf() }
+    val selection = rememberSaveable(saver = KeptSelection.saver<String>()) { mutableStateListOf() }
     val onExitSelectionMode = {
         inSelectMode = false
         selection.clear()
     }
+    // A selection too large to keep (KeptSelection) comes back empty, and select mode goes with it.
+    LaunchedEffect(Unit) { if (inSelectMode && selection.isEmpty()) inSelectMode = false }
     // A selection whose songs have all left the list (taken out of the library, unliked) leaves
     // nothing to pick: out of the mode, not a "0/0 selected" bar over an empty list (5 Nov 2026).
     LaunchedEffect(inSelectMode, songs?.isEmpty()) {

@@ -934,7 +934,7 @@ class RecognitionEngine @Inject constructor(
                 // playing after stop had taken it down, and stayed, with no length to run out.
                 currentCoroutineContext().ensureActive()
                 val items = found.getOrNull()?.items
-                val firstFound = items?.filterIsInstance<SongItem>()?.take(4).orEmpty()
+                val firstFound = firstSongs(items)
                 // Listen once, which somebody is waiting on: a version YouTube Music does not list
                 // as a song brought back other people's covers and uploads, the song itself not
                 // among them, and that is all the screen offered. His reel of 30 Oct 2026, a flip of

@@ -30,19 +30,25 @@ class PlayerButtonsEditorTest {
     private val editor = File(folder, "ui/screens/settings/fragments/PlayerButtonsEditor.kt").readText()
 
     @Test
-    fun `the page shows the editor in place of the chips, under the same tour mark`() {
+    fun `the page shows the editor under the same tour mark and no chips, the three dots moved in it alone`() {
         assertTrue("PlayerButtonsEditor(" in page)
-        // No chip is left for a button: the page's only chips are the three-dots button's Top and Bottom, under the
-        // editor (MenuPlaceTest), and they write its place, never the buttons.
-        val menuRow = page.indexOf("Modifier.settingRow(R.string.player_menu_place)")
-        assertTrue(page.indexOf("PlayerButtonsEditor(") in 0 until menuRow)
-        val chips = Regex("""FilterChip\(""").findAll(page).map { it.range.first }.toList()
-        assertEquals(1, chips.size)
-        assertTrue(chips.single() > menuRow)
-        val chip = page.substring(chips.single()).substringBefore("SwitchPreference(")
-        assertTrue(chip, "onMenuPlaceRawChange(MenuPlaces.write(" in chip)
-        assertFalse(chip, "onPinsRawChange" in chip)
         assertTrue(page.indexOf("tourTarget(Tour.SETTING_PLAYER_PINS)") < page.indexOf("PlayerButtonsEditor("))
+        // No chip is left: the buttons' went with the editor of 26 Nov 2026, the three-dots button's Top and Bottom on
+        // 28 Nov 2026 (his "I forgot to remove the toggle"). The three dots are moved in the editor like the others.
+        assertFalse("FilterChip(" in page)
+        for (row in listOf("R.string.player_menu_place", "R.string.player_menu_top", "R.string.player_menu_bottom")) {
+            assertFalse(row, row in page)
+        }
+        // Gone from the search with its row, its name finding Pinned buttons instead (SettingsSearchTest).
+        val index = File(folder, "ui/screens/settings/SettingsIndex.kt").readText()
+        assertFalse("SettingEntry(Tour.ROUTE_LOOK_AND_FEEL, R.string.player_menu_place" in index)
+        assertTrue("SettingEntry(Tour.ROUTE_LOOK_AND_FEEL, R.string.player_pins, words = listOf(R.string.player_menu_place))," in index)
+        // Its words stay with the translators.
+        val english = File("src/main/res/values/strings-ot.xml").readText()
+        val french = File("src/main/res/values-fr/strings-ot.xml").readText()
+        for (name in listOf("player_menu_place", "player_menu_top", "player_menu_bottom")) {
+            assertTrue(name, "<string name=\"$name\">" in english && "<string name=\"$name\">" in french)
+        }
     }
 
     @Test
@@ -74,8 +80,8 @@ class PlayerButtonsEditorTest {
     }
 
     @Test
-    fun `a full place refuses the drop and its count shows it, and every move works without dragging`() {
-        // Refused: red and a haptic; the count in the box's head turns red with it.
+    fun `a full place refuses the drop and its Full shows it, and every move works without dragging`() {
+        // Refused: red and a haptic; Full in the box's head turns red with it.
         assertTrue("refused = box" in editor)
         assertTrue("HapticFeedbackType.Reject" in editor)
         assertTrue("color = if (refusing) colors.error else colors.onSurfaceVariant," in editor)
@@ -174,15 +180,61 @@ class PlayerButtonsEditorTest {
     }
 
     @Test
-    fun `its place is the Top or Bottom choice itself, read and written as the chips do`() {
+    fun `its place is the one the Top and Bottom chips stored, read as they left it and written by the editor alone`() {
         assertTrue("menuAt = menuPlace," in page)
         assertTrue("menuBar = { MenuPlaces.barOf(buttonsStyle, it) }," in page)
         assertTrue("onMenuMove = { onMenuPlaceRawChange(MenuPlaces.write(menuPlaceRaw, buttonsStyle, it)) }," in page)
-        // The chips and the editor write the one setting the same way; the editor never touches it itself.
-        assertEquals(2, Regex("""onMenuPlaceRawChange\(MenuPlaces\.write\(menuPlaceRaw, buttonsStyle, """).findAll(page).count())
+        // The one setting the chips wrote, still read for the editor and the style pictures.
+        assertTrue("rememberPreference(PlayerMenuPlaceKey, defaultValue = \"\")" in page)
+        assertTrue("val menuPlace = MenuPlaces.read(menuPlaceRaw, buttonsStyle)" in page)
+        assertTrue("menuPlace = MenuPlaces.read(menuPlaceRaw, style)," in page)
+        // Written by the editor's move only now, through the page; the editor never touches the setting itself.
+        assertEquals(1, Regex("""onMenuPlaceRawChange\(MenuPlaces\.write\(menuPlaceRaw, buttonsStyle, """).findAll(page).count())
         assertFalse("PlayerMenuPlaceKey" in editor)
         assertFalse("MenuPlaces.write" in editor)
-        assertTrue("val menuPlace = MenuPlaces.read(menuPlaceRaw, buttonsStyle)" in page)
+        // What the chips stored is read the same: an install that picked Bottom keeps Bottom, in Classic's corner box.
+        val classic = { at: MenuPlace -> MenuPlaces.barOf(PlayerButtonsStyle.CLASSIC, at) }
+        assertEquals(MenuPlace.BOTTOM, MenuPlaces.read("CLASSIC=BOTTOM", PlayerButtonsStyle.CLASSIC))
+        assertEquals(Corner, MenuMoves.boxOf(MenuPlaces.read("CLASSIC=BOTTOM", PlayerButtonsStyle.CLASSIC), classic))
+        assertEquals(MenuPlace.TOP, MenuPlaces.read("CLASSIC=BOTTOM;CONNECTED=TOP", PlayerButtonsStyle.CONNECTED))
+    }
+
+    @Test
+    fun `a bar says Full once it is full and counts no free places, as its dotted spots show them`() {
+        // Ti-Die on 28 Nov 2026, with his thumbs up: "the text 'full' is okay, but '1 left' is redundant as the dotted outlines exist".
+        assertFalse("R.plurals.player_pins_free" in editor)
+        val room = editor.substringAfter("private fun roomText(").substringBefore("\n\n")
+        assertTrue(room, "if (free <= 0) stringResource(R.string.player_pins_full) else null" in room)
+        // The same in each bar's head and beside a move in a tap's menu, where a full bar's move is greyed.
+        assertTrue("room = roomText(free)," in editor)
+        assertTrue("val roomTexts = places.associateWith { roomText(PinMoves.free(pins[it].orEmpty(), most(it))) }" in editor)
+        // The free spots are still drawn, dotted.
+        assertTrue("List(free) { Spot.Free }" in editor)
+    }
+
+    @Test
+    fun `Classic's corner says why it refuses a button, in red beside its spot, and TalkBack's move says the same`() {
+        // His answer of 28 Nov 2026, "Say why on a refused drop": while a button is held over the corner, and after its drop.
+        val corner = editor.substringAfter("if (corner) {").substringBefore("val placed = ")
+        assertTrue(corner, "text = if (refusing == Corner) stringResource(R.string.player_pins_classic_menu_only) else \"\"," in corner)
+        assertTrue(corner, "color = MaterialTheme.colorScheme.error," in corner)
+        // Beside the corner's spot, never under it.
+        assertTrue(corner, ".padding(end = spotWidth(maxWidth, 1, spotGap(circles = true)) + spotGap(circles = true))" in corner)
+        // Said by TalkBack as the words come: the line is always there, empty the rest of the time.
+        assertTrue(corner, ".semantics { liveRegion = LiveRegionMode.Polite }" in corner)
+        // Up long enough to read once the button is let go.
+        assertTrue("delay(if (refused == Corner) 5000 else 1600)" in editor)
+        // TalkBack's move under the controls in Classic, an action only: refused as the drop is, and the line comes.
+        val moves = editor.substringAfter("fun movesOf(pin: PlayerPin): List<Move> {").substringBefore("\n    }\n")
+        assertTrue(moves, "if (corner) Move(putUnderControls, null, enabled = true, inMenu = false) { refuseInCorner() }" in moves)
+        val refuse = editor.substringAfter("fun refuseInCorner() {").substringBefore("\n    }\n")
+        assertTrue(refuse, "refused = Corner" in refuse && "haptics.performHapticFeedback(HapticFeedbackType.Reject)" in refuse)
+        assertTrue("moves.filter { it.inMenu }.forEach { move ->" in editor)
+        // The words settled, in English and French.
+        val english = File("src/main/res/values/strings-ot.xml").readText()
+        val french = File("src/main/res/values-fr/strings-ot.xml").readText()
+        assertTrue("<string name=\"player_pins_classic_menu_only\">In Classic, only the menu goes here. Connected lets you pin buttons under the controls.</string>" in english)
+        assertTrue("<string name=\"player_pins_classic_menu_only\">Avec les boutons Classiques, seul le menu va ici. Connectés permet d\\'épingler des boutons sous les commandes.</string>" in french)
     }
 
     @Test
@@ -204,11 +256,12 @@ class PlayerButtonsEditorTest {
         val french = File("src/main/res/values-fr/strings-ot.xml").readText()
         for (name in listOf(
             "player_pins_not_shown", "player_pins_full", "player_pins_menu", "player_pins_put_by_title", "player_pins_put_under_controls", "player_pins_remove",
-            "player_pins_menu_only", "player_pins_menu_stays",
+            "player_pins_menu_only", "player_pins_menu_stays", "player_pins_classic_menu_only",
         )) {
             assertTrue(name, "<string name=\"$name\">" in english)
             assertTrue(name, "<string name=\"$name\">" in french)
         }
+        // No longer said, but kept for the translators who have it.
         assertTrue("<plurals name=\"player_pins_free\">" in english && "<plurals name=\"player_pins_free\">" in french)
     }
 }

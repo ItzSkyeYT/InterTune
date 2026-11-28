@@ -142,21 +142,27 @@ object RecapAlert {
         fun database(): MusicDatabase
     }
 
-    /** What is owed on [today], read from the phone: null for nothing. Off the main thread. */
-    private suspend fun find(context: Context, today: LocalDate): Due? {
+    /**
+     * What is owed on [today], read from the phone: null for nothing, and the log says why ([who]
+     * looked: the start or the look). Off the main thread.
+     */
+    private suspend fun find(context: Context, today: LocalDate, who: String): Due? {
+        fun none(why: String): Due? = null.also { Log.i(TAG, "$who on $today: nothing to tell, $why") }
         if (!Unreleased.RECAP) return null
         val prefs = context.dataStore.data.first()
         val early = prefs[RecapRevealedEarlyKey] == true && BuildConfig.PREVIEW_FEATURES
-        val onShow = RecapCalendar.yearOnShow(today, early) ?: return null
+        val onShow = RecapCalendar.yearOnShow(today, early) ?: return none("no Recap is out")
         val inSeason = RecapCalendar.onHome(today, early)
         val told = prefs[RecapToldKey] ?: 0
         val shown = prefs[RecapPopUpShownKey] ?: 0
-        if (!inSeason || told >= onShow || shown >= onShow) return null
+        if (!inSeason || told >= onShow || shown >= onShow) return none("the $onShow Recap: in its season $inSeason, told $told, its pop-up shown $shown")
         // Nothing it could post: no look planned for it; the next start looks again.
-        if (!NotificationManagerCompat.from(context).areNotificationsEnabled()) return null
+        if (!NotificationManagerCompat.from(context).areNotificationsEnabled()) return none("notifications are off")
         val database = EntryPointAccessors.fromApplication(context.applicationContext, Deps::class.java).database()
-        val enough = runCatching { RecapReader.hasEnough(database, onShow) }.getOrDefault(false)
-        return due(onShow, inSeason, enough, told, shown, RecapNote.years(context))
+        val enough = runCatching { RecapReader.hasEnough(database, onShow) }
+            .onFailure { Log.w(TAG, "Could not count the music of $onShow", it) }
+            .getOrDefault(false)
+        return due(onShow, inSeason, enough, told, shown, RecapNote.years(context)) ?: none("too little music in $onShow")
     }
 
     /**
@@ -164,7 +170,9 @@ object RecapAlert {
      * off one planned already ([policyAtStart]). Off the main thread.
      */
     suspend fun plan(context: Context, now: LocalDateTime = LocalDateTime.now()) {
-        val owed = runCatching { find(context, now.toLocalDate()) != null }.getOrDefault(false)
+        val owed = runCatching { find(context, now.toLocalDate(), "Start") != null }
+            .onFailure { Log.w(TAG, "The start's look at $now failed", it) }
+            .getOrDefault(false)
         val wanted = lookAfterStart(now, owed)
         val planned = runCatching {
             WorkManager.getInstance(context).getWorkInfosForUniqueWork(WORK_NAME).await().firstOrNull { !it.state.isFinished }
@@ -178,7 +186,9 @@ object RecapAlert {
      * the next reveal day's morning is planned. Off the main thread.
      */
     suspend fun look(context: Context, now: LocalDateTime = LocalDateTime.now()) {
-        val due = runCatching { find(context, now.toLocalDate()) }.getOrNull()
+        val due = runCatching { find(context, now.toLocalDate(), "Look") }
+            .onFailure { Log.w(TAG, "The look at $now failed", it) }
+            .getOrNull()
         if (due != null && !daytime(now)) return enqueue(context, nextDaytime(now), now, ExistingWorkPolicy.REPLACE)
         if (due != null) runCatching { if (post(context, due)) context.dataStore.edit { it[RecapToldKey] = due.recap } }
             .onFailure { Log.w(TAG, "Could not tell about the Recap", it) }
@@ -193,6 +203,7 @@ object RecapAlert {
             .addTag(tagFor(minute))
             .build()
         runCatching { WorkManager.getInstance(context).enqueueUniqueWork(WORK_NAME, policy, request) }
+            .onSuccess { Log.i(TAG, "The next look: $minute ($policy)") }
             .onFailure { Log.w(TAG, "Could not plan the look for $minute", it) }
     }
 
@@ -231,6 +242,7 @@ object RecapAlert {
             .setCategory(NotificationCompat.CATEGORY_REMINDER)
             .build()
         return runCatching { notifier.notify(NOTIFICATION_ID, notification) }
+            .onSuccess { Log.i(TAG, "Told about the ${due.recap} Recap, ${due.notes} notes waiting in it") }
             .onFailure { Log.w(TAG, "Could not tell about the Recap", it) }
             .isSuccess
     }
@@ -239,7 +251,7 @@ object RecapAlert {
 /** The look (RecapAlert.look): tells if it is due and the day has come, then plans the next one. */
 class RecapAlertWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result {
-        runCatching { RecapAlert.look(applicationContext) }
+        runCatching { RecapAlert.look(applicationContext) }.onFailure { Log.w("RecapAlert", "The look failed", it) }
         return Result.success()
     }
 }

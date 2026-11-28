@@ -359,12 +359,24 @@ class PlayerConnection(
     }
 
     /**
+     * The room this phone follows as a guest, whose queue here is only a copy of the room's: its Play next and Add to
+     * queue go to the room ([toRoom]). Null for the person in control, with no room, and while this phone casts on its
+     * own (GuestCast): its Play next and Add to queue are its own then.
+     */
+    private fun followedRoom() = service.together.value?.takeIf { it.following && !it.status.value.ownWay }
+
+    /**
+     * Add to queue goes to the end of the room's queue, with no choice of this phone's queues: it follows a room as a
+     * guest ([followedRoom]). Every menu's Add to queue asks this as its choice opens (AddToQueueDialog).
+     */
+    val addsToRoom: Boolean get() = followedRoom() != null
+
+    /**
      * For a guest following a room: sends [items] to the room (next, or at its end) and says so, with what was left
      * out and why. True when it was done here; false for the person in control and a guest on its own way.
      */
     private fun toRoom(items: List<MediaItem>, atEnd: Boolean): Boolean {
-        // Not while this phone casts on its own (GuestCast): its Play next and Add to queue are its own then.
-        val room = service.together.value?.takeIf { it.following && !it.status.value.ownWay } ?: return false
+        val room = followedRoom() ?: return false
         // Nobody plays for the room (the host away): nothing sent goes anywhere, and the phone's own queue is the room's copy.
         if (room.status.value.nobodyPlays) {
             Toaster.show(service, service.getString(R.string.together_nobody_plays_short))

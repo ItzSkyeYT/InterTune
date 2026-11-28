@@ -262,6 +262,7 @@ fun FolderMenu(
 
     if (showChooseQueueDialog) {
         AddToQueueDialog(
+            songs = { allFolderSongs.map { it.toMediaMetadata() } },
             onAdd = { queueName ->
                 if (allFolderSongs.isEmpty()) return@AddToQueueDialog
                 val q = playerConnection.service.queueBoard.addQueue(
