@@ -39,11 +39,26 @@ class RecapEntryTest {
         assertTrue("context.unregisterReceiver(moved)" in today && "lifecycle.removeObserver(back)" in today)
         // The pop-up looks again when the day moves on, and goes by the date as it looks.
         val popUp = entry.substringAfter("fun RecapEntry(").substringBefore("\n}\n")
-        assertTrue("LaunchedEffect(setupDone, quiet, shownYear, early, today) {" in popUp)
+        assertTrue("LaunchedEffect(setupDone, quiet, shownYear, early, today, onScreen) {" in popUp)
         assertTrue("RecapCalendar.popUpOwed(now, shownYear, early)" in popUp)
         // So do the banners on Home, in Settings and on the Stats page.
         for (banner in listOf("fun rememberRecapOnShow(): Int? {", "fun rememberRecapOnHome(): Int? {")) {
             assertTrue(banner, "val today = rememberToday()" in entry.substringAfter(banner).substringBefore("\n}\n"))
         }
+    }
+
+    @Test
+    fun `the pop-up is decided and written down as shown only with the app on screen, so its notification still comes`() {
+        // 28 Nov 2026, the Recap's notification on the release candidate: a screen in the background is
+        // composed again all the same (on ON_STOP Compose 1.10 only holds back withFrameNanos, see
+        // OpensOnScreen), so the date changing at midnight, or the clock set, decided the pop-up there and
+        // wrote its year down as shown before anyone saw it. The notification's look then found it shown and
+        // told nothing on the reveal day, on the very phone it is for, where the app is not opened.
+        val popUp = entry.substringAfter("fun RecapEntry(").substringBefore("\n}\n")
+        // The same rule as its window's: started, and not on an activity that is closing.
+        assertTrue("val onScreen = windowMayOpen(" in popUp)
+        val owed = popUp.substringAfter("LaunchedEffect(setupDone, quiet, shownYear, early, today, onScreen) {").substringBefore("\n    }\n")
+        assertTrue(owed.indexOf("!onScreen") in 0 until owed.indexOf("setShownYear(year)"))
+        assertTrue(owed.indexOf("!onScreen") in 0 until owed.indexOf("RecapReader.hasEnough(database, year)"))
     }
 }
