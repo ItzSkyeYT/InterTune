@@ -221,6 +221,8 @@ internal fun rememberPinActions(
     if (mediaMetadata != null && playerConnection != null) {
         if (showQueues) {
             AddToQueueDialog(
+                // As the player's menu does: a guest's song goes to the room's queue, the picker is for everyone else.
+                songs = { listOf(mediaMetadata) },
                 onAdd = { queueName ->
                     playerConnection.service.queueBoard.addQueue(
                         queueName, listOf(mediaMetadata), forceInsert = true, delta = false, origin = PlayOrigin.QUEUE,
