@@ -176,6 +176,7 @@ class ReportTrail(
         HELD("plain notification put up"),
         GAVE_UP("nothing to play, player stopped"),
         MET_BEFORE_STOP("notification put up before a stop"),
+        NOTHING_PLAYS("press played nothing, notification put up and let go"),
         MISSED("owed notification not up"),
     }
 

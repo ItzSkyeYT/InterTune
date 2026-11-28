@@ -20,6 +20,7 @@ import android.view.KeyEvent
 import androidx.core.app.NotificationCompat
 import androidx.core.content.IntentCompat
 import androidx.core.content.getSystemService
+import androidx.media3.common.Player
 import com.dd3boh.outertune.R
 
 /**
@@ -38,8 +39,10 @@ import com.dd3boh.outertune.R
  * A play press also reaches a service that is running, paused and out of the foreground, the same
  * way: from the widget and from the receiver. media3 then plays and shows at once, unless the song
  * does not start (Android refuses the audio focus during a call, say), so the guard looks at that
- * start too. The play button of media3's notification came this way as well until it became a
- * plain start, which owes Android nothing (PlainPlayNotifications) and is left alone ([EXTRA_PLAIN]).
+ * start too, and a press that plays nothing is met as soon as that is known ([earlyLook]): Android
+ * may stop the service of an app it counts idle long before the guard looks. The play button of
+ * media3's notification came this way as well until it became a plain start, which owes Android
+ * nothing (PlainPlayNotifications) and is left alone ([EXTRA_PLAIN]).
  *
  * And when the app's process dies while Android still waits, Android brings the service back in
  * a new process, with no intent, and waits again there: issue #137, a trace with no caller in the
@@ -189,6 +192,51 @@ internal object MediaButtonStart {
 
     /** How long the plain notification stays over a player whose song never started, before it goes. */
     const val LET_GO_MS = 60_000L
+
+    /**
+     * When the service first looks at what a play press Android waits on came to, and how often after that while it
+     * is still on its way into the player ([earlyLook]): a second, by which media3 has taken the press (a double
+     * press's wait of 300 ms included), and well before the guard ([guardMs]).
+     */
+    const val EARLY_LOOK_MS = 1_000L
+
+    /** What the service does at an early look ([earlyLook]). */
+    enum class EarlyLook {
+        /** media3's notification is up, or the player is set to play and media3 puts it up: left to media3 and the guard. */
+        MEDIA3,
+
+        /**
+         * Something may still come of the press: looked at again [EARLY_LOOK_MS] later, until the guard looks, which
+         * sees to it as before.
+         */
+        AGAIN,
+
+        /** The press plays nothing: what Android waits for is met now, and let go at once. */
+        MEET,
+    }
+
+    /**
+     * What a play press that Android still waits on has come to, [EARLY_LOOK_MS] after it and then every
+     * [EARLY_LOOK_MS] until the guard looks. Android may stop a started service of an app it counts idle at any
+     * moment, and stopping one it still waits on closes the app at once (ActiveServices.bringDownServiceLocked): Play
+     * on the widget over a queue that had ended, the app idle for 18 minutes, was stopped 15 s after the press on a
+     * Pixel 5 (Android 14, 28 Nov 2026), before the guard's look at 20 s. So a press that plays nothing is met as
+     * soon as that is known, not when Android's time is nearly up.
+     *
+     * [inForeground]: media3's notification is up. [onItsWay]: what the press asked for is not in the player yet (an
+     * empty player, a saved queue being read, a song tapped on the widget). [playWhenReady] and [playbackState]: the
+     * player's. Set to play, buffering or ready, media3 is in the foreground with its notification by itself
+     * (MediaNotificationManager.isAnySessionUserEngaged); set to play and stopped by an error, the app may try again
+     * (a song that failed, the network back). Paused, by the press itself on an ended queue or because Android refused
+     * the sound, or ended, nothing comes of it.
+     */
+    fun earlyLook(inForeground: Boolean, onItsWay: Boolean, playWhenReady: Boolean, playbackState: Int): EarlyLook = when {
+        inForeground -> EarlyLook.MEDIA3
+        onItsWay -> EarlyLook.AGAIN
+        !playWhenReady || playbackState == Player.STATE_ENDED -> EarlyLook.MEET
+        playbackState == Player.STATE_IDLE -> EarlyLook.AGAIN
+        else -> EarlyLook.MEDIA3
+    }
 
     /**
      * Whether a media key asks to play: the keys that media3's receiver and the widget send with

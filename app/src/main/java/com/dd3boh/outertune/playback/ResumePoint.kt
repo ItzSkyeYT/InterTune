@@ -50,4 +50,27 @@ object ResumePoint {
             if (playerPositionMs > 0) playerPositionMs else C.TIME_UNSET
         else -> C.TIME_UNSET
     }
+
+    /**
+     * Whether a saved queue had played to its end: it stands on the last of its [size] songs in the order they play
+     * ([index]), at that song's end ([positionMs]). The song's length is the one it is stored with, in whole seconds
+     * ([durationSec], 0 or less when unknown), and the player ends a song at its real length, which that rounds:
+     * Highway to Hell ended at 208430 ms and is stored as 208 s. A point no more than [END_SLACK_MS] before it, or
+     * past it, is the end.
+     */
+    fun playedToEnd(index: Int, size: Int, positionMs: Long, durationSec: Int): Boolean =
+        size > 0 && index == size - 1 && durationSec > 0 && positionMs != C.TIME_UNSET &&
+            positionMs >= durationSec * 1_000L - END_SLACK_MS
+
+    /** How far before a song's stored length a saved point still counts as its end ([playedToEnd]). */
+    const val END_SLACK_MS = 2_000L
+
+    /**
+     * Where Play loads a saved queue into an empty player: its song [index] at [positionMs], as saved, unless it had
+     * played to its end ([playedToEnd]), when it starts again from its first song, as Play does on a queue that ends
+     * while the app runs (playSafe). Loaded where it ended, Play played the last moment of its last song and stopped,
+     * and only a second Play started it again: the widget's, and the mini player's after a restart (28 Nov 2026).
+     */
+    fun playFrom(index: Int, size: Int, positionMs: Long, durationSec: Int): Pair<Int, Long> =
+        if (playedToEnd(index, size, positionMs, durationSec)) 0 to C.TIME_UNSET else index to positionMs
 }

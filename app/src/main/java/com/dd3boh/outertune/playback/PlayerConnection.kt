@@ -222,6 +222,9 @@ class PlayerConnection(
             room.toggleMute()
             return
         }
+        // A saved queue that had played to its end starts again from its first song, as a queue that ends while the
+        // app runs does (playSafe): loaded at its end, the first tap played its last moment and stopped.
+        if (player.currentMediaItem == null) service.queueBoard.startOverIfEnded()
         loadQueueIfEmpty().togglePlayPause()
     }
 
