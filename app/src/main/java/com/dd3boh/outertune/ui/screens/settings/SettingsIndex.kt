@@ -123,8 +123,9 @@ val SETTINGS_INDEX: List<SettingEntry> = listOf(
     SettingEntry(Tour.ROUTE_LOOK_AND_FEEL, R.string.dark_theme, words = listOf(R.string.search_words_dark_theme)),
     SettingEntry(Tour.ROUTE_LOOK_AND_FEEL, R.string.pure_black, words = listOf(R.string.search_words_pure_black)),
     // Living blur's colours, strength and smoothing had rows under the style until 27 Nov 2026; they are set in the
-    // tuner the sample under it opens, and their names find the style.
-    SettingEntry(Tour.ROUTE_LOOK_AND_FEEL, R.string.player_background_style, words = listOf(R.string.player_background_blur, R.string.player_background_living, R.string.player_background_gradient, R.string.player_living_colours, R.string.player_living_strength, R.string.player_living_smoothing)),
+    // tuner the sample under it opens, and their names find the style. So does the name of the wide button that
+    // opened the tuner until 28 Nov 2026, when the sample's pencil took its place.
+    SettingEntry(Tour.ROUTE_LOOK_AND_FEEL, R.string.player_background_style, words = listOf(R.string.player_background_blur, R.string.player_background_living, R.string.player_background_gradient, R.string.player_living_colours, R.string.player_living_strength, R.string.player_living_smoothing, R.string.living_tune_open)),
     SettingEntry(Tour.ROUTE_LOOK_AND_FEEL, R.string.player_liquid_glass, R.string.player_liquid_glass_description, words = listOf(R.string.search_words_glass)),
     SettingEntry(Tour.ROUTE_LOOK_AND_FEEL, R.string.player_glass_intensity, under = R.string.player_liquid_glass),
     SettingEntry(Tour.ROUTE_LOOK_AND_FEEL, R.string.player_buttons_style, R.string.player_buttons_style_description),
