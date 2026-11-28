@@ -95,6 +95,7 @@ import com.dd3boh.outertune.playback.SleepTimer
 import com.dd3boh.outertune.ui.dialog.TimeOfDayDialog
 import com.dd3boh.outertune.ui.dialog.formatTimeOfDay
 import com.dd3boh.outertune.ui.utils.LocalLandscape
+import com.dd3boh.outertune.utils.NotificationAsk
 import com.dd3boh.outertune.utils.makeTimeString
 import com.dd3boh.outertune.utils.rememberPreference
 import java.text.SimpleDateFormat
@@ -248,12 +249,15 @@ fun SleepTimerDialog(playerConnection: PlayerConnection, onDismiss: () -> Unit) 
                         onEnd = { end ->
                             onDismiss()
                             timer.start(end)
+                            // The countdown is a notification: each start here asks Android for them, the first time only (NotificationAsk).
+                            NotificationAsk.atUse()
                         },
                     )
                 } else {
                     RunningTimer(status = status, timer = timer, onEndOfSong = {
                         onDismiss()
                         timer.start(SleepEnd.SONG)
+                        NotificationAsk.atUse()
                     })
                 }
 
@@ -275,6 +279,7 @@ fun SleepTimerDialog(playerConnection: PlayerConnection, onDismiss: () -> Unit) 
                             onDismiss()
                             // At a clock time, at that time to the second; else, or once it has gone by, the minutes shown.
                             if (clockAt?.let(timer::startAt) != true) timer.start(sleepTimerValue.roundToInt())
+                            NotificationAsk.atUse()
                         }
                     ) {
                         Text(stringResource(R.string.sleep_start))
