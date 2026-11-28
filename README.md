@@ -147,7 +147,7 @@ On a Samsung, Auto Blocker stops installs as well. Turn it off for the install a
 - Downloads for offline listening, which can wait for Wi-Fi
 - Downloads as MP3, M4A, FLAC or WAV, with the title, artist and cover, at a quality of their own *(0.13)*
 - Your playlists, albums and artists in your own order *(0.13)*
-- Sync that never loses songs, and scrobbling to ListenBrainz in place of Last.fm *(0.13)*
+- Sync that never loses songs, and scrobbling to ListenBrainz beside Last.fm *(0.13)*
 - Automatic backups, a history of every play, and stats that stay on your phone
 
 </td>
@@ -208,15 +208,17 @@ Every change in detail, and why this fork exists: [docs/FEATURES.md](https://git
 What's being worked on, roughly in order. `[x]` is done, `[~]` is built and being tested, `[ ]` is still to do. Nothing here has a date, and plans can change. Ideas are welcome in #feature-requests on [Discord](https://discord.gg/68jmqhMjXk) or as a [GitHub issue](https://github.com/ItzSkyeYT/InterTune/issues/new/choose).
 
 <details>
-<summary><b>Next: 0.13</b> · 41 of 51 done, 6 to test</summary>
+<summary><b>Next: 0.13</b> · 54 of 57 done, 3 to test</summary>
 
 `[x]` Listen together: one person plays, friends follow the same song in real time\
 `[x]` In a room, a guest who casts to a TV or speaker plays on their own, and catches up with the room when the cast ends\
 `[x]` Invites to a room keep its code out of the website's logs and out of chat apps' link previews\
-`[~]` In a room everyone sees who's picking the music, and the host can hand control to someone and take it back\
-`[~]` Propose a song to whoever's picking the music, they get a notification with Play it or Not now\
-`[x]` Room settings: the host chooses if everyone can move in the song or change the queue\
-`[~]` Songs from your own files play in a room as their YouTube Music version\
+`[x]` In a room everyone sees who's picking the music, and the host can hand control to someone and take it back\
+`[x]` The host can leave a room without closing it: they hand it to someone and everyone keeps listening\
+`[x]` Propose a song to whoever's picking the music, they get a notification with Play it or Not now\
+`[x]` Rooms work like a Spotify Jam: guests listen along and can mute, and the host can let everyone control the music\
+`[x]` Songs other people add in a room don't change your own recommendations\
+`[x]` Songs from your own files play in a room as their YouTube Music version\
 `[x]` How rooms work: a short tutorial that also walks you through the room's sheet\
 `[x]` AirPlay speakers in the cast list\
 `[x]` The equalizer and volume levelling on AirPlay speakers too, and Signal path shows the speaker you cast to\
@@ -228,7 +230,7 @@ What's being worked on, roughly in order. `[x]` is done, `[~]` is built and bein
 `[x]` Your playlists in your own order, dragged where you want them\
 `[x]` What's playing works offline and names the song once you're back online ([#48](https://github.com/ItzSkyeYT/InterTune/issues/48))\
 `[x]` What you have heard shows each song with its cover and menu, like every other list\
-`[~]` Scrobbling to ListenBrainz, in place of Last.fm from 1 December ([#159](https://github.com/ItzSkyeYT/InterTune/issues/159))\
+`[x]` Scrobbling to ListenBrainz, beside Last.fm or instead of it ([#159](https://github.com/ItzSkyeYT/InterTune/issues/159))\
 `[x]` Albums carry on into a radio when they end\
 `[~]` A sleep timer with more ways to stop: at a clock time, or at the end of the song, the album or the queue\
 `[x]` Pick a playlist's cover\
@@ -246,19 +248,23 @@ What's being worked on, roughly in order. `[x]` is done, `[~]` is built and bein
 `[x]` A short note when the phone's battery saver pauses things like word-by-word lyrics\
 `[x]` A radio keeps going when YouTube Music refuses it: other ways to ask, then picks from your own listening\
 `[x]` Stats shows how many of the songs you liked InterTune found for you, and where\
-`[~]` Your year in InterTune, a recap\
-`[ ]` Premium accounts get the 256 kbps stream\
+`[~]` News, polls and update checks still reach you when GitHub can't be reached\
+`[x]` On a weak connection the app waits and tries again before saying YouTube can't be reached, and says it in a small line on Home that local songs never see\
+`[x]` Your year in InterTune, a recap\
+`[x]` Save your recap as a video to share, with its music\
+`[x]` Four more Recap slides from your own year: your seasons, your 2 AM songs, the week you couldn't stop and the one you came back to\
 `[x]` Choose what's in the three-dot menus\
-`[ ]` Lyrics videos\
-`[ ]` Better word by word lyrics\
+`[x]` Arrange the player's buttons by dragging them into boxes shaped like the player's bars\
+`[x]` In Classic, the player's three-dots button at the top or at the bottom\
+`[x]` A song tapped on the Shelf widget plays without opening the app\
+`[x]` Downloaded songs offers to remove the extra copies an old bug left, keeping one file of each\
 `[x]` Albums and artists in your own order too\
-`[ ]` Match your library from another service by logging in to it\
 `[x]` Repeat and shuffle on a lit box when they're on, so off no longer looks greyed out ([#182](https://github.com/ItzSkyeYT/InterTune/issues/182))\
 `[x]` The cast button with the player's buttons by the title, where you can move it like them, and a small badge on the mini player during a cast or a room\
 `[x]` Remove a song on your phone from the library, or leave out a whole folder, with Undo\
 `[x]` A playlist's search looks on YouTube Music too, with an add button on each song\
 `[x]` Varispeed: the pitch follows the speed, like a record ([#225](https://github.com/ItzSkyeYT/InterTune/issues/225))\
-`[x]` More haptic feedback, and a Vibration setting: Off, Light or Strong ([#176](https://github.com/ItzSkyeYT/InterTune/issues/176))\
+`[~]` More haptic feedback, and Vibration as Off or five steps on a slider, with the queue ticking like a wheel as you scroll it ([#176](https://github.com/ItzSkyeYT/InterTune/issues/176))\
 `[x]` A full-screen tuner for Living blur's colours and movement\
 `[x]` Bring your library over from a Metrolist backup, from its Android app or its new one
 
@@ -272,27 +278,38 @@ What's being worked on, roughly in order. `[x]` is done, `[~]` is built and bein
 `[ ]` Learning on your phone that's fair to new songs, starting from what works for many listeners\
 `[ ]` The reason for each pick, on a long press\
 `[ ]` Testers first, then everyone once it beats today's picks\
-`[ ]` The player's background on one full-screen page, every style and its settings together
+`[x]` Similar songs from ListenBrainz, in place of Last.fm\
+`[~]` ListenBrainz's playlists made for you on Home, and its picks in Discover\
+`[ ]` The player's background on one full-screen page, every style and its settings together\
+`[~]` Unison as a lyrics source, with its credit wherever the lyrics show ([#145](https://github.com/ItzSkyeYT/InterTune/issues/145))\
+`[ ]` Album and playlist pages redone: a big cover with its details under it, no cover beside each song, your likes and the most played songs marked, and the page in the cover's colours ([#289](https://github.com/ItzSkyeYT/InterTune/issues/289))
 
 </details>
 
 <details>
 <summary><b>After 0.13</b></summary>
 
-`[ ]` A switch to keep Liquid glass's layout, the player and its buttons where they are, drawn without the glass\
+`[ ]` Premium accounts get the 256 kbps stream\
+`[ ]` Lyrics videos\
+`[ ]` Better word by word lyrics\
+`[ ]` Match your library from another service by logging in to it\
+`[x]` A switch to keep Liquid glass's layout, the player and its buttons where they are, drawn without the glass\
 `[ ]` The "Group the player buttons" setting goes, the buttons stay grouped as they are by default\
 `[ ]` Discord Rich Presence: what you play on your Discord profile, off until you turn it on (it signs in to Discord as you)\
 `[ ]` Connect your devices over your Wi-Fi: a phone, watch, TV or tablet as the remote or the speaker, paired once, off until you turn it on *(after 0.14)*\
 `[ ]` Paste or share a YouTube link to play it as a song and download it *(0.13.5)*\
-`[ ]` Speed dial on Home\
-`[ ]` Lyrics in big lines, each singer on their own side, with a menu to fix them or pick where they come from\
+`[x]` Speed dial on Home, or Keep listening as before: your pick in Look and feel\
+`[x]` Lyrics in big lines, each singer on their own side, with a menu to fix them or pick where they come from\
 `[ ]` The queue: radio choices as chips, and a lock\
 `[ ]` Roomier settings, and one page for the services InterTune connects to\
-`[ ]` Playlist folders\
+`[x]` Playlist folders\
+`[x]` Living blur in your own colours for a song, one to five, picked from its cover\
 `[ ]` Music videos ([#96](https://github.com/ItzSkyeYT/InterTune/issues/96))\
 `[ ]` Bring your library over from InnerTune, ViMusic, SimpMusic or Kreate\
 `[~]` A thumbs down that YouTube Music hears too, then a Dislike button in the notification ([#171](https://github.com/ItzSkyeYT/InterTune/issues/171))\
-`[ ]` Unison as a lyrics source ([#145](https://github.com/ItzSkyeYT/InterTune/issues/145))\
+`[x]` NetEase Cloud Music as a lyrics source, for more word by word lyrics\
+`[x]` Lock a room so no one new can join, even with the code\
+`[~]` Emoji reactions in a room\
 `[ ]` Lyrics translated by AI with your own key, if you turn it on ([#177](https://github.com/ItzSkyeYT/InterTune/issues/177))\
 `[ ]` A page with every poll, to see or change what you answered\
 `[ ]` Music to a speaker of your choice while a call stays on the phone ([#117](https://github.com/ItzSkyeYT/InterTune/issues/117))\
@@ -357,6 +374,8 @@ Thank you so much, everyone, for your support in this growing project!
 <p align="center">People whose code is in InterTune. Thank you for building it with me!</p>
 
 <p align="center"><a href="https://github.com/3SSF"><img src="https://github.com/3SSF.png?size=128" width="64" height="64" alt="3SSF"></a><br><b><a href="https://github.com/3SSF">3SSF</a></b><br><sub>The first code from outside: a music note on local songs with no cover (<a href="https://github.com/ItzSkyeYT/InterTune/pull/161">#161</a>) · November 2026</sub></p>
+
+<p align="center"><b>Translators</b><br>InterTune speaks your language thanks to everyone translating it on <a href="https://hosted.weblate.org/engage/intertune/">Weblate</a>, and especially <b>Mickaël Binos</b> (French) and <b>Jacek Krewniak</b> (Polish). Thank you!</p>
 
 <p align="center"><b>Want to help?</b> <a href=".github/CONTRIBUTING.md">CONTRIBUTING.md</a> says how to build it, and the <a href="https://discord.gg/68jmqhMjXk">Discord server</a> is the place to ask for a first task.</p>
 
