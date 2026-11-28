@@ -707,6 +707,7 @@
     <string name="recognition_phone_continue">Continuer</string>
     <string name="recognition_phone_needs_notifications">InterTune a besoin des notifications pour vous donner le titre.</string>
     <string name="recognise_tap_to_listen">Appuyez pour écouter</string>
+    <string name="recognition_needs_microphone">InterTune a besoin du micro pour écouter. Touchez pour l\'autoriser dans les réglages d\'Android.</string>
     <string name="recognise_screen_off_hint">Vous pouvez éteindre l\'écran pendant l\'identification.</string>
     <string name="recognise_history_title">Reconnus pendant cette session</string>
     <string name="recognise_clear_history">Effacer</string>

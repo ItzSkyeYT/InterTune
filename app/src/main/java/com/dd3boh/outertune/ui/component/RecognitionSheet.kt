@@ -17,6 +17,7 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -72,6 +73,7 @@ import com.dd3boh.outertune.LocalPlayerConnection
 import com.dd3boh.outertune.constants.RecogniseKeepAwakeKey
 import com.dd3boh.outertune.constants.RecognisePauseOnSpeakerKey
 import com.dd3boh.outertune.recognition.AudioRoute
+import com.dd3boh.outertune.recognition.MicrophoneSettings
 import com.dd3boh.outertune.utils.rememberPreference
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.db.entities.Playlist
@@ -168,9 +170,13 @@ fun RecognitionSheet(
         if (instead) viewModel.listenInstead(playlist) else viewModel.start(playlist)
     }
 
+    // The microphone refused, which Android also answers by itself, with nothing on screen, after
+    // two refusals: said in place of Tap to listen, with the way to allow it in Android's settings.
+    var micRefused by rememberMicrophoneRefused()
     val permission = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
+        micRefused = !granted
         if (granted) start()
         else viewModel.reset()
     }
@@ -228,6 +234,11 @@ fun RecognitionSheet(
                 // with the sheet still open, it pulsed at 0:00 with no button, looking like a run.
                 RecognitionEngine.State.Idle ->
                     if (running) Listening(level = 0f, identifying = false, elapsed = elapsed)
+                    else if (micRefused) Problem(
+                        text = stringResource(R.string.recognition_needs_microphone),
+                        onRetry = { permission.launch(Manifest.permission.RECORD_AUDIO) },
+                        onText = { MicrophoneSettings.open(context) },
+                    )
                     else Problem(
                         text = stringResource(R.string.recognise_tap_to_listen),
                         onRetry = { permission.launch(Manifest.permission.RECORD_AUDIO) },
@@ -635,8 +646,14 @@ internal fun Elsewhere(run: SheetRun.Other, listenHere: String, note: String?, o
     Button(onClick = onListenHere) { Text(listenHere) }
 }
 
+/** [onText]: the text is a tap of its own too, for a problem whose fix is elsewhere. */
 @Composable
-private fun Problem(text: String, onRetry: () -> Unit, icon: ImageVector = Icons.Rounded.MicOff) {
+private fun Problem(
+    text: String,
+    onRetry: () -> Unit,
+    icon: ImageVector = Icons.Rounded.MicOff,
+    onText: (() -> Unit)? = null,
+) {
     Box(
         contentAlignment = Alignment.Center,
         modifier = Modifier
@@ -658,6 +675,7 @@ private fun Problem(text: String, onRetry: () -> Unit, icon: ImageVector = Icons
         style = MaterialTheme.typography.bodyLarge,
         textAlign = TextAlign.Center,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = if (onText != null) Modifier.clickable(role = Role.Button, onClick = onText) else Modifier,
     )
     Spacer24()
     Button(onClick = onRetry) { Text(stringResource(R.string.recognition_try_again)) }

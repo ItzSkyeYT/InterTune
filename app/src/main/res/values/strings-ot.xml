@@ -892,6 +892,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="recognition_phone_continue">Continue</string>
     <string name="recognition_phone_needs_notifications">InterTune needs notifications to give you the song.</string>
     <string name="recognise_tap_to_listen">Tap to listen</string>
+    <string name="recognition_needs_microphone">InterTune needs the microphone to listen. Tap to allow it in Android\'s settings.</string>
     <string name="recognise_screen_off_hint">You can turn the screen off while recognition is running.</string>
     <string name="recognise_history_title">Recognised this session</string>
     <string name="recognise_clear_history">Clear</string>
