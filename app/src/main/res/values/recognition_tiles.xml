@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      Song on this phone's Quick Settings tile (recognition/PhoneSongTileService) listens to the
+      phone's own sound, which Android lets an app have from 10 on (PhoneAudio.supported). Before
+      that its tap did nothing, so the tile is not offered there at all.
+    -->
+    <bool name="phone_song_tile_offered">false</bool>
+</resources>
