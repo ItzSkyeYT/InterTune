@@ -160,6 +160,7 @@ import com.dd3boh.outertune.ui.screens.Screens.LibraryFilter
 import com.dd3boh.outertune.ui.screens.settings.fragments.AccountFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.LocalScannerFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.LocalizationFrag
+import com.dd3boh.outertune.ui.screens.settings.fragments.MetrolistImportDialogs
 import com.dd3boh.outertune.ui.screens.settings.fragments.ThemeAppFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.ThemePlayerFrag
 import com.dd3boh.outertune.ui.utils.GlassSpec
@@ -196,6 +197,8 @@ fun SetupWizard(
     val restoreLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) backupRestoreViewModel.restore(uri)
     }
+    // A Metrolist backup picked here is said to be one, with Import from Metrolist offered for that same file.
+    MetrolistImportDialogs(backupRestoreViewModel, restore = { backupRestoreViewModel.restore(it) })
     // Restoring runs in the background (BackupRestoreViewModel.restore) and takes a while on a
     // real library, and this button is setup's only way in to it. So it shows its own spinner and
     // stays disabled until the restore is over, instead of looking idle next to Skip.

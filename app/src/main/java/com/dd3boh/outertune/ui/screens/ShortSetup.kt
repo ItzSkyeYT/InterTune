@@ -152,6 +152,7 @@ import com.dd3boh.outertune.utils.dataStore
 import com.dd3boh.outertune.utils.installSource
 import com.dd3boh.outertune.utils.lastFmQuestionAskable
 import com.dd3boh.outertune.utils.rememberPreference
+import com.dd3boh.outertune.ui.screens.settings.fragments.MetrolistImportDialogs
 import com.dd3boh.outertune.viewmodels.BackupRestoreViewModel
 import com.zionhuang.innertube.utils.parseCookieString
 import kotlinx.coroutines.CoroutineScope
@@ -217,6 +218,12 @@ fun ShortSetup(
         if (uri != null) backupRestoreViewModel.restore(uri)
     }
     val restoring by backupRestoreViewModel.restoreInProgress.collectAsState()
+    // Somebody moving over from Metrolist taps "I have a backup" first. Their backup is said to be Metrolist's, with
+    // Import from Metrolist offered for it, and the import asks and answers here as in Backup and restore. The button
+    // waits while the import reads the file or brings the library over.
+    MetrolistImportDialogs(backupRestoreViewModel, restore = { backupRestoreViewModel.restore(it) })
+    val metrolist by backupRestoreViewModel.metrolist.collectAsState()
+    val importing = metrolist == BackupRestoreViewModel.Metrolist.Working
 
     var storedPage by rememberPreference(OobeStatusKey, defaultValue = 0)
     // Setup opened by an update from a wizard with more pages starts on a number past the last
@@ -401,8 +408,8 @@ fun ShortSetup(
                                             modifier = Modifier.weight(1f).fillMaxHeight(),
                                             primary = false,
                                             narrow = true,
-                                            enabled = !restoring,
-                                            busy = restoring,
+                                            enabled = !restoring && !importing,
+                                            busy = restoring || importing,
                                             onClick = { if (live) restoreLauncher.launch(BackupRestoreViewModel.PICK_BACKUP) },
                                         )
                                         SetupButton(
@@ -418,8 +425,8 @@ fun ShortSetup(
                                     SetupButton(
                                         text = stringResource(R.string.oobe_use_backup),
                                         primary = false,
-                                        enabled = !restoring,
-                                        busy = restoring,
+                                        enabled = !restoring && !importing,
+                                        busy = restoring || importing,
                                         onClick = { if (live) restoreLauncher.launch(BackupRestoreViewModel.PICK_BACKUP) },
                                     )
                                 }

@@ -3446,6 +3446,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="metrolist_import_too_old">This backup comes from InnerTune or an older Metrolist. For InnerTune\'s, use Restore. For Metrolist, update it and make a new backup.</string>
     <string name="metrolist_import_other_file">Choose another file</string>
     <string name="metrolist_import_failed">Couldn\'t read this backup</string>
+    <string name="restore_is_metrolist">This is a backup from Metrolist. Import it to bring over your likes, playlists and plays.</string>
     <string name="err_download_not_on_phone">This song is marked as downloaded, but its file is missing or incomplete on this phone. Download it again when you\'re online.</string>
     <!-- The library search when it finds nothing, under "No results found". -->
     <string name="library_search_none">Not in your library</string>
