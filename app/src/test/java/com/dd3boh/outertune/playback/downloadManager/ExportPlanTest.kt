@@ -67,6 +67,17 @@ class ExportPlanTest {
     }
 
     @Test
+    fun `a folder that cannot be written is said as that, and no song is counted as one that could not be converted`() {
+        // The export never began: the line is the folder's refusal (exportLine), not "0 songs exported, 1 could not be converted".
+        val refused = ExportResult(0, emptyList(), folderRefused = true)
+        assertEquals(emptyList<Pair<Part, Int>>(), ExportSummary.parts(refused))
+        assertEquals(0, refused.count(SkipReason.FAILED))
+        assertEquals(false, ExportResult(0, listOf(skip(1, SkipReason.FAILED))).folderRefused)
+        // A conversion that failed in a folder that takes files is still said as one.
+        assertEquals(listOf(Part.EXPORTED to 0, Part.FAILED to 1), ExportSummary.parts(ExportResult(0, listOf(skip(1, SkipReason.FAILED)))))
+    }
+
+    @Test
     fun `a result knows whether it was stopped`() {
         assertEquals(false, ExportResult(1, emptyList()).stopped)
         assertEquals(true, ExportResult(1, emptyList(), stopped = true).stopped)

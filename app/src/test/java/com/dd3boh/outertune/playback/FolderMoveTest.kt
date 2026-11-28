@@ -23,20 +23,74 @@ import java.io.File
  */
 class FolderMoveTest {
 
-    /** One move, its steps written down in the order they ran. */
+    /**
+     * One move, its steps written down in the order they ran. [removedAfter]: the step after which the song's download
+     * is removed (Remove download, by hand or with the like), or null when it is not.
+     */
     private class Move(
         val written: String? = "content://tree/Music/document/Music%2FSong%20%5Bid%5D.mka",
         val path: String? = "/storage/emulated/0/Music/Song [id].mka",
         val recordFails: Boolean = false,
+        val removedAfter: String? = null,
     ) {
         val steps = mutableListOf<String>()
+        private var removed = false
+
+        private fun step(name: String) {
+            steps += name
+            if (removedAfter != null && name.startsWith(removedAfter)) removed = true
+        }
 
         fun run(): FolderMove = moveIntoFolder(
-            save = { steps += "write"; written },
-            pathOf = { steps += "path of $it"; path },
-            record = { steps += "record $it"; if (recordFails) error("the database is full") },
-            dropCopy = { steps += "drop the copy in the app" },
+            save = { step("write"); written },
+            pathOf = { step("path of $it"); path },
+            record = { step("record $it"); if (recordFails) error("the database is full") },
+            dropCopy = { step("drop the copy in the app") },
+            removed = { removed },
+            unsave = { step("delete $it") },
+            unrecord = { step("take the row back") },
         )
+    }
+
+    @Test
+    fun `a download removed while its file was made leaves no file, no row, and its copy to media3`() {
+        // An unlike during the minute an MP3 takes: the file landed in the folder and in other apps' lists, recorded as
+        // downloaded while every screen said it was not (28 Nov 2026).
+        val move = Move(removedAfter = "write")
+        assertEquals(FolderMove.REMOVED, move.run())
+        assertEquals(listOf("write", "delete content://tree/Music/document/Music%2FSong%20%5Bid%5D.mka"), move.steps)
+    }
+
+    @Test
+    fun `a download removed while its row was written takes the row back too`() {
+        val move = Move(removedAfter = "record")
+        assertEquals(FolderMove.REMOVED, move.run())
+        assertEquals(
+            listOf(
+                "write",
+                "path of content://tree/Music/document/Music%2FSong%20%5Bid%5D.mka",
+                "record /storage/emulated/0/Music/Song [id].mka",
+                "delete content://tree/Music/document/Music%2FSong%20%5Bid%5D.mka",
+                "take the row back",
+            ),
+            move.steps,
+        )
+        assertFalse("media3's removal drops the copy, never the move", "drop the copy in the app" in move.steps)
+    }
+
+    @Test
+    fun `a download removed once it has moved is the removal's to delete`() {
+        // Remove download finds the file in the folder's list then, and deletes it as any download's.
+        val move = Move(removedAfter = "drop")
+        assertEquals(FolderMove.MOVED, move.run())
+        assertFalse(move.steps.any { it.startsWith("delete") })
+    }
+
+    @Test
+    fun `a file that could not be written for a removed download has nothing to delete`() {
+        val move = Move(written = null, removedAfter = "write")
+        assertEquals(FolderMove.NOT_WRITTEN, move.run())
+        assertEquals(listOf("write"), move.steps)
     }
 
     @Test
@@ -96,6 +150,34 @@ class FolderMoveTest {
         assertTrue(migrate.indexOf("downloadCache.removeResource(s.key)") > drop)
         assertEquals(1, Regex("""migratedIndex\.removeDownload\(s\.key\)""").findAll(migrate).count())
         assertTrue(migrate.indexOf("migratedIndex.removeDownload(s.key)") > drop)
+    }
+
+    @Test
+    fun `Remove download stops the song's move and its conversion, and a new request for the song lifts that`() {
+        assertTrue(util.contains("private val removedSinceAsked = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()"))
+        // Every Remove download, by hand or with the like, marks the song before the folder or media3 hear of it.
+        val remove = util.substringAfter("fun removeDownload(id: String) {").substringBefore("\n    }\n")
+        val mark = remove.indexOf("removedSinceAsked.add(id)")
+        assertTrue(mark in 0 until remove.indexOf("deleteSong(id)"))
+        assertTrue(mark < remove.indexOf("DownloadService.sendRemoveDownload("))
+        // A new request takes the mark away, once it has reached media3.
+        val download = util.substringAfter("private fun downloadSong(id: String").substringBefore("\n    }\n")
+        assertTrue(download.contains("if (sent) removedSinceAsked.remove(id)"))
+        assertTrue(download.indexOf("if (sent) removedSinceAsked.remove(id)") > download.indexOf("val sent = sends.attempt("))
+        // The conversion stops between two pieces (SongConverter asks), and the move's other steps follow moveIntoFolder.
+        val save = util.substringAfter("private suspend fun saveSongFile(id: String").substringBefore("\n    }\n")
+        assertTrue(save.contains("{ job?.isActive == false || id in removedSinceAsked }"))
+        val migrate = util.substringAfter("suspend fun migrateDownloads(").substringBefore("private suspend fun saveSongFile(")
+        val skip = migrate.indexOf("if (s.key in removedSinceAsked) {")
+        assertTrue("a song removed before its move is not copied at all", skip in 0 until migrate.indexOf("openFromCache(downloadCache, s.key)"))
+        assertTrue(migrate.contains("removed = { s.key in removedSinceAsked },"))
+        assertTrue("its file goes as a removed download's does", migrate.substringAfter("unsave = {").substringBefore("},").contains("localMgr.deleteFile(s.key)"))
+        assertTrue(migrate.substringAfter("unrecord = {").substringBefore("},").contains("database.removeDownloadSong(s.key)"))
+        // The stop of one song's conversion ends that song's move only; a stop of the move itself still ends the move.
+        val stopped = migrate.substringAfter("} catch (e: CancellationException) {").substringBefore("when (moved) {")
+        assertTrue(stopped.contains("if (s.key !in removedSinceAsked || !currentCoroutineContext().isActive) throw e"))
+        assertTrue(stopped.contains("FolderMove.REMOVED"))
+        assertTrue(migrate.contains("FolderMove.REMOVED -> {"))
     }
 
     @Test

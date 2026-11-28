@@ -2400,6 +2400,8 @@
     <string name="export_done_title">Export terminé</string>
     <string name="export_stopped_title">Export arrêté</string>
     <string name="export_names_more">%1$s et %2$d autres</string>
+    <string name="export_folder_refused">InterTune ne peut pas écrire dans ce dossier. Rien n\'a été exporté.</string>
+    <string name="export_choose_folder">Choisir un autre dossier</string>
     <plurals name="export_exported">
         <item quantity="one">%1$d titre exporté</item>
         <item quantity="many">%1$d titres exportés</item>

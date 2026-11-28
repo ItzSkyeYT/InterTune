@@ -118,9 +118,13 @@ internal fun writeInto(context: Context, dir: DocumentFile, name: String, write:
  */
 internal fun hasFile(dir: DocumentFile, name: String): Boolean = runCatching { dir.findFile(name) }.getOrNull() != null
 
-/** An export's result as one line: "12 songs exported, 1 skipped: not downloaded". */
+/**
+ * An export's result as one line: "12 songs exported, 1 skipped: not downloaded". A folder that could not be
+ * written is said as that: nothing was converted, and the line used to say the songs "could not be converted".
+ */
 internal fun exportLine(context: Context, result: ExportResult): String =
-    ExportSummary.parts(result).joinToString(", ") { (part, n) ->
+    if (result.folderRefused) context.getString(R.string.export_folder_refused)
+    else ExportSummary.parts(result).joinToString(", ") { (part, n) ->
         val plural = when (part) {
             ExportSummary.Part.EXPORTED -> R.plurals.export_exported
             ExportSummary.Part.NOT_ON_PHONE -> R.plurals.export_skipped_not_downloaded

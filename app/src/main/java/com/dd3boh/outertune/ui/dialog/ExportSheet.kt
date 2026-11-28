@@ -58,6 +58,7 @@ import com.dd3boh.outertune.constants.DownloadFormat
 import com.dd3boh.outertune.constants.DownloadFormatKey
 import com.dd3boh.outertune.constants.DownloadPathKey
 import com.dd3boh.outertune.playback.DownloadUtil.ExportState
+import com.dd3boh.outertune.playback.downloadManager.DownloadFolderState
 import com.dd3boh.outertune.playback.downloadManager.DownloadFormats
 import com.dd3boh.outertune.playback.downloadManager.ExportItem
 import com.dd3boh.outertune.playback.downloadManager.ExportResult
@@ -72,6 +73,8 @@ import com.dd3boh.outertune.utils.get
 import com.dd3boh.outertune.utils.rememberEnumPreference
 import com.dd3boh.outertune.utils.scanners.absoluteFilePathFromUri
 import com.dd3boh.outertune.utils.scanners.uriListFromString
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /**
  * Export to folder (Unreleased.DOWNLOAD_FORMATS), a sheet that comes up from the bottom as the sleep
@@ -104,7 +107,16 @@ fun ExportSheet(items: List<ExportItem>, onDismiss: () -> Unit) {
     var format by remember { mutableStateOf(savedFormat) }
     var bitrate by remember { mutableStateOf(savedBitrate) }
     val downloadFolder = remember { uriListFromString(context.dataStore.get(DownloadPathKey, "")).firstOrNull() }
-    var target by remember { mutableStateOf<Uri?>(downloadFolder) }
+    // The download folder is offered only while it opens: one deleted, or whose permission is gone, is not, and the row
+    // asks for a folder as Settings does. Offered all the same, the export ended on "could not be converted" (28 Nov 2026).
+    var target by remember {
+        mutableStateOf<Uri?>(downloadFolder?.takeIf { downloadUtil.localMgr.folderState.value == DownloadFolderState.OPEN })
+    }
+    LaunchedEffect(Unit) {
+        val offered = target ?: return@LaunchedEffect
+        // Deleted while the app runs, it still reads as open: the folder itself is asked, off the main thread.
+        if (!withContext(Dispatchers.IO) { downloadUtil.canExportInto(offered) } && target == offered) target = null
+    }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
         if (uri != null) {
             // Kept, so that an export still running when the screen is left can write to it.
@@ -112,6 +124,8 @@ fun ExportSheet(items: List<ExportItem>, onDismiss: () -> Unit) {
                 context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
             }
             target = uri
+            // Picked from an export the folder refused: back to the choices, with this folder, for Export.
+            downloadUtil.acknowledgeExport()
         }
     }
 
@@ -133,10 +147,14 @@ fun ExportSheet(items: List<ExportItem>, onDismiss: () -> Unit) {
         ) {
             when (val now = state) {
                 is ExportState.Running -> Running(now, onStop = { downloadUtil.cancelExport() })
-                is ExportState.Finished -> Finished(now.result, onDone = {
-                    downloadUtil.acknowledgeExport()
-                    onDismiss()
-                })
+                is ExportState.Finished -> Finished(
+                    now.result,
+                    onDone = {
+                        downloadUtil.acknowledgeExport()
+                        onDismiss()
+                    },
+                    onChooseFolder = { picker.launch(null) },
+                )
                 ExportState.Idle -> {
                     Text(
                         text = stringResource(R.string.export_to_folder),
@@ -250,9 +268,42 @@ private fun Running(state: ExportState.Running, onStop: () -> Unit) {
     }
 }
 
+/**
+ * How the export ended, and what was left out and why. A folder that could not be written says so, with the way to
+ * choose another ([onChooseFolder], the phone's picker): the folder picked goes back to the choices, for Export.
+ */
 @Composable
-private fun Finished(result: ExportResult, onDone: () -> Unit) {
+private fun Finished(result: ExportResult, onDone: () -> Unit, onChooseFolder: () -> Unit) {
     val context = LocalContext.current
+    if (result.folderRefused) {
+        Text(
+            text = stringResource(R.string.export_stopped_title),
+            style = MaterialTheme.typography.titleLarge,
+            modifier = Modifier
+                .padding(horizontal = 24.dp)
+                .semantics { heading() }
+        )
+        Text(
+            text = exportLine(context, result),
+            style = MaterialTheme.typography.bodyLarge,
+            modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 8.dp)
+        )
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp, vertical = 16.dp)
+        ) {
+            TextButton(onClick = onDone) {
+                Text(stringResource(android.R.string.cancel))
+            }
+            Button(onClick = onChooseFolder) {
+                Text(stringResource(R.string.export_choose_folder))
+            }
+        }
+        return
+    }
     Text(
         text = stringResource(if (result.stopped) R.string.export_stopped_title else R.string.export_done_title),
         style = MaterialTheme.typography.titleLarge,

@@ -43,7 +43,8 @@ class MoveHeldSaidTest {
         val migrate = util.substringAfter("suspend fun migrateDownloads(").substringBefore("    private suspend fun saveSongFile(")
         assertTrue(migrate.contains("held = completed.size - movable.size"))
         val end = migrate.substringAfter("} finally {")
-        assertTrue(end.contains("moveNotice?.finish(movedCount, held)"))
+        // A song removed while it moved stays nowhere, so not inside the app: counted with the ones moved.
+        assertTrue(end.contains("moveNotice?.finish(movedCount + removedCount, held)"))
         assertTrue(end.contains("if (!quiet && held > 0 && moveNotice == null) {"))
         assertTrue(end.contains("getQuantityString(R.plurals.dl_move_notice_held, held, held)"))
     }

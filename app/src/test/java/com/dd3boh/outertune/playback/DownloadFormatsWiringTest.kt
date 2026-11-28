@@ -84,7 +84,7 @@ class DownloadFormatsWiringTest {
     fun `a song is converted when the format is not Original, off the main thread, below the music, and the move is stopped by a cancellation`() {
         val save = util.substringAfter("private suspend fun saveSongFile(id: String").substringBefore("private fun songTags(")
         assertTrue("withContext(Dispatchers.IO)" in save)
-        assertTrue("if (format == DownloadFormat.ORIGINAL) null else SongConversion(format, downloadBitrate, converter, { job?.isActive == false }, onEncode)" in save)
+        assertTrue("if (format == DownloadFormat.ORIGINAL) null else SongConversion(format, downloadBitrate, converter, { job?.isActive == false || id in removedSinceAsked }, onEncode)" in save)
         // Below the music, lowered by the converter on the thread that encodes: set here, before a suspension,
         // the encoding could go on on another thread at full priority and leave this one lowered in the pool.
         assertFalse("not around code that suspends", "setThreadPriority" in save)
@@ -92,7 +92,7 @@ class DownloadFormatsWiringTest {
             .substringAfter("fun convert(").substringBefore("private fun encoderFor(")
         assertTrue(encode.indexOf("setThreadPriority(android.os.Process.THREAD_PRIORITY_BACKGROUND)") in 0 until encode.indexOf("decoder.open("))
         assertTrue("the priority is given back", "android.os.Process.setThreadPriority(priority)" in encode.substringAfterLast("} finally {"))
-        assertTrue("a cancelled coroutine stops the conversion between two pieces", "{ job?.isActive == false }" in save)
+        assertTrue("a cancelled coroutine, or the song's download removed meanwhile, stops the conversion between two pieces", "{ job?.isActive == false || id in removedSinceAsked }" in save)
         assertTrue("a cancellation is not taken for a failure to save", "if (it is CancellationException) throw it" in save)
         // Only when the song as it came was saved: a folder that refused both saved nothing (DownloadFolderClosedMoveTest).
         assertTrue("a song that fell back is counted for the notice", "conversion?.failure != null && saved != null) notice?.fellBack()" in save)
@@ -335,6 +335,33 @@ class DownloadFormatsWiringTest {
         assertTrue("the notice goes when it is over", "notice?.finish()" in export)
     }
 
+    @Test
+    fun `a folder that cannot be written is said as that, with a button to choose another, and is not offered when that can be told`() {
+        // The export: the folder's refusal, never every song as one that "could not be converted" (28 Nov 2026).
+        val refusal = export.substringAfter("if (dir == null || !dir.isDirectory || !dir.canWrite()) {").substringBefore("\n            }\n")
+        assertTrue("return@withContext ExportResult(0, emptyList(), folderRefused = true)" in refusal)
+        assertFalse("SkipReason.FAILED" in refusal)
+        // The check the sheet asks beforehand is the export's own rule.
+        val check = util.substringAfter("fun canExportInto(target: Uri): Boolean").substringBefore("private suspend fun exportSongs(")
+        assertTrue("DocumentFile.fromTreeUri(context, target)?.let { it.isDirectory && it.canWrite() } ?: false" in check)
+        // The line says why.
+        val files = fileCode("playback/downloadManager/ExportFiles.kt")
+        assertTrue("if (result.folderRefused) context.getString(R.string.export_folder_refused)" in files)
+        // The sheet: the download folder only while it opens and takes files; a refusal says why and opens the picker.
+        val sheet = fileCode("ui/dialog/ExportSheet.kt")
+        assertTrue("downloadFolder?.takeIf { downloadUtil.localMgr.folderState.value == DownloadFolderState.OPEN }" in sheet)
+        assertTrue("if (!withContext(Dispatchers.IO) { downloadUtil.canExportInto(offered) } && target == offered) target = null" in sheet)
+        val finished = sheet.substringAfter("private fun Finished(").substringBefore("for (reason in SkipReason.entries)")
+        assertTrue(finished.indexOf("if (result.folderRefused) {") in 0 until finished.indexOf("R.string.export_choose_folder"))
+        assertTrue("onChooseFolder = { picker.launch(null) }" in sheet)
+        // The folder picked goes back to the choices, Export one tap away.
+        val picked = sheet.substringAfter("rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->").substringBefore("ModalBottomSheet(")
+        assertTrue(picked.indexOf("target = uri") in 0 until picked.indexOf("downloadUtil.acknowledgeExport()"))
+        assertEquals("InterTune can't write to this folder. Nothing was exported.", text(english, "export_folder_refused")?.replace("\\'", "'"))
+        assertEquals("Choose another folder", text(english, "export_choose_folder"))
+        assertEquals("Choisir un autre dossier", text(french, "export_choose_folder"))
+    }
+
     // ---- the texts
 
     private val english = File("src/main/res/values/strings-ot.xml").readText()
@@ -345,7 +372,7 @@ class DownloadFormatsWiringTest {
 
     private val exportTexts = listOf(
         "export_to_folder", "export_note", "export_folder", "export_folder_none", "export_action",
-        "export_progress", "export_done_title", "export_stopped_title", "export_names_more",
+        "export_progress", "export_done_title", "export_stopped_title", "export_names_more", "export_folder_refused", "export_choose_folder",
     )
     private val exportPlurals = listOf("export_exported", "export_skipped_not_downloaded", "export_skipped_there", "export_skipped_local", "export_failed")
 
