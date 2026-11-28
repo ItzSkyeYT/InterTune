@@ -65,7 +65,8 @@ class LookAndFeelCleanupTest {
     fun `a button with the tuner's name, right under the sample, is the way in`() {
         val living = theme.substringAfter("LivingBlurSample(").substringBefore("val stillBecause")
         val button = living.substringAfter("if (Unreleased.LIVING_TUNE) {")
-        assertTrue(living, button.startsWith("\n                FilledTonalButton(\n                    onClick = { tuning = true },"))
+        // It opens the tuner the activity keeps open through a turn (LivingTuneDoor, tuner-fixes of 27 Nov 2026).
+        assertTrue(living, button.startsWith("\n                FilledTonalButton(\n                    onClick = { tune.open = true },"))
         assertTrue(button, button.contains("Icon(Icons.Rounded.Tune, contentDescription = null") && button.contains("Text(stringResource(R.string.living_tune_open))"))
         // The app's own words for it, in English and in French: nothing new to translate.
         for (folder in listOf("values", "values-fr")) assertTrue(folder, strings(folder).contains("<string name=\"living_tune_open\">"))
