@@ -84,7 +84,7 @@ class DownloadFormatsWiringTest {
     fun `a song is converted when the format is not Original, off the main thread, below the music, and the move is stopped by a cancellation`() {
         val save = util.substringAfter("private suspend fun saveSongFile(id: String").substringBefore("private fun songTags(")
         assertTrue("withContext(Dispatchers.IO)" in save)
-        assertTrue("if (format == DownloadFormat.ORIGINAL) null else SongConversion(format, downloadBitrate, converter, { job?.isActive == false }, onEncode)" in save)
+        assertTrue("if (format == DownloadFormat.ORIGINAL) null else SongConversion(format, downloadBitrate, converter, { job?.isActive == false || id in removedSinceAsked }, onEncode)" in save)
         // Below the music, lowered by the converter on the thread that encodes: set here, before a suspension,
         // the encoding could go on on another thread at full priority and leave this one lowered in the pool.
         assertFalse("not around code that suspends", "setThreadPriority" in save)
@@ -92,7 +92,7 @@ class DownloadFormatsWiringTest {
             .substringAfter("fun convert(").substringBefore("private fun encoderFor(")
         assertTrue(encode.indexOf("setThreadPriority(android.os.Process.THREAD_PRIORITY_BACKGROUND)") in 0 until encode.indexOf("decoder.open("))
         assertTrue("the priority is given back", "android.os.Process.setThreadPriority(priority)" in encode.substringAfterLast("} finally {"))
-        assertTrue("a cancelled coroutine stops the conversion between two pieces", "{ job?.isActive == false }" in save)
+        assertTrue("a cancelled coroutine, or the song's download removed meanwhile, stops the conversion between two pieces", "{ job?.isActive == false || id in removedSinceAsked }" in save)
         assertTrue("a cancellation is not taken for a failure to save", "if (it is CancellationException) throw it" in save)
         // Only when the song as it came was saved: a folder that refused both saved nothing (DownloadFolderClosedMoveTest).
         assertTrue("a song that fell back is counted for the notice", "conversion?.failure != null && saved != null) notice?.fellBack()" in save)

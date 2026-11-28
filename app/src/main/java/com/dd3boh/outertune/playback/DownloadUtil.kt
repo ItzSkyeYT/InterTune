@@ -459,6 +459,16 @@ class DownloadUtil @Inject constructor(
     private val finishedSinceMove = mutableSetOf<String>()
 
     /**
+     * Songs whose download was removed (Remove download, by hand or with the like) since it was last
+     * asked for. Their move into the folder stops, its conversion too, and leaves nothing in the
+     * folder (migrateDownloads, moveIntoFolder): a conversion to MP3 takes a minute or more, and a
+     * song unliked during it still landed in the folder and in other apps' lists, recorded as
+     * downloaded while the app said it was not (28 Nov 2026). A new request takes the song out
+     * (downloadSong). Concurrent: marked on the main thread, read on the move's.
+     */
+    private val removedSinceAsked = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+
+    /**
      * Where Remove download asks whether a song's kept cover can go, one at a time: a bulk removal
      * asks once a song, each a read of the whole song table, and in parallel they took every
      * database connection the lists read through.
@@ -1103,6 +1113,8 @@ class DownloadUtil @Inject constructor(
                 false
             )
         }
+        // Asked for again: a removal before this one no longer stops its move (removedSinceAsked).
+        if (sent) removedSinceAsked.remove(id)
         // The setting's own, or the person's: a song the setting downloaded once, whose download
         // then failed or was cancelled, is downloaded again by hand, and taking back its like
         // must not take that download (LikedDownloads, issue #64).
@@ -1148,6 +1160,9 @@ class DownloadUtil @Inject constructor(
      */
     fun removeDownload(id: String) {
         forgetLikedDownload(id)
+        // Before the folder or media3 hear of it: a move of the song under way, its conversion included,
+        // stops and leaves no file (removedSinceAsked).
+        removedSinceAsked.add(id)
         // The liked catch up leaves it removed (LikedCatchUpMemory). Here as well as at the
         // download's removal in the listener: a song in a download folder has no download in
         // media3 to remove.
@@ -1295,6 +1310,9 @@ class DownloadUtil @Inject constructor(
         var notice: ConvertNotice? = null
         var moveNotice: MoveNotice? = null
         var movedCount = 0
+        // The songs whose download was removed before or while they moved (removedSinceAsked): they
+        // are not downloads any more, so not ones that "stay inside the app" either.
+        var removedCount = 0
         // The songs left for later because the player has them open (HeldWhilePlaying): a move asked
         // for says they come after, rather than that it is done.
         var held = 0
@@ -1339,6 +1357,13 @@ class DownloadUtil @Inject constructor(
                         Toaster.show(context, "$runs/${toMigrate.size}", LENGTH_SHORT)
                     }
                 }
+                // Removed since it was asked for, by hand or with the like: not moved, and media3's
+                // removal drops its copy (removedSinceAsked).
+                if (s.key in removedSinceAsked) {
+                    removedCount++
+                    Log.i(TAG, "The download of ${s.key} was removed: it does not go into the folder")
+                    return@forEach
+                }
                 // Copied from the cache's files as the new file is written: read whole into memory
                 // first, a long mix ran the app out of memory (#67).
                 val fromCache = openFromCache(downloadCache, s.key) ?: return@forEach
@@ -1350,41 +1375,63 @@ class DownloadUtil @Inject constructor(
                 // emptied first and a failed write swallowed, so a folder that refused the file cost
                 // the song outright; then the copy went before the row knew the file, and the song
                 // played from the network until the scan after the whole batch.
-                val moved = moveIntoFolder(
-                    save = {
-                        fromCache.use { stream ->
-                            val song = database.song(s.key).first()
-                            val displayName = song?.title ?: ""
-                            localMgr.getFilePathIfExists(s.key)
-                                // The song's own file in the folder already, from an earlier download, at
-                                // its recorded path or under its download name: kept, never doubled. Each
-                                // "Title [id].mka (1)" in dvd's folder was written beside its own first file.
-                                ?: localMgr.fileAlreadyThere(s.key, displayName, song?.song?.localPath)
-                                // A file other players open, with the song's tags and cover inside; the
-                                // stream as it is when the song cannot be one (saveSongFile).
-                                ?: (if (Unreleased.DOWNLOAD_FILES) saveSongFile(s.key, notice) { notice?.starting(index, title) } else null)
-                                ?: runCatching {
-                                    localMgr.saveFile(s.key, stream, displayName)
-                                }.onFailure { reportException(it) }.getOrNull()
-                        }
-                    },
-                    pathOf = { uri -> runCatching { fileFromUri(context, uri)?.absolutePath }.getOrNull() },
-                    // The date the download landed, as the download listener wrote it.
-                    record = { path -> database.registerDownloadSong(s.key, stateToLocalDateTime(s.value), path) },
-                    dropCopy = {
-                        // The index entry goes as well. Left behind it still said completed, and each
-                        // later scan registered the song as downloaded again, even once its file in the
-                        // folder had been deleted.
-                        runCatching { migratedIndex.removeDownload(s.key) }
-                            .onFailure { Log.w(TAG, "Could not drop the index entry of ${s.key}", it) }
-                        downloadCache.removeResource(s.key)
-                    },
-                )
+                val moved = try {
+                    moveIntoFolder(
+                        save = {
+                            fromCache.use { stream ->
+                                val song = database.song(s.key).first()
+                                val displayName = song?.title ?: ""
+                                localMgr.getFilePathIfExists(s.key)
+                                    // The song's own file in the folder already, from an earlier download, at
+                                    // its recorded path or under its download name: kept, never doubled. Each
+                                    // "Title [id].mka (1)" in dvd's folder was written beside its own first file.
+                                    ?: localMgr.fileAlreadyThere(s.key, displayName, song?.song?.localPath)
+                                    // A file other players open, with the song's tags and cover inside; the
+                                    // stream as it is when the song cannot be one (saveSongFile).
+                                    ?: (if (Unreleased.DOWNLOAD_FILES) saveSongFile(s.key, notice) { notice?.starting(index, title) } else null)
+                                    ?: runCatching {
+                                        localMgr.saveFile(s.key, stream, displayName)
+                                    }.onFailure { reportException(it) }.getOrNull()
+                            }
+                        },
+                        pathOf = { uri -> runCatching { fileFromUri(context, uri)?.absolutePath }.getOrNull() },
+                        // The date the download landed, as the download listener wrote it.
+                        record = { path -> database.registerDownloadSong(s.key, stateToLocalDateTime(s.value), path) },
+                        dropCopy = {
+                            // The index entry goes as well. Left behind it still said completed, and each
+                            // later scan registered the song as downloaded again, even once its file in the
+                            // folder had been deleted.
+                            runCatching { migratedIndex.removeDownload(s.key) }
+                                .onFailure { Log.w(TAG, "Could not drop the index entry of ${s.key}", it) }
+                            downloadCache.removeResource(s.key)
+                        },
+                        // Removed while its file was made: the file goes as a removed download's does, through
+                        // the folder's list, and the row it got is taken back. The copy is media3's to drop.
+                        removed = { s.key in removedSinceAsked },
+                        unsave = {
+                            val removal = runCatching { localMgr.deleteFile(s.key) }.getOrNull()
+                            Log.i(TAG, "The download of ${s.key} was removed while it moved: its file in the folder, $removal")
+                        },
+                        unrecord = {
+                            runCatching { database.removeDownloadSong(s.key) }
+                                .onFailure { Log.w(TAG, "Could not take back the row of ${s.key}, removed while it moved", it) }
+                        },
+                    )
+                } catch (e: CancellationException) {
+                    // Its conversion stopped for the removal (saveSongFile): this song only, nothing of it was
+                    // written, and the move goes on with the next. A stop of the move itself still ends it.
+                    if (s.key !in removedSinceAsked || !currentCoroutineContext().isActive) throw e
+                    FolderMove.REMOVED
+                }
                 when (moved) {
                     FolderMove.MOVED -> movedCount++
                     FolderMove.NOT_WRITTEN -> Log.w(TAG, "Could not migrate ${s.key}, its download stays in the app")
                     FolderMove.NO_PATH -> Log.w(TAG, "The folder's file of ${s.key} has no path on the phone, its download stays in the app as well")
                     FolderMove.NOT_RECORDED -> Log.w(TAG, "Could not record the folder's file of ${s.key}, its download stays in the app as well")
+                    FolderMove.REMOVED -> {
+                        removedCount++
+                        Log.i(TAG, "The download of ${s.key} was removed while it moved: nothing of it stays in the folder")
+                    }
                 }
             }
             // Each song's row was written as it moved; the scan still walks the folder once and
@@ -1397,8 +1444,8 @@ class DownloadUtil @Inject constructor(
             notice?.finish()
             // Done, or how many stay inside the app: a song with nothing in the cache to copy, one
             // the folder refused, or the rest of a move that failed halfway; and the songs that
-            // move once they stop playing.
-            moveNotice?.finish(movedCount, held)
+            // move once they stop playing. A song removed meanwhile stays nowhere: counted as done.
+            moveNotice?.finish(movedCount + removedCount, held)
             // A move asked for with no notification to say it in (none can show, or every song it
             // found plays): the songs that come after are said in a toast.
             if (!quiet && held > 0 && moveNotice == null) {
@@ -1419,13 +1466,14 @@ class DownloadUtil @Inject constructor(
      * With a File format other than Original (Unreleased.DOWNLOAD_FORMATS) the song is converted
      * first, off the main thread and below the music's priority, into a temporary file, and put in
      * the folder only when whole; a conversion that fails is saved as Original, and [notice] counts
-     * it. A conversion that is stopped (the coroutine is cancelled) stops the move.
+     * it. A conversion that is stopped (the coroutine is cancelled, or the song's download removed
+     * meanwhile: removedSinceAsked) stops the move.
      */
     private suspend fun saveSongFile(id: String, notice: ConvertNotice? = null, onEncode: () -> Unit = {}): android.net.Uri? = withContext(Dispatchers.IO) {
         val job = currentCoroutineContext()[Job]
         val format = DownloadFormats.effective(downloadFormat, Unreleased.DOWNLOAD_FORMATS)
         // Below the music's priority while it encodes: SongConverter lowers its own thread.
-        val conversion = if (format == DownloadFormat.ORIGINAL) null else SongConversion(format, downloadBitrate, converter, { job?.isActive == false }, onEncode)
+        val conversion = if (format == DownloadFormat.ORIGINAL) null else SongConversion(format, downloadBitrate, converter, { job?.isActive == false || id in removedSinceAsked }, onEncode)
         runCatching {
             val files = downloadCache.getCachedSpans(id).mapNotNull { span: CacheSpan -> span.file }
             val song = database.song(id).first()
