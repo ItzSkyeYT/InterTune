@@ -69,8 +69,16 @@
             <action android:name="samsung.myfiles.intent.action.LAUNCH_MY_FILES" />
         </intent>
     </queries>
+    <!--
+      requestLegacyExternalStorage: on Android 10 the app reads the phone's storage by the files'
+      paths, as on every other version. Without it Android 10 runs the app under scoped storage,
+      which keeps it from the files other apps wrote, while the scanners and the player open songs
+      by path: the library found no song there and a song on the phone did not play (upstream fixed
+      it in 44ae23618, "app: Fix file access on Q"). Android 11 and later ignore it and read paths.
+    -->
     <application
         android:name=".App"
+        android:requestLegacyExternalStorage="true"
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
