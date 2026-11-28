@@ -55,6 +55,20 @@ class RoomTourTest {
     }
 
     @Test
+    fun `read to its end it counts as seen, wherever it was opened`() {
+        // How rooms work, read to its Done, and the first room showed the same pages again (28 Nov 2026).
+        val dialog = main("ui/dialog/RoomTour.kt").substringAfter("fun RoomTourDialog(").substringBefore("\n/** One page")
+        val done = dialog.substringAfter("if (last) {").substringBefore("} else")
+        // In a write its closing does not cancel, before it closes.
+        val marked = done.indexOf("scope.launch(NonCancellable) { context.editOrSay { it[TogetherTourSeenKey] = true } }")
+        assertTrue(done, marked >= 0 && marked < done.indexOf("onDismiss()"))
+        // Done only: Skip is not reading it.
+        assertEquals(1, Regex("TogetherTourSeenKey").findAll(dialog).count())
+        // The one tour the room's sheet and Settings open.
+        assertTrue("if (touring) RoomTourDialog(onDismiss = { touring = false })" in main("ui/dialog/RoomTour.kt").substringAfter("fun HowRoomsWork("))
+    }
+
+    @Test
     fun `it is there any time, in the room's sheet in or out of a room, and in Settings`() {
         val sheet = main("ui/dialog/TogetherDialog.kt")
         assertTrue(sheet.substringAfter("private fun StartPage(").substringBefore("private fun RoomPage(").contains("HowRoomsWork("))
