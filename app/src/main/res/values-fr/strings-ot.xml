@@ -1877,7 +1877,7 @@
     <string name="new_settings_search_body">Tapez en haut des paramètres pour trouver n\'importe quel réglage, même avec des fautes, et y arriver directement.</string>
     <string name="new_battery_use_body">Complète, Équilibrée ou Économie, dans Paramètres &gt; Utilisation de la batterie. Économie s\'active avec l\'économiseur de batterie du téléphone, sauf si vous le désactivez.</string>
     <string name="new_player_pins_way">Les boutons qui restent sur le lecteur se choisissent ici.</string>
-    <string name="new_player_pins_here">Touchez un bouton pour l\'épingler sur le lecteur, et touchez-le à nouveau pour le remettre dans le menu.</string>
+    <string name="new_player_pins_here">Maintenez un bouton et glissez-le où vous voulez sur le lecteur, ou touchez-le pour choisir sa place.</string>
     <string name="new_settings_search_here">Tapez ce que vous voulez changer, même avec des fautes, et touchez un résultat pour y arriver directement.</string>
     <string name="new_battery_use_here">Choisissez ici Complète, Équilibrée ou Économie, et Économie s\'active avec l\'économiseur de batterie du téléphone.</string>
     <!-- About in a fork's build, in place of InterTune's name and logo (FORKS.md, his yes of 27 Oct 2026). -->
@@ -2212,6 +2212,22 @@
     <string name="player_pins_under_controls">Sous les commandes</string>
     <string name="player_pin_lyrics">Paroles</string>
     <string name="player_pins_reset">Réinitialiser</string>
+    <string name="player_pins_not_shown">Non affichés</string>
+    <plurals name="player_pins_free">
+        <item quantity="one">%d libre</item>
+        <item quantity="many">%d libres</item>
+        <item quantity="other">%d libres</item>
+    </plurals>
+    <string name="player_pins_full">Complet</string>
+    <string name="player_pins_menu">Menu</string>
+    <string name="player_pins_put_by_title">Mettre à côté du titre</string>
+    <string name="player_pins_put_under_controls">Mettre sous les commandes</string>
+    <string name="player_pins_remove">Retirer</string>
+    <string name="player_pins_menu_only">Menu seulement</string>
+    <string name="player_pins_menu_stays">Toujours affiché</string>
+    <string name="player_menu_place">Bouton à trois points</string>
+    <string name="player_menu_top">Haut</string>
+    <string name="player_menu_bottom">Bas</string>
     <!-- Saved twice (issue #47, Unreleased.SAVED_TWICE). -->
     <string name="saved_twice">En double</string>
     <plurals name="saved_twice_button">
@@ -2489,9 +2505,9 @@
     <string name="new_listenbrainz_way">Vos comptes et ce qu\'ils synchronisent se règlent ici, ListenBrainz aussi.</string>
     <string name="new_listenbrainz_here">Connectez-vous avec le jeton utilisateur de vos paramètres ListenBrainz. Chaque titre écouté jusqu\'au bout va alors sur votre profil.</string>
     <string name="new_vibration_title">Des vibrations qu\'on sent</string>
-    <string name="new_vibration_body">Désactivée, Légère ou Forte, dans Apparence. Forte, par défaut, donne à chaque bouton sa propre sensation.</string>
+    <string name="new_vibration_body">Désactivée, ou cinq niveaux de faible à forte, dans Apparence. Forte, par défaut, donne à chaque bouton sa propre sensation.</string>
     <string name="new_vibration_way">L\'apparence de l\'app, ses mouvements et ses vibrations se règlent ici.</string>
-    <string name="new_vibration_here">Forte donne à chaque bouton sa propre sensation, et Légère la même à moitié moins fort. Désactivée l\'éteint.</string>
+    <string name="new_vibration_here">Glissez de faible à forte : chaque niveau donne à chaque bouton sa propre sensation, plus douce en bas. Désactivée l\'éteint.</string>
     <string name="new_metrolist_title">Venir de Metrolist</string>
     <string name="new_metrolist_body">Importer depuis Metrolist récupère vos j’aime, vos playlists, vos écoutes et les paroles que vous avez modifiées depuis une sauvegarde Metrolist.</string>
     <string name="new_metrolist_way">Les sauvegardes, et les bibliothèques d\'autres applis, s\'importent ici.</string>
@@ -3280,13 +3296,19 @@
     <string name="listenbrainz_scrobble_explain">Envoyé pour chaque titre terminé :\n• son nom, son artiste, son album et sa durée\n• l\'heure d\'écoute et son lien YouTube Music\n• le nom et la version d\'InterTune\nLe titre en cours part aussi, sans l\'heure. Vos écoutes y sont publiques, et rien ne part tant que « Suspendre l\'historique d\'écoute » est activé.</string>
     <string name="listenbrainz_refused">ListenBrainz n\'accepte plus votre jeton</string>
     <string name="listenbrainz_refused_description">Collez le nouveau depuis votre page de paramètres. Les écoutes en attente partiront dès que ça fonctionnera.</string>
+    <string name="listenbrainz_needs_email">ListenBrainz demande un e-mail vérifié</string>
+    <string name="listenbrainz_needs_email_description">Appuyez pour vérifier le vôtre sur votre profil MetaBrainz. Les écoutes en attente partiront dès que ce sera fait.</string>
+    <string name="listenbrainz_account_refused">ListenBrainz refuse vos écoutes</string>
+    <string name="listenbrainz_account_refused_description">Votre jeton fonctionne, mais ListenBrainz n\'accepte pas les écoutes de votre compte pour l\'instant. Les écoutes en attente partiront dès qu\'il les acceptera.</string>
     <string name="search_words_listenbrainz">listenbrainz, scrobble, scrobbling</string>
     <!-- Vibration under Look and feel (Unreleased.HAPTICS_FEEL): held from translators until his pick. -->
     <string name="vibration">Vibration</string>
     <string name="vibration_off">Désactivée</string>
-    <string name="vibration_light">Légère</string>
+    <string name="vibration_step">%1$d sur 5</string>
     <string name="vibration_strong">Forte</string>
     <string name="search_words_vibration">haptique, retour haptique, vibrer, vibreur, retour tactile</string>
+    <!-- Still read by the released app; the next version no longer uses them. -->
+    <string name="vibration_light">Légère</string>
     <!-- Still read by the released app; the next version no longer uses them. -->
     <string name="together_own_way">Vous écoutez de votre côté</string>
     <string name="together_on_your_own">De votre côté</string>
