@@ -128,8 +128,9 @@ val SETTINGS_INDEX: List<SettingEntry> = listOf(
     SettingEntry(Tour.ROUTE_LOOK_AND_FEEL, R.string.player_liquid_glass, R.string.player_liquid_glass_description, words = listOf(R.string.search_words_glass)),
     SettingEntry(Tour.ROUTE_LOOK_AND_FEEL, R.string.player_glass_intensity, under = R.string.player_liquid_glass),
     SettingEntry(Tour.ROUTE_LOOK_AND_FEEL, R.string.player_buttons_style, R.string.player_buttons_style_description),
-    SettingEntry(Tour.ROUTE_LOOK_AND_FEEL, R.string.player_pins),
-    SettingEntry(Tour.ROUTE_LOOK_AND_FEEL, R.string.player_menu_place),
+    // The three-dots button's Top and Bottom had a row of their own until 28 Nov 2026: it is moved in Pinned buttons
+    // now, which its name finds.
+    SettingEntry(Tour.ROUTE_LOOK_AND_FEEL, R.string.player_pins, words = listOf(R.string.player_menu_place)),
     SettingEntry(Tour.ROUTE_LOOK_AND_FEEL, R.string.queue_button),
     SettingEntry(Tour.ROUTE_LOOK_AND_FEEL, R.string.queue_back_closes_player),
     SettingEntry(Tour.ROUTE_LOOK_AND_FEEL, R.string.output_pill, words = listOf(R.string.cast), there = Unreleased.CAST_AT_TOP),

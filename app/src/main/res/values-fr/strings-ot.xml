@@ -2225,6 +2225,7 @@
     <string name="player_pins_remove">Retirer</string>
     <string name="player_pins_menu_only">Menu seulement</string>
     <string name="player_pins_menu_stays">Toujours affiché</string>
+    <string name="player_pins_classic_menu_only">Avec les boutons Classiques, seul le menu va ici. Connectés permet d\'épingler des boutons sous les commandes.</string>
     <string name="player_menu_place">Bouton à trois points</string>
     <string name="player_menu_top">Haut</string>
     <string name="player_menu_bottom">Bas</string>
