@@ -2638,7 +2638,7 @@
     <string name="together_behind">En retard</string>
     <string name="together_ahead">En avance</string>
     <string name="together_nothing_playing">Rien en lecture pour l\'instant</string>
-    <string name="together_suggest_hint">Pour ajouter un titre au salon, appuyez longuement dessus et choisissez Suivant.</string>
+    <string name="together_suggest_hint">Pour ajouter un titre au salon, appuyez longuement dessus et choisissez Suivant ou Ajouter à la file d\'attente.</string>
     <string name="together_you_control">Vous avez la main</string>
     <string name="together_has_control">%1$s choisit la musique pour l\'instant.</string>
     <string name="together_role_in_control">Vous choisissez la musique. Tout le monde dans le salon peut ajouter des titres.</string>
