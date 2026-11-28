@@ -7,12 +7,14 @@
 package com.dd3boh.outertune.playback
 
 import com.dd3boh.outertune.ui.component.getNextInterval
+import com.dd3boh.outertune.ui.component.sleepLineEndMs
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
 import java.time.LocalDateTime
 import java.time.ZoneId
+import kotlin.math.roundToInt
 
 /**
  * The 0.13 walks, 21 Nov 2026: 4:00 PM picked under At at 15:45:14 became 16 minutes from then, and the dialog read
@@ -33,6 +35,27 @@ class SleepClockTimeTest {
         assertEquals(ms(LocalDateTime.of(2026, 11, 21, 16, 45, 0)), getNextInterval(45, now).atMs)
         // Later this hour: this hour's.
         assertEquals(ms(LocalDateTime.of(2026, 11, 21, 16, 30, 0)), getNextInterval(30, LocalDateTime.of(2026, 11, 21, 16, 10, 59)).atMs)
+    }
+
+    /**
+     * A Pixel 5, 28 Nov 2026: the sheet opened at 18:41:43 read "3 minutes / 18:44" with the 18:45 chip lit, while the
+     * timer stopped at 18:45. The line added the minutes rounded to whole ones to now.
+     */
+    @Test
+    fun `the line above the slider reads the At chip's own time, whenever in the minute it was picked`() {
+        for (second in 0..59) {
+            val now = LocalDateTime.of(2026, 11, 28, 18, 41, second)
+            val chip = getNextInterval(45, now)
+            assertEquals("picked at 18:41:$second", ms(LocalDateTime.of(2026, 11, 28, 18, 45, 0)), sleepLineEndMs(chip.minutes.roundToInt(), chip.atMs, ms(now)))
+        }
+        // A length, from the slider, an In chip or typed, is that many minutes from now, as Start counts them.
+        val now = LocalDateTime.of(2026, 11, 28, 18, 41, 43)
+        assertEquals(ms(now.plusMinutes(30)), sleepLineEndMs(30, null, ms(now)))
+        // The sheet hands the line the chip tapped last, and nothing once a length is chosen.
+        val dialog = File("src/main/java/com/dd3boh/outertune/ui/component/SleepTimer.kt").readText()
+        assertTrue("at = clockAt," in dialog)
+        assertTrue("val endTime = sleepLineEndMs(minutes, at)" in dialog)
+        assertTrue(dialog.substringAfter("onValueChange = {").substringBefore("},").contains("clockAt = null"))
     }
 
     @Test

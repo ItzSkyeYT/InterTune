@@ -240,6 +240,7 @@ fun SleepTimerDialog(playerConnection: PlayerConnection, onDismiss: () -> Unit) 
                 if (status == null) {
                     SetTimer(
                         value = sleepTimerValue,
+                        at = clockAt,
                         // A length chosen by hand is a length: only a clock chip, tapped last, stops at its time.
                         onValueChange = {
                             sleepTimerValue = it
@@ -302,9 +303,12 @@ fun SleepTimerDialog(playerConnection: PlayerConnection, onDismiss: () -> Unit) 
     }
 }
 
-/** The length, as a slider with its answer above it, and the rows of ways to pick one: In, At and End of. */
+/**
+ * The length, as a slider with its answer above it, and the rows of ways to pick one: In, At and End of. [at] is the
+ * time of the At chip tapped last, which the answer then reads.
+ */
 @Composable
-private fun SetTimer(value: Float, onValueChange: (Float) -> Unit, onAt: (Long) -> Unit, onEnd: (SleepEnd) -> Unit) {
+private fun SetTimer(value: Float, at: Long?, onValueChange: (Float) -> Unit, onAt: (Long) -> Unit, onEnd: (SleepEnd) -> Unit) {
     val focusRequester = remember {
         FocusRequester()
     }
@@ -324,7 +328,7 @@ private fun SetTimer(value: Float, onValueChange: (Float) -> Unit, onAt: (Long) 
         val minutes = value.roundToInt()
         val pluralString = pluralStringResource(R.plurals.minute, minutes, minutes)
 
-        val endTime = System.currentTimeMillis() + (minutes * 60 * 1000).toLong()
+        val endTime = sleepLineEndMs(minutes, at)
         val calendarNow = Calendar.getInstance()
         val calendarEnd = Calendar.getInstance().apply { timeInMillis = endTime }
 
@@ -620,6 +624,14 @@ private fun SleepChip(text: String, selected: Boolean = false, onClick: () -> Un
 
 /** A clock time under At: as it reads, the minutes until it (for the slider), and the moment itself. */
 data class ClockChip(val text: String, val minutes: Float, val atMs: Long)
+
+/**
+ * When the timer being set stops, as the line above the slider says it: at the At chip's own time when that chip was
+ * tapped last ([atMs], what Start then stops at), else [minutes] whole minutes from [nowMs], as Start counts them.
+ * Whole minutes from now put a chip's time a minute early whenever less than half a minute was left over: 18:44
+ * under a lit 18:45 chip, picked at 18:41:43, while the timer stopped at 18:45 (a Pixel 5, 28 Nov 2026).
+ */
+fun sleepLineEndMs(minutes: Int, atMs: Long?, nowMs: Long = System.currentTimeMillis()): Long = atMs ?: (nowMs + minutes * 60_000L)
 
 /**
  * The next time the clock reads [targetMin] past an hour (60: the next full hour), at its first second: 4:00 PM is
