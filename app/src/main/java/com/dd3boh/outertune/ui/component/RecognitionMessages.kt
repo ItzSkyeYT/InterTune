@@ -17,23 +17,29 @@ import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
 import com.dd3boh.outertune.R
+import com.dd3boh.outertune.recognition.MicrophoneSettings
 import com.dd3boh.outertune.recognition.ShazamBackoff
 import kotlin.random.Random
 import kotlinx.coroutines.delay
@@ -222,4 +228,24 @@ fun AnimatedDots(
             }
         }
     }
+}
+
+/**
+ * Whether the microphone was refused here, for the line that says so: set from Android's answer,
+ * kept over a rotation, and let go when the app comes back with the microphone allowed, from
+ * Android's settings most of all (MicrophoneSettings).
+ */
+@Composable
+fun rememberMicrophoneRefused(): MutableState<Boolean> {
+    val context = LocalContext.current
+    val refused = rememberSaveable { mutableStateOf(false) }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME && refused.value && MicrophoneSettings.allowed(context)) refused.value = false
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+    return refused
 }

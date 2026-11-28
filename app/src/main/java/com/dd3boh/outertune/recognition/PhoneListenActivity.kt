@@ -61,10 +61,7 @@ class PhoneListenActivity : ComponentActivity() {
 
     private val permissions = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { granted ->
         when {
-            granted[Manifest.permission.RECORD_AUDIO] == false -> {
-                Toaster.show(this, R.string.recognition_phone_needs_permission, Toast.LENGTH_LONG)
-                finish()
-            }
+            granted[Manifest.permission.RECORD_AUDIO] == false -> refuseWithoutMicrophone()
             !canNotify() -> refuseWithoutNotifications()
             else -> explainThenAsk()
         }
@@ -92,6 +89,19 @@ class PhoneListenActivity : ComponentActivity() {
     }
 
     private fun canNotify() = NotificationManagerCompat.from(this).areNotificationsEnabled()
+
+    /**
+     * The microphone refused: said, and InterTune's page in Android's settings opened once Android
+     * no longer asks by itself (refused twice), as for notifications. From then on a tap on the
+     * tile gave the same words each time and no way to allow it.
+     */
+    private fun refuseWithoutMicrophone() {
+        Toaster.show(this, R.string.recognition_phone_needs_permission, Toast.LENGTH_LONG)
+        if (!shouldShowRequestPermissionRationale(Manifest.permission.RECORD_AUDIO)) {
+            MicrophoneSettings.open(this, ownTask = true)
+        }
+        finish()
+    }
 
     /**
      * Notifications off: the song would be found and never shown. Said, and the app's notification

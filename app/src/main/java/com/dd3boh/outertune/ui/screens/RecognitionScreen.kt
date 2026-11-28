@@ -92,6 +92,7 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
@@ -115,6 +116,7 @@ import com.dd3boh.outertune.extensions.toMediaItem
 import com.dd3boh.outertune.models.toMediaMetadata
 import com.dd3boh.outertune.playback.queues.YouTubeQueue
 import com.dd3boh.outertune.recognition.AudioRoute
+import com.dd3boh.outertune.recognition.MicrophoneSettings
 import com.dd3boh.outertune.recognition.RecognitionEngine
 import com.dd3boh.outertune.recognition.RecognitionViewModel
 import com.dd3boh.outertune.recognition.SheetRun
@@ -122,6 +124,7 @@ import com.dd3boh.outertune.ui.component.AnimatedDots
 import com.dd3boh.outertune.ui.component.LocalPlayerSheet
 import com.dd3boh.outertune.ui.component.Elsewhere
 import com.dd3boh.outertune.ui.component.SwipeToQueueBox
+import com.dd3boh.outertune.ui.component.rememberMicrophoneRefused
 import com.dd3boh.outertune.ui.component.rememberRecognitionPhrase
 import com.dd3boh.outertune.ui.component.shazamWaitMessage
 import com.dd3boh.outertune.ui.component.button.IconButton
@@ -272,13 +275,35 @@ fun RecognitionScreen(
         }
     }
 
+    // The microphone refused, said under the button with the way to allow it in Android's settings.
+    // After two refusals Android answers no by itself, with nothing on screen, and that answer comes
+    // back to the launcher the same way, so a tap then still says why. Gone once it is allowed.
+    var micRefused by rememberMicrophoneRefused()
+
+    /**
+     * Only stop the music when the music is in the room, and only for a listen that starts. On
+     * headphones the microphone hears the room and our playback never reaches it, so interrupting
+     * somebody mid-song buys nothing. On the phone's own speaker they share the same air, and
+     * leaving it running would name the song already playing every single time. Paused before
+     * Android's question, the music stayed paused for a microphone that was then refused.
+     */
+    fun pauseForTheRoom() {
+        if (pauseOnSpeaker && !fromPhone && playerConnection?.player?.isPlaying == true &&
+            !AudioRoute.playbackIsPrivate(context)
+        ) {
+            playerConnection.player.pause()
+        }
+    }
+
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
+        micRefused = !granted
         if (granted) {
             if (fromPhone && PhoneAudio.supported) {
                 listenToPhone()
             } else {
+                pauseForTheRoom()
                 viewModel.setContinuous(pendingContinuous)
                 viewModel.start(null)
             }
@@ -300,8 +325,8 @@ fun RecognitionScreen(
 
     // Music started while listening, from a row here, a song menu's radio or the mini player. If it
     // comes out of the speaker the microphone will only ever name our own song from here on, so
-    // the run stops, by the same rule listen() pauses the music by. Only a start counts, not the
-    // value on arrival, which can still be true for a moment after listen() paused it.
+    // the run stops, by the same rule pauseForTheRoom() pauses the music by. Only a start counts,
+    // not the value on arrival, which can still be true for a moment after a start paused it.
     LaunchedEffect(playerConnection, listening, pauseOnSpeaker) {
         if (!listening || !pauseOnSpeaker) return@LaunchedEffect
         val playing = playerConnection?.isPlaying ?: return@LaunchedEffect
@@ -333,31 +358,26 @@ fun RecognitionScreen(
             if (keepGoing == continuous) viewModel.stop() else viewModel.setContinuous(keepGoing)
             return
         }
-        // Only stop the music when the music is in the room. On headphones the microphone hears
-        // the room and our playback never reaches it, so interrupting somebody mid-song buys
-        // nothing. On the phone's own speaker they share the same air, and leaving it running
-        // would name the song already playing every single time.
-        if (pauseOnSpeaker && !fromPhone && playerConnection?.player?.isPlaying == true &&
-            !AudioRoute.playbackIsPrivate(context)
-        ) {
-            playerConnection.player.pause()
-        }
 
         pendingContinuous = keepGoing
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO)
             == PackageManager.PERMISSION_GRANTED
         ) {
+            micRefused = false
             // The mode goes with the switch, set once the playlist's run has stopped. Set first,
             // it was that run's mode that changed.
             if (fromPhone && PhoneAudio.supported && !instead) {
                 listenToPhone()
             } else if (instead) {
+                pauseForTheRoom()
                 viewModel.listenInstead(null, keepGoing)
             } else {
+                pauseForTheRoom()
                 viewModel.setContinuous(keepGoing)
                 viewModel.start(null)
             }
         } else {
+            // Android's question first: the music plays on through it, and through a no.
             permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
         }
     }
@@ -467,6 +487,22 @@ fun RecognitionScreen(
                 // place of Shazam not answering, which is not what is wrong.
                 message = if (listening && continuous && keepingOffline) stringResource(R.string.recognise_later_keeping)
                 else shazamWaitMessage(retryAt?.takeIf { listening && continuous }),
+            )
+        }
+
+        // A refused microphone says why, and the tap is the fix: InterTune's page in Android's
+        // settings, the one way left once Android stops asking. A refusal used to leave only "Tap
+        // to listen", and then a tap that did nothing at all.
+        if (micRefused && !listening) item(key = "mic_refused") {
+            Text(
+                text = stringResource(R.string.recognition_needs_microphone),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.error,
+                textAlign = TextAlign.Center,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(role = Role.Button) { MicrophoneSettings.open(context) }
+                    .padding(horizontal = 24.dp, vertical = 12.dp),
             )
         }
 
