@@ -92,6 +92,14 @@ class RoomAddToQueueTest {
         }
     }
 
+    @Test
+    fun `a guest is not offered to add the room's own queue to the room`() {
+        val menu = main("ui/menu/QueueMenu.kt")
+        val guard = menu.indexOf("if (!playerConnection.addsToRoom || mq.id != playerConnection.service.queueBoard.getCurrentQueue()?.id) {")
+        assertTrue(menu, guard >= 0)
+        assertTrue(menu.substring(guard).substringBefore("\n        }\n").contains("title = R.string.add_to_queue"))
+    }
+
     /** The text of the function or block whose head is [head], braces matched. */
     private fun body(text: String, head: String): String {
         val start = text.indexOf(head)
