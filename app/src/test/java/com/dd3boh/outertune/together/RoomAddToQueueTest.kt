@@ -70,6 +70,14 @@ class RoomAddToQueueTest {
         }
     }
 
+    @Test
+    fun `a folder's choice opens once its songs are read`() {
+        // As its Add to playlist: a guest's songs go to the room as the choice opens, and the first tap sent none.
+        val item = main("ui/menu/FolderMenu.kt").substringAfter("title = R.string.add_to_queue").substringBefore("GridMenuItem(")
+        assertTrue(item, Regex("""fetchAllSongsRecursive \{\s*showChooseQueueDialog = true\s*}""").containsMatchIn(item))
+        assertTrue(item, "showChooseQueueDialog = true\n            coroutineScope" !in item)
+    }
+
     /** The text of the function or block whose head is [head], braces matched. */
     private fun body(text: String, head: String): String {
         val start = text.indexOf(head)
