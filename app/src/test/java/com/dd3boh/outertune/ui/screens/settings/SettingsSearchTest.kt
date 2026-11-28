@@ -178,6 +178,9 @@ class SettingsSearchTest {
             assertEquals(typed, "Player background style", titles(inEnglish, typed).first())
         }
         assertEquals("Style d'arrière-plan du lecteur", titles(inFrench, "douceur du flou vivant").first())
+        // The three-dots button's Top and Bottom row went on 28 Nov 2026: it is moved in Pinned buttons, which its name finds.
+        assertEquals("Pinned buttons", titles(inEnglish, "three-dots button").first())
+        assertEquals("Boutons épinglés", titles(inFrench, "bouton à trois points").first())
     }
 
     @Test

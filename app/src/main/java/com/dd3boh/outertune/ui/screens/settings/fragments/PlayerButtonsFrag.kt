@@ -11,7 +11,6 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -27,7 +26,6 @@ import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.SmartButton
 import androidx.compose.material.icons.rounded.Speaker
 import androidx.compose.material.icons.rounded.Timer
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
@@ -51,9 +49,7 @@ import com.dd3boh.outertune.constants.PlayerButtonsStyleKey
 import com.dd3boh.outertune.constants.QueueBackClosesPlayerKey
 import com.dd3boh.outertune.constants.PlayerPinsKey
 import com.dd3boh.outertune.constants.PlayerMenuPlaceKey
-import com.dd3boh.outertune.ui.player.MenuPlace
 import com.dd3boh.outertune.ui.player.MenuPlaces
-import androidx.compose.material.icons.rounded.MoreVert
 import com.dd3boh.outertune.ui.player.PinPlace
 import com.dd3boh.outertune.ui.player.PlayerPin
 import com.dd3boh.outertune.ui.player.PlayerPins
@@ -91,7 +87,8 @@ fun ColumnScope.PlayerButtonsFrag() {
     val pins = remember(pinsRaw) { PlayerPins.read(pinsRaw) }
 
     // The three-dots button is at the top or at the bottom of the player, never off it (MenuPlaces): where the
-    // style has always had it until somebody moves it.
+    // style has always had it until somebody moves it in the editor. Its row of Top and Bottom chips went on 28 Nov
+    // 2026 (his "I forgot to remove the toggle"); what they stored is read as before, so Bottom picked there stays.
     val (menuPlaceRaw, onMenuPlaceRawChange) = rememberPreference(PlayerMenuPlaceKey, defaultValue = "")
     val menuPlace = MenuPlaces.read(menuPlaceRaw, buttonsStyle)
 
@@ -187,8 +184,8 @@ fun ColumnScope.PlayerButtonsFrag() {
             // Cast only where there is casting.
             available = PlayerPin.entries.filter { it != PlayerPin.CAST || Unreleased.CASTING },
             queueButton = queueAsButton,
-            // The three-dots button where the Top or Bottom choice below has it: in that bar of the player, or in Classic's
-            // corner. Moved in the editor, it is that choice that changes, so the two can never disagree.
+            // The three-dots button where its place, Top or Bottom, has it: in that bar of the player, or in Classic's
+            // corner. The editor is the one way to move it since its own row of Top and Bottom left (28 Nov 2026).
             menuAt = menuPlace,
             menuBar = { MenuPlaces.barOf(buttonsStyle, it) },
             onMenuMove = { onMenuPlaceRawChange(MenuPlaces.write(menuPlaceRaw, buttonsStyle, it)) },
@@ -197,28 +194,6 @@ fun ColumnScope.PlayerButtonsFrag() {
             icon = { pinIcon(it) },
             modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 12.dp),
         )
-    }
-    PreferenceEntry(
-        modifier = Modifier.settingRow(R.string.player_menu_place),
-        title = { Text(stringResource(R.string.player_menu_place)) },
-        icon = { Icon(Icons.Rounded.MoreVert, null) },
-        onClick = null
-    )
-    FlowRow(
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(start = 16.dp, end = 16.dp, bottom = 8.dp)
-            .selectableGroup()
-    ) {
-        MenuPlace.entries.forEach { place ->
-            FilterChip(
-                selected = place == menuPlace,
-                // One of the two always stays on: tapping the one shown does nothing, the other moves it.
-                onClick = { if (place != menuPlace) onMenuPlaceRawChange(MenuPlaces.write(menuPlaceRaw, buttonsStyle, place)) },
-                label = { Text(stringResource(if (place == MenuPlace.TOP) R.string.player_menu_top else R.string.player_menu_bottom)) },
-            )
-        }
     }
     SwitchPreference(
         modifier = Modifier.settingRow(R.string.queue_button),

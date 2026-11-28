@@ -2416,6 +2416,8 @@ while also allowing users to translate our app as well. New, specific strings to
     <!-- The three-dots button in the editor: Classic's corner under the controls holds it and no other button; Not shown, which it can never go to, says so in red while it is held there. -->
     <string name="player_pins_menu_only">Menu only</string>
     <string name="player_pins_menu_stays">Always shown</string>
+    <!-- Said in red beside Classic's corner under the controls when it refuses a button, and by TalkBack for that move. -->
+    <string name="player_pins_classic_menu_only">In Classic, only the menu goes here. Connected lets you pin buttons under the controls.</string>
     <string name="player_menu_place">Three-dots button</string>
     <string name="player_menu_top">Top</string>
     <string name="player_menu_bottom">Bottom</string>

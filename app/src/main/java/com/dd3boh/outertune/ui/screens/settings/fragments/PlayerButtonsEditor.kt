@@ -68,8 +68,10 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
@@ -90,7 +92,7 @@ internal object NotShown
 
 /**
  * Classic's bottom right corner, where its three-dots button stands at the bottom, alone and in no bar: a box of its own
- * in the editor, for that button only.
+ * in the editor, for that button only. It refuses any other, and says why.
  */
 internal object Corner
 
@@ -148,19 +150,19 @@ private sealed interface Spot {
     data object Menu : Spot
 }
 
-/** One way a button can go, offered by a tap, and as an accessibility action. */
-private class Move(val label: String, val room: String?, val enabled: Boolean, val go: () -> Unit)
+/** One way a button can go, offered by a tap, and as an accessibility action; as that action only when not [inMenu]. */
+private class Move(val label: String, val room: String?, val enabled: Boolean, val inMenu: Boolean = true, val go: () -> Unit)
 
 /**
  * The player buttons editor (Ti-Die's ask of 26 Nov 2026, mock 2 his pick): a box for each place of the style shown,
- * drawn like that bar of the player with its free spots and how many are free, Classic's corner where its three-dots
- * button can stand at the bottom, then the buttons not shown as tiles, four to a row and folded to the first row until
- * Show more ([NotShownGrid]). A long press lifts a button to drag it into a place, from one place to another or back to
- * Not shown; a full place refuses it and its count shows why. The three-dots button is lifted, tapped and moved the same
- * way, between [menuAt] and its other place ([MenuMoves]), and that move is the Top or Bottom choice ([onMenuMove]); Not
- * shown refuses it and says why, and the corner refuses every other button. A tap offers the same moves in a menu, and
- * each button has them as accessibility actions. Every move of a button is [PinMoves.move], stored as the chips stored
- * it ([onPinsChange]).
+ * drawn like that bar of the player with its free spots dotted and Full once it has none, Classic's corner where its
+ * three-dots button can stand at the bottom, then the buttons not shown as tiles, four to a row and folded to the first
+ * row until Show more ([NotShownGrid]). A long press lifts a button to drag it into a place, from one place to another or
+ * back to Not shown; a full place refuses it and its Full shows why. The three-dots button is lifted, tapped and moved the
+ * same way, between [menuAt] and its other place ([MenuMoves]), and that move is its Top or Bottom place ([onMenuMove]);
+ * Not shown refuses it and says why, and the corner refuses every other button and says why. A tap offers the same moves
+ * in a menu, and each button has them as accessibility actions, with one more in Classic: under the controls, refused as
+ * a drop on the corner is. Every move of a button is [PinMoves.move], stored as the chips stored it ([onPinsChange]).
  */
 @Composable
 fun PlayerButtonsEditor(
@@ -226,7 +228,8 @@ fun PlayerButtonsEditor(
 
     LaunchedEffect(refused) {
         if (refused != null) {
-            delay(1600)
+            // Classic's corner says why in a sentence: up long enough to read it once the button is let go.
+            delay(if (refused == Corner) 5000 else 1600)
             refused = null
         }
     }
@@ -261,9 +264,20 @@ fun PlayerButtonsEditor(
         }
     }
 
+    // TalkBack's move under the controls in Classic, refused as a drop on the corner is: red, the Reject haptic, and why,
+    // which TalkBack says as the line comes.
+    fun refuseInCorner() {
+        menuOf = null
+        refused = Corner
+        haptics.performHapticFeedback(HapticFeedbackType.Reject)
+    }
+
     fun movesOf(pin: PlayerPin): List<Move> {
         val from = PinMoves.placeOf(pins, places, pin)
         return places.filter { it != from }.map { to -> Move(putLabels.getValue(to), roomTexts.getValue(to).takeIf { pin != PlayerPin.CAST }, PinMoves.fits(pins, to, pin, most(to))) { moveTo(pin, to) } } +
+                // TalkBack's way to try what a drop on Classic's corner tries, and to hear why not. Not in the tap's menu,
+                // where the corner is not a place a button goes; a drop there shows why.
+                listOfNotNull(if (corner) Move(putUnderControls, null, enabled = true, inMenu = false) { refuseInCorner() } else null) +
                 listOfNotNull(if (from != null) Move(removeLabel, null, true) { moveTo(pin, null) } else null)
     }
 
@@ -290,7 +304,7 @@ fun PlayerButtonsEditor(
         ) {
             content()
             DropdownMenu(expanded = menuOf == button && lifted == null, onDismissRequest = { menuOf = null }) {
-                moves.forEach { move ->
+                moves.filter { it.inMenu }.forEach { move ->
                     DropdownMenuItem(
                         text = { Text(move.label) },
                         trailingIcon = if (move.room != null) {
@@ -395,16 +409,30 @@ fun PlayerButtonsEditor(
                     refusing = refusing == Corner,
                     modifier = Modifier.onGloballyPositioned { boxBounds[Corner] = it.boundsInRoot() },
                 ) {
-                    PlaceBar(
-                        spots = listOf(if (menuIn == Corner) Spot.Menu else Spot.Free),
-                        circles = true,
-                        centred = false,
-                        lifted = lifted,
-                        name = name,
-                        icon = icon,
-                        movable = { pin, content -> Movable(pin, movesOf(pin), content) },
-                        movableMenu = { content -> Movable(MenuButton, menuMoves(), content) },
-                    )
+                    BoxWithConstraints(Modifier.fillMaxWidth()) {
+                        PlaceBar(
+                            spots = listOf(if (menuIn == Corner) Spot.Menu else Spot.Free),
+                            circles = true,
+                            centred = false,
+                            lifted = lifted,
+                            name = name,
+                            icon = icon,
+                            movable = { pin, content -> Movable(pin, movesOf(pin), content) },
+                            movableMenu = { content -> Movable(MenuButton, menuMoves(), content) },
+                        )
+                        // Why it refuses a button (his answer of 28 Nov 2026, "Say why on a refused drop"), in red beside its
+                        // spot while it does, as Not shown says why it refuses the three dots. Always there and empty the rest
+                        // of the time, so that its words coming are a change TalkBack says, after a drop or TalkBack's move.
+                        Text(
+                            text = if (refusing == Corner) stringResource(R.string.player_pins_classic_menu_only) else "",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier
+                                .align(Alignment.CenterStart)
+                                .padding(end = spotWidth(maxWidth, 1, spotGap(circles = true)) + spotGap(circles = true))
+                                .semantics { liveRegion = LiveRegionMode.Polite },
+                        )
+                    }
                 }
             }
 
@@ -455,9 +483,12 @@ fun PlayerButtonsEditor(
     }
 }
 
+/**
+ * What a place says of its room: Full once it has none, and nothing while it has some, which its dotted spots show (Ti-Die,
+ * 28 Nov 2026: a count of them only said again what the outlines do).
+ */
 @Composable
-private fun roomText(free: Int): String =
-    if (free <= 0) stringResource(R.string.player_pins_full) else pluralStringResource(R.plurals.player_pins_free, free, free)
+private fun roomText(free: Int): String? = if (free <= 0) stringResource(R.string.player_pins_full) else null
 
 /** A place, or Not shown: its name and its room on top, outlined, blue while it takes a drop and red while it refuses one. */
 @Composable
