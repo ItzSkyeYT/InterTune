@@ -517,7 +517,8 @@ fun PlaylistMenu(
 
     if (showChooseQueueDialog) {
         AddToQueueDialog(
-            songs = { songs.map { it.toMediaMetadata() } },
+            // Read at the tap when the menu has not had them yet, as withSongs does: a guest's go to the room at once.
+            songs = { songs.ifEmpty { database.playlistSongs(playlist.id).first().map(PlaylistSong::song) }.map { it.toMediaMetadata() } },
             onAdd = { queueName ->
                 val q = playerConnection.service.queueBoard.addQueue(
                     queueName, songs.map { it.toMediaMetadata() },

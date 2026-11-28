@@ -100,6 +100,13 @@ class RoomAddToQueueTest {
         assertTrue(menu.substring(guard).substringBefore("\n        }\n").contains("title = R.string.add_to_queue"))
     }
 
+    @Test
+    fun `the playlist menu reads its songs at the tap when it has none yet`() {
+        // As its Play next's withSongs: the database may not have answered the menu yet.
+        val playlist = main("ui/menu/PlaylistMenu.kt").substringAfter("AddToQueueDialog(").substringBefore("onAdd =")
+        assertTrue(playlist, "songs.ifEmpty { database.playlistSongs(playlist.id).first().map(PlaylistSong::song) }" in playlist)
+    }
+
     /** The text of the function or block whose head is [head], braces matched. */
     private fun body(text: String, head: String): String {
         val start = text.indexOf(head)
