@@ -727,7 +727,9 @@ class Migration12To13 : AutoMigrationSpec {
         // move liked songs to playlist
         val playlistIdLiked = generatePlaylistId()
         var position = 0
-        db.query("SELECT * from song WHERE liked = true").use { cursor ->
+        // 1, not true: Android 7 to 10 have SQLite 3.9 to 3.22, which read true as a column's name,
+        // so the whole InnerTune backup was refused there.
+        db.query("SELECT * from song WHERE liked = 1").use { cursor ->
             db.insert(
                 table = "playlist",
                 conflictAlgorithm = SQLiteDatabase.CONFLICT_ABORT,
