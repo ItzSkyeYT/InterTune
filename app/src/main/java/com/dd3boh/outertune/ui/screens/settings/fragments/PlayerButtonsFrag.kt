@@ -183,8 +183,11 @@ fun ColumnScope.PlayerButtonsFrag() {
             // Every entry of the player's menu, Listen together where rooms are, cast where there is casting.
             available = PlayerPin.entries.filter { pinOffered(it) },
             queueButton = queueAsButton,
-            // The three-dots button in the bar the Top or Bottom choice below puts it in, as in the player.
-            menuIn = MenuPlaces.barOf(buttonsStyle, menuPlace),
+            // The three-dots button where the Top or Bottom choice below has it: in that bar of the player, or in Classic's
+            // corner. Moved in the editor, it is that choice that changes, so the two can never disagree.
+            menuAt = menuPlace,
+            menuBar = { MenuPlaces.barOf(buttonsStyle, it) },
+            onMenuMove = { onMenuPlaceRawChange(MenuPlaces.write(menuPlaceRaw, buttonsStyle, it)) },
             onPinsChange = { onPinsRawChange(PlayerPins.write(it)) },
             name = { pinLabel(it) },
             icon = { pinPainter(it, on = it == PlayerPin.LIKE) },

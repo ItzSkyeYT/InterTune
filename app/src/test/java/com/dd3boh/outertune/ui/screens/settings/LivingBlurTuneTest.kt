@@ -6,6 +6,9 @@
 
 package com.dd3boh.outertune.ui.screens.settings
 
+import androidx.compose.runtime.saveable.SaverScope
+import androidx.compose.ui.unit.dp
+import com.dd3boh.outertune.ui.screens.settings.fragments.LivingTuneDoor
 import com.dd3boh.outertune.ui.screens.settings.fragments.TunePlan
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -22,6 +25,8 @@ class LivingBlurTuneTest {
 
     private fun read(path: String) = File("src/main/java/com/dd3boh/outertune/$path").readText()
 
+    private fun bodyOf(source: String, header: String) = source.substringAfter(header).substringBefore("\n}\n")
+
     @Test
     fun `everyone has it since 0_13, his yes of 20 Nov 2026`() {
         assertTrue(read("constants/Unreleased.kt").contains("val LIVING_TUNE = true"))
@@ -30,9 +35,9 @@ class LivingBlurTuneTest {
     @Test
     fun `the button under the sample opens it, and only where the flag is on`() {
         val theme = read("ui/screens/settings/fragments/ThemeFrag.kt")
-        assertTrue("no button without the flag", theme.contains("if (Unreleased.LIVING_TUNE) {\n                FilledTonalButton(\n                    onClick = { tuning = true },"))
-        assertTrue("the sample asks no frames under it", theme.contains("paused = tuning"))
-        assertTrue(theme.contains("if (tuning) LivingBlurTune(onClose = { tuning = false })"))
+        assertTrue("no button without the flag", theme.contains("if (Unreleased.LIVING_TUNE) {\n                FilledTonalButton(\n                    onClick = { tune.open = true },"))
+        assertTrue("the sample asks no frames under it", theme.contains("paused = tune.open"))
+        assertTrue(theme.contains("val tune = LocalLivingTune.current"))
         val sample = read("ui/screens/settings/fragments/LivingBlurSample.kt")
         assertTrue(sample.contains("covered = paused"))
     }
@@ -74,13 +79,73 @@ class LivingBlurTuneTest {
         assertEquals("as big as the room lets it be", dp(250), side)
         assertEquals("a room with no space for it has no cover, never less", 0, TunePlan.coverSide(dp(300), dp(40), dp(52), dp(12)))
         // Upright the bar is the screen's width, under the cover; on its side the end half, beside it.
-        assertFalse(TunePlan.sideBySide(1440, 2933))
-        assertEquals(1440, TunePlan.barWidth(1440, 2933))
-        assertTrue(TunePlan.sideBySide(2933, 1440))
-        assertEquals(2933 / 2, TunePlan.barWidth(2933, 1440))
+        assertFalse(TunePlan.sideBySide(1440.dp, 2933.dp))
+        assertEquals(1440, TunePlan.barWidth(1440, sideBySide = false))
+        assertTrue(TunePlan.sideBySide(2933.dp, 1440.dp))
+        assertEquals(2933 / 2, TunePlan.barWidth(2933, sideBySide = true))
         val tune = read("ui/screens/settings/fragments/LivingBlurTune.kt")
         assertTrue(tune.contains("val side = TunePlan.coverSide(width, height, lines.maxIntrinsicHeight(width), gap)"))
         assertFalse("never as wide as the screen whatever its room", tune.contains(".fillMaxWidth()\n                            .aspectRatio(1f)"))
         assertTrue("the bar scrolls where the screen is too short", tune.contains(".verticalScroll(rememberScrollState())"))
+    }
+
+    @Test
+    fun `turning the phone keeps it open, the activity keeps it and draws it`() {
+        // His report of 27 Nov 2026: "when i go from portrait to landscape it closes itself". Turning the phone moves Look
+        // and feel between a page of its own and Settings' two panes (SettingsFollowTheTurn), which made it anew, and the
+        // tuner it held went with it. The activity keeps whether it is open, saved, and draws it over every screen.
+        val theme = read("ui/screens/settings/fragments/ThemeFrag.kt")
+        assertFalse("Look and feel no longer draws it", theme.contains("LivingBlurTune("))
+        assertFalse(theme.contains("var tuning by rememberSaveable"))
+        val main = read("MainActivity.kt")
+        assertTrue(main.contains("val livingTune = rememberSaveable(saver = LivingTuneDoor.Saver) { LivingTuneDoor() }"))
+        assertTrue(main.contains("LocalLivingTune provides livingTune,"))
+        assertTrue(main.contains("LivingTuneHost(livingTune)"))
+        val host = bodyOf(read("ui/screens/settings/fragments/LivingBlurTune.kt"), "fun LivingTuneHost(door: LivingTuneDoor) {")
+        assertEquals("if (door.open) LivingBlurTune(onClose = { door.open = false })", host.trim())
+        // Saved with the activity: a change of language or text size makes it anew, and the tuner is open again.
+        val door = LivingTuneDoor().apply { open = true }
+        val saved = with(LivingTuneDoor.Saver) { SaverScope { true }.save(door) }
+        assertEquals(true, saved)
+        assertTrue(LivingTuneDoor.Saver.restore(saved!!)!!.open)
+        assertFalse(LivingTuneDoor().open)
+    }
+
+    @Test
+    fun `on its side the sliders share a row, and the play row is never scrolled away nor cut`() {
+        // His report of 27 Nov 2026, his S25U on its side (832 x 384 dp, 3.75 px a dp on his screenshot), his lane's own
+        // colours' row in the bar: the bar has 318 dp, its settings and play row one over the other needed 376, and the
+        // play button was cut in half at the bar's edge. Side by side the two sliders take one slider's height (72 dp less).
+        val tune = read("ui/screens/settings/fragments/LivingBlurTune.kt")
+        assertTrue(tune.contains("val sideBySide = with(LocalLandscape.current) { TunePlan.sideBySide(windowWidth, windowHeight) }"))
+        assertTrue("the screen and the bar go by one decision", tune.contains("TuneScreen(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing), sideBySide) {"))
+        assertTrue(tune.contains("TuneSliders(sideBySide, strength, onStrength, smoothing, onSmoothing)"))
+        val sliders = bodyOf(tune, "private fun TuneSliders(")
+        assertTrue(sliders, sliders.contains("if (sideBySide) {\n        Row(horizontalArrangement = Arrangement.spacedBy(SLIDERS_GAP)) {"))
+        assertTrue(sliders, sliders.contains("Column(Modifier.weight(1f)) { TuneSlider(R.string.living_tune_strength"))
+        assertTrue(sliders, sliders.contains("Column(Modifier.weight(1f)) { TuneSlider(R.string.living_tune_smoothing"))
+        // Upright as the 26 Nov fix left it: one over the other, 8 dp between.
+        assertTrue(sliders, sliders.contains("} else {\n        TuneSlider(R.string.living_tune_strength, strength, onStrength, names)\n        // A slider's name nearer its own slider than the one above.\n        Spacer(Modifier.height(8.dp))"))
+        // The settings scroll in what the play row leaves; the play row is outside the scroll, under it, always whole.
+        val bar = bodyOf(tune, "private fun TuneBar(")
+        val scroll = bar.indexOf(".weight(1f, fill = false)\n                .verticalScroll(rememberScrollState())")
+        val play = bar.indexOf("content = play)")
+        assertTrue(bar, scroll > 0 && play > scroll)
+        assertEquals("one scroll in the bar, the settings'", 1, Regex("verticalScroll").findAll(bar).count())
+        assertTrue(tune.contains("TuneBar(pane, onHeight = { barHeight = it }, settings = {"))
+        assertTrue("the play row is the bar's last part", tune.contains("}) {\n                            if (song != null) {\n                                // The player's own three, in its order."))
+    }
+
+    @Test
+    fun `the segmented button's names stay beside the tick and shrink together`() {
+        // Seen 26 Nov 2026 in French at text size 1.3 on a 360 dp phone: "Trois couleurs" ran into the divider, its tick on
+        // the outline. Material measures the name with the whole segment, the tick's room too.
+        val tune = read("ui/screens/settings/fragments/LivingBlurTune.kt")
+        assertTrue(tune.contains("SegmentLabel(stringResource(R.string.living_tune_three_colours), segments)"))
+        assertTrue(tune.contains("SegmentLabel(stringResource(R.string.living_tune_cover), segments)"))
+        val label = bodyOf(tune, "private fun SegmentLabel(")
+        assertTrue(label, label.contains("val tick = SegmentedButtonDefaults.IconSize + SEGMENT_ICON_GAP"))
+        assertTrue(label, label.contains("maxWidth = (constraints.maxWidth - tick.roundToPx()).coerceAtLeast(0)"))
+        assertTrue(label, label.contains("style.shrinkToFit(smallest = 11.sp, text = text, row = names)"))
     }
 }

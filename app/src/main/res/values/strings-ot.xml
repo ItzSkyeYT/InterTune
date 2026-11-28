@@ -2425,6 +2425,9 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="player_pins_put_by_title">Put by the title</string>
     <string name="player_pins_put_under_controls">Put under the controls</string>
     <string name="player_pins_remove">Remove</string>
+    <!-- The three-dots button in the editor: Classic's corner under the controls holds it and no other button; Not shown, which it can never go to, says so in red while it is held there. -->
+    <string name="player_pins_menu_only">Menu only</string>
+    <string name="player_pins_menu_stays">Always shown</string>
     <string name="player_menu_place">Three-dots button</string>
     <string name="player_menu_top">Top</string>
     <string name="player_menu_bottom">Bottom</string>
