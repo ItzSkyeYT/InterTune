@@ -302,6 +302,7 @@ fun AutoPlaylistScreen(
 
     if (showChooseQueueDialog) {
         AddToQueueDialog(
+            songs = { songs.map { it.toMediaMetadata() } },
             onAdd = { queueName ->
                 val board = playerConnection.service.queueBoard
                 val playing = board.getCurrentQueue()?.title

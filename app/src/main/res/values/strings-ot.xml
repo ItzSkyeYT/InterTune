@@ -2781,7 +2781,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="together_walk_proposal">When someone proposes a song it shows up here, just press Play it or Not now.</string>
     <string name="together_walk_people">Everyone in the room. The star is the host and the ring is whoever\'s picking the music.</string>
     <string name="together_walk_people_host">Everyone in the room. Tap on someone to give them control or remove them from the room.</string>
-    <string name="together_walk_settings">Your room settings, so you can choose if everyone can move in the song or change the queue.</string>
+    <string name="together_walk_settings">Your room settings: choose whether everyone can control the music.</string>
     <string name="together_walk_leave">Leave whenever you want, the others keep listening.</string>
     <string name="together_walk_close">This closes the room for everyone.</string>
     <string name="together_walk_leave_host">Leave whenever you want. You can hand the room on so everyone keeps listening, or close it.</string>

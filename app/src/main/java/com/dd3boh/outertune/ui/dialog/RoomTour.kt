@@ -69,6 +69,8 @@ import com.dd3boh.outertune.ui.component.RoomTourPicture
 import com.dd3boh.outertune.ui.component.RoomTourScene
 import com.dd3boh.outertune.ui.utils.OpensOnScreen
 import com.dd3boh.outertune.utils.dataStore
+import com.dd3boh.outertune.utils.editOrSay
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
@@ -98,6 +100,7 @@ fun RoomTourDialog(onDismiss: () -> Unit) {
     val pages = RoomTourPage.entries
     val pager = rememberPagerState { pages.size }
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     val haptics = LocalHapticFeedback.current
     val beside = LocalConfiguration.current.screenHeightDp < BESIDE_BELOW_DP
     val last = pager.currentPage == pages.lastIndex
@@ -158,6 +161,9 @@ fun RoomTourDialog(onDismiss: () -> Unit) {
                         haptics.performHapticFeedback(HapticFeedbackType.ContextClick)
                         // Done goes on to the walk over the room's sheet, when one is on screen (RoomWalk); Skip skips both.
                         if (last) {
+                            // Read to its end, from the room's sheet or Settings too: the first room does not open it
+                            // again (RoomTourOnFirstRoom). NonCancellable: closing cancels this scope (rememberPreference).
+                            scope.launch(NonCancellable) { context.editOrSay { it[TogetherTourSeenKey] = true } }
                             if (RoomWalkAsk.areas > 0) RoomWalkAsk.wanted = true
                             onDismiss()
                         } else scope.launch { pager.animateScrollToPage(pager.currentPage + 1) }
