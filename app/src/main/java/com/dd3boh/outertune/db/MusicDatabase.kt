@@ -546,13 +546,13 @@ val MIGRATION_16_17 = object : Migration(16, 17) {
             var tempResult = ArrayList<TempQueueSong>()
             // assign indexes
             for (s in songs) {
-                val match = shuffled.find { it.song == s.song }
-
-                match.let {
-                    s.shuffleIndex = it?.index!!
-                    tempResult.add(s)
-                    shuffled.remove(match) // remove from shuffled, so duplicates are handled
-                }
+                // A song kept unshuffled with no shuffled twin is left out, as below. OuterTune 0.7.0
+                // to 0.7.4 saved one for a song removed while the queue was shuffled, and this threw:
+                // the whole backup was refused.
+                val match = shuffled.find { it.song == s.song } ?: continue
+                s.shuffleIndex = match.index
+                tempResult.add(s)
+                shuffled.remove(match) // remove from shuffled, so duplicates are handled
             }
             // queues could be malformed, so only take pairs of songs
             tempResult.removeAll { it.shuffleIndex <= -1L }
