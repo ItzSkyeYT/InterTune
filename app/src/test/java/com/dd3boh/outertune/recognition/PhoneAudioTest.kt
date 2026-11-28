@@ -115,6 +115,22 @@ class PhoneAudioTest {
     }
 
     @Test
+    fun `Song on this phone is offered only where the phone's sound can be had, from Android 10`() {
+        // Offered on Android 7 to 9 too, its tap opened PhoneListenActivity, which closed at once.
+        val manifest = source("AndroidManifest.xml")
+        val from = manifest.indexOf("android:name=\".recognition.PhoneSongTileService\"")
+        val entry = manifest.substring(from, manifest.indexOf("</service>", from))
+        assertTrue("the tile is offered on every Android", "android:enabled=\"@bool/phone_song_tile_offered\"" in entry)
+        val offered = Regex("<bool name=\"phone_song_tile_offered\">(true|false)</bool>")
+        assertEquals("false", offered.find(source("res/values/recognition_tiles.xml"))?.groupValues?.get(1))
+        assertEquals("true", offered.find(source("res/values-v29/recognition_tiles.xml"))?.groupValues?.get(1))
+        val folders = File("src/main/res").listFiles()!!.filter { File(it, "recognition_tiles.xml").exists() }.map { it.name }.sorted()
+        assertEquals("no other folder decides it", listOf("values", "values-v29"), folders)
+        // Android 10 (Q, API 29) is where PhoneAudio says the phone's sound can be had.
+        assertTrue("Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q" in source("java/com/dd3boh/outertune/recognition/PhoneAudio.kt"))
+    }
+
+    @Test
     fun `the tile asks for notifications, its only way to give the song, and says once why Android asks`() {
         val activity = source("java/com/dd3boh/outertune/recognition/PhoneListenActivity.kt")
         assertTrue("Manifest.permission.POST_NOTIFICATIONS" in activity)

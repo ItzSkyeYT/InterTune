@@ -1,5 +1,6 @@
 package com.dd3boh.outertune.ui.screens
 
+import com.dd3boh.outertune.ui.component.KeptSelection
 import com.dd3boh.outertune.ui.component.ScreenBackHandler
 import android.text.format.DateFormat
 import android.util.Log
@@ -41,11 +42,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
-import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -150,16 +149,13 @@ fun HistoryScreen(
     }
 
     var inSelectMode by rememberSaveable { mutableStateOf(false) }
-    val selection = rememberSaveable(
-        saver = listSaver<MutableList<Long>, Long>(
-            save = { it.toList() },
-            restore = { it.toMutableStateList() }
-        )
-    ) { mutableStateListOf() }
+    val selection = rememberSaveable(saver = KeptSelection.saver<Long>()) { mutableStateListOf() }
     val onExitSelectionMode = {
         inSelectMode = false
         selection.clear()
     }
+    // A selection too large to keep (KeptSelection) comes back empty, and select mode goes with it.
+    LaunchedEffect(Unit) { if (inSelectMode && selection.isEmpty()) inSelectMode = false }
     if (inSelectMode) {
         ScreenBackHandler(onBack = onExitSelectionMode)
     }

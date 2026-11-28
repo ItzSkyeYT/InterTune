@@ -69,8 +69,16 @@
             <action android:name="samsung.myfiles.intent.action.LAUNCH_MY_FILES" />
         </intent>
     </queries>
+    <!--
+      requestLegacyExternalStorage: on Android 10 the app reads the phone's storage by the files'
+      paths, as on every other version. Without it Android 10 runs the app under scoped storage,
+      which keeps it from the files other apps wrote, while the scanners and the player open songs
+      by path: the library found no song there and a song on the phone did not play (upstream fixed
+      it in 44ae23618, "app: Fix file access on Q"). Android 11 and later ignore it and read paths.
+    -->
     <application
         android:name=".App"
+        android:requestLegacyExternalStorage="true"
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
@@ -398,10 +406,13 @@
         <!--
           Song on this phone: a Quick Settings tile that names the song in what is playing on the
           phone without leaving it (recognition/PhoneSongTileService). Its tap shows only Android's
-          question to record, over the video, through an activity with nothing on it.
+          question to record, over the video, through an activity with nothing on it. Offered from
+          Android 10 only (values-v29/recognition_tiles.xml): before, the phone's sound cannot be had
+          and the tap did nothing.
         -->
         <service
             android:name=".recognition.PhoneSongTileService"
+            android:enabled="@bool/phone_song_tile_offered"
             android:exported="true"
             android:icon="@drawable/ic_recognise_phone"
             android:label="@string/recognition_phone_tile"

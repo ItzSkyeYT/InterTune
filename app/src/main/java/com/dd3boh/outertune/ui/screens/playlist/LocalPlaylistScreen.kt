@@ -9,6 +9,7 @@ import com.dd3boh.outertune.ui.screens.mix.rememberMixBlocker
 import com.dd3boh.outertune.ui.screens.mix.rememberMixOn
 import com.dd3boh.outertune.ui.screens.mix.rememberMixPlanner
 import com.dd3boh.outertune.ui.screens.mix.rememberSavedTransitions
+import com.dd3boh.outertune.ui.component.KeptSelection
 import com.dd3boh.outertune.ui.component.ScreenBackHandler
 import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -71,11 +72,9 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
-import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -245,16 +244,13 @@ fun LocalPlaylistScreen(
     val mixPlanner = if (Unreleased.AUTOMIX_EDITOR && mixOn) rememberMixPlanner(mutableSongs.map { it.song.pillSong() }) else null
 
     var inSelectMode by rememberSaveable { mutableStateOf(false) }
-    val selection = rememberSaveable(
-        saver = listSaver<MutableList<String>, String>(
-            save = { it.toList() },
-            restore = { it.toMutableStateList() }
-        )
-    ) { mutableStateListOf() }
+    val selection = rememberSaveable(saver = KeptSelection.saver<String>()) { mutableStateListOf() }
     val onExitSelectionMode = {
         inSelectMode = false
         selection.clear()
     }
+    // A selection too large to keep (KeptSelection) comes back empty, and select mode goes with it.
+    LaunchedEffect(Unit) { if (inSelectMode && selection.isEmpty()) inSelectMode = false }
 
     // search
     var isSearching by rememberSaveable { mutableStateOf(false) }
