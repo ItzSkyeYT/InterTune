@@ -590,8 +590,9 @@ fun RecognitionScreen(
                 )
             }
             // Keys carry a prefix because a candidate can be a song already in the list below,
-            // heard on an earlier listen, and a key used twice in one LazyColumn is a crash.
-            if (!listed) items(found.candidates, key = { "candidate/${it.id}" }) { song ->
+            // heard on an earlier listen, and a key used twice in one LazyColumn is a crash. For
+            // the same reason no candidate is drawn twice, whatever the search listed.
+            if (!listed) items(found.candidates.distinctBy { it.id }, key = { "candidate/${it.id}" }) { song ->
                 CandidateRow(
                     song = song,
                     onPlay = {
