@@ -477,6 +477,8 @@ val ExcludedScanPathsKey = stringPreferencesKey("exclScanPaths") // previously "
 val LastLocalScanKey = longPreferencesKey("lastLocalScan")
 /** Whether the automatic scan has asked for the storage permission yet. It asks once; see scanInit. */
 val LocalMediaPermissionAskedKey = booleanPreferencesKey("localMediaPermissionAsked")
+/** Whether Android's question about notifications has been put, once for every use that asks it (NotificationAsk). */
+val NotificationsAskedKey = booleanPreferencesKey("notificationsAsked")
 /**
  * Set once TrackTagReread has read the tags of the local songs that had no track or no disc number
  * (issue #39). "trackTagsReread" was the pass of 0.12.5, which looked at the track numbers only.

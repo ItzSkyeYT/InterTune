@@ -150,6 +150,7 @@ import com.dd3boh.outertune.ui.screens.walkthrough.TourTargets
 import com.dd3boh.outertune.ui.screens.walkthrough.tourTarget
 import com.dd3boh.outertune.ui.utils.LocalLandscape
 import com.dd3boh.outertune.ui.utils.shrinkToFit
+import com.dd3boh.outertune.utils.NotificationAsk
 import com.dd3boh.outertune.utils.dataStore
 import androidx.datastore.preferences.core.edit
 import com.dd3boh.outertune.utils.Toaster
@@ -248,6 +249,8 @@ fun TogetherSheet(onDismiss: () -> Unit) {
         if (!playerConnection.isAlive) return
         haptics.performHapticFeedback(HapticFeedbackType.Confirm)
         scope.launch { service.startTogether(code, owner, togetherRelays(context), togetherName(context)) }
+        // A guest's proposal comes to the one in control as a notification: the first room asks Android for them, once (NotificationAsk).
+        NotificationAsk.atUse()
     }
 
     // Starting or joining a room with no name set asks for one first; Continue keeps it in the setting. A guest is asked
@@ -1443,6 +1446,7 @@ fun TogetherInviteDialog(code: RoomCode, playerConnection: PlayerConnection?, on
     val hosting = session?.owner == true
     suspend fun join() {
         playerConnection.service.startTogether(code, owner = false, relays = togetherRelays(context), name = togetherName(context))
+        NotificationAsk.atUse()
         onDone()
     }
     // With no name set, one is asked for first, as in the sheet; Cancel there goes back to the invite.

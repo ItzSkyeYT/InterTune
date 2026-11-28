@@ -317,6 +317,8 @@ import com.dd3boh.outertune.utils.SyncUtils
 import com.dd3boh.outertune.utils.AutoBackup
 import com.dd3boh.outertune.utils.BackgroundCheckWorker
 import com.dd3boh.outertune.utils.ActiveCount
+import com.dd3boh.outertune.utils.NotificationAsk
+import com.dd3boh.outertune.utils.askForNotificationsOnce
 import com.dd3boh.outertune.utils.PollChecker
 import com.dd3boh.outertune.utils.UpdateChecker
 import com.dd3boh.outertune.utils.UpdateInstaller
@@ -572,6 +574,14 @@ class MainActivity : ComponentActivity() {
             } else {
                 Toaster.show(this, getString(R.string.scanner_missing_storage_perm), Toast.LENGTH_SHORT)
             }
+        }
+
+    // Android's question about notifications, put once (NotificationAsk). What was used goes ahead
+    // whatever the answer. On a yes a running sleep timer is posted again: it posts only as it
+    // changes, and its first post came while the question was up.
+    val notificationLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            if (granted) playerConnection?.service?.sleepTimer?.postAgain()
         }
 
     /** A tap on "Your 2026 Recap is here" (RecapAlert): that year's Recap opens. */
@@ -864,6 +874,14 @@ class MainActivity : ComponentActivity() {
         recapSample = RecapSample.listen(this, database)
 
         activityLauncher = ActivityLauncherHelper(this)
+
+        // Android's question about notifications, at the first use of something that needs them
+        // (NotificationAsk), and only while the app is on screen.
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                NotificationAsk.used.collect { askForNotificationsOnce() }
+            }
+        }
 
         // The window's compositions keep the app's pace: none with animations off (Animations).
         setContent(parent = Animations.recomposer(this)) {

@@ -71,6 +71,11 @@ class SleepTimer(
     var changes by mutableIntStateOf(0)
         private set
 
+    /** The notification posted again, Android having just allowed it: it is posted only as it changes (NotificationAsk). */
+    fun postAgain() {
+        if (isActive) changes++
+    }
+
     /** Whether the volume fades out before the timer stops playback. A running timer takes it at once. */
     var fadeEnabled: Boolean = SleepTimerDefaults.FADE_ENABLED
         set(value) {

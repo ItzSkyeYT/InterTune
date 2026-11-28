@@ -41,6 +41,7 @@ import com.dd3boh.outertune.constants.DownloadFormatKey
 import com.dd3boh.outertune.constants.DownloadQuality
 import com.dd3boh.outertune.constants.DownloadQualityKey
 import com.dd3boh.outertune.utils.FailureLog
+import com.dd3boh.outertune.utils.NotificationAsk
 import com.dd3boh.outertune.utils.ReportTrail
 import com.dd3boh.outertune.constants.DownloadExtraPathKey
 import kotlinx.coroutines.flow.drop
@@ -561,13 +562,15 @@ class DownloadUtil @Inject constructor(
     }
 
     // Downloads asked for by hand: the liked catch up no longer leaves these songs out
-    // (LikedCatchUpMemory), whatever the person removed or what failed before.
+    // (LikedCatchUpMemory), whatever the person removed or what failed before. Their progress is a
+    // notification, so the first asks Android for them, once (NotificationAsk).
 
     fun download(songs: List<MediaMetadata>) {
         wantedAgain(songs.map { it.id })
         if (songs.any { downloads.value[it.id] == null }) notifyIfWaitingForWifi()
         rememberAskedByHand(songs.map { it.id })
         songs.forEach { song -> downloadSong(song.id, song.title) }
+        NotificationAsk.atUse()
     }
 
     fun download(song: MediaMetadata) {
@@ -575,6 +578,7 @@ class DownloadUtil @Inject constructor(
         if (downloads.value[song.id] == null) notifyIfWaitingForWifi()
         rememberAskedByHand(listOf(song.id))
         downloadSong(song.id, song.title)
+        NotificationAsk.atUse()
     }
 
     fun download(song: SongEntity) {
@@ -582,6 +586,7 @@ class DownloadUtil @Inject constructor(
         if (downloads.value[song.id] == null) notifyIfWaitingForWifi()
         rememberAskedByHand(listOf(song.id))
         downloadSong(song.id, song.title)
+        NotificationAsk.atUse()
     }
 
     /**
@@ -822,6 +827,7 @@ class DownloadUtil @Inject constructor(
      */
     fun startLikedDownloads(mode: LikedAutodownloadMode = likedAutodownload) {
         if (isDownloadingLiked) return
+        if (mode != LikedAutodownloadMode.OFF) NotificationAsk.atUse()
         likedJob = CoroutineScope(dlCoroutine).launch {
             if (mode == LikedAutodownloadMode.OFF) {
                 _likedDownloadState.value = LikedDownloadState.NothingToDo
@@ -1263,6 +1269,7 @@ class DownloadUtil @Inject constructor(
      * moved so far.
      */
     fun startMigrate() {
+        NotificationAsk.atUse()
         CoroutineScope(dlCoroutine).launch { migrateDownloads() }
     }
 
