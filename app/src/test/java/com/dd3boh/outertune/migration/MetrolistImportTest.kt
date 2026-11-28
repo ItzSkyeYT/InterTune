@@ -171,7 +171,7 @@ class MetrolistImportTest {
         assertEquals(MetrolistImport.Summary(inLibrary = 3, liked = 2, playlists = 3, plays = 3), MetrolistImport.summary(theirs))
 
         val first = MetrolistImport.merge(theirs, ours)
-        assertEquals(MetrolistImport.Result(songs = 3, liked = 2, inLibrary = 2, playlists = 1, plays = 2), first)
+        assertEquals(MetrolistImport.Result(songs = 3, liked = 2, inLibrary = 3, playlists = 1, plays = 2), first)
 
         // Songs: new ones as they were there, ours liked and added where theirs were, ours kept otherwise.
         assertEquals(listOf("S1", "S2", "S3", "S4", "S5"), o.all("SELECT id FROM song ORDER BY id"))
@@ -180,6 +180,8 @@ class MetrolistImportTest {
         assertNull(o.one("SELECT inLibrary FROM song WHERE id = 'S3'"))
         assertEquals(1, o.one("SELECT liked FROM song WHERE id = 'S4'"))
         assertEquals(4_000L, (o.one("SELECT likedDate FROM song WHERE id = 'S4'") as Number).toLong())
+        // Liked there and in no library: in ours from its like, as a like made here puts it there.
+        assertEquals(4_000L, (o.one("SELECT inLibrary FROM song WHERE id = 'S4'") as Number).toLong())
         assertEquals("our date stays", 111L, (o.one("SELECT inLibrary FROM song WHERE id = 'S5'") as Number).toLong())
         // Artists, albums and what joins them; saved ones saved.
         assertEquals(listOf("A1", "A2"), o.all("SELECT id FROM artist ORDER BY id"))
@@ -445,14 +447,56 @@ class MetrolistImportTest {
 
         val result = MetrolistImport.merge(JdbcDb(m), JdbcDb(o), liked, now = 1_000_000L)
         assertEquals(2, result.liked)
+        assertEquals("both in the library too", 2, result.inLibrary)
         assertEquals(1_000_000L, (o.one("SELECT likedDate FROM song WHERE id = 'S3'") as Number).toLong())
         assertEquals(999_000L, (o.one("SELECT likedDate FROM song WHERE id = 'S6'") as Number).toLong())
+        assertEquals(1_000_000L, (o.one("SELECT inLibrary FROM song WHERE id = 'S3'") as Number).toLong())
+        assertEquals(999_000L, (o.one("SELECT inLibrary FROM song WHERE id = 'S6'") as Number).toLong())
         assertEquals("Cross", o.one("SELECT albumName FROM song WHERE id = 'S6'"))
         assertEquals(245L, (o.one("SELECT duration FROM song WHERE id = 'S6'") as Number).toLong())
         assertEquals(listOf("A3"), o.all("SELECT artistId FROM song_artist_map WHERE songId = 'S6'"))
         assertEquals("an artist without an id is not made up", listOf("A3"), o.all("SELECT id FROM artist"))
         assertEquals(emptyList<MetrolistImport.LikedSong>(), MetrolistImport.likedFromSettings("not json"))
         assertEquals(emptyList<MetrolistImport.LikedSong>(), MetrolistImport.likedFromSettings(null))
+    }
+
+    /**
+     * A Pixel 5, 28 Nov 2026: a song liked in Metrolist came over liked and nothing more, so Library's songs, artists and
+     * albums stayed empty, while a like made here puts the song in the library too (SongEntity.toggleLike).
+     */
+    @Test
+    fun `a song liked in Metrolist is in the library here too, as a like made here puts it there`() {
+        for (version in listOf(36, 65)) {
+            val m = theirs(version)
+            // Liked there and in no library there, with the date of the like and without one.
+            m.row("song", "id" to "L1", "title" to "Liked, dated", "duration" to 100, "liked" to 1, "likedDate" to 7_000L)
+            m.row("song", "id" to "L2", "title" to "Liked, no date", "duration" to 100, "liked" to 1)
+            // Liked there, and here in our library already, or liked here and in no library.
+            m.row("song", "id" to "L3", "title" to "In our library", "duration" to 100, "liked" to 1, "likedDate" to 8_000L)
+            m.row("song", "id" to "L4", "title" to "Liked here too", "duration" to 100, "liked" to 1, "likedDate" to 9_000L)
+            val o = ours()
+            o.row("song", "id" to "L3", "title" to "In our library", "duration" to 100, "inLibrary" to 111L)
+            o.row("song", "id" to "L4", "title" to "Liked here too", "duration" to 100, "liked" to 1, "likedDate" to 222L)
+            // And the new app's list in its settings, as its backups keep likes.
+            val liked = listOf(MetrolistImport.LikedSong("N1", "Only in the list", null, listOf("A3" to "Justice"), null, null, 245))
+
+            val first = MetrolistImport.merge(JdbcDb(m), JdbcDb(o), liked, now = 1_000_000L)
+
+            assertEquals("$version", MetrolistImport.Result(songs = 3, liked = 4, inLibrary = 4, playlists = 0, plays = 0), first)
+            fun added(id: String) = (o.one("SELECT inLibrary FROM song WHERE id = '$id'") as Number?)?.toLong()
+            assertEquals("$version: from the day it was liked", 7_000L, added("L1"))
+            assertEquals("$version: a like with no date, from now", 1_000_000L, added("L2"))
+            assertEquals("$version: our date stays", 111L, added("L3"))
+            assertEquals("$version: from the day it was liked here", 222L, added("L4"))
+            assertEquals("$version: the list's like, from the date it is given", 1_000_000L, added("N1"))
+            // What Library's songs, artists and albums are made of (LibrarySql): every song liked there is in it.
+            assertEquals(listOf("L1", "L2", "L3", "L4", "N1"), o.all("SELECT id FROM song WHERE liked = 1 AND inLibrary IS NOT NULL ORDER BY id"))
+            assertEquals(
+                "$version: the same backup twice changes nothing",
+                MetrolistImport.Result(0, 0, 0, 0, 0),
+                MetrolistImport.merge(JdbcDb(m), JdbcDb(o), liked, now = 2_000_000L),
+            )
+        }
     }
 
     @Test

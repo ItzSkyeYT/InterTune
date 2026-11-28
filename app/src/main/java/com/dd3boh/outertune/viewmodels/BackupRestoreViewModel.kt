@@ -115,6 +115,12 @@ class BackupRestoreViewModel @Inject constructor(
         class Ready(val summary: MetrolistImport.Summary, val file: MetrolistBackup.Unpacked, val liked: List<MetrolistImport.LikedSong>) : Metrolist
         class Refused(val why: MetrolistImport.Refusal, val uri: Uri) : Metrolist
         class Done(val result: MetrolistImport.Result) : Metrolist
+
+        /**
+         * A backup picked for Restore that Metrolist made, whose database no version of this app opens: what it is, with
+         * the import offered for this same file (restore_is_metrolist). Restore only said "incompatible database".
+         */
+        class FromRestore(val uri: Uri) : Metrolist
     }
 
     val metrolist = MutableStateFlow<Metrolist?>(null)
@@ -217,6 +223,11 @@ class BackupRestoreViewModel @Inject constructor(
                         )
                     }
                 }.onFailure {
+                    // Metrolist's backup is no fault: it is said to be one, with Import from Metrolist offered for it.
+                    if (it is MetrolistBackupPicked) {
+                        metrolist.value = Metrolist.FromRestore(uri)
+                        return@onFailure
+                    }
                     reportException(it)
                     FailureLog.record("Restoring a backup", it)
                     Toaster.show(context, it.message, Toast.LENGTH_SHORT)
@@ -229,7 +240,8 @@ class BackupRestoreViewModel @Inject constructor(
      * Reads [uri]'s zip, validates the embedded database in a probe file before touching
      * anything live, and only swaps the probe and the settings bytes in once that validation has
      * passed. Returns whether the app has to restart: after a swap, and after a swap that failed
-     * once the database had been closed for it, since the app cannot go on without one.
+     * once the database had been closed for it, since the app cannot go on without one. A backup
+     * Metrolist made is refused with MetrolistBackupPicked, for restore() to offer the import.
      *
      * The live database is checkpointed and closed only after the probe is already known good,
      * not before: a refused backup does not restart the app, so closing first would leave it
@@ -312,6 +324,8 @@ class BackupRestoreViewModel @Inject constructor(
         if (!databaseValidated) {
             Log.e(TAG, "Incompatible or missing database, aborting restore")
             stagedCovers.deleteRecursively()
+            // Metrolist's: Import from Metrolist takes it, and restore() offers it for this file in place of a toast.
+            if (databaseFound && madeByMetrolist(probeFile)) throw MetrolistBackupPicked()
             return false
         }
 
@@ -380,6 +394,14 @@ class BackupRestoreViewModel @Inject constructor(
     }
 
     /**
+     * Whether [file], the database of a backup Restore could not open, is one Metrolist wrote, as Import from Metrolist
+     * tells one (MetrolistImport.refusal). A file that cannot be read that way is not.
+     */
+    private fun madeByMetrolist(file: File): Boolean = runCatching {
+        MetrolistBackup.Theirs(file).use { MetrolistImport.refusal(it) == null }
+    }.getOrDefault(false)
+
+    /**
      * Puts a backup's settings in place, with the sign-ins already on this phone kept when the
      * backup has none: a backup leaves them out unless asked, and a restore must not sign anybody
      * out. This phone's own mark that notifications were asked for is kept too, whatever the backup
@@ -422,3 +444,9 @@ class BackupRestoreViewModel @Inject constructor(
         private val restoreRunning = MutableStateFlow(false)
     }
 }
+
+/**
+ * How a restore ends whose backup Metrolist made: nothing was touched, and it is no fault, so it is neither recorded
+ * nor reported. restore() says what the file is instead, with Import from Metrolist offered for it (Metrolist.FromRestore).
+ */
+private class MetrolistBackupPicked : Exception("a Metrolist backup, which Import from Metrolist takes")

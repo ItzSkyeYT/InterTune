@@ -620,6 +620,7 @@ private fun Problem(state: LibraryImport.State) {
             stringResource(R.string.import_library_error_no_title, state.detail.orEmpty())
         ImportParse.Problem.NO_TRACKS -> stringResource(R.string.import_library_error_no_tracks)
         ImportParse.Problem.NOT_SONGS -> stringResource(R.string.import_library_error_not_songs)
+        ImportParse.Problem.BACKUP -> stringResource(R.string.import_library_error_backup)
     }
     ElevatedCard(modifier = Modifier
         .fillMaxWidth()

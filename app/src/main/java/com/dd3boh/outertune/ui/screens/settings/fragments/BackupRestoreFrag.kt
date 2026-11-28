@@ -176,41 +176,7 @@ fun ColumnScope.BackupAndRestoreFrag(viewModel: BackupRestoreViewModel) {
     val metrolistLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) viewModel.readMetrolist(uri)
     }
-    when (val m = metrolist) {
-        is BackupRestoreViewModel.Metrolist.Ready -> AskFirstDialog(
-            title = stringResource(R.string.metrolist_import),
-            text = stringResource(R.string.metrolist_import_summary, m.summary.inLibrary, m.summary.liked, m.summary.playlists, m.summary.plays),
-            confirm = stringResource(R.string.metrolist_import_confirm),
-            onConfirm = { viewModel.importMetrolist() },
-            onDismiss = { viewModel.closeMetrolist() },
-        )
-        is BackupRestoreViewModel.Metrolist.Refused -> {
-            val otherFile = m.why == MetrolistImport.Refusal.NOT_METROLIST
-            MetrolistDialog(
-                text = stringResource(
-                    when (m.why) {
-                        MetrolistImport.Refusal.NOT_METROLIST -> R.string.metrolist_import_not_metrolist
-                        MetrolistImport.Refusal.OURS -> R.string.metrolist_import_ours
-                        MetrolistImport.Refusal.TOO_OLD -> R.string.metrolist_import_too_old
-                    }
-                ),
-                action = stringResource(if (otherFile) R.string.metrolist_import_other_file else R.string.action_restore),
-                onAction = {
-                    viewModel.closeMetrolist()
-                    if (otherFile) metrolistLauncher.launch(BackupRestoreViewModel.PICK_BACKUP) else toRestore = m.uri
-                },
-                onDismiss = { viewModel.closeMetrolist() },
-            )
-        }
-        is BackupRestoreViewModel.Metrolist.Done -> MetrolistDialog(
-            title = stringResource(R.string.metrolist_import_done_title),
-            text = stringResource(R.string.metrolist_import_done, m.result.songs, m.result.liked, m.result.inLibrary, m.result.playlists, m.result.plays),
-            action = null,
-            onAction = {},
-            onDismiss = { viewModel.closeMetrolist() },
-        )
-        else -> Unit
-    }
+    MetrolistImportDialogs(viewModel, restore = { toRestore = it })
 
     // Every library playlist as an .m3u in a folder of the user's choosing. A one-off write, so
     // the picker's grant is used here and now and never persisted.
@@ -898,6 +864,64 @@ private fun BackupPartRow(
                 Text(warning, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 2.dp))
             }
         }
+    }
+}
+
+/**
+ * Bringing a Metrolist library over (MetrolistImport), wherever its file was picked: what the backup holds, asked
+ * about before anything is written, why one was refused with the one thing to do about it, and what came over. A
+ * file Restore takes instead goes to [restore]. A Metrolist backup picked for Restore is said to be one, with the
+ * import offered for that same file. Backup and restore shows these, and setup too, whose "I have a backup" is where
+ * somebody moving over from Metrolist taps first: there it only said "incompatible database" (a Pixel 5, 28 Nov 2026).
+ */
+@Composable
+fun MetrolistImportDialogs(viewModel: BackupRestoreViewModel, restore: (Uri) -> Unit) {
+    val metrolist by viewModel.metrolist.collectAsState()
+    val metrolistLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) viewModel.readMetrolist(uri)
+    }
+    when (val m = metrolist) {
+        is BackupRestoreViewModel.Metrolist.Ready -> AskFirstDialog(
+            title = stringResource(R.string.metrolist_import),
+            text = stringResource(R.string.metrolist_import_summary, m.summary.inLibrary, m.summary.liked, m.summary.playlists, m.summary.plays),
+            confirm = stringResource(R.string.metrolist_import_confirm),
+            onConfirm = { viewModel.importMetrolist() },
+            onDismiss = { viewModel.closeMetrolist() },
+        )
+        is BackupRestoreViewModel.Metrolist.Refused -> {
+            val otherFile = m.why == MetrolistImport.Refusal.NOT_METROLIST
+            MetrolistDialog(
+                text = stringResource(
+                    when (m.why) {
+                        MetrolistImport.Refusal.NOT_METROLIST -> R.string.metrolist_import_not_metrolist
+                        MetrolistImport.Refusal.OURS -> R.string.metrolist_import_ours
+                        MetrolistImport.Refusal.TOO_OLD -> R.string.metrolist_import_too_old
+                    }
+                ),
+                action = stringResource(if (otherFile) R.string.metrolist_import_other_file else R.string.action_restore),
+                onAction = {
+                    viewModel.closeMetrolist()
+                    if (otherFile) metrolistLauncher.launch(BackupRestoreViewModel.PICK_BACKUP) else restore(m.uri)
+                },
+                onDismiss = { viewModel.closeMetrolist() },
+            )
+        }
+        // The other way round: Restore was handed Metrolist's backup, which only the import reads.
+        is BackupRestoreViewModel.Metrolist.FromRestore -> MetrolistDialog(
+            title = stringResource(R.string.action_restore),
+            text = stringResource(R.string.restore_is_metrolist),
+            action = stringResource(R.string.metrolist_import),
+            onAction = { viewModel.readMetrolist(m.uri) },
+            onDismiss = { viewModel.closeMetrolist() },
+        )
+        is BackupRestoreViewModel.Metrolist.Done -> MetrolistDialog(
+            title = stringResource(R.string.metrolist_import_done_title),
+            text = stringResource(R.string.metrolist_import_done, m.result.songs, m.result.liked, m.result.inLibrary, m.result.playlists, m.result.plays),
+            action = null,
+            onAction = {},
+            onDismiss = { viewModel.closeMetrolist() },
+        )
+        else -> Unit
     }
 }
 

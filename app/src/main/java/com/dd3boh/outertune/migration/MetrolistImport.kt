@@ -27,7 +27,8 @@ import java.time.ZoneOffset
  *
  * Nothing of ours is removed. A row we already have stays as it is, except that a song liked or added to the library
  * there is liked or added here too, with its date, and gets their artist and album links beside ours; the import's
- * question says so (metrolist_import_summary). A play we already have is not added twice, a month's play count is
+ * question says so (metrolist_import_summary). A song liked there is in our library too, as a like made here puts it
+ * there (SongEntity.toggleLike). A play we already have is not added twice, a month's play count is
  * the larger of the two, and a playlist we already have, or already follow on YouTube, is not made again: the same
  * backup brought over twice changes nothing the second time.
  *
@@ -188,6 +189,7 @@ object MetrolistImport {
         theirs.query("SELECT id, liked, likedDate, inLibrary FROM song WHERE (liked = 1 OR inLibrary IS NOT NULL) AND NOT ($local)") { r ->
             if (truthy(r[1])) ours.exec("UPDATE song SET liked = 1, likedDate = COALESCE(likedDate, ?) WHERE id = ? AND liked = 0", listOf(r[2], r[0]))
             if (r[3] != null) ours.exec("UPDATE song SET inLibrary = ? WHERE id = ? AND inLibrary IS NULL", listOf(r[3], r[0]))
+            if (truthy(r[1])) likedIntoLibrary(ours, r[0], r[2] ?: now)
         }
         // An album saved there is saved here, the way InnerTune marks it on both sides.
         theirs.query("SELECT id, bookmarkedAt FROM album WHERE bookmarkedAt IS NOT NULL") { r ->
@@ -228,6 +230,7 @@ object MetrolistImport {
                 listOf(song.id, song.title, song.durationSeconds ?: -1L, song.thumbnail, song.albumId, song.albumName, at),
             )
             ours.exec("UPDATE song SET liked = 1, likedDate = COALESCE(likedDate, ?) WHERE id = ? AND liked = 0", listOf(at, song.id))
+            likedIntoLibrary(ours, song.id, at)
             song.artists.forEachIndexed { position, (artistId, name) ->
                 if (artistId == null) return@forEachIndexed
                 ours.exec("INSERT OR IGNORE INTO artist (id, name, lastUpdateTime, isLocal) VALUES (?, ?, 0, 0)", listOf(artistId, name))
@@ -244,6 +247,15 @@ object MetrolistImport {
             plays = after.plays - before.plays,
         )
     }
+
+    /**
+     * [id], a song liked there and now here, in our library too, as a like made here puts it there (SongEntity.toggleLike):
+     * from the date it is liked here, else [at], and only if it is not in our library already, whose date stays. Their
+     * likes used to come over as likes alone, so someone moving over with a few hundred found Library's songs, artists
+     * and albums empty (a Pixel 5, 28 Nov 2026).
+     */
+    private fun likedIntoLibrary(ours: Db, id: Any?, at: Any?) =
+        ours.exec("UPDATE song SET inLibrary = COALESCE(likedDate, ?) WHERE id = ? AND liked = 1 AND inLibrary IS NULL", listOf(at, id))
 
     /**
      * Their playlists we have neither by id nor by their YouTube playlist, with their songs in their order. Their
