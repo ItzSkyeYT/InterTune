@@ -550,7 +550,8 @@ fun PlayerMenu(
         }
         GridMenuItem(
             icon = Icons.Rounded.Tune,
-            title = R.string.advanced
+            // Named for what it opens (it was "Advanced"): Varispeed's texts and TalkBack call it Tempo and Pitch.
+            title = R.string.tempo_and_pitch
         ) {
             showPitchTempoDialog = true
         }
