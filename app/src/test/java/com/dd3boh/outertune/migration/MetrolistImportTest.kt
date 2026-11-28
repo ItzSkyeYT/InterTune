@@ -235,6 +235,30 @@ class MetrolistImportTest {
     }
 
     @Test
+    fun `a cover picked in Metrolist, a file only it can read, stays behind, and a YouTube playlist's comes over`() {
+        for (version in listOf(36, 65)) {
+            val m = theirs(version)
+            // Its LocalPlaylistScreen keeps the cropped picture in its own cache, its Wrapped playlist one in its private folder.
+            m.row("playlist", "id" to "P1", "name" to "Picked a cover", "thumbnailUrl" to "content://com.metrolist.music.FileProvider/cache/playlist_cover_crop_1732700000000.jpg")
+            m.row("playlist", "id" to "P2", "name" to "Wrapped", "thumbnailUrl" to "file:/data/user/0/com.metrolist.music/cache/0f6c2d1e.png")
+            m.row("playlist", "id" to "P3", "name" to "Followed on YouTube", "browseId" to "VLPLabc", "thumbnailUrl" to "https://yt3.ggpht.com/cover=w544-h544")
+            m.row("playlist", "id" to "P4", "name" to "Older cover", "browseId" to "VLPLdef", "thumbnailUrl" to "http://i.ytimg.com/vi/abc/hqdefault.jpg")
+            m.row("playlist", "id" to "P5", "name" to "No cover")
+            val o = ours()
+
+            MetrolistImport.merge(JdbcDb(m), JdbcDb(o))
+
+            assertEquals("all five came over from $version", 5L, (o.one("SELECT COUNT(*) FROM playlist") as Number).toLong())
+            // With none of its own, a playlist wears its first songs' covers (Playlist.thumbnails), not an empty square.
+            assertNull("$version: Metrolist's cropped cover", o.one("SELECT thumbnailUrl FROM playlist WHERE id = 'P1'"))
+            assertNull("$version: Wrapped's picture", o.one("SELECT thumbnailUrl FROM playlist WHERE id = 'P2'"))
+            assertEquals("https://yt3.ggpht.com/cover=w544-h544", o.one("SELECT thumbnailUrl FROM playlist WHERE id = 'P3'"))
+            assertEquals("http://i.ytimg.com/vi/abc/hqdefault.jpg", o.one("SELECT thumbnailUrl FROM playlist WHERE id = 'P4'"))
+            assertNull(o.one("SELECT thumbnailUrl FROM playlist WHERE id = 'P5'"))
+        }
+    }
+
+    @Test
     fun `a row of theirs whose song, artist, album or playlist is missing is left out, and the rest comes over`() {
         val m = theirs(36)
         m.row("artist", "id" to "A1", "name" to "DJ Snake", "lastUpdateTime" to 1L)
