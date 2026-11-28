@@ -155,7 +155,8 @@ internal fun pinLabel(pin: PlayerPin, on: Boolean = false): String = stringResou
         PlayerPin.OPEN_FILE_LOCATION -> R.string.open_file_location
         PlayerPin.DETAILS -> R.string.details
         PlayerPin.EQUALIZER -> R.string.equalizer
-        PlayerPin.ADVANCED -> R.string.advanced
+        // Named as the player's menu names it since 28 Nov 2026; the pin keeps its stored name, ADVANCED.
+        PlayerPin.ADVANCED -> R.string.tempo_and_pitch
         PlayerPin.SIGNAL_PATH -> R.string.signal_path
         PlayerPin.RECENTRE -> R.string.head_tracking_recentre
         PlayerPin.LISTEN_TOGETHER -> R.string.together_title
