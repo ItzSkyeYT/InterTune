@@ -107,6 +107,14 @@ class RoomAddToQueueTest {
         assertTrue(playlist, "songs.ifEmpty { database.playlistSongs(playlist.id).first().map(PlaylistSong::song) }" in playlist)
     }
 
+    @Test
+    fun `the guest's hint shows only where Play next and Add to queue reach the room`() {
+        val sheet = main("ui/dialog/TogetherDialog.kt")
+        val hint = sheet.indexOf("stringResource(R.string.together_suggest_hint)")
+        val shown = sheet.lastIndexOf("if (", hint)
+        assertTrue(sheet.substring(shown, hint), sheet.substring(shown, hint).startsWith("if (!status.leading && !status.ownWay) {"))
+    }
+
     /** The text of the function or block whose head is [head], braces matched. */
     private fun body(text: String, head: String): String {
         val start = text.indexOf(head)
